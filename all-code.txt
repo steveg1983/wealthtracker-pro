@@ -1,0 +1,3284 @@
+========== src/App.tsx ==========
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AppProvider } from './contexts/AppContext';
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import Accounts from './pages/Accounts';
+import Transactions from './pages/Transactions';
+import Investments from './pages/Investments';
+import Budget from './pages/Budget';
+import Goals from './pages/Goals';
+import Analytics from './pages/Analytics';
+import Settings from './pages/Settings';
+
+function App() {
+  return (
+    <AppProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="accounts" element={<Accounts />} />
+            <Route path="transactions" element={<Transactions />} />
+            <Route path="investments" element={<Investments />} />
+            <Route path="budget" element={<Budget />} />
+            <Route path="goals" element={<Goals />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AppProvider>
+  );
+}
+
+export default App;
+
+========== src/main.tsx ==========
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+========== src/contexts/AppContext.tsx ==========
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+
+interface Account {
+  id: string;
+  name: string;
+  type: 'checking' | 'savings' | 'credit' | 'investment' | 'loan' | 'other';
+  balance: number;
+  currency: string;
+  institution?: string;
+  lastUpdated: Date;
+}
+
+interface Transaction {
+  id: string;
+  accountId: string;
+  date: Date;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense' | 'transfer';
+  category?: string;
+}
+
+interface Budget {
+  id: string;
+  category: string;
+  amount: number;
+  period: 'monthly' | 'weekly' | 'yearly';
+  isActive: boolean;
+  createdAt: Date;
+}
+
+interface AppContextType {
+  accounts: Account[];
+  transactions: Transaction[];
+  budgets: Budget[];
+  addAccount: (account: Omit<Account, 'id' | 'lastUpdated'>) => void;
+  updateAccount: (id: string, updates: Partial<Account>) => void;
+  deleteAccount: (id: string) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  deleteTransaction: (id: string) => void;
+  addBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => void;
+  updateBudget: (id: string, updates: Partial<Budget>) => void;
+  deleteBudget: (id: string) => void;
+  getBudgetProgress: (category: string) => { spent: number; budget: number; percentage: number };
+  getAccountBalance: (accountId: string) => number;
+  getTotalAssets: () => number;
+  getTotalLiabilities: () => number;
+  getNetWorth: () => number;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  // Load data from localStorage on mount
+  const [accounts, setAccounts] = useState<Account[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_accounts');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [budgets, setBudgets] = useState<Budget[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_budgets');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    localStorage.setItem('wealthtracker_accounts', JSON.stringify(accounts));
+  }, [accounts]);
+
+  useEffect(() => {
+    localStorage.setItem('wealthtracker_transactions', JSON.stringify(transactions));
+  }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('wealthtracker_budgets', JSON.stringify(budgets));
+  }, [budgets]);
+
+  const addAccount = (account: Omit<Account, 'id' | 'lastUpdated'>) => {
+    const newAccount: Account = {
+      ...account,
+      id: Date.now().toString(),
+      lastUpdated: new Date(),
+    };
+    setAccounts([...accounts, newAccount]);
+  };
+
+  const updateAccount = (id: string, updates: Partial<Account>) => {
+    setAccounts(accounts.map(acc => 
+      acc.id === id ? { ...acc, ...updates, lastUpdated: new Date() } : acc
+    ));
+  };
+
+  const deleteAccount = (id: string) => {
+    setAccounts(accounts.filter(acc => acc.id !== id));
+    // Also delete related transactions
+    setTransactions(transactions.filter(t => t.accountId !== id));
+  };
+
+  const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
+    const newTransaction: Transaction = {
+      ...transaction,
+      id: Date.now().toString(),
+    };
+    setTransactions([...transactions, newTransaction]);
+    
+    // Update account balance
+    const account = accounts.find(a => a.id === transaction.accountId);
+    if (account) {
+      const balanceChange = transaction.type === 'income' 
+        ? transaction.amount 
+        : -transaction.amount;
+      updateAccount(account.id, { balance: account.balance + balanceChange });
+    }
+  };
+
+  const deleteTransaction = (id: string) => {
+    const transaction = transactions.find(t => t.id === id);
+    if (transaction) {
+      // Reverse the balance change
+      const account = accounts.find(a => a.id === transaction.accountId);
+      if (account) {
+        const balanceChange = transaction.type === 'income' 
+          ? -transaction.amount 
+          : transaction.amount;
+        updateAccount(account.id, { balance: account.balance + balanceChange });
+      }
+    }
+    setTransactions(transactions.filter(t => t.id !== id));
+  };
+
+  const addBudget = (budget: Omit<Budget, 'id' | 'createdAt'>) => {
+    const newBudget: Budget = {
+      ...budget,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+    };
+    setBudgets([...budgets, newBudget]);
+  };
+
+  const updateBudget = (id: string, updates: Partial<Budget>) => {
+    setBudgets(budgets.map(budget => 
+      budget.id === id ? { ...budget, ...updates } : budget
+    ));
+  };
+
+  const deleteBudget = (id: string) => {
+    setBudgets(budgets.filter(budget => budget.id !== id));
+  };
+
+  const getBudgetProgress = (category: string) => {
+    const budget = budgets.find(b => b.category === category && b.isActive);
+    if (!budget) return { spent: 0, budget: 0, percentage: 0 };
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const spent = transactions
+      .filter(t => {
+        const tDate = new Date(t.date);
+        return t.type === 'expense' &&
+               t.category === category &&
+               tDate >= startOfMonth &&
+               tDate <= endOfMonth;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+
+    return { spent, budget: budget.amount, percentage };
+  };
+
+  const getAccountBalance = (accountId: string) => {
+    const account = accounts.find(a => a.id === accountId);
+    return account?.balance || 0;
+  };
+
+  const getTotalAssets = () => {
+    return accounts
+      .filter(a => ['checking', 'savings', 'investment'].includes(a.type))
+      .reduce((sum, account) => sum + account.balance, 0);
+  };
+
+  const getTotalLiabilities = () => {
+    return accounts
+      .filter(a => ['credit', 'loan'].includes(a.type))
+      .reduce((sum, account) => sum + Math.abs(account.balance), 0);
+  };
+
+  const getNetWorth = () => {
+    return getTotalAssets() - getTotalLiabilities();
+  };
+
+  return (
+    <AppContext.Provider value={{
+      accounts,
+      transactions,
+      budgets,
+      addAccount,
+      updateAccount,
+      deleteAccount,
+      addTransaction,
+      deleteTransaction,
+      addBudget,
+      updateBudget,
+      deleteBudget,
+      getBudgetProgress,
+      getAccountBalance,
+      getTotalAssets,
+      getTotalLiabilities,
+      getNetWorth,
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+export function useApp() {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within AppProvider');
+  }
+  return context;
+}
+
+========== src/components/NetWorthTrendChart.tsx ==========
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useApp } from '../contexts/AppContext';
+
+export default function NetWorthTrendChart() {
+  const { transactions, accounts } = useApp();
+  
+  // Calculate net worth over the last 30 days
+  const data = [];
+  const today = new Date();
+  
+  // Start with current balances and work backwards
+  let runningBalances = accounts.reduce((acc, account) => {
+    acc[account.id] = account.balance;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    
+    // Apply transactions for this day (in reverse)
+    const dayTransactions = transactions.filter(t => {
+      const tDate = new Date(t.date);
+      return tDate.toDateString() === date.toDateString();
+    });
+    
+    // If we're looking at past days, reverse the transactions
+    if (i > 0) {
+      dayTransactions.forEach(t => {
+        if (runningBalances[t.accountId] !== undefined) {
+          if (t.type === 'income') {
+            runningBalances[t.accountId] -= t.amount;
+          } else {
+            runningBalances[t.accountId] += t.amount;
+          }
+        }
+      });
+    }
+    
+    // Calculate net worth for this day
+    const assets = Object.entries(runningBalances)
+      .filter(([id]) => {
+        const account = accounts.find(a => a.id === id);
+        return account && ['checking', 'savings', 'investment'].includes(account.type);
+      })
+      .reduce((sum, [, balance]) => sum + balance, 0);
+      
+    const liabilities = Object.entries(runningBalances)
+      .filter(([id]) => {
+        const account = accounts.find(a => a.id === id);
+        return account && ['credit', 'loan'].includes(account.type);
+      })
+      .reduce((sum, [, balance]) => sum + Math.abs(balance), 0);
+    
+    data.push({
+      date: date.toLocaleDateString('en-UK', { day: 'numeric', month: 'short' }),
+      netWorth: Number((assets - liabilities).toFixed(2)),
+    });
+  }
+
+  const formatCurrency = (value: number) => `£${value.toFixed(0)}`;
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h3 className="text-lg font-semibold mb-4">Net Worth Trend (Last 30 Days)</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="date" />
+          <YAxis tickFormatter={formatCurrency} />
+          <Tooltip formatter={formatCurrency} />
+          <Line 
+            type="monotone" 
+            dataKey="netWorth" 
+            stroke="#0078d4" 
+            strokeWidth={2}
+            dot={false}
+            name="Net Worth"
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+========== src/components/SpendingByCategoryChart.tsx ==========
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { useApp } from '../contexts/AppContext';
+
+export default function SpendingByCategoryChart() {
+  const { transactions } = useApp();
+  
+  // Calculate spending by category for the current month
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  const categoryTotals = transactions
+    .filter(t => {
+      const transDate = new Date(t.date);
+      return t.type === 'expense' && 
+             transDate.getMonth() === currentMonth && 
+             transDate.getFullYear() === currentYear;
+    })
+    .reduce((acc, t) => {
+      acc[t.category || 'Other'] = (acc[t.category || 'Other'] || 0) + t.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+  const data = Object.entries(categoryTotals).map(([name, value]) => ({
+    name,
+    value: Number(value.toFixed(2)),
+  }));
+
+  const COLORS = [
+    '#0078d4', '#34c759', '#ff3b30', '#ff9500', '#af52de',
+    '#5ac8fa', '#ffcc00', '#ff2d55', '#4cd964', '#007aff'
+  ];
+
+  const formatCurrency = (value: number) => `£${value.toFixed(2)}`;
+
+  if (data.length === 0) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-semibold mb-4">Spending by Category</h3>
+        <p className="text-gray-500 text-center py-8">No expenses this month</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h3 className="text-lg font-semibold mb-4">Spending by Category (This Month)</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            labelLine={false}
+            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+            outerRadius={80}
+            fill="#8884d8"
+            dataKey="value"
+          >
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip formatter={formatCurrency} />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+========== src/components/AddTransactionModal.tsx ==========
+import { useState } from 'react';
+import { X } from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
+
+interface AddTransactionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  preSelectedAccountId?: string;
+}
+
+export default function AddTransactionModal({ isOpen, onClose, preSelectedAccountId }: AddTransactionModalProps) {
+  const { accounts, addTransaction } = useApp();
+  const [formData, setFormData] = useState({
+    accountId: preSelectedAccountId || '',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    amount: '',
+    type: 'expense' as 'income' | 'expense' | 'transfer',
+    category: '',
+  });
+
+  if (!isOpen) return null;
+
+  const categories = {
+    income: ['Salary', 'Freelance', 'Investment', 'Gift', 'Refund', 'Other'],
+    expense: ['Food & Dining', 'Shopping', 'Transport', 'Bills', 'Entertainment', 'Healthcare', 'Education', 'Other'],
+    transfer: ['Transfer'],
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addTransaction({
+      ...formData,
+      date: new Date(formData.date),
+      amount: parseFloat(formData.amount),
+    });
+    onClose();
+    // Reset form
+    setFormData({
+      accountId: preSelectedAccountId || '',
+      date: new Date().toISOString().split('T')[0],
+      description: '',
+      amount: '',
+      type: 'expense',
+      category: '',
+    });
+  };
+
+  const selectedAccount = accounts.find(a => a.id === formData.accountId);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Add Transaction</h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            {/* Transaction Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Type
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['income', 'expense', 'transfer'] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, type, category: '' })}
+                    className={`px-3 py-2 rounded-lg border transition-colors ${
+                      formData.type === type
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Account Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Account
+              </label>
+              <select
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.accountId}
+                onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+              >
+                <option value="">Select account</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} ({account.currency === 'GBP' ? '£' : account.currency}{account.balance.toFixed(2)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Date
+              </label>
+              <input
+                type="date"
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <input
+                type="text"
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="e.g., Grocery shopping"
+              />
+            </div>
+
+            {/* Category */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Category
+              </label>
+              <select
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              >
+                <option value="">Select category</option>
+                {categories[formData.type].map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Amount */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Amount
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                  {selectedAccount?.currency === 'GBP' ? '£' : selectedAccount?.currency || '£'}
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              {formData.type === 'income' && (
+                <p className="text-sm text-green-600 mt-1">
+                  This will add {selectedAccount?.currency === 'GBP' ? '£' : selectedAccount?.currency || '£'}{formData.amount || '0'} to your account
+                </p>
+              )}
+              {formData.type === 'expense' && (
+                <p className="text-sm text-red-600 mt-1">
+                  This will subtract {selectedAccount?.currency === 'GBP' ? '£' : selectedAccount?.currency || '£'}{formData.amount || '0'} from your account
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!formData.accountId || !formData.amount}
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Add Transaction
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+========== src/components/AccountBalancesChart.tsx ==========
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useApp } from '../contexts/AppContext';
+
+export default function AccountBalancesChart() {
+  const { accounts } = useApp();
+  
+  const data = accounts.map(account => ({
+    name: account.name,
+    balance: account.balance,
+    type: account.type,
+  }));
+
+  const getColor = (type: string) => {
+    const colors: Record<string, string> = {
+      checking: '#0078d4',
+      savings: '#34c759',
+      credit: '#ff3b30',
+      investment: '#af52de',
+      loan: '#ff9500',
+      other: '#5ac8fa',
+    };
+    return colors[type] || colors.other;
+  };
+
+  const formatCurrency = (value: number) => `£${Math.abs(value).toFixed(0)}`;
+
+  if (data.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h3 className="text-lg font-semibold mb-4">Account Balances</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={data} layout="horizontal">
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis type="number" tickFormatter={formatCurrency} />
+          <YAxis dataKey="name" type="category" width={100} />
+          <Tooltip formatter={(value: number) => `£${value.toFixed(2)}`} />
+          <Bar dataKey="balance">
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={getColor(entry.type)} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+========== src/components/IncomeVsExpensesChart.tsx ==========
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useApp } from '../contexts/AppContext';
+
+export default function IncomeVsExpensesChart() {
+  const { transactions } = useApp();
+  
+  // Get last 6 months of data
+  const monthlyData = [];
+  const today = new Date();
+  
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const month = date.toLocaleDateString('en-UK', { month: 'short', year: '2-digit' });
+    
+    const monthTransactions = transactions.filter(t => {
+      const tDate = new Date(t.date);
+      return tDate.getMonth() === date.getMonth() && 
+             tDate.getFullYear() === date.getFullYear();
+    });
+    
+    const income = monthTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+      
+    const expenses = monthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    monthlyData.push({
+      month,
+      income: Number(income.toFixed(2)),
+      expenses: Number(expenses.toFixed(2)),
+      net: Number((income - expenses).toFixed(2)),
+    });
+  }
+
+  const formatCurrency = (value: number) => `£${value.toFixed(0)}`;
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h3 className="text-lg font-semibold mb-4">Income vs Expenses (Last 6 Months)</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={monthlyData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="month" />
+          <YAxis tickFormatter={formatCurrency} />
+          <Tooltip formatter={formatCurrency} />
+          <Legend />
+          <Bar dataKey="income" fill="#34c759" name="Income" />
+          <Bar dataKey="expenses" fill="#ff3b30" name="Expenses" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+========== src/components/Layout.tsx ==========
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { 
+  Home, 
+  Wallet, 
+  ArrowUpDown, 
+  TrendingUp, 
+  Target, 
+  PieChart,
+  Settings,
+  Menu,
+  X,
+  BarChart3
+} from 'lucide-react';
+import { useState } from 'react';
+
+export default function Layout() {
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  const navigation = [
+    { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Accounts', href: '/accounts', icon: Wallet },
+    { name: 'Transactions', href: '/transactions', icon: ArrowUpDown },
+    { name: 'Investments', href: '/investments', icon: TrendingUp },
+    { name: 'Budget', href: '/budget', icon: PieChart },
+    { name: 'Goals', href: '/goals', icon: Target },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Settings', href: '/settings', icon: Settings },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile menu button */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="p-2 rounded-lg bg-white shadow-md"
+        >
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      {/* Sidebar for desktop, overlay for mobile */}
+      <div className={`${
+        mobileMenuOpen ? 'block' : 'hidden'
+      } lg:block fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg`}>
+        <div className="flex h-full flex-col">
+          {/* Logo */}
+          <div className="flex h-16 items-center justify-center border-b">
+            <h1 className="text-xl font-bold text-primary">WealthTracker Pro</h1>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 space-y-1 p-4">
+            {navigation.map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-primary text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <item.icon size={20} />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
+      {/* Mobile menu backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-30 bg-black bg-opacity-50"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Main content */}
+      <div className="lg:pl-64">
+        <main className="p-4 lg:p-8">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
+
+========== src/components/AddAccountModal.tsx ==========
+import { useState } from 'react';
+import { X } from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
+
+interface AddAccountModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
+  const { addAccount } = useApp();
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'checking' as const,
+    balance: '',
+    currency: 'GBP',
+    institution: '',
+  });
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addAccount({
+      ...formData,
+      balance: parseFloat(formData.balance) || 0,
+    });
+    onClose();
+    // Reset form
+    setFormData({
+      name: '',
+      type: 'checking',
+      balance: '',
+      currency: 'GBP',
+      institution: '',
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Add New Account</h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Account Name
+              </label>
+              <input
+                type="text"
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Main Checking"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Account Type
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+              >
+                <option value="checking">Checking</option>
+                <option value="savings">Savings</option>
+                <option value="credit">Credit Card</option>
+                <option value="investment">Investment</option>
+                <option value="loan">Loan</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Institution (Optional)
+              </label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.institution}
+                onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
+                placeholder="e.g., Barclays"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Current Balance
+              </label>
+              <div className="flex gap-2">
+                <select
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={formData.currency}
+                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                >
+                  <option value="GBP">£</option>
+                  <option value="USD">$</option>
+                  <option value="EUR">€</option>
+                </select>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={formData.balance}
+                  onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+            >
+              Add Account
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+========== src/vite-env.d.ts ==========
+/// <reference types="vite/client" />
+
+========== src/pages/Settings.tsx ==========
+export default function Settings() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Settings</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        <p className="text-gray-500">Settings page coming soon...</p>
+      </div>
+    </div>
+  );
+}
+
+========== src/pages/Goals.tsx ==========
+export default function Goals() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Goals</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        <p className="text-gray-500 text-center py-8">No goals created yet</p>
+      </div>
+    </div>
+  );
+}
+
+========== src/pages/Investments.tsx ==========
+export default function Investments() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Investments</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        <p className="text-gray-500 text-center py-8">No investments tracked yet</p>
+      </div>
+    </div>
+  );
+}
+
+========== src/pages/Dashboard.tsx ==========
+import { useApp } from '../contexts/AppContext';
+import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
+import SpendingByCategoryChart from '../components/SpendingByCategoryChart';
+import IncomeVsExpensesChart from '../components/IncomeVsExpensesChart';
+import NetWorthTrendChart from '../components/NetWorthTrendChart';
+import AccountBalancesChart from '../components/AccountBalancesChart';
+
+export default function Dashboard() {
+  const { getNetWorth, getTotalAssets, getTotalLiabilities, accounts, transactions } = useApp();
+
+  const netWorth = getNetWorth();
+  const assets = getTotalAssets();
+  const liabilities = getTotalLiabilities();
+  
+  // Calculate monthly savings
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const monthTransactions = transactions.filter(t => {
+    const date = new Date(t.date);
+    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+  });
+  
+  const monthlyIncome = monthTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+    
+  const monthlyExpenses = monthTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+    
+  const monthlySavings = monthlyIncome - monthlyExpenses;
+
+  const formatCurrency = (amount: number) => {
+    return `£${Math.abs(amount).toFixed(2)}`;
+  };
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>
+      
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Net Worth</h3>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                {formatCurrency(netWorth)}
+              </p>
+              <p className={`text-sm mt-1 ${netWorth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {netWorth >= 0 ? <TrendingUp size={16} className="inline" /> : <TrendingDown size={16} className="inline" />}
+                {' '}{netWorth >= 0 ? 'Positive' : 'Negative'}
+              </p>
+            </div>
+            <Wallet className="text-primary" size={32} />
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Total Assets</h3>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                {formatCurrency(assets)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {accounts.filter(a => ['checking', 'savings', 'investment'].includes(a.type)).length} accounts
+              </p>
+            </div>
+            <TrendingUp className="text-green-500" size={32} />
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Total Liabilities</h3>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                {formatCurrency(liabilities)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {accounts.filter(a => ['credit', 'loan'].includes(a.type)).length} accounts
+              </p>
+            </div>
+            <TrendingDown className="text-red-500" size={32} />
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Monthly Savings</h3>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                {formatCurrency(monthlySavings)}
+              </p>
+              <p className={`text-sm mt-1 ${monthlySavings >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {monthlySavings >= 0 ? 'Surplus' : 'Deficit'} this month
+              </p>
+            </div>
+            <PiggyBank className="text-purple-500" size={32} />
+          </div>
+        </div>
+      </div>
+
+      {/* Charts */}
+      <div className="space-y-6">
+        {/* Net Worth Trend - Full Width */}
+        <NetWorthTrendChart />
+        
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <IncomeVsExpensesChart />
+          <SpendingByCategoryChart />
+        </div>
+        
+        {/* Account Balances - Full Width */}
+        {accounts.length > 0 && <AccountBalancesChart />}
+      </div>
+    </div>
+  );
+}
+
+========== src/pages/Transactions.tsx ==========
+import { useState } from 'react';
+import { useApp } from '../contexts/AppContext';
+import AddTransactionModal from '../components/AddTransactionModal';
+import { Plus, TrendingUp, TrendingDown, Filter, Calendar, Trash2 } from 'lucide-react';
+
+export default function Transactions() {
+  const { transactions, accounts, deleteTransaction } = useApp();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [filterAccountId, setFilterAccountId] = useState<string>('');
+
+  // Sort transactions by date (newest first)
+  const sortedTransactions = [...transactions].sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  // Apply filters
+  const filteredTransactions = sortedTransactions.filter(transaction => {
+    if (filterType !== 'all' && transaction.type !== filterType) return false;
+    if (filterAccountId && transaction.accountId !== filterAccountId) return false;
+    return true;
+  });
+
+  const formatCurrency = (amount: number, accountId: string) => {
+    const account = accounts.find(a => a.id === accountId);
+    const currency = account?.currency || 'GBP';
+    const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
+    return `${symbol}${Math.abs(amount).toFixed(2)}`;
+  };
+
+  const getTypeIcon = (type: string) => {
+    return type === 'income' ? (
+      <TrendingUp className="text-green-500" size={20} />
+    ) : (
+      <TrendingDown className="text-red-500" size={20} />
+    );
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this transaction?')) {
+      deleteTransaction(id);
+    }
+  };
+
+  // Calculate totals
+  const totals = filteredTransactions.reduce((acc, t) => {
+    if (t.type === 'income') acc.income += t.amount;
+    else if (t.type === 'expense') acc.expense += t.amount;
+    return acc;
+  }, { income: 0, expense: 0 });
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Transactions</h1>
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
+        >
+          <Plus size={20} />
+          Add Transaction
+        </button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Income</p>
+              <p className="text-xl font-bold text-green-600">£{totals.income.toFixed(2)}</p>
+            </div>
+            <TrendingUp className="text-green-500" size={24} />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Expenses</p>
+              <p className="text-xl font-bold text-red-600">£{totals.expense.toFixed(2)}</p>
+            </div>
+            <TrendingDown className="text-red-500" size={24} />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Net</p>
+              <p className={`text-xl font-bold ${totals.income - totals.expense >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                £{(totals.income - totals.expense).toFixed(2)}
+              </p>
+            </div>
+            <Calendar className="text-primary" size={24} />
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow mb-6">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex items-center gap-2">
+            <Filter size={20} className="text-gray-500" />
+            <select
+              className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as any)}
+            >
+              <option value="all">All Types</option>
+              <option value="income">Income Only</option>
+              <option value="expense">Expenses Only</option>
+            </select>
+          </div>
+          <div>
+            <select
+              className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              value={filterAccountId}
+              onChange={(e) => setFilterAccountId(e.target.value)}
+            >
+              <option value="">All Accounts</option>
+              {accounts.map(account => (
+                <option key={account.id} value={account.id}>{account.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Transactions List */}
+      {filteredTransactions.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-gray-500 text-center py-8">
+            {transactions.length === 0 
+              ? "No transactions yet. Click 'Add Transaction' to record your first one!"
+              : "No transactions match your filters."}
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Account
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredTransactions.map((transaction) => {
+                  const account = accounts.find(a => a.id === transaction.accountId);
+                  return (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(transaction.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          {getTypeIcon(transaction.type)}
+                          <span className="text-sm text-gray-900">{transaction.description}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {transaction.category}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {account?.name || 'Unknown'}
+                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
+                        transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {transaction.type === 'income' ? '+' : '-'}
+                        {formatCurrency(transaction.amount, transaction.accountId)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleDelete(transaction.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <AddTransactionModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+      />
+    </div>
+  );
+}
+
+========== src/pages/Analytics.tsx ==========
+import { useState } from 'react';
+import { useApp } from '../contexts/AppContext';
+import SpendingByCategoryChart from '../components/SpendingByCategoryChart';
+import IncomeVsExpensesChart from '../components/IncomeVsExpensesChart';
+import NetWorthTrendChart from '../components/NetWorthTrendChart';
+import AccountBalancesChart from '../components/AccountBalancesChart';
+import { Calendar, TrendingUp, PieChart, BarChart3 } from 'lucide-react';
+
+export default function Analytics() {
+  const { transactions, accounts } = useApp();
+  const [timeRange, setTimeRange] = useState('30days');
+
+  // Calculate key metrics
+  const totalIncome = transactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+    
+  const totalExpenses = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+    
+  const avgDailySpending = transactions.length > 0 
+    ? totalExpenses / 30 
+    : 0;
+    
+  const savingsRate = totalIncome > 0 
+    ? ((totalIncome - totalExpenses) / totalIncome) * 100 
+    : 0;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
+        <select
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value)}
+        >
+          <option value="30days">Last 30 Days</option>
+          <option value="90days">Last 90 Days</option>
+          <option value="year">This Year</option>
+        </select>
+      </div>
+
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 text-gray-500 mb-1">
+            <TrendingUp size={16} />
+            <span className="text-sm">Total Income</span>
+          </div>
+          <p className="text-xl font-bold">£{totalIncome.toFixed(2)}</p>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 text-gray-500 mb-1">
+            <BarChart3 size={16} />
+            <span className="text-sm">Total Expenses</span>
+          </div>
+          <p className="text-xl font-bold">£{totalExpenses.toFixed(2)}</p>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 text-gray-500 mb-1">
+            <Calendar size={16} />
+            <span className="text-sm">Avg Daily Spending</span>
+          </div>
+          <p className="text-xl font-bold">£{avgDailySpending.toFixed(2)}</p>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 text-gray-500 mb-1">
+            <PieChart size={16} />
+            <span className="text-sm">Savings Rate</span>
+          </div>
+          <p className="text-xl font-bold">{savingsRate.toFixed(1)}%</p>
+        </div>
+      </div>
+
+      {/* Charts Grid */}
+      <div className="space-y-6">
+        <NetWorthTrendChart />
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <IncomeVsExpensesChart />
+          <SpendingByCategoryChart />
+        </div>
+        
+        {accounts.length > 0 && <AccountBalancesChart />}
+        
+        {/* Top Spending Categories */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Top Spending Categories</h3>
+          {transactions.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No transactions yet</p>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(
+                transactions
+                  .filter(t => t.type === 'expense')
+                  .reduce((acc, t) => {
+                    acc[t.category || 'Other'] = (acc[t.category || 'Other'] || 0) + t.amount;
+                    return acc;
+                  }, {} as Record<string, number>)
+              )
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 5)
+                .map(([category, amount]) => (
+                  <div key={category} className="flex justify-between items-center">
+                    <span className="text-gray-700">{category}</span>
+                    <span className="font-semibold">£{amount.toFixed(2)}</span>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+========== src/pages/Accounts.tsx ==========
+import { useState } from 'react';
+import { useApp } from '../contexts/AppContext';
+import AddAccountModal from '../components/AddAccountModal';
+import AddTransactionModal from '../components/AddTransactionModal';
+import { Edit2, Trash2, TrendingUp, TrendingDown, Plus } from 'lucide-react';
+
+export default function Accounts() {
+  const { accounts, deleteAccount } = useApp();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+
+  const formatCurrency = (amount: number, currency: string) => {
+    const symbols: { [key: string]: string } = {
+      GBP: '£',
+      USD: '$',
+      EUR: '€',
+    };
+    return `${symbols[currency] || currency}${Math.abs(amount).toFixed(2)}`;
+  };
+
+  const getAccountTypeColor = (type: string) => {
+    const colors: { [key: string]: string } = {
+      checking: 'bg-blue-100 text-blue-800',
+      savings: 'bg-green-100 text-green-800',
+      credit: 'bg-red-100 text-red-800',
+      investment: 'bg-purple-100 text-purple-800',
+      loan: 'bg-orange-100 text-orange-800',
+      other: 'bg-gray-100 text-gray-800',
+    };
+    return colors[type] || colors.other;
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this account?')) {
+      deleteAccount(id);
+    }
+  };
+
+  const handleAddTransaction = (accountId: string) => {
+    setSelectedAccountId(accountId);
+    setIsTransactionModalOpen(true);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Accounts</h1>
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors"
+        >
+          Add Account
+        </button>
+      </div>
+
+      {accounts.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-gray-500 text-center py-8">
+            No accounts added yet. Click "Add Account" to get started!
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {accounts.map((account) => (
+            <div key={account.id} className="bg-white rounded-lg shadow p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="font-semibold text-lg">{account.name}</h3>
+                  {account.institution && (
+                    <p className="text-sm text-gray-500">{account.institution}</p>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  <button 
+                    onClick={() => handleAddTransaction(account.id)}
+                    className="p-1 hover:bg-gray-100 rounded text-primary"
+                    title="Add transaction"
+                  >
+                    <Plus size={16} />
+                  </button>
+                  <button className="p-1 hover:bg-gray-100 rounded">
+                    <Edit2 size={16} />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(account.id)}
+                    className="p-1 hover:bg-gray-100 rounded text-red-600"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getAccountTypeColor(account.type)}`}>
+                  {account.type.charAt(0).toUpperCase() + account.type.slice(1)}
+                </span>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold">
+                    {formatCurrency(account.balance, account.currency)}
+                  </span>
+                  {account.balance > 0 ? (
+                    <TrendingUp className="text-green-500" size={20} />
+                  ) : account.balance < 0 ? (
+                    <TrendingDown className="text-red-500" size={20} />
+                  ) : null}
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Updated: {new Date(account.lastUpdated).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <AddAccountModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+      />
+      
+      <AddTransactionModal 
+        isOpen={isTransactionModalOpen} 
+        onClose={() => {
+          setIsTransactionModalOpen(false);
+          setSelectedAccountId('');
+        }}
+        preSelectedAccountId={selectedAccountId}
+      />
+    </div>
+  );
+}
+
+========== src/pages/Budget.tsx ==========
+export default function Budget() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Budget</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        <p className="text-gray-500 text-center py-8">No budget set up yet</p>
+      </div>
+    </div>
+  );
+}
+
+========== src/App.tsx ==========
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AppProvider } from './contexts/AppContext';
+import Layout from './components/Layout';
+import Dashboard from './pages/Dashboard';
+import Accounts from './pages/Accounts';
+import Transactions from './pages/Transactions';
+import Investments from './pages/Investments';
+import Budget from './pages/Budget';
+import Goals from './pages/Goals';
+import Analytics from './pages/Analytics';
+import Settings from './pages/Settings';
+
+function App() {
+  return (
+    <AppProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="accounts" element={<Accounts />} />
+            <Route path="transactions" element={<Transactions />} />
+            <Route path="investments" element={<Investments />} />
+            <Route path="budget" element={<Budget />} />
+            <Route path="goals" element={<Goals />} />
+            <Route path="analytics" element={<Analytics />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AppProvider>
+  );
+}
+
+export default App;
+
+========== src/main.tsx ==========
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+========== src/contexts/AppContext.tsx ==========
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+
+interface Account {
+  id: string;
+  name: string;
+  type: 'checking' | 'savings' | 'credit' | 'investment' | 'loan' | 'other';
+  balance: number;
+  currency: string;
+  institution?: string;
+  lastUpdated: Date;
+}
+
+interface Transaction {
+  id: string;
+  accountId: string;
+  date: Date;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense' | 'transfer';
+  category?: string;
+}
+
+interface Budget {
+  id: string;
+  category: string;
+  amount: number;
+  period: 'monthly' | 'weekly' | 'yearly';
+  isActive: boolean;
+  createdAt: Date;
+}
+
+interface AppContextType {
+  accounts: Account[];
+  transactions: Transaction[];
+  budgets: Budget[];
+  addAccount: (account: Omit<Account, 'id' | 'lastUpdated'>) => void;
+  updateAccount: (id: string, updates: Partial<Account>) => void;
+  deleteAccount: (id: string) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  deleteTransaction: (id: string) => void;
+  addBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => void;
+  updateBudget: (id: string, updates: Partial<Budget>) => void;
+  deleteBudget: (id: string) => void;
+  getBudgetProgress: (category: string) => { spent: number; budget: number; percentage: number };
+  getAccountBalance: (accountId: string) => number;
+  getTotalAssets: () => number;
+  getTotalLiabilities: () => number;
+  getNetWorth: () => number;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  // Load data from localStorage on mount
+  const [accounts, setAccounts] = useState<Account[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_accounts');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [budgets, setBudgets] = useState<Budget[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_budgets');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    localStorage.setItem('wealthtracker_accounts', JSON.stringify(accounts));
+  }, [accounts]);
+
+  useEffect(() => {
+    localStorage.setItem('wealthtracker_transactions', JSON.stringify(transactions));
+  }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('wealthtracker_budgets', JSON.stringify(budgets));
+  }, [budgets]);
+
+  const addAccount = (account: Omit<Account, 'id' | 'lastUpdated'>) => {
+    const newAccount: Account = {
+      ...account,
+      id: Date.now().toString(),
+      lastUpdated: new Date(),
+    };
+    setAccounts([...accounts, newAccount]);
+  };
+
+  const updateAccount = (id: string, updates: Partial<Account>) => {
+    setAccounts(accounts.map(acc => 
+      acc.id === id ? { ...acc, ...updates, lastUpdated: new Date() } : acc
+    ));
+  };
+
+  const deleteAccount = (id: string) => {
+    setAccounts(accounts.filter(acc => acc.id !== id));
+    // Also delete related transactions
+    setTransactions(transactions.filter(t => t.accountId !== id));
+  };
+
+  const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
+    const newTransaction: Transaction = {
+      ...transaction,
+      id: Date.now().toString(),
+    };
+    setTransactions([...transactions, newTransaction]);
+    
+    // Update account balance
+    const account = accounts.find(a => a.id === transaction.accountId);
+    if (account) {
+      const balanceChange = transaction.type === 'income' 
+        ? transaction.amount 
+        : -transaction.amount;
+      updateAccount(account.id, { balance: account.balance + balanceChange });
+    }
+  };
+
+  const deleteTransaction = (id: string) => {
+    const transaction = transactions.find(t => t.id === id);
+    if (transaction) {
+      // Reverse the balance change
+      const account = accounts.find(a => a.id === transaction.accountId);
+      if (account) {
+        const balanceChange = transaction.type === 'income' 
+          ? -transaction.amount 
+          : transaction.amount;
+        updateAccount(account.id, { balance: account.balance + balanceChange });
+      }
+    }
+    setTransactions(transactions.filter(t => t.id !== id));
+  };
+
+  const addBudget = (budget: Omit<Budget, 'id' | 'createdAt'>) => {
+    const newBudget: Budget = {
+      ...budget,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+    };
+    setBudgets([...budgets, newBudget]);
+  };
+
+  const updateBudget = (id: string, updates: Partial<Budget>) => {
+    setBudgets(budgets.map(budget => 
+      budget.id === id ? { ...budget, ...updates } : budget
+    ));
+  };
+
+  const deleteBudget = (id: string) => {
+    setBudgets(budgets.filter(budget => budget.id !== id));
+  };
+
+  const getBudgetProgress = (category: string) => {
+    const budget = budgets.find(b => b.category === category && b.isActive);
+    if (!budget) return { spent: 0, budget: 0, percentage: 0 };
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const spent = transactions
+      .filter(t => {
+        const tDate = new Date(t.date);
+        return t.type === 'expense' &&
+               t.category === category &&
+               tDate >= startOfMonth &&
+               tDate <= endOfMonth;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+
+    return { spent, budget: budget.amount, percentage };
+  };
+
+  const getAccountBalance = (accountId: string) => {
+    const account = accounts.find(a => a.id === accountId);
+    return account?.balance || 0;
+  };
+
+  const getTotalAssets = () => {
+    return accounts
+      .filter(a => ['checking', 'savings', 'investment'].includes(a.type))
+      .reduce((sum, account) => sum + account.balance, 0);
+  };
+
+  const getTotalLiabilities = () => {
+    return accounts
+      .filter(a => ['credit', 'loan'].includes(a.type))
+      .reduce((sum, account) => sum + Math.abs(account.balance), 0);
+  };
+
+  const getNetWorth = () => {
+    return getTotalAssets() - getTotalLiabilities();
+  };
+
+  return (
+    <AppContext.Provider value={{
+      accounts,
+      transactions,
+      budgets,
+      addAccount,
+      updateAccount,
+      deleteAccount,
+      addTransaction,
+      deleteTransaction,
+      addBudget,
+      updateBudget,
+      deleteBudget,
+      getBudgetProgress,
+      getAccountBalance,
+      getTotalAssets,
+      getTotalLiabilities,
+      getNetWorth,
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+export function useApp() {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within AppProvider');
+  }
+  return context;
+}
+
+========== src/components/NetWorthTrendChart.tsx ==========
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useApp } from '../contexts/AppContext';
+
+export default function NetWorthTrendChart() {
+  const { transactions, accounts } = useApp();
+  
+  // Calculate net worth over the last 30 days
+  const data = [];
+  const today = new Date();
+  
+  // Start with current balances and work backwards
+  let runningBalances = accounts.reduce((acc, account) => {
+    acc[account.id] = account.balance;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  for (let i = 29; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(date.getDate() - i);
+    
+    // Apply transactions for this day (in reverse)
+    const dayTransactions = transactions.filter(t => {
+      const tDate = new Date(t.date);
+      return tDate.toDateString() === date.toDateString();
+    });
+    
+    // If we're looking at past days, reverse the transactions
+    if (i > 0) {
+      dayTransactions.forEach(t => {
+        if (runningBalances[t.accountId] !== undefined) {
+          if (t.type === 'income') {
+            runningBalances[t.accountId] -= t.amount;
+          } else {
+            runningBalances[t.accountId] += t.amount;
+          }
+        }
+      });
+    }
+    
+    // Calculate net worth for this day
+    const assets = Object.entries(runningBalances)
+      .filter(([id]) => {
+        const account = accounts.find(a => a.id === id);
+        return account && ['checking', 'savings', 'investment'].includes(account.type);
+      })
+      .reduce((sum, [, balance]) => sum + balance, 0);
+      
+    const liabilities = Object.entries(runningBalances)
+      .filter(([id]) => {
+        const account = accounts.find(a => a.id === id);
+        return account && ['credit', 'loan'].includes(account.type);
+      })
+      .reduce((sum, [, balance]) => sum + Math.abs(balance), 0);
+    
+    data.push({
+      date: date.toLocaleDateString('en-UK', { day: 'numeric', month: 'short' }),
+      netWorth: Number((assets - liabilities).toFixed(2)),
+    });
+  }
+
+  const formatCurrency = (value: number) => `£${value.toFixed(0)}`;
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h3 className="text-lg font-semibold mb-4">Net Worth Trend (Last 30 Days)</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="date" />
+          <YAxis tickFormatter={formatCurrency} />
+          <Tooltip formatter={formatCurrency} />
+          <Line 
+            type="monotone" 
+            dataKey="netWorth" 
+            stroke="#0078d4" 
+            strokeWidth={2}
+            dot={false}
+            name="Net Worth"
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+========== src/components/SpendingByCategoryChart.tsx ==========
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { useApp } from '../contexts/AppContext';
+
+export default function SpendingByCategoryChart() {
+  const { transactions } = useApp();
+  
+  // Calculate spending by category for the current month
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  
+  const categoryTotals = transactions
+    .filter(t => {
+      const transDate = new Date(t.date);
+      return t.type === 'expense' && 
+             transDate.getMonth() === currentMonth && 
+             transDate.getFullYear() === currentYear;
+    })
+    .reduce((acc, t) => {
+      acc[t.category || 'Other'] = (acc[t.category || 'Other'] || 0) + t.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+  const data = Object.entries(categoryTotals).map(([name, value]) => ({
+    name,
+    value: Number(value.toFixed(2)),
+  }));
+
+  const COLORS = [
+    '#0078d4', '#34c759', '#ff3b30', '#ff9500', '#af52de',
+    '#5ac8fa', '#ffcc00', '#ff2d55', '#4cd964', '#007aff'
+  ];
+
+  const formatCurrency = (value: number) => `£${value.toFixed(2)}`;
+
+  if (data.length === 0) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-semibold mb-4">Spending by Category</h3>
+        <p className="text-gray-500 text-center py-8">No expenses this month</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h3 className="text-lg font-semibold mb-4">Spending by Category (This Month)</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            labelLine={false}
+            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+            outerRadius={80}
+            fill="#8884d8"
+            dataKey="value"
+          >
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip formatter={formatCurrency} />
+          <Legend />
+        </PieChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+========== src/components/AddTransactionModal.tsx ==========
+import { useState } from 'react';
+import { X } from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
+
+interface AddTransactionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  preSelectedAccountId?: string;
+}
+
+export default function AddTransactionModal({ isOpen, onClose, preSelectedAccountId }: AddTransactionModalProps) {
+  const { accounts, addTransaction } = useApp();
+  const [formData, setFormData] = useState({
+    accountId: preSelectedAccountId || '',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    amount: '',
+    type: 'expense' as 'income' | 'expense' | 'transfer',
+    category: '',
+  });
+
+  if (!isOpen) return null;
+
+  const categories = {
+    income: ['Salary', 'Freelance', 'Investment', 'Gift', 'Refund', 'Other'],
+    expense: ['Food & Dining', 'Shopping', 'Transport', 'Bills', 'Entertainment', 'Healthcare', 'Education', 'Other'],
+    transfer: ['Transfer'],
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addTransaction({
+      ...formData,
+      date: new Date(formData.date),
+      amount: parseFloat(formData.amount),
+    });
+    onClose();
+    // Reset form
+    setFormData({
+      accountId: preSelectedAccountId || '',
+      date: new Date().toISOString().split('T')[0],
+      description: '',
+      amount: '',
+      type: 'expense',
+      category: '',
+    });
+  };
+
+  const selectedAccount = accounts.find(a => a.id === formData.accountId);
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Add Transaction</h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            {/* Transaction Type */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Type
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {(['income', 'expense', 'transfer'] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, type, category: '' })}
+                    className={`px-3 py-2 rounded-lg border transition-colors ${
+                      formData.type === type
+                        ? 'bg-primary text-white border-primary'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Account Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Account
+              </label>
+              <select
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.accountId}
+                onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+              >
+                <option value="">Select account</option>
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} ({account.currency === 'GBP' ? '£' : account.currency}{account.balance.toFixed(2)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Date
+              </label>
+              <input
+                type="date"
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.date}
+                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Description
+              </label>
+              <input
+                type="text"
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                placeholder="e.g., Grocery shopping"
+              />
+            </div>
+
+            {/* Category */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Category
+              </label>
+              <select
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.category}
+                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              >
+                <option value="">Select category</option>
+                {categories[formData.type].map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Amount */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Amount
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
+                  {selectedAccount?.currency === 'GBP' ? '£' : selectedAccount?.currency || '£'}
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={formData.amount}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              {formData.type === 'income' && (
+                <p className="text-sm text-green-600 mt-1">
+                  This will add {selectedAccount?.currency === 'GBP' ? '£' : selectedAccount?.currency || '£'}{formData.amount || '0'} to your account
+                </p>
+              )}
+              {formData.type === 'expense' && (
+                <p className="text-sm text-red-600 mt-1">
+                  This will subtract {selectedAccount?.currency === 'GBP' ? '£' : selectedAccount?.currency || '£'}{formData.amount || '0'} from your account
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!formData.accountId || !formData.amount}
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary disabled:bg-gray-300 disabled:cursor-not-allowed"
+            >
+              Add Transaction
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+========== src/components/AccountBalancesChart.tsx ==========
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { useApp } from '../contexts/AppContext';
+
+export default function AccountBalancesChart() {
+  const { accounts } = useApp();
+  
+  const data = accounts.map(account => ({
+    name: account.name,
+    balance: account.balance,
+    type: account.type,
+  }));
+
+  const getColor = (type: string) => {
+    const colors: Record<string, string> = {
+      checking: '#0078d4',
+      savings: '#34c759',
+      credit: '#ff3b30',
+      investment: '#af52de',
+      loan: '#ff9500',
+      other: '#5ac8fa',
+    };
+    return colors[type] || colors.other;
+  };
+
+  const formatCurrency = (value: number) => `£${Math.abs(value).toFixed(0)}`;
+
+  if (data.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h3 className="text-lg font-semibold mb-4">Account Balances</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={data} layout="horizontal">
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis type="number" tickFormatter={formatCurrency} />
+          <YAxis dataKey="name" type="category" width={100} />
+          <Tooltip formatter={(value: number) => `£${value.toFixed(2)}`} />
+          <Bar dataKey="balance">
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={getColor(entry.type)} />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+========== src/components/IncomeVsExpensesChart.tsx ==========
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useApp } from '../contexts/AppContext';
+
+export default function IncomeVsExpensesChart() {
+  const { transactions } = useApp();
+  
+  // Get last 6 months of data
+  const monthlyData = [];
+  const today = new Date();
+  
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const month = date.toLocaleDateString('en-UK', { month: 'short', year: '2-digit' });
+    
+    const monthTransactions = transactions.filter(t => {
+      const tDate = new Date(t.date);
+      return tDate.getMonth() === date.getMonth() && 
+             tDate.getFullYear() === date.getFullYear();
+    });
+    
+    const income = monthTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+      
+    const expenses = monthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    monthlyData.push({
+      month,
+      income: Number(income.toFixed(2)),
+      expenses: Number(expenses.toFixed(2)),
+      net: Number((income - expenses).toFixed(2)),
+    });
+  }
+
+  const formatCurrency = (value: number) => `£${value.toFixed(0)}`;
+
+  return (
+    <div className="bg-white p-6 rounded-lg shadow">
+      <h3 className="text-lg font-semibold mb-4">Income vs Expenses (Last 6 Months)</h3>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={monthlyData}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="month" />
+          <YAxis tickFormatter={formatCurrency} />
+          <Tooltip formatter={formatCurrency} />
+          <Legend />
+          <Bar dataKey="income" fill="#34c759" name="Income" />
+          <Bar dataKey="expenses" fill="#ff3b30" name="Expenses" />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+========== src/components/Layout.tsx ==========
+import { Outlet, Link, useLocation } from 'react-router-dom';
+import { 
+  Home, 
+  Wallet, 
+  ArrowUpDown, 
+  TrendingUp, 
+  Target, 
+  PieChart,
+  Settings,
+  Menu,
+  X,
+  BarChart3
+} from 'lucide-react';
+import { useState } from 'react';
+
+export default function Layout() {
+  const location = useLocation();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  const navigation = [
+    { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Accounts', href: '/accounts', icon: Wallet },
+    { name: 'Transactions', href: '/transactions', icon: ArrowUpDown },
+    { name: 'Investments', href: '/investments', icon: TrendingUp },
+    { name: 'Budget', href: '/budget', icon: PieChart },
+    { name: 'Goals', href: '/goals', icon: Target },
+    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
+    { name: 'Settings', href: '/settings', icon: Settings },
+  ];
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile menu button */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <button
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          className="p-2 rounded-lg bg-white shadow-md"
+        >
+          {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
+      </div>
+
+      {/* Sidebar for desktop, overlay for mobile */}
+      <div className={`${
+        mobileMenuOpen ? 'block' : 'hidden'
+      } lg:block fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg`}>
+        <div className="flex h-full flex-col">
+          {/* Logo */}
+          <div className="flex h-16 items-center justify-center border-b">
+            <h1 className="text-xl font-bold text-primary">WealthTracker Pro</h1>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 space-y-1 p-4">
+            {navigation.map((item) => {
+              const isActive = location.pathname === item.href;
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-primary text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <item.icon size={20} />
+                  <span>{item.name}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+
+      {/* Mobile menu backdrop */}
+      {mobileMenuOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-30 bg-black bg-opacity-50"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Main content */}
+      <div className="lg:pl-64">
+        <main className="p-4 lg:p-8">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}
+
+========== src/components/AddAccountModal.tsx ==========
+import { useState } from 'react';
+import { X } from 'lucide-react';
+import { useApp } from '../contexts/AppContext';
+
+interface AddAccountModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
+  const { addAccount } = useApp();
+  const [formData, setFormData] = useState({
+    name: '',
+    type: 'checking' as const,
+    balance: '',
+    currency: 'GBP',
+    institution: '',
+  });
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    addAccount({
+      ...formData,
+      balance: parseFloat(formData.balance) || 0,
+    });
+    onClose();
+    // Reset form
+    setFormData({
+      name: '',
+      type: 'checking',
+      balance: '',
+      currency: 'GBP',
+      institution: '',
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold">Add New Account</h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded"
+          >
+            <X size={24} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Account Name
+              </label>
+              <input
+                type="text"
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Main Checking"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Account Type
+              </label>
+              <select
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.type}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+              >
+                <option value="checking">Checking</option>
+                <option value="savings">Savings</option>
+                <option value="credit">Credit Card</option>
+                <option value="investment">Investment</option>
+                <option value="loan">Loan</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Institution (Optional)
+              </label>
+              <input
+                type="text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={formData.institution}
+                onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
+                placeholder="e.g., Barclays"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Current Balance
+              </label>
+              <div className="flex gap-2">
+                <select
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={formData.currency}
+                  onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                >
+                  <option value="GBP">£</option>
+                  <option value="USD">$</option>
+                  <option value="EUR">€</option>
+                </select>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  value={formData.balance}
+                  onChange={(e) => setFormData({ ...formData, balance: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+            >
+              Add Account
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+========== src/vite-env.d.ts ==========
+/// <reference types="vite/client" />
+
+========== src/pages/Settings.tsx ==========
+export default function Settings() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Settings</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        <p className="text-gray-500">Settings page coming soon...</p>
+      </div>
+    </div>
+  );
+}
+
+========== src/pages/Goals.tsx ==========
+export default function Goals() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Goals</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        <p className="text-gray-500 text-center py-8">No goals created yet</p>
+      </div>
+    </div>
+  );
+}
+
+========== src/pages/Investments.tsx ==========
+export default function Investments() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Investments</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        <p className="text-gray-500 text-center py-8">No investments tracked yet</p>
+      </div>
+    </div>
+  );
+}
+
+========== src/pages/Dashboard.tsx ==========
+import { useApp } from '../contexts/AppContext';
+import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
+import SpendingByCategoryChart from '../components/SpendingByCategoryChart';
+import IncomeVsExpensesChart from '../components/IncomeVsExpensesChart';
+import NetWorthTrendChart from '../components/NetWorthTrendChart';
+import AccountBalancesChart from '../components/AccountBalancesChart';
+
+export default function Dashboard() {
+  const { getNetWorth, getTotalAssets, getTotalLiabilities, accounts, transactions } = useApp();
+
+  const netWorth = getNetWorth();
+  const assets = getTotalAssets();
+  const liabilities = getTotalLiabilities();
+  
+  // Calculate monthly savings
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+  const monthTransactions = transactions.filter(t => {
+    const date = new Date(t.date);
+    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+  });
+  
+  const monthlyIncome = monthTransactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+    
+  const monthlyExpenses = monthTransactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+    
+  const monthlySavings = monthlyIncome - monthlyExpenses;
+
+  const formatCurrency = (amount: number) => {
+    return `£${Math.abs(amount).toFixed(2)}`;
+  };
+
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>
+      
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Net Worth</h3>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                {formatCurrency(netWorth)}
+              </p>
+              <p className={`text-sm mt-1 ${netWorth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {netWorth >= 0 ? <TrendingUp size={16} className="inline" /> : <TrendingDown size={16} className="inline" />}
+                {' '}{netWorth >= 0 ? 'Positive' : 'Negative'}
+              </p>
+            </div>
+            <Wallet className="text-primary" size={32} />
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Total Assets</h3>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                {formatCurrency(assets)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {accounts.filter(a => ['checking', 'savings', 'investment'].includes(a.type)).length} accounts
+              </p>
+            </div>
+            <TrendingUp className="text-green-500" size={32} />
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Total Liabilities</h3>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                {formatCurrency(liabilities)}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {accounts.filter(a => ['credit', 'loan'].includes(a.type)).length} accounts
+              </p>
+            </div>
+            <TrendingDown className="text-red-500" size={32} />
+          </div>
+        </div>
+        
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-500">Monthly Savings</h3>
+              <p className="text-2xl font-bold text-gray-900 mt-2">
+                {formatCurrency(monthlySavings)}
+              </p>
+              <p className={`text-sm mt-1 ${monthlySavings >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {monthlySavings >= 0 ? 'Surplus' : 'Deficit'} this month
+              </p>
+            </div>
+            <PiggyBank className="text-purple-500" size={32} />
+          </div>
+        </div>
+      </div>
+
+      {/* Charts */}
+      <div className="space-y-6">
+        {/* Net Worth Trend - Full Width */}
+        <NetWorthTrendChart />
+        
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <IncomeVsExpensesChart />
+          <SpendingByCategoryChart />
+        </div>
+        
+        {/* Account Balances - Full Width */}
+        {accounts.length > 0 && <AccountBalancesChart />}
+      </div>
+    </div>
+  );
+}
+
+========== src/pages/Transactions.tsx ==========
+import { useState } from 'react';
+import { useApp } from '../contexts/AppContext';
+import AddTransactionModal from '../components/AddTransactionModal';
+import { Plus, TrendingUp, TrendingDown, Filter, Calendar, Trash2 } from 'lucide-react';
+
+export default function Transactions() {
+  const { transactions, accounts, deleteTransaction } = useApp();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
+  const [filterAccountId, setFilterAccountId] = useState<string>('');
+
+  // Sort transactions by date (newest first)
+  const sortedTransactions = [...transactions].sort((a, b) => 
+    new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  // Apply filters
+  const filteredTransactions = sortedTransactions.filter(transaction => {
+    if (filterType !== 'all' && transaction.type !== filterType) return false;
+    if (filterAccountId && transaction.accountId !== filterAccountId) return false;
+    return true;
+  });
+
+  const formatCurrency = (amount: number, accountId: string) => {
+    const account = accounts.find(a => a.id === accountId);
+    const currency = account?.currency || 'GBP';
+    const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
+    return `${symbol}${Math.abs(amount).toFixed(2)}`;
+  };
+
+  const getTypeIcon = (type: string) => {
+    return type === 'income' ? (
+      <TrendingUp className="text-green-500" size={20} />
+    ) : (
+      <TrendingDown className="text-red-500" size={20} />
+    );
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this transaction?')) {
+      deleteTransaction(id);
+    }
+  };
+
+  // Calculate totals
+  const totals = filteredTransactions.reduce((acc, t) => {
+    if (t.type === 'income') acc.income += t.amount;
+    else if (t.type === 'expense') acc.expense += t.amount;
+    return acc;
+  }, { income: 0, expense: 0 });
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Transactions</h1>
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
+        >
+          <Plus size={20} />
+          Add Transaction
+        </button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Income</p>
+              <p className="text-xl font-bold text-green-600">£{totals.income.toFixed(2)}</p>
+            </div>
+            <TrendingUp className="text-green-500" size={24} />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Expenses</p>
+              <p className="text-xl font-bold text-red-600">£{totals.expense.toFixed(2)}</p>
+            </div>
+            <TrendingDown className="text-red-500" size={24} />
+          </div>
+        </div>
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">Net</p>
+              <p className={`text-xl font-bold ${totals.income - totals.expense >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                £{(totals.income - totals.expense).toFixed(2)}
+              </p>
+            </div>
+            <Calendar className="text-primary" size={24} />
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow mb-6">
+        <div className="flex flex-wrap gap-4">
+          <div className="flex items-center gap-2">
+            <Filter size={20} className="text-gray-500" />
+            <select
+              className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              value={filterType}
+              onChange={(e) => setFilterType(e.target.value as any)}
+            >
+              <option value="all">All Types</option>
+              <option value="income">Income Only</option>
+              <option value="expense">Expenses Only</option>
+            </select>
+          </div>
+          <div>
+            <select
+              className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              value={filterAccountId}
+              onChange={(e) => setFilterAccountId(e.target.value)}
+            >
+              <option value="">All Accounts</option>
+              {accounts.map(account => (
+                <option key={account.id} value={account.id}>{account.name}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Transactions List */}
+      {filteredTransactions.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-gray-500 text-center py-8">
+            {transactions.length === 0 
+              ? "No transactions yet. Click 'Add Transaction' to record your first one!"
+              : "No transactions match your filters."}
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Account
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Amount
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredTransactions.map((transaction) => {
+                  const account = accounts.find(a => a.id === transaction.accountId);
+                  return (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(transaction.date).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          {getTypeIcon(transaction.type)}
+                          <span className="text-sm text-gray-900">{transaction.description}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {transaction.category}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {account?.name || 'Unknown'}
+                      </td>
+                      <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
+                        transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {transaction.type === 'income' ? '+' : '-'}
+                        {formatCurrency(transaction.amount, transaction.accountId)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleDelete(transaction.id)}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <AddTransactionModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+      />
+    </div>
+  );
+}
+
+========== src/pages/Analytics.tsx ==========
+import { useState } from 'react';
+import { useApp } from '../contexts/AppContext';
+import SpendingByCategoryChart from '../components/SpendingByCategoryChart';
+import IncomeVsExpensesChart from '../components/IncomeVsExpensesChart';
+import NetWorthTrendChart from '../components/NetWorthTrendChart';
+import AccountBalancesChart from '../components/AccountBalancesChart';
+import { Calendar, TrendingUp, PieChart, BarChart3 } from 'lucide-react';
+
+export default function Analytics() {
+  const { transactions, accounts } = useApp();
+  const [timeRange, setTimeRange] = useState('30days');
+
+  // Calculate key metrics
+  const totalIncome = transactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+    
+  const totalExpenses = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+    
+  const avgDailySpending = transactions.length > 0 
+    ? totalExpenses / 30 
+    : 0;
+    
+  const savingsRate = totalIncome > 0 
+    ? ((totalIncome - totalExpenses) / totalIncome) * 100 
+    : 0;
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
+        <select
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          value={timeRange}
+          onChange={(e) => setTimeRange(e.target.value)}
+        >
+          <option value="30days">Last 30 Days</option>
+          <option value="90days">Last 90 Days</option>
+          <option value="year">This Year</option>
+        </select>
+      </div>
+
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 text-gray-500 mb-1">
+            <TrendingUp size={16} />
+            <span className="text-sm">Total Income</span>
+          </div>
+          <p className="text-xl font-bold">£{totalIncome.toFixed(2)}</p>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 text-gray-500 mb-1">
+            <BarChart3 size={16} />
+            <span className="text-sm">Total Expenses</span>
+          </div>
+          <p className="text-xl font-bold">£{totalExpenses.toFixed(2)}</p>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 text-gray-500 mb-1">
+            <Calendar size={16} />
+            <span className="text-sm">Avg Daily Spending</span>
+          </div>
+          <p className="text-xl font-bold">£{avgDailySpending.toFixed(2)}</p>
+        </div>
+        
+        <div className="bg-white p-4 rounded-lg shadow">
+          <div className="flex items-center gap-2 text-gray-500 mb-1">
+            <PieChart size={16} />
+            <span className="text-sm">Savings Rate</span>
+          </div>
+          <p className="text-xl font-bold">{savingsRate.toFixed(1)}%</p>
+        </div>
+      </div>
+
+      {/* Charts Grid */}
+      <div className="space-y-6">
+        <NetWorthTrendChart />
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <IncomeVsExpensesChart />
+          <SpendingByCategoryChart />
+        </div>
+        
+        {accounts.length > 0 && <AccountBalancesChart />}
+        
+        {/* Top Spending Categories */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Top Spending Categories</h3>
+          {transactions.length === 0 ? (
+            <p className="text-gray-500 text-center py-4">No transactions yet</p>
+          ) : (
+            <div className="space-y-3">
+              {Object.entries(
+                transactions
+                  .filter(t => t.type === 'expense')
+                  .reduce((acc, t) => {
+                    acc[t.category || 'Other'] = (acc[t.category || 'Other'] || 0) + t.amount;
+                    return acc;
+                  }, {} as Record<string, number>)
+              )
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 5)
+                .map(([category, amount]) => (
+                  <div key={category} className="flex justify-between items-center">
+                    <span className="text-gray-700">{category}</span>
+                    <span className="font-semibold">£{amount.toFixed(2)}</span>
+                  </div>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+========== src/pages/Accounts.tsx ==========
+import { useState } from 'react';
+import { useApp } from '../contexts/AppContext';
+import AddAccountModal from '../components/AddAccountModal';
+import AddTransactionModal from '../components/AddTransactionModal';
+import { Edit2, Trash2, TrendingUp, TrendingDown, Plus } from 'lucide-react';
+
+export default function Accounts() {
+  const { accounts, deleteAccount } = useApp();
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+
+  const formatCurrency = (amount: number, currency: string) => {
+    const symbols: { [key: string]: string } = {
+      GBP: '£',
+      USD: '$',
+      EUR: '€',
+    };
+    return `${symbols[currency] || currency}${Math.abs(amount).toFixed(2)}`;
+  };
+
+  const getAccountTypeColor = (type: string) => {
+    const colors: { [key: string]: string } = {
+      checking: 'bg-blue-100 text-blue-800',
+      savings: 'bg-green-100 text-green-800',
+      credit: 'bg-red-100 text-red-800',
+      investment: 'bg-purple-100 text-purple-800',
+      loan: 'bg-orange-100 text-orange-800',
+      other: 'bg-gray-100 text-gray-800',
+    };
+    return colors[type] || colors.other;
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm('Are you sure you want to delete this account?')) {
+      deleteAccount(id);
+    }
+  };
+
+  const handleAddTransaction = (accountId: string) => {
+    setSelectedAccountId(accountId);
+    setIsTransactionModalOpen(true);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-gray-900">Accounts</h1>
+        <button 
+          onClick={() => setIsAddModalOpen(true)}
+          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors"
+        >
+          Add Account
+        </button>
+      </div>
+
+      {accounts.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-gray-500 text-center py-8">
+            No accounts added yet. Click "Add Account" to get started!
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {accounts.map((account) => (
+            <div key={account.id} className="bg-white rounded-lg shadow p-6">
+              <div className="flex justify-between items-start mb-4">
+                <div>
+                  <h3 className="font-semibold text-lg">{account.name}</h3>
+                  {account.institution && (
+                    <p className="text-sm text-gray-500">{account.institution}</p>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  <button 
+                    onClick={() => handleAddTransaction(account.id)}
+                    className="p-1 hover:bg-gray-100 rounded text-primary"
+                    title="Add transaction"
+                  >
+                    <Plus size={16} />
+                  </button>
+                  <button className="p-1 hover:bg-gray-100 rounded">
+                    <Edit2 size={16} />
+                  </button>
+                  <button 
+                    onClick={() => handleDelete(account.id)}
+                    className="p-1 hover:bg-gray-100 rounded text-red-600"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${getAccountTypeColor(account.type)}`}>
+                  {account.type.charAt(0).toUpperCase() + account.type.slice(1)}
+                </span>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-2xl font-bold">
+                    {formatCurrency(account.balance, account.currency)}
+                  </span>
+                  {account.balance > 0 ? (
+                    <TrendingUp className="text-green-500" size={20} />
+                  ) : account.balance < 0 ? (
+                    <TrendingDown className="text-red-500" size={20} />
+                  ) : null}
+                </div>
+
+                <p className="text-xs text-gray-500">
+                  Updated: {new Date(account.lastUpdated).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <AddAccountModal 
+        isOpen={isAddModalOpen} 
+        onClose={() => setIsAddModalOpen(false)} 
+      />
+      
+      <AddTransactionModal 
+        isOpen={isTransactionModalOpen} 
+        onClose={() => {
+          setIsTransactionModalOpen(false);
+          setSelectedAccountId('');
+        }}
+        preSelectedAccountId={selectedAccountId}
+      />
+    </div>
+  );
+}
+
+========== src/pages/Budget.tsx ==========
+export default function Budget() {
+  return (
+    <div>
+      <h1 className="text-3xl font-bold text-gray-900 mb-6">Budget</h1>
+      <div className="bg-white rounded-lg shadow p-6">
+        <p className="text-gray-500 text-center py-8">No budget set up yet</p>
+      </div>
+    </div>
+  );
+}
+

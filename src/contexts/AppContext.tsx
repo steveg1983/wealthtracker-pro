@@ -1,0 +1,230 @@
+import { createContext, useContext, useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
+
+interface Account {
+  id: string;
+  name: string;
+  type: 'checking' | 'savings' | 'credit' | 'investment' | 'loan' | 'other';
+  balance: number;
+  currency: string;
+  institution?: string;
+  lastUpdated: Date;
+}
+
+interface Transaction {
+  id: string;
+  accountId: string;
+  date: Date;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense' | 'transfer';
+  category?: string;
+}
+
+interface Budget {
+  id: string;
+  category: string;
+  amount: number;
+  period: 'monthly' | 'weekly' | 'yearly';
+  isActive: boolean;
+  createdAt: Date;
+}
+
+interface AppContextType {
+  accounts: Account[];
+  transactions: Transaction[];
+  budgets: Budget[];
+  addAccount: (account: Omit<Account, 'id' | 'lastUpdated'>) => void;
+  updateAccount: (id: string, updates: Partial<Account>) => void;
+  deleteAccount: (id: string) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  deleteTransaction: (id: string) => void;
+  addBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => void;
+  updateBudget: (id: string, updates: Partial<Budget>) => void;
+  deleteBudget: (id: string) => void;
+  getBudgetProgress: (category: string) => { spent: number; budget: number; percentage: number };
+  getAccountBalance: (accountId: string) => number;
+  getTotalAssets: () => number;
+  getTotalLiabilities: () => number;
+  getNetWorth: () => number;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  // Load data from localStorage on mount
+  const [accounts, setAccounts] = useState<Account[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_accounts');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [budgets, setBudgets] = useState<Budget[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_budgets');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // Save to localStorage whenever data changes
+  useEffect(() => {
+    localStorage.setItem('wealthtracker_accounts', JSON.stringify(accounts));
+  }, [accounts]);
+
+  useEffect(() => {
+    localStorage.setItem('wealthtracker_transactions', JSON.stringify(transactions));
+  }, [transactions]);
+
+  useEffect(() => {
+    localStorage.setItem('wealthtracker_budgets', JSON.stringify(budgets));
+  }, [budgets]);
+
+  const addAccount = (account: Omit<Account, 'id' | 'lastUpdated'>) => {
+    const newAccount: Account = {
+      ...account,
+      id: Date.now().toString(),
+      lastUpdated: new Date(),
+    };
+    setAccounts([...accounts, newAccount]);
+  };
+
+  const updateAccount = (id: string, updates: Partial<Account>) => {
+    setAccounts(accounts.map(acc => 
+      acc.id === id ? { ...acc, ...updates, lastUpdated: new Date() } : acc
+    ));
+  };
+
+  const deleteAccount = (id: string) => {
+    setAccounts(accounts.filter(acc => acc.id !== id));
+    // Also delete related transactions
+    setTransactions(transactions.filter(t => t.accountId !== id));
+  };
+
+  const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
+    const newTransaction: Transaction = {
+      ...transaction,
+      id: Date.now().toString(),
+    };
+    setTransactions([...transactions, newTransaction]);
+    
+    // Update account balance
+    const account = accounts.find(a => a.id === transaction.accountId);
+    if (account) {
+      const balanceChange = transaction.type === 'income' 
+        ? transaction.amount 
+        : -transaction.amount;
+      updateAccount(account.id, { balance: account.balance + balanceChange });
+    }
+  };
+
+  const deleteTransaction = (id: string) => {
+    const transaction = transactions.find(t => t.id === id);
+    if (transaction) {
+      // Reverse the balance change
+      const account = accounts.find(a => a.id === transaction.accountId);
+      if (account) {
+        const balanceChange = transaction.type === 'income' 
+          ? -transaction.amount 
+          : transaction.amount;
+        updateAccount(account.id, { balance: account.balance + balanceChange });
+      }
+    }
+    setTransactions(transactions.filter(t => t.id !== id));
+  };
+
+  const addBudget = (budget: Omit<Budget, 'id' | 'createdAt'>) => {
+    const newBudget: Budget = {
+      ...budget,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+    };
+    setBudgets([...budgets, newBudget]);
+  };
+
+  const updateBudget = (id: string, updates: Partial<Budget>) => {
+    setBudgets(budgets.map(budget => 
+      budget.id === id ? { ...budget, ...updates } : budget
+    ));
+  };
+
+  const deleteBudget = (id: string) => {
+    setBudgets(budgets.filter(budget => budget.id !== id));
+  };
+
+  const getBudgetProgress = (category: string) => {
+    const budget = budgets.find(b => b.category === category && b.isActive);
+    if (!budget) return { spent: 0, budget: 0, percentage: 0 };
+
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const spent = transactions
+      .filter(t => {
+        const tDate = new Date(t.date);
+        return t.type === 'expense' &&
+               t.category === category &&
+               tDate >= startOfMonth &&
+               tDate <= endOfMonth;
+      })
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+
+    return { spent, budget: budget.amount, percentage };
+  };
+
+  const getAccountBalance = (accountId: string) => {
+    const account = accounts.find(a => a.id === accountId);
+    return account?.balance || 0;
+  };
+
+  const getTotalAssets = () => {
+    return accounts
+      .filter(a => ['checking', 'savings', 'investment'].includes(a.type))
+      .reduce((sum, account) => sum + account.balance, 0);
+  };
+
+  const getTotalLiabilities = () => {
+    return accounts
+      .filter(a => ['credit', 'loan'].includes(a.type))
+      .reduce((sum, account) => sum + Math.abs(account.balance), 0);
+  };
+
+  const getNetWorth = () => {
+    return getTotalAssets() - getTotalLiabilities();
+  };
+
+  return (
+    <AppContext.Provider value={{
+      accounts,
+      transactions,
+      budgets,
+      addAccount,
+      updateAccount,
+      deleteAccount,
+      addTransaction,
+      deleteTransaction,
+      addBudget,
+      updateBudget,
+      deleteBudget,
+      getBudgetProgress,
+      getAccountBalance,
+      getTotalAssets,
+      getTotalLiabilities,
+      getNetWorth,
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+
+export function useApp() {
+  const context = useContext(AppContext);
+  if (!context) {
+    throw new Error('useApp must be used within AppProvider');
+  }
+  return context;
+}
