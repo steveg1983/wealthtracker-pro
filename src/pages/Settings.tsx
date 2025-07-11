@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import ImportDataModal from "../components/ImportDataModal";
 import { useNavigate } from 'react-router-dom';
 import { 
   User, 
@@ -131,11 +132,26 @@ export default function Settings() {
                 <div className="flex items-center gap-3">
                   <section.icon size={20} className={activeSection === section.id ? 'text-primary dark:text-blue-400' : 'text-gray-500 dark:text-gray-400'} />
                   <span className={`${activeSection === section.id ? 'font-medium' : ''} dark:text-white`}>{section.name}</span>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                 </div>
                 <ChevronRight size={16} className="text-gray-400" />
               </button>
             ))}
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
           </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
         </div>
 
         {/* Settings Content */}
@@ -156,6 +172,11 @@ export default function Settings() {
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="Your name"
                     />
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
                   
                   <div>
@@ -171,6 +192,11 @@ export default function Settings() {
                       <option value="USD">$ USD - US Dollar</option>
                       <option value="EUR">€ EUR - Euro</option>
                     </select>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
 
                   <div>
@@ -183,8 +209,23 @@ export default function Settings() {
                       <option>July</option>
                       <option>October</option>
                     </select>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                 </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
               </div>
             )}
 
@@ -197,6 +238,11 @@ export default function Settings() {
                     <div>
                       <p className="font-medium dark:text-white">Budget Alerts</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Notify when spending exceeds 80% of budget</p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -205,14 +251,29 @@ export default function Settings() {
                         checked={notifications.budgetAlerts}
                         onChange={(e) => setNotifications({...notifications, budgetAlerts: e.target.checked})}
                       />
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                       <div className="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary dark:peer-checked:bg-blue-600"></div>
                     </label>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
 
                   <div className="flex items-center justify-between py-3 border-b dark:border-gray-700">
                     <div>
                       <p className="font-medium dark:text-white">Low Balance Warnings</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Alert when account balance is low</p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -221,14 +282,29 @@ export default function Settings() {
                         checked={notifications.lowBalance}
                         onChange={(e) => setNotifications({...notifications, lowBalance: e.target.checked})}
                       />
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                       <div className="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary dark:peer-checked:bg-blue-600"></div>
                     </label>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
 
                   <div className="flex items-center justify-between py-3 border-b dark:border-gray-700">
                     <div>
                       <p className="font-medium dark:text-white">Weekly Summary</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Email weekly spending report</p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -237,14 +313,29 @@ export default function Settings() {
                         checked={notifications.weeklyReport}
                         onChange={(e) => setNotifications({...notifications, weeklyReport: e.target.checked})}
                       />
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                       <div className="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary dark:peer-checked:bg-blue-600"></div>
                     </label>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
 
                   <div className="flex items-center justify-between py-3">
                     <div>
                       <p className="font-medium dark:text-white">Monthly Report</p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Detailed monthly financial summary</p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                     </div>
                     <label className="relative inline-flex items-center cursor-pointer">
                       <input
@@ -253,10 +344,30 @@ export default function Settings() {
                         checked={notifications.monthlyReport}
                         onChange={(e) => setNotifications({...notifications, monthlyReport: e.target.checked})}
                       />
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                       <div className="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary dark:peer-checked:bg-blue-600"></div>
                     </label>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                 </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
               </div>
             )}
 
@@ -272,6 +383,11 @@ export default function Settings() {
                         onClick={() => setTheme('light')}
                         className={`p-4 border-2 ${theme === 'light' ? 'border-primary dark:border-blue-400' : 'border-gray-300 dark:border-gray-600'} rounded-lg text-center transition-colors`}
                       >
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                         <div className="w-8 h-8 bg-gray-100 rounded mx-auto mb-2"></div>
                         <p className={`text-sm ${theme === 'light' ? 'font-medium' : ''} dark:text-white`}>Light</p>
                       </button>
@@ -279,6 +395,11 @@ export default function Settings() {
                         onClick={() => setTheme('dark')}
                         className={`p-4 border-2 ${theme === 'dark' ? 'border-primary dark:border-blue-400' : 'border-gray-300 dark:border-gray-600'} rounded-lg text-center transition-colors`}
                       >
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                         <div className="w-8 h-8 bg-gray-800 rounded mx-auto mb-2"></div>
                         <p className={`text-sm ${theme === 'dark' ? 'font-medium' : ''} dark:text-white`}>Dark</p>
                       </button>
@@ -286,10 +407,25 @@ export default function Settings() {
                         onClick={() => setTheme('auto')}
                         className={`p-4 border-2 ${theme === 'auto' ? 'border-primary dark:border-blue-400' : 'border-gray-300 dark:border-gray-600'} rounded-lg text-center transition-colors`}
                       >
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                         <div className="w-8 h-8 bg-gradient-to-br from-gray-100 to-gray-800 rounded mx-auto mb-2"></div>
                         <p className={`text-sm ${theme === 'auto' ? 'font-medium' : ''} dark:text-white`}>Auto</p>
                       </button>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                     </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
 
                   <div>
@@ -320,10 +456,20 @@ export default function Settings() {
                           title={colorOption.name.charAt(0).toUpperCase() + colorOption.name.slice(1)}
                         />
                       ))}
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                     </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                       Changes the primary color throughout the app
                     </p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
 
                   <div>
@@ -334,8 +480,23 @@ export default function Settings() {
                       Compact view toggle has been moved to the Transactions page for easier access. 
                       You can toggle it directly from there to see the effect immediately.
                     </p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                 </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
               </div>
             )}
 
@@ -351,7 +512,17 @@ export default function Settings() {
                       <p>• {transactions.length} transactions</p>
                       <p>• {budgets.length} budgets</p>
                       <p>• Last backup: Never</p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                     </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
 
                   <div className="space-y-3">
@@ -386,9 +557,29 @@ export default function Settings() {
                         <AlertCircle size={20} />
                         Delete All Data
                       </button>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                     </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                 </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
               </div>
             )}
 
@@ -405,8 +596,23 @@ export default function Settings() {
                         <p className="text-sm text-green-800 dark:text-green-400 mt-1">
                           All data is stored locally on your device. No information is sent to external servers.
                         </p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                       </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                     </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
 
                   <div>
@@ -417,7 +623,17 @@ export default function Settings() {
                         <div className="flex-1">
                           <p className="text-sm font-medium dark:text-white">Enable device lock screen</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Protect your financial data with device security</p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                         </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                       </div>
                       
                       <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -425,7 +641,17 @@ export default function Settings() {
                         <div className="flex-1">
                           <p className="text-sm font-medium dark:text-white">Regular backups</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Export your data monthly for safekeeping</p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                         </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                       </div>
                       
                       <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -433,16 +659,66 @@ export default function Settings() {
                         <div className="flex-1">
                           <p className="text-sm font-medium dark:text-white">Use HTTPS only</p>
                           <p className="text-xs text-gray-500 dark:text-gray-400">Always access via secure connection</p>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                         </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                       </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                     </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                   </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
                 </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
               </div>
             )}
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
           </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
         </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
       </div>
+
+      <ImportDataModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+      />
     </div>
   );
 }
