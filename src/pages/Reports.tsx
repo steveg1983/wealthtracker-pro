@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { BarChart3, PieChart, TrendingUp, Calendar, Download, Filter } from 'lucide-react';
+import { PieChart, TrendingUp, Calendar, Download, Filter } from 'lucide-react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,7 +13,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
-import { Line, Bar, Pie, Doughnut } from 'react-chartjs-2';
+import { Line, Doughnut } from 'react-chartjs-2';
 
 // Register ChartJS components
 ChartJS.register(
@@ -29,7 +29,7 @@ ChartJS.register(
 );
 
 export default function Reports() {
-  const { transactions, accounts, budgets } = useApp();
+  const { transactions, accounts } = useApp();
   const [dateRange, setDateRange] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
 

@@ -68,6 +68,7 @@ export default function Layout() {
             <SidebarLink to="/budgets" icon={Target} label="Budgets" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/reports" icon={PieChart} label="Reports" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={isSidebarCollapsed} />
+            {console.log("Reconciliation link should be here")}
             <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/settings" icon={Settings} label="Settings" isCollapsed={isSidebarCollapsed} />
           </nav>
@@ -95,6 +96,7 @@ export default function Layout() {
                 <SidebarLink to="/budgets" icon={Target} label="Budgets" isCollapsed={false} />
                 <SidebarLink to="/reports" icon={PieChart} label="Reports" isCollapsed={false} />
                 <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} />
+            {console.log("Reconciliation link should be here")}
                 <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} />
                 <SidebarLink to="/settings" icon={Settings} label="Settings" isCollapsed={false} />
               </nav>
