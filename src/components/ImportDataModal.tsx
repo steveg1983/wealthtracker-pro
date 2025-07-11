@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { X, Upload, FileText, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
-import { parseMNY } from '../utils/mnyParser';
+import { parseMNY, applyMappingToData } from '../utils/mnyParser';
 import { parseQIF as enhancedParseQIF } from '../utils/qifParser';
+import MnyMappingModal from './MnyMappingModal';
 
 interface ImportDataModalProps {
   isOpen: boolean;
@@ -28,6 +29,8 @@ interface ParsedData {
   accounts: ParsedAccount[];
   transactions: ParsedTransaction[];
   warning?: string;
+  rawData?: any[];
+  needsMapping?: boolean;
 }
 
 export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProps) {
@@ -38,6 +41,8 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState<ParsedData | null>(null);
+  const [showMappingModal, setShowMappingModal] = useState(false);
+  const [rawMnyData, setRawMnyData] = useState<any[]>([]);
 
   // Parse OFX file format
   const parseOFX = (content: string): ParsedData => {
@@ -119,6 +124,14 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         setMessage('Parsing Money database file... This may take a moment...');
         const arrayBuffer = await selectedFile.arrayBuffer();
         parsed = await parseMNY(arrayBuffer);
+        
+        // Check if we need manual mapping
+        if (parsed.needsMapping && parsed.rawData) {
+          setRawMnyData(parsed.rawData);
+          setShowMappingModal(true);
+          setParsing(false);
+          return;
+        }
       } else if (fileName.endsWith('.qif')) {
         console.log('Detected QIF file');
         setMessage('Parsing QIF file...');
@@ -156,6 +169,18 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     } finally {
       setParsing(false);
     }
+  };
+
+  const handleMappingComplete = (mapping: any, data: any[]) => {
+    console.log('Applying mapping to data...');
+    const result = applyMappingToData(data, mapping);
+    
+    setPreview({
+      accounts: result.accounts,
+      transactions: result.transactions
+    });
+    setMessage(`Mapped ${result.accounts.length} accounts and ${result.transactions.length} transactions`);
+    setShowMappingModal(false);
   };
 
   const handleImport = async () => {
@@ -225,157 +250,158 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold dark:text-white">Import Financial Data</h2>
-          <button
-            onClick={onClose}
-            disabled={parsing}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50"
-          >
-            <X size={24} />
-          </button>
-        </div>
+    <>
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold dark:text-white">Import Financial Data</h2>
+            <button
+              onClick={onClose}
+              disabled={parsing}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50"
+            >
+              <X size={24} />
+            </button>
+          </div>
 
-        <div className="mb-6">
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Import your financial data from Microsoft Money or other financial software. 
-            Supported formats:
-          </p>
-          <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
-            <li><strong>QIF</strong> - Quicken Interchange Format (recommended for Money users)</li>
-            <li><strong>OFX</strong> - Open Financial Exchange</li>
-            <li><strong>MNY</strong> - Microsoft Money files (limited support)</li>
-          </ul>
+          <div className="mb-6">
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Import your financial data from Microsoft Money or other financial software. 
+              Supported formats:
+            </p>
+            <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
+              <li><strong>QIF</strong> - Quicken Interchange Format (recommended for Money users)</li>
+              <li><strong>OFX</strong> - Open Financial Exchange</li>
+              <li><strong>MNY</strong> - Microsoft Money files (with manual mapping)</li>
+            </ul>
 
-          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-            <div className="flex items-start gap-2">
-              <Info className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
-              <div className="text-sm text-blue-800 dark:text-blue-200">
-                <p className="font-semibold mb-1">Microsoft Money Users:</p>
-                <p>For best results, export your data as QIF:</p>
-                <ol className="list-decimal list-inside mt-2 ml-2">
-                  <li>Open Microsoft Money</li>
-                  <li>Go to File → Export</li>
-                  <li>Choose "Loose QIF" format</li>
-                  <li>Select date range and accounts</li>
-                  <li>Import the QIF file here</li>
-                </ol>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+              <div className="flex items-start gap-2">
+                <Info className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  <p className="font-semibold mb-1">MNY File Import:</p>
+                  <p>For Money .mny files, we'll show you the data and let you tell us what each column represents.</p>
+                </div>
               </div>
+            </div>
+
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+              {parsing ? (
+                <>
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p className="text-gray-600 dark:text-gray-400">Parsing file...</p>
+                </>
+              ) : (
+                <>
+                  <Upload className="mx-auto text-gray-400 mb-4" size={48} />
+                  <label className="cursor-pointer">
+                    <span className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors inline-block">
+                      Choose File
+                    </span>
+                    <input
+                      type="file"
+                      accept=".mny,.qif,.ofx"
+                      onChange={handleFileChange}
+                      className="hidden"
+                      disabled={parsing}
+                    />
+                  </label>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                    {file ? file.name : 'No file selected'}
+                  </p>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
-            {parsing ? (
-              <>
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                <p className="text-gray-600 dark:text-gray-400">Parsing file...</p>
-              </>
-            ) : (
-              <>
-                <Upload className="mx-auto text-gray-400 mb-4" size={48} />
-                <label className="cursor-pointer">
-                  <span className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors inline-block">
-                    Choose File
-                  </span>
-                  <input
-                    type="file"
-                    accept=".mny,.qif,.ofx"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    disabled={parsing}
-                  />
-                </label>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                  {file ? file.name : 'No file selected'}
-                </p>
-              </>
-            )}
-          </div>
-        </div>
-
-        {preview && preview.warning && (
-          <div className="mb-4 p-3 rounded-lg flex items-start gap-2 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300">
-            <AlertTriangle size={20} className="mt-0.5 flex-shrink-0" />
-            <div>
-              <p className="font-semibold mb-1">Limited Support</p>
-              <p className="text-sm">{preview.warning}</p>
-              <p className="text-xs mt-2">You can still import the data found, but results may be limited.</p>
-            </div>
-          </div>
-        )}
-
-        {preview && (
-          <div className="mb-6 bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-            <h3 className="font-semibold mb-2 dark:text-white">Preview</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+          {preview && preview.warning && (
+            <div className="mb-4 p-3 rounded-lg flex items-start gap-2 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300">
+              <AlertTriangle size={20} className="mt-0.5 flex-shrink-0" />
               <div>
-                <p className="text-gray-600 dark:text-gray-400">Accounts found:</p>
-                <p className="font-semibold dark:text-white">{preview.accounts.length}</p>
-                {preview.accounts.slice(0, 5).map((acc, i) => (
-                  <p key={i} className="text-xs text-gray-500 dark:text-gray-400">
-                    • {acc.name} ({acc.type})
-                  </p>
-                ))}
-                {preview.accounts.length > 5 && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    • ... and {preview.accounts.length - 5} more
-                  </p>
-                )}
+                <p className="font-semibold mb-1">Import Notice</p>
+                <p className="text-sm">{preview.warning}</p>
               </div>
-              <div>
-                <p className="text-gray-600 dark:text-gray-400">Transactions found:</p>
-                <p className="font-semibold dark:text-white">{preview.transactions.length}</p>
-                {preview.transactions.length > 0 && (
-                  <>
+            </div>
+          )}
+
+          {preview && (preview.accounts.length > 0 || preview.transactions.length > 0) && (
+            <div className="mb-6 bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+              <h3 className="font-semibold mb-2 dark:text-white">Preview</h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-gray-600 dark:text-gray-400">Accounts found:</p>
+                  <p className="font-semibold dark:text-white">{preview.accounts.length}</p>
+                  {preview.accounts.slice(0, 5).map((acc, i) => (
+                    <p key={i} className="text-xs text-gray-500 dark:text-gray-400">
+                      • {acc.name} ({acc.type})
+                    </p>
+                  ))}
+                  {preview.accounts.length > 5 && (
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Date range: {preview.transactions[0].date.toLocaleDateString()} - {preview.transactions[preview.transactions.length - 1].date.toLocaleDateString()}
+                      • ... and {preview.accounts.length - 5} more
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      First: {preview.transactions[0].description.substring(0, 30)}...
-                    </p>
-                  </>
-                )}
+                  )}
+                </div>
+                <div>
+                  <p className="text-gray-600 dark:text-gray-400">Transactions found:</p>
+                  <p className="font-semibold dark:text-white">{preview.transactions.length}</p>
+                  {preview.transactions.length > 0 && (
+                    <>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Date range: {preview.transactions[0].date.toLocaleDateString()} - {preview.transactions[preview.transactions.length - 1].date.toLocaleDateString()}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        First: {preview.transactions[0].description.substring(0, 30)}...
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {message && !preview?.warning && (
-          <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
-            status === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
-            status === 'error' ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
-            'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-          }`}>
-            {status === 'success' ? <CheckCircle size={20} /> :
-             status === 'error' ? <AlertCircle size={20} /> :
-             <FileText size={20} />}
-            <span>{message}</span>
-          </div>
-        )}
+          {message && !preview?.warning && (
+            <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
+              status === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
+              status === 'error' ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
+              'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+            }`}>
+              {status === 'success' ? <CheckCircle size={20} /> :
+               status === 'error' ? <AlertCircle size={20} /> :
+               <FileText size={20} />}
+              <span>{message}</span>
+            </div>
+          )}
 
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            disabled={parsing || importing}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleImport}
-            disabled={!preview || importing || parsing}
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              preview && !importing && !parsing
-                ? 'bg-primary text-white hover:bg-secondary'
-                : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-            }`}
-          >
-            {importing ? 'Importing...' : 'Import Data'}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={parsing || importing}
+              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleImport}
+              disabled={!preview || importing || parsing || preview.accounts.length === 0}
+              className={`flex-1 px-4 py-2 rounded-lg ${
+                preview && !importing && !parsing && preview.accounts.length > 0
+                  ? 'bg-primary text-white hover:bg-secondary'
+                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {importing ? 'Importing...' : 'Import Data'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+
+      <MnyMappingModal
+        isOpen={showMappingModal}
+        onClose={() => setShowMappingModal(false)}
+        rawData={rawMnyData}
+        onMappingComplete={handleMappingComplete}
+      />
+    </>
   );
 }

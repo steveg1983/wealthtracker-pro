@@ -1,5 +1,4 @@
-// Microsoft Money .mny file parser
-// .mny files are the active database files used by Microsoft Money
+// Microsoft Money .mny file parser with manual mapping support
 
 export interface ParsedAccount {
   name: string;
@@ -22,94 +21,89 @@ export interface ParseResult {
   accounts: ParsedAccount[];
   transactions: ParsedTransaction[];
   warning?: string;
+  rawData?: any[];
+  needsMapping?: boolean;
 }
 
 export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const uint8Array = new Uint8Array(arrayBuffer);
+  const dataView = new DataView(arrayBuffer);
   
   console.log('Parsing Microsoft Money .mny file, size:', arrayBuffer.byteLength);
   
-  // Check file header to understand format
-  const header = Array.from(uint8Array.slice(0, 32))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join(' ');
-  console.log('File header:', header);
+  // Try to extract structured data that could be transactions
+  const potentialRecords: any[] = [];
+  const recordSize = 256; // Guess at record size
+  const maxRecords = 10000;
   
-  // Check for Jet database signature
-  const jetSignature = [0x00, 0x01, 0x00, 0x00, 0x53, 0x74, 0x61, 0x6E, 0x64, 0x61, 0x72, 0x64, 0x20, 0x4A, 0x65, 0x74];
-  const isJetDb = jetSignature.every((byte, i) => uint8Array[i + 4] === byte);
-  console.log('Is Jet database:', isJetDb);
+  // Strategy: Look for patterns that might be structured records
+  // We'll extract data and let the user tell us what it means
   
-  // Check for encryption
-  let textFound = 0;
-  
-  // Sample the file to check if it contains readable text
-  for (let i = 0; i < Math.min(10000, arrayBuffer.byteLength); i++) {
-    const byte = uint8Array[i];
-    if (byte >= 32 && byte <= 126) {
-      textFound++;
+  for (let offset = 0; offset < arrayBuffer.byteLength - recordSize && potentialRecords.length < maxRecords; offset += recordSize) {
+    const record: any = {};
+    
+    // Try to read various data types at different offsets
+    for (let i = 0; i < Math.min(10, recordSize / 8); i++) {
+      const pos = offset + i * 8;
+      
+      if (pos + 8 <= arrayBuffer.byteLength) {
+        // Try reading as double (8 bytes)
+        const doubleValue = dataView.getFloat64(pos, true);
+        
+        // Check if it might be an OLE date
+        if (doubleValue > 30000 && doubleValue < 60000) {
+          record[`field_${i}_date`] = doubleValue;
+        }
+        // Check if it might be a currency amount
+        else if (Math.abs(doubleValue) > 0.01 && Math.abs(doubleValue) < 1000000) {
+          record[`field_${i}_amount`] = doubleValue;
+        }
+        
+        // Try reading as 32-bit integer
+        const intValue = dataView.getInt32(pos, true);
+        if (intValue > 0 && intValue < 1000000) {
+          record[`field_${i}_int`] = intValue;
+        }
+      }
+      
+      // Try reading as string (both ASCII and UTF-16)
+      const asciiStr = readString(uint8Array, offset + i * 20, 50);
+      if (asciiStr && asciiStr.length > 2) {
+        record[`field_${i}_text`] = asciiStr;
+      }
+      
+      const utf16Str = readUTF16String(uint8Array, offset + i * 20, 25);
+      if (utf16Str && utf16Str.length > 2 && utf16Str !== asciiStr) {
+        record[`field_${i}_text_utf16`] = utf16Str;
+      }
+    }
+    
+    // Only add records that have at least some meaningful data
+    if (Object.keys(record).length >= 3) {
+      potentialRecords.push(record);
+    }
+    
+    // Progress
+    if (offset % (1024 * 1024) === 0 && offset > 0) {
+      console.log(`Scanned ${(offset / (1024 * 1024)).toFixed(1)}MB...`);
+      await new Promise(resolve => setTimeout(resolve, 0));
     }
   }
   
-  const textPercentage = (textFound / Math.min(10000, arrayBuffer.byteLength)) * 100;
-  console.log(`Readable text percentage in first 10KB: ${textPercentage.toFixed(1)}%`);
+  console.log(`Extracted ${potentialRecords.length} potential records`);
   
-  if (textPercentage < 20) {
-    console.log('File appears to be encrypted or compressed');
-    
+  if (potentialRecords.length > 10) {
+    // We found structured data - let user map it
     return {
-      accounts: [{
-        name: 'Money File (Encrypted)',
-        type: 'checking',
-        balance: 0
-      }],
+      accounts: [],
       transactions: [],
-      warning: 'This Microsoft Money file appears to be encrypted or password protected. To import your data:\n\n' +
-               '1. Open the file in Microsoft Money\n' +
-               '2. Go to File → Password → Remove Password (if password protected)\n' +
-               '3. Go to File → Export\n' +
-               '4. Choose "Loose QIF" format\n' +
-               '5. Export all accounts and date ranges\n' +
-               '6. Import the QIF file here instead'
+      rawData: potentialRecords,
+      needsMapping: true,
+      warning: 'We found structured data in your Money file. Please help us understand what each field represents.'
     };
   }
   
-  // If we get here, try to parse what we can
-  console.log('Attempting to parse unencrypted Money file...');
-  
-  // Look for OLE header
-  const oleSignature = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
-  const isOLE = oleSignature.every((byte, i) => uint8Array[i] === byte);
-  console.log('Is OLE structured storage:', isOLE);
-  
-  if (isOLE) {
-    console.log('This is an OLE file (like old Office formats)');
-    console.log('Money data is likely in compressed streams within this file');
-    
-    return {
-      accounts: [{
-        name: 'Money File (OLE Format)',
-        type: 'checking',
-        balance: 0
-      }],
-      transactions: [],
-      warning: 'This Microsoft Money file uses OLE structured storage which requires specialized parsing. ' +
-               'The seemingly valid transactions with nonsense descriptions confirm the data is in a compressed/encoded format. ' +
-               'Please export your data from Money as QIF:\n\n' +
-               '1. Open Microsoft Money\n' +
-               '2. File → Export\n' +
-               '3. Choose "Loose QIF"\n' +
-               '4. Select all accounts\n' +
-               '5. Import the QIF file here'
-    };
-  }
-  
-  // Log some sample "descriptions" to confirm they're garbage
-  console.log('Sample data being interpreted as transactions:');
-  
-  // The fact that we're finding 8412 "transactions" with garbage descriptions
-  // means we're interpreting random binary data as transaction records
-  
+  // Fallback if we can't find structured data
   return {
     accounts: [{
       name: 'Money Import',
@@ -117,15 +111,103 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
       balance: 0
     }],
     transactions: [],
-    warning: 'This Microsoft Money file format cannot be reliably parsed. The data appears to be in a proprietary format. ' +
-             'The 8000+ "transactions" with unreadable descriptions indicate we\'re reading binary data incorrectly.\n\n' +
-             'To import your Money data:\n' +
-             '1. Open Microsoft Money\n' +
-             '2. Go to File → Export\n' +
-             '3. Choose "Loose QIF" format\n' +
-             '4. Select all accounts and date range\n' +
-             '5. Save the .qif file\n' +
-             '6. Import that QIF file here instead\n\n' +
-             'QIF is a text-based format that preserves all your accounts, transactions, and categories accurately.'
+    warning: 'Unable to automatically parse this Money file. Please export from Money as QIF format instead.'
+  };
+}
+
+function readString(uint8Array: Uint8Array, offset: number, maxLength: number): string {
+  let str = '';
+  for (let i = 0; i < maxLength && offset + i < uint8Array.length; i++) {
+    const byte = uint8Array[offset + i];
+    if (byte === 0) break;
+    if (byte >= 32 && byte <= 126) {
+      str += String.fromCharCode(byte);
+    }
+  }
+  return str.trim();
+}
+
+function readUTF16String(uint8Array: Uint8Array, offset: number, maxLength: number): string {
+  let str = '';
+  for (let i = 0; i < maxLength && offset + i * 2 + 1 < uint8Array.length; i++) {
+    const charCode = uint8Array[offset + i * 2] | (uint8Array[offset + i * 2 + 1] << 8);
+    if (charCode === 0) break;
+    if (charCode >= 32 && charCode < 65536) {
+      str += String.fromCharCode(charCode);
+    }
+  }
+  return str.trim();
+}
+
+export function applyMappingToData(rawData: any[], mapping: any): { accounts: ParsedAccount[], transactions: ParsedTransaction[] } {
+  const accounts = new Map<string, ParsedAccount>();
+  const transactions: ParsedTransaction[] = [];
+  
+  // Process each record using the mapping
+  rawData.forEach(record => {
+    try {
+      // Get mapped values
+      const dateField = record[Object.keys(record)[mapping.date]];
+      const amountField = record[Object.keys(record)[mapping.amount]];
+      const descField = record[Object.keys(record)[mapping.description]];
+      
+      // Convert date
+      let date: Date;
+      if (typeof dateField === 'number' && dateField > 30000 && dateField < 60000) {
+        // OLE date
+        date = new Date((dateField - 25569) * 86400 * 1000);
+      } else if (dateField instanceof Date) {
+        date = dateField;
+      } else {
+        date = new Date(dateField);
+      }
+      
+      if (isNaN(date.getTime())) return;
+      
+      // Get amount
+      const amount = parseFloat(String(amountField));
+      if (isNaN(amount)) return;
+      
+      // Get optional fields
+      const payee = mapping.payee !== undefined ? record[Object.keys(record)[mapping.payee]] : undefined;
+      const category = mapping.category !== undefined ? record[Object.keys(record)[mapping.category]] : 'Imported';
+      const accountName = mapping.accountName !== undefined ? record[Object.keys(record)[mapping.accountName]] : 'Primary Account';
+      
+      // Add account if new
+      if (accountName && !accounts.has(accountName)) {
+        accounts.set(accountName, {
+          name: accountName,
+          type: 'checking',
+          balance: 0
+        });
+      }
+      
+      // Create transaction
+      transactions.push({
+        date,
+        amount: Math.abs(amount),
+        description: String(descField),
+        type: amount < 0 ? 'expense' : 'income',
+        category: String(category),
+        payee: payee ? String(payee) : undefined,
+        accountName
+      });
+      
+    } catch (error) {
+      console.error('Error processing record:', error);
+    }
+  });
+  
+  // Calculate balances
+  accounts.forEach(account => {
+    const accountTrans = transactions.filter(t => t.accountName === account.name);
+    const income = accountTrans.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expenses = accountTrans.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    account.balance = income - expenses;
+  });
+  
+  return {
+    accounts: Array.from(accounts.values()),
+    transactions
   };
 }
