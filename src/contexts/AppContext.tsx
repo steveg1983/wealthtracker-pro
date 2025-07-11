@@ -1,13 +1,14 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { generateTestData } from '../utils/generateTestData';
 
 interface Account {
   id: string;
   name: string;
-  type: 'checking' | 'savings' | 'credit' | 'investment' | 'loan' | 'other';
+  type: 'checking' | 'savings' | 'credit' | 'loan' | 'investment';
   balance: number;
   currency: string;
-  institution?: string;
+  institution: string;
   lastUpdated: Date;
 }
 
@@ -17,8 +18,8 @@ interface Transaction {
   date: Date;
   description: string;
   amount: number;
-  type: 'income' | 'expense' | 'transfer';
-  category?: string;
+  type: 'income' | 'expense';
+  category: string;
 }
 
 interface Budget {
@@ -30,41 +31,70 @@ interface Budget {
   createdAt: Date;
 }
 
+interface Goal {
+  id: string;
+  name: string;
+  targetAmount: number;
+  currentAmount: number;
+  deadline: Date;
+  createdAt: Date;
+}
+
 interface AppContextType {
   accounts: Account[];
   transactions: Transaction[];
   budgets: Budget[];
-  addAccount: (account: Omit<Account, 'id' | 'lastUpdated'>) => void;
+  goals: Goal[];
+  addAccount: (account: Omit<Account, 'id'>) => void;
   updateAccount: (id: string, updates: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
   deleteTransaction: (id: string) => void;
-  addBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => void;
+  addBudget: (budget: Omit<Budget, 'id'>) => void;
   updateBudget: (id: string, updates: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
-  getBudgetProgress: (category: string) => { spent: number; budget: number; percentage: number };
-  getAccountBalance: (accountId: string) => number;
-  getTotalAssets: () => number;
-  getTotalLiabilities: () => number;
-  getNetWorth: () => number;
+  addGoal: (goal: Omit<Goal, 'id'>) => void;
+  updateGoal: (id: string, updates: Partial<Goal>) => void;
+  deleteGoal: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Load data from localStorage on mount
-  const [accounts, setAccounts] = useState<Account[]>(() => {
-    const saved = localStorage.getItem('wealthtracker_accounts');
-    return saved ? JSON.parse(saved) : [];
-  });
+  // Initialize with test data if first time user
+  const initializeData = () => {
+    const savedAccounts = localStorage.getItem('wealthtracker_accounts');
+    const savedTransactions = localStorage.getItem('wealthtracker_transactions');
+    const savedBudgets = localStorage.getItem('wealthtracker_budgets');
+    
+    // If no data exists, load test data
+    if (!savedAccounts && !savedTransactions && !savedBudgets) {
+      const testData = generateTestData();
+      localStorage.setItem('wealthtracker_accounts', JSON.stringify(testData.accounts));
+      localStorage.setItem('wealthtracker_transactions', JSON.stringify(testData.transactions));
+      localStorage.setItem('wealthtracker_budgets', JSON.stringify(testData.budgets));
+      localStorage.setItem('wealthtracker_first_time', 'false');
+      return {
+        accounts: testData.accounts,
+        transactions: testData.transactions,
+        budgets: testData.budgets
+      };
+    }
+    
+    return {
+      accounts: savedAccounts ? JSON.parse(savedAccounts) : [],
+      transactions: savedTransactions ? JSON.parse(savedTransactions) : [],
+      budgets: savedBudgets ? JSON.parse(savedBudgets) : []
+    };
+  };
 
-  const [transactions, setTransactions] = useState<Transaction[]>(() => {
-    const saved = localStorage.getItem('wealthtracker_transactions');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const initialData = initializeData();
 
-  const [budgets, setBudgets] = useState<Budget[]>(() => {
-    const saved = localStorage.getItem('wealthtracker_budgets');
+  const [accounts, setAccounts] = useState<Account[]>(initialData.accounts);
+  const [transactions, setTransactions] = useState<Transaction[]>(initialData.transactions);
+  const [budgets, setBudgets] = useState<Budget[]>(initialData.budgets);
+  const [goals, setGoals] = useState<Goal[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_goals');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -81,18 +111,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('wealthtracker_budgets', JSON.stringify(budgets));
   }, [budgets]);
 
-  const addAccount = (account: Omit<Account, 'id' | 'lastUpdated'>) => {
-    const newAccount: Account = {
+  useEffect(() => {
+    localStorage.setItem('wealthtracker_goals', JSON.stringify(goals));
+  }, [goals]);
+
+  // Account functions
+  const addAccount = (account: Omit<Account, 'id'>) => {
+    const newAccount = {
       ...account,
-      id: Date.now().toString(),
-      lastUpdated: new Date(),
+      id: `acc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     };
     setAccounts([...accounts, newAccount]);
   };
 
   const updateAccount = (id: string, updates: Partial<Account>) => {
     setAccounts(accounts.map(acc => 
-      acc.id === id ? { ...acc, ...updates, lastUpdated: new Date() } : acc
+      acc.id === id ? { ...acc, ...updates } : acc
     ));
   };
 
@@ -102,20 +136,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTransactions(transactions.filter(t => t.accountId !== id));
   };
 
+  // Transaction functions
   const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
-    const newTransaction: Transaction = {
+    const newTransaction = {
       ...transaction,
-      id: Date.now().toString(),
+      id: `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     };
     setTransactions([...transactions, newTransaction]);
-    
+
     // Update account balance
-    const account = accounts.find(a => a.id === transaction.accountId);
+    const account = accounts.find(acc => acc.id === transaction.accountId);
     if (account) {
-      const balanceChange = transaction.type === 'income' 
-        ? transaction.amount 
-        : -transaction.amount;
-      updateAccount(account.id, { balance: account.balance + balanceChange });
+      const balanceChange = transaction.type === 'income' ? transaction.amount : -transaction.amount;
+      updateAccount(account.id, { 
+        balance: account.balance + balanceChange,
+        lastUpdated: new Date()
+      });
     }
   };
 
@@ -123,22 +159,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const transaction = transactions.find(t => t.id === id);
     if (transaction) {
       // Reverse the balance change
-      const account = accounts.find(a => a.id === transaction.accountId);
+      const account = accounts.find(acc => acc.id === transaction.accountId);
       if (account) {
-        const balanceChange = transaction.type === 'income' 
-          ? -transaction.amount 
-          : transaction.amount;
-        updateAccount(account.id, { balance: account.balance + balanceChange });
+        const balanceChange = transaction.type === 'income' ? -transaction.amount : transaction.amount;
+        updateAccount(account.id, { 
+          balance: account.balance + balanceChange,
+          lastUpdated: new Date()
+        });
       }
     }
     setTransactions(transactions.filter(t => t.id !== id));
   };
 
-  const addBudget = (budget: Omit<Budget, 'id' | 'createdAt'>) => {
-    const newBudget: Budget = {
+  // Budget functions
+  const addBudget = (budget: Omit<Budget, 'id'>) => {
+    const newBudget = {
       ...budget,
-      id: Date.now().toString(),
-      createdAt: new Date(),
+      id: `budget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     };
     setBudgets([...budgets, newBudget]);
   };
@@ -153,48 +190,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBudgets(budgets.filter(budget => budget.id !== id));
   };
 
-  const getBudgetProgress = (category: string) => {
-    const budget = budgets.find(b => b.category === category && b.isActive);
-    if (!budget) return { spent: 0, budget: 0, percentage: 0 };
-
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-    const spent = transactions
-      .filter(t => {
-        const tDate = new Date(t.date);
-        return t.type === 'expense' &&
-               t.category === category &&
-               tDate >= startOfMonth &&
-               tDate <= endOfMonth;
-      })
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
-
-    return { spent, budget: budget.amount, percentage };
+  // Goal functions
+  const addGoal = (goal: Omit<Goal, 'id'>) => {
+    const newGoal = {
+      ...goal,
+      id: `goal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    };
+    setGoals([...goals, newGoal]);
   };
 
-  const getAccountBalance = (accountId: string) => {
-    const account = accounts.find(a => a.id === accountId);
-    return account?.balance || 0;
+  const updateGoal = (id: string, updates: Partial<Goal>) => {
+    setGoals(goals.map(goal => 
+      goal.id === id ? { ...goal, ...updates } : goal
+    ));
   };
 
-  const getTotalAssets = () => {
-    return accounts
-      .filter(a => ['checking', 'savings', 'investment'].includes(a.type))
-      .reduce((sum, account) => sum + account.balance, 0);
-  };
-
-  const getTotalLiabilities = () => {
-    return accounts
-      .filter(a => ['credit', 'loan'].includes(a.type))
-      .reduce((sum, account) => sum + Math.abs(account.balance), 0);
-  };
-
-  const getNetWorth = () => {
-    return getTotalAssets() - getTotalLiabilities();
+  const deleteGoal = (id: string) => {
+    setGoals(goals.filter(goal => goal.id !== id));
   };
 
   return (
@@ -202,6 +214,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       accounts,
       transactions,
       budgets,
+      goals,
       addAccount,
       updateAccount,
       deleteAccount,
@@ -210,11 +223,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addBudget,
       updateBudget,
       deleteBudget,
-      getBudgetProgress,
-      getAccountBalance,
-      getTotalAssets,
-      getTotalLiabilities,
-      getNetWorth,
+      addGoal,
+      updateGoal,
+      deleteGoal,
     }}>
       {children}
     </AppContext.Provider>
