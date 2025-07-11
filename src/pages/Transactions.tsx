@@ -1,7 +1,7 @@
-import { formatCurrency } from "../utils/formatters";
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { formatCurrency } from '../utils/formatters';
 import AddTransactionModal from '../components/AddTransactionModal';
 import { Plus, TrendingUp, TrendingDown, Filter, Calendar, Trash2, Minimize2, Maximize2 } from 'lucide-react';
 
@@ -23,13 +23,6 @@ export default function Transactions() {
     if (filterAccountId && transaction.accountId !== filterAccountId) return false;
     return true;
   });
-
-  const formatCurrency = (amount: number, accountId: string) => {
-    const account = accounts.find(a => a.id === accountId);
-    const currency = account?.currency || 'GBP';
-    const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
-    return `${symbol}${Math.abs(amount).toFixed(2)}`;
-  };
 
   const getTypeIcon = (type: string) => {
     return type === 'income' ? (
@@ -85,7 +78,7 @@ export default function Transactions() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Income</p>
-              <p className="text-xl font-bold text-green-600 dark:text-green-400">£{totals.income.toFixed(2)}</p>
+              <p className="text-xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.income)}</p>
             </div>
             <TrendingUp className="text-green-500" size={24} />
           </div>
@@ -94,7 +87,7 @@ export default function Transactions() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Expenses</p>
-              <p className="text-xl font-bold text-red-600 dark:text-red-400">£{totals.expense.toFixed(2)}</p>
+              <p className="text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totals.expense)}</p>
             </div>
             <TrendingDown className="text-red-500" size={24} />
           </div>
@@ -104,7 +97,7 @@ export default function Transactions() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Net</p>
               <p className={`text-xl font-bold ${totals.income - totals.expense >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                £{(totals.income - totals.expense).toFixed(2)}
+                {formatCurrency(totals.income - totals.expense)}
               </p>
             </div>
             <Calendar className="text-primary" size={24} />
@@ -201,7 +194,7 @@ export default function Transactions() {
                         transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                       }`}>
                         {transaction.type === 'income' ? '+' : '-'}
-                        {formatCurrency(transaction.amount, transaction.accountId)}
+                        {formatCurrency(transaction.amount, account?.currency || 'GBP')}
                       </td>
                       <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-right text-sm font-medium`}>
                         <button

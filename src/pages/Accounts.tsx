@@ -1,6 +1,6 @@
-import { formatCurrency } from "../utils/formatters";
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
+import { formatCurrency } from '../utils/formatters';
 import AddAccountModal from '../components/AddAccountModal';
 import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2 } from 'lucide-react';
 
@@ -88,11 +88,6 @@ export default function Accounts() {
     }
   };
 
-  const formatCurrency = (amount: number, currency: string) => {
-    const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
-    return `${symbol}${Math.abs(amount).toFixed(2)}`;
-  };
-
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -111,19 +106,19 @@ export default function Accounts() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Net Worth</p>
           <p className={`text-2xl font-bold ${totalBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            £{totalBalance.toFixed(2)}
+            {formatCurrency(totalBalance)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Assets</p>
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            £{totalAssets.toFixed(2)}
+            {formatCurrency(totalAssets)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Liabilities</p>
           <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-            £{totalLiabilities.toFixed(2)}
+            {formatCurrency(totalLiabilities)}
           </p>
         </div>
       </div>
@@ -148,7 +143,7 @@ export default function Accounts() {
                     </span>
                   </div>
                   <p className={`text-lg font-semibold ${typeTotal >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
-                    £{Math.abs(typeTotal).toFixed(2)}
+                    {formatCurrency(Math.abs(typeTotal))}
                   </p>
                 </div>
               </div>
