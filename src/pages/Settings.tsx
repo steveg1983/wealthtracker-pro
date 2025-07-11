@@ -18,8 +18,8 @@ import { usePreferences } from '../contexts/PreferencesContext';
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { accounts, transactions, budgets, addAccount, addBudget } = useApp();
-  const { compactView, setCompactView, currency, setCurrency, theme, setTheme, accentColor, setAccentColor } = usePreferences();
+  const { accounts, transactions, budgets } = useApp();
+  const { currency, setCurrency, theme, setTheme, accentColor, setAccentColor } = usePreferences();
   const [activeSection, setActiveSection] = useState('profile');
   const [isGeneratingData, setIsGeneratingData] = useState(false);
   const [notifications, setNotifications] = useState({
