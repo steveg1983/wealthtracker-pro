@@ -7,8 +7,6 @@ import {
   Download, 
   Upload,
   Globe,
-  CreditCard,
-  Target,
   AlertCircle,
   Check,
   ChevronRight
