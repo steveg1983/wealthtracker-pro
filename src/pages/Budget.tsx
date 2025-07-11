@@ -250,7 +250,7 @@ export default function Budget() {
         )}
       </div>
 
-      <AddBudgetModal 
+      <BudgetModal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
       />
