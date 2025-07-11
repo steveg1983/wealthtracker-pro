@@ -5,6 +5,14 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 export default function Dashboard() {
   const { accounts, transactions } = useApp();
   
+  // Helper function to format currency properly
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-GB', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  };
+  
   const totalAssets = accounts
     .filter(acc => acc.balance > 0)
     .reduce((sum, acc) => sum + acc.balance, 0);
@@ -57,7 +65,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Net Worth</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                £{new Intl.NumberFormat('en-GB').format(netWorth)}.00
+                £{formatCurrency(netWorth)}
               </p>
             </div>
             <DollarSign className="text-primary" size={24} />
@@ -69,7 +77,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Assets</p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                £{new Intl.NumberFormat('en-GB').format(totalAssets)}.00
+                £{formatCurrency(totalAssets)}
               </p>
             </div>
             <TrendingUp className="text-green-500" size={24} />
@@ -81,7 +89,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Liabilities</p>
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                £{new Intl.NumberFormat('en-GB').format(totalLiabilities)}.00
+                £{formatCurrency(totalLiabilities)}
               </p>
             </div>
             <TrendingDown className="text-red-500" size={24} />
@@ -109,13 +117,13 @@ export default function Dashboard() {
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Income</span>
               <span className="text-green-600 dark:text-green-400 font-semibold">
-                +£{new Intl.NumberFormat('en-GB').format(monthlyIncome)}.00
+                +£{formatCurrency(monthlyIncome)}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Expenses</span>
               <span className="text-red-600 dark:text-red-400 font-semibold">
-                -£{new Intl.NumberFormat('en-GB').format(monthlyExpenses)}.00
+                -£{formatCurrency(monthlyExpenses)}
               </span>
             </div>
             <div className="border-t dark:border-gray-700 pt-4">
@@ -126,7 +134,7 @@ export default function Dashboard() {
                     ? 'text-green-600 dark:text-green-400' 
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  £{new Intl.NumberFormat('en-GB').format(monthlyIncome - monthlyExpenses)}.00
+                  £{formatCurrency(monthlyIncome - monthlyExpenses)}
                 </span>
               </div>
             </div>
@@ -152,7 +160,7 @@ export default function Dashboard() {
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => `£${new Intl.NumberFormat('en-GB').format(value)}.00`}
+                  formatter={(value: number) => `£${formatCurrency(value)}`}
                   contentStyle={{ 
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     border: '1px solid #ccc',
@@ -182,7 +190,7 @@ export default function Dashboard() {
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-red-600 dark:text-red-400'
               }`}>
-                {transaction.type === 'income' ? '+' : '-'}£{new Intl.NumberFormat('en-GB').format(transaction.amount)}.00
+                {transaction.type === 'income' ? '+' : '-'}£{formatCurrency(transaction.amount)}
               </span>
             </div>
           ))}
