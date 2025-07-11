@@ -1,121 +1,198 @@
+import { TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
-import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react';
-import SpendingByCategoryChart from '../components/SpendingByCategoryChart';
-import IncomeVsExpensesChart from '../components/IncomeVsExpensesChart';
-import NetWorthTrendChart from '../components/NetWorthTrendChart';
-import AccountBalancesChart from '../components/AccountBalancesChart';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function Dashboard() {
-  const { getNetWorth, getTotalAssets, getTotalLiabilities, accounts, transactions } = useApp();
+ const { accounts, transactions } = useApp();
+ 
+ const totalAssets = accounts
+   .filter(acc => acc.balance > 0)
+   .reduce((sum, acc) => sum + acc.balance, 0);
+   
+ const totalLiabilities = Math.abs(accounts
+   .filter(acc => acc.balance < 0)
+   .reduce((sum, acc) => sum + acc.balance, 0));
+   
+ const netWorth = totalAssets - totalLiabilities;
 
-  const netWorth = getNetWorth();
-  const assets = getTotalAssets();
-  const liabilities = getTotalLiabilities();
-  
-  // Calculate monthly savings
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  const monthTransactions = transactions.filter(t => {
-    const date = new Date(t.date);
-    return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
-  });
-  
-  const monthlyIncome = monthTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-    
-  const monthlyExpenses = monthTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
-    
-  const monthlySavings = monthlyIncome - monthlyExpenses;
+ // Calculate monthly income and expenses
+ const currentMonth = new Date().getMonth();
+ const currentYear = new Date().getFullYear();
+ 
+ const monthlyTransactions = transactions.filter(t => {
+   const transDate = new Date(t.date);
+   return transDate.getMonth() === currentMonth && transDate.getFullYear() === currentYear;
+ });
 
-  const formatCurrency = (amount: number) => {
-    return `£${Math.abs(amount).toFixed(2)}`;
-  };
+ const monthlyIncome = monthlyTransactions
+   .filter(t => t.type === 'income')
+   .reduce((sum, t) => sum + t.amount, 0);
 
-  return (
-    <div>
-      <h1 className="text-3xl font-bold text-gray-900 mb-6">Dashboard</h1>
-      
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Net Worth</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                {formatCurrency(netWorth)}
-              </p>
-              <p className={`text-sm mt-1 ${netWorth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {netWorth >= 0 ? <TrendingUp size={16} className="inline" /> : <TrendingDown size={16} className="inline" />}
-                {' '}{netWorth >= 0 ? 'Positive' : 'Negative'}
-              </p>
-            </div>
-            <Wallet className="text-primary" size={32} />
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Total Assets</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                {formatCurrency(assets)}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                {accounts.filter(a => ['checking', 'savings', 'investment'].includes(a.type)).length} accounts
-              </p>
-            </div>
-            <TrendingUp className="text-green-500" size={32} />
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Total Liabilities</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                {formatCurrency(liabilities)}
-              </p>
-              <p className="text-sm text-gray-500 mt-1">
-                {accounts.filter(a => ['credit', 'loan'].includes(a.type)).length} accounts
-              </p>
-            </div>
-            <TrendingDown className="text-red-500" size={32} />
-          </div>
-        </div>
-        
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-gray-500">Monthly Savings</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-2">
-                {formatCurrency(monthlySavings)}
-              </p>
-              <p className={`text-sm mt-1 ${monthlySavings >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {monthlySavings >= 0 ? 'Surplus' : 'Deficit'} this month
-              </p>
-            </div>
-            <PiggyBank className="text-purple-500" size={32} />
-          </div>
-        </div>
-      </div>
+ const monthlyExpenses = monthlyTransactions
+   .filter(t => t.type === 'expense')
+   .reduce((sum, t) => sum + t.amount, 0);
 
-      {/* Charts */}
-      <div className="space-y-6">
-        {/* Net Worth Trend - Full Width */}
-        <NetWorthTrendChart />
-        
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <IncomeVsExpensesChart />
-          <SpendingByCategoryChart />
-        </div>
-        
-        {/* Account Balances - Full Width */}
-        {accounts.length > 0 && <AccountBalancesChart />}
-      </div>
-    </div>
-  );
+ // Prepare data for pie chart
+ const pieData = accounts.map(acc => ({
+   name: acc.name,
+   value: Math.abs(acc.balance),
+   color: acc.balance > 0 ? '#10b981' : '#ef4444',
+ }));
+
+ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
+ return (
+   <div>
+     <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+       Welcome back, Danielle!
+     </h1>
+     <p className="text-gray-600 dark:text-gray-400 mb-6">
+       Here's your financial overview
+     </p>
+
+     {/* Summary Cards */}
+     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+         <div className="flex items-center justify-between">
+           <div>
+             <p className="text-sm text-gray-500 dark:text-gray-400">Net Worth</p>
+             <p className="text-2xl font-bold text-gray-900 dark:text-white">
+               £{netWorth.toFixed(2)}
+             </p>
+           </div>
+           <DollarSign className="text-primary" size={24} />
+         </div>
+       </div>
+
+       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+         <div className="flex items-center justify-between">
+           <div>
+             <p className="text-sm text-gray-500 dark:text-gray-400">Total Assets</p>
+             <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+               £{totalAssets.toFixed(2)}
+             </p>
+           </div>
+           <TrendingUp className="text-green-500" size={24} />
+         </div>
+       </div>
+
+       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+         <div className="flex items-center justify-between">
+           <div>
+             <p className="text-sm text-gray-500 dark:text-gray-400">Total Liabilities</p>
+             <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+               £{totalLiabilities.toFixed(2)}
+             </p>
+           </div>
+           <TrendingDown className="text-red-500" size={24} />
+         </div>
+       </div>
+
+       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+         <div className="flex items-center justify-between">
+           <div>
+             <p className="text-sm text-gray-500 dark:text-gray-400">Accounts</p>
+             <p className="text-2xl font-bold text-gray-900 dark:text-white">
+               {accounts.length}
+             </p>
+           </div>
+           <Wallet className="text-primary" size={24} />
+         </div>
+       </div>
+     </div>
+
+     {/* Monthly Overview */}
+     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+         <h2 className="text-xl font-semibold mb-4 dark:text-white">This Month</h2>
+         <div className="space-y-4">
+           <div className="flex justify-between items-center">
+             <span className="text-gray-600 dark:text-gray-400">Income</span>
+             <span className="text-green-600 dark:text-green-400 font-semibold">
+               +£{monthlyIncome.toFixed(2)}
+             </span>
+           </div>
+           <div className="flex justify-between items-center">
+             <span className="text-gray-600 dark:text-gray-400">Expenses</span>
+             <span className="text-red-600 dark:text-red-400 font-semibold">
+               -£{monthlyExpenses.toFixed(2)}
+             </span>
+           </div>
+           <div className="border-t dark:border-gray-700 pt-4">
+             <div className="flex justify-between items-center">
+               <span className="text-gray-900 dark:text-white font-semibold">Net</span>
+               <span className={`font-bold ${
+                 monthlyIncome - monthlyExpenses >= 0 
+                   ? 'text-green-600 dark:text-green-400' 
+                   : 'text-red-600 dark:text-red-400'
+               }`}>
+                 £{(monthlyIncome - monthlyExpenses).toFixed(2)}
+               </span>
+             </div>
+           </div>
+         </div>
+       </div>
+
+       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+         <h2 className="text-xl font-semibold mb-4 dark:text-white">Account Distribution</h2>
+         <div className="h-64">
+           <ResponsiveContainer width="100%" height="100%">
+             <PieChart>
+               <Pie
+                 data={pieData}
+                 cx="50%"
+                 cy="50%"
+                 innerRadius={60}
+                 outerRadius={80}
+                 paddingAngle={5}
+                 dataKey="value"
+               >
+                 {pieData.map((entry, index) => (
+                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                 ))}
+               </Pie>
+               <Tooltip 
+                 formatter={(value: number) => `£${value.toFixed(2)}`}
+                 contentStyle={{ 
+                   backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                   border: '1px solid #ccc',
+                   borderRadius: '8px'
+                 }}
+               />
+             </PieChart>
+           </ResponsiveContainer>
+         </div>
+       </div>
+     </div>
+
+     {/* Recent Transactions */}
+     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+       <h2 className="text-xl font-semibold mb-4 dark:text-white">Recent Transactions</h2>
+       <div className="space-y-3">
+         {transactions.slice(0, 5).map(transaction => (
+           <div key={transaction.id} className="flex justify-between items-center py-2 border-b dark:border-gray-700 last:border-0">
+             <div>
+               <p className="font-medium dark:text-white">{transaction.description}</p>
+               <p className="text-sm text-gray-500 dark:text-gray-400">
+                 {new Date(transaction.date).toLocaleDateString()}
+               </p>
+             </div>
+             <span className={`font-semibold ${
+               transaction.type === 'income' 
+                 ? 'text-green-600 dark:text-green-400' 
+                 : 'text-red-600 dark:text-red-400'
+             }`}>
+               {transaction.type === 'income' ? '+' : '-'}£{transaction.amount.toFixed(2)}
+             </span>
+           </div>
+         ))}
+         {transactions.length === 0 && (
+           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+             No transactions yet
+           </p>
+         )}
+       </div>
+     </div>
+   </div>
+ );
 }
