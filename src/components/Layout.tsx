@@ -25,6 +25,7 @@ export default function Layout() {
     { name: 'Accounts', href: '/accounts', icon: Wallet },
     { name: 'Transactions', href: '/transactions', icon: ArrowUpDown },
     { name: 'Investments', href: '/investments', icon: TrendingUp },
+        <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isCollapsed} />
     { name: 'Budget', href: '/budget', icon: PieChart },
     { name: 'Goals', href: '/goals', icon: Target },
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
