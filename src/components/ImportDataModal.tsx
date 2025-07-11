@@ -203,6 +203,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         // Handle Microsoft Money database file
         const arrayBuffer = await selectedFile.arrayBuffer();
         parsed = await parseMNY(arrayBuffer);
+        if (parsed) {
       } else if (selectedFile.name.toLowerCase().endsWith('.qif')) {
       } else if (selectedFile.name.toLowerCase().endsWith('.qif')) {
         const content = await selectedFile.text();
@@ -216,6 +217,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
       
       setPreview(parsed);
       setMessage(`Found ${parsed.accounts.length} accounts and ${parsed.transactions.length} transactions`);
+        }
     } catch (error) {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Failed to parse file');

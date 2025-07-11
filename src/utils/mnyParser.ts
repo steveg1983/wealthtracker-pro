@@ -125,24 +125,11 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
     }
 
     // Search for transaction patterns
-    const transPatterns = [
-      'TRNS',
-      'Transaction',
-      'tblTransaction',
-      'TransactionTable'
-    ];
     
     // Also look for common transaction fields
-    const fieldPatterns = [
-      'Payee',
-      'Amount',
-      'Date',
-      'Category',
-      'Memo'
-    ];
     
     // Money uses various date formats
-    const parseMoneyDate = (bytes: ArrayBuffer, offset: number): Date | null => {
+    const parseMoneyDate = (arrayBuffer: ArrayBuffer, offset: number): Date | null => {
       // Try different date formats
       
       // Format 1: Days since 1900 (4 bytes)
