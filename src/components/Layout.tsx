@@ -1,5 +1,4 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import MobileDebug from "./MobileDebug";
 import { 
   Home, 
   Wallet, 
@@ -13,10 +12,13 @@ import {
   BarChart3
 } from 'lucide-react';
 import { useState } from 'react';
+import { useApp } from '../contexts/AppContext';
+import LoadingScreen from './LoadingScreen';
 
 export default function Layout() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isLoading } = useApp();
   
   const navigation = [
     { name: 'Dashboard', href: '/', icon: Home },
@@ -28,6 +30,10 @@ export default function Layout() {
     { name: 'Analytics', href: '/analytics', icon: BarChart3 },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];
+
+  if (isLoading) {
+    return <LoadingScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -46,7 +52,7 @@ export default function Layout() {
         mobileMenuOpen ? 'block' : 'hidden'
       } lg:block fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-800 shadow-lg`}>
         <div className="flex h-full flex-col">
-          {/* Logo - Updated with proper emoji */}
+          {/* Logo */}
           <div className="flex h-16 items-center justify-center lg:justify-center border-b dark:border-gray-700 pl-16 pr-4 lg:px-4">
             <h1 className="text-lg lg:text-xl font-bold text-primary dark:text-blue-400 text-center">
               Danielle's Money <span className="inline-block">👋</span>
@@ -85,7 +91,7 @@ export default function Layout() {
         />
       )}
 
-      {/* Main content - Added padding-top for mobile */}
+      {/* Main content */}
       <div className="lg:pl-64">
         <main className="p-4 lg:p-8 pt-20 lg:pt-8">
           <Outlet />
