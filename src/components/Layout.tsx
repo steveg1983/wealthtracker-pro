@@ -64,6 +64,7 @@ export default function Layout() {
           <nav className="space-y-2">
             <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/budgets" icon={Target} label="Budget" isCollapsed={isSidebarCollapsed} />
@@ -91,6 +92,7 @@ export default function Layout() {
               <nav className="space-y-2">
                 <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={false} />
                 <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={false} />
+                <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} />
                 <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} />
                 <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} />
                 <SidebarLink to="/budgets" icon={Target} label="Budget" isCollapsed={false} />

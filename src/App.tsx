@@ -3,6 +3,7 @@ import { AppProvider } from './contexts/AppContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Accounts from './pages/Accounts';
+import Reconciliation from './pages/Reconciliation';
 import Transactions from './pages/Transactions';
 import Investments from './pages/Investments';
 import Budgets from './pages/Budget';
@@ -18,6 +19,7 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             <Route path="/accounts" element={<Accounts />} />
+            <Route path="/reconciliation" element={<Reconciliation />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/investments" element={<Investments />} />
             <Route path="/budgets" element={<Budgets />} />
