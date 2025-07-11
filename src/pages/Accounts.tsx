@@ -1,6 +1,6 @@
+cat > src/pages/Accounts.tsx << 'EOF'
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { formatCurrency } from '../utils/formatters';
 import AddAccountModal from '../components/AddAccountModal';
 import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2 } from 'lucide-react';
 
@@ -9,6 +9,15 @@ export default function Accounts() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBalance, setEditBalance] = useState('');
+
+  // Helper function to format currency properly
+  const formatCurrency = (amount: number, currency: string = 'GBP'): string => {
+    const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
+    return symbol + new Intl.NumberFormat('en-GB', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(Math.abs(amount));
+  };
 
   // Group accounts by type
   const accountsByType = accounts.reduce((groups, account) => {
@@ -143,7 +152,7 @@ export default function Accounts() {
                     </span>
                   </div>
                   <p className={`text-lg font-semibold ${typeTotal >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
-                    {formatCurrency(Math.abs(typeTotal))}
+                    {formatCurrency(typeTotal)}
                   </p>
                 </div>
               </div>
@@ -235,3 +244,4 @@ export default function Accounts() {
     </div>
   );
 }
+EOF

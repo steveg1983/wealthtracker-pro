@@ -1,7 +1,7 @@
+cat > src/pages/Transactions.tsx << 'EOF'
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
-import { formatCurrency } from '../utils/formatters';
 import AddTransactionModal from '../components/AddTransactionModal';
 import { Plus, TrendingUp, TrendingDown, Filter, Calendar, Trash2, Minimize2, Maximize2 } from 'lucide-react';
 
@@ -11,6 +11,15 @@ export default function Transactions() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterAccountId, setFilterAccountId] = useState<string>('');
+
+  // Helper function to format currency properly
+  const formatCurrency = (amount: number, currency: string = 'GBP'): string => {
+    const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
+    return symbol + new Intl.NumberFormat('en-GB', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(Math.abs(amount));
+  };
 
   // Sort transactions by date (newest first)
   const sortedTransactions = [...transactions].sort((a, b) => 
@@ -220,3 +229,4 @@ export default function Transactions() {
     </div>
   );
 }
+EOF
