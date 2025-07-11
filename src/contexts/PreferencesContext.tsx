@@ -27,7 +27,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(() => {
     const saved = localStorage.getItem('money_management_theme');
-    // If nothing saved, default to dark
     if (!saved) {
       localStorage.setItem('money_management_theme', 'dark');
       return 'dark';
@@ -40,8 +39,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const [accentColor, setAccentColor] = useState(() => {
     const saved = localStorage.getItem('money_management_accent_color');
-    // If nothing saved, default to pink and save it
-    if (!saved) {
+    if (!saved || saved === 'yellow') {  // Force pink if yellow or not set
       localStorage.setItem('money_management_accent_color', 'pink');
       return 'pink';
     }
@@ -64,7 +62,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         newTheme = 'light';
       }
       
-      console.log('Theme update:', { theme, newTheme });
       setActualTheme(newTheme);
     };
 
@@ -79,43 +76,30 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
-  // Apply theme classes - MORE AGGRESSIVE
+  // Apply theme classes
   useEffect(() => {
     const applyTheme = () => {
       const root = document.documentElement;
       
-      // Log current state
-      console.log('Applying theme:', actualTheme, 'Current classes:', root.className);
-      
-      // Force remove dark class first
       root.classList.remove('dark');
       
-      // Use requestAnimationFrame to ensure DOM updates
       requestAnimationFrame(() => {
         if (actualTheme === 'dark') {
           root.classList.add('dark');
-          console.log('Added dark class');
         } else {
-          // Double-check it's really removed
           root.classList.remove('dark');
-          console.log('Ensured dark class is removed');
         }
-        
-        // Final check
-        console.log('Final classes:', root.className);
       });
     };
     
-    // Apply immediately
     applyTheme();
     
-    // Also apply after a short delay to overcome any race conditions
     const timer = setTimeout(applyTheme, 100);
     
     return () => clearTimeout(timer);
   }, [actualTheme]);
 
-  // Apply accent color class
+  // Apply accent color class - force pink on mount
   useEffect(() => {
     const root = document.documentElement;
     
@@ -133,8 +117,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     // Add the selected accent class
     root.classList.add(`accent-${accentColor}`);
     
-    // Log for debugging
-    console.log('Accent color applied:', accentColor, root.className);
+    // Force pink if yellow is detected
+    if (root.classList.contains('accent-yellow')) {
+      root.classList.remove('accent-yellow');
+      root.classList.add('accent-pink');
+    }
   }, [accentColor]);
 
   useEffect(() => {
