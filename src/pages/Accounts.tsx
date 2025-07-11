@@ -72,9 +72,9 @@ export default function Accounts() {
     },
   ];
 
-  const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
-  const totalAssets = accounts.filter(acc => acc.balance > 0).reduce((sum, acc) => sum + acc.balance, 0);
-  const totalLiabilities = Math.abs(accounts.filter(acc => acc.balance < 0).reduce((sum, acc) => sum + acc.balance, 0));
+  const totalBalance = accounts.reduce((sum: number, acc: any) => sum + acc.balance, 0);
+  const totalAssets = accounts.filter(acc => acc.balance > 0).reduce((sum: number, acc: any) => sum + acc.balance, 0);
+  const totalLiabilities = Math.abs(accounts.filter(acc => acc.balance < 0).reduce((sum: number, acc: any) => sum + acc.balance, 0));
 
   const handleEdit = (accountId: string, currentBalance: number) => {
     setEditingId(accountId);
@@ -137,7 +137,7 @@ export default function Accounts() {
           const typeAccounts = accountsByType[type] || [];
           if (typeAccounts.length === 0) return null;
 
-          const typeTotal = typeAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+          const typeTotal = typeAccounts.reduce((sum: number, acc: any) => sum + acc.balance, 0);
 
           return (
             <div key={type} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">

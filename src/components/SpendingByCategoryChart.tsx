@@ -1,69 +1,68 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useApp } from '../contexts/AppContext';
 
 export default function SpendingByCategoryChart() {
   const { transactions } = useApp();
-  
-  // Calculate spending by category for the current month
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  
-  const categoryTotals = transactions
-    .filter(t => {
-      const transDate = new Date(t.date);
-      return t.type === 'expense' && 
-             transDate.getMonth() === currentMonth && 
-             transDate.getFullYear() === currentYear;
-    })
+
+  // Helper function to format currency
+  const formatCurrency = (amount: number): string => {
+    return '£' + new Intl.NumberFormat('en-GB', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(Math.abs(amount));
+  };
+
+  // Calculate spending by category
+  const spendingByCategory = transactions
+    .filter(t => t.type === 'expense')
     .reduce((acc, t) => {
-      acc[t.category || 'Other'] = (acc[t.category || 'Other'] || 0) + t.amount;
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
       return acc;
     }, {} as Record<string, number>);
 
-  const data = Object.entries(categoryTotals).map(([name, value]) => ({
-    name,
-    value: Number(value.toFixed(2)),
-  }));
+  const data = Object.entries(spendingByCategory)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 6); // Top 6 categories
 
-  const COLORS = [
-    '#0078d4', '#34c759', '#ff3b30', '#ff9500', '#af52de',
-    '#5ac8fa', '#ffcc00', '#ff2d55', '#4cd964', '#007aff'
-  ];
-
-  const formatCurrency = (value: number) => `£${value.toFixed(2)}`;
-
-  if (data.length === 0) {
-    return (
-      <div className="bg-white p-6 rounded-lg shadow">
-        <h3 className="text-lg font-semibold mb-4">Spending by Category</h3>
-        <p className="text-gray-500 text-center py-8">No expenses this month</p>
-      </div>
-    );
-  }
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow">
-      <h3 className="text-lg font-semibold mb-4">Spending by Category (This Month)</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            labelLine={false}
-            label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-            outerRadius={80}
-            fill="#8884d8"
-            dataKey="value"
-          >
-            {data.map((_, index) => (
-              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-            ))}
-          </Pie>
-          <Tooltip formatter={formatCurrency} />
-          <Legend />
-        </PieChart>
-      </ResponsiveContainer>
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <h2 className="text-xl font-semibold mb-4 dark:text-white">Spending by Category</h2>
+      {data.length === 0 ? (
+        <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+          No expense data available
+        </p>
+      ) : (
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                innerRadius={60}
+                outerRadius={80}
+                paddingAngle={5}
+                dataKey="value"
+              >
+                {data.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip 
+                formatter={(value: number) => formatCurrency(value)}
+                contentStyle={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #ccc',
+                  borderRadius: '8px'
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+      )}
     </div>
   );
 }
