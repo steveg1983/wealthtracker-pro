@@ -332,7 +332,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                 Supported formats:
               </p>
               <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
-                <li><strong>MBF</strong> - Microsoft Money Backup files (overwrites existing data)</li>
+                <li><strong>MBF</strong> - Microsoft Money Sunset Edition backup files only (overwrites existing data)</li>
                 <li><strong>QIF</strong> - Quicken Interchange Format (adds to existing data)</li>
                 <li><strong>OFX</strong> - Open Financial Exchange (adds to existing data)</li>
               </ul>
