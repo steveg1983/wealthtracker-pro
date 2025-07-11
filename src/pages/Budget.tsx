@@ -1,3 +1,4 @@
+import { formatCurrency } from "../utils/formatters";
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import AddBudgetModal from '../components/AddBudgetModal';
