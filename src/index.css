@@ -8,9 +8,95 @@
   --color-secondary: #005a9e;
 }
 
-/* Smooth theme transitions */
-@layer base {
-  * {
-    @apply transition-colors duration-200;
-  }
+/* Accent color classes */
+.accent-blue {
+  --color-primary: #0078d4;
+  --color-secondary: #005a9e;
+}
+
+.accent-green {
+  --color-primary: #34c759;
+  --color-secondary: #248a3d;
+}
+
+.accent-purple {
+  --color-primary: #af52de;
+  --color-secondary: #8e3cbf;
+}
+
+.accent-orange {
+  --color-primary: #ff9500;
+  --color-secondary: #e67e00;
+}
+
+.accent-red {
+  --color-primary: #ff3b30;
+  --color-secondary: #d70015;
+}
+
+.accent-pink {
+  --color-primary: #ff2d55;
+  --color-secondary: #d30036;
+}
+
+.accent-indigo {
+  --color-primary: #5856d6;
+  --color-secondary: #3634a3;
+}
+
+.accent-teal {
+  --color-primary: #5ac8fa;
+  --color-secondary: #32ade6;
+}
+
+.accent-yellow {
+  --color-primary: #ffcc00;
+  --color-secondary: #d6ab00;
+}
+
+.accent-gray {
+  --color-primary: #8e8e93;
+  --color-secondary: #636366;
+}
+
+/* Apply primary color to common elements */
+.bg-primary {
+  background-color: var(--color-primary) !important;
+}
+
+.text-primary {
+  color: var(--color-primary) !important;
+}
+
+.border-primary {
+  border-color: var(--color-primary) !important;
+}
+
+.ring-primary {
+  --tw-ring-color: var(--color-primary) !important;
+}
+
+.hover\:bg-secondary:hover {
+  background-color: var(--color-secondary) !important;
+}
+
+.focus\:ring-primary:focus {
+  --tw-ring-color: var(--color-primary) !important;
+}
+
+.dark .dark\:text-blue-400 {
+  color: var(--color-primary) !important;
+}
+
+.dark .dark\:border-blue-400 {
+  border-color: var(--color-primary) !important;
+}
+
+.dark .dark\:bg-blue-600 {
+  background-color: var(--color-primary) !important;
+}
+
+/* Smooth transitions */
+* {
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }

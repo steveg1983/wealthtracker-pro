@@ -71,36 +71,36 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const root = document.documentElement;
     
+    // Remove theme classes
     root.classList.remove('dark');
     root.classList.remove('light');
-    root.removeAttribute('style');
     
-    setTimeout(() => {
-      if (actualTheme === 'dark') {
-        root.classList.add('dark');
-      }
-    }, 10);
+    // Add theme class
+    if (actualTheme === 'dark') {
+      root.classList.add('dark');
+    }
   }, [actualTheme]);
 
-  // Apply accent color as CSS variable
+  // Apply accent color class
   useEffect(() => {
     const root = document.documentElement;
-    const colors: Record<string, { primary: string; secondary: string }> = {
-      blue: { primary: '#0078d4', secondary: '#005a9e' },
-      green: { primary: '#34c759', secondary: '#248a3d' },
-      purple: { primary: '#af52de', secondary: '#8e3cbf' },
-      orange: { primary: '#ff9500', secondary: '#e67e00' },
-      red: { primary: '#ff3b30', secondary: '#d70015' },
-      pink: { primary: '#ff2d55', secondary: '#d30036' },
-      indigo: { primary: '#5856d6', secondary: '#3634a3' },
-      teal: { primary: '#5ac8fa', secondary: '#32ade6' },
-      yellow: { primary: '#ffcc00', secondary: '#d6ab00' },
-      gray: { primary: '#8e8e93', secondary: '#636366' },
-    };
-
-    const selectedColor = colors[accentColor] || colors.blue;
-    root.style.setProperty('--color-primary', selectedColor.primary);
-    root.style.setProperty('--color-secondary', selectedColor.secondary);
+    
+    // Remove all accent classes
+    const accentClasses = [
+      'accent-blue', 'accent-green', 'accent-purple', 'accent-orange', 
+      'accent-red', 'accent-pink', 'accent-indigo', 'accent-teal', 
+      'accent-yellow', 'accent-gray'
+    ];
+    
+    accentClasses.forEach(className => {
+      root.classList.remove(className);
+    });
+    
+    // Add the selected accent class
+    root.classList.add(`accent-${accentColor}`);
+    
+    // Log for debugging
+    console.log('Accent color applied:', accentColor, root.className);
   }, [accentColor]);
 
   useEffect(() => {
