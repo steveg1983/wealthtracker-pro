@@ -16,7 +16,7 @@ import { usePreferences } from '../contexts/PreferencesContext';
 
 export default function Settings() {
   const { accounts, transactions, budgets } = useApp();
-  const { compactView, setCompactView, currency, setCurrency, theme, setTheme } = usePreferences();
+  const { compactView, setCompactView, currency, setCurrency, theme, setTheme, accentColor, setAccentColor } = usePreferences();
   const [activeSection, setActiveSection] = useState('profile');
   const [notifications, setNotifications] = useState({
     budgetAlerts: true,
@@ -213,7 +213,7 @@ export default function Settings() {
             {activeSection === 'appearance' && (
               <div>
                 <h2 className="text-xl font-semibold mb-4 dark:text-white">Appearance</h2>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Theme</label>
                     <div className="grid grid-cols-3 gap-3">
@@ -242,15 +242,37 @@ export default function Settings() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                       Accent Color
                     </label>
-                    <div className="flex gap-3">
-                      <button className="w-10 h-10 rounded-full bg-blue-500 ring-2 ring-offset-2 ring-blue-500"></button>
-                      <button className="w-10 h-10 rounded-full bg-green-500"></button>
-                      <button className="w-10 h-10 rounded-full bg-purple-500"></button>
-                      <button className="w-10 h-10 rounded-full bg-orange-500"></button>
+                    <div className="grid grid-cols-5 gap-3">
+                      {[
+                        { name: 'blue', color: 'bg-blue-500' },
+                        { name: 'green', color: 'bg-green-500' },
+                        { name: 'purple', color: 'bg-purple-500' },
+                        { name: 'orange', color: 'bg-orange-500' },
+                        { name: 'red', color: 'bg-red-500' },
+                        { name: 'pink', color: 'bg-pink-500' },
+                        { name: 'indigo', color: 'bg-indigo-500' },
+                        { name: 'teal', color: 'bg-teal-500' },
+                        { name: 'yellow', color: 'bg-yellow-500' },
+                        { name: 'gray', color: 'bg-gray-500' },
+                      ].map((colorOption) => (
+                        <button
+                          key={colorOption.name}
+                          onClick={() => setAccentColor(colorOption.name)}
+                          className={`w-10 h-10 rounded-full ${colorOption.color} ${
+                            accentColor === colorOption.name 
+                              ? 'ring-2 ring-offset-2 ring-gray-400 dark:ring-gray-600' 
+                              : ''
+                          } transition-all hover:scale-110`}
+                          title={colorOption.name.charAt(0).toUpperCase() + colorOption.name.slice(1)}
+                        />
+                      ))}
                     </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Changes the primary color throughout the app
+                    </p>
                   </div>
 
                   <div>
