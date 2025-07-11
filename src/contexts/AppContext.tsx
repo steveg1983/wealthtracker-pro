@@ -1,155 +1,208 @@
-import { createContext, useContext, useState, useEffect } from 'react';
-import type { ReactNode } from 'react';
-import { generateTestData } from '../utils/generateTestData';
-import type { Account, Transaction, Budget } from '../types';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+
+interface Account {
+  id: string;
+  name: string;
+  type: 'checking' | 'savings' | 'credit' | 'loan' | 'investment';
+  balance: number;
+  currency: string;
+  institution?: string;
+  lastUpdated: Date;
+}
+
+interface Transaction {
+  id: string;
+  date: Date;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense';
+  category: string;
+  accountId: string;
+  tags?: string[];
+  notes?: string;
+  cleared?: boolean;
+  isSplit?: boolean;
+  originalTransactionId?: string;
+  isRecurring?: boolean;
+  recurringId?: string;
+  reconciledWith?: string;
+  reconciledDate?: Date;
+  reconciledNotes?: string;
+}
+
+interface Budget {
+  id: string;
+  category: string;
+  amount: number;
+  period: 'monthly' | 'yearly';
+  spent?: number;
+}
+
+interface RecurringTransaction {
+  id?: string;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense';
+  category: string;
+  accountId: string;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  startDate: string;
+  endDate?: string;
+  lastProcessed?: string;
+}
 
 interface AppContextType {
   accounts: Account[];
   transactions: Transaction[];
   budgets: Budget[];
+  recurringTransactions: RecurringTransaction[];
   addAccount: (account: Omit<Account, 'id'>) => void;
-  updateAccount: (id: string, updates: Partial<Account>) => void;
+  updateAccount: (id: string, account: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
-  updateTransaction: (id: string, updates: Partial<Transaction>) => void;
+  updateTransaction: (id: string, transaction: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   addBudget: (budget: Omit<Budget, 'id'>) => void;
-  updateBudget: (id: string, updates: Partial<Budget>) => void;
+  updateBudget: (id: string, budget: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
-  isLoading: boolean;
   clearAllData: () => void;
   exportData: () => string;
+  importData: (jsonData: string) => void;
   loadTestData: () => void;
+  addRecurringTransaction: (transaction: RecurringTransaction) => void;
+  deleteRecurringTransaction: (id: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const STORAGE_KEYS = {
-  accounts: 'wealthtracker_accounts',
-  transactions: 'wealthtracker_transactions',
-  budgets: 'wealthtracker_budgets',
-};
-
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [isLoading, setIsLoading] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [recurringTransactions, setRecurringTransactions] = useState<any[]>([]);
+  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
 
   // Load data from localStorage on mount
   useEffect(() => {
-    const loadData = () => {
+    const savedData = localStorage.getItem('moneyTrackerData');
+    if (savedData) {
       try {
-        const storedAccounts = localStorage.getItem(STORAGE_KEYS.accounts);
-        const storedTransactions = localStorage.getItem(STORAGE_KEYS.transactions);
-        const storedBudgets = localStorage.getItem(STORAGE_KEYS.budgets);
-
-        // Load existing data (no default test data)
-        if (storedAccounts) setAccounts(JSON.parse(storedAccounts));
-        if (storedTransactions) setTransactions(JSON.parse(storedTransactions));
-        if (storedBudgets) setBudgets(JSON.parse(storedBudgets));
-        
+        const parsedData = JSON.parse(savedData);
+        if (parsedData.accounts) setAccounts(parsedData.accounts);
+        if (parsedData.transactions) {
+          setTransactions(parsedData.transactions.map((t: any) => ({
+            ...t,
+            date: new Date(t.date)
+          })));
+        }
+        if (parsedData.budgets) setBudgets(parsedData.budgets);
+        if (parsedData.recurringTransactions) setRecurringTransactions(parsedData.recurringTransactions);
       } catch (error) {
-        console.error('Error loading data:', error);
-      } finally {
-        setIsLoading(false);
+        console.error('Failed to load saved data:', error);
       }
-    };
-
-    loadData();
+    }
   }, []);
 
-  // Save to localStorage whenever data changes
+  // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(accounts));
-    }
-  }, [accounts, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(transactions));
-    }
-  }, [transactions, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem(STORAGE_KEYS.budgets, JSON.stringify(budgets));
-    }
-  }, [budgets, isLoading]);
+    const dataToSave = {
+      accounts,
+      transactions,
+      budgets,
+      recurringTransactions
+    };
+    localStorage.setItem('moneyTrackerData', JSON.stringify(dataToSave));
+  }, [accounts, transactions, budgets, recurringTransactions]);
 
   // Account methods
   const addAccount = (account: Omit<Account, 'id'>) => {
-    const newAccount: Account = {
-      ...account,
-      id: `acc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    };
-    setAccounts(prev => [...prev, newAccount]);
+    const newAccount = { ...account, id: Date.now().toString() };
+    setAccounts([...accounts, newAccount]);
   };
 
-  const updateAccount = (id: string, updates: Partial<Account>) => {
-    setAccounts(prev => prev.map(acc => 
-      acc.id === id ? { ...acc, ...updates } : acc
+  const updateAccount = (id: string, updatedAccount: Partial<Account>) => {
+    setAccounts(accounts.map(acc => 
+      acc.id === id ? { ...acc, ...updatedAccount } : acc
     ));
   };
 
   const deleteAccount = (id: string) => {
-    setAccounts(prev => prev.filter(acc => acc.id !== id));
-    // Also delete associated transactions
-    setTransactions(prev => prev.filter(trans => trans.accountId !== id));
+    setAccounts(accounts.filter(acc => acc.id !== id));
+    // Also delete related transactions
+    setTransactions(transactions.filter(t => t.accountId !== id));
   };
 
   // Transaction methods
   const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
-    const newTransaction: Transaction = {
-      ...transaction,
-      id: `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    };
-    setTransactions(prev => [...prev, newTransaction]);
+    const newTransaction = { ...transaction, id: Date.now().toString() };
+    setTransactions([...transactions, newTransaction]);
+    
+    // Update account balance
+    const account = accounts.find(acc => acc.id === transaction.accountId);
+    if (account) {
+      const balanceChange = transaction.type === 'income' ? transaction.amount : -transaction.amount;
+      updateAccount(account.id, { balance: account.balance + balanceChange });
+    }
   };
 
-  const updateTransaction = (id: string, updates: Partial<Transaction>) => {
-    setTransactions(prev => prev.map(trans => 
-      trans.id === id ? { ...trans, ...updates } : trans
+  const updateTransaction = (id: string, updatedTransaction: Partial<Transaction>) => {
+    const oldTransaction = transactions.find(t => t.id === id);
+    if (!oldTransaction) return;
+
+    // Update the transaction
+    setTransactions(transactions.map(t => 
+      t.id === id ? { ...t, ...updatedTransaction } : t
     ));
+
+    // If amount or type changed, update account balance
+    if (updatedTransaction.amount !== undefined || updatedTransaction.type !== undefined) {
+      const account = accounts.find(acc => acc.id === oldTransaction.accountId);
+      if (account) {
+        // Reverse old transaction
+        const oldBalanceChange = oldTransaction.type === 'income' ? oldTransaction.amount : -oldTransaction.amount;
+        // Apply new transaction
+        const newAmount = updatedTransaction.amount || oldTransaction.amount;
+        const newType = updatedTransaction.type || oldTransaction.type;
+        const newBalanceChange = newType === 'income' ? newAmount : -newAmount;
+        
+        updateAccount(account.id, { 
+          balance: account.balance - oldBalanceChange + newBalanceChange 
+        });
+      }
+    }
   };
 
   const deleteTransaction = (id: string) => {
-    setTransactions(prev => prev.filter(trans => trans.id !== id));
+    const transaction = transactions.find(t => t.id === id);
+    if (!transaction) return;
+
+    setTransactions(transactions.filter(t => t.id !== id));
+    
+    // Update account balance
+    const account = accounts.find(acc => acc.id === transaction.accountId);
+    if (account) {
+      const balanceChange = transaction.type === 'income' ? -transaction.amount : transaction.amount;
+      updateAccount(account.id, { balance: account.balance + balanceChange });
+    }
   };
 
   // Budget methods
   const addBudget = (budget: Omit<Budget, 'id'>) => {
-    const newBudget: Budget = {
-      ...budget,
-      id: `budget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    };
-    setBudgets(prev => [...prev, newBudget]);
+    const newBudget = { ...budget, id: Date.now().toString() };
+    setBudgets([...budgets, newBudget]);
   };
 
-  const updateBudget = (id: string, updates: Partial<Budget>) => {
-    setBudgets(prev => prev.map(budget => 
-      budget.id === id ? { ...budget, ...updates } : budget
+  const updateBudget = (id: string, updatedBudget: Partial<Budget>) => {
+    setBudgets(budgets.map(budget => 
+      budget.id === id ? { ...budget, ...updatedBudget } : budget
     ));
   };
 
   const deleteBudget = (id: string) => {
-    setBudgets(prev => prev.filter(budget => budget.id !== id));
+    setBudgets(budgets.filter(budget => budget.id !== id));
   };
 
-  // Clear all data
-  const clearAllData = () => {
-    setAccounts([]);
-    setTransactions([]);
-    setBudgets([]);
-    localStorage.removeItem(STORAGE_KEYS.accounts);
-    localStorage.removeItem(STORAGE_KEYS.transactions);
-    localStorage.removeItem(STORAGE_KEYS.budgets);
-  };
-
-  // Export data
-  const addRecurringTransaction = (transaction: any) => {
+  // Recurring transaction methods
+  const addRecurringTransaction = (transaction: RecurringTransaction) => {
     const newTransaction = { ...transaction, id: Date.now().toString() };
     setRecurringTransactions([...recurringTransactions, newTransaction]);
   };
@@ -158,23 +211,172 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRecurringTransactions(recurringTransactions.filter(t => t.id !== id));
   };
 
+  // Data management
+  const clearAllData = () => {
+    setAccounts([]);
+    setTransactions([]);
+    setBudgets([]);
+    setRecurringTransactions([]);
+    localStorage.removeItem('moneyTrackerData');
+  };
+
   const exportData = () => {
-    const data = {
+    return JSON.stringify({
       accounts,
       transactions,
       budgets,
-      exportDate: new Date().toISOString(),
-      version: '1.0'
-    };
-    return JSON.stringify(data, null, 2);
+      recurringTransactions,
+      exportDate: new Date().toISOString()
+    }, null, 2);
   };
 
-  // Load test data
+  const importData = (jsonData: string) => {
+    try {
+      const data = JSON.parse(jsonData);
+      if (data.accounts) setAccounts(data.accounts);
+      if (data.transactions) {
+        setTransactions(data.transactions.map((t: any) => ({
+          ...t,
+          date: new Date(t.date)
+        })));
+      }
+      if (data.budgets) setBudgets(data.budgets);
+      if (data.recurringTransactions) setRecurringTransactions(data.recurringTransactions);
+    } catch (error) {
+      console.error('Failed to import data:', error);
+      throw error;
+    }
+  };
+
   const loadTestData = () => {
-    const testData = generateTestData();
-    setAccounts(testData.accounts);
-    setTransactions(testData.transactions);
-    setBudgets(testData.budgets);
+    // Sample accounts
+    const testAccounts: Account[] = [
+      {
+        id: '1',
+        name: 'Main Checking',
+        type: 'checking',
+        balance: 5420.50,
+        currency: 'GBP',
+        institution: 'HSBC',
+        lastUpdated: new Date()
+      },
+      {
+        id: '2',
+        name: 'Savings Account',
+        type: 'savings',
+        balance: 12750.00,
+        currency: 'GBP',
+        institution: 'HSBC',
+        lastUpdated: new Date()
+      },
+      {
+        id: '3',
+        name: 'Credit Card',
+        type: 'credit',
+        balance: -1234.56,
+        currency: 'GBP',
+        institution: 'Barclaycard',
+        lastUpdated: new Date()
+      },
+      {
+        id: '4',
+        name: 'Investment Account',
+        type: 'investment',
+        balance: 25000.00,
+        currency: 'GBP',
+        institution: 'Vanguard',
+        lastUpdated: new Date()
+      },
+      {
+        id: '5',
+        name: 'Mortgage',
+        type: 'loan',
+        balance: -185000.00,
+        currency: 'GBP',
+        institution: 'Nationwide',
+        lastUpdated: new Date()
+      }
+    ];
+
+    // Sample transactions
+    const testTransactions: Transaction[] = [
+      {
+        id: '101',
+        date: new Date('2024-01-15'),
+        description: 'Salary',
+        amount: 3500.00,
+        type: 'income',
+        category: 'Income',
+        accountId: '1',
+        cleared: true
+      },
+      {
+        id: '102',
+        date: new Date('2024-01-16'),
+        description: 'Tesco Groceries',
+        amount: 87.43,
+        type: 'expense',
+        category: 'Groceries',
+        accountId: '1',
+        tags: ['shopping', 'weekly']
+      },
+      {
+        id: '103',
+        date: new Date('2024-01-17'),
+        description: 'Transfer to Savings',
+        amount: 500.00,
+        type: 'expense',
+        category: 'Transfer',
+        accountId: '1',
+        notes: 'Monthly savings goal'
+      },
+      {
+        id: '104',
+        date: new Date('2024-01-17'),
+        description: 'Transfer from Checking',
+        amount: 500.00,
+        type: 'income',
+        category: 'Transfer',
+        accountId: '2',
+        reconciledWith: '103'
+      },
+      {
+        id: '105',
+        date: new Date('2024-01-20'),
+        description: 'Electricity Bill',
+        amount: 145.00,
+        type: 'expense',
+        category: 'Utilities',
+        accountId: '1',
+        isRecurring: true
+      }
+    ];
+
+    // Sample budgets
+    const testBudgets: Budget[] = [
+      {
+        id: '201',
+        category: 'Groceries',
+        amount: 400,
+        period: 'monthly'
+      },
+      {
+        id: '202',
+        category: 'Utilities',
+        amount: 200,
+        period: 'monthly'
+      },
+      {
+        id: '203',
+        category: 'Entertainment',
+        amount: 150,
+        period: 'monthly'
+      }
+    ];
+
+    setAccounts(testAccounts);
+    setTransactions(testTransactions);
+    setBudgets(testBudgets);
   };
 
   return (
@@ -182,6 +384,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       accounts,
       transactions,
       budgets,
+      recurringTransactions,
       addAccount,
       updateAccount,
       deleteAccount,
@@ -191,13 +394,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
       addBudget,
       updateBudget,
       deleteBudget,
-      isLoading,
       clearAllData,
-    recurringTransactions,
-    addRecurringTransaction,
-    deleteRecurringTransaction,
       exportData,
+      importData,
       loadTestData,
+      addRecurringTransaction,
+      deleteRecurringTransaction
     }}>
       {children}
     </AppContext.Provider>
