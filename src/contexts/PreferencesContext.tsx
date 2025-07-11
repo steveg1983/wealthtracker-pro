@@ -9,6 +9,8 @@ interface PreferencesContextType {
   theme: 'light' | 'dark' | 'auto';
   setTheme: (value: 'light' | 'dark' | 'auto') => void;
   actualTheme: 'light' | 'dark';
+  accentColor: string;
+  setAccentColor: (value: string) => void;
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -25,11 +27,14 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(() => {
     const saved = localStorage.getItem('money_management_theme');
-    // If no saved theme or invalid, default to 'light'
     if (!saved || !['light', 'dark', 'auto'].includes(saved)) {
       return 'light';
     }
     return saved as 'light' | 'dark' | 'auto';
+  });
+
+  const [accentColor, setAccentColor] = useState(() => {
+    return localStorage.getItem('money_management_accent_color') || 'blue';
   });
 
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
@@ -45,7 +50,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         newTheme = prefersDark ? 'dark' : 'light';
       } else {
-        // Default to light for any other case
         newTheme = 'light';
       }
       
@@ -54,7 +58,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
     updateActualTheme();
 
-    // Listen for system theme changes only when in auto mode
     if (theme === 'auto') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = () => updateActualTheme();
@@ -64,33 +67,41 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
-  // Apply or remove dark class from document
+  // Apply theme classes
   useEffect(() => {
     const root = document.documentElement;
     
-    // Force remove all theme classes first
     root.classList.remove('dark');
     root.classList.remove('light');
-    
-    // Force remove any style attribute that might be setting dark mode
     root.removeAttribute('style');
     
-    // Wait a tick then add the correct class
     setTimeout(() => {
       if (actualTheme === 'dark') {
         root.classList.add('dark');
       }
-      // We don't need to add 'light' class as light is the default
-      
-      // Log for debugging
-      console.log('Theme Debug:', {
-        selectedTheme: theme,
-        actualTheme: actualTheme,
-        htmlClasses: root.className,
-        localStorage: localStorage.getItem('money_management_theme')
-      });
     }, 10);
   }, [actualTheme]);
+
+  // Apply accent color as CSS variable
+  useEffect(() => {
+    const root = document.documentElement;
+    const colors: Record<string, { primary: string; secondary: string }> = {
+      blue: { primary: '#0078d4', secondary: '#005a9e' },
+      green: { primary: '#34c759', secondary: '#248a3d' },
+      purple: { primary: '#af52de', secondary: '#8e3cbf' },
+      orange: { primary: '#ff9500', secondary: '#e67e00' },
+      red: { primary: '#ff3b30', secondary: '#d70015' },
+      pink: { primary: '#ff2d55', secondary: '#d30036' },
+      indigo: { primary: '#5856d6', secondary: '#3634a3' },
+      teal: { primary: '#5ac8fa', secondary: '#32ade6' },
+      yellow: { primary: '#ffcc00', secondary: '#d6ab00' },
+      gray: { primary: '#8e8e93', secondary: '#636366' },
+    };
+
+    const selectedColor = colors[accentColor] || colors.blue;
+    root.style.setProperty('--color-primary', selectedColor.primary);
+    root.style.setProperty('--color-secondary', selectedColor.secondary);
+  }, [accentColor]);
 
   useEffect(() => {
     localStorage.setItem('money_management_compact_view', compactView.toString());
@@ -104,6 +115,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('money_management_theme', theme);
   }, [theme]);
 
+  useEffect(() => {
+    localStorage.setItem('money_management_accent_color', accentColor);
+  }, [accentColor]);
+
   return (
     <PreferencesContext.Provider value={{
       compactView,
@@ -113,6 +128,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       theme,
       setTheme,
       actualTheme,
+      accentColor,
+      setAccentColor,
     }}>
       {children}
     </PreferencesContext.Provider>
