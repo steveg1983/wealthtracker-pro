@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { parseQIF as enhancedParseQIF } from "../utils/qifParser";
 import { useApp } from '../contexts/AppContext';
 import { X, Upload, FileText, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 import { parseMNY } from '../utils/mnyParser';
@@ -336,7 +337,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         parsed = await parseMNY(arrayBuffer);
       } else if (selectedFile.name.toLowerCase().endsWith('.qif')) {
         const content = await selectedFile.text();
-        parsed = parseQIF(content);
+        parsed = enhancedParseQIF(content);
       } else if (selectedFile.name.toLowerCase().endsWith('.ofx')) {
         const content = await selectedFile.text();
         parsed = parseOFX(content);
