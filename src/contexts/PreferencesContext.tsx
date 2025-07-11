@@ -36,29 +36,40 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       if (theme === 'auto') {
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         setActualTheme(prefersDark ? 'dark' : 'light');
+      } else if (theme === 'dark') {
+        setActualTheme('dark');
       } else {
-        setActualTheme(theme as 'light' | 'dark');
+        setActualTheme('light');
       }
     };
 
     updateActualTheme();
 
-    // Listen for system theme changes
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-    const handleChange = () => updateActualTheme();
-    mediaQuery.addEventListener('change', handleChange);
+    // Listen for system theme changes when in auto mode
+    if (theme === 'auto') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = () => updateActualTheme();
+      mediaQuery.addEventListener('change', handleChange);
 
-    return () => mediaQuery.removeEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
   }, [theme]);
 
-  // Apply theme to document
+  // Apply or remove dark class from document
   useEffect(() => {
+    // Remove both classes first
+    document.documentElement.classList.remove('dark', 'light');
+    
+    // Then add the appropriate one
     if (actualTheme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.add('light');
     }
-  }, [actualTheme]);
+    
+    // Debug log
+    console.log('Theme:', theme, 'Actual Theme:', actualTheme);
+  }, [actualTheme, theme]);
 
   useEffect(() => {
     localStorage.setItem('money_management_compact_view', compactView.toString());
