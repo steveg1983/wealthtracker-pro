@@ -119,7 +119,7 @@ export default function Settings() {
             className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
           >
             <Upload size={20} />
-            Import Data (QIF/OFX)
+            Import Data (MNY/QIF/OFX)
           </button>
           
           <button

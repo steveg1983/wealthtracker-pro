@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
+import { parseMNY } from "../utils/mnyParser";
 import { X, Upload, FileText, AlertCircle, CheckCircle, AlertTriangle, Info } from 'lucide-react';
 import { parseMBF } from '../utils/mbfParser';
 
@@ -201,11 +202,11 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     try {
       let parsed;
       
-      if (selectedFile.name.toLowerCase().endsWith('.mbf')) {
-        // Show help for MBF files
-        setShowMBFHelp(true);
-        setMessage('MBF files are often encrypted. We recommend exporting as QIF from Money instead.');
-        return;
+      if (selectedFile.name.toLowerCase().endsWith('.mny')) {
+        // Handle Microsoft Money database file
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        parsed = await parseMNY(arrayBuffer);
+      } else if (selectedFile.name.toLowerCase().endsWith('.qif')) {
       } else if (selectedFile.name.toLowerCase().endsWith('.qif')) {
         const content = await selectedFile.text();
         parsed = parseQIF(content);
@@ -307,6 +308,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                 Supported formats:
               </p>
               <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <li><strong>MNY</strong> - Microsoft Money database files</li>
                 <li><strong>QIF</strong> - Quicken Interchange Format (recommended for Money users)</li>
                 <li><strong>OFX</strong> - Open Financial Exchange</li>
               </ul>
@@ -336,7 +338,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                   </span>
                   <input
                     type="file"
-                    accept=".qif,.ofx"
+                    accept=".mny,.qif,.ofx"
                     onChange={handleFileChange}
                     className="hidden"
                   />
