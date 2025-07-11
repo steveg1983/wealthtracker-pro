@@ -1,10 +1,9 @@
-import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { BarChart3, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer as RePieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 
 export default function Analytics() {
-  const { transactions, budgets } = useApp();
+  const { transactions } = useApp();
 
   // Helper function to format currency properly
   const formatCurrency = (amount: number): string => {
@@ -13,8 +12,6 @@ export default function Analytics() {
       maximumFractionDigits: 2
     }).format(Math.abs(amount));
   };
-
-  // Get unique categories
 
   // Calculate spending by category
   const spendingByCategory = transactions
@@ -73,8 +70,6 @@ export default function Analytics() {
     .reduce((sum, t) => sum + t.amount, 0);
 
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
-
-  // Budget adherence
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
