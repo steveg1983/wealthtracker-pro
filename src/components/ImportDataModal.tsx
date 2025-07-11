@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Upload, FileText, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { X, Upload, FileText, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 import { parseMNY } from '../utils/mnyParser';
 
 interface ImportDataModalProps {
@@ -26,11 +26,13 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   const { addAccount, addTransaction, accounts } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
+  const [parsing, setParsing] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState<{
     accounts: ParsedAccount[];
     transactions: ParsedTransaction[];
+    warning?: string;
   } | null>(null);
 
   // Parse QIF file format
@@ -193,15 +195,16 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     setFile(selectedFile);
     setStatus('idle');
     setMessage('');
+    setParsing(true);
     
     try {
-      let parsed: { accounts: ParsedAccount[]; transactions: ParsedTransaction[] } | null = null;
+      let parsed: { accounts: ParsedAccount[]; transactions: ParsedTransaction[]; warning?: string } | null = null;
       
       if (selectedFile.name.toLowerCase().endsWith('.mny')) {
         // Handle Microsoft Money database file
+        setMessage('Parsing Money file... This may take a moment...');
         const arrayBuffer = await selectedFile.arrayBuffer();
-        const result = await parseMNY(arrayBuffer);
-        parsed = result;
+        parsed = await parseMNY(arrayBuffer);
       } else if (selectedFile.name.toLowerCase().endsWith('.qif')) {
         const content = await selectedFile.text();
         parsed = parseQIF(content);
@@ -214,12 +217,19 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
       
       if (parsed) {
         setPreview(parsed);
-        setMessage(`Found ${parsed.accounts.length} accounts and ${parsed.transactions.length} transactions`);
+        if (parsed.warning) {
+          setMessage(parsed.warning);
+          setStatus('error');
+        } else {
+          setMessage(`Found ${parsed.accounts.length} accounts and ${parsed.transactions.length} transactions`);
+        }
       }
     } catch (error) {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Failed to parse file');
       setPreview(null);
+    } finally {
+      setParsing(false);
     }
   };
 
@@ -290,7 +300,8 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           <h2 className="text-xl font-semibold dark:text-white">Import Financial Data</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            disabled={parsing}
+            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50"
           >
             <X size={24} />
           </button>
@@ -302,9 +313,9 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
             Supported formats:
           </p>
           <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
-            <li><strong>MNY</strong> - Microsoft Money database files</li>
-            <li><strong>QIF</strong> - Quicken Interchange Format</li>
+            <li><strong>QIF</strong> - Quicken Interchange Format (recommended for Money users)</li>
             <li><strong>OFX</strong> - Open Financial Exchange</li>
+            <li><strong>MNY</strong> - Microsoft Money files (limited support)</li>
           </ul>
 
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
@@ -312,7 +323,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               <Info className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
               <div className="text-sm text-blue-800 dark:text-blue-200">
                 <p className="font-semibold mb-1">Microsoft Money Users:</p>
-                <p>You can import your .mny file directly, or for best results export as QIF:</p>
+                <p>For best results, export your data as QIF:</p>
                 <ol className="list-decimal list-inside mt-2 ml-2">
                   <li>Open Microsoft Money</li>
                   <li>Go to File → Export</li>
@@ -325,25 +336,45 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           </div>
 
           <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
-            <Upload className="mx-auto text-gray-400 mb-4" size={48} />
-            <label className="cursor-pointer">
-              <span className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors inline-block">
-                Choose File
-              </span>
-              <input
-                type="file"
-                accept=".mny,.qif,.ofx"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              {file ? file.name : 'No file selected'}
-            </p>
+            {parsing ? (
+              <>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-gray-600 dark:text-gray-400">Parsing file...</p>
+              </>
+            ) : (
+              <>
+                <Upload className="mx-auto text-gray-400 mb-4" size={48} />
+                <label className="cursor-pointer">
+                  <span className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors inline-block">
+                    Choose File
+                  </span>
+                  <input
+                    type="file"
+                    accept=".mny,.qif,.ofx"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    disabled={parsing}
+                  />
+                </label>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  {file ? file.name : 'No file selected'}
+                </p>
+              </>
+            )}
           </div>
         </div>
 
-        {preview && (
+        {preview && preview.warning && (
+          <div className="mb-4 p-3 rounded-lg flex items-start gap-2 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300">
+            <AlertTriangle size={20} className="mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold mb-1">Limited MNY Support</p>
+              <p className="text-sm">{preview.warning}</p>
+            </div>
+          </div>
+        )}
+
+        {preview && !preview.warning && (
           <div className="mb-6 bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
             <h3 className="font-semibold mb-2 dark:text-white">Preview</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -371,7 +402,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           </div>
         )}
 
-        {message && (
+        {message && !preview?.warning && (
           <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
             status === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
             status === 'error' ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
@@ -387,15 +418,16 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         <div className="flex gap-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+            disabled={parsing || importing}
+            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={handleImport}
-            disabled={!preview || importing}
+            disabled={!preview || importing || parsing || !!preview?.warning}
             className={`flex-1 px-4 py-2 rounded-lg ${
-              preview && !importing
+              preview && !importing && !parsing && !preview?.warning
                 ? 'bg-primary text-white hover:bg-secondary'
                 : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
             }`}
