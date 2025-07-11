@@ -112,7 +112,6 @@ export default function Transactions() {
     if (confirm(`Delete ${selectedTransactions.size} transactions?`)) {
       selectedTransactions.forEach(id => deleteTransaction(id));
       setSelectedTransactions(new Set());
-      setShowBulkActions(false);
     }
   };
 
@@ -126,7 +125,6 @@ export default function Transactions() {
         }
       });
       setSelectedTransactions(new Set());
-      setShowBulkActions(false);
     }
   };
 
@@ -144,7 +142,6 @@ export default function Transactions() {
         }
       });
       setSelectedTransactions(new Set());
-      setShowBulkActions(false);
     }
   };
 
