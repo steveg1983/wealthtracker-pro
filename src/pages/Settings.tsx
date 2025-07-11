@@ -9,13 +9,14 @@ import {
   Globe,
   AlertCircle,
   Check,
-  ChevronRight
+  ChevronRight,
+  Database
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 
 export default function Settings() {
-  const { accounts, transactions, budgets } = useApp();
+  const { accounts, transactions, budgets, addAccount, addBudget } = useApp();
   const { compactView, setCompactView, currency, setCurrency, theme, setTheme, accentColor, setAccentColor } = usePreferences();
   const [activeSection, setActiveSection] = useState('profile');
   const [notifications, setNotifications] = useState({
@@ -41,6 +42,35 @@ export default function Settings() {
     a.click();
     URL.revokeObjectURL(url);
     alert('Data exported successfully!');
+  };
+
+  const generateTestData = () => {
+    if (window.confirm('This will add test accounts, transactions, and budgets. Continue?')) {
+      // Import the test data generator
+      import('../utils/generateTestData').then(({ generateTestData }) => {
+        const testData = generateTestData();
+        
+        // Add test accounts
+        testData.accounts.forEach(account => {
+          const { id, ...accountData } = account;
+          addAccount(accountData);
+        });
+        
+        // Add test transactions (without updating balances since they're already set)
+        const savedTransactions = JSON.parse(localStorage.getItem('wealthtracker_transactions') || '[]');
+        const newTransactions = [...savedTransactions, ...testData.transactions];
+        localStorage.setItem('wealthtracker_transactions', JSON.stringify(newTransactions));
+        
+        // Add test budgets
+        testData.budgets.forEach(budget => {
+          const { id, ...budgetData } = budget;
+          addBudget(budgetData);
+        });
+        
+        alert('Test data added successfully! Refreshing...');
+        window.location.reload();
+      });
+    }
   };
 
   const clearAllData = () => {
@@ -321,6 +351,14 @@ export default function Settings() {
                     <button className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:text-white rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                       <Upload size={20} />
                       Import Data
+                    </button>
+
+                    <button 
+                      onClick={generateTestData}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                    >
+                      <Database size={20} />
+                      Generate Test Data
                     </button>
 
                     <div className="pt-4 border-t dark:border-gray-700">
