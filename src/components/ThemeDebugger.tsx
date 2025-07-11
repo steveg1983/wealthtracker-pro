@@ -1,27 +1,45 @@
 import { usePreferences } from '../contexts/PreferencesContext';
+import { useEffect, useState } from 'react';
 
 export default function ThemeDebugger() {
   const { theme, actualTheme, accentColor } = usePreferences();
+  const [htmlClasses, setHtmlClasses] = useState('');
   
-  // Get computed styles to see actual CSS variable values
-  const root = document.documentElement;
-  const computedStyle = getComputedStyle(root);
-  const primaryColor = computedStyle.getPropertyValue('--color-primary');
-  const secondaryColor = computedStyle.getPropertyValue('--color-secondary');
+  useEffect(() => {
+    // Update HTML classes display
+    const updateClasses = () => {
+      setHtmlClasses(document.documentElement.className);
+    };
+    
+    updateClasses();
+    
+    // Watch for class changes
+    const observer = new MutationObserver(updateClasses);
+    observer.observe(document.documentElement, { 
+      attributes: true, 
+      attributeFilter: ['class'] 
+    });
+    
+    return () => observer.disconnect();
+  }, []);
   
   return (
-    <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border-2 border-red-500 z-50">
+    <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border-2 border-red-500 z-50 text-black dark:text-white">
       <p className="text-xs font-mono">
         Theme: {theme} → {actualTheme}<br/>
         Accent: {accentColor}<br/>
-        Primary: {primaryColor || 'not set'}<br/>
-        Secondary: {secondaryColor || 'not set'}<br/>
-        HTML class: {root.className || 'none'}
+        HTML: {htmlClasses}<br/>
+        Has dark class: {htmlClasses.includes('dark') ? 'YES' : 'NO'}
       </p>
-      <div className="mt-2 flex gap-2">
-        <div className="w-8 h-8 bg-primary rounded"></div>
-        <div className="w-8 h-8 bg-secondary rounded"></div>
-      </div>
+      <button 
+        onClick={() => {
+          document.documentElement.classList.toggle('dark');
+          console.log('Manually toggled dark class');
+        }}
+        className="mt-2 text-xs bg-red-500 text-white px-2 py-1 rounded"
+      >
+        Manual Toggle Dark
+      </button>
     </div>
   );
 }

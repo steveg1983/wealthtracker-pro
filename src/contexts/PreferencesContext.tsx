@@ -53,6 +53,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
         newTheme = 'light';
       }
       
+      console.log('Theme update:', { theme, newTheme });
       setActualTheme(newTheme);
     };
 
@@ -67,18 +68,40 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [theme]);
 
-  // Apply theme classes
+  // Apply theme classes - MORE AGGRESSIVE
   useEffect(() => {
-    const root = document.documentElement;
+    const applyTheme = () => {
+      const root = document.documentElement;
+      
+      // Log current state
+      console.log('Applying theme:', actualTheme, 'Current classes:', root.className);
+      
+      // Force remove dark class first
+      root.classList.remove('dark');
+      
+      // Use requestAnimationFrame to ensure DOM updates
+      requestAnimationFrame(() => {
+        if (actualTheme === 'dark') {
+          root.classList.add('dark');
+          console.log('Added dark class');
+        } else {
+          // Double-check it's really removed
+          root.classList.remove('dark');
+          console.log('Ensured dark class is removed');
+        }
+        
+        // Final check
+        console.log('Final classes:', root.className);
+      });
+    };
     
-    // Remove theme classes
-    root.classList.remove('dark');
-    root.classList.remove('light');
+    // Apply immediately
+    applyTheme();
     
-    // Add theme class
-    if (actualTheme === 'dark') {
-      root.classList.add('dark');
-    }
+    // Also apply after a short delay to overcome any race conditions
+    const timer = setTimeout(applyTheme, 100);
+    
+    return () => clearTimeout(timer);
   }, [actualTheme]);
 
   // Apply accent color class
@@ -98,9 +121,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     
     // Add the selected accent class
     root.classList.add(`accent-${accentColor}`);
-    
-    // Log for debugging
-    console.log('Accent color applied:', accentColor, root.className);
   }, [accentColor]);
 
   useEffect(() => {
