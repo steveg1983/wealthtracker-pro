@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 import AddTransactionModal from '../components/AddTransactionModal';
-import { Plus, TrendingUp, TrendingDown, Filter, Calendar, Trash2 } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Filter, Calendar, Trash2, Minimize2, Maximize2 } from 'lucide-react';
 
 export default function Transactions() {
   const { transactions, accounts, deleteTransaction } = useApp();
-  const { compactView } = usePreferences();
+  const { compactView, setCompactView } = usePreferences();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterAccountId, setFilterAccountId] = useState<string>('');
@@ -55,13 +55,27 @@ export default function Transactions() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Transactions</h1>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
-        >
-          <Plus size={20} />
-          Add Transaction
-        </button>
+        <div className="flex items-center gap-2">
+          {/* Compact View Toggle */}
+          <button
+            onClick={() => setCompactView(!compactView)}
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title={compactView ? "Switch to normal view" : "Switch to compact view"}
+          >
+            {compactView ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
+            <span className="hidden sm:inline dark:text-white">
+              {compactView ? 'Normal View' : 'Compact View'}
+            </span>
+          </button>
+          
+          <button 
+            onClick={() => setIsAddModalOpen(true)}
+            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
+          >
+            <Plus size={20} />
+            <span className="hidden sm:inline">Add Transaction</span>
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
