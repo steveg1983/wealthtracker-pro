@@ -47,7 +47,7 @@ export default function Layout() {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex h-16 items-center justify-center border-b">
-            <h1 className="text-xl font-bold text-primary">WealthTracker Pro</h1>
+            <h1 className="text-xl font-bold text-primary">Money Management</h1>
           </div>
 
           {/* Navigation */}
@@ -82,9 +82,9 @@ export default function Layout() {
         />
       )}
 
-      {/* Main content */}
+      {/* Main content - Added padding-top for mobile */}
       <div className="lg:pl-64">
-        <main className="p-4 lg:p-8">
+        <main className="p-4 lg:p-8 pt-20 lg:pt-8">
           <Outlet />
         </main>
       </div>
