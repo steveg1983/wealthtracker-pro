@@ -65,9 +65,10 @@ export default function Layout() {
             <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/budgets" icon={Target} label="Budgets" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/reports" icon={PieChart} label="Reports" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/budgets" icon={Target} label="Budget" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/settings" icon={Settings} label="Settings" isCollapsed={isSidebarCollapsed} />
           </nav>
         </div>
@@ -91,9 +92,10 @@ export default function Layout() {
                 <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={false} />
                 <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={false} />
                 <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} />
-                <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} />
-                <SidebarLink to="/budgets" icon={Target} label="Budgets" isCollapsed={false} />
-                <SidebarLink to="/reports" icon={PieChart} label="Reports" isCollapsed={false} />
+                <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} />
+                <SidebarLink to="/budgets" icon={Target} label="Budget" isCollapsed={false} />
+                <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} />
+                <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={false} />
                 <SidebarLink to="/settings" icon={Settings} label="Settings" isCollapsed={false} />
               </nav>
             </div>
