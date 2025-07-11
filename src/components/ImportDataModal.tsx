@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { X, Upload, FileText, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
-import { parseMNY, applyMappingToData } from '../utils/mnyParser';
+import { parseMNY, parseMBF, applyMappingToData } from '../utils/mnyParser';
 import { parseQIF as enhancedParseQIF } from '../utils/qifParser';
 import MnyMappingModal from './MnyMappingModal';
 
@@ -132,6 +132,19 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           setParsing(false);
           return;
         }
+      } else if (fileName.endsWith('.mbf')) {
+        console.log('Detected MBF backup file');
+        setMessage('Parsing Money backup file... This may take a moment...');
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        parsed = await parseMBF(arrayBuffer);
+        
+        // Check if we need manual mapping
+        if (parsed.needsMapping && parsed.rawData) {
+          setRawMnyData(parsed.rawData);
+          setShowMappingModal(true);
+          setParsing(false);
+          return;
+        }
       } else if (fileName.endsWith('.qif')) {
         console.log('Detected QIF file');
         setMessage('Parsing QIF file...');
@@ -147,7 +160,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         const content = await selectedFile.text();
         parsed = parseOFX(content);
       } else {
-        throw new Error('Unsupported file format. Please use .mny, .qif, or .ofx files.');
+        throw new Error('Unsupported file format. Please use .mny, .mbf, .qif, or .ofx files.');
       }
       
       if (parsed) {
@@ -272,15 +285,16 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
             <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
               <li><strong>QIF</strong> - Quicken Interchange Format (recommended for Money users)</li>
               <li><strong>OFX</strong> - Open Financial Exchange</li>
-              <li><strong>MNY</strong> - Microsoft Money files (with manual mapping)</li>
+              <li><strong>MNY</strong> - Microsoft Money database files (with manual mapping)</li>
+              <li><strong>MBF</strong> - Microsoft Money backup files (with manual mapping)</li>
             </ul>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-2">
                 <Info className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
                 <div className="text-sm text-blue-800 dark:text-blue-200">
-                  <p className="font-semibold mb-1">MNY File Import:</p>
-                  <p>For Money .mny files, we'll show you the data and let you tell us what each column represents.</p>
+                  <p className="font-semibold mb-1">Money File Import:</p>
+                  <p>For Money .mny or .mbf files, we'll show you the data and let you tell us what each column represents.</p>
                 </div>
               </div>
             </div>
@@ -300,7 +314,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                     </span>
                     <input
                       type="file"
-                      accept=".mny,.qif,.ofx"
+                      accept=".mny,.mbf,.qif,.ofx"
                       onChange={handleFileChange}
                       className="hidden"
                       disabled={parsing}
