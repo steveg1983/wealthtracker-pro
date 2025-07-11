@@ -1,10 +1,17 @@
 import { TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
-import { formatCurrency } from '../utils/formatters';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function Dashboard() {
   const { accounts, transactions } = useApp();
+  
+  // Helper function to format currency with commas
+  const formatMoney = (amount: number): string => {
+    return amount.toLocaleString('en-GB', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  };
   
   const totalAssets = accounts
     .filter(acc => acc.balance > 0)
@@ -58,7 +65,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Net Worth</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {formatCurrency(netWorth)}
+                £{formatMoney(netWorth)}
               </p>
             </div>
             <DollarSign className="text-primary" size={24} />
@@ -70,7 +77,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Assets</p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {formatCurrency(totalAssets)}
+                £{formatMoney(totalAssets)}
               </p>
             </div>
             <TrendingUp className="text-green-500" size={24} />
@@ -82,7 +89,7 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Liabilities</p>
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                {formatCurrency(totalLiabilities)}
+                £{formatMoney(totalLiabilities)}
               </p>
             </div>
             <TrendingDown className="text-red-500" size={24} />
@@ -110,13 +117,13 @@ export default function Dashboard() {
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Income</span>
               <span className="text-green-600 dark:text-green-400 font-semibold">
-                +{formatCurrency(monthlyIncome)}
+                +£{formatMoney(monthlyIncome)}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Expenses</span>
               <span className="text-red-600 dark:text-red-400 font-semibold">
-                -{formatCurrency(monthlyExpenses)}
+                -£{formatMoney(monthlyExpenses)}
               </span>
             </div>
             <div className="border-t dark:border-gray-700 pt-4">
@@ -127,7 +134,7 @@ export default function Dashboard() {
                     ? 'text-green-600 dark:text-green-400' 
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {formatCurrency(monthlyIncome - monthlyExpenses)}
+                  £{formatMoney(monthlyIncome - monthlyExpenses)}
                 </span>
               </div>
             </div>
@@ -153,7 +160,7 @@ export default function Dashboard() {
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => formatCurrency(value)}
+                  formatter={(value: number) => `£${formatMoney(value)}`}
                   contentStyle={{ 
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     border: '1px solid #ccc',
@@ -183,7 +190,7 @@ export default function Dashboard() {
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-red-600 dark:text-red-400'
               }`}>
-                {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                {transaction.type === 'income' ? '+' : '-'}£{formatMoney(transaction.amount)}
               </span>
             </div>
           ))}
