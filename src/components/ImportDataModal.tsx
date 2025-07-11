@@ -14,6 +14,7 @@ interface ParsedTransaction {
   description: string;
   type: 'income' | 'expense';
   category: string;
+  payee?: string;
 }
 
 interface ParsedAccount {
@@ -37,81 +38,199 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState<ParsedData | null>(null);
 
-  // Parse QIF file format
+  // Parse QIF file format - improved for Microsoft Money exports
   const parseQIF = (content: string): ParsedData => {
-    const lines = content.split('\n');
+    const lines = content.split(/\r?\n/); // Handle both Windows and Unix line endings
     const transactions: ParsedTransaction[] = [];
     const accountsMap = new Map<string, ParsedAccount>();
     
     let currentTransaction: any = {};
-    let currentAccount = 'Default Account';
+    let currentAccount = 'Imported Account';
+    let inAccountSection = false;
+    
+    console.log('Parsing QIF file with', lines.length, 'lines');
     
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       
+      if (!line) continue; // Skip empty lines
+      
+      // Account section
       if (line === '!Account') {
-        // Account section
-        i++;
-        while (i < lines.length && !lines[i].startsWith('!')) {
-          const accountLine = lines[i].trim();
-          if (accountLine.startsWith('N')) {
-            currentAccount = accountLine.substring(1);
+        inAccountSection = true;
+        currentAccount = '';
+        continue;
+      }
+      
+      // Transaction types
+      if (line.startsWith('!Type:')) {
+        inAccountSection = false;
+        const accountType = line.substring(6).toLowerCase();
+        console.log('Found account type:', accountType);
+        
+        // If we haven't seen this account yet, create it
+        if (!accountsMap.has(currentAccount) && currentAccount) {
+          let type: ParsedAccount['type'] = 'checking';
+          if (accountType.includes('credit') || accountType === 'ccard') {
+            type = 'credit';
+          } else if (accountType.includes('invst') || accountType.includes('investment')) {
+            type = 'investment';
+          } else if (accountType.includes('oth a') || accountType.includes('savings')) {
+            type = 'savings';
           }
-          if (accountLine.startsWith('T')) {
-            const type = accountLine.substring(1).toLowerCase();
+          
+          accountsMap.set(currentAccount, {
+            name: currentAccount,
+            type: type,
+            balance: 0
+          });
+        }
+        continue;
+      }
+      
+      // In account section
+      if (inAccountSection) {
+        if (line.startsWith('N')) {
+          currentAccount = line.substring(1).trim();
+          console.log('Found account name:', currentAccount);
+        } else if (line.startsWith('^')) {
+          // End of account record
+          if (currentAccount && !accountsMap.has(currentAccount)) {
             accountsMap.set(currentAccount, {
               name: currentAccount,
-              type: type.includes('credit') ? 'credit' : 
-                    type.includes('saving') ? 'savings' : 
-                    type.includes('invest') ? 'investment' : 'checking',
+              type: 'checking',
               balance: 0
             });
           }
-          i++;
+          inAccountSection = false;
         }
-        i--; // Back up one line
-      } else if (line === '!Type:Bank' || line === '!Type:CCard' || line === '!Type:Cash') {
-        // Transaction section
         continue;
-      } else if (line.startsWith('^')) {
+      }
+      
+      // Transaction parsing
+      if (line.startsWith('^')) {
         // End of transaction
         if (currentTransaction.date && currentTransaction.amount !== undefined) {
-          transactions.push({
+          const transaction: ParsedTransaction = {
             date: currentTransaction.date,
             amount: Math.abs(currentTransaction.amount),
-            description: currentTransaction.payee || currentTransaction.memo || 'Imported transaction',
+            description: currentTransaction.payee || currentTransaction.memo || 'No description',
             type: currentTransaction.amount < 0 ? 'expense' : 'income',
-            category: currentTransaction.category || 'Other'
-          });
+            category: currentTransaction.category || 'Uncategorized',
+            payee: currentTransaction.payee
+          };
+          
+          // Clean up the description
+          transaction.description = transaction.description.trim();
+          if (transaction.description.length > 100) {
+            transaction.description = transaction.description.substring(0, 100) + '...';
+          }
+          
+          transactions.push(transaction);
+          console.log('Added transaction:', transaction.date.toLocaleDateString(), transaction.description, transaction.amount);
         }
         currentTransaction = {};
       } else if (line.startsWith('D')) {
-        // Date
-        const dateStr = line.substring(1);
-        const parts = dateStr.split(/[\/\-\.]/);
-        if (parts.length === 3) {
-          const month = parseInt(parts[0]);
-          const day = parseInt(parts[1]);
-          const year = parseInt(parts[2]) < 100 ? 2000 + parseInt(parts[2]) : parseInt(parts[2]);
-          currentTransaction.date = new Date(year, month - 1, day);
+        // Date - handle various date formats
+        const dateStr = line.substring(1).trim();
+        
+        // Try different date formats
+        let date: Date | null = null;
+        
+        // Format: MM/DD/YY or MM/DD/YYYY
+        const slashParts = dateStr.split('/');
+        if (slashParts.length === 3) {
+          const month = parseInt(slashParts[0]);
+          const day = parseInt(slashParts[1]);
+          let year = parseInt(slashParts[2]);
+          if (year < 100) {
+            year = year < 50 ? 2000 + year : 1900 + year;
+          }
+          date = new Date(year, month - 1, day);
         }
-      } else if (line.startsWith('T') || line.startsWith('U')) {
-        // Amount
-        const amountStr = line.substring(1).replace(/[,$]/g, '');
-        currentTransaction.amount = parseFloat(amountStr);
+        
+        // Format: MM-DD-YY or MM-DD-YYYY
+        if (!date || isNaN(date.getTime())) {
+          const dashParts = dateStr.split('-');
+          if (dashParts.length === 3) {
+            const month = parseInt(dashParts[0]);
+            const day = parseInt(dashParts[1]);
+            let year = parseInt(dashParts[2]);
+            if (year < 100) {
+              year = year < 50 ? 2000 + year : 1900 + year;
+            }
+            date = new Date(year, month - 1, day);
+          }
+        }
+        
+        // Format: DD/MM/YYYY (UK format)
+        if (!date || isNaN(date.getTime())) {
+          const ukParts = dateStr.split('/');
+          if (ukParts.length === 3) {
+            const day = parseInt(ukParts[0]);
+            const month = parseInt(ukParts[1]);
+            const year = parseInt(ukParts[2]);
+            if (day <= 31 && month <= 12) {
+              date = new Date(year, month - 1, day);
+            }
+          }
+        }
+        
+        if (date && !isNaN(date.getTime())) {
+          currentTransaction.date = date;
+        }
+      } else if (line.startsWith('T')) {
+        // Amount (T is the total, U is the same but for splits)
+        const amountStr = line.substring(1).replace(/[,£$]/g, '').trim();
+        const amount = parseFloat(amountStr);
+        if (!isNaN(amount)) {
+          currentTransaction.amount = amount;
+        }
+      } else if (line.startsWith('U')) {
+        // U line - same as T for our purposes
+        if (currentTransaction.amount === undefined) {
+          const amountStr = line.substring(1).replace(/[,£$]/g, '').trim();
+          const amount = parseFloat(amountStr);
+          if (!isNaN(amount)) {
+            currentTransaction.amount = amount;
+          }
+        }
       } else if (line.startsWith('P')) {
         // Payee
-        currentTransaction.payee = line.substring(1);
+        currentTransaction.payee = line.substring(1).trim();
       } else if (line.startsWith('M')) {
         // Memo
-        currentTransaction.memo = line.substring(1);
+        currentTransaction.memo = line.substring(1).trim();
       } else if (line.startsWith('L')) {
         // Category
-        currentTransaction.category = line.substring(1).replace(/[\[\]]/g, '');
+        let category = line.substring(1).trim();
+        // Remove brackets if present
+        category = category.replace(/^\[/, '').replace(/\]$/, '');
+        currentTransaction.category = category;
+      } else if (line.startsWith('N')) {
+        // Check/reference number - could be useful in description
+        if (!inAccountSection) {
+          const refNum = line.substring(1).trim();
+          if (refNum && refNum !== '0') {
+            currentTransaction.refNum = refNum;
+          }
+        }
       }
     }
     
-    // If no accounts were defined, create a default one
+    // Process last transaction if file doesn't end with ^
+    if (currentTransaction.date && currentTransaction.amount !== undefined) {
+      transactions.push({
+        date: currentTransaction.date,
+        amount: Math.abs(currentTransaction.amount),
+        description: currentTransaction.payee || currentTransaction.memo || 'No description',
+        type: currentTransaction.amount < 0 ? 'expense' : 'income',
+        category: currentTransaction.category || 'Uncategorized',
+        payee: currentTransaction.payee
+      });
+    }
+    
+    // If no accounts were found, create a default one
     if (accountsMap.size === 0) {
       accountsMap.set('Imported Account', {
         name: 'Imported Account',
@@ -120,9 +239,23 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
       });
     }
     
+    // Calculate account balances from transactions
+    if (accountsMap.size === 1 && transactions.length > 0) {
+      const account = Array.from(accountsMap.values())[0];
+      const totalIncome = transactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+      const totalExpenses = transactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+      account.balance = totalIncome - totalExpenses;
+    }
+    
+    console.log(`Parsed ${accountsMap.size} accounts and ${transactions.length} transactions`);
+    
     return {
       accounts: Array.from(accountsMap.values()),
-      transactions: transactions.filter(t => !isNaN(t.date.getTime()))
+      transactions: transactions
     };
   };
 
@@ -366,11 +499,12 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
             <div>
               <p className="font-semibold mb-1">Limited MNY Support</p>
               <p className="text-sm">{preview.warning}</p>
+              <p className="text-xs mt-2">You can still import the data found, but results may be limited.</p>
             </div>
           </div>
         )}
 
-        {preview && !preview.warning && (
+        {preview && (
           <div className="mb-6 bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
             <h3 className="font-semibold mb-2 dark:text-white">Preview</h3>
             <div className="grid grid-cols-2 gap-4 text-sm">
@@ -382,17 +516,25 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                     • {acc.name} ({acc.type})
                   </p>
                 ))}
+                {preview.accounts.length > 3 && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    • ... and {preview.accounts.length - 3} more
+                  </p>
+                )}
               </div>
               <div>
                 <p className="text-gray-600 dark:text-gray-400">Transactions found:</p>
                 <p className="font-semibold dark:text-white">{preview.transactions.length}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Date range: {preview.transactions.length > 0 
-                    ? `${preview.transactions[0].date.toLocaleDateString()} - 
-                       ${preview.transactions[preview.transactions.length - 1].date.toLocaleDateString()}`
-                    : 'N/A'
-                  }
-                </p>
+                {preview.transactions.length > 0 && (
+                  <>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Date range: {preview.transactions[0].date.toLocaleDateString()} - {preview.transactions[preview.transactions.length - 1].date.toLocaleDateString()}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Sample: {preview.transactions[0].description.substring(0, 30)}...
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -421,9 +563,9 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           </button>
           <button
             onClick={handleImport}
-            disabled={!preview || importing || parsing || !!preview?.warning}
+            disabled={!preview || importing || parsing}
             className={`flex-1 px-4 py-2 rounded-lg ${
-              preview && !importing && !parsing && !preview?.warning
+              preview && !importing && !parsing
                 ? 'bg-primary text-white hover:bg-secondary'
                 : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
             }`}
