@@ -26,7 +26,6 @@ export interface ParseResult {
 
 export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const uint8Array = new Uint8Array(arrayBuffer);
-  const dataView = new DataView(arrayBuffer);
   
   console.log('Parsing Microsoft Money .mny file, size:', arrayBuffer.byteLength);
   
