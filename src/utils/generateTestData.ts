@@ -1,21 +1,13 @@
-import { addDays, subDays } from '../utils/dateHelpers';
-
-// Helper function for date manipulation
-function addDaysToDate(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
-function subDaysFromDate(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() - days);
-  return result;
-}
-
 export function generateTestData() {
   const today = new Date();
   
+  // Helper function for date manipulation
+  function subDaysFromDate(date: Date, days: number): Date {
+    const result = new Date(date);
+    result.setDate(result.getDate() - days);
+    return result;
+  }
+
   // Test Accounts
   const accounts = [
     {
