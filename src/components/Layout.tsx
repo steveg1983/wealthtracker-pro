@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, CreditCard, PieChart, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft } from 'lucide-react';
+import { Home, CreditCard, PieChart, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal } from 'lucide-react';
 
 interface SidebarLinkProps {
   to: string;
@@ -65,11 +65,9 @@ export default function Layout() {
             <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/budgets" icon={Target} label="Budgets" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/reports" icon={PieChart} label="Reports" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={isSidebarCollapsed} />
-            {console.log("Reconciliation link should be here")}
-            <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/settings" icon={Settings} label="Settings" isCollapsed={isSidebarCollapsed} />
           </nav>
         </div>
@@ -93,11 +91,9 @@ export default function Layout() {
                 <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={false} />
                 <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={false} />
                 <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} />
+                <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} />
                 <SidebarLink to="/budgets" icon={Target} label="Budgets" isCollapsed={false} />
                 <SidebarLink to="/reports" icon={PieChart} label="Reports" isCollapsed={false} />
-                <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} />
-            {console.log("Reconciliation link should be here")}
-                <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} />
                 <SidebarLink to="/settings" icon={Settings} label="Settings" isCollapsed={false} />
               </nav>
             </div>
