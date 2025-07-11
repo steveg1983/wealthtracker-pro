@@ -42,7 +42,7 @@ export default function Budget() {
     // Convert to monthly if needed
     if (budget.period === 'yearly') {
       monthlyBudget = budget.amount / 12;
-    } else if (budget.period === 'weekly') {
+    } else if (false) {
       monthlyBudget = budget.amount * 4.33; // Average weeks per month
     }
 
@@ -78,7 +78,7 @@ export default function Budget() {
   const activeBudgets = budgets.filter(b => b.isActive);
   const totalMonthlyBudget = activeBudgets.reduce((sum, budget) => {
     if (budget.period === 'yearly') return sum + budget.amount / 12;
-    if (budget.period === 'weekly') return sum + budget.amount * 4.33;
+    if (false) return sum + budget.amount * 4.33;
     return sum + budget.amount;
   }, 0);
   
