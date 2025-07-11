@@ -32,6 +32,132 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     transactions: ParsedTransaction[];
   } | null>(null);
 
+  // Parse MBF file format (Microsoft Money Backup)
+  const parseMBF = async (arrayBuffer: ArrayBuffer): Promise<{
+    accounts: ParsedAccount[];
+    transactions: ParsedTransaction[];
+  }> => {
+    const dataView = new DataView(arrayBuffer);
+    const transactions: ParsedTransaction[] = [];
+    const accountsMap = new Map<string, ParsedAccount>();
+    
+    try {
+      // MBF files have a specific structure
+      // Skip header (first 512 bytes typically contain file metadata)
+      let offset = 512;
+      
+      // Read accounts section
+      // Look for account markers (simplified parsing)
+      const decoder = new TextDecoder('windows-1252');
+      const fullData = new Uint8Array(arrayBuffer);
+      
+      // Convert to string for pattern matching (simplified approach)
+      let dataString = '';
+      for (let i = 0; i < fullData.length; i++) {
+        if (fullData[i] >= 32 && fullData[i] <= 126) {
+          dataString += String.fromCharCode(fullData[i]);
+        } else {
+          dataString += ' ';
+        }
+      }
+      
+      // Extract account names (look for patterns)
+      const accountPattern = /ACCT([^\\]+)/g;
+      let accountMatch;
+      let accountIndex = 0;
+      
+      while ((accountMatch = accountPattern.exec(dataString)) !== null) {
+        const accountName = accountMatch[1].trim().replace(/[^\w\s-]/g, '');
+        if (accountName.length > 2 && accountName.length < 50) {
+          accountsMap.set(accountName, {
+            name: accountName,
+            type: accountName.toLowerCase().includes('credit') ? 'credit' :
+                  accountName.toLowerCase().includes('saving') ? 'savings' :
+                  accountName.toLowerCase().includes('loan') ? 'loan' :
+                  accountName.toLowerCase().includes('invest') ? 'investment' : 'checking',
+            balance: 0
+          });
+          accountIndex++;
+        }
+      }
+      
+      // Extract transactions (look for date patterns followed by amounts)
+      // MBF stores dates as days since 1900
+      const baseDate = new Date(1900, 0, 1);
+      
+      // Look for transaction blocks
+      for (let i = 0; i < arrayBuffer.byteLength - 16; i++) {
+        // Check for potential date value (4 bytes)
+        const possibleDays = dataView.getInt32(i, true);
+        
+        // Valid date range check (between 1990 and 2030)
+        if (possibleDays > 32874 && possibleDays < 51000) {
+          // Check if next 8 bytes could be an amount (stored as cents)
+          const possibleAmount = dataView.getInt32(i + 8, true);
+          
+          if (possibleAmount !== 0 && Math.abs(possibleAmount) < 100000000) {
+            const transDate = new Date(baseDate);
+            transDate.setDate(transDate.getDate() + possibleDays);
+            
+            // Extract description (look ahead for text)
+            let description = '';
+            let descOffset = i + 16;
+            while (descOffset < i + 100 && descOffset < arrayBuffer.byteLength) {
+              const byte = fullData[descOffset];
+              if (byte >= 32 && byte <= 126) {
+                description += String.fromCharCode(byte);
+              } else if (description.length > 0) {
+                break;
+              }
+              descOffset++;
+            }
+            
+            if (description.length > 2) {
+              transactions.push({
+                date: transDate,
+                amount: Math.abs(possibleAmount / 100), // Convert from cents
+                description: description.trim(),
+                type: possibleAmount < 0 ? 'expense' : 'income',
+                category: 'Imported'
+              });
+            }
+          }
+        }
+      }
+      
+      // If no accounts found, create a default one
+      if (accountsMap.size === 0) {
+        accountsMap.set('Money Import', {
+          name: 'Money Import',
+          type: 'checking',
+          balance: 0
+        });
+      }
+      
+      // Calculate account balances from transactions
+      const accountsArray = Array.from(accountsMap.values());
+      if (accountsArray.length > 0 && transactions.length > 0) {
+        // Distribute transaction totals across accounts
+        const totalIncome = transactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0);
+        const totalExpenses = transactions
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + t.amount, 0);
+        
+        accountsArray[0].balance = totalIncome - totalExpenses;
+      }
+      
+      return {
+        accounts: accountsArray,
+        transactions: transactions.filter(t => !isNaN(t.date.getTime()))
+      };
+    } catch (error) {
+      console.error('Error parsing MBF file:', error);
+      throw new Error('Failed to parse Microsoft Money file. The file may be corrupted or in an unsupported format.');
+    }
+  };
+
   // Parse QIF file format
   const parseQIF = (content: string): { 
     accounts: ParsedAccount[]; 
@@ -194,15 +320,20 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     setMessage('');
     
     try {
-      const content = await selectedFile.text();
       let parsed;
       
-      if (selectedFile.name.toLowerCase().endsWith('.qif')) {
+      if (selectedFile.name.toLowerCase().endsWith('.mbf')) {
+        // Handle Microsoft Money backup file
+        const arrayBuffer = await selectedFile.arrayBuffer();
+        parsed = await parseMBF(arrayBuffer);
+      } else if (selectedFile.name.toLowerCase().endsWith('.qif')) {
+        const content = await selectedFile.text();
         parsed = parseQIF(content);
       } else if (selectedFile.name.toLowerCase().endsWith('.ofx')) {
+        const content = await selectedFile.text();
         parsed = parseOFX(content);
       } else {
-        throw new Error('Unsupported file format. Please use .qif or .ofx files.');
+        throw new Error('Unsupported file format. Please use .mbf, .qif, or .ofx files.');
       }
       
       setPreview(parsed);
@@ -236,7 +367,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
             type: account.type,
             balance: account.balance,
             currency: 'GBP',
-            institution: 'Imported',
+            institution: 'Microsoft Money Import',
             lastUpdated: new Date()
           };
           addAccount(newAccount);
@@ -291,8 +422,13 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         <div className="mb-6">
           <p className="text-gray-600 dark:text-gray-400 mb-4">
             Import your financial data from Microsoft Money or other financial software. 
-            Supported formats: QIF (Quicken Interchange Format) and OFX (Open Financial Exchange).
+            Supported formats:
           </p>
+          <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
+            <li><strong>MBF</strong> - Microsoft Money Backup files</li>
+            <li><strong>QIF</strong> - Quicken Interchange Format</li>
+            <li><strong>OFX</strong> - Open Financial Exchange</li>
+          </ul>
 
           <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
             <Upload className="mx-auto text-gray-400 mb-4" size={48} />
@@ -302,7 +438,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               </span>
               <input
                 type="file"
-                accept=".qif,.ofx"
+                accept=".mbf,.qif,.ofx"
                 onChange={handleFileChange}
                 className="hidden"
               />
