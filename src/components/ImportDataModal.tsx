@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Upload, FileText, AlertCircle, CheckCircle } from 'lucide-react';
+import { X, Upload, FileText, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
 
 interface ImportDataModalProps {
   isOpen: boolean;
@@ -22,16 +22,16 @@ interface ParsedAccount {
 }
 
 export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProps) {
-  const { addAccount, addTransaction, accounts } = useApp();
+  const { addAccount, addTransaction, accounts, clearAllData } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState<{
-  const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
     accounts: ParsedAccount[];
     transactions: ParsedTransaction[];
   } | null>(null);
+  const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
 
   // Parse MBF file format (Microsoft Money Backup)
   const parseMBF = async (arrayBuffer: ArrayBuffer): Promise<{
@@ -319,6 +319,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     setFile(selectedFile);
     setStatus('idle');
     setMessage('');
+    setShowOverwriteWarning(false);
     
     try {
       let parsed;
@@ -327,7 +328,10 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         // Handle Microsoft Money backup file
         const arrayBuffer = await selectedFile.arrayBuffer();
         parsed = await parseMBF(arrayBuffer);
+        // Don't show preview yet for MBF files, show warning first
+        setPreview(parsed);
         setShowOverwriteWarning(true);
+        return;
       } else if (selectedFile.name.toLowerCase().endsWith('.qif')) {
         const content = await selectedFile.text();
         parsed = parseQIF(content);
@@ -350,39 +354,39 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   const handleImport = async () => {
     if (!preview) return;
     
-    // For MBF files, clear existing data first
-    if (file?.name.toLowerCase().endsWith('.mbf')) {
-      const { clearAllData } = useApp();
-      clearAllData();
-    }
-    if (!preview) return;
-    
     setImporting(true);
     try {
+      // For MBF files, clear existing data first
+      if (file?.name.toLowerCase().endsWith('.mbf')) {
+        clearAllData();
+      }
+      
       // Import accounts first
       const accountMap = new Map<string, string>();
       
       for (const account of preview.accounts) {
-        // Check if account already exists
-        const existingAccount = accounts.find(a => 
-          a.name.toLowerCase() === account.name.toLowerCase()
-        );
-        
-        if (existingAccount) {
-          accountMap.set(account.name, existingAccount.id);
-        } else {
-          const newAccount = {
-            name: account.name,
-            type: account.type,
-            balance: account.balance,
-            currency: 'GBP',
-            institution: 'Microsoft Money Import',
-            lastUpdated: new Date()
-          };
-          addAccount(newAccount);
-          // In a real app, we'd get the ID from the addAccount return value
-          accountMap.set(account.name, `imported-${Date.now()}`);
+        // For non-MBF files, check if account already exists
+        if (!file?.name.toLowerCase().endsWith('.mbf')) {
+          const existingAccount = accounts.find(a => 
+            a.name.toLowerCase() === account.name.toLowerCase()
+          );
+          
+          if (existingAccount) {
+            accountMap.set(account.name, existingAccount.id);
+            continue;
+          }
         }
+        
+        const newAccount = {
+          name: account.name,
+          type: account.type,
+          balance: account.balance,
+          currency: 'GBP',
+          institution: file?.name.toLowerCase().endsWith('.mbf') ? 'Microsoft Money Import' : 'Imported',
+          lastUpdated: new Date()
+        };
+        addAccount(newAccount);
+        accountMap.set(account.name, `imported-${Date.now()}`);
       }
       
       // Import transactions
@@ -391,12 +395,12 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
       for (const transaction of preview.transactions) {
         addTransaction({
           ...transaction,
-          accountId: defaultAccountId, // Use first account or default
+          accountId: defaultAccountId,
         });
       }
       
       setStatus('success');
-      setMessage(`Successfully imported ${preview.transactions.length} transactions`);
+      setMessage(`Successfully imported ${preview.accounts.length} accounts and ${preview.transactions.length} transactions`);
       
       setTimeout(() => {
         onClose();
@@ -404,12 +408,27 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         setPreview(null);
         setStatus('idle');
         setMessage('');
+        setShowOverwriteWarning(false);
       }, 2000);
     } catch (error) {
       setStatus('error');
       setMessage('Failed to import data');
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleCancelOverwrite = () => {
+    setFile(null);
+    setPreview(null);
+    setShowOverwriteWarning(false);
+    setMessage('');
+  };
+
+  const handleProceedWithOverwrite = () => {
+    setShowOverwriteWarning(false);
+    if (preview) {
+      setMessage(`Found ${preview.accounts.length} accounts and ${preview.transactions.length} transactions`);
     }
   };
 
@@ -428,96 +447,138 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           </button>
         </div>
 
-        <div className="mb-6">
-          <p className="text-gray-600 dark:text-gray-400 mb-4">
-            Import your financial data from Microsoft Money or other financial software. 
-            Supported formats:
-          </p>
-          <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
-            <li><strong>MBF</strong> - Microsoft Money Backup files</li>
-            <li><strong>QIF</strong> - Quicken Interchange Format</li>
-            <li><strong>OFX</strong> - Open Financial Exchange</li>
-          </ul>
+        {!showOverwriteWarning ? (
+          <>
+            <div className="mb-6">
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Import your financial data from Microsoft Money or other financial software. 
+                Supported formats:
+              </p>
+              <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
+                <li><strong>MBF</strong> - Microsoft Money Backup files (overwrites existing data)</li>
+                <li><strong>QIF</strong> - Quicken Interchange Format (adds to existing data)</li>
+                <li><strong>OFX</strong> - Open Financial Exchange (adds to existing data)</li>
+              </ul>
 
-          <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
-            <Upload className="mx-auto text-gray-400 mb-4" size={48} />
-            <label className="cursor-pointer">
-              <span className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors inline-block">
-                Choose File
-              </span>
-              <input
-                type="file"
-                accept=".mbf,.qif,.ofx"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </label>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
-              {file ? file.name : 'No file selected'}
-            </p>
-          </div>
-        </div>
-
-        {preview && (
-          <div className="mb-6 bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-            <h3 className="font-semibold mb-2 dark:text-white">Preview</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-gray-600 dark:text-gray-400">Accounts found:</p>
-                <p className="font-semibold dark:text-white">{preview.accounts.length}</p>
-                {preview.accounts.slice(0, 3).map((acc, i) => (
-                  <p key={i} className="text-xs text-gray-500 dark:text-gray-400">
-                    • {acc.name} ({acc.type})
-                  </p>
-                ))}
-              </div>
-              <div>
-                <p className="text-gray-600 dark:text-gray-400">Transactions found:</p>
-                <p className="font-semibold dark:text-white">{preview.transactions.length}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Date range: {preview.transactions.length > 0 
-                    ? `${preview.transactions[0].date.toLocaleDateString()} - 
-                       ${preview.transactions[preview.transactions.length - 1].date.toLocaleDateString()}`
-                    : 'N/A'
-                  }
+              <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+                <Upload className="mx-auto text-gray-400 mb-4" size={48} />
+                <label className="cursor-pointer">
+                  <span className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors inline-block">
+                    Choose File
+                  </span>
+                  <input
+                    type="file"
+                    accept=".mbf,.qif,.ofx"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                  {file ? file.name : 'No file selected'}
                 </p>
               </div>
             </div>
+
+            {preview && !showOverwriteWarning && (
+              <div className="mb-6 bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <h3 className="font-semibold mb-2 dark:text-white">Preview</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Accounts found:</p>
+                    <p className="font-semibold dark:text-white">{preview.accounts.length}</p>
+                    {preview.accounts.slice(0, 3).map((acc, i) => (
+                      <p key={i} className="text-xs text-gray-500 dark:text-gray-400">
+                        • {acc.name} ({acc.type})
+                      </p>
+                    ))}
+                  </div>
+                  <div>
+                    <p className="text-gray-600 dark:text-gray-400">Transactions found:</p>
+                    <p className="font-semibold dark:text-white">{preview.transactions.length}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Date range: {preview.transactions.length > 0 
+                        ? `${preview.transactions[0].date.toLocaleDateString()} - 
+                           ${preview.transactions[preview.transactions.length - 1].date.toLocaleDateString()}`
+                        : 'N/A'
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {message && (
+              <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
+                status === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
+                status === 'error' ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
+                'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+              }`}>
+                {status === 'success' ? <CheckCircle size={20} /> :
+                 status === 'error' ? <AlertCircle size={20} /> :
+                 <FileText size={20} />}
+                <span>{message}</span>
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleImport}
+                disabled={!preview || importing || showOverwriteWarning}
+                className={`flex-1 px-4 py-2 rounded-lg ${
+                  preview && !importing && !showOverwriteWarning
+                    ? 'bg-primary text-white hover:bg-secondary'
+                    : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {importing ? 'Importing...' : 'Import Data'}
+              </button>
+            </div>
+          </>
+        ) : (
+          /* Overwrite Warning for MBF files */
+          <div className="text-center">
+            <AlertTriangle className="mx-auto text-orange-500 mb-4" size={64} />
+            <h3 className="text-xl font-semibold mb-4 dark:text-white">
+              Warning: Microsoft Money Import
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Importing a Microsoft Money backup file (.mbf) will <strong>completely replace</strong> all your existing data:
+            </p>
+            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6">
+              <ul className="text-sm text-orange-800 dark:text-orange-200 space-y-2">
+                <li>• All current accounts will be deleted</li>
+                <li>• All current transactions will be deleted</li>
+                <li>• All current budgets will be deleted</li>
+                <li>• This action cannot be undone!</li>
+              </ul>
+            </div>
+            {preview && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                The import file contains {preview.accounts.length} accounts and {preview.transactions.length} transactions.
+              </p>
+            )}
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancelOverwrite}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel Import
+              </button>
+              <button
+                onClick={handleProceedWithOverwrite}
+                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+              >
+                Proceed with Import
+              </button>
+            </div>
           </div>
         )}
-
-        {message && (
-          <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
-            status === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
-            status === 'error' ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
-            'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
-          }`}>
-            {status === 'success' ? <CheckCircle size={20} /> :
-             status === 'error' ? <AlertCircle size={20} /> :
-             <FileText size={20} />}
-            <span>{message}</span>
-          </div>
-        )}
-
-        <div className="flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleImport}
-            disabled={!preview || importing}
-            className={`flex-1 px-4 py-2 rounded-lg ${
-              preview && !importing
-                ? 'bg-primary text-white hover:bg-secondary'
-                : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-            }`}
-          >
-            {importing ? 'Importing...' : 'Import Data'}
-          </button>
-        </div>
       </div>
     </div>
   );
