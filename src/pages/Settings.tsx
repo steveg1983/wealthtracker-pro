@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   User, 
   Bell, 
@@ -16,6 +17,7 @@ import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 
 export default function Settings() {
+  const navigate = useNavigate();
   const { accounts, transactions, budgets, addAccount, addBudget } = useApp();
   const { compactView, setCompactView, currency, setCurrency, theme, setTheme, accentColor, setAccentColor } = usePreferences();
   const [activeSection, setActiveSection] = useState('profile');
@@ -71,11 +73,14 @@ export default function Settings() {
         localStorage.setItem('wealthtracker_transactions', JSON.stringify(testData.transactions));
         localStorage.setItem('wealthtracker_budgets', JSON.stringify(testData.budgets));
         
-        // Show success message
-        alert('Test data generated successfully! The page will now refresh.');
+        // Navigate to dashboard to see the new data
+        navigate('/');
         
-        // Reload the page to show new data
-        window.location.reload();
+        // Small delay then navigate back to settings if user wants to stay here
+        setTimeout(() => {
+          alert('Test data generated successfully!');
+        }, 500);
+        
       } catch (error) {
         console.error('Error generating test data:', error);
         alert('There was an error generating test data. Please try again.');
@@ -89,7 +94,10 @@ export default function Settings() {
     if (window.confirm('Are you sure you want to delete all data? This cannot be undone!')) {
       if (window.confirm('This will delete ALL accounts, transactions, and budgets. Are you absolutely sure?')) {
         localStorage.clear();
-        window.location.reload();
+        navigate('/');
+        setTimeout(() => {
+          window.location.reload();
+        }, 100);
       }
     }
   };
