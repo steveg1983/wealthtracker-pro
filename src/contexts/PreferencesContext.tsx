@@ -8,6 +8,7 @@ interface PreferencesContextType {
   setCurrency: (value: string) => void;
   theme: 'light' | 'dark' | 'auto';
   setTheme: (value: 'light' | 'dark' | 'auto') => void;
+  actualTheme: 'light' | 'dark';
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -26,6 +27,38 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     const saved = localStorage.getItem('money_management_theme');
     return (saved as 'light' | 'dark' | 'auto') || 'light';
   });
+
+  const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
+
+  // Handle theme changes and auto theme
+  useEffect(() => {
+    const updateActualTheme = () => {
+      if (theme === 'auto') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        setActualTheme(prefersDark ? 'dark' : 'light');
+      } else {
+        setActualTheme(theme as 'light' | 'dark');
+      }
+    };
+
+    updateActualTheme();
+
+    // Listen for system theme changes
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = () => updateActualTheme();
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, [theme]);
+
+  // Apply theme to document
+  useEffect(() => {
+    if (actualTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [actualTheme]);
 
   useEffect(() => {
     localStorage.setItem('money_management_compact_view', compactView.toString());
@@ -47,6 +80,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setCurrency,
       theme,
       setTheme,
+      actualTheme,
     }}>
       {children}
     </PreferencesContext.Provider>

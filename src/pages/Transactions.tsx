@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
+import { usePreferences } from '../contexts/PreferencesContext';
 import AddTransactionModal from '../components/AddTransactionModal';
 import { Plus, TrendingUp, TrendingDown, Filter, Calendar, Trash2 } from 'lucide-react';
 
 export default function Transactions() {
   const { transactions, accounts, deleteTransaction } = useApp();
+  const { compactView } = usePreferences();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterAccountId, setFilterAccountId] = useState<string>('');
@@ -30,9 +32,9 @@ export default function Transactions() {
 
   const getTypeIcon = (type: string) => {
     return type === 'income' ? (
-      <TrendingUp className="text-green-500" size={20} />
+      <TrendingUp className="text-green-500" size={compactView ? 16 : 20} />
     ) : (
-      <TrendingDown className="text-red-500" size={20} />
+      <TrendingDown className="text-red-500" size={compactView ? 16 : 20} />
     );
   };
 
@@ -52,7 +54,7 @@ export default function Transactions() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Transactions</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Transactions</h1>
         <button 
           onClick={() => setIsAddModalOpen(true)}
           className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
@@ -64,29 +66,29 @@ export default function Transactions() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Income</p>
-              <p className="text-xl font-bold text-green-600">£{totals.income.toFixed(2)}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Income</p>
+              <p className="text-xl font-bold text-green-600 dark:text-green-400">£{totals.income.toFixed(2)}</p>
             </div>
             <TrendingUp className="text-green-500" size={24} />
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Expenses</p>
-              <p className="text-xl font-bold text-red-600">£{totals.expense.toFixed(2)}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Expenses</p>
+              <p className="text-xl font-bold text-red-600 dark:text-red-400">£{totals.expense.toFixed(2)}</p>
             </div>
             <TrendingDown className="text-red-500" size={24} />
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500">Net</p>
-              <p className={`text-xl font-bold ${totals.income - totals.expense >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Net</p>
+              <p className={`text-xl font-bold ${totals.income - totals.expense >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 £{(totals.income - totals.expense).toFixed(2)}
               </p>
             </div>
@@ -96,12 +98,12 @@ export default function Transactions() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-6">
         <div className="flex flex-wrap gap-4">
           <div className="flex items-center gap-2">
-            <Filter size={20} className="text-gray-500" />
+            <Filter size={20} className="text-gray-500 dark:text-gray-400" />
             <select
-              className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               value={filterType}
               onChange={(e) => setFilterType(e.target.value as any)}
             >
@@ -112,7 +114,7 @@ export default function Transactions() {
           </div>
           <div>
             <select
-              className="px-3 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               value={filterAccountId}
               onChange={(e) => setFilterAccountId(e.target.value)}
             >
@@ -127,69 +129,69 @@ export default function Transactions() {
 
       {/* Transactions List */}
       {filteredTransactions.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-6">
-          <p className="text-gray-500 text-center py-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">
             {transactions.length === 0 
               ? "No transactions yet. Click 'Add Transaction' to record your first one!"
               : "No transactions match your filters."}
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-gray-50">
+              <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
                     Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
                     Description
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell`}>
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell`}>
                     Account
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
                     Amount
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredTransactions.map((transaction) => {
                   const account = accounts.find(a => a.id === transaction.accountId);
                   return (
-                    <tr key={transaction.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <tr key={transaction.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-900 dark:text-gray-100`}>
                         {new Date(transaction.date).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap`}>
                         <div className="flex items-center gap-2">
                           {getTypeIcon(transaction.type)}
-                          <span className="text-sm text-gray-900">{transaction.description}</span>
+                          <span className={`${compactView ? 'text-sm' : 'text-sm'} text-gray-900 dark:text-gray-100`}>{transaction.description}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell`}>
                         {transaction.category}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell`}>
                         {account?.name || 'Unknown'}
                       </td>
-                      <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-medium ${
-                        transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-right font-medium ${
+                        transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                       }`}>
                         {transaction.type === 'income' ? '+' : '-'}
                         {formatCurrency(transaction.amount, transaction.accountId)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-right text-sm font-medium`}>
                         <button
                           onClick={() => handleDelete(transaction.id)}
-                          className="text-red-600 hover:text-red-900"
+                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
                         >
                           <Trash2 size={16} />
                         </button>
