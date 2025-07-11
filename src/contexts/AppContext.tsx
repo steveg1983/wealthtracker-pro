@@ -1,296 +1,173 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { generateTestData } from '../utils/generateTestData';
-
-interface Account {
-  id: string;
-  name: string;
-  type: 'checking' | 'savings' | 'credit' | 'loan' | 'investment';
-  balance: number;
-  currency: string;
-  institution: string;
-  lastUpdated: Date;
-}
-
-interface Transaction {
-  id: string;
-  accountId: string;
-  date: Date;
-  description: string;
-  amount: number;
-  type: 'income' | 'expense';
-  category: string;
-}
-
-interface Budget {
-  id: string;
-  category: string;
-  amount: number;
-  period: 'monthly' | 'weekly' | 'yearly';
-  isActive: boolean;
-  createdAt: Date;
-}
-
-interface Goal {
-  id: string;
-  name: string;
-  targetAmount: number;
-  currentAmount: number;
-  deadline: Date;
-  createdAt: Date;
-}
+import type { Account, Transaction, Budget } from '../types';
 
 interface AppContextType {
   accounts: Account[];
   transactions: Transaction[];
   budgets: Budget[];
-  goals: Goal[];
-  isLoading: boolean;
   addAccount: (account: Omit<Account, 'id'>) => void;
   updateAccount: (id: string, updates: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
   addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
   addBudget: (budget: Omit<Budget, 'id'>) => void;
   updateBudget: (id: string, updates: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
-  addGoal: (goal: Omit<Goal, 'id'>) => void;
-  updateGoal: (id: string, updates: Partial<Goal>) => void;
-  deleteGoal: (id: string) => void;
+  isLoading: boolean;
+  clearAllData: () => void;
+  exportData: () => string;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const STORAGE_KEYS = {
+  accounts: 'wealthtracker_accounts',
+  transactions: 'wealthtracker_transactions',
+  budgets: 'wealthtracker_budgets',
+};
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [goals, setGoals] = useState<Goal[]>([]);
 
-  // Initialize data on mount
+  // Load data from localStorage on mount
   useEffect(() => {
-    const initializeData = () => {
+    const loadData = () => {
       try {
-        console.log('Initializing app data...');
-        
-        // Check if we have any saved data
-        const hasAccounts = localStorage.getItem('wealthtracker_accounts');
-        const hasTransactions = localStorage.getItem('wealthtracker_transactions');
-        const hasBudgets = localStorage.getItem('wealthtracker_budgets');
-        
-        console.log('Checking for existing data:', { hasAccounts: !!hasAccounts, hasTransactions: !!hasTransactions, hasBudgets: !!hasBudgets });
-        
-        // If no data exists at all, generate test data
-        if (!hasAccounts && !hasTransactions && !hasBudgets) {
-          console.log('No existing data found, generating test data...');
+        const storedAccounts = localStorage.getItem(STORAGE_KEYS.accounts);
+        const storedTransactions = localStorage.getItem(STORAGE_KEYS.transactions);
+        const storedBudgets = localStorage.getItem(STORAGE_KEYS.budgets);
+
+        if (!storedAccounts && !storedTransactions && !storedBudgets) {
+          // Initialize with test data if no data exists
           const testData = generateTestData();
-          
-          // Save to localStorage
-          localStorage.setItem('wealthtracker_accounts', JSON.stringify(testData.accounts));
-          localStorage.setItem('wealthtracker_transactions', JSON.stringify(testData.transactions));
-          localStorage.setItem('wealthtracker_budgets', JSON.stringify(testData.budgets));
-          
-          // Set state
           setAccounts(testData.accounts);
           setTransactions(testData.transactions);
           setBudgets(testData.budgets);
           
-          console.log('Test data generated:', {
-            accounts: testData.accounts.length,
-            transactions: testData.transactions.length,
-            budgets: testData.budgets.length
-          });
+          // Save test data to localStorage
+          localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(testData.accounts));
+          localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(testData.transactions));
+          localStorage.setItem(STORAGE_KEYS.budgets, JSON.stringify(testData.budgets));
         } else {
           // Load existing data
-          console.log('Loading existing data...');
-          
-          if (hasAccounts) {
-            const parsedAccounts = JSON.parse(hasAccounts);
-            setAccounts(parsedAccounts);
-            console.log('Loaded accounts:', parsedAccounts.length);
-          }
-          
-          if (hasTransactions) {
-            const parsedTransactions = JSON.parse(hasTransactions);
-            setTransactions(parsedTransactions);
-            console.log('Loaded transactions:', parsedTransactions.length);
-          }
-          
-          if (hasBudgets) {
-            const parsedBudgets = JSON.parse(hasBudgets);
-            setBudgets(parsedBudgets);
-            console.log('Loaded budgets:', parsedBudgets.length);
-          }
+          if (storedAccounts) setAccounts(JSON.parse(storedAccounts));
+          if (storedTransactions) setTransactions(JSON.parse(storedTransactions));
+          if (storedBudgets) setBudgets(JSON.parse(storedBudgets));
         }
-        
-        // Load goals (always check separately as they might not exist)
-        const savedGoals = localStorage.getItem('wealthtracker_goals');
-        if (savedGoals) {
-          setGoals(JSON.parse(savedGoals));
-        }
-        
       } catch (error) {
-        console.error('Error initializing data:', error);
-        
-        // If there's any error, generate fresh test data
-        console.log('Error occurred, generating fresh test data...');
-        const testData = generateTestData();
-        
-        setAccounts(testData.accounts);
-        setTransactions(testData.transactions);
-        setBudgets(testData.budgets);
-        
-        // Try to save to localStorage (might fail on some browsers)
-        try {
-          localStorage.setItem('wealthtracker_accounts', JSON.stringify(testData.accounts));
-          localStorage.setItem('wealthtracker_transactions', JSON.stringify(testData.transactions));
-          localStorage.setItem('wealthtracker_budgets', JSON.stringify(testData.budgets));
-        } catch (saveError) {
-          console.error('Could not save to localStorage:', saveError);
-        }
+        console.error('Error loading data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Small delay to ensure DOM is ready
-    setTimeout(initializeData, 100);
+    loadData();
   }, []);
 
-  // Save to localStorage whenever data changes (skip during loading)
+  // Save to localStorage whenever data changes
   useEffect(() => {
-    if (!isLoading && accounts.length > 0) {
-      try {
-        localStorage.setItem('wealthtracker_accounts', JSON.stringify(accounts));
-      } catch (error) {
-        console.error('Error saving accounts:', error);
-      }
+    if (!isLoading) {
+      localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(accounts));
     }
   }, [accounts, isLoading]);
 
   useEffect(() => {
-    if (!isLoading && transactions.length > 0) {
-      try {
-        localStorage.setItem('wealthtracker_transactions', JSON.stringify(transactions));
-      } catch (error) {
-        console.error('Error saving transactions:', error);
-      }
+    if (!isLoading) {
+      localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(transactions));
     }
   }, [transactions, isLoading]);
 
   useEffect(() => {
-    if (!isLoading && budgets.length > 0) {
-      try {
-        localStorage.setItem('wealthtracker_budgets', JSON.stringify(budgets));
-      } catch (error) {
-        console.error('Error saving budgets:', error);
-      }
+    if (!isLoading) {
+      localStorage.setItem(STORAGE_KEYS.budgets, JSON.stringify(budgets));
     }
   }, [budgets, isLoading]);
 
-  useEffect(() => {
-    if (!isLoading) {
-      try {
-        localStorage.setItem('wealthtracker_goals', JSON.stringify(goals));
-      } catch (error) {
-        console.error('Error saving goals:', error);
-      }
-    }
-  }, [goals, isLoading]);
-
-  // Account functions
+  // Account methods
   const addAccount = (account: Omit<Account, 'id'>) => {
-    const newAccount = {
+    const newAccount: Account = {
       ...account,
       id: `acc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     };
-    setAccounts([...accounts, newAccount]);
+    setAccounts(prev => [...prev, newAccount]);
   };
 
   const updateAccount = (id: string, updates: Partial<Account>) => {
-    setAccounts(accounts.map(acc => 
+    setAccounts(prev => prev.map(acc => 
       acc.id === id ? { ...acc, ...updates } : acc
     ));
   };
 
   const deleteAccount = (id: string) => {
-    setAccounts(accounts.filter(acc => acc.id !== id));
-    // Also delete related transactions
-    setTransactions(transactions.filter(t => t.accountId !== id));
+    setAccounts(prev => prev.filter(acc => acc.id !== id));
+    // Also delete associated transactions
+    setTransactions(prev => prev.filter(trans => trans.accountId !== id));
   };
 
-  // Transaction functions
+  // Transaction methods
   const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
-    const newTransaction = {
+    const newTransaction: Transaction = {
       ...transaction,
       id: `trans_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     };
-    setTransactions([...transactions, newTransaction]);
+    setTransactions(prev => [...prev, newTransaction]);
+  };
 
-    // Update account balance
-    const account = accounts.find(acc => acc.id === transaction.accountId);
-    if (account) {
-      const balanceChange = transaction.type === 'income' ? transaction.amount : -transaction.amount;
-      updateAccount(account.id, { 
-        balance: account.balance + balanceChange,
-        lastUpdated: new Date()
-      });
-    }
+  const updateTransaction = (id: string, updates: Partial<Transaction>) => {
+    setTransactions(prev => prev.map(trans => 
+      trans.id === id ? { ...trans, ...updates } : trans
+    ));
   };
 
   const deleteTransaction = (id: string) => {
-    const transaction = transactions.find(t => t.id === id);
-    if (transaction) {
-      // Reverse the balance change
-      const account = accounts.find(acc => acc.id === transaction.accountId);
-      if (account) {
-        const balanceChange = transaction.type === 'income' ? -transaction.amount : transaction.amount;
-        updateAccount(account.id, { 
-          balance: account.balance + balanceChange,
-          lastUpdated: new Date()
-        });
-      }
-    }
-    setTransactions(transactions.filter(t => t.id !== id));
+    setTransactions(prev => prev.filter(trans => trans.id !== id));
   };
 
-  // Budget functions
+  // Budget methods
   const addBudget = (budget: Omit<Budget, 'id'>) => {
-    const newBudget = {
+    const newBudget: Budget = {
       ...budget,
       id: `budget_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
     };
-    setBudgets([...budgets, newBudget]);
+    setBudgets(prev => [...prev, newBudget]);
   };
 
   const updateBudget = (id: string, updates: Partial<Budget>) => {
-    setBudgets(budgets.map(budget => 
+    setBudgets(prev => prev.map(budget => 
       budget.id === id ? { ...budget, ...updates } : budget
     ));
   };
 
   const deleteBudget = (id: string) => {
-    setBudgets(budgets.filter(budget => budget.id !== id));
+    setBudgets(prev => prev.filter(budget => budget.id !== id));
   };
 
-  // Goal functions
-  const addGoal = (goal: Omit<Goal, 'id'>) => {
-    const newGoal = {
-      ...goal,
-      id: `goal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+  // Clear all data
+  const clearAllData = () => {
+    setAccounts([]);
+    setTransactions([]);
+    setBudgets([]);
+    localStorage.removeItem(STORAGE_KEYS.accounts);
+    localStorage.removeItem(STORAGE_KEYS.transactions);
+    localStorage.removeItem(STORAGE_KEYS.budgets);
+  };
+
+  // Export data
+  const exportData = () => {
+    const data = {
+      accounts,
+      transactions,
+      budgets,
+      exportDate: new Date().toISOString(),
+      version: '1.0'
     };
-    setGoals([...goals, newGoal]);
-  };
-
-  const updateGoal = (id: string, updates: Partial<Goal>) => {
-    setGoals(goals.map(goal => 
-      goal.id === id ? { ...goal, ...updates } : goal
-    ));
-  };
-
-  const deleteGoal = (id: string) => {
-    setGoals(goals.filter(goal => goal.id !== id));
+    return JSON.stringify(data, null, 2);
   };
 
   return (
@@ -298,19 +175,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       accounts,
       transactions,
       budgets,
-      goals,
-      isLoading,
       addAccount,
       updateAccount,
       deleteAccount,
       addTransaction,
+      updateTransaction,
       deleteTransaction,
       addBudget,
       updateBudget,
       deleteBudget,
-      addGoal,
-      updateGoal,
-      deleteGoal,
+      isLoading,
+      clearAllData,
+      exportData,
     }}>
       {children}
     </AppContext.Provider>
