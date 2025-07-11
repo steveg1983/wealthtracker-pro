@@ -2,9 +2,6 @@ import { generateTestData } from './generateTestData';
 
 export function initializeAppData() {
   try {
-    // Check if we're on mobile
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    
     // Check if localStorage is available
     if (typeof Storage === 'undefined') {
       console.error('LocalStorage not available');
