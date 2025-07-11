@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { parseMBF } from "../utils/mbfParser";
 import { useApp } from '../contexts/AppContext';
-import { X, Upload, FileText, AlertCircle, CheckCircle, AlertTriangle } from 'lucide-react';
+import { X, Upload, FileText, AlertCircle, CheckCircle, AlertTriangle, Info } from 'lucide-react';
+import { parseMBF } from '../utils/mbfParser';
 
 interface ImportDataModalProps {
   isOpen: boolean;
@@ -33,8 +33,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     transactions: ParsedTransaction[];
   } | null>(null);
   const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
-
-  // Parse MBF file format (Microsoft Money Backup)
+  const [showMBFHelp, setShowMBFHelp] = useState(false);
 
   // Parse QIF file format
   const parseQIF = (content: string): { 
@@ -197,17 +196,15 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     setStatus('idle');
     setMessage('');
     setShowOverwriteWarning(false);
+    setShowMBFHelp(false);
     
     try {
       let parsed;
       
       if (selectedFile.name.toLowerCase().endsWith('.mbf')) {
-        // Handle Microsoft Money backup file
-        const arrayBuffer = await selectedFile.arrayBuffer();
-        parsed = await parseMBF(arrayBuffer);
-        // Don't show preview yet for MBF files, show warning first
-        setPreview(parsed);
-        setShowOverwriteWarning(true);
+        // Show help for MBF files
+        setShowMBFHelp(true);
+        setMessage('MBF files are often encrypted. We recommend exporting as QIF from Money instead.');
         return;
       } else if (selectedFile.name.toLowerCase().endsWith('.qif')) {
         const content = await selectedFile.text();
@@ -216,7 +213,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         const content = await selectedFile.text();
         parsed = parseOFX(content);
       } else {
-        throw new Error('Unsupported file format. Please use .mbf, .qif, or .ofx files.');
+        throw new Error('Unsupported file format. Please use .qif or .ofx files.');
       }
       
       setPreview(parsed);
@@ -233,25 +230,17 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     
     setImporting(true);
     try {
-      // For MBF files, clear existing data first
-      if (file?.name.toLowerCase().endsWith('.mbf')) {
-        clearAllData();
-      }
-      
       // Import accounts first
       const accountMap = new Map<string, string>();
       
       for (const account of preview.accounts) {
-        // For non-MBF files, check if account already exists
-        if (!file?.name.toLowerCase().endsWith('.mbf')) {
-          const existingAccount = accounts.find(a => 
-            a.name.toLowerCase() === account.name.toLowerCase()
-          );
-          
-          if (existingAccount) {
-            accountMap.set(account.name, existingAccount.id);
-            continue;
-          }
+        const existingAccount = accounts.find(a => 
+          a.name.toLowerCase() === account.name.toLowerCase()
+        );
+        
+        if (existingAccount) {
+          accountMap.set(account.name, existingAccount.id);
+          continue;
         }
         
         const newAccount = {
@@ -259,7 +248,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           type: account.type,
           balance: account.balance,
           currency: 'GBP',
-          institution: file?.name.toLowerCase().endsWith('.mbf') ? 'Microsoft Money Import' : 'Imported',
+          institution: 'Imported',
           lastUpdated: new Date()
         };
         addAccount(newAccount);
@@ -285,27 +274,13 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         setPreview(null);
         setStatus('idle');
         setMessage('');
-        setShowOverwriteWarning(false);
+        setShowMBFHelp(false);
       }, 2000);
     } catch (error) {
       setStatus('error');
       setMessage('Failed to import data');
     } finally {
       setImporting(false);
-    }
-  };
-
-  const handleCancelOverwrite = () => {
-    setFile(null);
-    setPreview(null);
-    setShowOverwriteWarning(false);
-    setMessage('');
-  };
-
-  const handleProceedWithOverwrite = () => {
-    setShowOverwriteWarning(false);
-    if (preview) {
-      setMessage(`Found ${preview.accounts.length} accounts and ${preview.transactions.length} transactions`);
     }
   };
 
@@ -324,7 +299,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           </button>
         </div>
 
-        {!showOverwriteWarning ? (
+        {!showMBFHelp ? (
           <>
             <div className="mb-6">
               <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -332,10 +307,26 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                 Supported formats:
               </p>
               <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-4">
-                <li><strong>MBF</strong> - Microsoft Money Sunset Edition backup files only (overwrites existing data)</li>
-                <li><strong>QIF</strong> - Quicken Interchange Format (adds to existing data)</li>
-                <li><strong>OFX</strong> - Open Financial Exchange (adds to existing data)</li>
+                <li><strong>QIF</strong> - Quicken Interchange Format (recommended for Money users)</li>
+                <li><strong>OFX</strong> - Open Financial Exchange</li>
               </ul>
+
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                <div className="flex items-start gap-2">
+                  <Info className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+                  <div className="text-sm text-blue-800 dark:text-blue-200">
+                    <p className="font-semibold mb-1">Microsoft Money Users:</p>
+                    <p>For best results, export your data as QIF from within Money:</p>
+                    <ol className="list-decimal list-inside mt-2 ml-2">
+                      <li>Open Microsoft Money Sunset</li>
+                      <li>Go to File → Export</li>
+                      <li>Choose "Loose QIF" format</li>
+                      <li>Select date range and accounts</li>
+                      <li>Save and import the QIF file here</li>
+                    </ol>
+                  </div>
+                </div>
+              </div>
 
               <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
                 <Upload className="mx-auto text-gray-400 mb-4" size={48} />
@@ -345,7 +336,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                   </span>
                   <input
                     type="file"
-                    accept=".mbf,.qif,.ofx"
+                    accept=".qif,.ofx"
                     onChange={handleFileChange}
                     className="hidden"
                   />
@@ -356,7 +347,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               </div>
             </div>
 
-            {preview && !showOverwriteWarning && (
+            {preview && (
               <div className="mb-6 bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
                 <h3 className="font-semibold mb-2 dark:text-white">Preview</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
@@ -384,7 +375,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               </div>
             )}
 
-            {message && (
+            {message && !showMBFHelp && (
               <div className={`mb-4 p-3 rounded-lg flex items-center gap-2 ${
                 status === 'success' ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300' :
                 status === 'error' ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
@@ -406,9 +397,9 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               </button>
               <button
                 onClick={handleImport}
-                disabled={!preview || importing || showOverwriteWarning}
+                disabled={!preview || importing}
                 className={`flex-1 px-4 py-2 rounded-lg ${
-                  preview && !importing && !showOverwriteWarning
+                  preview && !importing
                     ? 'bg-primary text-white hover:bg-secondary'
                     : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                 }`}
@@ -418,40 +409,49 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
             </div>
           </>
         ) : (
-          /* Overwrite Warning for MBF files */
+          /* MBF Help Information */
           <div className="text-center">
-            <AlertTriangle className="mx-auto text-orange-500 mb-4" size={64} />
+            <AlertCircle className="mx-auto text-orange-500 mb-4" size={64} />
             <h3 className="text-xl font-semibold mb-4 dark:text-white">
-              Warning: Microsoft Money Import
+              Microsoft Money MBF Files
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Importing a Microsoft Money backup file (.mbf) will <strong>completely replace</strong> all your existing data:
-            </p>
-            <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6">
-              <ul className="text-sm text-orange-800 dark:text-orange-200 space-y-2">
-                <li>• All current accounts will be deleted</li>
-                <li>• All current transactions will be deleted</li>
-                <li>• All current budgets will be deleted</li>
-                <li>• This action cannot be undone!</li>
-              </ul>
-            </div>
-            {preview && (
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                The import file contains {preview.accounts.length} accounts and {preview.transactions.length} transactions.
+            <div className="text-left mb-6">
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                MBF backup files from Microsoft Money are often encrypted or use proprietary compression that makes them difficult to import directly.
               </p>
-            )}
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                <strong>We recommend using QIF export instead:</strong>
+              </p>
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
+                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                  <li>Open your data in Microsoft Money Sunset (free edition)</li>
+                  <li>Go to <strong>File → Export</strong></li>
+                  <li>Choose <strong>"Loose QIF"</strong> as the export type</li>
+                  <li>Select <strong>"All Accounts"</strong> to export everything</li>
+                  <li>Choose your date range (or leave blank for all dates)</li>
+                  <li>Save the QIF file and import it here</li>
+                </ol>
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+                QIF files contain the same data as MBF files but in a standard format that we can reliably import.
+              </p>
+            </div>
             <div className="flex gap-3">
               <button
-                onClick={handleCancelOverwrite}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                onClick={() => {
+                  setShowMBFHelp(false);
+                  setFile(null);
+                  setMessage('');
+                }}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
               >
-                Cancel Import
+                Choose Different File
               </button>
               <button
-                onClick={handleProceedWithOverwrite}
-                className="flex-1 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                Proceed with Import
+                Close
               </button>
             </div>
           </div>
