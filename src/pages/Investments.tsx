@@ -43,7 +43,7 @@ export default function Investments() {
   const returnPercentage = totalInvested > 0 ? ((totalReturn / totalInvested) * 100) : 0;
 
   // Create holdings data from investment accounts
-  const holdings = investmentAccounts.map((acc, index) => ({
+  const holdings = investmentAccounts.map((acc) => ({
     name: acc.name,
     value: acc.balance,
     allocation: portfolioValue > 0 ? (acc.balance / portfolioValue) * 100 : 0,
@@ -53,7 +53,7 @@ export default function Investments() {
 
   // Create performance data based on transactions
   const generatePerformanceData = () => {
-    const data = [];
+    const data: Array<{ month: string; value: number }> = [];
     const today = new Date();
     
     for (let i = 11; i >= 0; i--) {
