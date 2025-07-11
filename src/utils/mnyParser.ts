@@ -42,7 +42,6 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   console.log('Is Jet database:', isJetDb);
   
   // Check for encryption
-  let possiblyEncrypted = true;
   let textFound = 0;
   
   // Sample the file to check if it contains readable text
@@ -78,12 +77,6 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   
   // If we get here, try to parse what we can
   console.log('Attempting to parse unencrypted Money file...');
-  
-  const accounts = new Map<string, ParsedAccount>();
-  const transactions: ParsedTransaction[] = [];
-  
-  // Since the descriptions are garbage, this is likely a structured database
-  // Money files use OLE structured storage (like old Office files)
   
   // Look for OLE header
   const oleSignature = [0xD0, 0xCF, 0x11, 0xE0, 0xA1, 0xB1, 0x1A, 0xE1];
