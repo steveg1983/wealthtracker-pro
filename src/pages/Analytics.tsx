@@ -6,11 +6,11 @@ export default function Analytics() {
   const { transactions } = useApp();
 
   // Helper function to format currency properly
-  const formatCurrency = (amount: number): string => {
-    return '£' + new Intl.NumberFormat('en-GB', {
+   const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-GB', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(Math.abs(amount));
+    }).format(amount);
   };
 
   // Calculate spending by category
