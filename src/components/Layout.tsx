@@ -1,103 +1,114 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Wallet, 
-  ArrowUpDown, 
-  TrendingUp, 
-  Target, 
-  PieChart,
-  Settings,
-  Menu,
-  X,
-  BarChart3
-} from 'lucide-react';
 import { useState } from 'react';
-import { useApp } from '../contexts/AppContext';
-import LoadingScreen from './LoadingScreen';
+import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Home, CreditCard, PieChart, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft } from 'lucide-react';
 
-export default function Layout() {
+interface SidebarLinkProps {
+  to: string;
+  icon: React.ElementType;
+  label: string;
+  isCollapsed: boolean;
+}
+
+function SidebarLink({ to, icon: Icon, label, isCollapsed }: SidebarLinkProps) {
   const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { isLoading } = useApp();
-  
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Accounts', href: '/accounts', icon: Wallet },
-    { name: 'Transactions', href: '/transactions', icon: ArrowUpDown },
-    { name: 'Investments', href: '/investments', icon: TrendingUp },
-        <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isCollapsed} />
-    { name: 'Budget', href: '/budget', icon: PieChart },
-    { name: 'Goals', href: '/goals', icon: Target },
-    { name: 'Analytics', href: '/analytics', icon: BarChart3 },
-    { name: 'Settings', href: '/settings', icon: Settings },
-  ];
-
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
+  const isActive = location.pathname === to;
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <button
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="p-2 rounded-lg bg-white dark:bg-gray-800 shadow-md"
-        >
-          {mobileMenuOpen ? <X size={24} className="dark:text-white" /> : <Menu size={24} className="dark:text-white" />}
-        </button>
-      </div>
+    <Link
+      to={to}
+      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+        isActive
+          ? 'bg-primary text-white'
+          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+      }`}
+      title={isCollapsed ? label : undefined}
+    >
+      <Icon size={20} />
+      {!isCollapsed && <span>{label}</span>}
+    </Link>
+  );
+}
 
-      {/* Sidebar for desktop, overlay for mobile */}
-      <div className={`${
-        mobileMenuOpen ? 'block' : 'hidden'
-      } lg:block fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-800 shadow-lg`}>
-        <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex h-16 items-center justify-center lg:justify-center border-b dark:border-gray-700 pl-16 pr-4 lg:px-4">
-            <h1 className="text-lg lg:text-xl font-bold text-primary dark:text-blue-400 text-center">
-              Danielle's Money <span className="inline-block">👋</span>
-            </h1>
+export default function Layout() {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(!isSidebarCollapsed);
+  };
+
+  const toggleMobileMenu = () => {
+    setIsMobileMenuOpen(!isMobileMenuOpen);
+  };
+
+  return (
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+      {/* Sidebar */}
+      <aside
+        className={`${
+          isSidebarCollapsed ? 'w-16' : 'w-64'
+        } bg-white dark:bg-gray-800 shadow-md transition-all duration-300 hidden md:block`}
+      >
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-8">
+            {!isSidebarCollapsed && (
+              <h1 className="text-xl font-bold text-gray-800 dark:text-white">Money Tracker</h1>
+            )}
+            <button
+              onClick={toggleSidebar}
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+            >
+              <Menu size={20} className="text-gray-600 dark:text-gray-400" />
+            </button>
           </div>
-
-          {/* Navigation */}
-          <nav className="flex-1 space-y-1 p-4">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                    isActive
-                      ? 'bg-primary text-white dark:bg-blue-600'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <item.icon size={20} />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
+          <nav className="space-y-2">
+            <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/budgets" icon={Target} label="Budgets" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/reports" icon={PieChart} label="Reports" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/settings" icon={Settings} label="Settings" isCollapsed={isSidebarCollapsed} />
           </nav>
         </div>
-      </div>
+      </aside>
 
-      {/* Mobile menu backdrop */}
-      {mobileMenuOpen && (
-        <div
-          className="lg:hidden fixed inset-0 z-30 bg-black bg-opacity-50"
-          onClick={() => setMobileMenuOpen(false)}
-        />
+      {/* Mobile Menu Button */}
+      <button
+        onClick={toggleMobileMenu}
+        className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md"
+      >
+        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+      </button>
+
+      {/* Mobile Menu */}
+      {isMobileMenuOpen && (
+        <div className="md:hidden fixed inset-0 z-40 bg-black bg-opacity-50" onClick={toggleMobileMenu}>
+          <aside className="w-64 h-full bg-white dark:bg-gray-800 shadow-md" onClick={e => e.stopPropagation()}>
+            <div className="p-4">
+              <h1 className="text-xl font-bold text-gray-800 dark:text-white mb-8">Money Tracker</h1>
+              <nav className="space-y-2">
+                <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={false} />
+                <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={false} />
+                <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} />
+                <SidebarLink to="/budgets" icon={Target} label="Budgets" isCollapsed={false} />
+                <SidebarLink to="/reports" icon={PieChart} label="Reports" isCollapsed={false} />
+                <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} />
+                <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} />
+                <SidebarLink to="/settings" icon={Settings} label="Settings" isCollapsed={false} />
+              </nav>
+            </div>
+          </aside>
+        </div>
       )}
 
-      {/* Main content */}
-      <div className="lg:pl-64">
-        <main className="p-4 lg:p-8 pt-20 lg:pt-8">
+      {/* Main Content */}
+      <main className="flex-1 overflow-auto">
+        <div className="p-4 md:p-8 pt-16 md:pt-8">
           <Outlet />
-        </main>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
