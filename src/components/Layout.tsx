@@ -45,9 +45,9 @@ export default function Layout() {
         mobileMenuOpen ? 'block' : 'hidden'
       } lg:block fixed inset-y-0 left-0 z-40 w-64 bg-white shadow-lg`}>
         <div className="flex h-full flex-col">
-          {/* Logo - Added padding on mobile to avoid menu button */}
-          <div className="flex h-16 items-center justify-center border-b pl-12 lg:pl-0">
-            <h1 className="text-xl font-bold text-primary">Money Management</h1>
+          {/* Logo - Smaller text on mobile, positioned to the right of menu button */}
+          <div className="flex h-16 items-center justify-center lg:justify-center border-b pl-16 pr-4 lg:px-4">
+            <h1 className="text-lg lg:text-xl font-bold text-primary text-center">Money Management</h1>
           </div>
 
           {/* Navigation */}
