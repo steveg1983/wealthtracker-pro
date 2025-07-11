@@ -35,6 +35,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [recurringTransactions, setRecurringTransactions] = useState<any[]>([]);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -148,6 +149,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Export data
+  const addRecurringTransaction = (transaction: any) => {
+    const newTransaction = { ...transaction, id: Date.now().toString() };
+    setRecurringTransactions([...recurringTransactions, newTransaction]);
+  };
+
+  const deleteRecurringTransaction = (id: string) => {
+    setRecurringTransactions(recurringTransactions.filter(t => t.id !== id));
+  };
+
   const exportData = () => {
     const data = {
       accounts,
@@ -183,6 +193,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       deleteBudget,
       isLoading,
       clearAllData,
+    recurringTransactions,
+    addRecurringTransaction,
+    deleteRecurringTransaction,
       exportData,
       loadTestData,
     }}>
