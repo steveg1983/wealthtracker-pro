@@ -1,4 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
+import MobileDebug from "./MobileDebug";
 import { 
   Home, 
   Wallet, 
@@ -38,7 +39,6 @@ export default function Layout() {
         >
           {mobileMenuOpen ? <X size={24} className="dark:text-white" /> : <Menu size={24} className="dark:text-white" />}
         </button>
-      <MobileDebug />
       </div>
 
       {/* Sidebar for desktop, overlay for mobile */}
@@ -51,7 +51,6 @@ export default function Layout() {
             <h1 className="text-lg lg:text-xl font-bold text-primary dark:text-blue-400 text-center">
               Danielle's Money <span className="inline-block">👋</span>
             </h1>
-      <MobileDebug />
           </div>
 
           {/* Navigation */}
@@ -75,9 +74,7 @@ export default function Layout() {
               );
             })}
           </nav>
-      <MobileDebug />
         </div>
-      <MobileDebug />
       </div>
 
       {/* Mobile menu backdrop */}
@@ -93,9 +90,7 @@ export default function Layout() {
         <main className="p-4 lg:p-8 pt-20 lg:pt-8">
           <Outlet />
         </main>
-      <MobileDebug />
       </div>
-      <MobileDebug />
     </div>
   );
 }

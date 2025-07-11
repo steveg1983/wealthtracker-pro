@@ -1,6 +1,6 @@
 import { TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
-import { formatCurrency, formatNumber } from '../utils/formatters';
+import { formatCurrency } from '../utils/formatters';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 export default function Dashboard() {
