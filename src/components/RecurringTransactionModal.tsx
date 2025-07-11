@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from "react";
 import { useApp } from '../contexts/AppContext';
-import { X, Calendar, Repeat } from 'lucide-react';
+import { X, Repeat } from "lucide-react";
 
 interface RecurringTransactionModalProps {
   isOpen: boolean;

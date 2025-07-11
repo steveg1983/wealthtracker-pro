@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect } from "react";
+import type { ReactNode } from "react";
 
 interface Account {
   id: string;
@@ -34,7 +35,8 @@ interface Budget {
   id: string;
   category: string;
   amount: number;
-  period: 'monthly' | 'yearly';
+  period: "monthly" | "yearly";
+  isActive?: boolean;
   spent?: number;
 }
 

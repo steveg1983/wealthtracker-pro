@@ -1,12 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { Search, Filter, Calendar, DollarSign, Tag, Edit2, Trash2, Check, X, Copy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Filter, Tag, Edit2, Trash2, Copy, ChevronDown, ChevronUp } from 'lucide-react';
 import TransactionModal from '../components/TransactionModal';
 import SplitTransactionModal from '../components/SplitTransactionModal';
 import RecurringTransactionModal from '../components/RecurringTransactionModal';
 
 export default function Transactions() {
-  const { transactions, accounts, updateTransaction, deleteTransaction, addTransaction } = useApp();
+  const { transactions, accounts, updateTransaction, deleteTransaction } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
@@ -18,7 +18,6 @@ export default function Transactions() {
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
-  const [showBulkActions, setShowBulkActions] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [showFilters, setShowFilters] = useState(false);

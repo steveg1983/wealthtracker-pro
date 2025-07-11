@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { ArrowRightLeft, Check, X, Search, AlertCircle, CheckCircle, Eye, Link } from 'lucide-react';
+import { Check, X, Search, AlertCircle, CheckCircle, Eye, Link } from 'lucide-react';
 import ReconciliationModal from '../components/ReconciliationModal';
 
 interface PotentialMatch {
