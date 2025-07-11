@@ -29,6 +29,7 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const dataView = new DataView(arrayBuffer);
   const transactions: ParsedTransaction[] = [];
   const accountsMap = new Map<string, ParsedAccount>();
+  const accountsFromTransactions = new Map<string, Set<string>>();
   
   console.log('Parsing Microsoft Money .mny file, size:', arrayBuffer.byteLength);
   
@@ -67,104 +68,121 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
       return str.trim();
     };
 
-    // Strategy 1: Look for account names in common patterns
-    console.log('Searching for accounts...');
-    const accountKeywords = [
-      'checking', 'savings', 'credit', 'visa', 'mastercard', 'amex',
-      'current', 'deposit', 'loan', 'mortgage', 'investment', 'brokerage',
-      'hsbc', 'barclays', 'lloyds', 'natwest', 'santander', 'halifax'
+    // Helper to clean account names
+    const cleanAccountName = (name: string): string => {
+      // Remove common prefixes/suffixes
+      return name
+        .replace(/^(Account|Acct)\s+/i, '')
+        .replace(/\s+(Account|Acct)$/i, '')
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, '') // Remove control characters
+        .trim();
+    };
+
+    // Strategy 1: Look for account patterns in the file
+    console.log('Strategy 1: Searching for account patterns...');
+    
+    // Common account name patterns in Money files
+    const accountPatterns = [
+      // Look for account-like structures
+      /([A-Z][A-Za-z\s&]+(?:Bank|Building Society|Credit Union|Account|Checking|Savings|Current|Deposit|Visa|MasterCard|Amex|Card)[\s\w]*)/g,
+      // UK bank patterns
+      /((?:HSBC|Barclays|Lloyds|NatWest|Santander|Halifax|Nationwide|TSB|RBS|Co-op|Metro Bank|First Direct|Monzo|Starling|Revolut)[\s\w]*(?:Account|Card)?[\s\w]*)/gi,
+      // Account number patterns
+      /([A-Z][A-Za-z\s]+\s+(?:\*{4}|\d{4}|\w{4}))/g,
+      // Generic account patterns
+      /((?:Personal|Joint|Business|Main|Secondary|Primary)\s+(?:Account|Checking|Savings|Current)[\s\w]*)/gi,
+      // Investment accounts
+      /((?:Investment|Brokerage|Trading|ISA|SIPP|Pension|401k|IRA|Stock|Share)[\s\w]*(?:Account)?)/gi,
+      // Loan accounts
+      /((?:Mortgage|Loan|Credit|Line of Credit|Overdraft)[\s\w]*(?:Account)?)/gi
     ];
     
-    const foundAccounts = new Set<string>();
+    // Scan through the file looking for account names
+    const foundAccountNames = new Set<string>();
+    const chunkSize = 1024 * 1024; // 1MB chunks
     
-    // Scan for potential account names
-    for (let i = 0; i < processLength - 100; i += 100) {
-      // Try both ASCII and UTF-16
-      const asciiStr = readString(i, 100).toLowerCase();
-      const utf16Str = readUTF16String(i, 50).toLowerCase();
+    for (let offset = 0; offset < processLength; offset += chunkSize) {
+      const endOffset = Math.min(offset + chunkSize + 1000, processLength); // Overlap to catch split names
       
-      // Check for account keywords
-      for (const keyword of accountKeywords) {
-        if (asciiStr.includes(keyword) || utf16Str.includes(keyword)) {
-          // Found keyword, try to extract account name
-          const contextAscii = readString(i - 50, 150);
-          const contextUTF16 = readUTF16String(i - 25, 75);
-          
-          // Look for account-like strings
-          const patterns = [
-            /([A-Z][A-Za-z\s]+(?:Account|Bank|Card|Visa|MasterCard|Amex)[\s\w]*)/g,
-            /([A-Z][A-Za-z\s]+\s+\d{4})/g, // Like "HSBC 1234"
-            /((?:Checking|Savings|Credit|Current)\s+[A-Za-z0-9\s]+)/gi
-          ];
-          
-          for (const pattern of patterns) {
-            const asciiMatches = contextAscii.match(pattern);
-            const utf16Matches = contextUTF16.match(pattern);
-            
-            if (asciiMatches) {
-              asciiMatches.forEach(match => {
-                if (match.length > 3 && match.length < 50) {
-                  foundAccounts.add(match);
-                }
-              });
-            }
-            
-            if (utf16Matches) {
-              utf16Matches.forEach(match => {
-                if (match.length > 3 && match.length < 50) {
-                  foundAccounts.add(match);
-                }
-              });
-            }
+      // Read chunk as both ASCII and UTF-16
+      let asciiChunk = '';
+      let utf16Chunk = '';
+      
+      for (let i = offset; i < endOffset && i < processLength - 1; i++) {
+        // ASCII
+        const byte = uint8Array[i];
+        if (byte >= 32 && byte <= 126) {
+          asciiChunk += String.fromCharCode(byte);
+        } else {
+          asciiChunk += ' ';
+        }
+        
+        // UTF-16 (every other byte)
+        if (i % 2 === 0 && i + 1 < processLength) {
+          const charCode = uint8Array[i] | (uint8Array[i + 1] << 8);
+          if (charCode >= 32 && charCode < 65536) {
+            utf16Chunk += String.fromCharCode(charCode);
+          } else {
+            utf16Chunk += ' ';
           }
         }
       }
       
-      // Progress indicator
-      if (i % 1000000 === 0 && i > 0) {
-        console.log(`Scanned ${(i / 1000000).toFixed(1)}MB...`);
-        await new Promise(resolve => setTimeout(resolve, 0)); // Yield to prevent hanging
+      // Search for patterns in both encodings
+      for (const pattern of accountPatterns) {
+        const asciiMatches = asciiChunk.match(pattern) || [];
+        const utf16Matches = utf16Chunk.match(pattern) || [];
+        
+        [...asciiMatches, ...utf16Matches].forEach(match => {
+          const cleaned = cleanAccountName(match);
+          if (cleaned.length > 3 && cleaned.length < 60 && !cleaned.match(/^\d+$/)) {
+            foundAccountNames.add(cleaned);
+          }
+        });
+      }
+      
+      // Progress
+      if (offset % (10 * 1024 * 1024) === 0 && offset > 0) {
+        console.log(`Scanned ${(offset / (1024 * 1024)).toFixed(1)}MB for accounts...`);
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
     }
     
+    console.log(`Found ${foundAccountNames.size} potential account names`);
+    
     // Add found accounts
-    foundAccounts.forEach(accountName => {
-      const cleanName = accountName.trim();
-      if (!accountsMap.has(cleanName)) {
+    foundAccountNames.forEach(accountName => {
+      if (!accountsMap.has(accountName)) {
         // Determine account type
-        const lowerName = cleanName.toLowerCase();
+        const lowerName = accountName.toLowerCase();
         let type: ParsedAccount['type'] = 'checking';
         
-        if (lowerName.includes('credit') || lowerName.includes('visa') || lowerName.includes('mastercard')) {
+        if (lowerName.match(/credit|visa|mastercard|amex/)) {
           type = 'credit';
-        } else if (lowerName.includes('saving') || lowerName.includes('deposit')) {
+        } else if (lowerName.match(/saving|deposit|isa/)) {
           type = 'savings';
-        } else if (lowerName.includes('loan') || lowerName.includes('mortgage')) {
+        } else if (lowerName.match(/loan|mortgage|overdraft/)) {
           type = 'loan';
-        } else if (lowerName.includes('invest') || lowerName.includes('broker')) {
+        } else if (lowerName.match(/invest|broker|trading|stock|share|pension|401k|ira|sipp/)) {
           type = 'investment';
+        } else if (lowerName.match(/current|checking/)) {
+          type = 'checking';
         }
         
-        accountsMap.set(cleanName, {
-          name: cleanName,
+        accountsMap.set(accountName, {
+          name: accountName,
           type: type,
           balance: 0
         });
-        console.log('Found account:', cleanName);
       }
     });
 
-    // Strategy 2: Look for transaction patterns
-    console.log('Searching for transactions...');
-    const transactionPatterns = [
-      // OLE date followed by amount pattern
-      { dateOffset: 0, amountOffset: 8, descOffset: 16 },
-      { dateOffset: 0, amountOffset: 12, descOffset: 20 },
-      { dateOffset: 0, amountOffset: 4, descOffset: 12 },
-    ];
+    // Strategy 2: Look for transactions and extract account info from them
+    console.log('Strategy 2: Searching for transactions...');
     
     let transactionCount = 0;
-    const maxTransactions = 10000; // Limit to prevent excessive processing
+    const maxTransactions = 50000; // Increased limit
+    const transactionsByAccount = new Map<string, number>();
     
     // Look for date patterns
     for (let i = 0; i < processLength - 100 && transactionCount < maxTransactions; i++) {
@@ -178,35 +196,67 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
         
         if (jsDate.getFullYear() >= 1990 && jsDate.getFullYear() <= 2030) {
           // Found potential date, look for amount nearby
-          for (const pattern of transactionPatterns) {
-            if (i + pattern.amountOffset + 8 > processLength) continue;
+          for (let amountOffset = 4; amountOffset <= 24; amountOffset += 4) {
+            if (i + amountOffset + 8 > processLength) continue;
             
             // Try reading amount as double
-            const amount = dataView.getFloat64(i + pattern.amountOffset, true);
+            const amount = dataView.getFloat64(i + amountOffset, true);
             
             // Check if it's a reasonable amount
             if (Math.abs(amount) > 0.01 && Math.abs(amount) < 1000000) {
-              // Look for description
+              // Look for description and account info
               let description = '';
+              let accountRef = '';
               
-              // Try ASCII first
-              description = readString(i + pattern.descOffset, 100);
-              if (!description || description.length < 3) {
-                // Try UTF-16
-                description = readUTF16String(i + pattern.descOffset, 50);
+              // Try multiple offsets for description
+              for (let descOffset = amountOffset + 8; descOffset < amountOffset + 200; descOffset += 4) {
+                if (i + descOffset >= processLength) break;
+                
+                const str = readString(i + descOffset, 100);
+                const utf16Str = readUTF16String(i + descOffset, 50);
+                
+                if (str && str.length >= 3) {
+                  description = str;
+                  // Look for account reference after description
+                  accountRef = readString(i + descOffset + str.length + 1, 50) ||
+                              readUTF16String(i + descOffset + str.length + 1, 25);
+                  break;
+                } else if (utf16Str && utf16Str.length >= 3) {
+                  description = utf16Str;
+                  accountRef = readUTF16String(i + descOffset + utf16Str.length * 2 + 2, 25);
+                  break;
+                }
               }
               
-              if (description && description.length >= 3) {
+              if (description) {
+                // Try to extract account from description or account reference
+                let accountName = 'Primary Account';
+                
+                // Check if account reference looks like an account name
+                if (accountRef && accountRef.length > 2 && accountRef.length < 50) {
+                  const cleaned = cleanAccountName(accountRef);
+                  if (cleaned.length > 2) {
+                    accountName = cleaned;
+                  }
+                }
+                
+                // Track accounts found in transactions
+                if (!transactionsByAccount.has(accountName)) {
+                  transactionsByAccount.set(accountName, 0);
+                }
+                transactionsByAccount.set(accountName, transactionsByAccount.get(accountName)! + 1);
+                
                 transactions.push({
                   date: jsDate,
                   amount: Math.abs(amount),
                   description: description.substring(0, 100),
                   type: amount < 0 ? 'expense' : 'income',
-                  category: 'Imported'
+                  category: 'Imported',
+                  accountName: accountName
                 });
                 transactionCount++;
                 
-                if (transactionCount % 100 === 0) {
+                if (transactionCount % 1000 === 0) {
                   console.log(`Found ${transactionCount} transactions...`);
                 }
                 
@@ -219,76 +269,126 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
       }
     }
 
-    // Strategy 3: Look for specific Money data structures
-    // Money uses specific record types for accounts and transactions
-    const recordMarkers = [
-      { marker: [0x41, 0x43, 0x43, 0x54], type: 'account' }, // ACCT
-      { marker: [0x54, 0x52, 0x4E, 0x53], type: 'transaction' }, // TRNS
-      { marker: [0x50, 0x41, 0x59, 0x45], type: 'payee' }, // PAYE
+    // Strategy 3: If we found transactions with account names, add those accounts
+    console.log('Strategy 3: Extracting accounts from transactions...');
+    
+    transactionsByAccount.forEach((count, accountName) => {
+      if (!accountsMap.has(accountName) && count > 5) { // Only add if more than 5 transactions
+        console.log(`Found account from transactions: ${accountName} (${count} transactions)`);
+        accountsMap.set(accountName, {
+          name: accountName,
+          type: 'checking', // Default type
+          balance: 0
+        });
+      }
+    });
+
+    // Strategy 4: Look for specific Money database table markers
+    console.log('Strategy 4: Looking for Money database structures...');
+    
+    // Money stores data in tables with specific markers
+    const tableMarkers = [
+      { pattern: 'KONTO', encoding: 'utf16' }, // Account in some languages
+      { pattern: 'ACCOUNT', encoding: 'both' },
+      { pattern: 'AccountName', encoding: 'both' },
+      { pattern: 'AcctName', encoding: 'both' },
+      { pattern: 'BankName', encoding: 'both' },
     ];
     
-    for (const { marker, type } of recordMarkers) {
-      let offset = 0;
-      while (offset < processLength - 1000) {
-        // Find marker
-        let found = -1;
-        for (let i = offset; i < processLength - marker.length; i++) {
-          let match = true;
-          for (let j = 0; j < marker.length; j++) {
-            if (uint8Array[i + j] !== marker[j]) {
-              match = false;
-              break;
-            }
-          }
-          if (match) {
-            found = i;
-            break;
-          }
+    for (const marker of tableMarkers) {
+      const markerBytes = Array.from(marker.pattern).map(c => c.charCodeAt(0));
+      
+      for (let i = 0; i < processLength - 500; i++) {
+        let found = false;
+        
+        // Check ASCII
+        if (marker.encoding === 'both' || marker.encoding === 'ascii') {
+          found = markerBytes.every((byte, idx) => uint8Array[i + idx] === byte);
         }
         
-        if (found === -1) break;
-        offset = found + marker.length;
+        // Check UTF-16
+        if (!found && (marker.encoding === 'both' || marker.encoding === 'utf16')) {
+          found = markerBytes.every((byte, idx) => 
+            uint8Array[i + idx * 2] === byte && uint8Array[i + idx * 2 + 1] === 0
+          );
+        }
         
-        if (type === 'account') {
-          // Try to extract account info
-          const name = readString(offset + 4, 50) || readUTF16String(offset + 4, 25);
-          if (name && name.length > 2 && name.length < 50) {
-            if (!accountsMap.has(name)) {
-              accountsMap.set(name, {
-                name: name,
-                type: 'checking',
-                balance: 0
-              });
-              console.log('Found account from ACCT marker:', name);
+        if (found) {
+          // Found marker, look for account names nearby
+          for (let offset = markerBytes.length; offset < 200; offset += 2) {
+            const name = readString(i + offset, 50) || readUTF16String(i + offset, 25);
+            if (name && name.length > 2 && name.length < 50) {
+              const cleaned = cleanAccountName(name);
+              if (cleaned.length > 2 && !accountsMap.has(cleaned)) {
+                accountsMap.set(cleaned, {
+                  name: cleaned,
+                  type: 'checking',
+                  balance: 0
+                });
+                console.log(`Found account from marker ${marker.pattern}: ${cleaned}`);
+              }
             }
           }
         }
-        
-        offset += 100;
       }
     }
 
-    // If we found very few accounts, add some generic ones
-    if (accountsMap.size === 0) {
-      console.log('No accounts found, creating default account');
-      accountsMap.set('Primary Account', {
-        name: 'Primary Account',
-        type: 'checking',
-        balance: 0
+    // If we still have only one account but many transactions, something's wrong
+    if (accountsMap.size <= 1 && transactions.length > 100) {
+      console.log('Warning: Found many transactions but few accounts. The accounts might be encoded differently.');
+      
+      // Try to infer accounts from transaction patterns
+      const payeeAccounts = new Map<string, number>();
+      
+      transactions.forEach(t => {
+        // Look for "Transfer to/from" patterns
+        const transferMatch = t.description.match(/Transfer (?:to|from) ([^,;]+)/i);
+        if (transferMatch) {
+          const accountName = cleanAccountName(transferMatch[1]);
+          if (accountName.length > 2 && accountName.length < 50) {
+            payeeAccounts.set(accountName, (payeeAccounts.get(accountName) || 0) + 1);
+          }
+        }
+      });
+      
+      // Add accounts that appear in multiple transfers
+      payeeAccounts.forEach((count, name) => {
+        if (count > 3 && !accountsMap.has(name)) {
+          accountsMap.set(name, {
+            name: name,
+            type: 'checking',
+            balance: 0
+          });
+          console.log(`Inferred account from transfers: ${name}`);
+        }
       });
     }
+
+    // Calculate balances for each account
+    const accountBalances = new Map<string, { income: number; expenses: number }>();
     
-    // Calculate approximate balances
-    if (transactions.length > 0) {
-      const primaryAccount = Array.from(accountsMap.values())[0];
-      const totalIncome = transactions
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-      const totalExpenses = transactions
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
-      primaryAccount.balance = totalIncome - totalExpenses;
-    }
+    transactions.forEach(t => {
+      const accountName = t.accountName || Array.from(accountsMap.keys())[0] || 'Primary Account';
+      
+      if (!accountBalances.has(accountName)) {
+        accountBalances.set(accountName, { income: 0, expenses: 0 });
+      }
+      
+      const balance = accountBalances.get(accountName)!;
+      if (t.type === 'income') {
+        balance.income += t.amount;
+      } else {
+        balance.expenses += t.amount;
+      }
+    });
+    
+    // Update account balances
+    accountBalances.forEach((balance, accountName) => {
+      const account = accountsMap.get(accountName);
+      if (account) {
+        account.balance = balance.income - balance.expenses;
+      }
+    });
 
     // Remove duplicate transactions
     const uniqueTransactions = transactions.filter((trans, index, self) =>
@@ -302,16 +402,22 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
     // Sort by date
     uniqueTransactions.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    console.log(`Parsed ${accountsMap.size} accounts and ${uniqueTransactions.length} unique transactions`);
+    console.log(`Final result: ${accountsMap.size} accounts and ${uniqueTransactions.length} unique transactions`);
+    
+    // Log account details
+    accountsMap.forEach((account, name) => {
+      const txCount = uniqueTransactions.filter(t => t.accountName === name).length;
+      console.log(`Account: ${name} (${account.type}) - ${txCount} transactions`);
+    });
     
     const result: ParseResult = {
       accounts: Array.from(accountsMap.values()),
       transactions: uniqueTransactions
     };
     
-    // Only add warning if we found very little data
-    if (accountsMap.size <= 1 && uniqueTransactions.length < 10) {
-      result.warning = 'Limited data found. Money .mny files are complex database files. For best results, please use File → Export → QIF format from within Microsoft Money.';
+    // Only add warning if we found very few accounts relative to transactions
+    if (accountsMap.size <= 2 && uniqueTransactions.length > 1000) {
+      result.warning = 'Found many transactions but few accounts. Some accounts might not have been detected. For best results, please use File → Export → QIF format from within Microsoft Money.';
     }
     
     return result;
