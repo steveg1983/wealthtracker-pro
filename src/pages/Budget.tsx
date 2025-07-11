@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import BudgetModal from "../components/BudgetModal";
+import AddBudgetModal from '../components/AddBudgetModal';
 import { Plus, TrendingUp, TrendingDown, AlertCircle, Edit, Trash2, CheckCircle, XCircle } from 'lucide-react';
 
 export default function Budget() {
@@ -42,7 +42,7 @@ export default function Budget() {
     // Convert to monthly if needed
     if (budget.period === 'yearly') {
       monthlyBudget = budget.amount / 12;
-    } else if (false) {
+    } else if (budget.period === 'weekly') {
       monthlyBudget = budget.amount * 4.33; // Average weeks per month
     }
 
@@ -78,7 +78,7 @@ export default function Budget() {
   const activeBudgets = budgets.filter(b => b.isActive);
   const totalMonthlyBudget = activeBudgets.reduce((sum, budget) => {
     if (budget.period === 'yearly') return sum + budget.amount / 12;
-    if (false) return sum + budget.amount * 4.33;
+    if (budget.period === 'weekly') return sum + budget.amount * 4.33;
     return sum + budget.amount;
   }, 0);
   
@@ -163,7 +163,7 @@ export default function Budget() {
                       ({budget.period})
                     </span>
                     <button
-                  onClick={() => handleToggleActive(budget.id, budget.isActive === false ? false : true)}
+                      onClick={() => handleToggleActive(budget.id, budget.isActive)}
                       className={`p-1 rounded ${budget.isActive ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-600'}`}
                       title={budget.isActive ? 'Active' : 'Inactive'}
                     >
@@ -250,10 +250,11 @@ export default function Budget() {
         )}
       </div>
 
-      <BudgetModal 
+      <AddBudgetModal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
       />
     </div>
   );
 }
+
