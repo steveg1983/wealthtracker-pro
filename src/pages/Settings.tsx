@@ -5,14 +5,22 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { Download, Trash2, Moon, Sun, Monitor, Palette, AlertCircle, Upload } from 'lucide-react';
 
 export default function Settings() {
-  const { clearAllData, exportData } = useApp();
+  const { accounts, transactions, budgets } = useApp();
   const { theme, setTheme, accentColor, setAccentColor } = usePreferences();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
 
   const handleExportData = () => {
-    const data = exportData();
-    const blob = new Blob([data], { type: 'application/json' });
+    // Export data as JSON
+    const data = {
+      accounts,
+      transactions,
+      budgets,
+      exportDate: new Date().toISOString(),
+      version: '1.0'
+    };
+    
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -24,8 +32,13 @@ export default function Settings() {
   };
 
   const handleClearData = () => {
-    clearAllData();
+    // Clear all data from localStorage
+    localStorage.removeItem('wealthtracker_accounts');
+    localStorage.removeItem('wealthtracker_transactions');
+    localStorage.removeItem('wealthtracker_budgets');
     setShowDeleteConfirm(false);
+    // Reload the page to reset the app
+    window.location.reload();
   };
 
   const themeOptions = [
@@ -117,7 +130,7 @@ export default function Settings() {
             className="w-full px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
           >
             <Download size={20} />
-            Export Data to CSV
+            Export Data to JSON
           </button>
           
           <button
