@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { parseMNY } from "../utils/mnyParser";
-import { X, Upload, FileText, AlertCircle, CheckCircle, AlertTriangle, Info } from 'lucide-react';
-import { parseMBF } from '../utils/mbfParser';
+import { X, Upload, FileText, AlertCircle, CheckCircle, Info } from 'lucide-react';
 
 interface ImportDataModalProps {
   isOpen: boolean;
@@ -24,7 +23,7 @@ interface ParsedAccount {
 }
 
 export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProps) {
-  const { addAccount, addTransaction, accounts, clearAllData } = useApp();
+  const { addAccount, addTransaction, accounts } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -33,7 +32,6 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     accounts: ParsedAccount[];
     transactions: ParsedTransaction[];
   } | null>(null);
-  const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
   const [showMBFHelp, setShowMBFHelp] = useState(false);
 
   // Parse QIF file format
@@ -196,7 +194,6 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     setFile(selectedFile);
     setStatus('idle');
     setMessage('');
-    setShowOverwriteWarning(false);
     setShowMBFHelp(false);
     
     try {
