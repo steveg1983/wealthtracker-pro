@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import AddBudgetModal from '../components/AddBudgetModal';
+import BudgetModal from "../components/BudgetModal";
 import { Plus, TrendingUp, TrendingDown, AlertCircle, Edit, Trash2, CheckCircle, XCircle } from 'lucide-react';
 
 export default function Budget() {
@@ -163,7 +163,7 @@ export default function Budget() {
                       ({budget.period})
                     </span>
                     <button
-                      onClick={() => handleToggleActive(budget.id, budget.isActive)}
+                  onClick={() => handleToggleActive(budget.id, budget.isActive === false ? false : true)}
                       className={`p-1 rounded ${budget.isActive ? 'text-green-600 dark:text-green-400' : 'text-gray-400 dark:text-gray-600'}`}
                       title={budget.isActive ? 'Active' : 'Inactive'}
                     >

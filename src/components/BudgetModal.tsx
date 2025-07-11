@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { X } from 'lucide-react';
 
@@ -16,6 +16,17 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
     period: budget?.period || 'monthly' as 'monthly' | 'yearly',
     isActive: budget?.isActive !== false
   });
+
+  useEffect(() => {
+    if (budget) {
+      setFormData({
+        category: budget.category || '',
+        amount: budget.amount || '',
+        period: budget.period || 'monthly',
+        isActive: budget.isActive !== false
+      });
+    }
+  }, [budget]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
