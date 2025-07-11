@@ -29,7 +29,6 @@ export function parseQIF(content: string): ParsedData {
   let currentTransaction: any = {};
   let currentAccountName = '';
   let currentAccountType = 'checking';
-  let lastSeenAccount = '';
   
   console.log('Enhanced QIF parsing - looking for multiple accounts');
   
@@ -82,9 +81,9 @@ export function parseQIF(content: string): ParsedData {
       }
     } else if (line.startsWith('!Type:')) {
       // This might indicate the account type for following transactions
-      const typeStr = line.substring(6).toLowerCase();
-      lastSeenAccount = currentAccountName || 'Default Account';
+      currentAccountName = currentAccountName || 'Default Account';
       
+      const typeStr = line.substring(6).toLowerCase();
       if (typeStr.includes('bank')) {
         currentAccountType = 'checking';
       } else if (typeStr.includes('cash')) {
@@ -229,8 +228,6 @@ export function parseQIF(content: string): ParsedData {
     console.log('Only one account found, analyzing transactions for more accounts...');
     
     // Look for patterns in payees that might indicate accounts
-    const payeePatterns = new Map<string, number>();
-    
     transactions.forEach(t => {
       // Credit card patterns
       if (t.payee && t.payee.match(/VISA|MASTERCARD|AMEX|DISCOVER/i)) {
