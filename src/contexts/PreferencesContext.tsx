@@ -28,16 +28,16 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(() => {
     const saved = localStorage.getItem('money_management_theme');
     if (!saved || !['light', 'dark', 'auto'].includes(saved)) {
-      return 'light';
+      return 'dark'; // Changed default from 'light' to 'dark'
     }
     return saved as 'light' | 'dark' | 'auto';
   });
 
   const [accentColor, setAccentColor] = useState(() => {
-    return localStorage.getItem('money_management_accent_color') || 'blue';
+    return localStorage.getItem('money_management_accent_color') || 'pink'; // Changed default from 'blue' to 'pink'
   });
 
-  const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
+  const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('dark'); // Changed default from 'light' to 'dark'
 
   // Handle theme changes and auto theme
   useEffect(() => {

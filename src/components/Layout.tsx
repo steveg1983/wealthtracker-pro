@@ -45,9 +45,11 @@ export default function Layout() {
         mobileMenuOpen ? 'block' : 'hidden'
       } lg:block fixed inset-y-0 left-0 z-40 w-64 bg-white dark:bg-gray-800 shadow-lg`}>
         <div className="flex h-full flex-col">
-          {/* Logo - Smaller text on mobile, positioned to the right of menu button */}
+          {/* Logo - Updated with new name and emoji */}
           <div className="flex h-16 items-center justify-center lg:justify-center border-b dark:border-gray-700 pl-16 pr-4 lg:px-4">
-            <h1 className="text-lg lg:text-xl font-bold text-primary dark:text-blue-400 text-center">Money Management</h1>
+            <h1 className="text-lg lg:text-xl font-bold text-primary dark:text-blue-400 text-center">
+              Danielle's Money ��
+            </h1>
           </div>
 
           {/* Navigation */}
