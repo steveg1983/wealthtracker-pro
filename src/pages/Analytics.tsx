@@ -1,10 +1,12 @@
-
 import { useState } from 'react';
-import { TrendingUp, TrendingDown, DollarSign, PieChart, BarChart3, AlertCircle } from 'lucide-react';
-import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
+import { useApp } from '../contexts/AppContext';
+import { BarChart3, TrendingUp, Calendar, PieChart, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 
-export default function Investments() {
-  const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1Y');
+export default function Analytics() {
+  const { transactions, accounts, budgets } = useApp();
+  const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   // Helper function to format currency properly
   const formatCurrency = (amount: number): string => {
@@ -14,128 +16,150 @@ export default function Investments() {
     }).format(Math.abs(amount));
   };
 
-  // Helper function to format percentages
-  const formatPercentage = (value: number): string => {
-    return new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value) + '%';
-  };
+  // Get unique categories
+  const categories = ['all', ...new Set(transactions.map(t => t.category))];
 
-  // Mock investment data
-  const portfolioValue = 125750.45;
-  const totalInvested = 100000;
-  const totalReturn = portfolioValue - totalInvested;
-  const returnPercentage = ((totalReturn / totalInvested) * 100);
+  // Calculate spending by category
+  const spendingByCategory = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
+      return acc;
+    }, {} as Record<string, number>);
 
-  const holdings = [
-    { name: 'Vanguard S&P 500', value: 45678.90, allocation: 36.3, return: 12.5, ticker: 'VOO' },
-    { name: 'iShares MSCI World', value: 32450.25, allocation: 25.8, return: 8.3, ticker: 'IWDA' },
-    { name: 'UK Gilts ETF', value: 18900.50, allocation: 15.0, return: -2.1, ticker: 'IGLT' },
-    { name: 'Emerging Markets', value: 15678.30, allocation: 12.5, return: 15.7, ticker: 'VFEM' },
-    { name: 'Real Estate ETF', value: 13042.50, allocation: 10.4, return: 5.2, ticker: 'IUKP' },
+  const categoryData = Object.entries(spendingByCategory)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  // Calculate monthly trends
+  const monthlyData = Array.from({ length: 12 }, (_, i) => {
+    const month = new Date(2024, i).toLocaleString('default', { month: 'short' });
+    const monthTransactions = transactions.filter(t => {
+      const date = new Date(t.date);
+      return date.getMonth() === i && date.getFullYear() === 2024;
+    });
+
+    const income = monthTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const expenses = monthTransactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return { month, income, expenses };
+  });
+
+  // Calculate account trends (mock data for demonstration)
+  const accountTrends = [
+    { month: 'Jul', balance: 95000 },
+    { month: 'Aug', balance: 92000 },
+    { month: 'Sep', balance: 94500 },
+    { month: 'Oct', balance: 91000 },
+    { month: 'Nov', balance: 89500 },
+    { month: 'Dec', balance: 73371.37 },
   ];
 
-  // Mock performance data
-  const performanceData = [
-    { month: 'Jan', value: 102000 },
-    { month: 'Feb', value: 105500 },
-    { month: 'Mar', value: 108200 },
-    { month: 'Apr', value: 112000 },
-    { month: 'May', value: 115800 },
-    { month: 'Jun', value: 119500 },
-    { month: 'Jul', value: 118000 },
-    { month: 'Aug', value: 121500 },
-    { month: 'Sep', value: 123800 },
-    { month: 'Oct', value: 122000 },
-    { month: 'Nov', value: 124500 },
-    { month: 'Dec', value: 125750 },
-  ];
+  // Calculate top expenses
+  const topExpenses = transactions
+    .filter(t => t.type === 'expense')
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 5);
 
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+  // Calculate savings rate
+  const totalIncome = transactions
+    .filter(t => t.type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const totalExpenses = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
+
+  // Budget adherence
+  const budgetAdherence = budgets.map(budget => {
+    const spent = transactions
+      .filter(t => t.type === 'expense' && t.category === budget.category)
+      .reduce((sum, t) => sum + t.amount, 0);
+    
+    const adherenceRate = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
+    
+    return {
+      category: budget.category,
+      budgeted: budget.amount,
+      spent,
+      adherenceRate
+    };
+  });
+
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Investments</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Analytics</h1>
 
-      {/* Summary Cards */}
+      {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Portfolio Value</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {formatCurrency(portfolioValue)}
+              <p className="text-sm text-gray-500 dark:text-gray-400">Average Monthly Income</p>
+              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                {formatCurrency(totalIncome / 12)}
               </p>
             </div>
-            <DollarSign className="text-primary" size={24} />
+            <ArrowUpRight className="text-green-500" size={24} />
           </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Invested</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Average Monthly Expenses</p>
+              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                {formatCurrency(totalExpenses / 12)}
+              </p>
+            </div>
+            <ArrowDownRight className="text-red-500" size={24} />
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Savings Rate</p>
               <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {formatCurrency(totalInvested)}
+                {savingsRate.toFixed(1)}%
               </p>
             </div>
-            <BarChart3 className="text-blue-500" size={24} />
+            <TrendingUp className="text-blue-500" size={24} />
           </div>
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Return</p>
-              <p className={`text-2xl font-bold ${totalReturn >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {totalReturn >= 0 ? '+' : ''}{formatCurrency(totalReturn)}
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Transactions</p>
+              <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                {transactions.length}
               </p>
             </div>
-            <TrendingUp className={totalReturn >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Return %</p>
-              <p className={`text-2xl font-bold ${returnPercentage >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {returnPercentage >= 0 ? '+' : ''}{formatPercentage(returnPercentage)}
-              </p>
-            </div>
-            <TrendingDown className={returnPercentage >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+            <BarChart3 className="text-purple-500" size={24} />
           </div>
         </div>
       </div>
 
-      {/* Performance Chart */}
+      {/* Income vs Expenses Chart */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold dark:text-white">Portfolio Performance</h2>
-          <div className="flex gap-2">
-            {['1M', '3M', '6M', '1Y', 'ALL'].map((period) => (
-              <button
-                key={period}
-                onClick={() => setSelectedPeriod(period as any)}
-                className={`px-3 py-1 text-sm rounded-lg transition-colors ${
-                  selectedPeriod === period
-                    ? 'bg-primary text-white'
-                    : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                }`}
-              >
-                {period}
-              </button>
-            ))}
-          </div>
-        </div>
+        <h2 className="text-xl font-semibold mb-4 dark:text-white">Income vs Expenses</h2>
         <div className="h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={performanceData}>
+            <BarChart data={monthlyData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="month" stroke="#9CA3AF" />
               <YAxis 
-                stroke="#9CA3AF" 
+                stroke="#9CA3AF"
                 tickFormatter={(value) => `£${(value / 1000).toFixed(0)}k`}
               />
               <Tooltip 
@@ -146,73 +170,32 @@ export default function Investments() {
                   borderRadius: '8px'
                 }}
               />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                stroke="#3B82F6" 
-                strokeWidth={2}
-                dot={{ fill: '#3B82F6' }}
-              />
-            </LineChart>
+              <Legend />
+              <Bar dataKey="income" fill="#10B981" name="Income" />
+              <Bar dataKey="expenses" fill="#EF4444" name="Expenses" />
+            </BarChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Holdings */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Holdings List */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Spending by Category */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">Holdings</h2>
-          <div className="space-y-4">
-            {holdings.map((holding, index) => (
-              <div key={holding.ticker} className="border-b dark:border-gray-700 pb-4 last:border-0">
-                <div className="flex justify-between items-start mb-2">
-                  <div>
-                    <h3 className="font-medium text-gray-900 dark:text-white">{holding.name}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{holding.ticker}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(holding.value)}</p>
-                    <p className={`text-sm ${holding.return >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {holding.return >= 0 ? '+' : ''}{formatPercentage(holding.return)}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                    <div 
-                      className="h-2 rounded-full"
-                      style={{ 
-                        width: `${holding.allocation}%`,
-                        backgroundColor: COLORS[index % COLORS.length]
-                      }}
-                    />
-                  </div>
-                  <span className="text-sm text-gray-600 dark:text-gray-400 w-12 text-right">
-                    {formatPercentage(holding.allocation)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Allocation Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">Asset Allocation</h2>
+          <h2 className="text-xl font-semibold mb-4 dark:text-white">Spending by Category</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <RePieChart>
                 <Pie
-                  data={holdings}
+                  data={categoryData}
                   cx="50%"
                   cy="50%"
                   innerRadius={60}
                   outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                 >
-                  {holdings.map((_, index) => (
+                  {categoryData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -227,38 +210,63 @@ export default function Investments() {
               </RePieChart>
             </ResponsiveContainer>
           </div>
-          <div className="mt-4 space-y-2">
-            {holdings.map((holding, index) => (
-              <div key={holding.ticker} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                  />
-                  <span className="text-gray-700 dark:text-gray-300">{holding.ticker}</span>
-                </div>
-                <span className="text-gray-900 dark:text-white font-medium">
-                  {formatPercentage(holding.allocation)}
-                </span>
-              </div>
-            ))}
+        </div>
+
+        {/* Account Balance Trend */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-4 dark:text-white">Account Balance Trend</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={accountTrends}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis dataKey="month" stroke="#9CA3AF" />
+                <YAxis 
+                  stroke="#9CA3AF"
+                  tickFormatter={(value) => `£${(value / 1000).toFixed(0)}k`}
+                />
+                <Tooltip 
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    border: '1px solid #ccc',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="balance" 
+                  stroke="#8B5CF6" 
+                  strokeWidth={2}
+                  dot={{ fill: '#8B5CF6' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* Investment Tips */}
-      <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="text-blue-600 dark:text-blue-400 mt-1" size={20} />
-          <div>
-            <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Investment Tips</h3>
-            <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-              <li>• Diversify your portfolio across different asset classes and regions</li>
-              <li>• Review and rebalance your portfolio quarterly</li>
-              <li>• Consider your risk tolerance and investment timeline</li>
-              <li>• Keep investment costs low with index funds and ETFs</li>
-            </ul>
-          </div>
+      {/* Top Expenses */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <h2 className="text-xl font-semibold mb-4 dark:text-white">Top Expenses</h2>
+        <div className="space-y-3">
+          {topExpenses.map((expense, index) => (
+            <div key={expense.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-gray-400 dark:text-gray-500">
+                  #{index + 1}
+                </span>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">{expense.description}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    {expense.category} • {new Date(expense.date).toLocaleDateString()}
+                  </p>
+                </div>
+              </div>
+              <p className="text-lg font-semibold text-red-600 dark:text-red-400">
+                -{formatCurrency(expense.amount)}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
     </div>

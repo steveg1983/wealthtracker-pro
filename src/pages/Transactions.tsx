@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 import AddTransactionModal from '../components/AddTransactionModal';
@@ -225,3 +226,5 @@ export default function Transactions() {
         onClose={() => setIsAddModalOpen(false)} 
       />
     </div>
+  );
+}
