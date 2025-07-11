@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import AddBudgetModal from '../components/AddBudgetModal';
 import { Plus, TrendingUp, TrendingDown, AlertCircle, Edit, Trash2, CheckCircle, XCircle } from 'lucide-react';
@@ -255,4 +254,3 @@ export default function Budget() {
         onClose={() => setIsAddModalOpen(false)} 
       />
     </div>
-  );

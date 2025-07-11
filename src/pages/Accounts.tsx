@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import AddAccountModal from '../components/AddAccountModal';
 import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2 } from 'lucide-react';
@@ -241,4 +240,3 @@ export default function Accounts() {
         onClose={() => setIsAddModalOpen(false)} 
       />
     </div>
-  );
