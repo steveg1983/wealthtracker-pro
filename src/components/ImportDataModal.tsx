@@ -45,11 +45,9 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     try {
       // MBF files have a specific structure
       // Skip header (first 512 bytes typically contain file metadata)
-      let offset = 512;
       
       // Read accounts section
       // Look for account markers (simplified parsing)
-      const decoder = new TextDecoder('windows-1252');
       const fullData = new Uint8Array(arrayBuffer);
       
       // Convert to string for pattern matching (simplified approach)

@@ -6,7 +6,7 @@ import { Download, Trash2, Moon, Sun, Monitor, Palette, AlertCircle, Upload, Dat
 
 export default function Settings() {
   const { accounts, transactions, budgets, clearAllData, exportData, loadTestData } = useApp();
-  const { theme, setTheme, actualTheme, accentColor, setAccentColor } = usePreferences();
+  const { theme, setTheme, accentColor, setAccentColor } = usePreferences();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
@@ -27,6 +27,10 @@ export default function Settings() {
   const handleClearData = () => {
     clearAllData();
     setShowDeleteConfirm(false);
+    // Force reload to ensure UI updates
+    setTimeout(() => {
+      window.location.reload();
+    }, 100);
   };
 
   const handleLoadTestData = () => {
@@ -57,7 +61,7 @@ export default function Settings() {
 
       {/* Appearance */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4 dark:text-white">Appearance</h2>
+        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Appearance</h2>
         
         {/* Theme Selection */}
         <div className="mb-6">
@@ -71,7 +75,7 @@ export default function Settings() {
                 onClick={() => setTheme(value as any)}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${
                   theme === value
-                    ? 'border-primary bg-primary/10 text-primary dark:bg-primary/20'
+                    ? 'border-primary bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
                     : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
                 }`}
               >
@@ -94,12 +98,12 @@ export default function Settings() {
                 onClick={() => setAccentColor(value)}
                 className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 transition-colors ${
                   accentColor === value
-                    ? 'border-gray-900 dark:border-gray-100'
-                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
+                    ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-white'
+                    : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 <div className={`w-4 h-4 rounded-full ${color}`} />
-                <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                <span className="text-sm">{label}</span>
               </button>
             ))}
           </div>
@@ -108,7 +112,7 @@ export default function Settings() {
 
       {/* Data Management */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold mb-4 dark:text-white">Data Management</h2>
+        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Data Management</h2>
         <div className="space-y-3">
           <button
             onClick={() => setShowImportModal(true)}
@@ -150,7 +154,7 @@ export default function Settings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircle className="text-red-500" size={24} />
-              <h3 className="text-lg font-semibold dark:text-white">Confirm Delete All Data</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirm Delete All Data</h3>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               Are you sure you want to delete all data? This will permanently remove:
@@ -187,7 +191,7 @@ export default function Settings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <Database className="text-purple-500" size={24} />
-              <h3 className="text-lg font-semibold dark:text-white">Load Test Data</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Load Test Data</h3>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               This will load sample data to help you explore the app's features. The test data includes:
@@ -226,7 +230,7 @@ export default function Settings() {
 
       {/* About */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4 dark:text-white">About</h2>
+        <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">About</h2>
         <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
           <p>Danielle's Money Tracker v1.0</p>
           <p>A personal finance management application</p>
