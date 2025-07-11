@@ -19,6 +19,7 @@ interface AppContextType {
   isLoading: boolean;
   clearAllData: () => void;
   exportData: () => string;
+  loadTestData: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -43,23 +44,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         const storedTransactions = localStorage.getItem(STORAGE_KEYS.transactions);
         const storedBudgets = localStorage.getItem(STORAGE_KEYS.budgets);
 
-        if (!storedAccounts && !storedTransactions && !storedBudgets) {
-          // Initialize with test data if no data exists
-          const testData = generateTestData();
-          setAccounts(testData.accounts);
-          setTransactions(testData.transactions);
-          setBudgets(testData.budgets);
-          
-          // Save test data to localStorage
-          localStorage.setItem(STORAGE_KEYS.accounts, JSON.stringify(testData.accounts));
-          localStorage.setItem(STORAGE_KEYS.transactions, JSON.stringify(testData.transactions));
-          localStorage.setItem(STORAGE_KEYS.budgets, JSON.stringify(testData.budgets));
-        } else {
-          // Load existing data
-          if (storedAccounts) setAccounts(JSON.parse(storedAccounts));
-          if (storedTransactions) setTransactions(JSON.parse(storedTransactions));
-          if (storedBudgets) setBudgets(JSON.parse(storedBudgets));
-        }
+        // Load existing data (no default test data)
+        if (storedAccounts) setAccounts(JSON.parse(storedAccounts));
+        if (storedTransactions) setTransactions(JSON.parse(storedTransactions));
+        if (storedBudgets) setBudgets(JSON.parse(storedBudgets));
+        
       } catch (error) {
         console.error('Error loading data:', error);
       } finally {
@@ -170,6 +159,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return JSON.stringify(data, null, 2);
   };
 
+  // Load test data
+  const loadTestData = () => {
+    const testData = generateTestData();
+    setAccounts(testData.accounts);
+    setTransactions(testData.transactions);
+    setBudgets(testData.budgets);
+  };
+
   return (
     <AppContext.Provider value={{
       accounts,
@@ -187,6 +184,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       isLoading,
       clearAllData,
       exportData,
+      loadTestData,
     }}>
       {children}
     </AppContext.Provider>

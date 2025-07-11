@@ -2,25 +2,18 @@ import { useState } from 'react';
 import ImportDataModal from '../components/ImportDataModal';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
-import { Download, Trash2, Moon, Sun, Monitor, Palette, AlertCircle, Upload } from 'lucide-react';
+import { Download, Trash2, Moon, Sun, Monitor, Palette, AlertCircle, Upload, Database } from 'lucide-react';
 
 export default function Settings() {
-  const { accounts, transactions, budgets } = useApp();
+  const { accounts, transactions, budgets, clearAllData, exportData, loadTestData } = useApp();
   const { theme, setTheme, actualTheme, accentColor, setAccentColor } = usePreferences();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
 
   const handleExportData = () => {
-    // Export data as JSON
-    const data = {
-      accounts,
-      transactions,
-      budgets,
-      exportDate: new Date().toISOString(),
-      version: '1.0'
-    };
-    
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const dataStr = exportData();
+    const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -32,13 +25,13 @@ export default function Settings() {
   };
 
   const handleClearData = () => {
-    // Clear all data from localStorage
-    localStorage.removeItem('wealthtracker_accounts');
-    localStorage.removeItem('wealthtracker_transactions');
-    localStorage.removeItem('wealthtracker_budgets');
+    clearAllData();
     setShowDeleteConfirm(false);
-    // Reload the page to reset the app
-    window.location.reload();
+  };
+
+  const handleLoadTestData = () => {
+    loadTestData();
+    setShowTestDataConfirm(false);
   };
 
   const themeOptions = [
@@ -132,6 +125,14 @@ export default function Settings() {
             <Download size={20} />
             Export Data to JSON
           </button>
+
+          <button
+            onClick={() => setShowTestDataConfirm(true)}
+            className="w-full px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <Database size={20} />
+            Load Test Data
+          </button>
           
           <button
             onClick={() => setShowDeleteConfirm(true)}
@@ -149,10 +150,18 @@ export default function Settings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircle className="text-red-500" size={24} />
-              <h3 className="text-lg font-semibold dark:text-white">Confirm Delete</h3>
+              <h3 className="text-lg font-semibold dark:text-white">Confirm Delete All Data</h3>
             </div>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              Are you sure you want to delete all data? This action cannot be undone.
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              Are you sure you want to delete all data? This will permanently remove:
+            </p>
+            <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-6">
+              <li>{accounts.length} accounts</li>
+              <li>{transactions.length} transactions</li>
+              <li>{budgets.length} budgets</li>
+            </ul>
+            <p className="text-sm font-semibold text-red-600 dark:text-red-400 mb-6">
+              This action cannot be undone!
             </p>
             <div className="flex gap-3">
               <button
@@ -166,6 +175,43 @@ export default function Settings() {
                 className="flex-1 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
               >
                 Delete All Data
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Test Data Confirmation Dialog */}
+      {showTestDataConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <Database className="text-purple-500" size={24} />
+              <h3 className="text-lg font-semibold dark:text-white">Load Test Data</h3>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              This will load sample data to help you explore the app's features. The test data includes:
+            </p>
+            <ul className="list-disc list-inside text-sm text-gray-600 dark:text-gray-400 mb-6">
+              <li>5 sample accounts</li>
+              <li>Multiple transactions</li>
+              <li>Example budgets</li>
+            </ul>
+            <p className="text-sm text-orange-600 dark:text-orange-400 mb-6">
+              Note: This will add to your existing data, not replace it.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowTestDataConfirm(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLoadTestData}
+                className="flex-1 px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+              >
+                Load Test Data
               </button>
             </div>
           </div>

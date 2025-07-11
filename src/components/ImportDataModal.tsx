@@ -28,6 +28,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState<{
+  const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
     accounts: ParsedAccount[];
     transactions: ParsedTransaction[];
   } | null>(null);
@@ -326,6 +327,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         // Handle Microsoft Money backup file
         const arrayBuffer = await selectedFile.arrayBuffer();
         parsed = await parseMBF(arrayBuffer);
+        setShowOverwriteWarning(true);
       } else if (selectedFile.name.toLowerCase().endsWith('.qif')) {
         const content = await selectedFile.text();
         parsed = parseQIF(content);
@@ -346,6 +348,13 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   };
 
   const handleImport = async () => {
+    if (!preview) return;
+    
+    // For MBF files, clear existing data first
+    if (file?.name.toLowerCase().endsWith('.mbf')) {
+      const { clearAllData } = useApp();
+      clearAllData();
+    }
     if (!preview) return;
     
     setImporting(true);
