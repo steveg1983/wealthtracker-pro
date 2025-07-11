@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { X, Upload, FileText, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
-import { parseMNY, ParseResult } from '../utils/mnyParser';
+import { parseMNY } from '../utils/mnyParser';
 
 interface ImportDataModalProps {
   isOpen: boolean;
@@ -22,6 +22,12 @@ interface ParsedAccount {
   balance: number;
 }
 
+interface ParsedData {
+  accounts: ParsedAccount[];
+  transactions: ParsedTransaction[];
+  warning?: string;
+}
+
 export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProps) {
   const { addAccount, addTransaction, accounts } = useApp();
   const [file, setFile] = useState<File | null>(null);
@@ -29,17 +35,10 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   const [parsing, setParsing] = useState(false);
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [message, setMessage] = useState('');
-  const [preview, setPreview] = useState<{
-    accounts: ParsedAccount[];
-    transactions: ParsedTransaction[];
-    warning?: string;
-  } | null>(null);
+  const [preview, setPreview] = useState<ParsedData | null>(null);
 
   // Parse QIF file format
-  const parseQIF = (content: string): { 
-    accounts: ParsedAccount[]; 
-    transactions: ParsedTransaction[] 
-  } => {
+  const parseQIF = (content: string): ParsedData => {
     const lines = content.split('\n');
     const transactions: ParsedTransaction[] = [];
     const accountsMap = new Map<string, ParsedAccount>();
@@ -128,10 +127,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   };
 
   // Parse OFX file format
-  const parseOFX = (content: string): { 
-    accounts: ParsedAccount[]; 
-    transactions: ParsedTransaction[] 
-  } => {
+  const parseOFX = (content: string): ParsedData => {
     const transactions: ParsedTransaction[] = [];
     const accountsMap = new Map<string, ParsedAccount>();
     
@@ -198,7 +194,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     setParsing(true);
     
     try {
-      let parsed: { accounts: ParsedAccount[]; transactions: ParsedTransaction[]; warning?: string } | null = null;
+      let parsed: ParsedData | null = null;
       
       if (selectedFile.name.toLowerCase().endsWith('.mny')) {
         // Handle Microsoft Money database file
