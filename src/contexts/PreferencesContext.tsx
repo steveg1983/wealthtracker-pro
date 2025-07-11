@@ -25,7 +25,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(() => {
     const saved = localStorage.getItem('money_management_theme');
-    return (saved as 'light' | 'dark' | 'auto') || 'light';
+    // If no saved theme or invalid, default to 'light'
+    if (!saved || !['light', 'dark', 'auto'].includes(saved)) {
+      return 'light';
+    }
+    return saved as 'light' | 'dark' | 'auto';
   });
 
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
@@ -33,19 +37,24 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   // Handle theme changes and auto theme
   useEffect(() => {
     const updateActualTheme = () => {
-      if (theme === 'auto') {
+      let newTheme: 'light' | 'dark' = 'light';
+      
+      if (theme === 'dark') {
+        newTheme = 'dark';
+      } else if (theme === 'auto') {
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        setActualTheme(prefersDark ? 'dark' : 'light');
-      } else if (theme === 'dark') {
-        setActualTheme('dark');
+        newTheme = prefersDark ? 'dark' : 'light';
       } else {
-        setActualTheme('light');
+        // Default to light for any other case
+        newTheme = 'light';
       }
+      
+      setActualTheme(newTheme);
     };
 
     updateActualTheme();
 
-    // Listen for system theme changes when in auto mode
+    // Listen for system theme changes only when in auto mode
     if (theme === 'auto') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = () => updateActualTheme();
@@ -57,19 +66,31 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   // Apply or remove dark class from document
   useEffect(() => {
-    // Remove both classes first
-    document.documentElement.classList.remove('dark', 'light');
+    const root = document.documentElement;
     
-    // Then add the appropriate one
-    if (actualTheme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.add('light');
-    }
+    // Force remove all theme classes first
+    root.classList.remove('dark');
+    root.classList.remove('light');
     
-    // Debug log
-    console.log('Theme:', theme, 'Actual Theme:', actualTheme);
-  }, [actualTheme, theme]);
+    // Force remove any style attribute that might be setting dark mode
+    root.removeAttribute('style');
+    
+    // Wait a tick then add the correct class
+    setTimeout(() => {
+      if (actualTheme === 'dark') {
+        root.classList.add('dark');
+      }
+      // We don't need to add 'light' class as light is the default
+      
+      // Log for debugging
+      console.log('Theme Debug:', {
+        selectedTheme: theme,
+        actualTheme: actualTheme,
+        htmlClasses: root.className,
+        localStorage: localStorage.getItem('money_management_theme')
+      });
+    }, 10);
+  }, [actualTheme]);
 
   useEffect(() => {
     localStorage.setItem('money_management_compact_view', compactView.toString());
