@@ -19,6 +19,7 @@ export default function Settings() {
   const { accounts, transactions, budgets, addAccount, addBudget } = useApp();
   const { compactView, setCompactView, currency, setCurrency, theme, setTheme, accentColor, setAccentColor } = usePreferences();
   const [activeSection, setActiveSection] = useState('profile');
+  const [isGeneratingData, setIsGeneratingData] = useState(false);
   const [notifications, setNotifications] = useState({
     budgetAlerts: true,
     lowBalance: true,
@@ -38,38 +39,49 @@ export default function Settings() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `money-management-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `danielles-money-backup-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
     alert('Data exported successfully!');
   };
 
-  const generateTestData = () => {
-    if (window.confirm('This will add test accounts, transactions, and budgets. Continue?')) {
-      // Import the test data generator
-      import('../utils/generateTestData').then(({ generateTestData }) => {
+  const generateTestData = async () => {
+    const confirmMessage = accounts.length > 0 || transactions.length > 0 
+      ? 'This will REPLACE all existing accounts, transactions, and budgets with test data. Are you sure?'
+      : 'This will add test accounts, transactions, and budgets. Continue?';
+      
+    if (window.confirm(confirmMessage)) {
+      setIsGeneratingData(true);
+      
+      try {
+        // Clear all existing data first
+        localStorage.removeItem('wealthtracker_accounts');
+        localStorage.removeItem('wealthtracker_transactions');
+        localStorage.removeItem('wealthtracker_budgets');
+        
+        // Small delay to ensure storage is cleared
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Import and generate test data
+        const { generateTestData } = await import('../utils/generateTestData');
         const testData = generateTestData();
         
-        // Add test accounts
-        testData.accounts.forEach(account => {
-          const { id, ...accountData } = account;
-          addAccount(accountData);
-        });
+        // Save directly to localStorage
+        localStorage.setItem('wealthtracker_accounts', JSON.stringify(testData.accounts));
+        localStorage.setItem('wealthtracker_transactions', JSON.stringify(testData.transactions));
+        localStorage.setItem('wealthtracker_budgets', JSON.stringify(testData.budgets));
         
-        // Add test transactions (without updating balances since they're already set)
-        const savedTransactions = JSON.parse(localStorage.getItem('wealthtracker_transactions') || '[]');
-        const newTransactions = [...savedTransactions, ...testData.transactions];
-        localStorage.setItem('wealthtracker_transactions', JSON.stringify(newTransactions));
+        // Show success message
+        alert('Test data generated successfully! The page will now refresh.');
         
-        // Add test budgets
-        testData.budgets.forEach(budget => {
-          const { id, ...budgetData } = budget;
-          addBudget(budgetData);
-        });
-        
-        alert('Test data added successfully! Refreshing...');
+        // Reload the page to show new data
         window.location.reload();
-      });
+      } catch (error) {
+        console.error('Error generating test data:', error);
+        alert('There was an error generating test data. Please try again.');
+      } finally {
+        setIsGeneratingData(false);
+      }
     }
   };
 
@@ -132,6 +144,7 @@ export default function Settings() {
                     </label>
                     <input
                       type="text"
+                      defaultValue="Danielle"
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                       placeholder="Your name"
                     />
@@ -307,18 +320,12 @@ export default function Settings() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                      Compact View (Transactions)
+                      Compact View
                     </label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">Shows more transactions on screen with reduced spacing</p>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={compactView}
-                        onChange={(e) => setCompactView(e.target.checked)}
-                      />
-                      <div className="w-11 h-6 bg-gray-200 dark:bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary dark:peer-checked:bg-blue-600"></div>
-                    </label>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Compact view toggle has been moved to the Transactions page for easier access. 
+                      You can toggle it directly from there to see the effect immediately.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -355,10 +362,11 @@ export default function Settings() {
 
                     <button 
                       onClick={generateTestData}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors"
+                      disabled={isGeneratingData}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Database size={20} />
-                      Generate Test Data
+                      {isGeneratingData ? 'Generating...' : 'Generate Test Data'}
                     </button>
 
                     <div className="pt-4 border-t dark:border-gray-700">
