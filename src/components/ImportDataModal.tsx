@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { X, Upload, FileText, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
-import { parseMNY } from '../utils/mnyParser';
+import { parseMNY, ParseResult } from '../utils/mnyParser';
 
 interface ImportDataModalProps {
   isOpen: boolean;

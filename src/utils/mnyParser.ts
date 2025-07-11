@@ -18,11 +18,13 @@ export interface ParsedTransaction {
   accountName?: string;
 }
 
-export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
+export interface ParseResult {
   accounts: ParsedAccount[];
   transactions: ParsedTransaction[];
-}> {
-  const dataView = new DataView(arrayBuffer);
+  warning?: string;
+}
+
+export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const uint8Array = new Uint8Array(arrayBuffer);
   const transactions: ParsedTransaction[] = [];
   const accountsMap = new Map<string, ParsedAccount>();
