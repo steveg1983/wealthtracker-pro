@@ -125,7 +125,7 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
     }
 
     // Money uses various date formats
-    const parseMoneyDate = (arrayBuffer: ArrayBuffer, offset: number): Date | null => {
+    const parseMoneyDate = (_arrayBuffer: ArrayBuffer, offset: number): Date | null => {
       // Try different date formats
       
       // Format 1: Days since 1900 (4 bytes)
