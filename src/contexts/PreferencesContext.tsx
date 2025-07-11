@@ -27,17 +27,28 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(() => {
     const saved = localStorage.getItem('money_management_theme');
-    if (!saved || !['light', 'dark', 'auto'].includes(saved)) {
-      return 'dark'; // Changed default from 'light' to 'dark'
+    // If nothing saved, default to dark
+    if (!saved) {
+      localStorage.setItem('money_management_theme', 'dark');
+      return 'dark';
+    }
+    if (!['light', 'dark', 'auto'].includes(saved)) {
+      return 'dark';
     }
     return saved as 'light' | 'dark' | 'auto';
   });
 
   const [accentColor, setAccentColor] = useState(() => {
-    return localStorage.getItem('money_management_accent_color') || 'pink'; // Changed default from 'blue' to 'pink'
+    const saved = localStorage.getItem('money_management_accent_color');
+    // If nothing saved, default to pink and save it
+    if (!saved) {
+      localStorage.setItem('money_management_accent_color', 'pink');
+      return 'pink';
+    }
+    return saved;
   });
 
-  const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('dark'); // Changed default from 'light' to 'dark'
+  const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('dark');
 
   // Handle theme changes and auto theme
   useEffect(() => {
@@ -121,6 +132,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     
     // Add the selected accent class
     root.classList.add(`accent-${accentColor}`);
+    
+    // Log for debugging
+    console.log('Accent color applied:', accentColor, root.className);
   }, [accentColor]);
 
   useEffect(() => {

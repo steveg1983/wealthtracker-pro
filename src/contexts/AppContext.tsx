@@ -61,42 +61,80 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Initialize with test data if first time user
-  const initializeData = () => {
-    const savedAccounts = localStorage.getItem('wealthtracker_accounts');
-    const savedTransactions = localStorage.getItem('wealthtracker_transactions');
-    const savedBudgets = localStorage.getItem('wealthtracker_budgets');
-    
-    // If no data exists, load test data
-    if (!savedAccounts && !savedTransactions && !savedBudgets) {
+  // Initialize state with a function to ensure it runs only once
+  const [accounts, setAccounts] = useState<Account[]>(() => {
+    try {
+      const saved = localStorage.getItem('wealthtracker_accounts');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+      
+      // No saved data, generate test data
       const testData = generateTestData();
       localStorage.setItem('wealthtracker_accounts', JSON.stringify(testData.accounts));
-      localStorage.setItem('wealthtracker_transactions', JSON.stringify(testData.transactions));
-      localStorage.setItem('wealthtracker_budgets', JSON.stringify(testData.budgets));
-      localStorage.setItem('wealthtracker_first_time', 'false');
-      return {
-        accounts: testData.accounts,
-        transactions: testData.transactions,
-        budgets: testData.budgets
-      };
+      return testData.accounts;
+    } catch (error) {
+      console.error('Error loading accounts:', error);
+      const testData = generateTestData();
+      return testData.accounts;
     }
-    
-    return {
-      accounts: savedAccounts ? JSON.parse(savedAccounts) : [],
-      transactions: savedTransactions ? JSON.parse(savedTransactions) : [],
-      budgets: savedBudgets ? JSON.parse(savedBudgets) : []
-    };
-  };
-
-  const initialData = initializeData();
-
-  const [accounts, setAccounts] = useState<Account[]>(initialData.accounts);
-  const [transactions, setTransactions] = useState<Transaction[]>(initialData.transactions);
-  const [budgets, setBudgets] = useState<Budget[]>(initialData.budgets);
-  const [goals, setGoals] = useState<Goal[]>(() => {
-    const saved = localStorage.getItem('wealthtracker_goals');
-    return saved ? JSON.parse(saved) : [];
   });
+
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    try {
+      const saved = localStorage.getItem('wealthtracker_transactions');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+      
+      // No saved data, generate test data
+      const testData = generateTestData();
+      localStorage.setItem('wealthtracker_transactions', JSON.stringify(testData.transactions));
+      return testData.transactions;
+    } catch (error) {
+      console.error('Error loading transactions:', error);
+      const testData = generateTestData();
+      return testData.transactions;
+    }
+  });
+
+  const [budgets, setBudgets] = useState<Budget[]>(() => {
+    try {
+      const saved = localStorage.getItem('wealthtracker_budgets');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+      
+      // No saved data, generate test data
+      const testData = generateTestData();
+      localStorage.setItem('wealthtracker_budgets', JSON.stringify(testData.budgets));
+      return testData.budgets;
+    } catch (error) {
+      console.error('Error loading budgets:', error);
+      const testData = generateTestData();
+      return testData.budgets;
+    }
+  });
+
+  const [goals, setGoals] = useState<Goal[]>(() => {
+    try {
+      const saved = localStorage.getItem('wealthtracker_goals');
+      return saved ? JSON.parse(saved) : [];
+    } catch (error) {
+      console.error('Error loading goals:', error);
+      return [];
+    }
+  });
+
+  // Log initialization for debugging
+  useEffect(() => {
+    console.log('AppContext initialized with:', {
+      accounts: accounts.length,
+      transactions: transactions.length,
+      budgets: budgets.length,
+      goals: goals.length
+    });
+  }, []);
 
   // Save to localStorage whenever data changes
   useEffect(() => {
