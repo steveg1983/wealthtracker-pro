@@ -1,4 +1,3 @@
-cat > src/pages/Transactions.tsx << 'EOF'
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
@@ -228,5 +227,3 @@ export default function Transactions() {
       />
     </div>
   );
-}
-EOF

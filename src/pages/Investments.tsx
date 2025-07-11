@@ -1,4 +1,4 @@
-cat > src/pages/Investments.tsx << 'EOF'
+
 import { useState } from 'react';
 import { TrendingUp, TrendingDown, DollarSign, PieChart, BarChart3, AlertCircle } from 'lucide-react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid, Legend } from 'recharts';
@@ -264,4 +264,3 @@ export default function Investments() {
     </div>
   );
 }
-EOF

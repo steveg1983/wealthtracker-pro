@@ -1,4 +1,3 @@
-cat > src/pages/Accounts.tsx << 'EOF'
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import AddAccountModal from '../components/AddAccountModal';
@@ -243,5 +242,3 @@ export default function Accounts() {
       />
     </div>
   );
-}
-EOF

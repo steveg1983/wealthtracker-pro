@@ -1,4 +1,3 @@
-cat > src/pages/Budget.tsx << 'EOF'
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import AddBudgetModal from '../components/AddBudgetModal';
@@ -257,5 +256,3 @@ export default function Budget() {
       />
     </div>
   );
-}
-EOF
