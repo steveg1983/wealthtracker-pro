@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import AddAccountModal from '../components/AddAccountModal';
@@ -7,18 +7,11 @@ import { useCurrency } from '../hooks/useCurrency';
 
 export default function Accounts() {
   const { accounts, updateAccount, deleteAccount } = useApp();
-  const { formatCurrency: formatDisplayCurrency, convertAndSum, displayCurrency } = useCurrency();
+  const { formatCurrency: formatDisplayCurrency } = useCurrency();
   const navigate = useNavigate();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBalance, setEditBalance] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [convertedTotals, setConvertedTotals] = useState({
-    assets: 0,
-    liabilities: 0,
-    netWorth: 0
-  });
-
   // Helper function to format currency in account's own currency
   const formatAccountCurrency = (amount: number, currency: string = 'GBP'): string => {
     const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
@@ -27,31 +20,6 @@ export default function Accounts() {
       maximumFractionDigits: 2
     }).format(Math.abs(amount));
   };
-
-  // Calculate totals with currency conversion
-  useEffect(() => {
-    const calculateTotals = async () => {
-      setIsLoading(true);
-      
-      const assetAccounts = accounts.filter(acc => acc.balance > 0);
-      const liabilityAccounts = accounts.filter(acc => acc.balance < 0);
-      
-      const [totalAssets, totalLiabilities] = await Promise.all([
-        convertAndSum(assetAccounts.map(acc => ({ amount: acc.balance, currency: acc.currency }))),
-        convertAndSum(liabilityAccounts.map(acc => ({ amount: Math.abs(acc.balance), currency: acc.currency })))
-      ]);
-      
-      setConvertedTotals({
-        assets: totalAssets,
-        liabilities: totalLiabilities,
-        netWorth: totalAssets - totalLiabilities
-      });
-      
-      setIsLoading(false);
-    };
-    
-    calculateTotals();
-  }, [accounts, displayCurrency, convertAndSum]);
 
   // Group accounts by type
   const accountsByType = accounts.reduce((groups, account) => {
@@ -107,8 +75,6 @@ export default function Accounts() {
     },
   ];
 
-  // Use converted totals for display
-  const { assets: totalAssets, liabilities: totalLiabilities, netWorth: totalBalance } = convertedTotals;
 
   const handleEdit = (accountId: string, currentBalance: number) => {
     setEditingId(accountId);
@@ -143,27 +109,6 @@ export default function Accounts() {
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Net Worth ({displayCurrency})</p>
-          <p className={`text-2xl font-bold ${totalBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {isLoading ? '...' : formatDisplayCurrency(totalBalance)}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Assets ({displayCurrency})</p>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {isLoading ? '...' : formatDisplayCurrency(totalAssets)}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Liabilities ({displayCurrency})</p>
-          <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-            {isLoading ? '...' : formatDisplayCurrency(totalLiabilities)}
-          </p>
-        </div>
-      </div>
 
       {/* Accounts by Category */}
       <div className="space-y-6">
