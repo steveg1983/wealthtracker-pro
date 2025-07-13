@@ -11,9 +11,10 @@ interface SidebarLinkProps {
   hasSubItems?: boolean;
   isSubItem?: boolean;
   onClick?: () => void;
+  onNavigate?: () => void;
 }
 
-function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onClick }: SidebarLinkProps) {
+function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onClick, onNavigate }: SidebarLinkProps) {
   const location = useLocation();
   const isActive = location.pathname === to || (hasSubItems && location.pathname.startsWith(to));
 
@@ -63,6 +64,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
       to={to}
       className={className}
       title={isCollapsed ? label : undefined}
+      onClick={onNavigate}
     >
       {content}
     </Link>
@@ -101,7 +103,7 @@ export default function Layout() {
         <div className="p-4">
           <div className="flex items-center justify-between mb-8">
             {!isSidebarCollapsed && (
-              <h1 className="text-xl font-bold text-gray-800 dark:text-white">Money Tracker</h1>
+              <h1 className="text-xl font-bold text-gray-800 dark:text-white">Wealth Tracker</h1>
             )}
             <button
               onClick={toggleSidebar}
@@ -147,7 +149,7 @@ export default function Layout() {
         onClick={toggleMobileMenu}
         className="md:hidden fixed top-4 left-4 z-50 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md"
       >
-        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+        {isMobileMenuOpen ? <X size={24} className="text-gray-600 dark:text-gray-300" /> : <Menu size={24} className="text-gray-600 dark:text-gray-300" />}
       </button>
 
       {/* Mobile Menu */}
@@ -155,16 +157,25 @@ export default function Layout() {
         <div className="md:hidden fixed inset-0 z-40 bg-black bg-opacity-50" onClick={toggleMobileMenu}>
           <aside className="w-64 h-full bg-white dark:bg-gray-800 shadow-md" onClick={e => e.stopPropagation()}>
             <div className="p-4">
-              <h1 className="text-xl font-bold text-gray-800 dark:text-white mb-8">Money Tracker</h1>
+              {/* Mobile header with close button */}
+              <div className="flex justify-between items-center mb-6">
+                <h1 className="text-xl font-bold text-gray-800 dark:text-white">Wealth Tracker</h1>
+                <button
+                  onClick={toggleMobileMenu}
+                  className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
+                  <X size={20} className="text-gray-600 dark:text-gray-300" />
+                </button>
+              </div>
               <nav className="space-y-2">
-                <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={false} />
-                <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={false} />
-                <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} />
-                <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} />
-                <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} />
-                <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={false} />
-                <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} />
-                <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={false} />
+                <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 
                 {/* Settings with Sub-navigation */}
                 <div>
@@ -178,9 +189,9 @@ export default function Layout() {
                   />
                   {settingsExpanded && (
                     <div className="mt-1 space-y-1">
-                      <SidebarLink to="/settings/appearance" icon={Palette} label="Appearance" isCollapsed={false} isSubItem={true} />
-                      <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} />
-                      <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} />
+                      <SidebarLink to="/settings/appearance" icon={Palette} label="Appearance" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>

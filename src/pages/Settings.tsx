@@ -61,7 +61,7 @@ export default function Settings() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mt-8">
         <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">About</h2>
         <div className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-          <p>Danielle's Money Tracker v1.0</p>
+          <p>Wealth Tracker v1.0</p>
           <p>A personal finance management application</p>
           <p className="flex items-center gap-2">
             <Palette size={16} />
