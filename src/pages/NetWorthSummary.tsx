@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, ChevronRight, Building2, CreditCard, Landmark, PiggyBank } from 'lucide-react';
+import { ArrowLeft, TrendingUp, DollarSign, ChevronRight, Building2, CreditCard, Landmark, PiggyBank } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
 
@@ -140,8 +140,6 @@ export default function NetWorthSummary() {
   }, {} as Record<string, typeof relevantAccounts>);
 
   // Calculate totals for net worth view
-  const assetAccounts = accounts.filter(acc => acc.balance > 0);
-  const liabilityAccounts = accounts.filter(acc => acc.balance < 0);
   const totalAssets = convertedAccounts
     .filter(acc => acc.balance > 0)
     .reduce((sum, acc) => sum + acc.convertedBalance, 0);
@@ -206,7 +204,7 @@ export default function NetWorthSummary() {
       {/* Accounts by Type */}
       <div className="space-y-6">
         {Object.entries(groupedAccounts).map(([accountType, accountsList]) => {
-          const typeTotal = accountsList.reduce((sum, acc) => sum + acc.convertedBalance, 0);
+          const typeTotal = (accountsList as any[]).reduce((sum: number, acc: any) => sum + acc.convertedBalance, 0);
           
           return (
             <div key={accountType} className="bg-white dark:bg-gray-800 rounded-lg shadow">
@@ -219,7 +217,7 @@ export default function NetWorthSummary() {
                         {getAccountTypeLabel(accountType)}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {accountsList.length} {accountsList.length === 1 ? 'account' : 'accounts'}
+                        {(accountsList as any[]).length} {(accountsList as any[]).length === 1 ? 'account' : 'accounts'}
                       </p>
                     </div>
                   </div>
@@ -234,7 +232,7 @@ export default function NetWorthSummary() {
               </div>
               
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {accountsList.map(account => (
+                {(accountsList as any[]).map((account: any) => (
                   <div
                     key={account.id}
                     className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"

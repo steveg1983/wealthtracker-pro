@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronDown, ChevronRight, Palette, Database, Tag } from 'lucide-react';
+import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Palette, Database, Tag } from 'lucide-react';
 import Breadcrumbs from './Breadcrumbs';
 
 interface SidebarLinkProps {

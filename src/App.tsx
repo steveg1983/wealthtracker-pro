@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './contexts/AppContext';
 import { PreferencesProvider } from './contexts/PreferencesContext';
 import ErrorBoundary from './components/ErrorBoundary';
-import RouteLogger from './components/RouteLogger';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Accounts from './pages/Accounts';

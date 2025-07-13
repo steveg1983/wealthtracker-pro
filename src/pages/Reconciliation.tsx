@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { Check, X, Search, AlertCircle, CheckCircle, TrendingUp, TrendingDown, Calendar, Building2, CreditCard, Plus, Lightbulb, ChevronRight, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Building2, CreditCard, Plus, Lightbulb, ChevronRight, ArrowLeft } from 'lucide-react';
 import EditTransactionModal from '../components/EditTransactionModal';
 
 // Mock imported bank transactions (in real app, these would come from bank API/import)
@@ -116,7 +116,7 @@ const mockBankTransactions: BankTransaction[] = [
 export default function Reconciliation() {
   const { transactions, accounts, addTransaction, updateTransaction } = useApp();
   const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
-  const [bankTransactions, setBankTransactions] = useState<BankTransaction[]>(mockBankTransactions);
+  const [bankTransactions] = useState<BankTransaction[]>(mockBankTransactions);
   const [currentBankTransaction, setCurrentBankTransaction] = useState<BankTransaction | null>(null);
   const [showCreateNew, setShowCreateNew] = useState(false);
   const [newTransactionData, setNewTransactionData] = useState<any>({});
@@ -130,7 +130,7 @@ export default function Reconciliation() {
   // Calculate unreconciled transactions per account
   const getUnreconciledCount = (accountId: string) => {
     return bankTransactions.filter(bt => 
-      bt.accountId === accountId && !transactions.some(t => t.bankReference === bt.id)
+      bt.accountId === accountId && !transactions.some(t => (t as any).bankReference === bt.id)
     ).length;
   };
 
@@ -139,7 +139,7 @@ export default function Reconciliation() {
     const unreconciledCount = getUnreconciledCount(account.id);
     const accountBankTransactions = bankTransactions.filter(bt => bt.accountId === account.id);
     const totalToReconcile = accountBankTransactions
-      .filter(bt => !transactions.some(t => t.bankReference === bt.id))
+      .filter(bt => !transactions.some(t => (t as any).bankReference === bt.id))
       .reduce((sum, bt) => sum + bt.amount, 0);
 
     return {
@@ -157,7 +157,7 @@ export default function Reconciliation() {
     if (!selectedAccount) return;
     
     const unreconciled = bankTransactions.filter(bt => 
-      bt.accountId === selectedAccount && !transactions.some(t => t.bankReference === bt.id)
+      bt.accountId === selectedAccount && !transactions.some(t => (t as any).bankReference === bt.id)
     );
     if (unreconciled.length > 0) {
       setCurrentBankTransaction(unreconciled[0]);
@@ -288,7 +288,7 @@ export default function Reconciliation() {
     
     const currentIndex = bankTransactions.findIndex(bt => bt.id === currentBankTransaction?.id);
     const remaining = bankTransactions.slice(currentIndex + 1).filter(bt => 
-      bt.accountId === selectedAccount && !transactions.some(t => t.bankReference === bt.id)
+      bt.accountId === selectedAccount && !transactions.some(t => (t as any).bankReference === bt.id)
     );
     
     if (remaining.length > 0) {
@@ -323,7 +323,7 @@ export default function Reconciliation() {
 
   // Count total unreconciled transactions
   const totalUnreconciledCount = bankTransactions.filter(bt => 
-    !transactions.some(t => t.bankReference === bt.id)
+    !transactions.some(t => (t as any).bankReference === bt.id)
   ).length;
 
   // Show account summary view if no account is selected

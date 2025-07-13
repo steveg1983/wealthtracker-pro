@@ -1,5 +1,5 @@
 import { usePreferences } from '../../contexts/PreferencesContext';
-import { Moon, Sun, Monitor, Palette } from 'lucide-react';
+import { Moon, Sun, Monitor } from 'lucide-react';
 
 export default function AppearanceSettings() {
   const { theme, setTheme, accentColor, setAccentColor, currency, setCurrency } = usePreferences();

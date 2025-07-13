@@ -12,7 +12,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
   const { addAccount } = useApp();
   const { currency: defaultCurrency } = usePreferences();
   const [name, setName] = useState('');
-  const [type, setType] = useState<'current' | 'savings' | 'credit' | 'loan' | 'investment'>('current');
+  const [type, setType] = useState<'current' | 'checking' | 'savings' | 'credit' | 'loan' | 'investment' | 'other'>('current');
   const [balance, setBalance] = useState('');
   const [currency, setCurrency] = useState(defaultCurrency);
   const [institution, setInstitution] = useState('');
@@ -28,7 +28,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
     
     addAccount({
       name,
-      type,
+      type: type === 'checking' ? 'current' : type,
       balance: parseFloat(balance) || 0,
       currency,
       institution,

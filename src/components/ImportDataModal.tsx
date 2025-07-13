@@ -219,7 +219,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         
         const newAccount = {
           name: account.name,
-          type: account.type,
+          type: (account.type === 'checking' ? 'current' : account.type) as 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'other',
           balance: account.balance,
           currency: 'GBP',
           institution: 'Imported',

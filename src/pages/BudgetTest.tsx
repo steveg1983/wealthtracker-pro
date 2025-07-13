@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { PlusCircle, Edit2, Trash2, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 
 export default function BudgetTest() {
   console.log('BudgetTest component rendering');
   
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingBudget, setEditingBudget] = useState<any>(null);
-  
   // Get data from context
   let context: any = null;
   try {
@@ -18,7 +16,7 @@ export default function BudgetTest() {
     return <div>Error loading context: {String(error)}</div>;
   }
   
-  const { budgets = [], transactions = [], updateBudget = () => {}, deleteBudget = () => {} } = context || {};
+  const { budgets = [], transactions = [] } = context || {};
   
   console.log('Budgets:', budgets);
   console.log('Transactions:', transactions);

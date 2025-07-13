@@ -1,4 +1,4 @@
-import { Palette, Database, Tag, Settings as SettingsIcon } from 'lucide-react';
+import { Palette, Database, Tag } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Settings() {

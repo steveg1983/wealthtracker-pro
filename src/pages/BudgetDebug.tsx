@@ -1,8 +1,6 @@
-import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 
 export default function BudgetDebug() {
-  const [error, setError] = useState<string | null>(null);
   
   try {
     const appContext = useApp();

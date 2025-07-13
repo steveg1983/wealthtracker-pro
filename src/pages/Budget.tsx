@@ -8,10 +8,10 @@ export default function Budget() {
   const [editingBudget, setEditingBudget] = useState<any>(null);
   
   // Get data from context with error handling
-  let budgets = [];
-  let transactions = [];
-  let updateBudget = () => {};
-  let deleteBudget = () => {};
+  let budgets: any[] = [];
+  let transactions: any[] = [];
+  let updateBudget: (id: string, budget: any) => void = () => {};
+  let deleteBudget: (id: string) => void = () => {};
   
   try {
     const context = useApp();

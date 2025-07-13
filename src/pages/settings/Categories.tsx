@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import CategoryCreationModal from '../../components/CategoryCreationModal';
-import { Tag, Plus, Edit2, X, Check, ChevronRight, ChevronDown, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Edit2, X, Check, ChevronRight, ChevronDown, Trash2, AlertCircle } from 'lucide-react';
 
 export default function CategoriesSettings() {
   const { 

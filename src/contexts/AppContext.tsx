@@ -1351,7 +1351,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         targetAmount: 15000,
         currentAmount: 8500,
         targetDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-        category: 'savings',
+        type: 'savings',
+        isActive: true,
         createdAt: new Date()
       },
       {
@@ -1360,7 +1361,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         targetAmount: 50000,
         currentAmount: 25000,
         targetDate: new Date(new Date().setFullYear(new Date().getFullYear() + 2)),
-        category: 'investment',
+        type: 'savings',
+        isActive: true,
         createdAt: new Date()
       },
       {
@@ -1369,7 +1371,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         targetAmount: 5000,
         currentAmount: 1200,
         targetDate: new Date(new Date().setMonth(new Date().getMonth() + 8)),
-        category: 'vacation',
+        type: 'savings',
+        isActive: true,
         createdAt: new Date()
       },
       {
@@ -1378,7 +1381,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         targetAmount: 35000,
         currentAmount: 5000,
         targetDate: new Date(new Date().setFullYear(new Date().getFullYear() + 3)),
-        category: 'purchase',
+        type: 'savings',
+        isActive: true,
         createdAt: new Date()
       }
     ];
