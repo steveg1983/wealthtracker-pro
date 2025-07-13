@@ -1,11 +1,23 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
-import { getDefaultTestAccounts, getDefaultTestTransactions, getDefaultTestBudgets, getDefaultTestGoals } from "../data/defaultTestData";
+import {
+  getDefaultTestAccounts,
+  getDefaultTestTransactions,
+  getDefaultTestBudgets,
+  getDefaultTestGoals,
+} from "../data/defaultTestData";
 
 interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
+  type:
+    | "current"
+    | "savings"
+    | "credit"
+    | "loan"
+    | "investment"
+    | "assets"
+    | "other";
   balance: number;
   currency: string;
   institution?: string;
@@ -21,7 +33,7 @@ interface Transaction {
   date: Date;
   description: string;
   amount: number;
-  type: 'income' | 'expense' | 'transfer';
+  type: "income" | "expense" | "transfer";
   category: string; // This will now store the detail category ID
   categoryName?: string; // For backward compatibility and display
   accountId: string;
@@ -50,10 +62,10 @@ interface RecurringTransaction {
   id?: string;
   description: string;
   amount: number;
-  type: 'income' | 'expense' | 'transfer';
+  type: "income" | "expense" | "transfer";
   category: string;
   accountId: string;
-  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  frequency: "daily" | "weekly" | "monthly" | "yearly";
   startDate: string;
   endDate?: string;
   lastProcessed?: string;
@@ -62,7 +74,7 @@ interface RecurringTransaction {
 interface Goal {
   id: string;
   name: string;
-  type: 'savings' | 'debt-payoff' | 'investment' | 'custom';
+  type: "savings" | "debt-payoff" | "investment" | "custom";
   targetAmount: number;
   currentAmount: number;
   targetDate: Date;
@@ -75,8 +87,8 @@ interface Goal {
 interface Category {
   id: string;
   name: string;
-  type: 'income' | 'expense' | 'both';
-  level: 'type' | 'sub' | 'detail'; // Level in hierarchy
+  type: "income" | "expense" | "both";
+  level: "type" | "sub" | "detail"; // Level in hierarchy
   parentId?: string; // ID of parent category
   color?: string;
   icon?: string;
@@ -91,16 +103,16 @@ interface AppContextType {
   goals: Goal[];
   categories: Category[];
   hasTestData: boolean;
-  addAccount: (account: Omit<Account, 'id'>) => void;
+  addAccount: (account: Omit<Account, "id">) => void;
   updateAccount: (id: string, account: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  addTransaction: (transaction: Omit<Transaction, "id">) => void;
   updateTransaction: (id: string, transaction: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
-  addBudget: (budget: Omit<Budget, 'id'>) => void;
+  addBudget: (budget: Omit<Budget, "id">) => void;
   updateBudget: (id: string, budget: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
-  addGoal: (goal: Omit<Goal, 'id'>) => void;
+  addGoal: (goal: Omit<Goal, "id">) => void;
   updateGoal: (id: string, goal: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
   clearAllData: () => void;
@@ -109,10 +121,12 @@ interface AppContextType {
   loadTestData: () => void;
   addRecurringTransaction: (transaction: RecurringTransaction) => void;
   deleteRecurringTransaction: (id: string) => void;
-  addCategory: (category: Omit<Category, 'id'>) => void;
+  addCategory: (category: Omit<Category, "id">) => void;
   updateCategory: (id: string, category: Partial<Category>) => void;
   deleteCategory: (id: string, newCategoryId?: string) => void;
-  getCategoriesForTransactions: (transactionIds: string[]) => Record<string, number>;
+  getCategoriesForTransactions: (
+    transactionIds: string[],
+  ) => Record<string, number>;
   getSubCategories: (parentId: string) => Category[];
   getDetailCategories: (parentId: string) => Category[];
   getCategoryPath: (categoryId: string) => string;
@@ -124,83 +138,459 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 // Default categories with hierarchy
 const defaultCategories: Category[] = [
   // Top-level type categories
-  { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true },
-  { id: 'type-expense', name: 'Expense', type: 'expense', level: 'type', isSystem: true },
-  
+  {
+    id: "type-income",
+    name: "Income",
+    type: "income",
+    level: "type",
+    isSystem: true,
+  },
+  {
+    id: "type-expense",
+    name: "Expense",
+    type: "expense",
+    level: "type",
+    isSystem: true,
+  },
+
   // Income sub-categories
-  { id: 'sub-employment', name: 'Employment', type: 'income', level: 'sub', parentId: 'type-income', isSystem: true },
-  { id: 'sub-investment', name: 'Investment', type: 'income', level: 'sub', parentId: 'type-income', isSystem: true },
-  { id: 'sub-other-income', name: 'Other Income', type: 'income', level: 'sub', parentId: 'type-income', isSystem: true },
-  
+  {
+    id: "sub-employment",
+    name: "Employment",
+    type: "income",
+    level: "sub",
+    parentId: "type-income",
+    isSystem: true,
+  },
+  {
+    id: "sub-investment",
+    name: "Investment",
+    type: "income",
+    level: "sub",
+    parentId: "type-income",
+    isSystem: true,
+  },
+  {
+    id: "sub-other-income",
+    name: "Other Income",
+    type: "income",
+    level: "sub",
+    parentId: "type-income",
+    isSystem: true,
+  },
+
   // Income detail categories
-  { id: 'cat-1', name: 'Salary', type: 'income', level: 'detail', parentId: 'sub-employment', isSystem: true },
-  { id: 'cat-2', name: 'Freelance', type: 'income', level: 'detail', parentId: 'sub-employment', isSystem: true },
-  { id: 'cat-3', name: 'Bonus', type: 'income', level: 'detail', parentId: 'sub-employment', isSystem: true },
-  { id: 'cat-4', name: 'Dividends', type: 'income', level: 'detail', parentId: 'sub-investment', isSystem: true },
-  { id: 'cat-5', name: 'Interest', type: 'income', level: 'detail', parentId: 'sub-investment', isSystem: true },
-  { id: 'cat-6', name: 'Capital Gains', type: 'income', level: 'detail', parentId: 'sub-investment', isSystem: true },
-  
+  {
+    id: "cat-1",
+    name: "Salary",
+    type: "income",
+    level: "detail",
+    parentId: "sub-employment",
+    isSystem: true,
+  },
+  {
+    id: "cat-2",
+    name: "Freelance",
+    type: "income",
+    level: "detail",
+    parentId: "sub-employment",
+    isSystem: true,
+  },
+  {
+    id: "cat-3",
+    name: "Bonus",
+    type: "income",
+    level: "detail",
+    parentId: "sub-employment",
+    isSystem: true,
+  },
+  {
+    id: "cat-4",
+    name: "Dividends",
+    type: "income",
+    level: "detail",
+    parentId: "sub-investment",
+    isSystem: true,
+  },
+  {
+    id: "cat-5",
+    name: "Interest",
+    type: "income",
+    level: "detail",
+    parentId: "sub-investment",
+    isSystem: true,
+  },
+  {
+    id: "cat-6",
+    name: "Capital Gains",
+    type: "income",
+    level: "detail",
+    parentId: "sub-investment",
+    isSystem: true,
+  },
+
   // Expense sub-categories
-  { id: 'sub-food', name: 'Food & Dining', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
-  { id: 'sub-transport', name: 'Transportation', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
-  { id: 'sub-housing', name: 'Housing', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
-  { id: 'sub-utilities', name: 'Utilities', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
-  { id: 'sub-entertainment', name: 'Entertainment', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
-  { id: 'sub-shopping', name: 'Shopping', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
-  { id: 'sub-healthcare', name: 'Healthcare', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
-  { id: 'sub-financial', name: 'Financial', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
-  { id: 'sub-other-expense', name: 'Other Expenses', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
-  { id: 'sub-assets', name: 'Assets', type: 'both', level: 'sub', parentId: 'type-expense', isSystem: true },
-  
+  {
+    id: "sub-food",
+    name: "Food & Dining",
+    type: "expense",
+    level: "sub",
+    parentId: "type-expense",
+    isSystem: true,
+  },
+  {
+    id: "sub-transport",
+    name: "Transportation",
+    type: "expense",
+    level: "sub",
+    parentId: "type-expense",
+    isSystem: true,
+  },
+  {
+    id: "sub-housing",
+    name: "Housing",
+    type: "expense",
+    level: "sub",
+    parentId: "type-expense",
+    isSystem: true,
+  },
+  {
+    id: "sub-utilities",
+    name: "Utilities",
+    type: "expense",
+    level: "sub",
+    parentId: "type-expense",
+    isSystem: true,
+  },
+  {
+    id: "sub-entertainment",
+    name: "Entertainment",
+    type: "expense",
+    level: "sub",
+    parentId: "type-expense",
+    isSystem: true,
+  },
+  {
+    id: "sub-shopping",
+    name: "Shopping",
+    type: "expense",
+    level: "sub",
+    parentId: "type-expense",
+    isSystem: true,
+  },
+  {
+    id: "sub-healthcare",
+    name: "Healthcare",
+    type: "expense",
+    level: "sub",
+    parentId: "type-expense",
+    isSystem: true,
+  },
+  {
+    id: "sub-financial",
+    name: "Financial",
+    type: "expense",
+    level: "sub",
+    parentId: "type-expense",
+    isSystem: true,
+  },
+  {
+    id: "sub-other-expense",
+    name: "Other Expenses",
+    type: "expense",
+    level: "sub",
+    parentId: "type-expense",
+    isSystem: true,
+  },
+  {
+    id: "sub-assets",
+    name: "Assets",
+    type: "both",
+    level: "sub",
+    parentId: "type-expense",
+    isSystem: true,
+  },
+
   // Expense detail categories
-  { id: 'cat-7', name: 'Groceries', type: 'expense', level: 'detail', parentId: 'sub-food', isSystem: true },
-  { id: 'cat-8', name: 'Restaurants', type: 'expense', level: 'detail', parentId: 'sub-food', isSystem: true },
-  { id: 'cat-9', name: 'Takeout', type: 'expense', level: 'detail', parentId: 'sub-food', isSystem: true },
-  { id: 'cat-10', name: 'Public Transport', type: 'expense', level: 'detail', parentId: 'sub-transport', isSystem: true },
-  { id: 'cat-11', name: 'Fuel', type: 'expense', level: 'detail', parentId: 'sub-transport', isSystem: true },
-  { id: 'cat-12', name: 'Car Maintenance', type: 'expense', level: 'detail', parentId: 'sub-transport', isSystem: true },
-  { id: 'cat-13', name: 'Rent/Mortgage', type: 'expense', level: 'detail', parentId: 'sub-housing', isSystem: true },
-  { id: 'cat-14', name: 'Home Maintenance', type: 'expense', level: 'detail', parentId: 'sub-housing', isSystem: true },
-  { id: 'cat-15', name: 'Electricity', type: 'expense', level: 'detail', parentId: 'sub-utilities', isSystem: true },
-  { id: 'cat-16', name: 'Gas', type: 'expense', level: 'detail', parentId: 'sub-utilities', isSystem: true },
-  { id: 'cat-17', name: 'Water', type: 'expense', level: 'detail', parentId: 'sub-utilities', isSystem: true },
-  { id: 'cat-18', name: 'Internet', type: 'expense', level: 'detail', parentId: 'sub-utilities', isSystem: true },
-  { id: 'cat-19', name: 'Phone', type: 'expense', level: 'detail', parentId: 'sub-utilities', isSystem: true },
-  { id: 'cat-20', name: 'Movies', type: 'expense', level: 'detail', parentId: 'sub-entertainment', isSystem: true },
-  { id: 'cat-21', name: 'Subscriptions', type: 'expense', level: 'detail', parentId: 'sub-entertainment', isSystem: true },
-  { id: 'cat-22', name: 'Clothing', type: 'expense', level: 'detail', parentId: 'sub-shopping', isSystem: true },
-  { id: 'cat-23', name: 'Electronics', type: 'expense', level: 'detail', parentId: 'sub-shopping', isSystem: true },
-  { id: 'cat-24', name: 'Doctor', type: 'expense', level: 'detail', parentId: 'sub-healthcare', isSystem: true },
-  { id: 'cat-25', name: 'Pharmacy', type: 'expense', level: 'detail', parentId: 'sub-healthcare', isSystem: true },
-  { id: 'cat-26', name: 'Insurance', type: 'expense', level: 'detail', parentId: 'sub-financial', isSystem: true },
-  { id: 'cat-27', name: 'Taxes', type: 'expense', level: 'detail', parentId: 'sub-financial', isSystem: true },
-  { id: 'cat-28', name: 'Bank Fees', type: 'expense', level: 'detail', parentId: 'sub-financial', isSystem: true },
-  
+  {
+    id: "cat-7",
+    name: "Groceries",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-food",
+    isSystem: true,
+  },
+  {
+    id: "cat-8",
+    name: "Restaurants",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-food",
+    isSystem: true,
+  },
+  {
+    id: "cat-9",
+    name: "Takeout",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-food",
+    isSystem: true,
+  },
+  {
+    id: "cat-10",
+    name: "Public Transport",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-transport",
+    isSystem: true,
+  },
+  {
+    id: "cat-11",
+    name: "Fuel",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-transport",
+    isSystem: true,
+  },
+  {
+    id: "cat-12",
+    name: "Car Maintenance",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-transport",
+    isSystem: true,
+  },
+  {
+    id: "cat-13",
+    name: "Rent/Mortgage",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-housing",
+    isSystem: true,
+  },
+  {
+    id: "cat-14",
+    name: "Home Maintenance",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-housing",
+    isSystem: true,
+  },
+  {
+    id: "cat-15",
+    name: "Electricity",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-utilities",
+    isSystem: true,
+  },
+  {
+    id: "cat-16",
+    name: "Gas",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-utilities",
+    isSystem: true,
+  },
+  {
+    id: "cat-17",
+    name: "Water",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-utilities",
+    isSystem: true,
+  },
+  {
+    id: "cat-18",
+    name: "Internet",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-utilities",
+    isSystem: true,
+  },
+  {
+    id: "cat-19",
+    name: "Phone",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-utilities",
+    isSystem: true,
+  },
+  {
+    id: "cat-20",
+    name: "Movies",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-entertainment",
+    isSystem: true,
+  },
+  {
+    id: "cat-21",
+    name: "Subscriptions",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-entertainment",
+    isSystem: true,
+  },
+  {
+    id: "cat-22",
+    name: "Clothing",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-shopping",
+    isSystem: true,
+  },
+  {
+    id: "cat-23",
+    name: "Electronics",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-shopping",
+    isSystem: true,
+  },
+  {
+    id: "cat-24",
+    name: "Doctor",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-healthcare",
+    isSystem: true,
+  },
+  {
+    id: "cat-25",
+    name: "Pharmacy",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-healthcare",
+    isSystem: true,
+  },
+  {
+    id: "cat-26",
+    name: "Insurance",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-financial",
+    isSystem: true,
+  },
+  {
+    id: "cat-27",
+    name: "Taxes",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-financial",
+    isSystem: true,
+  },
+  {
+    id: "cat-28",
+    name: "Bank Fees",
+    type: "expense",
+    level: "detail",
+    parentId: "sub-financial",
+    isSystem: true,
+  },
+
   // Transfer categories
-  { id: 'type-transfer', name: 'Transfer', type: 'both', level: 'type', isSystem: true },
-  { id: 'sub-transfers', name: 'Transfers', type: 'both', level: 'sub', parentId: 'type-transfer', isSystem: true },
-  
+  {
+    id: "type-transfer",
+    name: "Transfer",
+    type: "both",
+    level: "type",
+    isSystem: true,
+  },
+  {
+    id: "sub-transfers",
+    name: "Transfers",
+    type: "both",
+    level: "sub",
+    parentId: "type-transfer",
+    isSystem: true,
+  },
+
   // Specific transfer categories for test data
-  { id: 'cat-29', name: 'Transfer', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true }, // Generic transfer
-  { id: 'cat-30', name: 'Other', type: 'both', level: 'detail', isSystem: true },
-  { id: 'cat-31', name: 'Transfers between Natwest Current Account and Natwest Personal Loan', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
-  { id: 'cat-32', name: 'Transfers between Natwest Current Account and Natwest Credit Card', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
-  { id: 'cat-33', name: 'Transfers between Natwest Current Account and Natwest Savings Account', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
-  { id: 'cat-34', name: 'Transfers between Natwest Current Account and American Express', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
-  { id: 'cat-35', name: 'Transfers between Natwest Current Account and Natwest Mortgage', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
-  
+  {
+    id: "cat-29",
+    name: "Transfer",
+    type: "both",
+    level: "detail",
+    parentId: "sub-transfers",
+    isSystem: true,
+  }, // Generic transfer
+  {
+    id: "cat-30",
+    name: "Other",
+    type: "both",
+    level: "detail",
+    isSystem: true,
+  },
+  {
+    id: "cat-31",
+    name: "Transfers between Natwest Current Account and Natwest Personal Loan",
+    type: "both",
+    level: "detail",
+    parentId: "sub-transfers",
+    isSystem: true,
+  },
+  {
+    id: "cat-32",
+    name: "Transfers between Natwest Current Account and Natwest Credit Card",
+    type: "both",
+    level: "detail",
+    parentId: "sub-transfers",
+    isSystem: true,
+  },
+  {
+    id: "cat-33",
+    name: "Transfers between Natwest Current Account and Natwest Savings Account",
+    type: "both",
+    level: "detail",
+    parentId: "sub-transfers",
+    isSystem: true,
+  },
+  {
+    id: "cat-34",
+    name: "Transfers between Natwest Current Account and American Express",
+    type: "both",
+    level: "detail",
+    parentId: "sub-transfers",
+    isSystem: true,
+  },
+  {
+    id: "cat-35",
+    name: "Transfers between Natwest Current Account and Natwest Mortgage",
+    type: "both",
+    level: "detail",
+    parentId: "sub-transfers",
+    isSystem: true,
+  },
+
   // Asset categories
-  { id: 'cat-36', name: 'Property', type: 'both', level: 'detail', parentId: 'sub-assets', isSystem: true },
-  
+  {
+    id: "cat-36",
+    name: "Property",
+    type: "both",
+    level: "detail",
+    parentId: "sub-assets",
+    isSystem: true,
+  },
+
   // Blank category for uncategorized transactions
-  { id: 'cat-blank', name: 'Blank', type: 'both', level: 'detail', parentId: 'sub-other-expense', isSystem: true },
+  {
+    id: "cat-blank",
+    name: "Blank",
+    type: "both",
+    level: "detail",
+    parentId: "sub-other-expense",
+    isSystem: true,
+  },
 ];
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
-  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
+  const [recurringTransactions, setRecurringTransactions] = useState<
+    RecurringTransaction[]
+  >([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [categories, setCategories] = useState<Category[]>(defaultCategories);
   const [hasTestData, setHasTestData] = useState<boolean>(false);
@@ -210,178 +600,226 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const detectTestData = (accountsList: Account[]): boolean => {
     // Check for specific test account names or institutions
     const testAccountNames = [
-      'Natwest Current Account',
-      'Monzo Current Account',
-      'HSBC Regular Saver',
-      'NS&I Premium Bonds',
-      'Nationwide FlexDirect',
-      'Natwest Savings Account',
-      'Natwest Credit Card',
-      'American Express Gold',
-      'Natwest Personal Loan',
-      'Hargreaves Lansdown ISA',
-      'Hargreaves Lansdown SIPP',
-      'City Index Trader',
-      'Main Residence'
+      "Natwest Current Account",
+      "Monzo Current Account",
+      "HSBC Regular Saver",
+      "NS&I Premium Bonds",
+      "Nationwide FlexDirect",
+      "Natwest Savings Account",
+      "Natwest Credit Card",
+      "American Express Gold",
+      "Natwest Personal Loan",
+      "Hargreaves Lansdown ISA",
+      "Hargreaves Lansdown SIPP",
+      "City Index Trader",
+      "Main Residence",
     ];
 
     const testInstitutions = [
-      'HSBC', 'Natwest', 'Monzo', 'NS&I',
-      'Nationwide', 'American Express',
-      'Hargreaves Lansdown', 'City Index',
-      'Property'
+      "HSBC",
+      "Natwest",
+      "Monzo",
+      "NS&I",
+      "Nationwide",
+      "American Express",
+      "Hargreaves Lansdown",
+      "City Index",
+      "Property",
     ];
 
     // Check if we have accounts matching test data patterns
-    const hasTestAccounts = accountsList.some(account => 
-      testAccountNames.includes(account.name) || 
-      (account.institution && testInstitutions.includes(account.institution))
+    const hasTestAccounts = accountsList.some(
+      (account) =>
+        testAccountNames.includes(account.name) ||
+        (account.institution && testInstitutions.includes(account.institution)),
     );
 
     // Also check if we have the exact test data structure (5+ accounts with specific types)
-    const accountTypes = accountsList.map(a => a.type);
-    const hasTestStructure = accountsList.length >= 5 && 
-      accountTypes.filter(t => t === 'current').length >= 2 &&
-      accountTypes.filter(t => t === 'savings').length >= 2;
+    const accountTypes = accountsList.map((a) => a.type);
+    const hasTestStructure =
+      accountsList.length >= 5 &&
+      accountTypes.filter((t) => t === "current").length >= 2 &&
+      accountTypes.filter((t) => t === "savings").length >= 2;
 
     return hasTestAccounts || hasTestStructure;
   };
 
   // Load data from localStorage on mount
   useEffect(() => {
-    const savedData = localStorage.getItem('moneyTrackerData');
-    const testDataFlag = localStorage.getItem('moneyTrackerHasTestData');
+    const savedData = localStorage.getItem("moneyTrackerData");
+    const testDataFlag = localStorage.getItem("moneyTrackerHasTestData");
     
-    if (savedData) {
+    // Add debug logging to help troubleshoot in production
+    console.log("App initialization:", {
+      hasSavedData: !!savedData,
+      hasTestDataFlag: testDataFlag,
+      savedDataLength: savedData?.length || 0
+    });
+
+    if (savedData && savedData !== '{}' && savedData !== '[]') {
       try {
         const parsedData = JSON.parse(savedData);
-        if (parsedData.accounts) {
+        // Check if we have actual data, not just empty arrays or empty object
+        const hasActualData =
+          parsedData && 
+          typeof parsedData === 'object' && 
+          parsedData.accounts && 
+          Array.isArray(parsedData.accounts) && 
+          parsedData.accounts.length > 0;
+
+        if (hasActualData) {
           const loadedAccounts = parsedData.accounts.map((a: any) => ({
             ...a,
             lastUpdated: new Date(a.lastUpdated),
-            openingBalanceDate: a.openingBalanceDate ? new Date(a.openingBalanceDate) : undefined
+            openingBalanceDate: a.openingBalanceDate
+              ? new Date(a.openingBalanceDate)
+              : undefined,
           }));
-          
+
           // Check if this is OLD test data (without opening balances or with old account names)
-          const hasOldAccountNames = loadedAccounts.some((a: any) => 
-            a.name === 'HSBC Personal Current' || 
-            a.name === 'Barclays Joint Current' ||
-            a.name === 'Marcus High Yield Savings' ||
-            !a.openingBalance
+          const hasOldAccountNames = loadedAccounts.some(
+            (a: any) =>
+              a.name === "HSBC Personal Current" ||
+              a.name === "Barclays Joint Current" ||
+              a.name === "Marcus High Yield Savings" ||
+              !a.openingBalance,
           );
-          
+
           if (detectTestData(loadedAccounts) && hasOldAccountNames) {
             // Mark that we need to load new test data after component mounts
-            localStorage.setItem('moneyTrackerNeedsNewTestData', 'true');
+            localStorage.setItem("moneyTrackerNeedsNewTestData", "true");
             // Don't load the old data
             return;
           }
-          
+
           setAccounts(loadedAccounts);
-          
+
           // Check if this is test data
-          if (testDataFlag === 'true' || detectTestData(loadedAccounts)) {
+          if (testDataFlag === "true" || detectTestData(loadedAccounts)) {
             setHasTestData(true);
           }
+        } else {
+          // If savedData exists but accounts is empty, load test data
+          console.log("Empty data found, loading test data...");
+          loadDefaultTestData();
+          return;
         }
         if (parsedData.transactions) {
           // Migrate transactions to use category IDs
           const migratedTransactions = parsedData.transactions.map((t: any) => {
             let categoryId = t.category;
             let categoryName = t.categoryName;
-            
+
             // If category looks like a name (not an ID starting with 'cat-'), find the matching category
-            if (t.category && !t.category.startsWith('cat-')) {
+            if (t.category && !t.category.startsWith("cat-")) {
               // Try to find a detail category with this name
-              const matchingCategory = defaultCategories.find(c => 
-                c.level === 'detail' && c.name.toLowerCase() === t.category.toLowerCase()
+              const matchingCategory = defaultCategories.find(
+                (c) =>
+                  c.level === "detail" &&
+                  c.name.toLowerCase() === t.category.toLowerCase(),
               );
-              
+
               if (matchingCategory) {
                 categoryId = matchingCategory.id;
                 categoryName = matchingCategory.name;
               } else {
                 // Use 'Other' as fallback
-                categoryId = 'cat-30';
+                categoryId = "cat-30";
                 categoryName = t.category; // Keep original name for reference
               }
             }
-            
+
             return {
               ...t,
               date: new Date(t.date),
               category: categoryId,
-              categoryName: categoryName
+              categoryName: categoryName,
             };
           });
-          
+
           setTransactions(migratedTransactions);
         }
         if (parsedData.budgets) {
-          setBudgets(parsedData.budgets.map((b: any) => ({
-            ...b,
-            createdAt: b.createdAt ? new Date(b.createdAt) : new Date()
-          })));
+          setBudgets(
+            parsedData.budgets.map((b: any) => ({
+              ...b,
+              createdAt: b.createdAt ? new Date(b.createdAt) : new Date(),
+            })),
+          );
         }
-        if (parsedData.recurringTransactions) setRecurringTransactions(parsedData.recurringTransactions);
+        if (parsedData.recurringTransactions)
+          setRecurringTransactions(parsedData.recurringTransactions);
         if (parsedData.goals) {
-          setGoals(parsedData.goals.map((g: any) => ({
-            ...g,
-            targetDate: new Date(g.targetDate),
-            createdAt: new Date(g.createdAt)
-          })));
+          setGoals(
+            parsedData.goals.map((g: any) => ({
+              ...g,
+              targetDate: new Date(g.targetDate),
+              createdAt: new Date(g.createdAt),
+            })),
+          );
         }
         if (parsedData.categories) {
           // Merge saved categories with default ones (in case new defaults were added)
           const savedCategoryIds = parsedData.categories.map((c: any) => c.id);
-          const newDefaultCategories = defaultCategories.filter(dc => !savedCategoryIds.includes(dc.id));
+          const newDefaultCategories = defaultCategories.filter(
+            (dc) => !savedCategoryIds.includes(dc.id),
+          );
           setCategories([...parsedData.categories, ...newDefaultCategories]);
         }
       } catch (error) {
-        console.error('Failed to load saved data:', error);
+        console.error("Failed to load saved data:", error);
+        // If there's an error parsing saved data, load test data instead
+        loadDefaultTestData();
       }
     } else {
       // No saved data, load new test data by default
-      console.log('No saved data found, loading test data...');
+      loadDefaultTestData();
+    }
+
+    // Helper function to load default test data
+    function loadDefaultTestData() {
+      console.log("Loading test data...");
       const testAccounts = getDefaultTestAccounts();
       const testTransactions = getDefaultTestTransactions();
       const testBudgets = getDefaultTestBudgets();
       const testGoals = getDefaultTestGoals();
-      
-      console.log('Test data loaded:', {
+
+      console.log("Test data loaded:", {
         accounts: testAccounts.length,
         transactions: testTransactions.length,
         budgets: testBudgets.length,
-        goals: testGoals.length
+        goals: testGoals.length,
       });
-      
+
       setAccounts(testAccounts);
       setTransactions(testTransactions);
       setBudgets(testBudgets);
       setGoals(testGoals);
       setHasTestData(true);
-      localStorage.setItem('moneyTrackerHasTestData', 'true');
+      localStorage.setItem("moneyTrackerHasTestData", "true");
     }
   }, []);
 
   // Check if we need to load new test data after mount
   useEffect(() => {
-    const needsNewTestData = localStorage.getItem('moneyTrackerNeedsNewTestData');
-    if (needsNewTestData === 'true') {
-      localStorage.removeItem('moneyTrackerNeedsNewTestData');
+    const needsNewTestData = localStorage.getItem(
+      "moneyTrackerNeedsNewTestData",
+    );
+    if (needsNewTestData === "true") {
+      localStorage.removeItem("moneyTrackerNeedsNewTestData");
       // Load new test data
       const testAccounts = getDefaultTestAccounts();
       const testTransactions = getDefaultTestTransactions();
       const testBudgets = getDefaultTestBudgets();
       const testGoals = getDefaultTestGoals();
-      
+
       setAccounts(testAccounts);
       setTransactions(testTransactions);
       setBudgets(testBudgets);
       setGoals(testGoals);
       setCategories(defaultCategories);
       setHasTestData(true);
-      localStorage.setItem('moneyTrackerHasTestData', 'true');
+      localStorage.setItem("moneyTrackerHasTestData", "true");
     }
   }, []);
 
@@ -392,127 +830,159 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setIsInitialMount(false);
       return;
     }
-    
+
     const dataToSave = {
       accounts,
       transactions,
       budgets,
       recurringTransactions,
       goals,
-      categories
+      categories,
     };
-    localStorage.setItem('moneyTrackerData', JSON.stringify(dataToSave));
-    
+    localStorage.setItem("moneyTrackerData", JSON.stringify(dataToSave));
+
     // Update test data detection
     if (accounts.length > 0) {
       const isTestData = detectTestData(accounts);
       setHasTestData(isTestData);
-      localStorage.setItem('moneyTrackerHasTestData', isTestData.toString());
+      localStorage.setItem("moneyTrackerHasTestData", isTestData.toString());
     }
-  }, [accounts, transactions, budgets, recurringTransactions, goals, categories]);
+  }, [
+    accounts,
+    transactions,
+    budgets,
+    recurringTransactions,
+    goals,
+    categories,
+  ]);
 
   // Account methods
-  const addAccount = (account: Omit<Account, 'id'>) => {
+  const addAccount = (account: Omit<Account, "id">) => {
     const newAccount = { ...account, id: Date.now().toString() };
     setAccounts([...accounts, newAccount]);
   };
 
   const updateAccount = (id: string, updatedAccount: Partial<Account>) => {
-    setAccounts(accounts.map(acc => 
-      acc.id === id ? { ...acc, ...updatedAccount } : acc
-    ));
+    setAccounts(
+      accounts.map((acc) =>
+        acc.id === id ? { ...acc, ...updatedAccount } : acc,
+      ),
+    );
   };
 
   const deleteAccount = (id: string) => {
-    setAccounts(accounts.filter(acc => acc.id !== id));
+    setAccounts(accounts.filter((acc) => acc.id !== id));
     // Also delete related transactions
-    setTransactions(transactions.filter(t => t.accountId !== id));
+    setTransactions(transactions.filter((t) => t.accountId !== id));
   };
 
   // Transaction methods
-  const addTransaction = (transaction: Omit<Transaction, 'id'>) => {
+  const addTransaction = (transaction: Omit<Transaction, "id">) => {
     const newTransaction = { ...transaction, id: Date.now().toString() };
     setTransactions([...transactions, newTransaction]);
-    
+
     // Update account balance
-    const account = accounts.find(acc => acc.id === transaction.accountId);
+    const account = accounts.find((acc) => acc.id === transaction.accountId);
     if (account) {
-      const balanceChange = transaction.type === 'income' ? transaction.amount : -transaction.amount;
+      const balanceChange =
+        transaction.type === "income"
+          ? transaction.amount
+          : -transaction.amount;
       updateAccount(account.id, { balance: account.balance + balanceChange });
     }
   };
 
-  const updateTransaction = (id: string, updatedTransaction: Partial<Transaction>) => {
-    const oldTransaction = transactions.find(t => t.id === id);
+  const updateTransaction = (
+    id: string,
+    updatedTransaction: Partial<Transaction>,
+  ) => {
+    const oldTransaction = transactions.find((t) => t.id === id);
     if (!oldTransaction) return;
 
     // Update the transaction
-    setTransactions(transactions.map(t => 
-      t.id === id ? { ...t, ...updatedTransaction } : t
-    ));
+    setTransactions(
+      transactions.map((t) =>
+        t.id === id ? { ...t, ...updatedTransaction } : t,
+      ),
+    );
 
     // If amount or type changed, update account balance
-    if (updatedTransaction.amount !== undefined || updatedTransaction.type !== undefined) {
-      const account = accounts.find(acc => acc.id === oldTransaction.accountId);
+    if (
+      updatedTransaction.amount !== undefined ||
+      updatedTransaction.type !== undefined
+    ) {
+      const account = accounts.find(
+        (acc) => acc.id === oldTransaction.accountId,
+      );
       if (account) {
         // Reverse old transaction
-        const oldBalanceChange = oldTransaction.type === 'income' ? oldTransaction.amount : -oldTransaction.amount;
+        const oldBalanceChange =
+          oldTransaction.type === "income"
+            ? oldTransaction.amount
+            : -oldTransaction.amount;
         // Apply new transaction
         const newAmount = updatedTransaction.amount || oldTransaction.amount;
         const newType = updatedTransaction.type || oldTransaction.type;
-        const newBalanceChange = newType === 'income' ? newAmount : -newAmount;
-        
-        updateAccount(account.id, { 
-          balance: account.balance - oldBalanceChange + newBalanceChange 
+        const newBalanceChange = newType === "income" ? newAmount : -newAmount;
+
+        updateAccount(account.id, {
+          balance: account.balance - oldBalanceChange + newBalanceChange,
         });
       }
     }
   };
 
   const deleteTransaction = (id: string) => {
-    const transaction = transactions.find(t => t.id === id);
+    const transaction = transactions.find((t) => t.id === id);
     if (!transaction) return;
 
-    setTransactions(transactions.filter(t => t.id !== id));
-    
+    setTransactions(transactions.filter((t) => t.id !== id));
+
     // Update account balance
-    const account = accounts.find(acc => acc.id === transaction.accountId);
+    const account = accounts.find((acc) => acc.id === transaction.accountId);
     if (account) {
-      const balanceChange = transaction.type === 'income' ? -transaction.amount : transaction.amount;
+      const balanceChange =
+        transaction.type === "income"
+          ? -transaction.amount
+          : transaction.amount;
       updateAccount(account.id, { balance: account.balance + balanceChange });
     }
   };
 
   // Budget methods
-  const addBudget = (budget: Omit<Budget, 'id'>) => {
+  const addBudget = (budget: Omit<Budget, "id">) => {
     const newBudget = { ...budget, id: Date.now().toString() };
     setBudgets([...budgets, newBudget]);
   };
 
   const updateBudget = (id: string, updatedBudget: Partial<Budget>) => {
-    setBudgets(budgets.map(budget => 
-      budget.id === id ? { ...budget, ...updatedBudget } : budget
-    ));
+    setBudgets(
+      budgets.map((budget) =>
+        budget.id === id ? { ...budget, ...updatedBudget } : budget,
+      ),
+    );
   };
 
   const deleteBudget = (id: string) => {
-    setBudgets(budgets.filter(budget => budget.id !== id));
+    setBudgets(budgets.filter((budget) => budget.id !== id));
   };
 
   // Goal methods
-  const addGoal = (goal: Omit<Goal, 'id'>) => {
+  const addGoal = (goal: Omit<Goal, "id">) => {
     const newGoal = { ...goal, id: Date.now().toString() };
     setGoals([...goals, newGoal]);
   };
 
   const updateGoal = (id: string, updatedGoal: Partial<Goal>) => {
-    setGoals(goals.map(goal => 
-      goal.id === id ? { ...goal, ...updatedGoal } : goal
-    ));
+    setGoals(
+      goals.map((goal) =>
+        goal.id === id ? { ...goal, ...updatedGoal } : goal,
+      ),
+    );
   };
 
   const deleteGoal = (id: string) => {
-    setGoals(goals.filter(goal => goal.id !== id));
+    setGoals(goals.filter((goal) => goal.id !== id));
   };
 
   // Recurring transaction methods
@@ -522,96 +992,110 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteRecurringTransaction = (id: string) => {
-    setRecurringTransactions(recurringTransactions.filter(t => t.id !== id));
+    setRecurringTransactions(recurringTransactions.filter((t) => t.id !== id));
   };
 
   // Category methods
-  const addCategory = (category: Omit<Category, 'id'>) => {
+  const addCategory = (category: Omit<Category, "id">) => {
     const newCategory = { ...category, id: `cat-${Date.now()}` };
     setCategories([...categories, newCategory]);
   };
 
   const updateCategory = (id: string, updatedCategory: Partial<Category>) => {
-    setCategories(categories.map(cat => 
-      cat.id === id ? { ...cat, ...updatedCategory } : cat
-    ));
+    setCategories(
+      categories.map((cat) =>
+        cat.id === id ? { ...cat, ...updatedCategory } : cat,
+      ),
+    );
   };
 
   const deleteCategory = (id: string, newCategoryId?: string) => {
     // Get the category being deleted
-    const category = categories.find(c => c.id === id);
+    const category = categories.find((c) => c.id === id);
     if (!category) {
-      throw new Error('Category not found');
+      throw new Error("Category not found");
     }
 
     // Check if category has children
-    const hasChildren = categories.some(c => c.parentId === id);
+    const hasChildren = categories.some((c) => c.parentId === id);
     if (hasChildren) {
-      throw new Error('Cannot delete category with subcategories. Delete subcategories first.');
+      throw new Error(
+        "Cannot delete category with subcategories. Delete subcategories first.",
+      );
     }
 
     // If newCategoryId provided, update all transactions with the old category
     if (newCategoryId) {
-      const updatedTransactions = transactions.map(t => 
-        t.category === id ? { 
-          ...t, 
-          category: newCategoryId,
-          categoryName: categories.find(c => c.id === newCategoryId)?.name || 'Other'
-        } : t
+      const updatedTransactions = transactions.map((t) =>
+        t.category === id
+          ? {
+              ...t,
+              category: newCategoryId,
+              categoryName:
+                categories.find((c) => c.id === newCategoryId)?.name || "Other",
+            }
+          : t,
       );
       setTransactions(updatedTransactions);
-      
+
       // Update budgets as well (budgets still use category names for now)
-      const newCategoryName = categories.find(c => c.id === newCategoryId)?.name || 'Other';
-      const updatedBudgets = budgets.map(b => 
-        b.category === category?.name ? { ...b, category: newCategoryName } : b
+      const newCategoryName =
+        categories.find((c) => c.id === newCategoryId)?.name || "Other";
+      const updatedBudgets = budgets.map((b) =>
+        b.category === category?.name ? { ...b, category: newCategoryName } : b,
       );
       setBudgets(updatedBudgets);
     }
 
-    setCategories(categories.filter(cat => cat.id !== id));
+    setCategories(categories.filter((cat) => cat.id !== id));
   };
 
-  const getCategoriesForTransactions = (transactionIds: string[]): Record<string, number> => {
+  const getCategoriesForTransactions = (
+    transactionIds: string[],
+  ): Record<string, number> => {
     const categoryCount: Record<string, number> = {};
-    
+
     transactions
-      .filter(t => transactionIds.includes(t.id))
-      .forEach(t => {
+      .filter((t) => transactionIds.includes(t.id))
+      .forEach((t) => {
         categoryCount[t.category] = (categoryCount[t.category] || 0) + 1;
       });
-    
+
     return categoryCount;
   };
 
   // Helper functions for hierarchical categories
   const getSubCategories = (parentId: string): Category[] => {
-    return categories.filter(cat => cat.parentId === parentId);
+    return categories.filter((cat) => cat.parentId === parentId);
   };
 
   const getDetailCategories = (parentId: string): Category[] => {
-    return categories.filter(cat => cat.parentId === parentId && cat.level === 'detail');
+    return categories.filter(
+      (cat) => cat.parentId === parentId && cat.level === "detail",
+    );
   };
 
   const getCategoryPath = (categoryId: string): string => {
-    const category = categories.find(c => c.id === categoryId);
-    if (!category) return '';
-    
+    const category = categories.find((c) => c.id === categoryId);
+    if (!category) return "";
+
     const path: string[] = [category.name];
     let currentCategory = category;
-    
+
     while (currentCategory.parentId) {
-      const parent = categories.find(c => c.id === currentCategory.parentId);
+      const parent = categories.find((c) => c.id === currentCategory.parentId);
       if (!parent) break;
       path.unshift(parent.name);
       currentCategory = parent;
     }
-    
-    return path.join(' > ');
+
+    return path.join(" > ");
   };
 
-  const getCategoryByPath = (detailCategoryId: string): Category | undefined => {
-    return categories.find(c => c.id === detailCategoryId);
+  const getCategoryByPath = (
+    detailCategoryId: string,
+  ): Category | undefined => {
+    return categories.find((c) => c.id === detailCategoryId);
   };
 
   // Data management
@@ -623,21 +1107,27 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setGoals([]);
     setCategories(defaultCategories);
     setHasTestData(false);
-    localStorage.removeItem('moneyTrackerData');
-    localStorage.removeItem('moneyTrackerHasTestData');
-    localStorage.removeItem('testDataWarningDismissed'); // Clear the warning dismissal
+    localStorage.removeItem("moneyTrackerData");
+    localStorage.removeItem("moneyTrackerHasTestData");
+    localStorage.removeItem("testDataWarningDismissed"); // Clear the warning dismissal
+    // Clear the initial mount flag to ensure data saves properly after clearing
+    setIsInitialMount(false);
   };
 
   const exportData = () => {
-    return JSON.stringify({
-      accounts,
-      transactions,
-      budgets,
-      recurringTransactions,
-      goals,
-      categories,
-      exportDate: new Date().toISOString()
-    }, null, 2);
+    return JSON.stringify(
+      {
+        accounts,
+        transactions,
+        budgets,
+        recurringTransactions,
+        goals,
+        categories,
+        exportDate: new Date().toISOString(),
+      },
+      null,
+      2,
+    );
   };
 
   const importData = (jsonData: string) => {
@@ -645,25 +1135,30 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const data = JSON.parse(jsonData);
       if (data.accounts) setAccounts(data.accounts);
       if (data.transactions) {
-        setTransactions(data.transactions.map((t: any) => ({
-          ...t,
-          date: new Date(t.date)
-        })));
+        setTransactions(
+          data.transactions.map((t: any) => ({
+            ...t,
+            date: new Date(t.date),
+          })),
+        );
       }
       if (data.budgets) setBudgets(data.budgets);
-      if (data.recurringTransactions) setRecurringTransactions(data.recurringTransactions);
+      if (data.recurringTransactions)
+        setRecurringTransactions(data.recurringTransactions);
       if (data.goals) {
-        setGoals(data.goals.map((g: any) => ({
-          ...g,
-          targetDate: new Date(g.targetDate),
-          createdAt: new Date(g.createdAt)
-        })));
+        setGoals(
+          data.goals.map((g: any) => ({
+            ...g,
+            targetDate: new Date(g.targetDate),
+            createdAt: new Date(g.createdAt),
+          })),
+        );
       }
       if (data.categories) {
         setCategories(data.categories);
       }
     } catch (error) {
-      console.error('Failed to import data:', error);
+      console.error("Failed to import data:", error);
       throw error;
     }
   };
@@ -1260,58 +1755,73 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setBudgets([]);
     setGoals([]);
     setCategories(defaultCategories);
-    
+
+    // Clear the initial mount flag to ensure data saves properly
+    setIsInitialMount(false);
+
     // Load fresh test data from defaults
     const testAccounts = getDefaultTestAccounts();
     const testTransactions = getDefaultTestTransactions();
     const testBudgets = getDefaultTestBudgets();
     const testGoals = getDefaultTestGoals();
-    
+
+    console.log("Loading test data via loadTestData():", {
+      accounts: testAccounts.length,
+      transactions: testTransactions.length,
+      budgets: testBudgets.length,
+      goals: testGoals.length,
+    });
+
     // Set the fresh test data
     setAccounts(testAccounts);
     setTransactions(testTransactions);
     setBudgets(testBudgets);
     setGoals(testGoals);
     setHasTestData(true);
-    localStorage.setItem('moneyTrackerHasTestData', 'true');
+    localStorage.setItem("moneyTrackerHasTestData", "true");
+
+    // Remove the warning dismissal so it shows again
+    localStorage.removeItem("testDataWarningDismissed");
   };
 
   return (
-    <AppContext.Provider value={{
-      accounts,
-      transactions,
-      budgets,
-      recurringTransactions,
-      goals,
-      categories,
-      hasTestData,
-      addAccount,
-      updateAccount,
-      deleteAccount,
-      addTransaction,
-      updateTransaction,
-      deleteTransaction,
-      addBudget,
-      updateBudget,
-      deleteBudget,
-      addGoal,
-      updateGoal,
-      deleteGoal,
-      clearAllData,
-      exportData,
-      importData,
-      loadTestData,
-      addRecurringTransaction,
-      deleteRecurringTransaction,
-      addCategory,
-      updateCategory,
-      deleteCategory,
-      getCategoriesForTransactions,
-      getSubCategories,
-      getDetailCategories,
-      getCategoryPath,
-      getCategoryByPath
-    }}>
+    <AppContext.Provider
+      value={{
+        accounts,
+        transactions,
+        budgets,
+        recurringTransactions,
+        goals,
+        categories,
+        hasTestData,
+        addAccount,
+        updateAccount,
+        deleteAccount,
+        addTransaction,
+        updateTransaction,
+        deleteTransaction,
+        addBudget,
+        updateBudget,
+        deleteBudget,
+        addGoal,
+        updateGoal,
+        deleteGoal,
+        clearAllData,
+        exportData,
+        importData,
+        loadTestData,
+        addRecurringTransaction,
+        deleteRecurringTransaction,
+        addCategory,
+        updateCategory,
+        deleteCategory,
+        getCategoriesForTransactions,
+        getSubCategories,
+        getDetailCategories,
+        getCategoryPath,
+        getCategoryByPath,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );
@@ -1320,7 +1830,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 export function useApp() {
   const context = useContext(AppContext);
   if (!context) {
-    throw new Error('useApp must be used within AppProvider');
+    throw new Error("useApp must be used within AppProvider");
   }
   return context;
 }

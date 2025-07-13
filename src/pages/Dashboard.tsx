@@ -64,13 +64,20 @@ export default function Dashboard() {
   
   // Check for test data on component mount
   useEffect(() => {
+    console.log('Dashboard: Checking test data status', {
+      hasTestData,
+      warningDismissed: localStorage.getItem('testDataWarningDismissed'),
+      accountsCount: accounts.length
+    });
+    
     if (hasTestData) {
       const warningDismissed = localStorage.getItem('testDataWarningDismissed');
       if (warningDismissed !== 'true') {
+        console.log('Dashboard: Showing test data warning modal');
         setShowTestDataWarning(true);
       }
     }
-  }, [hasTestData]);
+  }, [hasTestData, accounts.length]);
 
 
   // Generate net worth data for 24 months (memoized)
