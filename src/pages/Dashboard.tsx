@@ -78,11 +78,44 @@ export default function Dashboard() {
     });
   }
 
-  // Find accounts that need reconciliation
-  // For now, we'll mark accounts as needing reconciliation if they haven't been updated recently
+  // Find accounts that need reconciliation based on outstanding transactions
   const accountsNeedingReconciliation = accounts.filter(account => {
-    const daysSinceUpdate = Math.floor((Date.now() - new Date(account.lastUpdated).getTime()) / (1000 * 60 * 60 * 24));
-    return daysSinceUpdate > 30; // Accounts not updated in 30+ days
+    // Get transactions for this account from the last 60 days
+    const recentCutoff = new Date();
+    recentCutoff.setDate(recentCutoff.getDate() - 60);
+    
+    const accountTransactions = transactions.filter(t => 
+      t.accountId === account.id && 
+      new Date(t.date) >= recentCutoff
+    );
+    
+    // Count unreconciled transactions (those without cleared status or recent ones)
+    const unreconciled = accountTransactions.filter(t => {
+      // Mark as needing reconciliation if:
+      // 1. Transaction is not marked as cleared
+      // 2. Transaction is from the last 30 days and might need verification
+      const transactionAge = Math.floor((Date.now() - new Date(t.date).getTime()) / (1000 * 60 * 60 * 24));
+      return !t.cleared || (transactionAge <= 30 && !t.reconciledWith);
+    });
+    
+    return unreconciled.length > 0;
+  });
+
+  // Get reconciliation details for display
+  const reconciliationDetails = accountsNeedingReconciliation.map(account => {
+    const accountTransactions = transactions.filter(t => t.accountId === account.id);
+    const unreconciledCount = accountTransactions.filter(t => !t.cleared).length;
+    const recentUnverified = accountTransactions.filter(t => {
+      const transactionAge = Math.floor((Date.now() - new Date(t.date).getTime()) / (1000 * 60 * 60 * 24));
+      return transactionAge <= 30 && !t.reconciledWith;
+    }).length;
+    
+    return {
+      ...account,
+      unreconciledCount,
+      recentUnverified,
+      totalIssues: unreconciledCount + recentUnverified
+    };
   });
 
   // Prepare data for pie chart
@@ -234,34 +267,51 @@ export default function Dashboard() {
       </div>
 
       {/* Accounts Needing Reconciliation */}
-      {accountsNeedingReconciliation.length > 0 && (
+      {reconciliationDetails.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">Accounts Needing Reconciliation</h2>
+          <h2 className="text-xl font-semibold mb-4 dark:text-white">Outstanding Reconciliation</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            These accounts have transactions that need to be reconciled with your bank statements.
+          </p>
           <div className="space-y-3">
-            {accountsNeedingReconciliation.map(account => (
+            {reconciliationDetails.map(account => (
               <div 
                 key={account.id}
-                className="flex justify-between items-center p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors"
+                className="flex justify-between items-center p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
                 onClick={() => navigate(`/reconciliation?account=${account.id}`)}
               >
-                <div>
+                <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">{account.name}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
-                  </p>
+                  <div className="flex items-center gap-4 mt-1">
+                    {account.unreconciledCount > 0 && (
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {account.unreconciledCount} uncleared transaction{account.unreconciledCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
+                    {account.recentUnverified > 0 && (
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {account.recentUnverified} recent unverified
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
-                    Needs reconciliation
-                  </span>
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                  <div className="text-right">
+                    <span className="text-sm text-orange-600 dark:text-orange-400 font-medium">
+                      {account.totalIssues} item{account.totalIssues !== 1 ? 's' : ''}
+                    </span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">to reconcile</p>
+                  </div>
+                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
                 </div>
               </div>
             ))}
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-            Click on an account to start reconciliation
-          </p>
+          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              💡 <strong>Tip:</strong> Click on an account to start reconciliation. Match your transactions with bank statements to ensure accuracy.
+            </p>
+          </div>
         </div>
       )}
 
