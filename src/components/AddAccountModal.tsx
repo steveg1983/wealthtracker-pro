@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
+import { usePreferences } from '../contexts/PreferencesContext';
 import { X } from 'lucide-react';
 
 interface AddAccountModalProps {
@@ -9,11 +10,18 @@ interface AddAccountModalProps {
 
 export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
   const { addAccount } = useApp();
+  const { currency: defaultCurrency } = usePreferences();
   const [name, setName] = useState('');
-  const [type, setType] = useState<'checking' | 'savings' | 'credit' | 'loan' | 'investment'>('checking');
+  const [type, setType] = useState<'current' | 'savings' | 'credit' | 'loan' | 'investment'>('current');
   const [balance, setBalance] = useState('');
-  const [currency, setCurrency] = useState('GBP');
+  const [currency, setCurrency] = useState(defaultCurrency);
   const [institution, setInstitution] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      setCurrency(defaultCurrency);
+    }
+  }, [isOpen, defaultCurrency]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +39,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
     setName('');
     setType('checking');
     setBalance('');
-    setCurrency('GBP');
+    setCurrency(defaultCurrency);
     setInstitution('');
     onClose();
   };
@@ -75,7 +83,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
                 onChange={(e) => setType(e.target.value as any)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="checking">Checking</option>
+                <option value="current">Current</option>
                 <option value="savings">Savings</option>
                 <option value="credit">Credit Card</option>
                 <option value="loan">Loan</option>

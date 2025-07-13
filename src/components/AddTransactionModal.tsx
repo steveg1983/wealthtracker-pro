@@ -1,33 +1,24 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
+import CategoryCreationModal from './CategoryCreationModal';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-const CATEGORIES = [
-  'Food & Dining',
-  'Shopping',
-  'Transport',
-  'Bills',
-  'Entertainment',
-  'Healthcare',
-  'Investment',
-  'Salary',
-  'Freelance',
-  'Other',
-];
 
 export default function AddTransactionModal({ isOpen, onClose }: AddTransactionModalProps) {
-  const { accounts, addTransaction } = useApp();
+  const { accounts, addTransaction, categories, getSubCategories, getDetailCategories } = useApp();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [category, setCategory] = useState('');
+  const [subCategory, setSubCategory] = useState('');
   const [accountId, setAccountId] = useState('');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +40,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
     setType('expense');
     setCategory('');
     setAccountId('');
+    setSubCategory('');
     setDate(new Date().toISOString().split('T')[0]);
     onClose();
   };
@@ -148,21 +140,58 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Category
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              >
-                <option value="">Select category</option>
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+            {/* Category Selection */}
+            <div className="space-y-3">
+              {/* Sub-category */}
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Category
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowCategoryModal(true)}
+                    className="text-sm text-primary hover:text-secondary flex items-center gap-1"
+                  >
+                    <Plus size={14} />
+                    Create new category
+                  </button>
+                </div>
+                <select
+                  value={subCategory}
+                  onChange={(e) => {
+                    setSubCategory(e.target.value);
+                    setCategory(''); // Reset detail category
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                  required
+                >
+                  <option value="">Select category</option>
+                  {getSubCategories(`type-${type}`).map(cat => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Detail category */}
+              {subCategory && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Sub-category
+                  </label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    required
+                  >
+                    <option value="">Select sub-category</option>
+                    {getDetailCategories(subCategory).map(cat => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             <div>
@@ -195,6 +224,27 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
             </button>
           </div>
         </form>
+
+        {/* Category Creation Modal */}
+        <CategoryCreationModal
+          isOpen={showCategoryModal}
+          onClose={() => setShowCategoryModal(false)}
+          initialType={type}
+          onCategoryCreated={(categoryId) => {
+            // Find the created category and its parent
+            const createdCategory = categories.find(c => c.id === categoryId);
+            if (createdCategory) {
+              if (createdCategory.level === 'detail') {
+                setSubCategory(createdCategory.parentId || '');
+                setCategory(categoryId);
+              } else {
+                setSubCategory(categoryId);
+                setCategory('');
+              }
+            }
+            setShowCategoryModal(false);
+          }}
+        />
       </div>
     </div>
   );

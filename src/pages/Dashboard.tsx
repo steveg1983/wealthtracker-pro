@@ -1,27 +1,61 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { useCurrency } from '../hooks/useCurrency';
 
 export default function Dashboard() {
   const { accounts, transactions } = useApp();
+  const { formatCurrency, convertAndSum, displayCurrency } = useCurrency();
+  const navigate = useNavigate();
+  const [isLoading, setIsLoading] = useState(true);
+  const [convertedTotals, setConvertedTotals] = useState({
+    assets: 0,
+    liabilities: 0,
+    netWorth: 0
+  });
   
-  // Helper function to format currency properly
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(amount);
-  };
+  // Calculate totals with currency conversion
+  useEffect(() => {
+    let cancelled = false;
+    
+    const calculateTotals = async () => {
+      setIsLoading(true);
+      
+      try {
+        const assetAccounts = accounts.filter(acc => acc.balance > 0);
+        const liabilityAccounts = accounts.filter(acc => acc.balance < 0);
+        
+        const [totalAssets, totalLiabilities] = await Promise.all([
+          convertAndSum(assetAccounts.map(acc => ({ amount: acc.balance, currency: acc.currency }))),
+          convertAndSum(liabilityAccounts.map(acc => ({ amount: Math.abs(acc.balance), currency: acc.currency })))
+        ]);
+        
+        if (!cancelled) {
+          setConvertedTotals({
+            assets: totalAssets,
+            liabilities: totalLiabilities,
+            netWorth: totalAssets - totalLiabilities
+          });
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.error('Error calculating totals:', error);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    calculateTotals();
+    
+    return () => {
+      cancelled = true;
+    };
+  }, [accounts, displayCurrency, convertAndSum]);
   
-  const totalAssets = accounts
-    .filter(acc => acc.balance > 0)
-    .reduce((sum, acc) => sum + acc.balance, 0);
-    
-  const totalLiabilities = Math.abs(accounts
-    .filter(acc => acc.balance < 0)
-    .reduce((sum, acc) => sum + acc.balance, 0));
-    
-  const netWorth = totalAssets - totalLiabilities;
+  const { assets: totalAssets, liabilities: totalLiabilities, netWorth } = convertedTotals;
 
   // Calculate monthly income and expenses
   const currentMonth = new Date().getMonth();
@@ -42,6 +76,7 @@ export default function Dashboard() {
 
   // Prepare data for pie chart
   const pieData = accounts.map(acc => ({
+    id: acc.id,
     name: acc.name,
     value: Math.abs(acc.balance),
     color: acc.balance > 0 ? '#10b981' : '#ef4444',
@@ -59,44 +94,59 @@ export default function Dashboard() {
       </p>
 
       {/* Summary Cards */}
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+        Click any card to view details
+      </p>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div 
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => navigate('/networth')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Net Worth</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                £{formatCurrency(netWorth)}
+                {isLoading ? '...' : formatCurrency(netWorth)}
               </p>
             </div>
             <DollarSign className="text-primary" size={24} />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div 
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => navigate('/networth/assets')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Assets</p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                £{formatCurrency(totalAssets)}
+                {isLoading ? '...' : formatCurrency(totalAssets)}
               </p>
             </div>
             <TrendingUp className="text-green-500" size={24} />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div 
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => navigate('/networth/liabilities')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Liabilities</p>
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                £{formatCurrency(totalLiabilities)}
+                {isLoading ? '...' : formatCurrency(totalLiabilities)}
               </p>
             </div>
             <TrendingDown className="text-red-500" size={24} />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div 
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          onClick={() => navigate('/accounts')}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Accounts</p>
@@ -117,13 +167,13 @@ export default function Dashboard() {
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Income</span>
               <span className="text-green-600 dark:text-green-400 font-semibold">
-                +£{formatCurrency(monthlyIncome)}
+                +{formatCurrency(monthlyIncome)}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-600 dark:text-gray-400">Expenses</span>
               <span className="text-red-600 dark:text-red-400 font-semibold">
-                -£{formatCurrency(monthlyExpenses)}
+                -{formatCurrency(monthlyExpenses)}
               </span>
             </div>
             <div className="border-t dark:border-gray-700 pt-4">
@@ -134,7 +184,7 @@ export default function Dashboard() {
                     ? 'text-green-600 dark:text-green-400' 
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  £{formatCurrency(monthlyIncome - monthlyExpenses)}
+                  {formatCurrency(monthlyIncome - monthlyExpenses)}
                 </span>
               </div>
             </div>
@@ -142,7 +192,10 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">Account Distribution</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold dark:text-white">Account Distribution</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Click to view transactions</p>
+          </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -154,13 +207,17 @@ export default function Dashboard() {
                   outerRadius={80}
                   paddingAngle={5}
                   dataKey="value"
+                  onClick={(data) => {
+                    navigate(`/transactions?account=${data.id}`);
+                  }}
+                  style={{ cursor: 'pointer' }}
                 >
                   {pieData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip 
-                  formatter={(value: number) => `£${formatCurrency(value)}`}
+                  formatter={(value: number) => formatCurrency(value)}
                   contentStyle={{ 
                     backgroundColor: 'rgba(255, 255, 255, 0.95)',
                     border: '1px solid #ccc',
@@ -190,7 +247,7 @@ export default function Dashboard() {
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-red-600 dark:text-red-400'
               }`}>
-                {transaction.type === 'income' ? '+' : '-'}£{formatCurrency(transaction.amount)}
+                {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
               </span>
             </div>
           ))}

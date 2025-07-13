@@ -55,34 +55,60 @@ export default function Investments() {
   const generatePerformanceData = () => {
     const data: Array<{ month: string; value: number }> = [];
     const today = new Date();
+    let periodMonths = 12; // Default to 1Y
     
-    for (let i = 11; i >= 0; i--) {
+    // Adjust period based on selection
+    switch (selectedPeriod) {
+      case '1M': periodMonths = 1; break;
+      case '3M': periodMonths = 3; break;
+      case '6M': periodMonths = 6; break;
+      case '1Y': periodMonths = 12; break;
+      case 'ALL': 
+        // Find earliest transaction date
+        const earliestDate = investmentTransactions.reduce((earliest, t) => {
+          const tDate = new Date(t.date);
+          return tDate < earliest ? tDate : earliest;
+        }, new Date());
+        periodMonths = Math.max(12, Math.ceil((today.getTime() - earliestDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+        break;
+    }
+    
+    let cumulativeValue = 0;
+    
+    for (let i = periodMonths - 1; i >= 0; i--) {
       const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
-      const monthTransactions = investmentTransactions.filter(t => {
+      
+      // Get all transactions up to this month
+      const transactionsUpToDate = investmentTransactions.filter(t => {
         const tDate = new Date(t.date);
-        return tDate.getFullYear() === date.getFullYear() && 
-               tDate.getMonth() === date.getMonth();
+        return tDate <= new Date(date.getFullYear(), date.getMonth() + 1, 0);
       });
       
-      const monthInvested = monthTransactions
+      // Calculate cumulative invested amount
+      const totalInvestedUpToDate = transactionsUpToDate
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
         
-      const monthWithdrawn = monthTransactions
+      const totalWithdrawnUpToDate = transactionsUpToDate
         .filter(t => t.type === 'income')
         .reduce((sum, t) => sum + t.amount, 0);
       
-      const netInvested = monthInvested - monthWithdrawn;
+      cumulativeValue = totalInvestedUpToDate - totalWithdrawnUpToDate;
+      
+      // For the current month, use actual portfolio value
+      if (i === 0) {
+        cumulativeValue = portfolioValue;
+      } else {
+        // Add some simulated growth for historical data (since we don't have actual historical values)
+        const monthsFromNow = i;
+        const estimatedGrowthRate = returnPercentage > 0 ? (returnPercentage / 100) / 12 : 0;
+        cumulativeValue = cumulativeValue * (1 + (estimatedGrowthRate * monthsFromNow));
+      }
       
       data.push({
         month: date.toLocaleString('default', { month: 'short' }),
-        value: data.length > 0 ? data[data.length - 1].value + netInvested : totalInvested
+        value: Math.max(0, cumulativeValue)
       });
-    }
-    
-    // Add current value
-    if (data.length > 0) {
-      data[data.length - 1].value = portfolioValue;
     }
     
     return data;

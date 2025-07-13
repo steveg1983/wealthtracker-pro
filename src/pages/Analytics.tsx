@@ -3,11 +3,11 @@ import { BarChart3, TrendingUp, ArrowUpRight, ArrowDownRight } from 'lucide-reac
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 
 export default function Analytics() {
-  const { transactions } = useApp();
+  const { transactions, accounts } = useApp();
 
   // Helper function to format currency properly
-   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-GB', {
+  const formatCurrency = (amount: number): string => {
+    return '£' + new Intl.NumberFormat('en-GB', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(amount);
@@ -44,15 +44,60 @@ export default function Analytics() {
     return { month, income, expenses };
   });
 
-  // Calculate account trends (mock data for demonstration)
-  const accountTrends = [
-    { month: 'Jul', balance: 95000 },
-    { month: 'Aug', balance: 92000 },
-    { month: 'Sep', balance: 94500 },
-    { month: 'Oct', balance: 91000 },
-    { month: 'Nov', balance: 89500 },
-    { month: 'Dec', balance: 73371.37 },
-  ];
+  // Calculate account balance trends based on real transactions
+  const calculateAccountTrends = () => {
+    const now = new Date();
+    
+    // Get current total balance
+    const currentTotalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+    
+    // Sort transactions by date
+    const sortedTransactions = [...transactions].sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+    
+    const trendData = [];
+    
+    // Calculate balance for each of the last 6 months
+    for (let i = 5; i >= 0; i--) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
+      
+      // Get all transactions up to the end of this month
+      const transactionsUpToMonth = sortedTransactions.filter(t => 
+        new Date(t.date) <= monthEnd
+      );
+      
+      // Calculate net change from transactions
+      transactionsUpToMonth.reduce((net, t) => {
+        return net + (t.type === 'income' ? t.amount : -t.amount);
+      }, 0);
+      
+      // For current month, use actual balance
+      let balance;
+      if (i === 0) {
+        balance = currentTotalBalance;
+      } else {
+        // For past months, work backwards from current balance
+        const futureTransactions = sortedTransactions.filter(t => 
+          new Date(t.date) > monthEnd
+        );
+        const futureNetChange = futureTransactions.reduce((net, t) => {
+          return net + (t.type === 'income' ? t.amount : -t.amount);
+        }, 0);
+        balance = currentTotalBalance - futureNetChange;
+      }
+      
+      trendData.push({
+        month: monthDate.toLocaleString('default', { month: 'short' }),
+        balance: Math.max(0, balance)
+      });
+    }
+    
+    return trendData;
+  };
+  
+  const accountTrends = calculateAccountTrends();
 
   // Calculate top expenses
   const topExpenses = transactions

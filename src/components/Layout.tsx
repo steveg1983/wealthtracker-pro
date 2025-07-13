@@ -1,30 +1,70 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, CreditCard, PieChart, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal } from 'lucide-react';
+import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronDown, ChevronRight, Palette, Database, Tag } from 'lucide-react';
+import Breadcrumbs from './Breadcrumbs';
 
 interface SidebarLinkProps {
   to: string;
   icon: React.ElementType;
   label: string;
   isCollapsed: boolean;
+  hasSubItems?: boolean;
+  isSubItem?: boolean;
+  onClick?: () => void;
 }
 
-function SidebarLink({ to, icon: Icon, label, isCollapsed }: SidebarLinkProps) {
+function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onClick }: SidebarLinkProps) {
   const location = useLocation();
-  const isActive = location.pathname === to;
+  const isActive = location.pathname === to || (hasSubItems && location.pathname.startsWith(to));
+
+  const handleClick = (e: React.MouseEvent) => {
+    if (onClick) {
+      e.preventDefault();
+      onClick();
+    }
+  };
+
+  const content = (
+    <>
+      <Icon size={20} />
+      {!isCollapsed && (
+        <>
+          <span className="flex-1">{label}</span>
+          {hasSubItems && (
+            <ChevronRight size={16} className="text-gray-400" />
+          )}
+        </>
+      )}
+    </>
+  );
+
+  const className = `flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+    isSubItem ? 'ml-6 text-sm' : ''
+  } ${
+    isActive
+      ? 'bg-primary text-white'
+      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+  }`;
+
+  if (onClick) {
+    return (
+      <button
+        onClick={handleClick}
+        className={className}
+        title={isCollapsed ? label : undefined}
+      >
+        {content}
+      </button>
+    );
+  }
 
   return (
     <Link
       to={to}
-      className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
-        isActive
-          ? 'bg-primary text-white'
-          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-      }`}
+      className={className}
       title={isCollapsed ? label : undefined}
     >
-      <Icon size={20} />
-      {!isCollapsed && <span>{label}</span>}
+      {content}
     </Link>
   );
 }
@@ -32,6 +72,8 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed }: SidebarLinkProps) {
 export default function Layout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [settingsExpanded, setSettingsExpanded] = useState(false);
+  const location = useLocation();
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
@@ -40,6 +82,13 @@ export default function Layout() {
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
+
+  // Auto-expand settings if we're on a settings page
+  React.useEffect(() => {
+    if (location.pathname.startsWith('/settings')) {
+      setSettingsExpanded(true);
+    }
+  }, [location.pathname]);
 
   return (
     <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
@@ -67,10 +116,28 @@ export default function Layout() {
             <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/budgets" icon={Target} label="Budget" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/settings" icon={Settings} label="Settings" isCollapsed={isSidebarCollapsed} />
+            
+            {/* Settings with Sub-navigation */}
+            <div>
+              <SidebarLink 
+                to="/settings" 
+                icon={Settings} 
+                label="Settings" 
+                isCollapsed={isSidebarCollapsed}
+                hasSubItems={true}
+                onClick={() => setSettingsExpanded(!settingsExpanded)}
+              />
+              {settingsExpanded && !isSidebarCollapsed && (
+                <div className="mt-1 space-y-1">
+                  <SidebarLink to="/settings/appearance" icon={Palette} label="Appearance" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} />
+                </div>
+              )}
+            </div>
           </nav>
         </div>
       </aside>
@@ -95,10 +162,28 @@ export default function Layout() {
                 <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} />
                 <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} />
                 <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} />
-                <SidebarLink to="/budgets" icon={Target} label="Budget" isCollapsed={false} />
+                <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={false} />
                 <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} />
                 <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={false} />
-                <SidebarLink to="/settings" icon={Settings} label="Settings" isCollapsed={false} />
+                
+                {/* Settings with Sub-navigation */}
+                <div>
+                  <SidebarLink 
+                    to="/settings" 
+                    icon={Settings} 
+                    label="Settings" 
+                    isCollapsed={false}
+                    hasSubItems={true}
+                    onClick={() => setSettingsExpanded(!settingsExpanded)}
+                  />
+                  {settingsExpanded && (
+                    <div className="mt-1 space-y-1">
+                      <SidebarLink to="/settings/appearance" icon={Palette} label="Appearance" isCollapsed={false} isSubItem={true} />
+                      <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} />
+                      <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} />
+                    </div>
+                  )}
+                </div>
               </nav>
             </div>
           </aside>
@@ -108,6 +193,7 @@ export default function Layout() {
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <div className="p-4 md:p-8 pt-16 md:pt-8">
+          <Breadcrumbs />
           <Outlet />
         </div>
       </main>

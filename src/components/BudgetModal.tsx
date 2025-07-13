@@ -9,7 +9,7 @@ interface BudgetModalProps {
 }
 
 export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProps) {
-  const { addBudget, updateBudget } = useApp();
+  const { addBudget, updateBudget, categories } = useApp();
   const [formData, setFormData] = useState({
     category: budget?.category || '',
     amount: budget?.amount || '',
@@ -70,14 +70,28 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Category
             </label>
-            <input
-              type="text"
+            <select
               required
               value={formData.category}
               onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              placeholder="e.g., Groceries, Entertainment"
-            />
+            >
+              <option value="">Select category</option>
+              {categories
+                .filter(cat => cat.level === 'detail' && (cat.type === 'expense' || cat.type === 'both'))
+                .map(cat => {
+                  // Build the full category path
+                  const parent = categories.find(c => c.id === cat.parentId);
+                  const grandParent = parent ? categories.find(c => c.id === parent.parentId) : null;
+                  const path = grandParent ? `${parent?.name} > ${cat.name}` : cat.name;
+                  
+                  return (
+                    <option key={cat.id} value={cat.name}>
+                      {path}
+                    </option>
+                  );
+                })}
+            </select>
           </div>
 
           <div>

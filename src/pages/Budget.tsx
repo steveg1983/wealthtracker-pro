@@ -3,33 +3,56 @@ import { useApp } from '../contexts/AppContext';
 import { PlusCircle, Edit2, Trash2, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import BudgetModal from '../components/BudgetModal';
 
-export default function Budgets() {
-  const { budgets, transactions, updateBudget, deleteBudget } = useApp();
+export default function Budget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<any>(null);
+  
+  // Get data from context with error handling
+  let budgets = [];
+  let transactions = [];
+  let updateBudget = () => {};
+  let deleteBudget = () => {};
+  
+  try {
+    const context = useApp();
+    budgets = context.budgets || [];
+    transactions = context.transactions || [];
+    updateBudget = context.updateBudget || (() => {});
+    deleteBudget = context.deleteBudget || (() => {});
+  } catch (error) {
+    console.error('Error accessing app context:', error);
+  }
 
   // Calculate spent amounts for each budget
   const budgetsWithSpent = budgets.map(budget => {
+    if (!budget) return { ...budget, spent: 0, percentage: 0, remaining: 0 };
+    
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
     // Filter transactions for this budget's category
     const categoryTransactions = transactions.filter(t => {
+      if (!t || !t.category || !t.date) return false;
       if (t.category !== budget.category || t.type !== 'expense') return false;
       
-      const transDate = new Date(t.date);
-      if (budget.period === 'monthly') {
-        return transDate.getMonth() === currentMonth && 
-               transDate.getFullYear() === currentYear;
-      } else {
-        return transDate.getFullYear() === currentYear;
+      try {
+        const transDate = new Date(t.date);
+        if (budget.period === 'monthly') {
+          return transDate.getMonth() === currentMonth && 
+                 transDate.getFullYear() === currentYear;
+        } else {
+          return transDate.getFullYear() === currentYear;
+        }
+      } catch {
+        return false;
       }
     });
 
-    const spent = categoryTransactions.reduce((sum, t) => sum + t.amount, 0);
-    const percentage = (spent / budget.amount) * 100;
-    const remaining = budget.amount - spent;
+    const spent = categoryTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    const budgetAmount = Number(budget.amount) || 0;
+    const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
+    const remaining = budgetAmount - spent;
 
     return {
       ...budget,
@@ -67,18 +90,15 @@ export default function Budgets() {
   };
 
   // Calculate totals
-  const totalBudgeted = budgets
-    .filter(b => b.isActive !== false)
-    .reduce((sum, b) => sum + b.amount, 0);
-  const totalSpent = budgetsWithSpent
-    .filter(b => b.isActive !== false)
-    .reduce((sum, b) => sum + b.spent, 0);
+  const activeBudgets = budgetsWithSpent.filter(b => b && b.isActive !== false);
+  const totalBudgeted = activeBudgets.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+  const totalSpent = activeBudgets.reduce((sum, b) => sum + (b.spent || 0), 0);
   const totalRemaining = totalBudgeted - totalSpent;
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Budgets</h1>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Budget</h1>
         <button
           onClick={() => setIsModalOpen(true)}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
@@ -131,7 +151,7 @@ export default function Budgets() {
 
       {/* Budgets List */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {budgetsWithSpent.map(budget => (
+        {budgetsWithSpent.map(budget => budget && (
           <div
             key={budget.id}
             className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow ${
@@ -182,7 +202,7 @@ export default function Budgets() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Spent</span>
                 <span className="font-medium text-gray-900 dark:text-white">
-                  {formatCurrency(budget.spent)} of {formatCurrency(budget.amount)}
+                  {formatCurrency(budget.spent)} of {formatCurrency(Number(budget.amount) || 0)}
                 </span>
               </div>
 

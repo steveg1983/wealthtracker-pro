@@ -1,22 +1,57 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import AddAccountModal from '../components/AddAccountModal';
 import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2 } from 'lucide-react';
+import { useCurrency } from '../hooks/useCurrency';
 
 export default function Accounts() {
   const { accounts, updateAccount, deleteAccount } = useApp();
+  const { formatCurrency: formatDisplayCurrency, convertAndSum, displayCurrency } = useCurrency();
+  const navigate = useNavigate();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBalance, setEditBalance] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [convertedTotals, setConvertedTotals] = useState({
+    assets: 0,
+    liabilities: 0,
+    netWorth: 0
+  });
 
-  // Helper function to format currency properly
-  const formatCurrency = (amount: number, currency: string = 'GBP'): string => {
+  // Helper function to format currency in account's own currency
+  const formatAccountCurrency = (amount: number, currency: string = 'GBP'): string => {
     const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
     return symbol + new Intl.NumberFormat('en-GB', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     }).format(Math.abs(amount));
   };
+
+  // Calculate totals with currency conversion
+  useEffect(() => {
+    const calculateTotals = async () => {
+      setIsLoading(true);
+      
+      const assetAccounts = accounts.filter(acc => acc.balance > 0);
+      const liabilityAccounts = accounts.filter(acc => acc.balance < 0);
+      
+      const [totalAssets, totalLiabilities] = await Promise.all([
+        convertAndSum(assetAccounts.map(acc => ({ amount: acc.balance, currency: acc.currency }))),
+        convertAndSum(liabilityAccounts.map(acc => ({ amount: Math.abs(acc.balance), currency: acc.currency })))
+      ]);
+      
+      setConvertedTotals({
+        assets: totalAssets,
+        liabilities: totalLiabilities,
+        netWorth: totalAssets - totalLiabilities
+      });
+      
+      setIsLoading(false);
+    };
+    
+    calculateTotals();
+  }, [accounts, displayCurrency, convertAndSum]);
 
   // Group accounts by type
   const accountsByType = accounts.reduce((groups, account) => {
@@ -31,7 +66,7 @@ export default function Accounts() {
   // Define account type metadata
   const accountTypes = [
     { 
-      type: 'checking', 
+      type: 'current', 
       title: 'Current Accounts', 
       icon: Wallet, 
       color: 'text-blue-600 dark:text-blue-400',
@@ -72,9 +107,8 @@ export default function Accounts() {
     },
   ];
 
-  const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
-  const totalAssets = accounts.filter(acc => acc.balance > 0).reduce((sum, acc) => sum + acc.balance, 0);
-  const totalLiabilities = Math.abs(accounts.filter(acc => acc.balance < 0).reduce((sum, acc) => sum + acc.balance, 0));
+  // Use converted totals for display
+  const { assets: totalAssets, liabilities: totalLiabilities, netWorth: totalBalance } = convertedTotals;
 
   const handleEdit = (accountId: string, currentBalance: number) => {
     setEditingId(accountId);
@@ -112,21 +146,21 @@ export default function Accounts() {
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Net Worth</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Net Worth ({displayCurrency})</p>
           <p className={`text-2xl font-bold ${totalBalance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {formatCurrency(totalBalance)}
+            {isLoading ? '...' : formatDisplayCurrency(totalBalance)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Assets</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Assets ({displayCurrency})</p>
           <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-            {formatCurrency(totalAssets)}
+            {isLoading ? '...' : formatDisplayCurrency(totalAssets)}
           </p>
         </div>
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Liabilities</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Total Liabilities ({displayCurrency})</p>
           <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-            {formatCurrency(totalLiabilities)}
+            {isLoading ? '...' : formatDisplayCurrency(totalLiabilities)}
           </p>
         </div>
       </div>
@@ -151,21 +185,29 @@ export default function Accounts() {
                     </span>
                   </div>
                   <p className={`text-lg font-semibold ${typeTotal >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
-                    {formatCurrency(typeTotal)}
+                    {formatDisplayCurrency(typeTotal)}
                   </p>
                 </div>
               </div>
 
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
                 {typeAccounts.map((account) => (
-                  <div key={account.id} className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                  <div 
+                    key={account.id} 
+                    className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                    onClick={(e) => {
+                      // Don't navigate if clicking on buttons or inputs
+                      if ((e.target as HTMLElement).closest('button, input')) return;
+                      navigate(`/transactions?account=${account.id}`);
+                    }}
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                           {account.name}
                         </h3>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {account.institution} • Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
+                          {account.institution || 'Unknown Institution'} • Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
                         </p>
                       </div>
                       
@@ -200,7 +242,7 @@ export default function Accounts() {
                                 ? 'text-gray-900 dark:text-white' 
                                 : 'text-red-600 dark:text-red-400'
                             }`}>
-                              {formatCurrency(account.balance, account.currency)}
+                              {formatAccountCurrency(account.balance, account.currency)}
                             </p>
                             <div className="flex items-center gap-2">
                               <button
