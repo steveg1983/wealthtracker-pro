@@ -113,71 +113,71 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
         Welcome back, {firstName || 'User'}!
       </h1>
-      <p className="text-gray-600 dark:text-gray-400 mb-6">
+      <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mb-4 md:mb-6">
         Here's your financial overview
       </p>
 
       {/* Summary Cards */}
-      <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+      <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-3">
         Click any card to view details
       </p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
         <div 
-          className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => navigate('/networth')}
         >
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Net Worth</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+            <div className="flex-1">
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Net Worth</p>
+              <p className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mt-1">
                 {isLoading ? '...' : formatCurrency(netWorth)}
               </p>
             </div>
-            <DollarSign className="text-primary" size={24} />
+            <DollarSign className="text-primary ml-2" size={20} />
           </div>
         </div>
 
         <div 
-          className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => navigate('/networth/assets')}
         >
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Assets</p>
-              <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+            <div className="flex-1">
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Total Assets</p>
+              <p className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
                 {isLoading ? '...' : formatCurrency(totalAssets)}
               </p>
             </div>
-            <TrendingUp className="text-green-500" size={24} />
+            <TrendingUp className="text-green-500 ml-2" size={20} />
           </div>
         </div>
 
         <div 
-          className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => navigate('/networth/liabilities')}
         >
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Liabilities</p>
-              <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+            <div className="flex-1">
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Total Liabilities</p>
+              <p className="text-xl md:text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
                 {isLoading ? '...' : formatCurrency(totalLiabilities)}
               </p>
             </div>
-            <TrendingDown className="text-red-500" size={24} />
+            <TrendingDown className="text-red-500 ml-2" size={20} />
           </div>
         </div>
 
       </div>
 
       {/* Charts and Additional Info */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
         {/* Net Worth Over Time Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">Net Worth Over Time (24 Months)</h2>
-          <div className="h-64">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+          <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 dark:text-white">Net Worth Over Time</h2>
+          <div className="h-48 md:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={netWorthData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
@@ -206,12 +206,12 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold dark:text-white">Account Distribution</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400">Click to view transactions</p>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 md:mb-4 gap-1">
+            <h2 className="text-lg md:text-xl font-semibold dark:text-white">Account Distribution</h2>
+            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Click to view transactions</p>
           </div>
-          <div className="h-64">
+          <div className="h-48 md:h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -243,71 +243,73 @@ export default function Dashboard() {
 
       {/* Outstanding Reconciliation Summary */}
       {reconciliationDetails.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold dark:text-white">Outstanding Reconciliations</h2>
-            <div className="text-right">
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Outstanding</p>
-              <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 mb-6 md:mb-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 md:mb-4 gap-2">
+            <h2 className="text-lg md:text-xl font-semibold dark:text-white">Outstanding Reconciliations</h2>
+            <div className="sm:text-right">
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Total Outstanding</p>
+              <p className="text-base md:text-lg font-bold text-orange-600 dark:text-orange-400">
                 {reconciliationDetails.reduce((sum, acc) => sum + acc.unreconciledCount, 0)} items
               </p>
             </div>
           </div>
           
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-3 md:mb-4">
             {reconciliationDetails.length} account{reconciliationDetails.length !== 1 ? 's' : ''} with unreconciled bank transactions.
           </p>
 
           {/* Summary Table */}
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden">
-            <div className="grid grid-cols-3 gap-4 p-3 bg-gray-100 dark:bg-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300">
-              <div>Account</div>
-              <div className="text-center">Unreconciled</div>
-              <div className="text-center">Total Amount</div>
-            </div>
-            <div className="divide-y divide-gray-200 dark:divide-gray-600">
-              {reconciliationDetails.map(account => (
-                <div 
-                  key={account.account.id}
-                  className="grid grid-cols-3 gap-4 p-3 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/reconciliation?account=${account.account.id}`)}
-                >
-                  <div className="font-medium text-gray-900 dark:text-white truncate">
-                    {account.account.name}
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-x-auto">
+            <div className="min-w-[300px]">
+              <div className="grid grid-cols-3 gap-2 sm:gap-4 p-2 sm:p-3 bg-gray-100 dark:bg-gray-600 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
+                <div>Account</div>
+                <div className="text-center">Unreconciled</div>
+                <div className="text-center">Total Amount</div>
+              </div>
+              <div className="divide-y divide-gray-200 dark:divide-gray-600">
+                {reconciliationDetails.map(account => (
+                  <div 
+                    key={account.account.id}
+                    className="grid grid-cols-3 gap-2 sm:gap-4 p-2 sm:p-3 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/reconciliation?account=${account.account.id}`)}
+                  >
+                    <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {account.account.name}
+                    </div>
+                    <div className="text-center text-xs sm:text-sm font-medium text-orange-600 dark:text-orange-400">
+                      {account.unreconciledCount}
+                    </div>
+                    <div className="text-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                      {formatCurrency(account.totalToReconcile)}
+                    </div>
                   </div>
-                  <div className="text-center font-medium text-orange-600 dark:text-orange-400">
-                    {account.unreconciledCount}
-                  </div>
-                  <div className="text-center text-gray-600 dark:text-gray-400">
-                    {formatCurrency(account.totalToReconcile)}
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 
           {/* Summary Statistics */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-            <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <p className="text-sm text-blue-600 dark:text-blue-400">Accounts</p>
-              <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{reconciliationDetails.length}</p>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-3 md:mt-4">
+            <div className="text-center p-2 sm:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400">Accounts</p>
+              <p className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-300">{reconciliationDetails.length}</p>
             </div>
-            <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-              <p className="text-sm text-orange-600 dark:text-orange-400">Unreconciled</p>
-              <p className="text-lg font-bold text-orange-700 dark:text-orange-300">
+            <div className="text-center p-2 sm:p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <p className="text-xs sm:text-sm text-orange-600 dark:text-orange-400">Unreconciled</p>
+              <p className="text-base sm:text-lg font-bold text-orange-700 dark:text-orange-300">
                 {reconciliationDetails.reduce((sum, acc) => sum + acc.unreconciledCount, 0)}
               </p>
             </div>
-            <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <p className="text-sm text-green-600 dark:text-green-400">Total Value</p>
-              <p className="text-lg font-bold text-green-700 dark:text-green-300">
+            <div className="text-center p-2 sm:p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <p className="text-xs sm:text-sm text-green-600 dark:text-green-400">Total Value</p>
+              <p className="text-base sm:text-lg font-bold text-green-700 dark:text-green-300">
                 {formatCurrency(reconciliationDetails.reduce((sum, acc) => sum + acc.totalToReconcile, 0))}
               </p>
             </div>
           </div>
 
-          <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="mt-3 md:mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
               💡 <strong>Tip:</strong> Click on any account row to start reconciliation. Focus on accounts with the highest number of outstanding items first.
             </p>
           </div>
@@ -315,18 +317,18 @@ export default function Dashboard() {
       )}
 
       {/* Recent Transactions */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold mb-4 dark:text-white">Recent Transactions</h2>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+        <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 dark:text-white">Recent Transactions</h2>
         <div className="space-y-3">
           {transactions.slice(0, 5).map(transaction => (
-            <div key={transaction.id} className="flex justify-between items-center py-2 border-b dark:border-gray-700 last:border-0">
-              <div>
-                <p className="font-medium dark:text-white">{transaction.description}</p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+            <div key={transaction.id} className="flex justify-between items-start sm:items-center py-2 border-b dark:border-gray-700 last:border-0">
+              <div className="flex-1 min-w-0 mr-2">
+                <p className="text-sm sm:text-base font-medium dark:text-white truncate">{transaction.description}</p>
+                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
                   {new Date(transaction.date).toLocaleDateString()}
                 </p>
               </div>
-              <span className={`font-semibold ${
+              <span className={`text-sm sm:text-base font-semibold whitespace-nowrap ${
                 transaction.type === 'income' 
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-red-600 dark:text-red-400'

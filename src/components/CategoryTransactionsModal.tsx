@@ -159,22 +159,22 @@ export default function CategoryTransactionsModal({
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-t-lg sm:rounded-lg shadow-xl w-full sm:max-w-4xl max-h-[90vh] sm:max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
                 Transactions in "{categoryName}"
               </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {categoryTransactions.length} total transactions
               </p>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="p-1 -m-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
               <X size={24} />
             </button>
@@ -182,9 +182,9 @@ export default function CategoryTransactionsModal({
         </div>
         
         {/* Filters */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 space-y-4">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 dark:border-gray-700 space-y-3">
           {/* Transaction Type Filter */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={() => setTransactionFilter('all')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
@@ -217,36 +217,36 @@ export default function CategoryTransactionsModal({
             </button>
           </div>
           
-          <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex flex-col gap-3">
             {/* Date Range */}
-            <div className="flex-1 flex gap-2 items-center">
-              <Calendar className="text-gray-400" size={20} />
-              <div className="flex gap-2 items-center">
+            <div className="flex flex-wrap gap-2 items-center">
+              <Calendar className="text-gray-400 hidden sm:block" size={18} />
+              <div className="flex flex-wrap gap-2 items-center flex-1">
                 <input
                   type="date"
                   value={fromDate}
                   onChange={(e) => setFromDate(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
+                  className="flex-1 min-w-[130px] px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
                 />
-                <span className="text-gray-500 dark:text-gray-400">to</span>
+                <span className="text-gray-500 dark:text-gray-400 text-sm">to</span>
                 <input
                   type="date"
                   value={toDate}
                   onChange={(e) => setToDate(e.target.value)}
-                  className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
+                  className="flex-1 min-w-[130px] px-2 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
                 />
               </div>
             </div>
             
             {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by description, amount, account, date..."
-                className="w-full pl-10 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
+                placeholder="Search transactions..."
+                className="w-full pl-9 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white text-sm"
               />
               {searchQuery && (
                 <button

@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContext';
 import { X, Calendar, DollarSign, Tag, FileText, Check, Link, CheckCircle, Plus } from 'lucide-react';
 import type { Transaction } from '../types';
 import CategoryCreationModal from './CategoryCreationModal';
+import { getCurrencySymbol } from '../utils/currency';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -141,23 +142,23 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
 
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
+      <div className="bg-white dark:bg-gray-800 rounded-t-lg sm:rounded-lg shadow-xl w-full sm:max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
               {transaction ? 'Edit Transaction' : 'New Transaction'}
             </h2>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              className="p-1 -m-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
               <X size={24} />
             </button>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Date */}
             <div>
@@ -253,7 +254,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 <DollarSign size={16} />
-                Amount
+                Amount {accountId && (() => {
+                  const selectedAccount = accounts.find(a => a.id === accountId);
+                  return selectedAccount ? `(${getCurrencySymbol(selectedAccount.currency)})` : '';
+                })()}
               </label>
               <input
                 type="number"
@@ -445,23 +449,23 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
         {/* Delete confirmation */}
         {showDeleteConfirm && (
           <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-md mx-4">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Delete Transaction?
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
+              <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mb-4">
                 Are you sure you want to delete this transaction? This action cannot be undone.
               </p>
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  className="px-3 sm:px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDelete}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  className="px-3 sm:px-4 py-2 text-sm sm:text-base bg-red-500 text-white rounded-lg hover:bg-red-600"
                 >
                   Delete
                 </button>

@@ -2,18 +2,12 @@ import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { TrendingUp, TrendingDown, DollarSign, BarChart3, AlertCircle } from 'lucide-react';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { useCurrency } from '../hooks/useCurrency';
 
 export default function Investments() {
   const { accounts, transactions } = useApp();
+  const { formatCurrency } = useCurrency();
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1Y');
-
-  // Helper function to format currency properly
-  const formatCurrency = (amount: number): string => {
-    return '£' + new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(Math.abs(amount));
-  };
 
   // Helper function to format percentages
   const formatPercentage = (value: number): string => {
@@ -221,7 +215,13 @@ export default function Investments() {
               <XAxis dataKey="month" stroke="#9CA3AF" />
               <YAxis 
                 stroke="#9CA3AF" 
-                tickFormatter={(value) => `£${(value / 1000).toFixed(0)}k`}
+                tickFormatter={(value) => {
+                  const formatted = formatCurrency(value);
+                  if (value >= 1000) {
+                    return `${formatted.charAt(0)}${(value / 1000).toFixed(0)}k`;
+                  }
+                  return formatted;
+                }}
               />
               <Tooltip 
                 formatter={(value: number) => formatCurrency(value)}

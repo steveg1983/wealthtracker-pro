@@ -4,10 +4,11 @@ import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { Plus, TrendingUp, TrendingDown, Filter, Calendar, Trash2, Minimize2, Maximize2, Edit2, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { formatCurrency } from '../utils/currency';
 
 export default function Transactions() {
   const { transactions, accounts, deleteTransaction, categories, getCategoryPath } = useApp();
-  const { compactView, setCompactView } = usePreferences();
+  const { compactView, setCompactView, currency: displayCurrency } = usePreferences();
   const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
@@ -29,14 +30,6 @@ export default function Transactions() {
     }
   }, [accountIdFromUrl]);
 
-  // Helper function to format currency properly
-  const formatCurrency = (amount: number, currency: string = 'GBP'): string => {
-    const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
-    return symbol + new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(Math.abs(amount));
-  };
 
   // Sort transactions by date (newest first)
   const sortedTransactions = [...transactions].sort((a, b) => 
@@ -134,16 +127,16 @@ export default function Transactions() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 md:mb-6 gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Transactions</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Transactions</h1>
           {filteredAccount && (
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">
               Showing transactions for: <span className="font-semibold">{filteredAccount.name}</span>
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-end sm:self-auto">
           {/* Compact View Toggle */}
           <button
             onClick={() => setCompactView(!compactView)}
@@ -167,99 +160,101 @@ export default function Transactions() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
+        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Income</p>
-              <p className="text-xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.income)}</p>
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Income</p>
+              <p className="text-lg md:text-xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.income, displayCurrency)}</p>
             </div>
-            <TrendingUp className="text-green-500" size={24} />
+            <TrendingUp className="text-green-500" size={20} />
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Expenses</p>
-              <p className="text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totals.expense)}</p>
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Expenses</p>
+              <p className="text-lg md:text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totals.expense, displayCurrency)}</p>
             </div>
-            <TrendingDown className="text-red-500" size={24} />
+            <TrendingDown className="text-red-500" size={20} />
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg shadow">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Net</p>
-              <p className={`text-xl font-bold ${totals.income - totals.expense >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {formatCurrency(totals.income - totals.expense)}
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Net</p>
+              <p className={`text-lg md:text-xl font-bold ${totals.income - totals.expense >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {formatCurrency(totals.income - totals.expense, displayCurrency)}
               </p>
             </div>
-            <Calendar className="text-primary" size={24} />
+            <Calendar className="text-primary" size={20} />
           </div>
         </div>
       </div>
 
       {/* Filters and Search */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-6">
-        <div className="flex flex-wrap gap-4">
+      <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg shadow mb-4 md:mb-6">
+        <div className="space-y-3">
           {/* Search Input */}
-          <div className="flex-1 min-w-[200px]">
+          <div className="w-full">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 placeholder="Search transactions..."
                 value={searchQuery}
                 onChange={(e) => handleFilterChange(setSearchQuery)(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-9 pr-3 py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
           </div>
           
-          {/* Type Filter */}
-          <div className="flex items-center gap-2">
-            <Filter size={20} className="text-gray-500 dark:text-gray-400" />
-            <select
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              value={filterType}
-              onChange={(e) => handleFilterChange(setFilterType)(e.target.value as any)}
-            >
-              <option value="all">All Types</option>
-              <option value="income">Income Only</option>
-              <option value="expense">Expenses Only</option>
-            </select>
-          </div>
-          
-          {/* Account Filter */}
-          <div>
-            <select
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              value={filterAccountId}
-              onChange={(e) => handleFilterChange(setFilterAccountId)(e.target.value)}
-            >
-              <option value="">All Accounts</option>
-              {accounts.map(account => (
-                <option key={account.id} value={account.id}>{account.name}</option>
-              ))}
-            </select>
+          {/* Filter Row */}
+          <div className="flex flex-wrap gap-2">
+            {/* Type Filter */}
+            <div className="flex-1 min-w-[140px]">
+              <select
+                className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={filterType}
+                onChange={(e) => handleFilterChange(setFilterType)(e.target.value as any)}
+              >
+                <option value="all">All Types</option>
+                <option value="income">Income Only</option>
+                <option value="expense">Expenses Only</option>
+              </select>
+            </div>
+            
+            {/* Account Filter */}
+            <div className="flex-1 min-w-[140px]">
+              <select
+                className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                value={filterAccountId}
+                onChange={(e) => handleFilterChange(setFilterAccountId)(e.target.value)}
+              >
+                <option value="">All Accounts</option>
+                {accounts.map(account => (
+                  <option key={account.id} value={account.id}>{account.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
           
           {/* Date Range */}
-          <div className="flex items-center gap-2">
-            <Calendar size={20} className="text-gray-500 dark:text-gray-400" />
+          <div className="flex flex-wrap items-center gap-2">
+            <Calendar size={18} className="text-gray-500 dark:text-gray-400 hidden sm:block" />
             <input
               type="date"
               value={dateFrom}
               onChange={(e) => handleFilterChange(setDateFrom)(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="flex-1 min-w-[130px] px-3 py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="From"
             />
-            <span className="text-gray-500 dark:text-gray-400">to</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400">to</span>
             <input
               type="date"
               value={dateTo}
               onChange={(e) => handleFilterChange(setDateTo)(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="flex-1 min-w-[130px] px-3 py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="To"
             />
             {(dateFrom || dateTo) && (
@@ -267,11 +262,12 @@ export default function Transactions() {
                 onClick={() => {
                   setDateFrom('');
                   setDateTo('');
+                  resetPagination();
                 }}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
                 title="Clear date range"
               >
-                <X size={20} />
+                <X size={18} />
               </button>
             )}
           </div>
@@ -290,9 +286,53 @@ export default function Transactions() {
           </p>
         </div>
       ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        <>
+          {/* Mobile Card View */}
+          <div className="sm:hidden space-y-3 mb-4">
+            {paginatedTransactions.map((transaction) => {
+              const account = accounts.find(a => a.id === transaction.accountId);
+              const category = categories.find(c => c.id === transaction.category);
+              const categoryDisplay = category ? 
+                (category.level === 'detail' && category.parentId ? 
+                  `${categories.find(c => c.id === category.parentId)?.name} > ${category.name}` : 
+                  category.name) : 
+                transaction.categoryName || transaction.category;
+              
+              return (
+                <div 
+                  key={transaction.id}
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => handleEdit(transaction)}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                      {getTypeIcon(transaction.type)}
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{transaction.description}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(transaction.date).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`font-bold ${
+                      transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                    }`}>
+                      {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount, account?.currency || 'GBP')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
+                    <span>{categoryDisplay}</span>
+                    <span>{account?.name || 'Unknown'}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
+          {/* Desktop Table View */}
+          <div className="hidden sm:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
                   <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
@@ -381,11 +421,11 @@ export default function Transactions() {
                 })}
               </tbody>
             </table>
-          </div>
-          
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+            </div>
+            
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -474,8 +514,59 @@ export default function Transactions() {
                 </div>
               </div>
             </div>
+            )}
+          </div>
+          
+          {/* Mobile Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="sm:hidden bg-white dark:bg-gray-800 rounded-lg shadow px-4 py-3">
+              <div className="flex flex-col space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-700 dark:text-gray-300">
+                    {startIndex + 1}-{Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length}
+                  </span>
+                  <select
+                    value={transactionsPerPage}
+                    onChange={(e) => {
+                      setTransactionsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    <option value={10}>10/page</option>
+                    <option value={20}>20/page</option>
+                    <option value={50}>50/page</option>
+                  </select>
+                </div>
+                
+                <div className="flex items-center justify-center gap-1">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={18} className="text-gray-600 dark:text-gray-400" />
+                  </button>
+                  
+                  <div className="flex items-center gap-1">
+                    {/* Simplified pagination for mobile */}
+                    <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                  </div>
+                  
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight size={18} className="text-gray-600 dark:text-gray-400" />
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
-        </div>
+        </>
       )}
 
       <EditTransactionModal 

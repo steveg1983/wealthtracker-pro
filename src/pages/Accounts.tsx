@@ -4,6 +4,7 @@ import { useApp } from '../contexts/AppContext';
 import AddAccountModal from '../components/AddAccountModal';
 import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2, Calculator } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
+import { formatCurrency } from '../utils/currency';
 
 export default function Accounts() {
   const { accounts, updateAccount, deleteAccount } = useApp();
@@ -15,14 +16,6 @@ export default function Accounts() {
   const [openingBalanceAccountId, setOpeningBalanceAccountId] = useState<string | null>(null);
   const [openingBalance, setOpeningBalance] = useState('');
   const [openingBalanceDate, setOpeningBalanceDate] = useState('');
-  // Helper function to format currency in account's own currency
-  const formatAccountCurrency = (amount: number, currency: string = 'GBP'): string => {
-    const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
-    return symbol + new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(Math.abs(amount));
-  };
 
   // Group accounts by type
   const accountsByType = accounts.reduce((groups, account) => {
@@ -123,14 +116,15 @@ export default function Accounts() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Accounts</h1>
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 md:mb-6 gap-3">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Accounts</h1>
         <button 
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
+          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-2 self-end sm:self-auto"
         >
           <Plus size={20} />
-          Add Account
+          <span className="hidden sm:inline">Add Account</span>
+          <span className="sm:hidden">Add</span>
         </button>
       </div>
 
@@ -145,16 +139,16 @@ export default function Accounts() {
 
           return (
             <div key={type} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-              <div className={`${bgColor} ${borderColor} border-b px-6 py-4`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Icon className={color} size={24} />
-                    <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
+              <div className={`${bgColor} ${borderColor} border-b px-4 md:px-6 py-3 md:py-4`}>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div className="flex items-center gap-2 md:gap-3">
+                    <Icon className={color} size={20} />
+                    <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
+                    <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                       ({typeAccounts.length} {typeAccounts.length === 1 ? 'account' : 'accounts'})
                     </span>
                   </div>
-                  <p className={`text-lg font-semibold ${typeTotal >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
+                  <p className={`text-base md:text-lg font-semibold ${typeTotal >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
                     {formatDisplayCurrency(typeTotal)}
                   </p>
                 </div>
@@ -164,30 +158,33 @@ export default function Accounts() {
                 {typeAccounts.map((account) => (
                   <div 
                     key={account.id} 
-                    className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                    className="p-4 md:p-6 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
                     onClick={(e) => {
                       // Don't navigate if clicking on buttons or inputs
                       if ((e.target as HTMLElement).closest('button, input')) return;
                       navigate(`/transactions?account=${account.id}`);
                     }}
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                           {account.name}
                         </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {account.institution || 'Unknown Institution'} • Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
+                        <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                          {account.institution || 'Unknown Institution'}
+                        </p>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
                         </p>
                         {account.openingBalance !== undefined && (
                           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            Opening balance: {formatAccountCurrency(account.openingBalance, account.currency)} 
+                            Opening balance: {formatCurrency(account.openingBalance, account.currency)} 
                             {account.openingBalanceDate && ` on ${new Date(account.openingBalanceDate).toLocaleDateString()}`}
                           </p>
                         )}
                       </div>
                       
-                      <div className="flex items-center gap-4">
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-4">
                         {editingId === account.id ? (
                           <div className="flex items-center gap-2">
                             <input
@@ -195,50 +192,50 @@ export default function Accounts() {
                               step="0.01"
                               value={editBalance}
                               onChange={(e) => setEditBalance(e.target.value)}
-                              className="w-32 px-2 py-1 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded"
+                              className="w-24 sm:w-32 px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded"
                               autoFocus
                             />
                             <button
                               onClick={() => handleSaveEdit(account.id)}
-                              className="text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
+                              className="text-sm text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300"
                             >
                               Save
                             </button>
                             <button
                               onClick={() => setEditingId(null)}
-                              className="text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                              className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                             >
                               Cancel
                             </button>
                           </div>
                         ) : (
                           <>
-                            <p className={`text-xl font-semibold ${
+                            <p className={`text-lg md:text-xl font-semibold ${
                               account.balance >= 0 
                                 ? 'text-gray-900 dark:text-white' 
                                 : 'text-red-600 dark:text-red-400'
                             }`}>
-                              {formatAccountCurrency(account.balance, account.currency)}
+                              {formatCurrency(account.balance, account.currency)}
                             </p>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 sm:gap-2">
                               <button
                                 onClick={() => handleOpeningBalance(account.id)}
-                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                className="p-1.5 sm:p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                                 title="Adjust Opening Balance"
                               >
-                                <Calculator size={18} />
+                                <Calculator size={16} />
                               </button>
                               <button
                                 onClick={() => handleEdit(account.id, account.balance)}
-                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                className="p-1.5 sm:p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
                               >
-                                <Edit size={18} />
+                                <Edit size={16} />
                               </button>
                               <button
                                 onClick={() => handleDelete(account.id)}
-                                className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                                className="p-1.5 sm:p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
                               >
-                                <Trash2 size={18} />
+                                <Trash2 size={16} />
                               </button>
                             </div>
                           </>
