@@ -249,8 +249,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
         if (parsedData.accounts) {
           const loadedAccounts = parsedData.accounts.map((a: any) => ({
             ...a,
-            lastUpdated: new Date(a.lastUpdated)
+            lastUpdated: new Date(a.lastUpdated),
+            openingBalanceDate: a.openingBalanceDate ? new Date(a.openingBalanceDate) : undefined
           }));
+          
+          // Check if this is OLD test data (without opening balances or with old account names)
+          const hasOldAccountNames = loadedAccounts.some((a: any) => 
+            a.name === 'HSBC Personal Current' || 
+            a.name === 'Barclays Joint Current' ||
+            a.name === 'Marcus High Yield Savings' ||
+            !a.openingBalance
+          );
+          
+          if (detectTestData(loadedAccounts) && hasOldAccountNames) {
+            // Mark that we need to load new test data after component mounts
+            localStorage.setItem('moneyTrackerNeedsNewTestData', 'true');
+            // Don't load the old data
+            return;
+          }
+          
           setAccounts(loadedAccounts);
           
           // Check if this is test data
@@ -314,6 +331,40 @@ export function AppProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error('Failed to load saved data:', error);
       }
+    } else {
+      // No saved data, load new test data by default
+      const testAccounts = getDefaultTestAccounts();
+      const testTransactions = getDefaultTestTransactions();
+      const testBudgets = getDefaultTestBudgets();
+      const testGoals = getDefaultTestGoals();
+      
+      setAccounts(testAccounts);
+      setTransactions(testTransactions);
+      setBudgets(testBudgets);
+      setGoals(testGoals);
+      setHasTestData(true);
+      localStorage.setItem('moneyTrackerHasTestData', 'true');
+    }
+  }, []);
+
+  // Check if we need to load new test data after mount
+  useEffect(() => {
+    const needsNewTestData = localStorage.getItem('moneyTrackerNeedsNewTestData');
+    if (needsNewTestData === 'true') {
+      localStorage.removeItem('moneyTrackerNeedsNewTestData');
+      // Load new test data
+      const testAccounts = getDefaultTestAccounts();
+      const testTransactions = getDefaultTestTransactions();
+      const testBudgets = getDefaultTestBudgets();
+      const testGoals = getDefaultTestGoals();
+      
+      setAccounts(testAccounts);
+      setTransactions(testTransactions);
+      setBudgets(testBudgets);
+      setGoals(testGoals);
+      setCategories(defaultCategories);
+      setHasTestData(true);
+      localStorage.setItem('moneyTrackerHasTestData', 'true');
     }
   }, []);
 
