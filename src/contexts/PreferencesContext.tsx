@@ -11,6 +11,8 @@ interface PreferencesContextType {
   actualTheme: 'light' | 'dark';
   accentColor: string;
   setAccentColor: (value: string) => void;
+  firstName: string;
+  setFirstName: (value: string) => void;
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -44,6 +46,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       return 'pink';
     }
     return saved;
+  });
+
+  const [firstName, setFirstName] = useState(() => {
+    return localStorage.getItem('money_management_first_name') || '';
   });
 
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('dark');
@@ -140,6 +146,10 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('money_management_accent_color', accentColor);
   }, [accentColor]);
 
+  useEffect(() => {
+    localStorage.setItem('money_management_first_name', firstName);
+  }, [firstName]);
+
   return (
     <PreferencesContext.Provider value={{
       compactView,
@@ -151,6 +161,8 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       actualTheme,
       accentColor,
       setAccentColor,
+      firstName,
+      setFirstName,
     }}>
       {children}
     </PreferencesContext.Provider>

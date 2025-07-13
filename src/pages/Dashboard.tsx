@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
+import { usePreferences } from '../contexts/PreferencesContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
 
 export default function Dashboard() {
   const { accounts, transactions } = useApp();
+  const { firstName } = usePreferences();
   const { formatCurrency, convertAndSum, displayCurrency } = useCurrency();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
@@ -87,7 +89,7 @@ export default function Dashboard() {
   return (
     <div>
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-        Welcome back, Danielle!
+        Welcome back, {firstName || 'User'}!
       </h1>
       <p className="text-gray-600 dark:text-gray-400 mb-6">
         Here's your financial overview
