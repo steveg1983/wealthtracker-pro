@@ -303,7 +303,7 @@ export default function CategoriesSettings() {
         // Move subcategory to new parent type
         updateCategory(active.id as string, { 
           parentId: overParent.id,
-          type: overParent.type === 'type-income' ? 'income' : 'expense'
+          type: overParent.id === 'type-income' ? 'income' : overParent.id === 'type-expense' ? 'expense' : 'both'
         });
         
         // Update order

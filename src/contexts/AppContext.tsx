@@ -50,7 +50,7 @@ interface RecurringTransaction {
   id?: string;
   description: string;
   amount: number;
-  type: 'income' | 'expense';
+  type: 'income' | 'expense' | 'transfer';
   category: string;
   accountId: string;
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -599,6 +599,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Helper function to generate transactions over time
+  /*
   const generateTransactionsOverTime = () => {
     const transactions: Transaction[] = [];
     let transactionId = 1000;
@@ -1173,6 +1174,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     
     return transactions;
   };
+  */
 
   const loadTestData = () => {
     // Always clear existing data first to ensure we start fresh

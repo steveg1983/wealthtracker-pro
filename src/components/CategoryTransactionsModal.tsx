@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { X, Calendar, Search, XCircle } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';

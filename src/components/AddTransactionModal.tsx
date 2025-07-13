@@ -240,7 +240,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
         <CategoryCreationModal
           isOpen={showCategoryModal}
           onClose={() => setShowCategoryModal(false)}
-          initialType={type}
+          initialType={type === 'transfer' ? 'expense' : type}
           onCategoryCreated={(categoryId) => {
             // Find the created category and its parent
             const createdCategory = categories.find(c => c.id === categoryId);
