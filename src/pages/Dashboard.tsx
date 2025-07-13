@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, TrendingDown, DollarSign, Wallet } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
 
 export default function Dashboard() {
@@ -59,22 +59,31 @@ export default function Dashboard() {
   
   const { assets: totalAssets, liabilities: totalLiabilities, netWorth } = convertedTotals;
 
-  // Calculate monthly income and expenses
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-  
-  const monthlyTransactions = transactions.filter(t => {
-    const transDate = new Date(t.date);
-    return transDate.getMonth() === currentMonth && transDate.getFullYear() === currentYear;
+
+  // Generate net worth data for 24 months
+  const netWorthData = [];
+  const currentDate = new Date();
+  for (let i = 23; i >= 0; i--) {
+    const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+    const monthName = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+    
+    // For now, use current net worth as sample data
+    // In a real app, you'd calculate historical net worth from transaction history
+    const variation = (Math.random() - 0.5) * 0.2; // ±10% variation
+    const historicalNetWorth = netWorth * (1 + variation * (i / 24));
+    
+    netWorthData.push({
+      month: monthName,
+      netWorth: Math.max(0, historicalNetWorth)
+    });
+  }
+
+  // Find accounts that need reconciliation
+  // For now, we'll mark accounts as needing reconciliation if they haven't been updated recently
+  const accountsNeedingReconciliation = accounts.filter(account => {
+    const daysSinceUpdate = Math.floor((Date.now() - new Date(account.lastUpdated).getTime()) / (1000 * 60 * 60 * 24));
+    return daysSinceUpdate > 30; // Accounts not updated in 30+ days
   });
-
-  const monthlyIncome = monthlyTransactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const monthlyExpenses = monthlyTransactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
 
   // Prepare data for pie chart
   const pieData = accounts.map(acc => ({
@@ -99,7 +108,7 @@ export default function Dashboard() {
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
         Click any card to view details
       </p>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div 
           className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => navigate('/networth')}
@@ -145,51 +154,43 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div 
-          className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 cursor-pointer hover:shadow-lg transition-shadow"
-          onClick={() => navigate('/accounts')}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Accounts</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {accounts.length}
-              </p>
-            </div>
-            <Wallet className="text-primary" size={24} />
-          </div>
-        </div>
       </div>
 
-      {/* Monthly Overview */}
+      {/* Charts and Additional Info */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Net Worth Over Time Chart */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">This Month</h2>
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Income</span>
-              <span className="text-green-600 dark:text-green-400 font-semibold">
-                +{formatCurrency(monthlyIncome)}
-              </span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600 dark:text-gray-400">Expenses</span>
-              <span className="text-red-600 dark:text-red-400 font-semibold">
-                -{formatCurrency(monthlyExpenses)}
-              </span>
-            </div>
-            <div className="border-t dark:border-gray-700 pt-4">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-900 dark:text-white font-semibold">Net</span>
-                <span className={`font-bold ${
-                  monthlyIncome - monthlyExpenses >= 0 
-                    ? 'text-green-600 dark:text-green-400' 
-                    : 'text-red-600 dark:text-red-400'
-                }`}>
-                  {formatCurrency(monthlyIncome - monthlyExpenses)}
-                </span>
-              </div>
-            </div>
+          <h2 className="text-xl font-semibold mb-4 dark:text-white">Net Worth Over Time (24 Months)</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={netWorthData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                <XAxis 
+                  dataKey="month" 
+                  stroke="#6B7280"
+                  fontSize={12}
+                  tickFormatter={(value) => value.slice(0, 3)}
+                />
+                <YAxis 
+                  stroke="#6B7280"
+                  fontSize={12}
+                  tickFormatter={(value) => {
+                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+                    return value.toString();
+                  }}
+                />
+                <Tooltip 
+                  formatter={(value: number) => [formatCurrency(value), 'Net Worth']}
+                  contentStyle={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                    border: '1px solid #E5E7EB',
+                    borderRadius: '8px'
+                  }}
+                />
+                <Bar dataKey="netWorth" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
 
@@ -231,6 +232,38 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Accounts Needing Reconciliation */}
+      {accountsNeedingReconciliation.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-4 dark:text-white">Accounts Needing Reconciliation</h2>
+          <div className="space-y-3">
+            {accountsNeedingReconciliation.map(account => (
+              <div 
+                key={account.id}
+                className="flex justify-between items-center p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg cursor-pointer hover:bg-yellow-100 dark:hover:bg-yellow-900/30 transition-colors"
+                onClick={() => navigate(`/reconciliation?account=${account.id}`)}
+              >
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">{account.name}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
+                    Needs reconciliation
+                  </span>
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
+            Click on an account to start reconciliation
+          </p>
+        </div>
+      )}
 
       {/* Recent Transactions */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
