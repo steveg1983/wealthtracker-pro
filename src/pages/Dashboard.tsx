@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
+import { useReconciliation } from '../hooks/useReconciliation';
 
 export default function Dashboard() {
   const { accounts, transactions } = useApp();
@@ -60,73 +61,55 @@ export default function Dashboard() {
   const { assets: totalAssets, liabilities: totalLiabilities, netWorth } = convertedTotals;
 
 
-  // Generate net worth data for 24 months
-  const netWorthData = [];
-  const currentDate = new Date();
-  for (let i = 23; i >= 0; i--) {
-    const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-    const monthName = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
-    
-    // For now, use current net worth as sample data
-    // In a real app, you'd calculate historical net worth from transaction history
-    const variation = (Math.random() - 0.5) * 0.2; // ±10% variation
-    const historicalNetWorth = netWorth * (1 + variation * (i / 24));
-    
-    netWorthData.push({
-      month: monthName,
-      netWorth: Math.max(0, historicalNetWorth)
-    });
-  }
+  // Generate net worth data for 24 months (memoized)
+  const netWorthData = useMemo(() => {
+    const data = [];
+    const currentDate = new Date();
+    for (let i = 23; i >= 0; i--) {
+      const date = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const monthName = date.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+      
+      // Use deterministic calculation based on index for consistent data
+      const variation = Math.sin(i / 24 * Math.PI) * 0.1; // ±10% variation
+      const historicalNetWorth = netWorth * (1 + variation);
+      
+      data.push({
+        month: monthName,
+        netWorth: Math.max(0, historicalNetWorth)
+      });
+    }
+    return data;
+  }, [netWorth]);
 
-  // Find accounts that need reconciliation based on outstanding transactions
-  const accountsNeedingReconciliation = accounts.filter(account => {
-    // Get transactions for this account from the last 60 days
-    const recentCutoff = new Date();
-    recentCutoff.setDate(recentCutoff.getDate() - 60);
-    
-    const accountTransactions = transactions.filter(t => 
-      t.accountId === account.id && 
-      new Date(t.date) >= recentCutoff
-    );
-    
-    // Count unreconciled transactions (those without cleared status or recent ones)
-    const unreconciled = accountTransactions.filter(t => {
-      // Mark as needing reconciliation if:
-      // 1. Transaction is not marked as cleared
-      // 2. Transaction is from the last 30 days and might need verification
-      const transactionAge = Math.floor((Date.now() - new Date(t.date).getTime()) / (1000 * 60 * 60 * 24));
-      return !t.cleared || (transactionAge <= 30 && !t.reconciledWith);
-    });
-    
-    return unreconciled.length > 0;
-  });
+  // Get reconciliation data using shared hook
+  const { reconciliationDetails } = useReconciliation(accounts, transactions);
 
-  // Get reconciliation details for display
-  const reconciliationDetails = accountsNeedingReconciliation.map(account => {
-    const accountTransactions = transactions.filter(t => t.accountId === account.id);
-    const unreconciledCount = accountTransactions.filter(t => !t.cleared).length;
-    const recentUnverified = accountTransactions.filter(t => {
-      const transactionAge = Math.floor((Date.now() - new Date(t.date).getTime()) / (1000 * 60 * 60 * 24));
-      return transactionAge <= 30 && !t.reconciledWith;
-    }).length;
-    
-    return {
-      ...account,
-      unreconciledCount,
-      recentUnverified,
-      totalIssues: unreconciledCount + recentUnverified
-    };
-  });
-
-  // Prepare data for pie chart
-  const pieData = accounts.map(acc => ({
-    id: acc.id,
-    name: acc.name,
-    value: Math.abs(acc.balance),
-    color: acc.balance > 0 ? '#10b981' : '#ef4444',
-  }));
+  // Prepare data for pie chart (memoized)
+  const pieData = useMemo(() => 
+    accounts.map(acc => ({
+      id: acc.id,
+      name: acc.name,
+      value: Math.abs(acc.balance),
+      color: acc.balance > 0 ? '#10b981' : '#ef4444',
+    })),
+    [accounts]
+  );
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+
+  // Memoized chart styles for performance
+  const chartStyles = useMemo(() => ({
+    tooltip: {
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      border: '1px solid #E5E7EB',
+      borderRadius: '8px'
+    },
+    pieTooltip: {
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+      border: '1px solid #ccc',
+      borderRadius: '8px'
+    }
+  }), []);
 
   return (
     <div>
@@ -215,11 +198,7 @@ export default function Dashboard() {
                 />
                 <Tooltip 
                   formatter={(value: number) => [formatCurrency(value), 'Net Worth']}
-                  contentStyle={{ 
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    border: '1px solid #E5E7EB',
-                    borderRadius: '8px'
-                  }}
+                  contentStyle={chartStyles.tooltip}
                 />
                 <Bar dataKey="netWorth" fill="#8B5CF6" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -254,11 +233,7 @@ export default function Dashboard() {
                 </Pie>
                 <Tooltip 
                   formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={{ 
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    border: '1px solid #ccc',
-                    borderRadius: '8px'
-                  }}
+                  contentStyle={chartStyles.pieTooltip}
                 />
               </PieChart>
             </ResponsiveContainer>
@@ -270,45 +245,41 @@ export default function Dashboard() {
       {reconciliationDetails.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold dark:text-white">Outstanding Reconciliation</h2>
+            <h2 className="text-xl font-semibold dark:text-white">Outstanding Reconciliations</h2>
             <div className="text-right">
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Outstanding</p>
               <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
-                {reconciliationDetails.reduce((sum, acc) => sum + acc.totalIssues, 0)} items
+                {reconciliationDetails.reduce((sum, acc) => sum + acc.unreconciledCount, 0)} items
               </p>
             </div>
           </div>
           
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            {reconciliationDetails.length} account{reconciliationDetails.length !== 1 ? 's' : ''} require{reconciliationDetails.length === 1 ? 's' : ''} reconciliation with bank statements.
+            {reconciliationDetails.length} account{reconciliationDetails.length !== 1 ? 's' : ''} with unreconciled bank transactions.
           </p>
 
           {/* Summary Table */}
           <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden">
-            <div className="grid grid-cols-4 gap-4 p-3 bg-gray-100 dark:bg-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300">
+            <div className="grid grid-cols-3 gap-4 p-3 bg-gray-100 dark:bg-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300">
               <div>Account</div>
-              <div className="text-center">Uncleared</div>
-              <div className="text-center">Unverified</div>
-              <div className="text-center">Total</div>
+              <div className="text-center">Unreconciled</div>
+              <div className="text-center">Total Amount</div>
             </div>
             <div className="divide-y divide-gray-200 dark:divide-gray-600">
               {reconciliationDetails.map(account => (
                 <div 
-                  key={account.id}
-                  className="grid grid-cols-4 gap-4 p-3 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
-                  onClick={() => navigate(`/reconciliation?account=${account.id}`)}
+                  key={account.account.id}
+                  className="grid grid-cols-3 gap-4 p-3 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                  onClick={() => navigate(`/reconciliation?account=${account.account.id}`)}
                 >
                   <div className="font-medium text-gray-900 dark:text-white truncate">
-                    {account.name}
-                  </div>
-                  <div className="text-center text-gray-600 dark:text-gray-400">
-                    {account.unreconciledCount || '-'}
-                  </div>
-                  <div className="text-center text-gray-600 dark:text-gray-400">
-                    {account.recentUnverified || '-'}
+                    {account.account.name}
                   </div>
                   <div className="text-center font-medium text-orange-600 dark:text-orange-400">
-                    {account.totalIssues}
+                    {account.unreconciledCount}
+                  </div>
+                  <div className="text-center text-gray-600 dark:text-gray-400">
+                    {formatCurrency(account.totalToReconcile)}
                   </div>
                 </div>
               ))}
@@ -316,27 +287,21 @@ export default function Dashboard() {
           </div>
 
           {/* Summary Statistics */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-4">
             <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
               <p className="text-sm text-blue-600 dark:text-blue-400">Accounts</p>
               <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{reconciliationDetails.length}</p>
             </div>
-            <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400">Uncleared</p>
-              <p className="text-lg font-bold text-red-700 dark:text-red-300">
+            <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <p className="text-sm text-orange-600 dark:text-orange-400">Unreconciled</p>
+              <p className="text-lg font-bold text-orange-700 dark:text-orange-300">
                 {reconciliationDetails.reduce((sum, acc) => sum + acc.unreconciledCount, 0)}
               </p>
             </div>
-            <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-              <p className="text-sm text-yellow-600 dark:text-yellow-400">Unverified</p>
-              <p className="text-lg font-bold text-yellow-700 dark:text-yellow-300">
-                {reconciliationDetails.reduce((sum, acc) => sum + acc.recentUnverified, 0)}
-              </p>
-            </div>
-            <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
-              <p className="text-sm text-orange-600 dark:text-orange-400">Total Items</p>
-              <p className="text-lg font-bold text-orange-700 dark:text-orange-300">
-                {reconciliationDetails.reduce((sum, acc) => sum + acc.totalIssues, 0)}
+            <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <p className="text-sm text-green-600 dark:text-green-400">Total Value</p>
+              <p className="text-lg font-bold text-green-700 dark:text-green-300">
+                {formatCurrency(reconciliationDetails.reduce((sum, acc) => sum + acc.totalToReconcile, 0))}
               </p>
             </div>
           </div>

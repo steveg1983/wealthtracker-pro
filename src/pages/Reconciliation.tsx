@@ -1,122 +1,22 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { CheckCircle, Building2, CreditCard, Plus, Lightbulb, ChevronRight, ArrowLeft } from 'lucide-react';
 import EditTransactionModal from '../components/EditTransactionModal';
+import { mockBankTransactions } from '../utils/reconciliation';
+import { useCurrency } from '../hooks/useCurrency';
+import { useReconciliation } from '../hooks/useReconciliation';
+import type { BankTransaction } from '../utils/reconciliation';
 
-// Mock imported bank transactions (in real app, these would come from bank API/import)
-interface BankTransaction {
-  id: string;
-  date: Date;
-  description: string;
-  amount: number;
-  accountId: string;
-  type: 'credit' | 'debit';
-  bankReference?: string;
-  merchantCategory?: string;
-}
-
-// Simulated bank transactions to reconcile
-const now = new Date();
-const currentMonth = now.getMonth();
-const currentYear = now.getFullYear();
-
-const mockBankTransactions: BankTransaction[] = [
-  {
-    id: 'bank-1',
-    date: new Date(currentYear, currentMonth, 10),
-    description: 'TESCO STORES 2345',
-    amount: 45.67,
-    accountId: '1',
-    type: 'debit',
-    merchantCategory: 'Groceries'
-  },
-  {
-    id: 'bank-2',
-    date: new Date(currentYear, currentMonth, 11),
-    description: 'TFL TRAVEL CHARGE',
-    amount: 8.40,
-    accountId: '1',
-    type: 'debit',
-    merchantCategory: 'Transportation'
-  },
-  {
-    id: 'bank-3',
-    date: new Date(currentYear, currentMonth, 12),
-    description: 'SALARY - TECH CORP LTD',
-    amount: 3500.00,
-    accountId: '1',
-    type: 'credit',
-    merchantCategory: 'Salary'
-  },
-  {
-    id: 'bank-4',
-    date: new Date(currentYear, currentMonth, 13),
-    description: 'TRANSFER TO SAVINGS',
-    amount: 500.00,
-    accountId: '1',
-    type: 'debit',
-    bankReference: 'TFR-123456'
-  },
-  {
-    id: 'bank-5',
-    date: new Date(currentYear, currentMonth, 14),
-    description: 'NETFLIX.COM',
-    amount: 15.99,
-    accountId: '1',
-    type: 'debit',
-    merchantCategory: 'Entertainment'
-  },
-  {
-    id: 'bank-6',
-    date: new Date(currentYear, currentMonth, 15),
-    description: 'BARCLAYCARD PAYMENT',
-    amount: 250.00,
-    accountId: '7',
-    type: 'credit',
-    merchantCategory: 'Payment'
-  },
-  {
-    id: 'bank-7',
-    date: new Date(currentYear, currentMonth, 16),
-    description: 'AMAZON.CO.UK',
-    amount: 89.99,
-    accountId: '7',
-    type: 'debit',
-    merchantCategory: 'Shopping'
-  },
-  {
-    id: 'bank-8',
-    date: new Date(currentYear, currentMonth, 16),
-    description: 'MORTGAGE PAYMENT',
-    amount: 1200.00,
-    accountId: '1',
-    type: 'debit',
-    merchantCategory: 'Housing'
-  },
-  {
-    id: 'bank-9',
-    date: new Date(currentYear, currentMonth, 17),
-    description: 'INTEREST CREDIT',
-    amount: 2.50,
-    accountId: '2',
-    type: 'credit',
-    merchantCategory: 'Interest'
-  },
-  {
-    id: 'bank-10',
-    date: new Date(currentYear, currentMonth, 18),
-    description: 'TRANSFER FROM CURRENT',
-    amount: 500.00,
-    accountId: '2',
-    type: 'credit',
-    bankReference: 'TFR-123456'
-  }
-];
+// Bank transactions are now imported from shared utility
 
 export default function Reconciliation() {
   const { transactions, accounts, addTransaction, updateTransaction } = useApp();
-  const [selectedAccount, setSelectedAccount] = useState<string | null>(null);
-  const [bankTransactions] = useState<BankTransaction[]>(mockBankTransactions);
+  const { formatCurrency } = useCurrency();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedAccount, setSelectedAccount] = useState<string | null>(
+    searchParams.get('account') || null
+  );
   const [currentBankTransaction, setCurrentBankTransaction] = useState<BankTransaction | null>(null);
   const [showCreateNew, setShowCreateNew] = useState(false);
   const [newTransactionData, setNewTransactionData] = useState<any>({});
@@ -124,45 +24,24 @@ export default function Reconciliation() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
 
-  // Get accounts with bank imports (in real app, filter by accounts with bank connections)
-  const bankAccounts = accounts.filter(a => a.type === 'current' || a.type === 'credit' || a.type === 'savings');
-
-  // Calculate unreconciled transactions per account
-  const getUnreconciledCount = (accountId: string) => {
-    return bankTransactions.filter(bt => 
-      bt.accountId === accountId && !transactions.some(t => (t as any).bankReference === bt.id)
-    ).length;
-  };
-
-  // Get account summary data
-  const accountSummaries = bankAccounts.map(account => {
-    const unreconciledCount = getUnreconciledCount(account.id);
-    const accountBankTransactions = bankTransactions.filter(bt => bt.accountId === account.id);
-    const totalToReconcile = accountBankTransactions
-      .filter(bt => !transactions.some(t => (t as any).bankReference === bt.id))
-      .reduce((sum, bt) => sum + bt.amount, 0);
-
-    return {
-      account,
-      unreconciledCount,
-      totalToReconcile,
-      lastImportDate: accountBankTransactions.length > 0 
-        ? new Date(Math.max(...accountBankTransactions.map(bt => bt.date.getTime())))
-        : null
-    };
-  }).filter(summary => summary.unreconciledCount > 0);
+  // Use shared reconciliation hook
+  const { 
+    reconciliationDetails: accountSummaries, 
+    totalUnreconciledCount, 
+    getUnreconciledCount 
+  } = useReconciliation(accounts, transactions);
 
   // Set initial bank transaction when account is selected
   useEffect(() => {
     if (!selectedAccount) return;
     
-    const unreconciled = bankTransactions.filter(bt => 
+    const unreconciled = mockBankTransactions.filter(bt => 
       bt.accountId === selectedAccount && !transactions.some(t => (t as any).bankReference === bt.id)
     );
     if (unreconciled.length > 0) {
       setCurrentBankTransaction(unreconciled[0]);
     }
-  }, [selectedAccount, bankTransactions, transactions]);
+  }, [selectedAccount, transactions]);
 
   // Find suggested matches when bank transaction changes
   useEffect(() => {
@@ -286,8 +165,8 @@ export default function Reconciliation() {
   const moveToNext = () => {
     if (!selectedAccount) return;
     
-    const currentIndex = bankTransactions.findIndex(bt => bt.id === currentBankTransaction?.id);
-    const remaining = bankTransactions.slice(currentIndex + 1).filter(bt => 
+    const currentIndex = mockBankTransactions.findIndex(bt => bt.id === currentBankTransaction?.id);
+    const remaining = mockBankTransactions.slice(currentIndex + 1).filter(bt => 
       bt.accountId === selectedAccount && !transactions.some(t => (t as any).bankReference === bt.id)
     );
     
@@ -299,12 +178,7 @@ export default function Reconciliation() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'GBP'
-    }).format(amount);
-  };
+  // Currency formatting now handled by useCurrency hook
 
   const formatDate = (date: Date | null) => {
     if (!date) return 'N/A';
@@ -319,12 +193,15 @@ export default function Reconciliation() {
     setSelectedAccount(null);
     setCurrentBankTransaction(null);
     setShowCreateNew(false);
+    setSearchParams({});
   };
 
-  // Count total unreconciled transactions
-  const totalUnreconciledCount = bankTransactions.filter(bt => 
-    !transactions.some(t => (t as any).bankReference === bt.id)
-  ).length;
+  const handleSelectAccount = (accountId: string) => {
+    setSelectedAccount(accountId);
+    setSearchParams({ account: accountId });
+  };
+
+  // totalUnreconciledCount now comes from useReconciliation hook
 
   // Show account summary view if no account is selected
   if (!selectedAccount) {
@@ -366,11 +243,11 @@ export default function Reconciliation() {
             </div>
 
             <div className="grid gap-4">
-              {accountSummaries.map(({ account, unreconciledCount, totalToReconcile, lastImportDate }) => (
+              {accountSummaries.map(({ account, unreconciledCount, totalToReconcile, lastImportDate }: any) => (
                 <div
                   key={account.id}
                   className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
-                  onClick={() => setSelectedAccount(account.id)}
+                  onClick={() => handleSelectAccount(account.id)}
                 >
                   <div className="p-6">
                     <div className="flex items-center justify-between">
@@ -419,7 +296,7 @@ export default function Reconciliation() {
 
   // Show reconciliation view for selected account
   const selectedAccountData = accounts.find(a => a.id === selectedAccount);
-  const unreconciledCount = getUnreconciledCount(selectedAccount);
+  const unreconciledCount = selectedAccount ? getUnreconciledCount(selectedAccount) : 0;
 
   return (
     <div>
