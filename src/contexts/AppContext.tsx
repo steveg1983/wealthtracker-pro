@@ -594,9 +594,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   // Helper function to generate random amount within range
+  /*
   const randomAmount = (min: number, max: number): number => {
     return Math.round((Math.random() * (max - min) + min) * 100) / 100;
   };
+  */
 
   // Helper function to generate transactions over time
   /*
