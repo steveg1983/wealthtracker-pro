@@ -16,6 +16,7 @@ import Goals from './pages/Goals';
 import Analytics from './pages/Analytics';
 import Investments from './pages/Investments';
 import Settings from './pages/Settings';
+import AppSettings from './pages/settings/AppSettings';
 import AppearanceSettings from './pages/settings/Appearance';
 import DataManagementSettings from './pages/settings/DataManagement';
 import CategoriesSettings from './pages/settings/Categories';
@@ -38,6 +39,7 @@ function App() {
                 <Route path="/analytics" element={<Analytics />} />
                 <Route path="/investments" element={<Investments />} />
                 <Route path="/settings" element={<Settings />} />
+                <Route path="/settings/app" element={<AppSettings />} />
                 <Route path="/settings/appearance" element={<AppearanceSettings />} />
                 <Route path="/settings/data" element={<DataManagementSettings />} />
                 <Route path="/settings/categories" element={<CategoriesSettings />} />

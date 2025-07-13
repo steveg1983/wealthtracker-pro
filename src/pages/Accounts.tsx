@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import AddAccountModal from '../components/AddAccountModal';
-import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2 } from 'lucide-react';
+import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2, Calculator } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
 
 export default function Accounts() {
@@ -12,6 +12,9 @@ export default function Accounts() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBalance, setEditBalance] = useState('');
+  const [openingBalanceAccountId, setOpeningBalanceAccountId] = useState<string | null>(null);
+  const [openingBalance, setOpeningBalance] = useState('');
+  const [openingBalanceDate, setOpeningBalanceDate] = useState('');
   // Helper function to format currency in account's own currency
   const formatAccountCurrency = (amount: number, currency: string = 'GBP'): string => {
     const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
@@ -96,6 +99,28 @@ export default function Accounts() {
     }
   };
 
+  const handleOpeningBalance = (accountId: string) => {
+    const account = accounts.find(a => a.id === accountId);
+    if (account) {
+      setOpeningBalanceAccountId(accountId);
+      setOpeningBalance(account.openingBalance?.toString() || '0');
+      const date = account.openingBalanceDate ? new Date(account.openingBalanceDate) : new Date();
+      setOpeningBalanceDate(date.toISOString().split('T')[0]);
+    }
+  };
+
+  const handleSaveOpeningBalance = () => {
+    if (openingBalanceAccountId) {
+      updateAccount(openingBalanceAccountId, {
+        openingBalance: parseFloat(openingBalance) || 0,
+        openingBalanceDate: new Date(openingBalanceDate)
+      });
+      setOpeningBalanceAccountId(null);
+      setOpeningBalance('');
+      setOpeningBalanceDate('');
+    }
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -154,6 +179,12 @@ export default function Accounts() {
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                           {account.institution || 'Unknown Institution'} • Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
                         </p>
+                        {account.openingBalance !== undefined && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                            Opening balance: {formatAccountCurrency(account.openingBalance, account.currency)} 
+                            {account.openingBalanceDate && ` on ${new Date(account.openingBalanceDate).toLocaleDateString()}`}
+                          </p>
+                        )}
                       </div>
                       
                       <div className="flex items-center gap-4">
@@ -191,6 +222,13 @@ export default function Accounts() {
                             </p>
                             <div className="flex items-center gap-2">
                               <button
+                                onClick={() => handleOpeningBalance(account.id)}
+                                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                title="Adjust Opening Balance"
+                              >
+                                <Calculator size={18} />
+                              </button>
+                              <button
                                 onClick={() => handleEdit(account.id, account.balance)}
                                 className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
                               >
@@ -220,6 +258,63 @@ export default function Accounts() {
           <p className="text-gray-500 dark:text-gray-400">
             No accounts yet. Click "Add Account" to get started!
           </p>
+        </div>
+      )}
+
+      {/* Opening Balance Modal */}
+      {openingBalanceAccountId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Adjust Opening Balance
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Set the opening balance for this account. This is useful when importing partial transaction history.
+            </p>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Opening Balance
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={openingBalance}
+                  onChange={(e) => setOpeningBalance(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                  placeholder="0.00"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Opening Balance Date
+                </label>
+                <input
+                  type="date"
+                  value={openingBalanceDate}
+                  onChange={(e) => setOpeningBalanceDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                />
+              </div>
+            </div>
+            
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setOpeningBalanceAccountId(null)}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveOpeningBalance}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+              >
+                Save
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

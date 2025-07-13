@@ -17,7 +17,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
   const [date, setDate] = useState('');
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income' | 'expense'>('expense');
+  const [type, setType] = useState<'income' | 'expense' | 'transfer'>('expense');
   const [category, setCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -221,7 +221,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                     type="radio"
                     value="income"
                     checked={type === 'income'}
-                    onChange={(e) => setType(e.target.value as 'income')}
+                    onChange={(e) => setType(e.target.value as 'income' | 'expense' | 'transfer')}
                     className="mr-2"
                   />
                   <span className="text-green-600 dark:text-green-400">Income</span>
@@ -231,10 +231,20 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                     type="radio"
                     value="expense"
                     checked={type === 'expense'}
-                    onChange={(e) => setType(e.target.value as 'expense')}
+                    onChange={(e) => setType(e.target.value as 'income' | 'expense' | 'transfer')}
                     className="mr-2"
                   />
                   <span className="text-red-600 dark:text-red-400">Expense</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    value="transfer"
+                    checked={type === 'transfer'}
+                    onChange={(e) => setType(e.target.value as 'income' | 'expense' | 'transfer')}
+                    className="mr-2"
+                  />
+                  <span className="text-blue-600 dark:text-blue-400">Transfer</span>
                 </label>
               </div>
             </div>

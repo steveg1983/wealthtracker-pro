@@ -2,7 +2,7 @@ import { usePreferences } from '../../contexts/PreferencesContext';
 import { Moon, Sun, Monitor } from 'lucide-react';
 
 export default function AppearanceSettings() {
-  const { theme, setTheme, accentColor, setAccentColor, currency, setCurrency, firstName, setFirstName } = usePreferences();
+  const { theme, setTheme, accentColor, setAccentColor, firstName, setFirstName } = usePreferences();
 
   const themeOptions = [
     { value: 'light', label: 'Light', icon: Sun },
@@ -87,32 +87,6 @@ export default function AppearanceSettings() {
               </button>
             ))}
           </div>
-        </div>
-
-        {/* Currency Selection */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Display Currency
-          </label>
-          <select
-            value={currency}
-            onChange={(e) => setCurrency(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
-          >
-            <option value="GBP">£ British Pound (GBP)</option>
-            <option value="USD">$ US Dollar (USD)</option>
-            <option value="EUR">€ Euro (EUR)</option>
-            <option value="CAD">$ Canadian Dollar (CAD)</option>
-            <option value="AUD">$ Australian Dollar (AUD)</option>
-            <option value="JPY">¥ Japanese Yen (JPY)</option>
-            <option value="CHF">CHF Swiss Franc</option>
-            <option value="CNY">¥ Chinese Yuan (CNY)</option>
-            <option value="INR">₹ Indian Rupee (INR)</option>
-            <option value="NZD">$ New Zealand Dollar (NZD)</option>
-          </select>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Your net worth and all totals will be displayed in this currency. Individual accounts can still have different currencies, and exchange rates are updated automatically.
-          </p>
         </div>
       </div>
     </div>

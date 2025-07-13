@@ -11,7 +11,7 @@ interface RecurringTransaction {
   id?: string;
   description: string;
   amount: number;
-  type: 'income' | 'expense';
+  type: 'income' | 'expense' | 'transfer';
   category: string;
   accountId: string;
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
@@ -187,11 +187,12 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                 </label>
                 <select
                   value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' })}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' | 'transfer' })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="expense">Expense</option>
                   <option value="income">Income</option>
+                  <option value="transfer">Transfer</option>
                 </select>
               </div>
 

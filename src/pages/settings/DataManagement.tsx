@@ -4,7 +4,7 @@ import ImportDataModal from '../../components/ImportDataModal';
 import { Download, Trash2, AlertCircle, Upload, Database } from 'lucide-react';
 
 export default function DataManagementSettings() {
-  const { accounts, transactions, budgets, clearAllData, exportData, loadTestData } = useApp();
+  const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
@@ -39,6 +39,18 @@ export default function DataManagementSettings() {
   return (
     <div>
       <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-6">Data Management</h1>
+
+      {hasTestData && (
+        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6 flex items-start gap-3">
+          <AlertCircle className="text-orange-600 dark:text-orange-400 mt-0.5" size={20} />
+          <div>
+            <p className="font-medium text-orange-800 dark:text-orange-200">Test Data Active</p>
+            <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
+              You currently have test data loaded. When importing real bank data, you'll be prompted to clear this test data first.
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="space-y-3">

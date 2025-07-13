@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { ReactNode } from "react";
+import { getDefaultTestAccounts, getDefaultTestTransactions, getDefaultTestBudgets, getDefaultTestGoals } from "../data/defaultTestData";
 
 interface Account {
   id: string;
@@ -11,6 +12,8 @@ interface Account {
   lastUpdated: Date;
   holdings?: any[];
   notes?: string;
+  openingBalance?: number;
+  openingBalanceDate?: Date;
 }
 
 interface Transaction {
@@ -18,7 +21,7 @@ interface Transaction {
   date: Date;
   description: string;
   amount: number;
-  type: 'income' | 'expense';
+  type: 'income' | 'expense' | 'transfer';
   category: string; // This will now store the detail category ID
   categoryName?: string; // For backward compatibility and display
   accountId: string;
@@ -87,6 +90,7 @@ interface AppContextType {
   recurringTransactions: RecurringTransaction[];
   goals: Goal[];
   categories: Category[];
+  hasTestData: boolean;
   addAccount: (account: Omit<Account, 'id'>) => void;
   updateAccount: (id: string, account: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
@@ -171,9 +175,17 @@ const defaultCategories: Category[] = [
   { id: 'cat-27', name: 'Taxes', type: 'expense', level: 'detail', parentId: 'sub-financial', isSystem: true },
   { id: 'cat-28', name: 'Bank Fees', type: 'expense', level: 'detail', parentId: 'sub-financial', isSystem: true },
   
-  // Both type categories (for transfers)
-  { id: 'cat-29', name: 'Transfer', type: 'both', level: 'detail', isSystem: true },
+  // Transfer categories
+  { id: 'type-transfer', name: 'Transfer', type: 'both', level: 'type', isSystem: true },
+  { id: 'sub-transfers', name: 'Transfers', type: 'both', level: 'sub', parentId: 'type-transfer', isSystem: true },
+  
+  // Specific transfer categories for test data
+  { id: 'cat-29', name: 'Transfer', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true }, // Generic transfer
   { id: 'cat-30', name: 'Other', type: 'both', level: 'detail', isSystem: true },
+  { id: 'cat-31', name: 'Transfers between Natwest Current Account and Natwest Personal Loan', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
+  { id: 'cat-32', name: 'Transfers between Natwest Current Account and Natwest Credit Card', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
+  { id: 'cat-33', name: 'Transfers between Natwest Current Account and Natwest Savings Account', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
+  { id: 'cat-34', name: 'Transfers between Natwest Current Account and American Express', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
 ];
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -183,18 +195,68 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [categories, setCategories] = useState<Category[]>(defaultCategories);
+  const [hasTestData, setHasTestData] = useState<boolean>(false);
+
+  // Helper function to detect test data
+  const detectTestData = (accountsList: Account[]): boolean => {
+    // Check for specific test account names or institutions
+    const testAccountNames = [
+      'Natwest Current Account',
+      'Monzo Current Account',
+      'HSBC Regular Saver',
+      'NS&I Premium Bonds',
+      'Nationwide FlexDirect',
+      'Natwest Savings Account',
+      'Natwest Credit Card',
+      'American Express Gold',
+      'Natwest Personal Loan',
+      'Hargreaves Lansdown ISA',
+      'Hargreaves Lansdown SIPP',
+      'City Index Trader',
+      'Main Residence'
+    ];
+
+    const testInstitutions = [
+      'HSBC', 'Natwest', 'Monzo', 'NS&I',
+      'Nationwide', 'American Express',
+      'Hargreaves Lansdown', 'City Index',
+      'Property'
+    ];
+
+    // Check if we have accounts matching test data patterns
+    const hasTestAccounts = accountsList.some(account => 
+      testAccountNames.includes(account.name) || 
+      (account.institution && testInstitutions.includes(account.institution))
+    );
+
+    // Also check if we have the exact test data structure (5+ accounts with specific types)
+    const accountTypes = accountsList.map(a => a.type);
+    const hasTestStructure = accountsList.length >= 5 && 
+      accountTypes.filter(t => t === 'current').length >= 2 &&
+      accountTypes.filter(t => t === 'savings').length >= 2;
+
+    return hasTestAccounts || hasTestStructure;
+  };
 
   // Load data from localStorage on mount
   useEffect(() => {
     const savedData = localStorage.getItem('moneyTrackerData');
+    const testDataFlag = localStorage.getItem('moneyTrackerHasTestData');
+    
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData);
         if (parsedData.accounts) {
-          setAccounts(parsedData.accounts.map((a: any) => ({
+          const loadedAccounts = parsedData.accounts.map((a: any) => ({
             ...a,
             lastUpdated: new Date(a.lastUpdated)
-          })));
+          }));
+          setAccounts(loadedAccounts);
+          
+          // Check if this is test data
+          if (testDataFlag === 'true' || detectTestData(loadedAccounts)) {
+            setHasTestData(true);
+          }
         }
         if (parsedData.transactions) {
           // Migrate transactions to use category IDs
@@ -266,6 +328,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
       categories
     };
     localStorage.setItem('moneyTrackerData', JSON.stringify(dataToSave));
+    
+    // Update test data detection
+    if (accounts.length > 0) {
+      const isTestData = detectTestData(accounts);
+      setHasTestData(isTestData);
+      localStorage.setItem('moneyTrackerHasTestData', isTestData.toString());
+    }
   }, [accounts, transactions, budgets, recurringTransactions, goals, categories]);
 
   // Account methods
@@ -395,10 +464,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteCategory = (id: string, newCategoryId?: string) => {
-    // Check if category is system category
+    // Get the category being deleted
     const category = categories.find(c => c.id === id);
-    if (category?.isSystem) {
-      throw new Error('Cannot delete system categories');
+    if (!category) {
+      throw new Error('Category not found');
     }
 
     // Check if category has children
@@ -479,7 +548,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRecurringTransactions([]);
     setGoals([]);
     setCategories(defaultCategories);
+    setHasTestData(false);
     localStorage.removeItem('moneyTrackerData');
+    localStorage.removeItem('moneyTrackerHasTestData');
   };
 
   const exportData = () => {
@@ -1104,293 +1175,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
   };
 
   const loadTestData = () => {
-    // Comprehensive test accounts
-    const testAccounts: Account[] = [
-      // Current Accounts
-      {
-        id: '1',
-        name: 'HSBC Personal Current',
-        type: 'current',
-        balance: 8420.50,
-        currency: 'GBP',
-        institution: 'HSBC',
-        lastUpdated: new Date()
-      },
-      {
-        id: '2',
-        name: 'Barclays Joint Current',
-        type: 'current',
-        balance: 3250.75,
-        currency: 'GBP',
-        institution: 'Barclays',
-        lastUpdated: new Date()
-      },
-      {
-        id: '3',
-        name: 'Monzo Current Account',
-        type: 'current',
-        balance: 450.00,
-        currency: 'GBP',
-        institution: 'Monzo',
-        lastUpdated: new Date()
-      },
-      // Savings Accounts
-      {
-        id: '4',
-        name: 'HSBC Regular Saver',
-        type: 'savings',
-        balance: 12750.00,
-        currency: 'GBP',
-        institution: 'HSBC',
-        lastUpdated: new Date()
-      },
-      {
-        id: '5',
-        name: 'Marcus High Yield Savings',
-        type: 'savings',
-        balance: 25000.00,
-        currency: 'GBP',
-        institution: 'Marcus by Goldman Sachs',
-        lastUpdated: new Date()
-      },
-      {
-        id: '6',
-        name: 'NS&I Premium Bonds',
-        type: 'savings',
-        balance: 10000.00,
-        currency: 'GBP',
-        institution: 'NS&I',
-        lastUpdated: new Date()
-      },
-      // Credit Cards
-      {
-        id: '7',
-        name: 'Barclaycard Platinum',
-        type: 'credit',
-        balance: -2345.67,
-        currency: 'GBP',
-        institution: 'Barclaycard',
-        lastUpdated: new Date()
-      },
-      {
-        id: '8',
-        name: 'American Express Gold',
-        type: 'credit',
-        balance: -890.50,
-        currency: 'GBP',
-        institution: 'American Express',
-        lastUpdated: new Date()
-      },
-      {
-        id: '9',
-        name: 'Halifax Clarity',
-        type: 'credit',
-        balance: -150.00,
-        currency: 'GBP',
-        institution: 'Halifax',
-        lastUpdated: new Date()
-      },
-      // Mortgage
-      {
-        id: '10',
-        name: 'Home Mortgage',
-        type: 'loan',
-        balance: -285000.00,
-        currency: 'GBP',
-        institution: 'Nationwide',
-        lastUpdated: new Date()
-      },
-      // Car Finance
-      {
-        id: '11',
-        name: 'Tesla Model 3 Finance',
-        type: 'loan',
-        balance: -18500.00,
-        currency: 'GBP',
-        institution: 'Tesla Finance',
-        lastUpdated: new Date()
-      },
-      // Retirement Account
-      {
-        id: '12',
-        name: 'Company Pension (SIPP)',
-        type: 'investment',
-        balance: 125000.00,
-        currency: 'GBP',
-        institution: 'Hargreaves Lansdown',
-        lastUpdated: new Date()
-      },
-      // Investment Account with Stocks
-      {
-        id: '13',
-        name: 'Trading 212 ISA',
-        type: 'investment',
-        balance: 75000.00,
-        currency: 'GBP',
-        institution: 'Trading 212',
-        lastUpdated: new Date(),
-        holdings: [
-          { ticker: 'AAPL', shares: 50, value: 8750.00 },
-          { ticker: 'MSFT', shares: 30, value: 10200.00 },
-          { ticker: 'GOOGL', shares: 15, value: 12000.00 },
-          { ticker: 'AMZN', shares: 20, value: 7500.00 },
-          { ticker: 'NVDA', shares: 10, value: 6200.00 },
-          { ticker: 'TSLA', shares: 25, value: 5500.00 },
-          { ticker: 'BRK.B', shares: 20, value: 7000.00 },
-          { ticker: 'JPM', shares: 40, value: 6800.00 },
-          { ticker: 'JNJ', shares: 35, value: 5550.00 },
-          { ticker: 'V', shares: 25, value: 5500.00 }
-        ]
-      },
-      // Private Business Investment
-      {
-        id: '14',
-        name: 'TechStartup Ltd (50% ownership)',
-        type: 'other',
-        balance: 500000.00,
-        currency: 'USD',
-        institution: 'Private Investment',
-        lastUpdated: new Date(),
-        notes: '50% equity stake in private technology company'
-      },
-      // Business Loan
-      {
-        id: '15',
-        name: 'Loan to TechStartup Ltd',
-        type: 'other',
-        balance: 100000.00,
-        currency: 'USD',
-        institution: 'Private Loan',
-        lastUpdated: new Date(),
-        notes: 'Business loan at 8% annual interest'
-      }
-    ];
-
-    // Generate comprehensive test transactions over 12 months
-    const testTransactions = generateTransactionsOverTime();
-
-    // Comprehensive budgets
-    const testBudgets: Budget[] = [
-      {
-        id: '201',
-        category: 'Groceries',
-        amount: 500,
-        period: 'monthly',
-        isActive: true
-      },
-      {
-        id: '202',
-        category: 'Utilities',
-        amount: 300,
-        period: 'monthly',
-        isActive: true
-      },
-      {
-        id: '203',
-        category: 'Entertainment',
-        amount: 200,
-        period: 'monthly',
-        isActive: true
-      },
-      {
-        id: '204',
-        category: 'Dining',
-        amount: 300,
-        period: 'monthly',
-        isActive: true
-      },
-      {
-        id: '205',
-        category: 'Transportation',
-        amount: 750,
-        period: 'monthly',
-        isActive: true
-      },
-      {
-        id: '206',
-        category: 'Housing',
-        amount: 1850,
-        period: 'monthly',
-        isActive: true
-      },
-      {
-        id: '207',
-        category: 'Investment',
-        amount: 12000,
-        period: 'yearly',
-        isActive: true
-      },
-      {
-        id: '208',
-        category: 'Retirement',
-        amount: 6000,
-        period: 'yearly',
-        isActive: true
-      },
-      {
-        id: '209',
-        category: 'Shopping',
-        amount: 250,
-        period: 'monthly',
-        isActive: true
-      },
-      {
-        id: '210',
-        category: 'Healthcare',
-        amount: 100,
-        period: 'monthly',
-        isActive: true
-      }
-    ];
+    // Always clear existing data first to ensure we start fresh
+    setAccounts([]);
+    setTransactions([]);
+    setBudgets([]);
+    setGoals([]);
+    setCategories(defaultCategories);
     
-    // Sample goals
-    const testGoals: Goal[] = [
-      {
-        id: '301',
-        name: 'Emergency Fund',
-        targetAmount: 15000,
-        currentAmount: 8500,
-        targetDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)),
-        type: 'savings',
-        isActive: true,
-        createdAt: new Date()
-      },
-      {
-        id: '302',
-        name: 'House Deposit Top-up',
-        targetAmount: 50000,
-        currentAmount: 25000,
-        targetDate: new Date(new Date().setFullYear(new Date().getFullYear() + 2)),
-        type: 'savings',
-        isActive: true,
-        createdAt: new Date()
-      },
-      {
-        id: '303',
-        name: 'Dream Vacation - Japan',
-        targetAmount: 5000,
-        currentAmount: 1200,
-        targetDate: new Date(new Date().setMonth(new Date().getMonth() + 8)),
-        type: 'savings',
-        isActive: true,
-        createdAt: new Date()
-      },
-      {
-        id: '304',
-        name: 'New Car Fund',
-        targetAmount: 35000,
-        currentAmount: 5000,
-        targetDate: new Date(new Date().setFullYear(new Date().getFullYear() + 3)),
-        type: 'savings',
-        isActive: true,
-        createdAt: new Date()
-      }
-    ];
-
+    // Load fresh test data from defaults
+    const testAccounts = getDefaultTestAccounts();
+    const testTransactions = getDefaultTestTransactions();
+    const testBudgets = getDefaultTestBudgets();
+    const testGoals = getDefaultTestGoals();
+    
+    // Set the fresh test data
     setAccounts(testAccounts);
     setTransactions(testTransactions);
     setBudgets(testBudgets);
     setGoals(testGoals);
+    setHasTestData(true);
+    localStorage.setItem('moneyTrackerHasTestData', 'true');
   };
 
   return (
@@ -1401,6 +1205,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       recurringTransactions,
       goals,
       categories,
+      hasTestData,
       addAccount,
       updateAccount,
       deleteAccount,

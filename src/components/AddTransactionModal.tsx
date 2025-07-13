@@ -13,7 +13,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
   const { accounts, addTransaction, categories, getSubCategories, getDetailCategories } = useApp();
   const [description, setDescription] = useState('');
   const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income' | 'expense'>('expense');
+  const [type, setType] = useState<'income' | 'expense' | 'transfer'>('expense');
   const [category, setCategory] = useState('');
   const [subCategory, setSubCategory] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -66,7 +66,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Type
               </label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
                   onClick={() => setType('income')}
@@ -88,6 +88,17 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                   }`}
                 >
                   Expense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setType('transfer')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                    type === 'transfer'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  Transfer
                 </button>
               </div>
             </div>

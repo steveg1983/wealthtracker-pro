@@ -34,7 +34,7 @@ interface ParsedData {
 }
 
 export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProps) {
-  const { addAccount, addTransaction, accounts } = useApp();
+  const { addAccount, addTransaction, accounts, hasTestData, clearAllData } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [parsing, setParsing] = useState(false);
@@ -43,6 +43,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   const [preview, setPreview] = useState<ParsedData | null>(null);
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [rawMnyData, setRawMnyData] = useState<any[]>([]);
+  const [showTestDataWarning, setShowTestDataWarning] = useState(false);
 
   // Parse OFX file format
   const parseOFX = (content: string): ParsedData => {
@@ -196,7 +197,39 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     setShowMappingModal(false);
   };
 
+  const handleClearAndImport = async () => {
+    // Clear all data first
+    clearAllData();
+    setShowTestDataWarning(false);
+    
+    // Small delay to ensure state updates and localStorage is cleared
+    setTimeout(() => {
+      // Now import the data - hasTestData will be false after clearAllData
+      if (preview) {
+        setImporting(true);
+        importDataToApp();
+      }
+    }, 100);
+  };
+
+  const handleContinueWithTestData = () => {
+    setShowTestDataWarning(false);
+    importDataToApp();
+  };
+
   const handleImport = async () => {
+    if (!preview) return;
+    
+    // Check if we have test data and need to show warning
+    if (hasTestData && !showTestDataWarning) {
+      setShowTestDataWarning(true);
+      return;
+    }
+    
+    importDataToApp();
+  };
+
+  const importDataToApp = async () => {
     if (!preview) return;
     
     setImporting(true);
@@ -269,7 +302,10 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold dark:text-white">Import Financial Data</h2>
             <button
-              onClick={onClose}
+              onClick={() => {
+                onClose();
+                setShowTestDataWarning(false);
+              }}
               disabled={parsing}
               className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50"
             >
@@ -389,7 +425,10 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
 
           <div className="flex gap-3">
             <button
-              onClick={onClose}
+              onClick={() => {
+                onClose();
+                setShowTestDataWarning(false);
+              }}
               disabled={parsing || importing}
               className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
             >
@@ -416,6 +455,58 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         rawData={rawMnyData}
         onMappingComplete={handleMappingComplete}
       />
+
+      {/* Test Data Warning Dialog */}
+      {showTestDataWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="text-orange-500" size={24} />
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Test Data Detected</h3>
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              You currently have test data loaded in your application. You're about to import real bank data.
+            </p>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Would you like to:
+            </p>
+            <div className="space-y-3 mb-6">
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <p className="font-medium text-blue-800 dark:text-blue-200">Clear test data first (Recommended)</p>
+                <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+                  Remove all test data and start fresh with your real bank data
+                </p>
+              </div>
+              <div className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                <p className="font-medium text-gray-800 dark:text-gray-200">Continue with test data</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Mix your real bank data with the existing test data
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowTestDataWarning(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleContinueWithTestData}
+                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+              >
+                Continue
+              </button>
+              <button
+                onClick={handleClearAndImport}
+                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+              >
+                Clear & Import
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

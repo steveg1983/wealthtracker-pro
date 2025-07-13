@@ -1,8 +1,15 @@
-import { Palette, Database, Tag } from 'lucide-react';
+import { Palette, Database, Tag, Settings2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Settings() {
   const settingsOptions = [
+    {
+      title: 'App Settings',
+      description: 'Configure application behavior and features',
+      icon: Settings2,
+      path: '/settings/app',
+      color: 'bg-orange-500'
+    },
     {
       title: 'Appearance',
       description: 'Customize theme, colors, and display preferences',
@@ -89,7 +96,7 @@ export default function Settings() {
       {/* Quick Settings Links */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Settings</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {settingsOptions.map((option) => (
             <Link
               key={option.path}

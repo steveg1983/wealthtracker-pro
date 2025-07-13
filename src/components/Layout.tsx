@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Palette, Database, Tag } from 'lucide-react';
+import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Palette, Database, Tag, Settings2 } from 'lucide-react';
 import Breadcrumbs from './Breadcrumbs';
+import { usePreferences } from '../contexts/PreferencesContext';
 
 interface SidebarLinkProps {
   to: string;
@@ -76,6 +77,7 @@ export default function Layout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const location = useLocation();
+  const { showBudget, showGoals, showAnalytics } = usePreferences();
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
@@ -118,9 +120,9 @@ export default function Layout() {
             <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={isSidebarCollapsed} />
+            {showBudget && <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={isSidebarCollapsed} />}
+            {showGoals && <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={isSidebarCollapsed} />}
+            {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={isSidebarCollapsed} />}
             
             {/* Settings with Sub-navigation */}
             <div>
@@ -134,6 +136,7 @@ export default function Layout() {
               />
               {settingsExpanded && !isSidebarCollapsed && (
                 <div className="mt-1 space-y-1">
+                  <SidebarLink to="/settings/app" icon={Settings2} label="App Settings" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/appearance" icon={Palette} label="Appearance" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} />
@@ -173,9 +176,9 @@ export default function Layout() {
                 <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                {showBudget && <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showGoals && <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
                 
                 {/* Settings with Sub-navigation */}
                 <div>
@@ -189,6 +192,7 @@ export default function Layout() {
                   />
                   {settingsExpanded && (
                     <div className="mt-1 space-y-1">
+                      <SidebarLink to="/settings/app" icon={Settings2} label="App Settings" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/appearance" icon={Palette} label="Appearance" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />

@@ -14,7 +14,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
     date: new Date().toISOString().split('T')[0],
     description: '',
     amount: '',
-    type: 'expense' as 'income' | 'expense',
+    type: 'expense' as 'income' | 'expense' | 'transfer',
     category: '',
     accountId: accounts[0]?.id || '',
     notes: '',
@@ -138,11 +138,12 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
               </label>
               <select
                 value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' })}
+                onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' | 'transfer' })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="expense">Expense</option>
                 <option value="income">Income</option>
+                <option value="transfer">Transfer</option>
               </select>
             </div>
 

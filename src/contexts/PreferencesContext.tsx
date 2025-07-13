@@ -13,6 +13,13 @@ interface PreferencesContextType {
   setAccentColor: (value: string) => void;
   firstName: string;
   setFirstName: (value: string) => void;
+  // Page visibility settings
+  showBudget: boolean;
+  setShowBudget: (value: boolean) => void;
+  showGoals: boolean;
+  setShowGoals: (value: boolean) => void;
+  showAnalytics: boolean;
+  setShowAnalytics: (value: boolean) => void;
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -50,6 +57,22 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const [firstName, setFirstName] = useState(() => {
     return localStorage.getItem('money_management_first_name') || '';
+  });
+
+  // Page visibility settings
+  const [showBudget, setShowBudget] = useState(() => {
+    const saved = localStorage.getItem('money_management_show_budget');
+    return saved !== 'false'; // Default to true
+  });
+
+  const [showGoals, setShowGoals] = useState(() => {
+    const saved = localStorage.getItem('money_management_show_goals');
+    return saved !== 'false'; // Default to true
+  });
+
+  const [showAnalytics, setShowAnalytics] = useState(() => {
+    const saved = localStorage.getItem('money_management_show_analytics');
+    return saved !== 'false'; // Default to true
   });
 
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('dark');
@@ -150,6 +173,18 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('money_management_first_name', firstName);
   }, [firstName]);
 
+  useEffect(() => {
+    localStorage.setItem('money_management_show_budget', showBudget.toString());
+  }, [showBudget]);
+
+  useEffect(() => {
+    localStorage.setItem('money_management_show_goals', showGoals.toString());
+  }, [showGoals]);
+
+  useEffect(() => {
+    localStorage.setItem('money_management_show_analytics', showAnalytics.toString());
+  }, [showAnalytics]);
+
   return (
     <PreferencesContext.Provider value={{
       compactView,
@@ -163,6 +198,12 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
       setAccentColor,
       firstName,
       setFirstName,
+      showBudget,
+      setShowBudget,
+      showGoals,
+      setShowGoals,
+      showAnalytics,
+      setShowAnalytics,
     }}>
       {children}
     </PreferencesContext.Provider>
