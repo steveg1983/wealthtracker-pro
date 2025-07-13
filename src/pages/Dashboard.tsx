@@ -266,50 +266,84 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Accounts Needing Reconciliation */}
+      {/* Outstanding Reconciliation Summary */}
       {reconciliationDetails.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">Outstanding Reconciliation</h2>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-            These accounts have transactions that need to be reconciled with your bank statements.
-          </p>
-          <div className="space-y-3">
-            {reconciliationDetails.map(account => (
-              <div 
-                key={account.id}
-                className="flex justify-between items-center p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
-                onClick={() => navigate(`/reconciliation?account=${account.id}`)}
-              >
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-white">{account.name}</p>
-                  <div className="flex items-center gap-4 mt-1">
-                    {account.unreconciledCount > 0 && (
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {account.unreconciledCount} uncleared transaction{account.unreconciledCount !== 1 ? 's' : ''}
-                      </span>
-                    )}
-                    {account.recentUnverified > 0 && (
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        {account.recentUnverified} recent unverified
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-right">
-                    <span className="text-sm text-orange-600 dark:text-orange-400 font-medium">
-                      {account.totalIssues} item{account.totalIssues !== 1 ? 's' : ''}
-                    </span>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">to reconcile</p>
-                  </div>
-                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                </div>
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold dark:text-white">Outstanding Reconciliation</h2>
+            <div className="text-right">
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total Outstanding</p>
+              <p className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                {reconciliationDetails.reduce((sum, acc) => sum + acc.totalIssues, 0)} items
+              </p>
+            </div>
           </div>
+          
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+            {reconciliationDetails.length} account{reconciliationDetails.length !== 1 ? 's' : ''} require{reconciliationDetails.length === 1 ? 's' : ''} reconciliation with bank statements.
+          </p>
+
+          {/* Summary Table */}
+          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-hidden">
+            <div className="grid grid-cols-4 gap-4 p-3 bg-gray-100 dark:bg-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300">
+              <div>Account</div>
+              <div className="text-center">Uncleared</div>
+              <div className="text-center">Unverified</div>
+              <div className="text-center">Total</div>
+            </div>
+            <div className="divide-y divide-gray-200 dark:divide-gray-600">
+              {reconciliationDetails.map(account => (
+                <div 
+                  key={account.id}
+                  className="grid grid-cols-4 gap-4 p-3 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                  onClick={() => navigate(`/reconciliation?account=${account.id}`)}
+                >
+                  <div className="font-medium text-gray-900 dark:text-white truncate">
+                    {account.name}
+                  </div>
+                  <div className="text-center text-gray-600 dark:text-gray-400">
+                    {account.unreconciledCount || '-'}
+                  </div>
+                  <div className="text-center text-gray-600 dark:text-gray-400">
+                    {account.recentUnverified || '-'}
+                  </div>
+                  <div className="text-center font-medium text-orange-600 dark:text-orange-400">
+                    {account.totalIssues}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Summary Statistics */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+            <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-sm text-blue-600 dark:text-blue-400">Accounts</p>
+              <p className="text-lg font-bold text-blue-700 dark:text-blue-300">{reconciliationDetails.length}</p>
+            </div>
+            <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+              <p className="text-sm text-red-600 dark:text-red-400">Uncleared</p>
+              <p className="text-lg font-bold text-red-700 dark:text-red-300">
+                {reconciliationDetails.reduce((sum, acc) => sum + acc.unreconciledCount, 0)}
+              </p>
+            </div>
+            <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <p className="text-sm text-yellow-600 dark:text-yellow-400">Unverified</p>
+              <p className="text-lg font-bold text-yellow-700 dark:text-yellow-300">
+                {reconciliationDetails.reduce((sum, acc) => sum + acc.recentUnverified, 0)}
+              </p>
+            </div>
+            <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+              <p className="text-sm text-orange-600 dark:text-orange-400">Total Items</p>
+              <p className="text-lg font-bold text-orange-700 dark:text-orange-300">
+                {reconciliationDetails.reduce((sum, acc) => sum + acc.totalIssues, 0)}
+              </p>
+            </div>
+          </div>
+
           <div className="mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              💡 <strong>Tip:</strong> Click on an account to start reconciliation. Match your transactions with bank statements to ensure accuracy.
+              💡 <strong>Tip:</strong> Click on any account row to start reconciliation. Focus on accounts with the highest number of outstanding items first.
             </p>
           </div>
         </div>
