@@ -5,7 +5,7 @@ import { getDefaultTestAccounts, getDefaultTestTransactions, getDefaultTestBudge
 interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'other';
+  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
   balance: number;
   currency: string;
   institution?: string;
@@ -150,6 +150,7 @@ const defaultCategories: Category[] = [
   { id: 'sub-healthcare', name: 'Healthcare', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
   { id: 'sub-financial', name: 'Financial', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
   { id: 'sub-other-expense', name: 'Other Expenses', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
+  { id: 'sub-assets', name: 'Assets', type: 'both', level: 'sub', parentId: 'type-expense', isSystem: true },
   
   // Expense detail categories
   { id: 'cat-7', name: 'Groceries', type: 'expense', level: 'detail', parentId: 'sub-food', isSystem: true },
@@ -186,6 +187,13 @@ const defaultCategories: Category[] = [
   { id: 'cat-32', name: 'Transfers between Natwest Current Account and Natwest Credit Card', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
   { id: 'cat-33', name: 'Transfers between Natwest Current Account and Natwest Savings Account', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
   { id: 'cat-34', name: 'Transfers between Natwest Current Account and American Express', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
+  { id: 'cat-35', name: 'Transfers between Natwest Current Account and Natwest Mortgage', type: 'both', level: 'detail', parentId: 'sub-transfers', isSystem: true },
+  
+  // Asset categories
+  { id: 'cat-36', name: 'Property', type: 'both', level: 'detail', parentId: 'sub-assets', isSystem: true },
+  
+  // Blank category for uncategorized transactions
+  { id: 'cat-blank', name: 'Blank', type: 'both', level: 'detail', parentId: 'sub-other-expense', isSystem: true },
 ];
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -196,6 +204,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [categories, setCategories] = useState<Category[]>(defaultCategories);
   const [hasTestData, setHasTestData] = useState<boolean>(false);
+  const [isInitialMount, setIsInitialMount] = useState(true);
 
   // Helper function to detect test data
   const detectTestData = (accountsList: Account[]): boolean => {
@@ -333,10 +342,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       }
     } else {
       // No saved data, load new test data by default
+      console.log('No saved data found, loading test data...');
       const testAccounts = getDefaultTestAccounts();
       const testTransactions = getDefaultTestTransactions();
       const testBudgets = getDefaultTestBudgets();
       const testGoals = getDefaultTestGoals();
+      
+      console.log('Test data loaded:', {
+        accounts: testAccounts.length,
+        transactions: testTransactions.length,
+        budgets: testBudgets.length,
+        goals: testGoals.length
+      });
       
       setAccounts(testAccounts);
       setTransactions(testTransactions);
@@ -370,6 +387,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   // Save data to localStorage whenever it changes
   useEffect(() => {
+    // Skip saving on initial mount to prevent overwriting test data
+    if (isInitialMount) {
+      setIsInitialMount(false);
+      return;
+    }
+    
     const dataToSave = {
       accounts,
       transactions,
@@ -602,6 +625,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setHasTestData(false);
     localStorage.removeItem('moneyTrackerData');
     localStorage.removeItem('moneyTrackerHasTestData');
+    localStorage.removeItem('testDataWarningDismissed'); // Clear the warning dismissal
   };
 
   const exportData = () => {

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reset Wealth Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        button {
+            background-color: #0078d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px;
+        }
+        button:hover {
+            background-color: #005a9e;
+        }
+        .success {
+            color: green;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Wealth Tracker Reset Tool</h1>
+    <p>Use this page to reset your Wealth Tracker data if you're having issues.</p>
+    
+    <button onclick="clearAll()">Clear All Data & Reload</button>
+    <button onclick="goToApp()">Go to App</button>
+    
+    <div id="message"></div>
+    
+    <script>
+        function clearAll() {
+            // Clear all localStorage
+            localStorage.clear();
+            
+            // Show success message
+            document.getElementById('message').innerHTML = '<p class="success">All data cleared! Redirecting to app...</p>';
+            
+            // Redirect after 2 seconds
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 2000);
+        }
+        
+        function goToApp() {
+            window.location.href = '/';
+        }
+        
+        // Show current localStorage status
+        const hasData = localStorage.getItem('moneyTrackerData');
+        const hasTestData = localStorage.getItem('moneyTrackerHasTestData');
+        
+        if (hasData || hasTestData) {
+            document.getElementById('message').innerHTML = '<p>Current status: Data exists in localStorage</p>';
+        } else {
+            document.getElementById('message').innerHTML = '<p>Current status: No data in localStorage (fresh start)</p>';
+        }
+    </script>
+</body>
+</html>

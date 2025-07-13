@@ -6,13 +6,15 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
 import { useReconciliation } from '../hooks/useReconciliation';
+import TestDataWarningModal from '../components/TestDataWarningModal';
 
 export default function Dashboard() {
-  const { accounts, transactions } = useApp();
+  const { accounts, transactions, hasTestData, clearAllData } = useApp();
   const { firstName } = usePreferences();
   const { formatCurrency, convertAndSum, displayCurrency } = useCurrency();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
+  const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [convertedTotals, setConvertedTotals] = useState({
     assets: 0,
     liabilities: 0,
@@ -59,6 +61,16 @@ export default function Dashboard() {
   }, [accounts, displayCurrency, convertAndSum]);
   
   const { assets: totalAssets, liabilities: totalLiabilities, netWorth } = convertedTotals;
+  
+  // Check for test data on component mount
+  useEffect(() => {
+    if (hasTestData) {
+      const warningDismissed = localStorage.getItem('testDataWarningDismissed');
+      if (warningDismissed !== 'true') {
+        setShowTestDataWarning(true);
+      }
+    }
+  }, [hasTestData]);
 
 
   // Generate net worth data for 24 months (memoized)
@@ -344,6 +356,16 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+      
+      {/* Test Data Warning Modal */}
+      <TestDataWarningModal
+        isOpen={showTestDataWarning}
+        onClose={() => setShowTestDataWarning(false)}
+        onClearData={() => {
+          clearAllData();
+          setShowTestDataWarning(false);
+        }}
+      />
     </div>
   );
 }

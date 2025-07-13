@@ -2,7 +2,7 @@
 interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'other';
+  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
   balance: number;
   currency: string;
   institution?: string;
@@ -86,30 +86,12 @@ export const getDefaultTestAccounts = (): Account[] => {
   },
   // Savings Accounts
   {
-    id: '4',
-    name: 'HSBC Regular Saver',
-    type: 'savings',
-    balance: 12750.00,
-    currency: 'GBP',
-    institution: 'HSBC',
-    lastUpdated: new Date()
-  },
-  {
     id: '5',
     name: 'NS&I Premium Bonds',
     type: 'savings',
-    balance: 25000.00,
+    balance: 15000.00,
     currency: 'GBP',
     institution: 'NS&I',
-    lastUpdated: new Date()
-  },
-  {
-    id: '6',
-    name: 'Nationwide FlexDirect',
-    type: 'savings',
-    balance: 5500.00,
-    currency: 'GBP',
-    institution: 'Nationwide',
     lastUpdated: new Date()
   },
   {
@@ -156,6 +138,17 @@ export const getDefaultTestAccounts = (): Account[] => {
     openingBalance: -10000.00, // Original loan amount
     openingBalanceDate: sixMonthsAgo
   },
+  {
+    id: '16',
+    name: 'Natwest Mortgage',
+    type: 'loan',
+    balance: -180000.00, // Current balance
+    currency: 'GBP',
+    institution: 'Natwest',
+    lastUpdated: new Date(),
+    openingBalance: -187200.00, // 6 months ago (6 * £1,200 = £7,200 paid)
+    openingBalanceDate: sixMonthsAgo
+  },
   // Investment Accounts
   {
     id: '12',
@@ -166,18 +159,28 @@ export const getDefaultTestAccounts = (): Account[] => {
     institution: 'Hargreaves Lansdown',
     lastUpdated: new Date(),
     holdings: [
-      { ticker: 'VWRL', name: 'Vanguard All-World', shares: 350, value: 35000 },
-      { ticker: 'VUSA', name: 'Vanguard S&P 500', shares: 25, value: 10000 }
+      { ticker: 'BP.', name: 'BP', shares: 2500, value: 6682.50 }, // £2.673 per share
+      { ticker: 'SHEL', name: 'Shell', shares: 1200, value: 3207.60 }, // £2.673 per share
+      { ticker: 'HSBA', name: 'HSBC', shares: 1100, value: 9999.00 }, // £9.09 per share
+      { ticker: 'ULVR', name: 'Unilever', shares: 300, value: 13632.00 }, // £45.44 per share
+      { ticker: 'VWRL', name: 'Vanguard FTSE All-World ETF', shares: 110, value: 11478.90 } // ~£104.35 per share
     ]
   },
   {
     id: '13',
     name: 'Hargreaves Lansdown SIPP',
     type: 'investment',
-    balance: 65000.00,
+    balance: 210000.00,
     currency: 'GBP',
     institution: 'Hargreaves Lansdown',
-    lastUpdated: new Date()
+    lastUpdated: new Date(),
+    holdings: [
+      { ticker: 'AZN', name: 'AstraZeneca', shares: 350, value: 41867.00 }, // £119.62 per share
+      { ticker: 'VWRL', name: 'Vanguard FTSE All-World ETF', shares: 500, value: 52175.00 }, // ~£104.35 per share
+      { ticker: 'GB00B41YBW71', name: 'Fundsmith Equity', units: 1850, value: 42550.00 }, // ~£23 per unit
+      { ticker: 'GB00B8JYLC77', name: 'Lindsell Train Global Equity', units: 2500, value: 35000.00 }, // ~£14 per unit
+      { ticker: 'GB00BYTYHS72', name: 'Baillie Gifford Long Term Global Growth', units: 3200, value: 38400.00 } // ~£12 per unit
+    ]
   },
   {
     id: '14',
@@ -191,12 +194,14 @@ export const getDefaultTestAccounts = (): Account[] => {
   // Assets
   {
     id: '15',
-    name: 'Main Residence',
-    type: 'other',
+    name: 'Primary Residence',
+    type: 'assets',
     balance: 300000.00,
     currency: 'GBP',
     institution: 'Property',
-    lastUpdated: new Date()
+    lastUpdated: new Date(),
+    openingBalance: 300000.00,
+    openingBalanceDate: sixMonthsAgo
   }
   ];
 };
@@ -237,7 +242,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-1', // Salary
         categoryName: 'Salary',
         accountId: '2', // Natwest Current Account
-        cleared: true
+        cleared: false
       });
     }
   }
@@ -256,7 +261,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-31', // Specific transfer category
         categoryName: 'Transfers between Natwest Current Account and Natwest Personal Loan',
         accountId: '2', // Natwest Current Account
-        cleared: true
+        cleared: false
       });
       
       // Payment to loan account
@@ -269,7 +274,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-31', // Specific transfer category
         categoryName: 'Transfers between Natwest Current Account and Natwest Personal Loan',
         accountId: '11', // Natwest Personal Loan
-        cleared: true
+        cleared: false
       });
     }
   }
@@ -287,7 +292,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-10', // Rent
         categoryName: 'Rent',
         accountId: '2', // Natwest Current Account
-        cleared: true
+        cleared: false
       });
     }
   }
@@ -306,7 +311,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-32', // Specific transfer category
         categoryName: 'Transfers between Natwest Current Account and Natwest Credit Card',
         accountId: '2', // Natwest Current Account
-        cleared: true
+        cleared: false
       });
       
       // Payment to credit card
@@ -319,7 +324,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-32', // Specific transfer category
         categoryName: 'Transfers between Natwest Current Account and Natwest Credit Card',
         accountId: '8', // Natwest Credit Card
-        cleared: true
+        cleared: false
       });
     }
   }
@@ -338,7 +343,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-33', // Specific transfer category
         categoryName: 'Transfers between Natwest Current Account and Natwest Savings Account',
         accountId: '2', // Natwest Current Account
-        cleared: true
+        cleared: false
       });
       
       // Transfer to savings account
@@ -351,7 +356,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-33', // Specific transfer category
         categoryName: 'Transfers between Natwest Current Account and Natwest Savings Account',
         accountId: '7', // Natwest Savings Account
-        cleared: true
+        cleared: false
       });
     }
   }
@@ -388,7 +393,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-11', // Utilities
         categoryName: 'Utilities',
         accountId: '2', // Natwest Current Account
-        cleared: true
+        cleared: false
       });
     }
 
@@ -404,7 +409,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-11', // Utilities
         categoryName: 'Utilities',
         accountId: '2', // Natwest Current Account
-        cleared: true
+        cleared: false
       });
     }
 
@@ -420,7 +425,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-11', // Utilities
         categoryName: 'Utilities',
         accountId: '2', // Natwest Current Account
-        cleared: true
+        cleared: false
       });
     }
   }
@@ -469,20 +474,34 @@ export const getDefaultTestTransactions = (): Transaction[] => {
     }
   }
 
-  // Monthly Transport (TfL, fuel)
+  // Monthly Mortgage Payments - £1,200 on 1st of each month
   for (let month = 5; month >= 0; month--) {
-    const tflDate = monthsAgoOnDay(month, 1);
-    if (tflDate <= today) {
+    const mortgageDate = monthsAgoOnDay(month, 1);
+    if (mortgageDate <= today) {
+      // Payment from current account
       transactions.push({
         id: `t${transactionId++}`,
-        date: tflDate,
-        description: 'TfL Monthly Travelcard',
-        amount: 156.30,
-        type: 'expense',
-        category: 'cat-15', // Public Transport
-        categoryName: 'Public Transport',
+        date: mortgageDate,
+        description: 'Mortgage Payment - Natwest',
+        amount: -1200.00, // Negative for money leaving
+        type: 'transfer',
+        category: 'cat-35', // Specific transfer category for mortgage
+        categoryName: 'Transfers between Natwest Current Account and Natwest Mortgage',
         accountId: '2', // Natwest Current Account
-        cleared: true
+        cleared: false
+      });
+      
+      // Payment to mortgage account
+      transactions.push({
+        id: `t${transactionId++}`,
+        date: mortgageDate,
+        description: 'Mortgage Payment Received',
+        amount: 1200.00,
+        type: 'transfer',
+        category: 'cat-35', // Specific transfer category for mortgage
+        categoryName: 'Transfers between Natwest Current Account and Natwest Mortgage',
+        accountId: '16', // Natwest Mortgage
+        cleared: false
       });
     }
   }
@@ -515,7 +534,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-13', // Dining Out
         categoryName: 'Dining Out',
         accountId: '3', // Monzo
-        cleared: true
+        cleared: false
       });
     }
   }
@@ -534,7 +553,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
           category: 'cat-25', // Pharmacy
           categoryName: 'Pharmacy',
           accountId: '2', // Natwest Current Account
-          cleared: true
+          cleared: false
         });
       }
     }
@@ -598,7 +617,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-34', // Specific transfer category
         categoryName: 'Transfers between Natwest Current Account and American Express',
         accountId: '2', // Natwest Current Account
-        cleared: true
+        cleared: false
       });
       
       transactions.push({
@@ -610,7 +629,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         category: 'cat-34', // Specific transfer category
         categoryName: 'Transfers between Natwest Current Account and American Express',
         accountId: '9', // American Express
-        cleared: true
+        cleared: false
       });
     }
   }

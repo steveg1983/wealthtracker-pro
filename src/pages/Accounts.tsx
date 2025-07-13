@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import AddAccountModal from '../components/AddAccountModal';
-import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2, Calculator } from 'lucide-react';
+import AccountReconciliationModal from '../components/AccountReconciliationModal';
+import BalanceAdjustmentModal from '../components/BalanceAdjustmentModal';
+import PortfolioView from '../components/PortfolioView';
+import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2, Calculator, CheckCircle, Home, PieChart } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
 import { formatCurrency } from '../utils/currency';
 
@@ -16,6 +19,13 @@ export default function Accounts() {
   const [openingBalanceAccountId, setOpeningBalanceAccountId] = useState<string | null>(null);
   const [openingBalance, setOpeningBalance] = useState('');
   const [openingBalanceDate, setOpeningBalanceDate] = useState('');
+  const [reconcileAccountId, setReconcileAccountId] = useState<string | null>(null);
+  const [balanceAdjustmentData, setBalanceAdjustmentData] = useState<{
+    accountId: string;
+    currentBalance: number;
+    newBalance: string;
+  } | null>(null);
+  const [portfolioAccountId, setPortfolioAccountId] = useState<string | null>(null);
 
   // Group accounts by type
   const accountsByType = accounts.reduce((groups, account) => {
@@ -69,6 +79,14 @@ export default function Accounts() {
       bgColor: 'bg-purple-50 dark:bg-purple-900/20',
       borderColor: 'border-purple-200 dark:border-purple-800'
     },
+    { 
+      type: 'assets', 
+      title: 'Other Assets', 
+      icon: Home, 
+      color: 'text-indigo-600 dark:text-indigo-400',
+      bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
+      borderColor: 'border-indigo-200 dark:border-indigo-800'
+    },
   ];
 
 
@@ -78,10 +96,14 @@ export default function Accounts() {
   };
 
   const handleSaveEdit = (accountId: string) => {
-    updateAccount(accountId, { 
-      balance: parseFloat(editBalance) || 0,
-      lastUpdated: new Date()
-    });
+    const account = accounts.find(a => a.id === accountId);
+    if (account) {
+      setBalanceAdjustmentData({
+        accountId,
+        currentBalance: account.balance,
+        newBalance: editBalance
+      });
+    }
     setEditingId(null);
     setEditBalance('');
   };
@@ -218,6 +240,22 @@ export default function Accounts() {
                               {formatCurrency(account.balance, account.currency)}
                             </p>
                             <div className="flex items-center gap-1 sm:gap-2">
+                              {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
+                                <button
+                                  onClick={() => setPortfolioAccountId(account.id)}
+                                  className="p-1.5 sm:p-1 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded"
+                                  title="View Portfolio"
+                                >
+                                  <PieChart size={16} />
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setReconcileAccountId(account.id)}
+                                className="p-1.5 sm:p-1 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
+                                title="Reconcile Account"
+                              >
+                                <CheckCircle size={16} />
+                              </button>
                               <button
                                 onClick={() => handleOpeningBalance(account.id)}
                                 className="p-1.5 sm:p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
@@ -319,6 +357,58 @@ export default function Accounts() {
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
       />
+      
+      {/* Account Reconciliation Modal */}
+      {reconcileAccountId && (
+        <AccountReconciliationModal
+          isOpen={true}
+          onClose={() => setReconcileAccountId(null)}
+          accountId={reconcileAccountId}
+        />
+      )}
+      
+      {/* Balance Adjustment Modal */}
+      {balanceAdjustmentData && (
+        <BalanceAdjustmentModal
+          isOpen={true}
+          onClose={() => {
+            setBalanceAdjustmentData(null);
+            // Update the account balance after transaction is created
+            if (balanceAdjustmentData.accountId) {
+              const newBalance = parseFloat(balanceAdjustmentData.newBalance) || 0;
+              updateAccount(balanceAdjustmentData.accountId, {
+                balance: newBalance,
+                lastUpdated: new Date()
+              });
+            }
+          }}
+          accountId={balanceAdjustmentData.accountId}
+          currentBalance={balanceAdjustmentData.currentBalance}
+          newBalance={balanceAdjustmentData.newBalance}
+        />
+      )}
+      
+      {/* Portfolio View Modal */}
+      {portfolioAccountId && (() => {
+        const account = accounts.find(a => a.id === portfolioAccountId);
+        if (!account || !account.holdings) return null;
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <PortfolioView
+                  accountId={portfolioAccountId}
+                  accountName={account.name}
+                  holdings={account.holdings}
+                  currency={account.currency}
+                  onClose={() => setPortfolioAccountId(null)}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );}
   

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { TrendingUp, TrendingDown, DollarSign, BarChart3, AlertCircle } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, AlertCircle, ChevronRight } from 'lucide-react';
+import PortfolioView from '../components/PortfolioView';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
 
@@ -8,6 +9,7 @@ export default function Investments() {
   const { accounts, transactions } = useApp();
   const { formatCurrency } = useCurrency();
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1Y');
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   // Helper function to format percentages
   const formatPercentage = (value: number): string => {
@@ -147,7 +149,7 @@ export default function Investments() {
                 {formatCurrency(portfolioValue)}
               </p>
             </div>
-            <DollarSign className="text-primary" size={24} />
+            <BarChart3 className="text-primary" size={24} />
           </div>
         </div>
 
@@ -254,33 +256,49 @@ export default function Investments() {
             </p>
           ) : (
             <div className="space-y-4">
-              {holdings.map((holding, index) => (
-                <div key={holding.name} className="border-b dark:border-gray-700 pb-4 last:border-0">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className="font-medium text-gray-900 dark:text-white">{holding.name}</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">{holding.ticker}</p>
+              {investmentAccounts.map((account) => {
+                const holding = holdings.find(h => h.name === account.name);
+                if (!holding) return null;
+                
+                return (
+                  <div 
+                    key={account.id} 
+                    className="border-b dark:border-gray-700 pb-4 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 -mx-2 px-2 py-2 rounded"
+                    onClick={() => account.holdings && account.holdings.length > 0 && setSelectedAccountId(account.id)}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div>
+                        <h3 className="font-medium text-gray-900 dark:text-white hover:text-primary dark:hover:text-primary transition-colors">
+                          {holding.name}
+                        </h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{holding.ticker}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(holding.value)}</p>
+                        </div>
+                        {account.holdings && account.holdings.length > 0 && (
+                          <ChevronRight className="text-gray-400" size={20} />
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(holding.value)}</p>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                        <div 
+                          className="h-2 rounded-full"
+                          style={{ 
+                            width: `${holding.allocation}%`,
+                            backgroundColor: COLORS[investmentAccounts.indexOf(account) % COLORS.length]
+                          }}
+                        />
+                      </div>
+                      <span className="text-sm text-gray-600 dark:text-gray-400 w-12 text-right">
+                        {formatPercentage(holding.allocation)}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div 
-                        className="h-2 rounded-full"
-                        style={{ 
-                          width: `${holding.allocation}%`,
-                          backgroundColor: COLORS[index % COLORS.length]
-                        }}
-                      />
-                    </div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400 w-12 text-right">
-                      {formatPercentage(holding.allocation)}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -357,6 +375,28 @@ export default function Investments() {
           </div>
         </div>
       </div>
+      
+      {/* Portfolio View Modal */}
+      {selectedAccountId && (() => {
+        const account = investmentAccounts.find(a => a.id === selectedAccountId);
+        if (!account || !account.holdings) return null;
+        
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <PortfolioView
+                  accountId={selectedAccountId}
+                  accountName={account.name}
+                  holdings={account.holdings}
+                  currency={account.currency}
+                  onClose={() => setSelectedAccountId(null)}
+                />
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
