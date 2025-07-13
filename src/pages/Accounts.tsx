@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import AddAccountModal from '../components/AddAccountModal';
@@ -7,7 +7,6 @@ import BalanceAdjustmentModal from '../components/BalanceAdjustmentModal';
 import PortfolioView from '../components/PortfolioView';
 import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2, Calculator, CheckCircle, Home, PieChart } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
-import { formatCurrency } from '../utils/currency';
 
 export default function Accounts() {
   const { accounts, updateAccount, deleteAccount } = useApp();
@@ -27,15 +26,18 @@ export default function Accounts() {
   } | null>(null);
   const [portfolioAccountId, setPortfolioAccountId] = useState<string | null>(null);
 
-  // Group accounts by type
-  const accountsByType = accounts.reduce((groups, account) => {
-    const type = account.type;
-    if (!groups[type]) {
-      groups[type] = [];
-    }
-    groups[type].push(account);
-    return groups;
-  }, {} as Record<string, typeof accounts>);
+  // Group accounts by type (memoized)
+  const accountsByType = useMemo(() => 
+    accounts.reduce((groups, account) => {
+      const type = account.type;
+      if (!groups[type]) {
+        groups[type] = [];
+      }
+      groups[type].push(account);
+      return groups;
+    }, {} as Record<string, typeof accounts>),
+    [accounts]
+  );
 
   // Define account type metadata
   const accountTypes = [
@@ -171,7 +173,7 @@ export default function Accounts() {
                     </span>
                   </div>
                   <p className={`text-base md:text-lg font-semibold ${typeTotal >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
-                    {formatDisplayCurrency(typeTotal)}
+                    {typeTotal < 0 ? '-' : ''}{formatDisplayCurrency(Math.abs(typeTotal))}
                   </p>
                 </div>
               </div>
@@ -200,13 +202,13 @@ export default function Accounts() {
                         </p>
                         {account.openingBalance !== undefined && (
                           <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                            Opening balance: {formatCurrency(account.openingBalance, account.currency)} 
+                            Opening balance: {formatDisplayCurrency(account.openingBalance, account.currency)} 
                             {account.openingBalanceDate && ` on ${new Date(account.openingBalanceDate).toLocaleDateString()}`}
                           </p>
                         )}
                       </div>
                       
-                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-4">
+                      <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3">
                         {editingId === account.id ? (
                           <div className="flex items-center gap-2">
                             <input
@@ -232,14 +234,15 @@ export default function Accounts() {
                           </div>
                         ) : (
                           <>
-                            <p className={`text-lg md:text-xl font-semibold ${
-                              account.balance >= 0 
-                                ? 'text-gray-900 dark:text-white' 
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {formatCurrency(account.balance, account.currency)}
-                            </p>
-                            <div className="flex items-center gap-1 sm:gap-2">
+                            <div className="flex items-center gap-2 sm:gap-3">
+                              <p className={`text-lg md:text-xl font-semibold min-w-[120px] sm:min-w-[140px] text-right ${
+                                account.balance >= 0 
+                                  ? 'text-gray-900 dark:text-white' 
+                                  : 'text-red-600 dark:text-red-400'
+                              }`}>
+                                {account.balance < 0 ? '-' : ''}{formatDisplayCurrency(Math.abs(account.balance), account.currency)}
+                              </p>
+                              <div className="flex items-center gap-1">
                               {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button
                                   onClick={() => setPortfolioAccountId(account.id)}
@@ -275,6 +278,7 @@ export default function Accounts() {
                               >
                                 <Trash2 size={16} />
                               </button>
+                              </div>
                             </div>
                           </>
                         )}

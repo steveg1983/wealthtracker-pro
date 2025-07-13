@@ -649,7 +649,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const savedData = localStorage.getItem("moneyTrackerData");
     const testDataFlag = localStorage.getItem("moneyTrackerHasTestData");
     
-    // Add debug logging to help troubleshoot in production
     console.log("App initialization:", {
       hasSavedData: !!savedData,
       hasTestDataFlag: testDataFlag,
@@ -778,18 +777,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
     // Helper function to load default test data
     function loadDefaultTestData() {
-      console.log("Loading test data...");
       const testAccounts = getDefaultTestAccounts();
       const testTransactions = getDefaultTestTransactions();
       const testBudgets = getDefaultTestBudgets();
       const testGoals = getDefaultTestGoals();
 
-      console.log("Test data loaded:", {
-        accounts: testAccounts.length,
-        transactions: testTransactions.length,
-        budgets: testBudgets.length,
-        goals: testGoals.length,
-      });
 
       setAccounts(testAccounts);
       setTransactions(testTransactions);
@@ -1765,12 +1757,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const testBudgets = getDefaultTestBudgets();
     const testGoals = getDefaultTestGoals();
 
-    console.log("Loading test data via loadTestData():", {
-      accounts: testAccounts.length,
-      transactions: testTransactions.length,
-      budgets: testBudgets.length,
-      goals: testGoals.length,
-    });
 
     // Set the fresh test data
     setAccounts(testAccounts);

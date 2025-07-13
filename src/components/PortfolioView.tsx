@@ -110,6 +110,18 @@ export default function PortfolioView({
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Holdings</h2>
         </div>
         
+        {holdings.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-gray-500 dark:text-gray-400">
+              No holdings in this portfolio yet.
+            </p>
+            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+              Add holdings to track your investments.
+            </p>
+          </div>
+        ) : (
+        <>
+        
         {/* Sort Options */}
         <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
           <div className="flex items-center gap-4">
@@ -241,6 +253,8 @@ export default function PortfolioView({
             </div>
           ))}
         </div>
+        </>
+        )}
       </div>
     </div>
   );

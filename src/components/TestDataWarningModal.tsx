@@ -13,11 +13,6 @@ export default function TestDataWarningModal({ isOpen, onClose, onClearData }: T
   useEffect(() => {
     // Check if user has previously dismissed the warning
     const dismissed = localStorage.getItem('testDataWarningDismissed');
-    console.log('TestDataWarningModal: Checking dismissal status', { 
-      isOpen, 
-      dismissed,
-      shouldClose: dismissed === 'true' 
-    });
     
     if (dismissed === 'true' && isOpen) {
       onClose();

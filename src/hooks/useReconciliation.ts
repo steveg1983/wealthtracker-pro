@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
-import { getReconciliationSummary, mockBankTransactions } from '../utils/reconciliation';
+import { getReconciliationSummary } from '../utils/reconciliation';
 import type { ReconciliationSummary } from '../utils/reconciliation';
+import type { Account, Transaction } from '../types';
 
 interface UseReconciliationReturn {
   reconciliationDetails: ReconciliationSummary[];
@@ -8,7 +9,7 @@ interface UseReconciliationReturn {
   getUnreconciledCount: (accountId: string) => number;
 }
 
-export function useReconciliation(accounts: any[], transactions: any[]): UseReconciliationReturn {
+export function useReconciliation(accounts: Account[], transactions: Transaction[]): UseReconciliationReturn {
   // Get reconciliation summary (memoized)
   const reconciliationDetails = useMemo(() => 
     getReconciliationSummary(accounts, transactions),
@@ -17,16 +18,14 @@ export function useReconciliation(accounts: any[], transactions: any[]): UseReco
 
   // Count total unreconciled transactions (memoized)
   const totalUnreconciledCount = useMemo(() => 
-    mockBankTransactions.filter(bt => 
-      !transactions.some(t => (t as any).bankReference === bt.id)
-    ).length,
+    transactions.filter(t => t.cleared !== true).length,
     [transactions]
   );
 
   // Get unreconciled count for specific account (memoized)
   const getUnreconciledCount = useMemo(() => 
-    (accountId: string) => mockBankTransactions.filter(bt => 
-      bt.accountId === accountId && !transactions.some(t => (t as any).bankReference === bt.id)
+    (accountId: string) => transactions.filter(t => 
+      t.accountId === accountId && t.cleared !== true
     ).length,
     [transactions]
   );

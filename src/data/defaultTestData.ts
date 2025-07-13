@@ -170,16 +170,16 @@ export const getDefaultTestAccounts = (): Account[] => {
     id: '13',
     name: 'Hargreaves Lansdown SIPP',
     type: 'investment',
-    balance: 210000.00,
+    balance: 209992.00,
     currency: 'GBP',
     institution: 'Hargreaves Lansdown',
     lastUpdated: new Date(),
     holdings: [
       { ticker: 'AZN', name: 'AstraZeneca', shares: 350, value: 41867.00 }, // £119.62 per share
       { ticker: 'VWRL', name: 'Vanguard FTSE All-World ETF', shares: 500, value: 52175.00 }, // ~£104.35 per share
-      { ticker: 'GB00B41YBW71', name: 'Fundsmith Equity', units: 1850, value: 42550.00 }, // ~£23 per unit
-      { ticker: 'GB00B8JYLC77', name: 'Lindsell Train Global Equity', units: 2500, value: 35000.00 }, // ~£14 per unit
-      { ticker: 'GB00BYTYHS72', name: 'Baillie Gifford Long Term Global Growth', units: 3200, value: 38400.00 } // ~£12 per unit
+      { ticker: 'GB00B41YBW71', name: 'Fundsmith Equity', shares: 1850, value: 42550.00 }, // ~£23 per unit
+      { ticker: 'GB00B8JYLC77', name: 'Lindsell Train Global Equity', shares: 2500, value: 35000.00 }, // ~£14 per unit
+      { ticker: 'GB00BYTYHS72', name: 'Baillie Gifford Long Term Global Growth', shares: 3200, value: 38400.00 } // ~£12 per unit
     ]
   },
   {

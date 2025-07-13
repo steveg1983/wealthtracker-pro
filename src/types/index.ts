@@ -1,12 +1,21 @@
+export interface Holding {
+  ticker: string;
+  name: string;
+  shares: number;
+  value: number;
+}
+
 export interface Account {
   id: string;
   name: string;
-  type: 'current' | 'checking' | 'savings' | 'credit' | 'loan' | 'investment' | 'other';
+  type: 'current' | 'checking' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
   balance: number;
   currency: string;
-  institution: string;
+  institution?: string;
   lastUpdated: Date;
-  holdings?: any[];
+  openingBalance?: number;
+  openingBalanceDate?: Date;
+  holdings?: Holding[];
   notes?: string;
 }
 
@@ -15,10 +24,10 @@ export interface Transaction {
   date: Date;
   amount: number;
   description: string;
-  category: string; // This will now store the detail category ID
-  categoryName?: string; // For backward compatibility and display
+  category: string;
+  categoryName?: string;
   accountId: string;
-  type: 'income' | 'expense';
+  type: 'income' | 'expense' | 'transfer';
   tags?: string[];
   notes?: string;
   cleared?: boolean;

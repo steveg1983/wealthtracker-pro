@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { useCurrency } from '../hooks/useCurrency';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { Plus, TrendingUp, TrendingDown, Calendar, Trash2, Minimize2, Maximize2, Edit2, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
-import { formatCurrency } from '../utils/currency';
 
 export default function Transactions() {
   const { transactions, accounts, deleteTransaction, categories, getCategoryPath } = useApp();
   const { compactView, setCompactView, currency: displayCurrency } = usePreferences();
+  const { formatCurrency } = useCurrency();
   const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
@@ -36,43 +37,46 @@ export default function Transactions() {
     new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
-  // Apply filters and search
-  const filteredTransactions = sortedTransactions.filter(transaction => {
-    // Type filter
-    if (filterType !== 'all' && transaction.type !== filterType) return false;
-    
-    // Account filter
-    if (filterAccountId && transaction.accountId !== filterAccountId) return false;
-    
-    // Date range filter
-    const transactionDate = new Date(transaction.date);
-    if (dateFrom) {
-      const fromDate = new Date(dateFrom);
-      if (transactionDate < fromDate) return false;
-    }
-    if (dateTo) {
-      const toDate = new Date(dateTo);
-      toDate.setHours(23, 59, 59, 999); // Include the entire day
-      if (transactionDate > toDate) return false;
-    }
-    
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      const matchesDescription = transaction.description.toLowerCase().includes(query);
-      const categoryPath = getCategoryPath(transaction.category);
-      const matchesCategory = categoryPath.toLowerCase().includes(query);
-      const matchesAmount = transaction.amount.toString().includes(query);
-      const account = accounts.find(a => a.id === transaction.accountId);
-      const matchesAccount = account?.name.toLowerCase().includes(query) || false;
+  // Apply filters and search (memoized)
+  const filteredTransactions = useMemo(() => 
+    sortedTransactions.filter(transaction => {
+      // Type filter
+      if (filterType !== 'all' && transaction.type !== filterType) return false;
       
-      if (!matchesDescription && !matchesCategory && !matchesAmount && !matchesAccount) {
-        return false;
+      // Account filter
+      if (filterAccountId && transaction.accountId !== filterAccountId) return false;
+      
+      // Date range filter
+      const transactionDate = new Date(transaction.date);
+      if (dateFrom) {
+        const fromDate = new Date(dateFrom);
+        if (transactionDate < fromDate) return false;
       }
-    }
-    
-    return true;
-  });
+      if (dateTo) {
+        const toDate = new Date(dateTo);
+        toDate.setHours(23, 59, 59, 999); // Include the entire day
+        if (transactionDate > toDate) return false;
+      }
+      
+      // Search filter
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const matchesDescription = transaction.description.toLowerCase().includes(query);
+        const categoryPath = getCategoryPath(transaction.category);
+        const matchesCategory = categoryPath.toLowerCase().includes(query);
+        const matchesAmount = transaction.amount.toString().includes(query);
+        const account = accounts.find(a => a.id === transaction.accountId);
+        const matchesAccount = account?.name.toLowerCase().includes(query) || false;
+        
+        if (!matchesDescription && !matchesCategory && !matchesAmount && !matchesAccount) {
+          return false;
+        }
+      }
+      
+      return true;
+    }),
+    [sortedTransactions, filterType, filterAccountId, dateFrom, dateTo, searchQuery, getCategoryPath, accounts]
+  );
 
   // Pagination logic
   const totalPages = Math.ceil(filteredTransactions.length / transactionsPerPage);
@@ -434,7 +438,8 @@ export default function Transactions() {
                   <select
                     value={transactionsPerPage}
                     onChange={(e) => {
-                      setTransactionsPerPage(Number(e.target.value));
+                      const value = e.target.value === 'all' ? filteredTransactions.length : Number(e.target.value);
+                      setTransactionsPerPage(value);
                       setCurrentPage(1);
                     }}
                     className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-primary"
@@ -443,6 +448,8 @@ export default function Transactions() {
                     <option value={20}>20 per page</option>
                     <option value={50}>50 per page</option>
                     <option value={100}>100 per page</option>
+                    <option value={200}>200 per page</option>
+                    <option value="all">All transactions</option>
                   </select>
                 </div>
                 
@@ -536,6 +543,9 @@ export default function Transactions() {
                     <option value={10}>10/page</option>
                     <option value={20}>20/page</option>
                     <option value={50}>50/page</option>
+                    <option value={100}>100/page</option>
+                    <option value={200}>200/page</option>
+                    <option value="all">All</option>
                   </select>
                 </div>
                 

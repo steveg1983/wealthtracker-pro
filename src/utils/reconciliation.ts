@@ -109,38 +109,46 @@ export const mockBankTransactions: BankTransaction[] = [
   }
 ];
 
+import type { Account, Transaction } from '../types';
+
 // Shared reconciliation utility functions
-export const getUnreconciledCount = (accountId: string, transactions: any[]) => {
-  return mockBankTransactions.filter(bt => 
-    bt.accountId === accountId && !transactions.some(t => (t as any).bankReference === bt.id)
+export const getUnreconciledCount = (accountId: string, transactions: Transaction[]) => {
+  // Count uncleared transactions for this account
+  return transactions.filter(t => 
+    t.accountId === accountId && t.cleared !== true
   ).length;
 };
 
 export interface ReconciliationSummary {
-  account: any;
+  account: Account;
   unreconciledCount: number;
   totalToReconcile: number;
   lastImportDate: Date | null;
 }
 
-export const getReconciliationSummary = (accounts: any[], transactions: any[]): ReconciliationSummary[] => {
-  // Filter to bank-connected accounts only
-  const bankAccounts = accounts.filter(a => a.type === 'current' || a.type === 'credit' || a.type === 'savings');
-  
-  const reconciliationDetails = bankAccounts.map(account => {
-    const unreconciledCount = getUnreconciledCount(account.id, transactions);
-    const accountBankTransactions = mockBankTransactions.filter(bt => bt.accountId === account.id);
-    const totalToReconcile = accountBankTransactions
-      .filter(bt => !transactions.some(t => (t as any).bankReference === bt.id))
-      .reduce((sum, bt) => sum + bt.amount, 0);
+export const getReconciliationSummary = (accounts: Account[], transactions: Transaction[]): ReconciliationSummary[] => {
+  // Get all accounts that have uncleared transactions
+  const reconciliationDetails = accounts.map(account => {
+    const accountTransactions = transactions.filter(t => t.accountId === account.id);
+    const unclearedTransactions = accountTransactions.filter(t => t.cleared !== true);
+    const unreconciledCount = unclearedTransactions.length;
+    
+    const totalToReconcile = unclearedTransactions.reduce((sum, t) => {
+      // For expenses, count as positive amount to reconcile
+      // For income, count as positive amount to reconcile
+      return sum + Math.abs(t.amount);
+    }, 0);
+
+    // Get the most recent transaction date as last import date
+    const lastImportDate = accountTransactions.length > 0 
+      ? new Date(Math.max(...accountTransactions.map(t => new Date(t.date).getTime())))
+      : null;
 
     return {
       account,
       unreconciledCount,
       totalToReconcile,
-      lastImportDate: accountBankTransactions.length > 0 
-        ? new Date(Math.max(...accountBankTransactions.map(bt => bt.date.getTime())))
-        : null
+      lastImportDate
     };
   }).filter(summary => summary.unreconciledCount > 0); // Only accounts with unreconciled items
 

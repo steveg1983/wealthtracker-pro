@@ -264,7 +264,7 @@ export default function Investments() {
                   <div 
                     key={account.id} 
                     className="border-b dark:border-gray-700 pb-4 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/50 -mx-2 px-2 py-2 rounded"
-                    onClick={() => account.holdings && account.holdings.length > 0 && setSelectedAccountId(account.id)}
+                    onClick={() => setSelectedAccountId(account.id)}
                   >
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -379,7 +379,7 @@ export default function Investments() {
       {/* Portfolio View Modal */}
       {selectedAccountId && (() => {
         const account = investmentAccounts.find(a => a.id === selectedAccountId);
-        if (!account || !account.holdings) return null;
+        if (!account) return null;
         
         return (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -388,7 +388,7 @@ export default function Investments() {
                 <PortfolioView
                   accountId={selectedAccountId}
                   accountName={account.name}
-                  holdings={account.holdings}
+                  holdings={account.holdings || []}
                   currency={account.currency}
                   onClose={() => setSelectedAccountId(null)}
                 />

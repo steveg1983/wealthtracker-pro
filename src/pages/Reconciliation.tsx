@@ -1,26 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
-import { CheckCircle, Building2, CreditCard, Plus, Lightbulb, ChevronRight, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Building2, CreditCard, ChevronRight, ArrowLeft, Edit } from 'lucide-react';
 import EditTransactionModal from '../components/EditTransactionModal';
-import { mockBankTransactions } from '../utils/reconciliation';
 import { useCurrency } from '../hooks/useCurrency';
 import { useReconciliation } from '../hooks/useReconciliation';
-import type { BankTransaction } from '../utils/reconciliation';
 
 // Bank transactions are now imported from shared utility
 
 export default function Reconciliation() {
-  const { transactions, accounts, addTransaction, updateTransaction } = useApp();
+  const { transactions, accounts, updateTransaction } = useApp();
   const { formatCurrency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedAccount, setSelectedAccount] = useState<string | null>(
     searchParams.get('account') || null
   );
-  const [currentBankTransaction, setCurrentBankTransaction] = useState<BankTransaction | null>(null);
-  const [showCreateNew, setShowCreateNew] = useState(false);
-  const [newTransactionData, setNewTransactionData] = useState<any>({});
-  const [suggestedMatches, setSuggestedMatches] = useState<any[]>([]);
+  const [currentTransactionIndex, setCurrentTransactionIndex] = useState(0);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
 
@@ -31,150 +26,58 @@ export default function Reconciliation() {
     getUnreconciledCount 
   } = useReconciliation(accounts, transactions);
 
-  // Set initial bank transaction when account is selected
-  useEffect(() => {
-    if (!selectedAccount) return;
+  // Get uncleared transactions for selected account
+  const unclearedTransactions = selectedAccount 
+    ? transactions.filter(t => t.accountId === selectedAccount && !t.cleared)
+    : [];
     
-    const unreconciled = mockBankTransactions.filter(bt => 
-      bt.accountId === selectedAccount && !transactions.some(t => (t as any).bankReference === bt.id)
-    );
-    if (unreconciled.length > 0) {
-      setCurrentBankTransaction(unreconciled[0]);
-    }
-  }, [selectedAccount, transactions]);
+  const currentTransaction = unclearedTransactions[currentTransactionIndex] || null;
 
-  // Find suggested matches when bank transaction changes
+  // Reset index when account changes
   useEffect(() => {
-    if (!currentBankTransaction) {
-      setSuggestedMatches([]);
-      return;
-    }
+    setCurrentTransactionIndex(0);
+  }, [selectedAccount]);
 
-    // Find potential matches
-    const matches = transactions.filter(t => {
-      // Skip already reconciled transactions
-      if (t.reconciledWith) return false;
-      
-      // Check date proximity (within 3 days)
-      const daysDiff = Math.abs(
-        (new Date(t.date).getTime() - currentBankTransaction.date.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      if (daysDiff > 3) return false;
 
-      // Check amount match
-      const amountMatch = Math.abs(t.amount - currentBankTransaction.amount) < 0.01;
-      if (!amountMatch) return false;
 
-      // Check type match
-      const typeMatch = (currentBankTransaction.type === 'credit' && t.type === 'income') ||
-                       (currentBankTransaction.type === 'debit' && t.type === 'expense');
-      
-      return typeMatch;
-    });
 
-    setSuggestedMatches(matches);
+  // Handle marking transaction as cleared/reconciled
+  const handleReconcile = () => {
+    if (!currentTransaction) return;
 
-    // Pre-populate new transaction data based on bank transaction
-    const suggestedCategory = getSuggestedCategory(currentBankTransaction);
-    setNewTransactionData({
-      date: currentBankTransaction.date,
-      description: cleanDescription(currentBankTransaction.description),
-      amount: currentBankTransaction.amount,
-      type: currentBankTransaction.type === 'credit' ? 'income' : 'expense',
-      category: suggestedCategory,
-      accountId: currentBankTransaction.accountId,
-      bankReference: currentBankTransaction.id
-    });
-  }, [currentBankTransaction, transactions]);
-
-  // Get suggested category based on description and merchant category
-  const getSuggestedCategory = (bankTrans: BankTransaction): string => {
-    // Check merchant category mapping
-    const categoryMap: Record<string, string> = {
-      'Groceries': 'Groceries',
-      'Transportation': 'Transportation',
-      'Salary': 'Salary',
-      'Entertainment': 'Entertainment',
-      'Housing': 'Housing',
-      'Shopping': 'Shopping',
-      'Payment': 'Credit Card Payment',
-      'Interest': 'Interest Income'
-    };
-
-    if (bankTrans.merchantCategory && categoryMap[bankTrans.merchantCategory]) {
-      return categoryMap[bankTrans.merchantCategory];
-    }
-
-    // Check description patterns
-    const desc = bankTrans.description.toLowerCase();
-    if (desc.includes('tesco') || desc.includes('sainsbury') || desc.includes('asda')) return 'Groceries';
-    if (desc.includes('tfl') || desc.includes('uber') || desc.includes('transport')) return 'Transportation';
-    if (desc.includes('salary') || desc.includes('wages')) return 'Salary';
-    if (desc.includes('netflix') || desc.includes('spotify') || desc.includes('cinema')) return 'Entertainment';
-    if (desc.includes('mortgage')) return 'Housing';
-    if (desc.includes('transfer')) return 'Transfer';
-    
-    return 'Other';
-  };
-
-  // Clean bank description for display
-  const cleanDescription = (description: string): string => {
-    // Remove common bank reference patterns
-    return description
-      .replace(/\s+\d{4,}$/, '') // Remove trailing numbers
-      .replace(/^(POS|DD|SO|FT|)\s+/, '') // Remove payment type prefixes
-      .trim();
-  };
-
-  // Handle matching with existing transaction
-  const handleMatch = (transaction: any) => {
-    if (!currentBankTransaction) return;
-
-    // Update the existing transaction with bank reference
-    updateTransaction(transaction.id, {
-      ...transaction,
-      reconciledWith: currentBankTransaction.id,
-      bankReference: currentBankTransaction.id,
+    // Update the transaction to mark it as cleared
+    updateTransaction(currentTransaction.id, {
+      ...currentTransaction,
       cleared: true
     });
 
-    // Move to next bank transaction
+    // Move to next transaction
     moveToNext();
   };
 
-  // Handle creating new transaction
-  const handleCreateNew = () => {
-    if (!currentBankTransaction) return;
-
-    addTransaction({
-      ...newTransactionData,
-      reconciledWith: currentBankTransaction.id,
-      cleared: true
-    });
-
-    // Move to next bank transaction
-    moveToNext();
+  // Handle editing transaction
+  const handleEdit = () => {
+    if (!currentTransaction) return;
+    setEditingTransaction(currentTransaction);
+    setShowEditModal(true);
   };
 
-  // Skip current bank transaction
+  // Skip current transaction
   const handleSkip = () => {
     moveToNext();
   };
 
-  // Move to next unreconciled bank transaction
+  // Move to next unreconciled transaction
   const moveToNext = () => {
-    if (!selectedAccount) return;
-    
-    const currentIndex = mockBankTransactions.findIndex(bt => bt.id === currentBankTransaction?.id);
-    const remaining = mockBankTransactions.slice(currentIndex + 1).filter(bt => 
-      bt.accountId === selectedAccount && !transactions.some(t => (t as any).bankReference === bt.id)
-    );
-    
-    if (remaining.length > 0) {
-      setCurrentBankTransaction(remaining[0]);
-      setShowCreateNew(false);
-    } else {
-      setCurrentBankTransaction(null);
+    if (currentTransactionIndex < unclearedTransactions.length - 1) {
+      setCurrentTransactionIndex(currentTransactionIndex + 1);
+    }
+  };
+  
+  // Move to previous unreconciled transaction
+  const moveToPrevious = () => {
+    if (currentTransactionIndex > 0) {
+      setCurrentTransactionIndex(currentTransactionIndex - 1);
     }
   };
 
@@ -191,8 +94,7 @@ export default function Reconciliation() {
 
   const handleBackToAccounts = () => {
     setSelectedAccount(null);
-    setCurrentBankTransaction(null);
-    setShowCreateNew(false);
+    setCurrentTransactionIndex(0);
     setSearchParams({});
   };
 
@@ -322,7 +224,7 @@ export default function Reconciliation() {
         </div>
       </div>
 
-      {!currentBankTransaction ? (
+      {!currentTransaction ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <CheckCircle className="mx-auto text-green-500 mb-4" size={48} />
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -339,198 +241,112 @@ export default function Reconciliation() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left side - Bank Transaction */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="max-w-4xl mx-auto">
+          {/* Transaction Card */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                <Building2 size={20} />
-                Bank Transaction
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Transaction {currentTransactionIndex + 1} of {unclearedTransactions.length}
+                </h2>
+                <span className="text-sm text-gray-500 dark:text-gray-400">
+                  {Math.round(((currentTransactionIndex + 1) / unclearedTransactions.length) * 100)}% Complete
+                </span>
+              </div>
             </div>
             <div className="p-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Date</span>
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    {formatDate(currentBankTransaction.date)}
-                  </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Date</h3>
+                  <p className="text-lg font-medium text-gray-900 dark:text-white">
+                    {formatDate(currentTransaction.date)}
+                  </p>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Description</span>
-                  <span className="font-medium text-gray-900 dark:text-white text-right">
-                    {currentBankTransaction.description}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">Amount</span>
-                  <span className={`text-xl font-bold ${
-                    currentBankTransaction.type === 'credit' 
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Amount</h3>
+                  <p className={`text-lg font-bold ${
+                    currentTransaction.type === 'income' 
                       ? 'text-green-600 dark:text-green-400' 
                       : 'text-red-600 dark:text-red-400'
                   }`}>
-                    {currentBankTransaction.type === 'credit' ? '+' : '-'}
-                    {formatCurrency(currentBankTransaction.amount)}
+                    {currentTransaction.type === 'income' ? '+' : '-'}
+                    {formatCurrency(currentTransaction.amount)}
+                  </p>
+                </div>
+                <div className="md:col-span-2">
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Description</h3>
+                  <p className="text-lg text-gray-900 dark:text-white">
+                    {currentTransaction.description}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Category</h3>
+                  <p className="text-base text-gray-900 dark:text-white">
+                    {currentTransaction.category || 'Uncategorized'}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Status</h3>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
+                    Unreconciled
                   </span>
                 </div>
-                {currentBankTransaction.merchantCategory && (
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500 dark:text-gray-400">Category hint</span>
-                    <span className="text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded">
-                      {currentBankTransaction.merchantCategory}
-                    </span>
+                {currentTransaction.notes && (
+                  <div className="md:col-span-2">
+                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Notes</h3>
+                    <p className="text-base text-gray-700 dark:text-gray-300">
+                      {currentTransaction.notes}
+                    </p>
                   </div>
                 )}
-              </div>
-
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleSkip}
-                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    Skip for now
-                  </button>
-                  <button
-                    onClick={() => {/* Add manual matching mode */}}
-                    className="flex-1 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/10"
-                  >
-                    Find match
-                  </button>
-                </div>
               </div>
             </div>
           </div>
 
-          {/* Right side - Matching Options */}
-          <div className="space-y-6">
-            {/* Suggested Matches */}
-            {suggestedMatches.length > 0 && !showCreateNew && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <Lightbulb size={20} className="text-yellow-500" />
-                    Suggested Matches
-                  </h3>
-                </div>
-                <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {suggestedMatches.map(match => (
-                    <div key={match.id} className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-gray-900 dark:text-white">
-                            {match.description}
-                          </p>
-                          <p className="text-sm text-gray-500 dark:text-gray-400">
-                            {formatDate(match.date)} • {match.category}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`font-medium ${
-                            match.type === 'income' 
-                              ? 'text-green-600 dark:text-green-400' 
-                              : 'text-red-600 dark:text-red-400'
-                          }`}>
-                            {formatCurrency(match.amount)}
-                          </span>
-                          <button
-                            onClick={() => handleMatch(match)}
-                            className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                          >
-                            Match
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Create New Transaction */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-              <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <Plus size={20} />
-                  {showCreateNew ? 'New Transaction Details' : 'No Match Found?'}
-                </h3>
-              </div>
-              <div className="p-6">
-                {!showCreateNew ? (
-                  <button
-                    onClick={() => setShowCreateNew(true)}
-                    className="w-full px-4 py-3 bg-primary text-white rounded-lg hover:bg-secondary"
-                  >
-                    Create New Transaction
-                  </button>
-                ) : (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Description
-                      </label>
-                      <input
-                        type="text"
-                        value={newTransactionData.description}
-                        onChange={(e) => setNewTransactionData({
-                          ...newTransactionData,
-                          description: e.target.value
-                        })}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Category
-                      </label>
-                      <select
-                        value={newTransactionData.category}
-                        onChange={(e) => setNewTransactionData({
-                          ...newTransactionData,
-                          category: e.target.value
-                        })}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
-                      >
-                        <option value="Groceries">Groceries</option>
-                        <option value="Transportation">Transportation</option>
-                        <option value="Entertainment">Entertainment</option>
-                        <option value="Utilities">Utilities</option>
-                        <option value="Healthcare">Healthcare</option>
-                        <option value="Shopping">Shopping</option>
-                        <option value="Dining">Dining</option>
-                        <option value="Housing">Housing</option>
-                        <option value="Insurance">Insurance</option>
-                        <option value="Investment">Investment</option>
-                        <option value="Retirement">Retirement</option>
-                        <option value="Charity">Charity</option>
-                        <option value="Other">Other</option>
-                      </select>
-                    </div>
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => setShowCreateNew(false)}
-                        className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleCreateNew}
-                        className="flex-1 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
-                      >
-                        Create & Match
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-              <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>Tip:</strong> Bank transfers between your accounts? Look for the corresponding 
-                transaction in another account or create both sides of the transfer.
-              </p>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <button
+              onClick={moveToPrevious}
+              disabled={currentTransactionIndex === 0}
+              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              <ArrowLeft size={20} />
+              Previous
+            </button>
+            
+            <button
+              onClick={handleEdit}
+              className="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary/10 flex items-center justify-center gap-2"
+            >
+              <Edit size={20} />
+              Edit Transaction
+            </button>
+            
+            <button
+              onClick={handleReconcile}
+              className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 flex-1"
+            >
+              <CheckCircle size={20} />
+              Mark as Reconciled
+            </button>
+            
+            <button
+              onClick={handleSkip}
+              disabled={currentTransactionIndex === unclearedTransactions.length - 1}
+              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              Skip
+              <ChevronRight size={20} />
+            </button>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="mt-8">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+              <div 
+                className="bg-primary h-2.5 rounded-full transition-all duration-300"
+                style={{ width: `${((currentTransactionIndex + 1) / unclearedTransactions.length) * 100}%` }}
+              />
             </div>
           </div>
         </div>
