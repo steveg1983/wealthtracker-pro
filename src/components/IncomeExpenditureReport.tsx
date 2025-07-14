@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { Settings, Maximize2 } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
+import TransactionDetailsModal from './TransactionDetailsModal';
 
 interface IncomeExpenditureReportProps {
   data: any;
@@ -8,6 +10,8 @@ interface IncomeExpenditureReportProps {
   categories: any[];
   isModal?: boolean;
   onOpenModal?: () => void;
+  transactions?: any[];
+  accounts?: any[];
 }
 
 export default function IncomeExpenditureReport({ 
@@ -16,9 +20,54 @@ export default function IncomeExpenditureReport({
   setSettings, 
   categories,
   isModal = false,
-  onOpenModal
+  onOpenModal,
+  transactions = [],
+  accounts = []
 }: IncomeExpenditureReportProps) {
   const { formatCurrency } = useCurrency();
+  const [transactionModalData, setTransactionModalData] = useState<{
+    isOpen: boolean;
+    transactions: any[];
+    title: string;
+  }>({
+    isOpen: false,
+    transactions: [],
+    title: ''
+  });
+
+  const handleCellClick = (categoryData: any, monthData: any, month: any) => {
+    if (!transactions.length || !monthData || (monthData.income === 0 && monthData.expenditure === 0)) return;
+    
+    // Get all descendant category IDs
+    const getDescendantIds = (categoryId: string): string[] => {
+      const descendants = [categoryId];
+      const children = categories.filter(c => c.parentId === categoryId);
+      children.forEach(child => {
+        descendants.push(...getDescendantIds(child.id));
+      });
+      return descendants;
+    };
+
+    const categoryIds = getDescendantIds(categoryData.category.id);
+    
+    // Filter transactions for this category and month
+    const filteredTransactions = transactions.filter(t => {
+      const transactionDate = new Date(t.date);
+      const matchesCategory = categoryIds.includes(t.category);
+      const matchesMonth = 
+        transactionDate >= month.startDate && 
+        transactionDate <= month.endDate;
+      const matchesType = monthData.income > 0 ? t.type === 'income' : t.type === 'expense';
+      
+      return matchesCategory && matchesMonth && matchesType;
+    });
+
+    setTransactionModalData({
+      isOpen: true,
+      transactions: filteredTransactions,
+      title: `${categoryData.category.name} - ${month.label}`
+    });
+  };
   
   // Validate data structure
   if (!data || !data.months || !data.categories || !Array.isArray(data.months) || !Array.isArray(data.categories)) {
@@ -35,7 +84,7 @@ export default function IncomeExpenditureReport({
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
         {!isModal ? (
           <div className="flex items-center gap-2">
-            <h2 className="text-lg md:text-xl font-semibold dark:text-white">
+            <h2 className="text-lg md:text-xl font-semibold text-blue-900 dark:text-white">
               Income and Expenditure over Time
             </h2>
             {onOpenModal && (
@@ -280,23 +329,35 @@ export default function IncomeExpenditureReport({
                   ))
                 ) : Array.isArray(categoryData.monthlyData) ? (
                   // Normal data cells
-                  categoryData.monthlyData.map((monthData: any) => (
-                    <td key={monthData.month} className="py-2.5 px-1 text-center">
-                      {monthData.income > 0 && (
-                        <div className="text-sm text-green-600 dark:text-green-400">
-                          {formatCurrency(monthData.income)}
-                        </div>
-                      )}
-                      {monthData.expenditure > 0 && (
-                        <div className="text-sm text-red-600 dark:text-red-400">
-                          {formatCurrency(monthData.expenditure)}
-                        </div>
-                      )}
-                      {monthData.income === 0 && monthData.expenditure === 0 && (
-                        <div className="text-xs text-gray-300 dark:text-gray-600">-</div>
-                      )}
-                    </td>
-                  ))
+                  categoryData.monthlyData.map((monthData: any, monthIndex: number) => {
+                    const month = data.months[monthIndex];
+                    const hasValue = monthData.income > 0 || monthData.expenditure > 0;
+                    const isClickable = hasValue && transactions.length > 0 && !categoryData.category.isHeader;
+                    
+                    return (
+                      <td 
+                        key={monthData.month} 
+                        className={`py-2.5 px-1 text-center ${
+                          isClickable ? 'cursor-pointer hover:bg-blue-50 dark:hover:bg-gray-600/70 transition-colors' : ''
+                        }`}
+                        onClick={() => isClickable && handleCellClick(categoryData, monthData, month)}
+                      >
+                        {monthData.income > 0 && (
+                          <div className="text-sm text-green-600 dark:text-green-400">
+                            {formatCurrency(monthData.income)}
+                          </div>
+                        )}
+                        {monthData.expenditure > 0 && (
+                          <div className="text-sm text-red-600 dark:text-red-400">
+                            {formatCurrency(monthData.expenditure)}
+                          </div>
+                        )}
+                        {monthData.income === 0 && monthData.expenditure === 0 && (
+                          <div className="text-xs text-gray-300 dark:text-gray-600">-</div>
+                        )}
+                      </td>
+                    );
+                  })
                 ) : (
                   // Fallback when monthlyData is not available
                   data.months.map((month: any) => (
@@ -575,6 +636,15 @@ export default function IncomeExpenditureReport({
           </div>
         </div>
       )}
+
+      {/* Transaction Details Modal */}
+      <TransactionDetailsModal
+        isOpen={transactionModalData.isOpen}
+        onClose={() => setTransactionModalData({ isOpen: false, transactions: [], title: '' })}
+        transactions={transactionModalData.transactions}
+        title={transactionModalData.title}
+        accounts={accounts}
+      />
     </>
   );
 }

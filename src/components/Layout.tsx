@@ -44,8 +44,8 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
     isSubItem ? 'ml-6 text-sm' : ''
   } ${
     isActive
-      ? 'bg-primary text-white'
-      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+      ? 'bg-blue-600 text-white shadow-md'
+      : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600'
   }`;
 
   if (onClick) {
@@ -100,16 +100,16 @@ export default function Layout() {
       <aside
         className={`${
           isSidebarCollapsed ? 'w-16' : 'w-64'
-        } bg-white dark:bg-gray-800 shadow-md transition-all duration-300 hidden md:block`}
+        } bg-white dark:bg-gray-800 shadow-lg border-r border-blue-100 dark:border-gray-700 transition-all duration-300 hidden md:block`}
       >
         <div className="p-4">
           <div className="flex items-center justify-between mb-8">
             {!isSidebarCollapsed && (
-              <h1 className="text-xl font-bold text-gray-800 dark:text-white">Wealth Tracker</h1>
+              <h1 className="text-xl font-bold text-blue-800 dark:text-white">Wealth Tracker</h1>
             )}
             <button
               onClick={toggleSidebar}
-              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700"
+              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600"
             >
               <Menu size={20} className="text-gray-600 dark:text-gray-400" />
             </button>
@@ -164,7 +164,7 @@ export default function Layout() {
                 <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Wealth Tracker</h1>
                 <button
                   onClick={toggleMobileMenu}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
                 >
                   <X size={24} className="text-gray-600 dark:text-gray-300" />
                 </button>

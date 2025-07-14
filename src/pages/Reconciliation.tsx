@@ -110,7 +110,7 @@ export default function Reconciliation() {
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Bank Reconciliation</h1>
+          <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Bank Reconciliation</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             Select an account below to reconcile imported bank transactions
           </p>
@@ -308,7 +308,7 @@ export default function Reconciliation() {
             <button
               onClick={moveToPrevious}
               disabled={currentTransactionIndex === 0}
-              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               <ArrowLeft size={20} />
               Previous
@@ -333,7 +333,7 @@ export default function Reconciliation() {
             <button
               onClick={handleSkip}
               disabled={currentTransactionIndex === unclearedTransactions.length - 1}
-              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               Skip
               <ChevronRight size={20} />

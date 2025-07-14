@@ -521,7 +521,7 @@ export default function CategoriesSettings() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Categories</h1>
+        <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Categories</h1>
         <div className="flex gap-2">
           <button
             onClick={() => {

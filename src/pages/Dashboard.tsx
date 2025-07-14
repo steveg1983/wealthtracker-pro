@@ -672,7 +672,7 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mb-2">
+      <h1 className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-white mb-2">
         Welcome back, {firstName || 'User'}!
       </h1>
       <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mb-4 md:mb-6">
@@ -685,7 +685,7 @@ export default function Dashboard() {
       </p>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
         <div 
-          className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-blue-100 dark:border-gray-700 p-4 md:p-6 cursor-pointer hover:shadow-lg hover:border-blue-200 transition-all"
           onClick={() => navigate('/networth')}
         >
           <div className="flex items-center justify-between">
@@ -700,7 +700,7 @@ export default function Dashboard() {
         </div>
 
         <div 
-          className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-blue-100 dark:border-gray-700 p-4 md:p-6 cursor-pointer hover:shadow-lg hover:border-blue-200 transition-all"
           onClick={() => navigate('/networth/assets')}
         >
           <div className="flex items-center justify-between">
@@ -715,7 +715,7 @@ export default function Dashboard() {
         </div>
 
         <div 
-          className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 cursor-pointer hover:shadow-lg transition-shadow"
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-blue-100 dark:border-gray-700 p-4 md:p-6 cursor-pointer hover:shadow-lg hover:border-blue-200 transition-all"
           onClick={() => navigate('/networth/liabilities')}
         >
           <div className="flex items-center justify-between">
@@ -734,10 +734,10 @@ export default function Dashboard() {
       {/* Charts and Additional Info */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
         {/* Net Worth Over Time Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-blue-100 dark:border-gray-700 p-4 md:p-6">
           <div className="mb-3 md:mb-4">
             <h2 
-              className="text-lg md:text-xl font-semibold dark:text-white cursor-pointer hover:text-primary transition-colors"
+              className="text-lg md:text-xl font-semibold text-blue-900 dark:text-white cursor-pointer hover:text-primary transition-colors"
               onClick={() => openModal('networth-chart', 'Net Worth Over Time', netWorthData)}
             >
               Net Worth Over Time
@@ -785,10 +785,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-blue-100 dark:border-gray-700 p-4 md:p-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 md:mb-4 gap-1">
             <h2 
-              className="text-lg md:text-xl font-semibold dark:text-white cursor-pointer hover:text-primary transition-colors"
+              className="text-lg md:text-xl font-semibold text-blue-900 dark:text-white cursor-pointer hover:text-primary transition-colors"
               onClick={() => openModal('account-distribution', 'Account Distribution', pieData)}
             >
               Account Distribution
@@ -831,12 +831,15 @@ export default function Dashboard() {
       {reconciliationDetails.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 mb-6 md:mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 md:mb-4 gap-2">
-            <h2 
-              className="text-lg md:text-xl font-semibold dark:text-white cursor-pointer hover:text-primary transition-colors"
-              onClick={() => openModal('reconciliation', 'Outstanding Reconciliations', reconciliationDetails)}
-            >
-              Outstanding Reconciliations
-            </h2>
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
+              <h2 
+                className="text-lg md:text-xl font-semibold text-blue-900 dark:text-white cursor-pointer hover:text-primary transition-colors"
+                onClick={() => openModal('reconciliation', 'Outstanding Reconciliations', reconciliationDetails)}
+              >
+                Outstanding Reconciliations
+              </h2>
+            </div>
             <div 
               className="sm:text-right cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => navigate('/reconciliation')}
@@ -864,7 +867,7 @@ export default function Dashboard() {
                 {reconciliationDetails.map(account => (
                   <div 
                     key={account.account.id}
-                    className="grid grid-cols-3 gap-2 sm:gap-4 p-2 sm:p-3 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"
+                    className="grid grid-cols-3 gap-2 sm:gap-4 p-2 sm:p-3 hover:bg-gray-100 dark:hover:bg-gray-500 cursor-pointer transition-colors"
                     onClick={() => navigate(`/reconciliation?account=${account.account.id}`)}
                   >
                     <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
@@ -922,6 +925,8 @@ export default function Dashboard() {
                 settings={incomeExpReportSettings}
                 setSettings={setIncomeExpReportSettings}
                 categories={categories}
+                transactions={transactions}
+                accounts={accounts}
                 isModal={false}
                 onOpenModal={() => openModal(
                   'income-expenditure',
@@ -930,7 +935,9 @@ export default function Dashboard() {
                     ...incomeExpenditureData,
                     settings: incomeExpReportSettings,
                     setSettings: setIncomeExpReportSettings,
-                    categories: categories
+                    categories: categories,
+                    transactions: transactions,
+                    accounts: accounts
                   }
                 )}
               />
@@ -941,7 +948,7 @@ export default function Dashboard() {
 
       {/* Recent Transactions */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
-        <h2 className="text-lg md:text-xl font-semibold mb-2 md:mb-3 dark:text-white">Recent Transactions</h2>
+        <h2 className="text-lg md:text-xl font-semibold mb-2 md:mb-3 text-blue-900 dark:text-white">Recent Transactions</h2>
         <div className="space-y-1">
           {transactions.slice(0, 10).map(transaction => (
             <div key={transaction.id} className="flex items-center gap-3 py-1.5 border-b dark:border-gray-700/50 last:border-0">

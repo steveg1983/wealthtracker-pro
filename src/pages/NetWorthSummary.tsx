@@ -166,7 +166,7 @@ export default function NetWorthSummary() {
           <ArrowLeft size={24} />
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{getTitle()}</h1>
+          <h1 className="text-3xl font-bold text-blue-900 dark:text-white">{getTitle()}</h1>
           <p className="text-gray-600 dark:text-gray-400">{getDescription()}</p>
         </div>
       </div>

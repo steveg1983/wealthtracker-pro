@@ -133,7 +133,7 @@ export default function Transactions() {
     <div>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 md:mb-6 gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">Transactions</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-white">Transactions</h1>
           {filteredAccount && (
             <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">
               Showing transactions for: <span className="font-semibold">{filteredAccount.name}</span>
@@ -144,7 +144,7 @@ export default function Transactions() {
           {/* Compact View Toggle */}
           <button
             onClick={() => setCompactView(!compactView)}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             title={compactView ? "Switch to normal view" : "Switch to compact view"}
           >
             {compactView ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
@@ -268,7 +268,7 @@ export default function Transactions() {
                   setDateTo('');
                   resetPagination();
                 }}
-                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+                className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg"
                 title="Clear date range"
               >
                 <X size={18} />
@@ -365,7 +365,7 @@ export default function Transactions() {
                   return (
                     <tr 
                       key={transaction.id} 
-                      className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
+                      className="hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors"
                       onClick={() => handleEdit(transaction)}
                     >
                       <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-900 dark:text-gray-100`}>
@@ -457,7 +457,7 @@ export default function Transactions() {
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ChevronLeft size={20} className="text-gray-600 dark:text-gray-400" />
                   </button>
@@ -468,7 +468,7 @@ export default function Transactions() {
                       <>
                         <button
                           onClick={() => setCurrentPage(1)}
-                          className="px-3 py-1 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                          className="px-3 py-1 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
                         >
                           1
                         </button>
@@ -489,7 +489,7 @@ export default function Transactions() {
                           className={`px-3 py-1 text-sm rounded ${
                             currentPage === pageNum
                               ? 'bg-primary text-white'
-                              : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
+                              : 'hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300'
                           }`}
                         >
                           {pageNum}
@@ -503,7 +503,7 @@ export default function Transactions() {
                         {currentPage < totalPages - 3 && <span className="text-gray-500 dark:text-gray-400">...</span>}
                         <button
                           onClick={() => setCurrentPage(totalPages)}
-                          className="px-3 py-1 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
+                          className="px-3 py-1 text-sm rounded hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300"
                         >
                           {totalPages}
                         </button>
@@ -514,7 +514,7 @@ export default function Transactions() {
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ChevronRight size={20} className="text-gray-600 dark:text-gray-400" />
                   </button>
@@ -553,7 +553,7 @@ export default function Transactions() {
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ChevronLeft size={18} className="text-gray-600 dark:text-gray-400" />
                   </button>
@@ -568,7 +568,7 @@ export default function Transactions() {
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ChevronRight size={18} className="text-gray-600 dark:text-gray-400" />
                   </button>

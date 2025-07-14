@@ -178,7 +178,7 @@ export default function Reports() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Reports</h1>
+        <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Reports</h1>
         <button
           onClick={exportToCSV}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"

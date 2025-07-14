@@ -136,7 +136,7 @@ export default function MonthlyNetWorth() {
           <ArrowLeft size={24} />
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-blue-900 dark:text-white">
             Net Worth for {month}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
@@ -191,7 +191,7 @@ export default function MonthlyNetWorth() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Assets Section */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Assets</h2>
+          <h2 className="text-2xl font-bold text-blue-900 dark:text-white mb-6">Assets</h2>
           {Object.keys(groupedAssets).length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
               <p className="text-gray-500 dark:text-gray-400">No assets to display</p>
@@ -261,7 +261,7 @@ export default function MonthlyNetWorth() {
 
         {/* Liabilities Section */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Liabilities</h2>
+          <h2 className="text-2xl font-bold text-blue-900 dark:text-white mb-6">Liabilities</h2>
           {Object.keys(groupedLiabilities).length === 0 ? (
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
               <p className="text-gray-500 dark:text-gray-400">No liabilities to display</p>

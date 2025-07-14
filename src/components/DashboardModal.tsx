@@ -123,6 +123,8 @@ export default function DashboardModal({
                 settings={data.settings}
                 setSettings={data.setSettings}
                 categories={data.categories}
+                transactions={data.transactions}
+                accounts={data.accounts}
                 isModal={true}
               />
             </ErrorBoundary>
