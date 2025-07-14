@@ -10,6 +10,7 @@ import TestDataWarningModal from '../components/TestDataWarningModal';
 import OnboardingModal from '../components/OnboardingModal';
 import DashboardModal from '../components/DashboardModal';
 import IncomeExpenditureReport from '../components/IncomeExpenditureReport';
+import EditTransactionModal from '../components/EditTransactionModal';
 import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function Dashboard() {
@@ -35,6 +36,7 @@ export default function Dashboard() {
     liabilities: 0,
     netWorth: 0
   });
+  const [editingTransaction, setEditingTransaction] = useState<any>(null);
   
   // Income/Expenditure report settings
   const [incomeExpReportSettings, setIncomeExpReportSettings] = useState({
@@ -951,7 +953,11 @@ export default function Dashboard() {
         <h2 className="text-lg md:text-xl font-semibold mb-2 md:mb-3 text-blue-900 dark:text-white">Recent Transactions</h2>
         <div className="space-y-1">
           {transactions.slice(0, 10).map(transaction => (
-            <div key={transaction.id} className="flex items-center gap-3 py-1.5 border-b dark:border-gray-700/50 last:border-0">
+            <div 
+              key={transaction.id} 
+              className="flex items-center gap-3 py-1.5 border-b dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors rounded px-2 -mx-2"
+              onClick={() => setEditingTransaction(transaction)}
+            >
               <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
                 {new Date(transaction.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
               </span>
@@ -997,6 +1003,13 @@ export default function Dashboard() {
         type={modalState.type}
         data={modalState.data}
         chartStyles={chartStyles}
+      />
+
+      {/* Edit Transaction Modal */}
+      <EditTransactionModal
+        isOpen={!!editingTransaction}
+        onClose={() => setEditingTransaction(null)}
+        transaction={editingTransaction}
       />
     </div>
   );
