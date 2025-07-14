@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { TrendingUp, TrendingDown, BarChart3, AlertCircle, ChevronRight } from 'lucide-react';
+import { TrendingUp, TrendingDown, BarChart3, AlertCircle, ChevronRight, Plus } from 'lucide-react';
 import PortfolioView from '../components/PortfolioView';
+import EnhancedPortfolioView from '../components/EnhancedPortfolioView';
+import AddInvestmentModal from '../components/AddInvestmentModal';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
 
@@ -10,6 +12,7 @@ export default function Investments() {
   const { formatCurrency } = useCurrency();
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1Y');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const [showAddInvestmentModal, setShowAddInvestmentModal] = useState(false);
 
   // Helper function to format percentages
   const formatPercentage = (value: number): string => {
@@ -137,7 +140,18 @@ export default function Investments() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-blue-900 dark:text-white mb-6">Investments</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Investments</h1>
+        {investmentAccounts.length > 0 && (
+          <button
+            onClick={() => setShowAddInvestmentModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus size={20} />
+            Add Investment
+          </button>
+        )}
+      </div>
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -385,7 +399,7 @@ export default function Investments() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
               <div className="p-6">
-                <PortfolioView
+                <EnhancedPortfolioView
                   accountId={selectedAccountId}
                   accountName={account.name}
                   holdings={account.holdings || []}
@@ -397,6 +411,12 @@ export default function Investments() {
           </div>
         );
       })()}
+      
+      {/* Add Investment Modal */}
+      <AddInvestmentModal
+        isOpen={showAddInvestmentModal}
+        onClose={() => setShowAddInvestmentModal(false)}
+      />
     </div>
   );
 }

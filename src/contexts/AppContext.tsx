@@ -735,6 +735,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
               date: new Date(t.date),
               category: categoryId,
               categoryName: categoryName,
+              // Ensure amount is rounded to 2 decimal places
+              amount: Math.round(t.amount * 100) / 100,
             };
           });
 
@@ -892,6 +894,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ) => {
     const oldTransaction = transactions.find((t) => t.id === id);
     if (!oldTransaction) return;
+    
+    // Round amount if provided
+    if (updatedTransaction.amount !== undefined) {
+      updatedTransaction.amount = Math.round(updatedTransaction.amount * 100) / 100;
+    }
 
     // Update the transaction
     setTransactions(

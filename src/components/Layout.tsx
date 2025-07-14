@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Database, Tag, Settings2 } from 'lucide-react';
+import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Database, Tag, Settings2, LineChart } from 'lucide-react';
 import Breadcrumbs from './Breadcrumbs';
 import { usePreferences } from '../contexts/PreferencesContext';
 
@@ -17,12 +17,25 @@ interface SidebarLinkProps {
 
 function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onClick, onNavigate }: SidebarLinkProps) {
   const location = useLocation();
-  const isActive = location.pathname === to || (hasSubItems && location.pathname.startsWith(to));
+  const isActive = location.pathname === to || 
+    (hasSubItems && location.pathname.startsWith(to)) ||
+    (to === '/accounts' && (location.pathname.startsWith('/transactions') || location.pathname.startsWith('/reconciliation'))) ||
+    (to === '/forecasting' && (location.pathname.startsWith('/budget') || location.pathname.startsWith('/goals')));
 
   const handleClick = (e: React.MouseEvent) => {
     if (onClick) {
       e.preventDefault();
       onClick();
+    }
+  };
+
+  const handleLinkClick = (e: React.MouseEvent) => {
+    // If we're already on this page and it has sub-items, just toggle the expansion
+    if (hasSubItems && location.pathname === to && onClick) {
+      e.preventDefault();
+      onClick();
+    } else if (onNavigate) {
+      onNavigate();
     }
   };
 
@@ -48,7 +61,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
       : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600'
   }`;
 
-  if (onClick) {
+  if (onClick && !to) {
     return (
       <button
         onClick={handleClick}
@@ -65,7 +78,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
       to={to}
       className={className}
       title={isCollapsed ? label : undefined}
-      onClick={onNavigate}
+      onClick={handleLinkClick}
     >
       {content}
     </Link>
@@ -76,6 +89,8 @@ export default function Layout() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
+  const [accountsExpanded, setAccountsExpanded] = useState(false);
+  const [forecastingExpanded, setForecastingExpanded] = useState(false);
   const location = useLocation();
   const { showBudget, showGoals, showAnalytics } = usePreferences();
 
@@ -87,10 +102,31 @@ export default function Layout() {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  // Auto-expand settings if we're on a settings page
+  // Auto-expand/collapse sections based on current page
   React.useEffect(() => {
+    // Settings section
     if (location.pathname.startsWith('/settings')) {
       setSettingsExpanded(true);
+    } else {
+      setSettingsExpanded(false);
+    }
+    
+    // Accounts section
+    if (location.pathname.startsWith('/accounts') || 
+        location.pathname.startsWith('/reconciliation') || 
+        location.pathname.startsWith('/transactions')) {
+      setAccountsExpanded(true);
+    } else {
+      setAccountsExpanded(false);
+    }
+    
+    // Forecasting section
+    if (location.pathname.startsWith('/forecasting') || 
+        location.pathname.startsWith('/budget') || 
+        location.pathname.startsWith('/goals')) {
+      setForecastingExpanded(true);
+    } else {
+      setForecastingExpanded(false);
     }
   }, [location.pathname]);
 
@@ -116,12 +152,49 @@ export default function Layout() {
           </div>
           <nav className="space-y-2">
             <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={isSidebarCollapsed} />
+            
+            {/* Accounts with Sub-navigation */}
+            <div>
+              <SidebarLink 
+                to="/accounts" 
+                icon={Wallet} 
+                label="Accounts" 
+                isCollapsed={isSidebarCollapsed}
+                hasSubItems={!isSidebarCollapsed}
+                onClick={() => setAccountsExpanded(!accountsExpanded)}
+                onNavigate={() => !isSidebarCollapsed && setAccountsExpanded(true)}
+              />
+              {accountsExpanded && !isSidebarCollapsed && (
+                <div className="mt-1 space-y-1">
+                  <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} isSubItem={true} />
+                </div>
+              )}
+            </div>
+            
             <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={isSidebarCollapsed} />
-            {showBudget && <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={isSidebarCollapsed} />}
-            {showGoals && <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={isSidebarCollapsed} />}
+            
+            {/* Forecasting with Sub-navigation */}
+            {(showBudget || showGoals) && (
+              <div>
+                <SidebarLink 
+                  to="/forecasting" 
+                  icon={LineChart} 
+                  label="Forecasting" 
+                  isCollapsed={isSidebarCollapsed}
+                  hasSubItems={!isSidebarCollapsed}
+                  onClick={() => setForecastingExpanded(!forecastingExpanded)}
+                  onNavigate={() => !isSidebarCollapsed && setForecastingExpanded(true)}
+                />
+                {forecastingExpanded && !isSidebarCollapsed && (
+                  <div className="mt-1 space-y-1">
+                    {showBudget && <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={false} isSubItem={true} />}
+                    {showGoals && <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} isSubItem={true} />}
+                  </div>
+                )}
+              </div>
+            )}
+            
             {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={isSidebarCollapsed} />}
             
             {/* Settings with Sub-navigation */}
@@ -131,8 +204,9 @@ export default function Layout() {
                 icon={Settings} 
                 label="Settings" 
                 isCollapsed={isSidebarCollapsed}
-                hasSubItems={true}
+                hasSubItems={!isSidebarCollapsed}
                 onClick={() => setSettingsExpanded(!settingsExpanded)}
+                onNavigate={() => !isSidebarCollapsed && setSettingsExpanded(true)}
               />
               {settingsExpanded && !isSidebarCollapsed && (
                 <div className="mt-1 space-y-1">
@@ -171,12 +245,54 @@ export default function Layout() {
               </div>
               <nav className="space-y-2">
                 <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                <SidebarLink to="/accounts" icon={Wallet} label="Accounts" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                
+                {/* Accounts with Sub-navigation */}
+                <div>
+                  <SidebarLink 
+                    to="/accounts" 
+                    icon={Wallet} 
+                    label="Accounts" 
+                    isCollapsed={false}
+                    hasSubItems={true}
+                    onNavigate={() => {
+                      setAccountsExpanded(true);
+                      toggleMobileMenu();
+                    }}
+                  />
+                  {accountsExpanded && (
+                    <div className="mt-1 space-y-1">
+                      <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                    </div>
+                  )}
+                </div>
+                
                 <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                {showBudget && <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                {showGoals && <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                
+                {/* Forecasting with Sub-navigation */}
+                {(showBudget || showGoals) && (
+                  <div>
+                    <SidebarLink 
+                      to="/forecasting" 
+                      icon={LineChart} 
+                      label="Forecasting" 
+                      isCollapsed={false}
+                      hasSubItems={true}
+                      onClick={() => setForecastingExpanded(!forecastingExpanded)}
+                      onNavigate={() => {
+                        setForecastingExpanded(true);
+                        toggleMobileMenu();
+                      }}
+                    />
+                    {forecastingExpanded && (
+                      <div className="mt-1 space-y-1">
+                        {showBudget && <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
+                        {showGoals && <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
                 {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
                 
                 {/* Settings with Sub-navigation */}

@@ -28,7 +28,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
 
     addTransaction({
       description,
-      amount: parseFloat(amount),
+      amount: Math.round(parseFloat(amount) * 100) / 100,
       type,
       category,
       accountId,

@@ -32,6 +32,10 @@ export default function Breadcrumbs() {
           breadcrumbs.push({ label: 'Accounts', path: '/accounts' });
           break;
         case 'transactions':
+          // Add Accounts as parent
+          if (!breadcrumbs.some(b => b.path === '/accounts')) {
+            breadcrumbs.push({ label: 'Accounts', path: '/accounts' });
+          }
           breadcrumbs.push({ label: 'Transactions', path: '/transactions' });
           // If filtered by account, add account name
           if (accountId) {
@@ -44,19 +48,34 @@ export default function Breadcrumbs() {
             }
           }
           break;
+        case 'forecasting':
+          breadcrumbs.push({ label: 'Forecasting', path: '/forecasting' });
+          break;
         case 'budget':
+          // Add Forecasting as parent
+          if (!breadcrumbs.some(b => b.path === '/forecasting')) {
+            breadcrumbs.push({ label: 'Forecasting', path: '/forecasting' });
+          }
           breadcrumbs.push({ label: 'Budget', path: '/budget' });
           break;
         case 'analytics':
           breadcrumbs.push({ label: 'Analytics', path: '/analytics' });
           break;
         case 'goals':
+          // Add Forecasting as parent
+          if (!breadcrumbs.some(b => b.path === '/forecasting')) {
+            breadcrumbs.push({ label: 'Forecasting', path: '/forecasting' });
+          }
           breadcrumbs.push({ label: 'Goals', path: '/goals' });
           break;
         case 'investments':
           breadcrumbs.push({ label: 'Investments', path: '/investments' });
           break;
         case 'reconciliation':
+          // Add Accounts as parent
+          if (!breadcrumbs.some(b => b.path === '/accounts')) {
+            breadcrumbs.push({ label: 'Accounts', path: '/accounts' });
+          }
           breadcrumbs.push({ label: 'Reconciliation', path: '/reconciliation' });
           break;
         case 'settings':

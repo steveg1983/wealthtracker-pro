@@ -194,7 +194,7 @@ export function parseQIF(content: string): ParsedData {
     } else if (line.startsWith('T')) {
       // Amount
       const amountStr = line.substring(1).replace(/[,£$]/g, '').trim();
-      currentTransaction.amount = parseFloat(amountStr);
+      currentTransaction.amount = Math.round(parseFloat(amountStr) * 100) / 100;
     } else if (line.startsWith('P')) {
       // Payee
       currentTransaction.payee = line.substring(1).trim();

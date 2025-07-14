@@ -3,6 +3,13 @@ export interface Holding {
   name: string;
   shares: number;
   value: number;
+  averageCost?: number;
+  currentPrice?: number;
+  marketValue?: number;
+  gain?: number;
+  gainPercent?: number;
+  currency?: string;
+  lastUpdated?: Date;
 }
 
 export interface Account {

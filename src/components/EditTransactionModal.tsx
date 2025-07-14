@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Calendar, DollarSign, Tag, FileText, Check, Link, CheckCircle, Plus } from 'lucide-react';
+import { X, Calendar, Tag, FileText, Check, Link, Plus } from 'lucide-react';
 import type { Transaction } from '../types';
 import CategoryCreationModal from './CategoryCreationModal';
 import { getCurrencySymbol } from '../utils/currency';
@@ -25,7 +25,6 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
   const [tags, setTags] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [cleared, setCleared] = useState(false);
-  const [reconciled, setReconciled] = useState(false);
   const [reconciledWith, setReconciledWith] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -39,7 +38,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     if (transaction) {
       setDate(transaction.date.toISOString().split('T')[0]);
       setDescription(transaction.description);
-      setAmount(Math.abs(transaction.amount).toString());
+      setAmount(Math.abs(transaction.amount).toFixed(2));
       setType(transaction.type);
       
       // Find category and its parent
@@ -56,7 +55,6 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
       setTags(transaction.tags || []);
       setNotes(transaction.notes || '');
       setCleared(transaction.cleared || false);
-      setReconciled(!!transaction.reconciledWith);
       setReconciledWith(transaction.reconciledWith || '');
     } else {
       // Reset form for new transaction
@@ -71,7 +69,6 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
       setTags([]);
       setNotes('');
       setCleared(false);
-      setReconciled(false);
       setReconciledWith('');
     }
     setTagInput('');
@@ -84,14 +81,14 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     const transactionData = {
       date: new Date(date),
       description,
-      amount: parseFloat(amount) || 0,
+      amount: Math.round((parseFloat(amount) || 0) * 100) / 100,
       type,
       category,
       accountId,
       tags: tags.length > 0 ? tags : undefined,
       notes: notes.trim() || undefined,
       cleared,
-      reconciledWith: reconciled && reconciledWith.trim() ? reconciledWith.trim() : undefined
+      reconciledWith: reconciledWith.trim() || undefined
     };
 
     if (transaction) {
@@ -125,16 +122,6 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     if (e.key === 'Enter') {
       e.preventDefault();
       handleAddTag();
-    }
-  };
-
-  const toggleReconciled = () => {
-    if (reconciled) {
-      setReconciled(false);
-      setReconciledWith('');
-    } else {
-      setReconciled(true);
-      setReconciledWith('manual');
     }
   };
 
@@ -177,8 +164,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
 
             {/* Account */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <DollarSign size={16} />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Account
               </label>
               <select
@@ -252,8 +238,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
 
             {/* Amount */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <DollarSign size={16} />
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Amount {accountId && (() => {
                   const selectedAccount = accounts.find(a => a.id === accountId);
                   return selectedAccount ? `(${getCurrencySymbol(selectedAccount.currency)})` : '';
@@ -390,20 +375,20 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 />
                 <Check size={16} className="text-green-600 dark:text-green-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Transaction has cleared
+                  Transaction Reconciled
                 </span>
               </label>
 
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={reconciled}
-                  onChange={toggleReconciled}
-                  className="rounded border-gray-300 dark:border-gray-600"
+                  checked={!!reconciledWith && reconciledWith !== 'manual'}
+                  disabled
+                  className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <CheckCircle size={16} className="text-blue-600 dark:text-blue-400" />
+                <Link size={16} className="text-blue-600 dark:text-blue-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Mark as reconciled (manual)
+                  Linked to bank statement
                 </span>
               </label>
 

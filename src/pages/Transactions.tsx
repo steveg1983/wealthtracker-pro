@@ -313,9 +313,14 @@ export default function Transactions() {
                       {getTypeIcon(transaction.type)}
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">{transaction.description}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {new Date(transaction.date).toLocaleDateString()}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {new Date(transaction.date).toLocaleDateString()}
+                          </p>
+                          <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+                            {transaction.cleared ? 'R' : 'N'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                     <span className={`font-bold ${
@@ -341,6 +346,9 @@ export default function Transactions() {
                 <tr>
                   <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
                     Date
+                  </th>
+                  <th className={`px-2 ${compactView ? 'py-2' : 'py-3'} text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10`}>
+                    R
                   </th>
                   <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
                     Description
@@ -370,6 +378,11 @@ export default function Transactions() {
                     >
                       <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-900 dark:text-gray-100`}>
                         {new Date(transaction.date).toLocaleDateString()}
+                      </td>
+                      <td className={`px-2 ${compactView ? 'py-2' : 'py-4'} text-center w-10`}>
+                        <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+                          {transaction.cleared ? 'R' : 'N'}
+                        </span>
                       </td>
                       <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap`}>
                         <div className="flex items-center gap-2">

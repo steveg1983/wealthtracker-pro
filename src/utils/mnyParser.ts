@@ -165,8 +165,9 @@ export function applyMappingToData(rawData: any[], mapping: any): { accounts: Pa
       if (isNaN(date.getTime())) return;
       
       // Get amount
-      const amount = parseFloat(String(amountField));
-      if (isNaN(amount)) return;
+      const rawAmount = parseFloat(String(amountField));
+      if (isNaN(rawAmount)) return;
+      const amount = Math.round(rawAmount * 100) / 100;
       
       // Get optional fields
       const payee = mapping.payee !== undefined ? record[Object.keys(record)[mapping.payee]] : undefined;

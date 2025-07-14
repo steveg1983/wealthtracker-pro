@@ -364,7 +364,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
   // Weekly Groceries - varying amounts
   for (let week = 24; week >= 0; week--) {
     const groceryDate = daysAgo(week * 7);
-    const amount = 80 + Math.random() * 40; // £80-120
+    const amount = Math.round((80 + Math.random() * 40) * 100) / 100; // £80-120
     
     transactions.push({
       id: `t${transactionId++}`,
@@ -388,7 +388,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
         id: `t${transactionId++}`,
         date: utilityDate,
         description: 'British Gas - Monthly Bill',
-        amount: 120 + Math.random() * 40, // £120-160
+        amount: Math.round((120 + Math.random() * 40) * 100) / 100, // £120-160
         type: 'expense',
         category: 'cat-11', // Utilities
         categoryName: 'Utilities',
@@ -606,7 +606,7 @@ export const getDefaultTestTransactions = (): Transaction[] => {
   for (let month = 5; month >= 1; month--) {
     const amexPaymentDate = monthsAgoOnDay(month, 22);
     if (amexPaymentDate <= today) {
-      const paymentAmount = 600 + Math.random() * 400; // £600-1000
+      const paymentAmount = Math.round((600 + Math.random() * 400) * 100) / 100; // £600-1000
       
       transactions.push({
         id: `t${transactionId++}`,

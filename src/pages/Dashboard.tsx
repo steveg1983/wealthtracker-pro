@@ -961,6 +961,9 @@ export default function Dashboard() {
               <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
                 {new Date(transaction.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
               </span>
+              <span className="text-xs font-bold text-gray-600 dark:text-gray-400 w-4 text-center">
+                {transaction.cleared ? 'R' : 'N'}
+              </span>
               <p className="text-sm font-medium dark:text-white truncate flex-1">{transaction.description}</p>
               <span className={`text-sm font-semibold whitespace-nowrap ${
                 transaction.type === 'income' 
