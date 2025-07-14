@@ -5,17 +5,10 @@ export default function Settings() {
   const settingsOptions = [
     {
       title: 'App Settings',
-      description: 'Configure application behavior and features',
+      description: 'Configure application behavior, personal info and appearance',
       icon: Settings2,
       path: '/settings/app',
       color: 'bg-orange-500'
-    },
-    {
-      title: 'Appearance',
-      description: 'Customize theme, colors, and display preferences',
-      icon: Palette,
-      path: '/settings/appearance',
-      color: 'bg-purple-500'
     },
     {
       title: 'Data Management', 

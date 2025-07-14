@@ -17,10 +17,10 @@ import Analytics from './pages/Analytics';
 import Investments from './pages/Investments';
 import Settings from './pages/Settings';
 import AppSettings from './pages/settings/AppSettings';
-import AppearanceSettings from './pages/settings/Appearance';
 import DataManagementSettings from './pages/settings/DataManagement';
 import CategoriesSettings from './pages/settings/Categories';
 import NetWorthSummary from './pages/NetWorthSummary';
+import MonthlyNetWorth from './pages/MonthlyNetWorth';
 
 function App() {
   return (
@@ -40,11 +40,11 @@ function App() {
                 <Route path="/investments" element={<Investments />} />
                 <Route path="/settings" element={<Settings />} />
                 <Route path="/settings/app" element={<AppSettings />} />
-                <Route path="/settings/appearance" element={<AppearanceSettings />} />
                 <Route path="/settings/data" element={<DataManagementSettings />} />
                 <Route path="/settings/categories" element={<CategoriesSettings />} />
                 <Route path="/networth" element={<NetWorthSummary />} />
                 <Route path="/networth/:type" element={<NetWorthSummary />} />
+                <Route path="/networth/monthly/:month" element={<MonthlyNetWorth />} />
               </Route>
             </Routes>
           </Router>

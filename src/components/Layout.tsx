@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Palette, Database, Tag, Settings2 } from 'lucide-react';
+import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Database, Tag, Settings2 } from 'lucide-react';
 import Breadcrumbs from './Breadcrumbs';
 import { usePreferences } from '../contexts/PreferencesContext';
 
@@ -137,7 +137,6 @@ export default function Layout() {
               {settingsExpanded && !isSidebarCollapsed && (
                 <div className="mt-1 space-y-1">
                   <SidebarLink to="/settings/app" icon={Settings2} label="App Settings" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/settings/appearance" icon={Palette} label="Appearance" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} />
                 </div>
@@ -193,7 +192,6 @@ export default function Layout() {
                   {settingsExpanded && (
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/settings/app" icon={Settings2} label="App Settings" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/settings/appearance" icon={Palette} label="Appearance" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>

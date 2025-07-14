@@ -147,11 +147,20 @@ export default function NetWorthSummary() {
     .filter(acc => acc.balance < 0)
     .reduce((sum, acc) => sum + Math.abs(acc.convertedBalance), 0);
 
+  const handleBackNavigation = () => {
+    if (type === 'assets' || type === 'liabilities') {
+      navigate('/networth');
+    } else {
+      // For 'networth' type or any other case, go back to dashboard (index route)
+      navigate('/');
+    }
+  };
+
   return (
     <div>
       <div className="flex items-center gap-4 mb-6">
         <button
-          onClick={() => navigate('/dashboard')}
+          onClick={handleBackNavigation}
           className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
         >
           <ArrowLeft size={24} />
