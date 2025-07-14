@@ -1,4 +1,4 @@
-import { Settings } from 'lucide-react';
+import { Settings, Maximize2 } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
 
 interface IncomeExpenditureReportProps {
@@ -7,6 +7,7 @@ interface IncomeExpenditureReportProps {
   setSettings: (settings: any) => void;
   categories: any[];
   isModal?: boolean;
+  onOpenModal?: () => void;
 }
 
 export default function IncomeExpenditureReport({ 
@@ -14,7 +15,8 @@ export default function IncomeExpenditureReport({
   settings, 
   setSettings, 
   categories,
-  isModal = false 
+  isModal = false,
+  onOpenModal
 }: IncomeExpenditureReportProps) {
   const { formatCurrency } = useCurrency();
   
@@ -31,11 +33,22 @@ export default function IncomeExpenditureReport({
   return (
     <>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
-        {!isModal && (
-          <h2 className="text-lg md:text-xl font-semibold dark:text-white">
-            Income and Expenditure over Time
-          </h2>
-        )}
+        {!isModal ? (
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg md:text-xl font-semibold dark:text-white">
+              Income and Expenditure over Time
+            </h2>
+            {onOpenModal && (
+              <button
+                onClick={onOpenModal}
+                className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                title="Fullscreen view"
+              >
+                <Maximize2 size={18} className="text-gray-500 dark:text-gray-400" />
+              </button>
+            )}
+          </div>
+        ) : null}
         <div className={`flex items-center gap-3 ${isModal ? 'w-full justify-between' : ''}`}>
           <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
             {settings.timePeriod === '1month' ? 'Last month' :

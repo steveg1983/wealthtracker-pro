@@ -224,7 +224,6 @@ export default function Dashboard() {
       // Calculate data for each category and month
       const calculateCategoryData = (category: any) => {
         if (!category || !category.id) {
-          console.error('Invalid category passed to calculateCategoryData:', category);
           return {
             category: category || { id: 'unknown', name: 'Unknown' },
             monthlyData: [],
@@ -275,8 +274,8 @@ export default function Dashboard() {
 
       // Build report data based on category level
       let reportData: any[] = [];
-      const incomeType = categories.find(c => c.level === 'type' && c.name === 'Income');
-      const expenseType = categories.find(c => c.level === 'type' && c.name === 'Expense');
+      const incomeType = categories.find(c => c.id === 'type-income' || (c.level === 'type' && c.name === 'Income'));
+      const expenseType = categories.find(c => c.id === 'type-expense' || (c.level === 'type' && c.name === 'Expense'));
       
       // Early return if essential categories are missing
       if (!incomeType || !expenseType) {
@@ -917,52 +916,50 @@ export default function Dashboard() {
       {/* Income and Expenditure over Time */}
       {(incomeExpenditureData.categories.length > 0 || true) && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 mb-6 md:mb-8">
-          <div 
-            className="cursor-pointer"
-            onClick={() => openModal('income-expenditure', 'Income and Expenditure over Time', {
-              ...incomeExpenditureData,
-              settings: incomeExpReportSettings,
-              setSettings: setIncomeExpReportSettings,
-              categories: categories
-            })}
-          >
-            <ErrorBoundary>
-              <IncomeExpenditureReport
+          <ErrorBoundary>
+            <IncomeExpenditureReport
                 data={incomeExpenditureData}
                 settings={incomeExpReportSettings}
                 setSettings={setIncomeExpReportSettings}
                 categories={categories}
                 isModal={false}
+                onOpenModal={() => openModal(
+                  'income-expenditure',
+                  'Income and Expenditure over Time',
+                  {
+                    ...incomeExpenditureData,
+                    settings: incomeExpReportSettings,
+                    setSettings: setIncomeExpReportSettings,
+                    categories: categories
+                  }
+                )}
               />
-            </ErrorBoundary>
-          </div>
+          </ErrorBoundary>
         </div>
       )}
 
 
       {/* Recent Transactions */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
-        <h2 className="text-lg md:text-xl font-semibold mb-3 md:mb-4 dark:text-white">Recent Transactions</h2>
-        <div className="space-y-3">
-          {transactions.slice(0, 5).map(transaction => (
-            <div key={transaction.id} className="flex justify-between items-start sm:items-center py-2 border-b dark:border-gray-700 last:border-0">
-              <div className="flex-1 min-w-0 mr-2">
-                <p className="text-sm sm:text-base font-medium dark:text-white truncate">{transaction.description}</p>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(transaction.date).toLocaleDateString()}
-                </p>
-              </div>
-              <span className={`text-sm sm:text-base font-semibold whitespace-nowrap ${
+        <h2 className="text-lg md:text-xl font-semibold mb-2 md:mb-3 dark:text-white">Recent Transactions</h2>
+        <div className="space-y-1">
+          {transactions.slice(0, 10).map(transaction => (
+            <div key={transaction.id} className="flex items-center gap-3 py-1.5 border-b dark:border-gray-700/50 last:border-0">
+              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
+                {new Date(transaction.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+              </span>
+              <p className="text-sm font-medium dark:text-white truncate flex-1">{transaction.description}</p>
+              <span className={`text-sm font-semibold whitespace-nowrap ${
                 transaction.type === 'income' 
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-red-600 dark:text-red-400'
               }`}>
-                {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                {formatCurrency(transaction.amount)}
               </span>
             </div>
           ))}
           {transactions.length === 0 && (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-8">
+            <p className="text-gray-500 dark:text-gray-400 text-center py-6">
               No transactions yet
             </p>
           )}
