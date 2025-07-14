@@ -4,8 +4,9 @@ import { useApp } from '../contexts/AppContext';
 import AddAccountModal from '../components/AddAccountModal';
 import AccountReconciliationModal from '../components/AccountReconciliationModal';
 import BalanceAdjustmentModal from '../components/BalanceAdjustmentModal';
+import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
-import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2, Calculator, CheckCircle, Home, PieChart } from 'lucide-react';
+import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2, CheckCircle, Home, PieChart, Settings } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
 
 export default function Accounts() {
@@ -15,9 +16,6 @@ export default function Accounts() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBalance, setEditBalance] = useState('');
-  const [openingBalanceAccountId, setOpeningBalanceAccountId] = useState<string | null>(null);
-  const [openingBalance, setOpeningBalance] = useState('');
-  const [openingBalanceDate, setOpeningBalanceDate] = useState('');
   const [reconcileAccountId, setReconcileAccountId] = useState<string | null>(null);
   const [balanceAdjustmentData, setBalanceAdjustmentData] = useState<{
     accountId: string;
@@ -25,6 +23,7 @@ export default function Accounts() {
     newBalance: string;
   } | null>(null);
   const [portfolioAccountId, setPortfolioAccountId] = useState<string | null>(null);
+  const [settingsAccountId, setSettingsAccountId] = useState<string | null>(null);
 
   // Group accounts by type (memoized)
   const accountsByType = useMemo(() => 
@@ -116,27 +115,6 @@ export default function Accounts() {
     }
   };
 
-  const handleOpeningBalance = (accountId: string) => {
-    const account = accounts.find(a => a.id === accountId);
-    if (account) {
-      setOpeningBalanceAccountId(accountId);
-      setOpeningBalance(account.openingBalance?.toString() || '0');
-      const date = account.openingBalanceDate ? new Date(account.openingBalanceDate) : new Date();
-      setOpeningBalanceDate(date.toISOString().split('T')[0]);
-    }
-  };
-
-  const handleSaveOpeningBalance = () => {
-    if (openingBalanceAccountId) {
-      updateAccount(openingBalanceAccountId, {
-        openingBalance: parseFloat(openingBalance) || 0,
-        openingBalanceDate: new Date(openingBalanceDate)
-      });
-      setOpeningBalanceAccountId(null);
-      setOpeningBalance('');
-      setOpeningBalanceDate('');
-    }
-  };
 
   return (
     <div>
@@ -253,18 +231,18 @@ export default function Accounts() {
                                 </button>
                               )}
                               <button
+                                onClick={() => setSettingsAccountId(account.id)}
+                                className="p-1.5 sm:p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+                                title="Account Settings"
+                              >
+                                <Settings size={16} />
+                              </button>
+                              <button
                                 onClick={() => setReconcileAccountId(account.id)}
                                 className="p-1.5 sm:p-1 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                                 title="Reconcile Account"
                               >
                                 <CheckCircle size={16} />
-                              </button>
-                              <button
-                                onClick={() => handleOpeningBalance(account.id)}
-                                className="p-1.5 sm:p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-                                title="Adjust Opening Balance"
-                              >
-                                <Calculator size={16} />
                               </button>
                               <button
                                 onClick={() => handleEdit(account.id, account.balance)}
@@ -300,62 +278,6 @@ export default function Accounts() {
         </div>
       )}
 
-      {/* Opening Balance Modal */}
-      {openingBalanceAccountId && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Adjust Opening Balance
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Set the opening balance for this account. This is useful when importing partial transaction history.
-            </p>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Opening Balance
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={openingBalance}
-                  onChange={(e) => setOpeningBalance(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
-                  placeholder="0.00"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Opening Balance Date
-                </label>
-                <input
-                  type="date"
-                  value={openingBalanceDate}
-                  onChange={(e) => setOpeningBalanceDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
-                />
-              </div>
-            </div>
-            
-            <div className="flex gap-3 mt-6">
-              <button
-                onClick={() => setOpeningBalanceAccountId(null)}
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveOpeningBalance}
-                className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
-              >
-                Save
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <AddAccountModal 
         isOpen={isAddModalOpen} 
@@ -413,6 +335,17 @@ export default function Accounts() {
           </div>
         );
       })()}
+      
+      {/* Account Settings Modal */}
+      <AccountSettingsModal
+        isOpen={!!settingsAccountId}
+        onClose={() => setSettingsAccountId(null)}
+        account={accounts.find(a => a.id === settingsAccountId) || null}
+        onSave={(accountId, updates) => {
+          updateAccount(accountId, updates);
+          setSettingsAccountId(null);
+        }}
+      />
     </div>
   );}
   

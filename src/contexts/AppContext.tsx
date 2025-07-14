@@ -26,6 +26,8 @@ interface Account {
   notes?: string;
   openingBalance?: number;
   openingBalanceDate?: Date;
+  sortCode?: string;
+  accountNumber?: string;
 }
 
 interface Transaction {
