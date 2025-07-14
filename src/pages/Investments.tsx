@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { TrendingUp, TrendingDown, BarChart3, AlertCircle, ChevronRight, Plus } from 'lucide-react';
-import PortfolioView from '../components/PortfolioView';
 import EnhancedPortfolioView from '../components/EnhancedPortfolioView';
 import AddInvestmentModal from '../components/AddInvestmentModal';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';

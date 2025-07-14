@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getStockQuote, getMultipleStockQuotes } from '../services/stockPriceService';
-import { Holding } from '../types';
+import type { Holding } from '../types';
 
 interface StockPrice {
   symbol: string;

@@ -5,7 +5,7 @@ import { formatCurrency } from '../utils/currency';
 import { useStockPrices } from '../hooks/useStockPrices';
 import { useCurrency } from '../hooks/useCurrency';
 import { convertStockPrice } from '../services/stockPriceService';
-import { Holding } from '../types';
+import type { Holding } from '../types';
 
 interface EnhancedPortfolioViewProps {
   accountId: string;
@@ -23,7 +23,7 @@ export default function EnhancedPortfolioView({
   onClose 
 }: EnhancedPortfolioViewProps) {
   const navigate = useNavigate();
-  const { displayCurrency } = useCurrency();
+  const { } = useCurrency();
   const { prices, loading, error, refreshPrices } = useStockPrices(holdings);
   const [sortBy, setSortBy] = useState<'value' | 'shares' | 'name' | 'gain'>('value');
   const [enhancedHoldings, setEnhancedHoldings] = useState<Holding[]>([]);
@@ -364,7 +364,7 @@ export default function EnhancedPortfolioView({
                           <span className={`font-medium ${holding.gain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {holding.gain >= 0 ? '+' : ''}{formatCurrency(holding.gain, currency)}
                           </span>
-                          <span className={`text-xs ${holding.gainPercent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                          <span className={`text-xs ${(holding.gainPercent || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                             {formatPercent(holding.gainPercent || 0)}
                           </span>
                         </div>

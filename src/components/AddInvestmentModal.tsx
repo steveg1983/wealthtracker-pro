@@ -12,7 +12,7 @@ interface AddInvestmentModalProps {
 
 export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddInvestmentModalProps) {
   const { accounts, addTransaction } = useApp();
-  const { formatCurrency, displayCurrency } = useCurrency();
+  const { formatCurrency } = useCurrency();
   
   // Form state
   const [selectedAccountId, setSelectedAccountId] = useState(accountId || '');

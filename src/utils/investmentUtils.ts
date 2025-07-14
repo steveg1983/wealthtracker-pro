@@ -1,4 +1,4 @@
-import { Account, Transaction, Holding } from '../types';
+import type { Transaction, Holding } from '../types';
 
 interface InvestmentTransactionData {
   ticker: string;

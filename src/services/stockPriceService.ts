@@ -1,4 +1,4 @@
-import { getCachedExchangeRates } from '../utils/currency';
+import { getExchangeRates } from '../utils/currency';
 
 interface StockQuote {
   symbol: string;
@@ -148,7 +148,7 @@ export async function convertStockPrice(
   }
 
   try {
-    const rates = await getCachedExchangeRates();
+    const rates = await getExchangeRates();
     
     // Convert to GBP first (as base), then to target currency
     const priceInGBP = stockCurrency === 'GBP' 
