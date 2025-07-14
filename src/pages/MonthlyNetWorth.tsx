@@ -10,7 +10,17 @@ export default function MonthlyNetWorth() {
   const navigate = useNavigate();
   const { month } = useParams<{ month: string }>();
   const [isLoading, setIsLoading] = useState(true);
-  const [convertedAccounts, setConvertedAccounts] = useState<any[]>([]);
+  interface ConvertedAccount {
+    id: string;
+    name: string;
+    type: string;
+    balance: number;
+    currency: string;
+    institution?: string;
+    convertedBalance: number;
+  }
+  
+  const [convertedAccounts, setConvertedAccounts] = useState<ConvertedAccount[]>([]);
 
   // Convert account balances to display currency
   useEffect(() => {
@@ -102,7 +112,7 @@ export default function MonthlyNetWorth() {
   };
 
   // Group accounts by type
-  const groupAccountsByType = (accountList: any[]) => {
+  const groupAccountsByType = (accountList: ConvertedAccount[]) => {
     return accountList.reduce((groups, account) => {
       const type = account.type || 'other';
       if (!groups[type]) {
@@ -110,7 +120,7 @@ export default function MonthlyNetWorth() {
       }
       groups[type].push(account);
       return groups;
-    }, {} as Record<string, any[]>);
+    }, {} as Record<string, ConvertedAccount[]>);
   };
 
   const groupedAssets = groupAccountsByType(assetAccounts);
