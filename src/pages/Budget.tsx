@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
+import { useCurrency } from '../hooks/useCurrency';
 import { PlusCircle, Edit2, Trash2, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import BudgetModal from '../components/BudgetModal';
 
 export default function Budget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<any>(null);
+  const { formatCurrency } = useCurrency();
   
   // Get data from context with error handling
   let budgets: any[] = [];
@@ -23,44 +25,51 @@ export default function Budget() {
     console.error('Error accessing app context:', error);
   }
 
-  // Calculate spent amounts for each budget
-  const budgetsWithSpent = budgets.map(budget => {
-    if (!budget) return { ...budget, spent: 0, percentage: 0, remaining: 0 };
-    
+  // Memoize current date values
+  const { currentMonth, currentYear } = useMemo(() => {
     const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-
-    // Filter transactions for this budget's category
-    const categoryTransactions = transactions.filter(t => {
-      if (!t || !t.category || !t.date) return false;
-      if (t.category !== budget.category || t.type !== 'expense') return false;
-      
-      try {
-        const transDate = new Date(t.date);
-        if (budget.period === 'monthly') {
-          return transDate.getMonth() === currentMonth && 
-                 transDate.getFullYear() === currentYear;
-        } else {
-          return transDate.getFullYear() === currentYear;
-        }
-      } catch {
-        return false;
-      }
-    });
-
-    const spent = categoryTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-    const budgetAmount = Number(budget.amount) || 0;
-    const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
-    const remaining = budgetAmount - spent;
-
     return {
-      ...budget,
-      spent,
-      percentage,
-      remaining
+      currentMonth: now.getMonth(),
+      currentYear: now.getFullYear()
     };
-  });
+  }, []);
+
+  // Calculate spent amounts for each budget with memoization
+  const budgetsWithSpent = useMemo(() => {
+    return budgets.map(budget => {
+      if (!budget) return { ...budget, spent: 0, percentage: 0, remaining: 0 };
+
+      // Filter transactions for this budget's category
+      const categoryTransactions = transactions.filter(t => {
+        if (!t || !t.category || !t.date) return false;
+        if (t.category !== budget.category || t.type !== 'expense') return false;
+        
+        try {
+          const transDate = new Date(t.date);
+          if (budget.period === 'monthly') {
+            return transDate.getMonth() === currentMonth && 
+                   transDate.getFullYear() === currentYear;
+          } else {
+            return transDate.getFullYear() === currentYear;
+          }
+        } catch {
+          return false;
+        }
+      });
+
+      const spent = categoryTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+      const budgetAmount = Number(budget.amount) || 0;
+      const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
+      const remaining = budgetAmount - spent;
+
+      return {
+        ...budget,
+        spent,
+        percentage,
+        remaining
+      };
+    });
+  }, [budgets, transactions, currentMonth, currentYear]);
 
   const handleEdit = (budget: any) => {
     setEditingBudget(budget);
@@ -82,18 +91,20 @@ export default function Budget() {
     return 'bg-green-500';
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'GBP'
-    }).format(amount);
-  };
-
-  // Calculate totals
-  const activeBudgets = budgetsWithSpent.filter(b => b && b.isActive !== false);
-  const totalBudgeted = activeBudgets.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
-  const totalSpent = activeBudgets.reduce((sum, b) => sum + (b.spent || 0), 0);
-  const totalRemaining = totalBudgeted - totalSpent;
+  // Calculate totals with memoization
+  const { activeBudgets, totalBudgeted, totalSpent, totalRemaining } = useMemo(() => {
+    const active = budgetsWithSpent.filter(b => b && b.isActive !== false);
+    const budgeted = active.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+    const spent = active.reduce((sum, b) => sum + (b.spent || 0), 0);
+    const remaining = budgeted - spent;
+    
+    return {
+      activeBudgets: active,
+      totalBudgeted: budgeted,
+      totalSpent: spent,
+      totalRemaining: remaining
+    };
+  }, [budgetsWithSpent]);
 
   return (
     <div>

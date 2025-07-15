@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { useModalForm } from '../hooks/useModalForm';
 
 interface Account {
   id: string;
@@ -24,6 +25,16 @@ interface AccountSettingsModalProps {
   onSave: (accountId: string, updates: Partial<Account>) => void;
 }
 
+interface FormData {
+  type: Account['type'];
+  openingBalance: string;
+  openingBalanceDate: string;
+  sortCode: string;
+  accountNumber: string;
+  institution: string;
+  notes: string;
+}
+
 const accountTypeOptions = [
   { value: 'current', label: 'Current Account' },
   { value: 'savings', label: 'Savings Account' },
@@ -40,15 +51,38 @@ export default function AccountSettingsModal({
   account,
   onSave
 }: AccountSettingsModalProps) {
-  const [formData, setFormData] = useState({
-    type: 'current' as Account['type'],
-    openingBalance: '',
-    openingBalanceDate: '',
-    sortCode: '',
-    accountNumber: '',
-    institution: '',
-    notes: ''
-  });
+  const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
+    {
+      type: 'current',
+      openingBalance: '',
+      openingBalanceDate: '',
+      sortCode: '',
+      accountNumber: '',
+      institution: '',
+      notes: ''
+    },
+    {
+      onSubmit: (data) => {
+        if (!account) return;
+
+        const updates: Partial<Account> = {
+          type: data.type,
+          institution: data.institution || undefined,
+          notes: data.notes || undefined,
+          sortCode: data.sortCode || undefined,
+          accountNumber: data.accountNumber || undefined
+        };
+
+        if (data.openingBalance) {
+          updates.openingBalance = parseFloat(data.openingBalance);
+          updates.openingBalanceDate = new Date(data.openingBalanceDate);
+        }
+
+        onSave(account.id, updates);
+      },
+      onClose
+    }
+  );
 
   useEffect(() => {
     if (account) {
@@ -64,28 +98,8 @@ export default function AccountSettingsModal({
         notes: account.notes || ''
       });
     }
-  }, [account]);
+  }, [account, setFormData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!account) return;
-
-    const updates: Partial<Account> = {
-      type: formData.type,
-      institution: formData.institution || undefined,
-      notes: formData.notes || undefined,
-      sortCode: formData.sortCode || undefined,
-      accountNumber: formData.accountNumber || undefined
-    };
-
-    if (formData.openingBalance) {
-      updates.openingBalance = parseFloat(formData.openingBalance);
-      updates.openingBalanceDate = new Date(formData.openingBalanceDate);
-    }
-
-    onSave(account.id, updates);
-    onClose();
-  };
 
   const formatSortCode = (value: string) => {
     // Remove all non-digits
@@ -99,32 +113,18 @@ export default function AccountSettingsModal({
 
   const handleSortCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatSortCode(e.target.value);
-    setFormData({ ...formData, sortCode: formatted });
+    updateField('sortCode', formatted);
   };
 
-  if (!isOpen || !account) return null;
+  if (!account) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Account Settings
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-            >
-              <X size={20} className="text-gray-500 dark:text-gray-400" />
-            </button>
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+    <Modal isOpen={isOpen} onClose={onClose} title="Account Settings" size="md">
+      <form onSubmit={handleSubmit}>
+        <ModalBody className="space-y-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400 -mt-2 mb-4">
             {account.name}
           </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Account Type */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -132,7 +132,7 @@ export default function AccountSettingsModal({
             </label>
             <select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as Account['type'] })}
+              onChange={(e) => updateField('type', e.target.value as Account['type'])}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
             >
               {accountTypeOptions.map((option) => (
@@ -156,14 +156,14 @@ export default function AccountSettingsModal({
                 type="number"
                 step="0.01"
                 value={formData.openingBalance}
-                onChange={(e) => setFormData({ ...formData, openingBalance: e.target.value })}
+                onChange={(e) => updateField('openingBalance', e.target.value)}
                 placeholder="0.00"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
               />
               <input
                 type="date"
                 value={formData.openingBalanceDate}
-                onChange={(e) => setFormData({ ...formData, openingBalanceDate: e.target.value })}
+                onChange={(e) => updateField('openingBalanceDate', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
@@ -193,7 +193,7 @@ export default function AccountSettingsModal({
                 <input
                   type="text"
                   value={formData.accountNumber}
-                  onChange={(e) => setFormData({ ...formData, accountNumber: e.target.value.replace(/\D/g, '') })}
+                  onChange={(e) => updateField('accountNumber', e.target.value.replace(/\D/g, ''))}
                   placeholder="12345678"
                   maxLength={8}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
@@ -210,7 +210,7 @@ export default function AccountSettingsModal({
             <input
               type="text"
               value={formData.institution}
-              onChange={(e) => setFormData({ ...formData, institution: e.target.value })}
+              onChange={(e) => updateField('institution', e.target.value)}
               placeholder="Bank or financial institution name"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary"
             />
@@ -223,14 +223,16 @@ export default function AccountSettingsModal({
             </label>
             <textarea
               value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              onChange={(e) => updateField('notes', e.target.value)}
               rows={3}
               placeholder="Additional information about this account"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary focus:border-primary resize-none"
             />
           </div>
 
-          <div className="flex gap-3 pt-4">
+        </ModalBody>
+        <ModalFooter>
+          <div className="flex gap-3 w-full">
             <button
               type="submit"
               className="flex-1 bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors"
@@ -245,8 +247,8 @@ export default function AccountSettingsModal({
               Cancel
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

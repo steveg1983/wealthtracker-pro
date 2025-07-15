@@ -1,23 +1,30 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
-import { CheckCircle, Building2, CreditCard, ChevronRight, ArrowLeft, Edit } from 'lucide-react';
+import { CheckCircle, Building2, CreditCard, ChevronRight, ChevronLeft, ArrowLeft, Edit, Plus, Trash2, X, CircleDot } from 'lucide-react';
 import EditTransactionModal from '../components/EditTransactionModal';
+import CategorySelect from '../components/CategorySelect';
 import { useCurrency } from '../hooks/useCurrency';
 import { useReconciliation } from '../hooks/useReconciliation';
 
 // Bank transactions are now imported from shared utility
 
 export default function Reconciliation() {
-  const { transactions, accounts, updateTransaction } = useApp();
+  const { transactions, accounts, updateTransaction, categories } = useApp();
   const { formatCurrency } = useCurrency();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedAccount, setSelectedAccount] = useState<string | null>(
     searchParams.get('account') || null
   );
-  const [currentTransactionIndex, setCurrentTransactionIndex] = useState(0);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [transactionsPerPage, setTransactionsPerPage] = useState(20);
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
+  const [editingFields, setEditingFields] = useState<Record<string, any>>({});
+  const [showSplitModal, setShowSplitModal] = useState(false);
+  const [splittingTransaction, setSplittingTransaction] = useState<any>(null);
+  const [splitItems, setSplitItems] = useState<Array<{id: string, description: string, category: string, amount: number}>>([]);
 
   // Use shared reconciliation hook
   const { 
@@ -27,58 +34,252 @@ export default function Reconciliation() {
   } = useReconciliation(accounts, transactions);
 
   // Get uncleared transactions for selected account
-  const unclearedTransactions = selectedAccount 
-    ? transactions.filter(t => t.accountId === selectedAccount && !t.cleared)
-    : [];
+  const unclearedTransactions = useMemo(() => 
+    selectedAccount 
+      ? transactions.filter(t => t.accountId === selectedAccount && !t.cleared)
+      : [],
+    [selectedAccount, transactions]
+  );
     
-  const currentTransaction = unclearedTransactions[currentTransactionIndex] || null;
+  // Pagination
+  const totalPages = Math.ceil(unclearedTransactions.length / transactionsPerPage);
+  const startIndex = (currentPage - 1) * transactionsPerPage;
+  const endIndex = startIndex + transactionsPerPage;
+  const paginatedTransactions = unclearedTransactions.slice(startIndex, endIndex);
 
-  // Reset index when account changes
+  // Reset page when account changes
   useEffect(() => {
-    setCurrentTransactionIndex(0);
+    setCurrentPage(1);
+    setSelectedTransactions(new Set());
   }, [selectedAccount]);
 
-
-
-
   // Handle marking transaction as cleared/reconciled
-  const handleReconcile = () => {
-    if (!currentTransaction) return;
+  const handleReconcile = (transactionId: string) => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+
+    // Apply any pending edits first
+    const edits = editingFields[transactionId];
+    const updatedTransaction = edits ? { ...transaction, ...edits } : transaction;
 
     // Update the transaction to mark it as cleared
-    updateTransaction(currentTransaction.id, {
-      ...currentTransaction,
+    updateTransaction(transaction.id, {
+      ...updatedTransaction,
       cleared: true
     });
 
-    // Move to next transaction
-    moveToNext();
+    // Remove from selected and editing fields
+    setSelectedTransactions(prev => {
+      const newSet = new Set(prev);
+      newSet.delete(transactionId);
+      return newSet;
+    });
+    setEditingFields(prev => {
+      const newFields = { ...prev };
+      delete newFields[transactionId];
+      return newFields;
+    });
+  };
+
+  // Handle marking multiple transactions as reconciled
+  const handleReconcileSelected = () => {
+    selectedTransactions.forEach(transactionId => {
+      handleReconcile(transactionId);
+    });
   };
 
   // Handle editing transaction
-  const handleEdit = () => {
-    if (!currentTransaction) return;
-    setEditingTransaction(currentTransaction);
+  const handleEdit = (transaction: any) => {
+    setEditingTransaction(transaction);
     setShowEditModal(true);
   };
 
-  // Skip current transaction
-  const handleSkip = () => {
-    moveToNext();
+  // Toggle transaction selection
+  const toggleTransactionSelection = (transactionId: string) => {
+    setSelectedTransactions(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(transactionId)) {
+        newSet.delete(transactionId);
+      } else {
+        newSet.add(transactionId);
+      }
+      return newSet;
+    });
   };
 
-  // Move to next unreconciled transaction
-  const moveToNext = () => {
-    if (currentTransactionIndex < unclearedTransactions.length - 1) {
-      setCurrentTransactionIndex(currentTransactionIndex + 1);
+  // Select/deselect all visible transactions
+  const toggleSelectAll = () => {
+    const visibleTransactionIds = paginatedTransactions.map(t => t.id);
+    if (visibleTransactionIds.every(id => selectedTransactions.has(id))) {
+      // Deselect all visible
+      setSelectedTransactions(prev => {
+        const newSet = new Set(prev);
+        visibleTransactionIds.forEach(id => newSet.delete(id));
+        return newSet;
+      });
+    } else {
+      // Select all visible
+      setSelectedTransactions(prev => {
+        const newSet = new Set(prev);
+        visibleTransactionIds.forEach(id => newSet.add(id));
+        return newSet;
+      });
     }
   };
-  
-  // Move to previous unreconciled transaction
-  const moveToPrevious = () => {
-    if (currentTransactionIndex > 0) {
-      setCurrentTransactionIndex(currentTransactionIndex - 1);
+
+  // Handle inline field editing
+  const handleFieldEdit = (transactionId: string, field: string, value: any) => {
+    setEditingFields(prev => ({
+      ...prev,
+      [transactionId]: {
+        ...prev[transactionId],
+        [field]: value
+      }
+    }));
+  };
+
+  // Save inline edits
+  const saveInlineEdits = (transactionId: string) => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    const edits = editingFields[transactionId];
+    if (!transaction || !edits) return;
+
+    updateTransaction(transaction.id, {
+      ...transaction,
+      ...edits
+    });
+
+    // Clear editing fields for this transaction
+    setEditingFields(prev => {
+      const newFields = { ...prev };
+      delete newFields[transactionId];
+      return newFields;
+    });
+  };
+
+  // Get category display name - memoized for performance
+  const getCategoryDisplay = useMemo(() => {
+    const categoryCache = new Map<string, string>();
+    
+    return (categoryId: string) => {
+      if (!categoryId) return 'Uncategorized';
+      if (categoryId === 'multiple') return 'Multiple';
+      
+      // Check cache first
+      if (categoryCache.has(categoryId)) {
+        return categoryCache.get(categoryId)!;
+      }
+      
+      const category = categories.find(c => c.id === categoryId);
+      if (!category) return 'Uncategorized';
+      
+      // Build the full path for the category
+      let path = category.name;
+      let currentCategory = category;
+      
+      while (currentCategory.parentId) {
+        const parent = categories.find(c => c.id === currentCategory.parentId);
+        if (parent) {
+          path = `${parent.name} > ${path}`;
+          currentCategory = parent;
+        } else {
+          break;
+        }
+      }
+      
+      // Cache the result
+      categoryCache.set(categoryId, path);
+      return path;
+    };
+  }, [categories]);
+
+  // Handle split toggle
+  const handleSplitToggle = (transactionId: string) => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+
+    setSplittingTransaction(transaction);
+    
+    // Initialize with a single split item for the full amount
+    setSplitItems([{
+      id: '1',
+      description: transaction.description,
+      category: transaction.category || '',
+      amount: transaction.amount
+    }]);
+    
+    setShowSplitModal(true);
+  };
+
+  // Add split item
+  const addSplitItem = () => {
+    const newId = (Math.max(...splitItems.map(item => parseInt(item.id))) + 1).toString();
+    setSplitItems([...splitItems, {
+      id: newId,
+      description: '',
+      category: '',
+      amount: 0
+    }]);
+  };
+
+  // Update split item
+  const updateSplitItem = (id: string, field: string, value: any) => {
+    setSplitItems(splitItems.map(item => 
+      item.id === id ? { ...item, [field]: value } : item
+    ));
+  };
+
+  // Remove split item
+  const removeSplitItem = (id: string) => {
+    if (splitItems.length > 1) {
+      setSplitItems(splitItems.filter(item => item.id !== id));
     }
+  };
+
+  // Validate split amounts
+  const validateSplitAmounts = () => {
+    const total = splitItems.reduce((sum, item) => sum + parseFloat(item.amount.toString() || '0'), 0);
+    return Math.abs(total - splittingTransaction.amount) < 0.01; // Allow for small rounding differences
+  };
+
+  // Save split transaction
+  const saveSplitTransaction = () => {
+    if (!validateSplitAmounts()) {
+      alert('Split amounts must equal the original transaction amount');
+      return;
+    }
+
+    // Mark original transaction as split and update its display
+    handleFieldEdit(splittingTransaction.id, 'description', 'Various');
+    handleFieldEdit(splittingTransaction.id, 'category', 'multiple');
+    handleFieldEdit(splittingTransaction.id, 'isSplit', true);
+    
+    // Save the edits
+    saveInlineEdits(splittingTransaction.id);
+
+    // Create new transactions for each split
+    splitItems.forEach((item, index) => {
+      const newTransaction = {
+        date: splittingTransaction.date,
+        description: item.description,
+        amount: Math.abs(item.amount),
+        type: item.amount >= 0 ? splittingTransaction.type : (splittingTransaction.type === 'income' ? 'expense' : 'income'),
+        category: item.category,
+        accountId: splittingTransaction.accountId,
+        cleared: false,
+        isSplit: false,
+        originalTransactionId: splittingTransaction.id,
+        notes: `Split from: ${splittingTransaction.description}`
+      };
+      
+      // Add transaction using the app context (you'll need to add this function)
+      // addTransaction(newTransaction);
+    });
+
+    // Close modal
+    setShowSplitModal(false);
+    setSplittingTransaction(null);
+    setSplitItems([]);
   };
 
   // Currency formatting now handled by useCurrency hook
@@ -94,7 +295,6 @@ export default function Reconciliation() {
 
   const handleBackToAccounts = () => {
     setSelectedAccount(null);
-    setCurrentTransactionIndex(0);
     setSearchParams({});
   };
 
@@ -224,7 +424,7 @@ export default function Reconciliation() {
         </div>
       </div>
 
-      {!currentTransaction ? (
+      {unclearedTransactions.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
           <CheckCircle className="mx-auto text-green-500 mb-4" size={48} />
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -241,114 +441,241 @@ export default function Reconciliation() {
           </button>
         </div>
       ) : (
-        <div className="max-w-4xl mx-auto">
-          {/* Transaction Card */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-6">
-            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Transaction {currentTransactionIndex + 1} of {unclearedTransactions.length}
-                </h2>
-                <span className="text-sm text-gray-500 dark:text-gray-400">
-                  {Math.round(((currentTransactionIndex + 1) / unclearedTransactions.length) * 100)}% Complete
-                </span>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Date</h3>
-                  <p className="text-lg font-medium text-gray-900 dark:text-white">
-                    {formatDate(currentTransaction.date)}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Amount</h3>
-                  <p className={`text-lg font-bold ${
-                    currentTransaction.type === 'income' 
-                      ? 'text-green-600 dark:text-green-400' 
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
-                    {currentTransaction.type === 'income' ? '+' : '-'}
-                    {formatCurrency(currentTransaction.amount)}
-                  </p>
-                </div>
-                <div className="md:col-span-2">
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Description</h3>
-                  <p className="text-lg text-gray-900 dark:text-white">
-                    {currentTransaction.description}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Category</h3>
-                  <p className="text-base text-gray-900 dark:text-white">
-                    {currentTransaction.category || 'Uncategorized'}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Status</h3>
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                    Unreconciled
+        <div>
+          {/* Action Bar */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <button
+                  onClick={toggleSelectAll}
+                  className="text-sm text-primary hover:text-secondary"
+                >
+                  {paginatedTransactions.every(t => selectedTransactions.has(t.id)) ? 'Deselect All' : 'Select All'}
+                </button>
+                {selectedTransactions.size > 0 && (
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedTransactions.size} selected
                   </span>
-                </div>
-                {currentTransaction.notes && (
-                  <div className="md:col-span-2">
-                    <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Notes</h3>
-                    <p className="text-base text-gray-700 dark:text-gray-300">
-                      {currentTransaction.notes}
-                    </p>
-                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-4">
+                <select
+                  value={transactionsPerPage}
+                  onChange={(e) => {
+                    setTransactionsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value={10}>10 per page</option>
+                  <option value={20}>20 per page</option>
+                  <option value={50}>50 per page</option>
+                  <option value={100}>100 per page</option>
+                </select>
+                {selectedTransactions.size > 0 && (
+                  <button
+                    onClick={handleReconcileSelected}
+                    className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center gap-2"
+                  >
+                    <CheckCircle size={18} />
+                    Reconcile Selected ({selectedTransactions.size})
+                  </button>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <button
-              onClick={moveToPrevious}
-              disabled={currentTransactionIndex === 0}
-              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <ArrowLeft size={20} />
-              Previous
-            </button>
-            
-            <button
-              onClick={handleEdit}
-              className="px-6 py-3 border border-primary text-primary rounded-lg hover:bg-primary/10 flex items-center justify-center gap-2"
-            >
-              <Edit size={20} />
-              Edit Transaction
-            </button>
-            
-            <button
-              onClick={handleReconcile}
-              className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-2 flex-1"
-            >
-              <CheckCircle size={20} />
-              Mark as Reconciled
-            </button>
-            
-            <button
-              onClick={handleSkip}
-              disabled={currentTransactionIndex === unclearedTransactions.length - 1}
-              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              Skip
-              <ChevronRight size={20} />
-            </button>
+          {/* Transactions List */}
+          <div className="space-y-4">
+            {paginatedTransactions.map((transaction) => {
+              const edits = editingFields[transaction.id] || {};
+              const currentDate = edits.date || transaction.date;
+              const currentDescription = edits.description !== undefined ? edits.description : transaction.description;
+              const currentCategory = edits.category !== undefined ? edits.category : transaction.category;
+              const isSplit = edits.isSplit !== undefined ? edits.isSplit : transaction.isSplit;
+              
+              return (
+                <div
+                  key={transaction.id}
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Checkbox */}
+                    <div className="pt-5">
+                      <input
+                        type="checkbox"
+                        checked={selectedTransactions.has(transaction.id)}
+                        onChange={() => toggleTransactionSelection(transaction.id)}
+                        className="rounded text-primary focus:ring-primary"
+                      />
+                    </div>
+                    
+                    {/* Transaction Details */}
+                    <div className="flex-1 grid grid-cols-12 gap-3">
+                      {/* Date */}
+                      <div className="col-span-12 md:col-span-2">
+                        <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={currentDate instanceof Date ? currentDate.toISOString().split('T')[0] : currentDate}
+                          onChange={(e) => handleFieldEdit(transaction.id, 'date', e.target.value)}
+                          className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      
+                      {/* Description */}
+                      <div className="col-span-12 md:col-span-4">
+                        <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Description</label>
+                        <input
+                          type="text"
+                          value={currentDescription}
+                          onChange={(e) => handleFieldEdit(transaction.id, 'description', e.target.value)}
+                          className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      
+                      {/* Category */}
+                      <div className="col-span-12 md:col-span-5">
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-xs text-gray-500 dark:text-gray-400">Category</label>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="checkbox"
+                              id={`split-${transaction.id}`}
+                              checked={isSplit || false}
+                              onChange={() => handleSplitToggle(transaction.id)}
+                              className="rounded text-primary focus:ring-primary h-3 w-3"
+                            />
+                            <label htmlFor={`split-${transaction.id}`} className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
+                              Split
+                            </label>
+                          </div>
+                        </div>
+                        <CategorySelect
+                          value={currentCategory || ''}
+                          onChange={(value) => handleFieldEdit(transaction.id, 'category', value)}
+                          categories={categories}
+                          className="w-full px-2 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                          disabled={isSplit}
+                          showMultiple={isSplit}
+                        />
+                      </div>
+                    </div>
+                    
+                    {/* Amount and Actions */}
+                    <div className="flex flex-col items-end ml-auto">
+                      <div className="flex items-center gap-2 mb-2">
+                        {edits && Object.keys(edits).length > 0 && (
+                          <div className="relative group">
+                            <button
+                              onClick={() => saveInlineEdits(transaction.id)}
+                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            >
+                              <CheckCircle size={18} />
+                            </button>
+                            <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs rounded py-1 px-2 bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap z-10">
+                              Save changes
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                <div className="border-4 border-transparent border-t-gray-800"></div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div className="relative group">
+                          <button
+                            className={`${transaction.isImported ? 'text-blue-600 dark:text-blue-400' : 'text-gray-300 dark:text-gray-600'} cursor-default`}
+                          >
+                            <CircleDot size={18} className={transaction.isImported ? 'fill-current' : ''} />
+                          </button>
+                          {transaction.isImported && (
+                            <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs rounded py-1 px-2 bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap z-10">
+                              Bank Statement
+                              <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                                <div className="border-4 border-transparent border-t-gray-800"></div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <div className="relative group">
+                          <button
+                            onClick={() => handleEdit(transaction)}
+                            className="text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs rounded py-1 px-2 bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap z-10">
+                            Advanced edit
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                              <div className="border-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="relative group">
+                          <button
+                            onClick={() => handleReconcile(transaction.id)}
+                            className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
+                          >
+                            <CheckCircle size={20} className="font-bold" />
+                          </button>
+                          <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs rounded py-1 px-2 bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap z-10">
+                            Mark as reconciled
+                            <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
+                              <div className="border-4 border-transparent border-t-gray-800"></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className={`text-lg font-bold whitespace-nowrap text-right ${
+                        transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {transaction.type === 'income' ? '+' : '-'}
+                        {formatCurrency(transaction.amount)}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Notes section if exists */}
+                  {transaction.notes && (
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <span className="font-medium">Notes:</span> {transaction.notes}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          
-          {/* Progress Bar */}
-          <div className="mt-8">
-            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
-              <div 
-                className="bg-primary h-2.5 rounded-full transition-all duration-300"
-                style={{ width: `${((currentTransactionIndex + 1) / unclearedTransactions.length) * 100}%` }}
-              />
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow px-6 py-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-700 dark:text-gray-300">
+                  Showing {startIndex + 1} to {Math.min(endIndex, unclearedTransactions.length)} of {unclearedTransactions.length} transactions
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                    disabled={currentPage === 1}
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeft size={20} className="text-gray-600 dark:text-gray-400" />
+                  </button>
+                  <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronRight size={20} className="text-gray-600 dark:text-gray-400" />
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -361,6 +688,143 @@ export default function Reconciliation() {
         }}
         transaction={editingTransaction}
       />
+
+      {/* Split Transaction Modal */}
+      {showSplitModal && splittingTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Split Transaction</h2>
+                <button
+                  onClick={() => {
+                    setShowSplitModal(false);
+                    setSplittingTransaction(null);
+                    setSplitItems([]);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                Original amount: {formatCurrency(splittingTransaction.amount)}
+              </p>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left py-2 text-sm font-medium text-gray-700 dark:text-gray-300">Description</th>
+                    <th className="text-left py-2 text-sm font-medium text-gray-700 dark:text-gray-300">Category</th>
+                    <th className="text-right py-2 text-sm font-medium text-gray-700 dark:text-gray-300">Amount</th>
+                    <th className="w-10"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {splitItems.map((item) => (
+                    <tr key={item.id} className="border-b border-gray-200 dark:border-gray-700">
+                      <td className="py-2 pr-2">
+                        <input
+                          type="text"
+                          value={item.description}
+                          onChange={(e) => updateSplitItem(item.id, 'description', e.target.value)}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="Description"
+                        />
+                      </td>
+                      <td className="py-2 px-2">
+                        <CategorySelect
+                          value={item.category}
+                          onChange={(value) => updateSplitItem(item.id, 'category', value)}
+                          categories={categories}
+                          className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="Select category"
+                        />
+                      </td>
+                      <td className="py-2 pl-2">
+                        <input
+                          type="number"
+                          value={item.amount === 0 ? '' : item.amount}
+                          onChange={(e) => updateSplitItem(item.id, 'amount', parseFloat(e.target.value) || 0)}
+                          onFocus={(e) => {
+                            if (item.amount === 0) {
+                              e.target.value = '';
+                            }
+                          }}
+                          className="w-full px-2 py-1 text-sm text-right border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                          step="0.01"
+                          placeholder="0.00"
+                        />
+                      </td>
+                      <td className="py-2 pl-2">
+                        <button
+                          onClick={() => removeSplitItem(item.id)}
+                          className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                          disabled={splitItems.length === 1}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <button
+                onClick={addSplitItem}
+                className="mt-4 flex items-center gap-2 text-sm text-primary hover:text-secondary"
+              >
+                <Plus size={16} />
+                Add line
+              </button>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 dark:border-gray-700">
+              <div className="flex justify-between items-center">
+                <div className="space-y-1">
+                  <div className="text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Total allocated: </span>
+                    <span className={`font-medium ${validateSplitAmounts() ? 'text-green-600' : 'text-gray-900 dark:text-gray-100'}`}>
+                      {formatCurrency(splitItems.reduce((sum, item) => sum + parseFloat(item.amount.toString() || '0'), 0))}
+                    </span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-gray-600 dark:text-gray-400">Remaining to allocate: </span>
+                    <span className={`font-medium ${
+                      Math.abs(splittingTransaction.amount - splitItems.reduce((sum, item) => sum + parseFloat(item.amount.toString() || '0'), 0)) < 0.01
+                        ? 'text-green-600' 
+                        : 'text-red-600'
+                    }`}>
+                      {formatCurrency(splittingTransaction.amount - splitItems.reduce((sum, item) => sum + parseFloat(item.amount.toString() || '0'), 0))}
+                    </span>
+                  </div>
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => {
+                      setShowSplitModal(false);
+                      setSplittingTransaction(null);
+                      setSplitItems([]);
+                    }}
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveSplitTransaction}
+                    disabled={!validateSplitAmounts()}
+                    className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Save Split
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

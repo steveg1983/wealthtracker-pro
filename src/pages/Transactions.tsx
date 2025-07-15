@@ -2,13 +2,15 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { useLayout } from '../contexts/LayoutContext';
 import { useCurrency } from '../hooks/useCurrency';
 import EditTransactionModal from '../components/EditTransactionModal';
-import { Plus, TrendingUp, TrendingDown, Calendar, Trash2, Minimize2, Maximize2, Edit2, Search, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, TrendingUp, TrendingDown, Calendar, Trash2, Minimize2, Maximize2, Edit2, Search, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Expand, Shrink } from 'lucide-react';
 
-export default function Transactions() {
+export default function Transactions({ selectedAccountId }: { selectedAccountId?: string | null }) {
   const { transactions, accounts, deleteTransaction, categories, getCategoryPath } = useApp();
   const { compactView, setCompactView, currency: displayCurrency } = usePreferences();
+  const { isWideView, setIsWideView } = useLayout();
   const { formatCurrency } = useCurrency();
   const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -20,22 +22,90 @@ export default function Transactions() {
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [transactionsPerPage, setTransactionsPerPage] = useState(20);
+  const [sortField, setSortField] = useState<'date' | 'account' | 'description' | 'category' | 'amount'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
-  // Get account ID from URL params
+  // Get account ID from URL params or props
   const accountIdFromUrl = searchParams.get('account');
+  const effectiveAccountId = selectedAccountId || accountIdFromUrl;
   
-  // Set filter from URL on mount
+  // Set filter from URL or props on mount
   useEffect(() => {
-    if (accountIdFromUrl) {
-      setFilterAccountId(accountIdFromUrl);
+    if (effectiveAccountId) {
+      setFilterAccountId(effectiveAccountId);
     }
-  }, [accountIdFromUrl]);
+  }, [effectiveAccountId]);
 
 
-  // Sort transactions by date (newest first)
-  const sortedTransactions = [...transactions].sort((a, b) => 
-    new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
+  // Sort handler
+  const handleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1); // Reset to first page when sorting changes
+  };
+
+  // Sort transactions based on current sort field and direction
+  const sortedTransactions = useMemo(() => {
+    const sorted = [...transactions].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'date':
+          aValue = new Date(a.date).getTime();
+          bValue = new Date(b.date).getTime();
+          break;
+        case 'account':
+          const accountA = accounts.find(acc => acc.id === a.accountId);
+          const accountB = accounts.find(acc => acc.id === b.accountId);
+          aValue = accountA?.name || '';
+          bValue = accountB?.name || '';
+          break;
+        case 'description':
+          aValue = a.description.toLowerCase();
+          bValue = b.description.toLowerCase();
+          break;
+        case 'category':
+          const categoryA = categories.find(c => c.id === a.category);
+          const categoryB = categories.find(c => c.id === b.category);
+          
+          // Get full category path for sorting
+          if (categoryA && categoryA.level === 'detail' && categoryA.parentId) {
+            const parentA = categories.find(c => c.id === categoryA.parentId);
+            aValue = `${parentA?.name || ''} > ${categoryA.name}`;
+          } else {
+            aValue = categoryA?.name || a.categoryName || a.category || '';
+          }
+          
+          if (categoryB && categoryB.level === 'detail' && categoryB.parentId) {
+            const parentB = categories.find(c => c.id === categoryB.parentId);
+            bValue = `${parentB?.name || ''} > ${categoryB.name}`;
+          } else {
+            bValue = categoryB?.name || b.categoryName || b.category || '';
+          }
+          
+          aValue = aValue.toLowerCase();
+          bValue = bValue.toLowerCase();
+          break;
+        case 'amount':
+          aValue = a.amount;
+          bValue = b.amount;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [transactions, sortField, sortDirection, accounts, categories]);
 
   // Apply filters and search (memoized)
   const filteredTransactions = useMemo(() => 
@@ -78,10 +148,11 @@ export default function Transactions() {
     [sortedTransactions, filterType, filterAccountId, dateFrom, dateTo, searchQuery, getCategoryPath, accounts]
   );
 
-  // Pagination logic
-  const totalPages = Math.ceil(filteredTransactions.length / transactionsPerPage);
-  const startIndex = (currentPage - 1) * transactionsPerPage;
-  const endIndex = startIndex + transactionsPerPage;
+  // Pagination logic - show all transactions if account is selected
+  const showAllTransactions = !!effectiveAccountId;
+  const totalPages = showAllTransactions ? 1 : Math.ceil(filteredTransactions.length / transactionsPerPage);
+  const startIndex = showAllTransactions ? 0 : (currentPage - 1) * transactionsPerPage;
+  const endIndex = showAllTransactions ? filteredTransactions.length : startIndex + transactionsPerPage;
   const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
 
   // Reset to page 1 when filters change
@@ -130,7 +201,7 @@ export default function Transactions() {
   const filteredAccount = filterAccountId ? accounts.find(a => a.id === filterAccountId) : null;
 
   return (
-    <div>
+    <div className={isWideView ? "w-[100vw] relative left-[50%] right-[50%] ml-[-50vw] mr-[-50vw] px-4 md:px-6 lg:px-8" : ""}>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 md:mb-6 gap-3">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-white">Transactions</h1>
@@ -144,12 +215,24 @@ export default function Transactions() {
           {/* Compact View Toggle */}
           <button
             onClick={() => setCompactView(!compactView)}
-            className="flex items-center gap-2 px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             title={compactView ? "Switch to normal view" : "Switch to compact view"}
           >
             {compactView ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
             <span className="hidden sm:inline dark:text-white">
               {compactView ? 'Normal View' : 'Compact View'}
+            </span>
+          </button>
+          
+          {/* Wide View Toggle */}
+          <button
+            onClick={() => setIsWideView(!isWideView)}
+            className="flex items-center gap-2 px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            title={isWideView ? "Switch to standard width" : "Switch to wide view"}
+          >
+            {isWideView ? <Shrink size={16} /> : <Expand size={16} />}
+            <span className="hidden sm:inline dark:text-white">
+              {isWideView ? 'Standard View' : 'Wide View'}
             </span>
           </button>
           
@@ -339,28 +422,68 @@ export default function Transactions() {
           </div>
           
           {/* Desktop Table View */}
-          <div className="hidden sm:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-            <div className="overflow-x-auto">
+          <div className={`hidden sm:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${isWideView ? 'w-full' : ''}`}>
+            <div className={isWideView ? '' : 'overflow-x-auto'}>
               <table className="w-full">
               <thead className="bg-gray-50 dark:bg-gray-700">
                 <tr>
-                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                    Date
+                  <th 
+                    className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
+                    onClick={() => handleSort('date')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Date
+                      {sortField === 'date' && (
+                        sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                      )}
+                    </div>
                   </th>
                   <th className={`px-2 ${compactView ? 'py-2' : 'py-3'} text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10`}>
                     R
                   </th>
-                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                    Description
+                  <th 
+                    className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
+                    onClick={() => handleSort('account')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Account
+                      {sortField === 'account' && (
+                        sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                      )}
+                    </div>
                   </th>
-                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell`}>
-                    Category
+                  <th 
+                    className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
+                    onClick={() => handleSort('description')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Description
+                      {sortField === 'description' && (
+                        sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                      )}
+                    </div>
                   </th>
-                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden md:table-cell`}>
-                    Account
+                  <th 
+                    className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
+                    onClick={() => handleSort('category')}
+                  >
+                    <div className="flex items-center gap-1">
+                      Category
+                      {sortField === 'category' && (
+                        sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                      )}
+                    </div>
                   </th>
-                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                    Amount
+                  <th 
+                    className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
+                    onClick={() => handleSort('amount')}
+                  >
+                    <div className="flex items-center justify-end gap-1">
+                      Amount
+                      {sortField === 'amount' && (
+                        sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
+                      )}
+                    </div>
                   </th>
                   <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
                     Actions
@@ -384,6 +507,9 @@ export default function Transactions() {
                           {transaction.cleared ? 'R' : 'N'}
                         </span>
                       </td>
+                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-500 dark:text-gray-400`}>
+                        {account?.name || 'Unknown'}
+                      </td>
                       <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap`}>
                         <div className="flex items-center gap-2">
                           {getTypeIcon(transaction.type)}
@@ -401,9 +527,6 @@ export default function Transactions() {
                           }
                           return category.name;
                         })()}
-                      </td>
-                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden md:table-cell`}>
-                        {account?.name || 'Unknown'}
                       </td>
                       <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-right font-medium ${
                         transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
@@ -446,7 +569,10 @@ export default function Transactions() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-700 dark:text-gray-300">
-                    Showing {startIndex + 1} to {Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length} transactions
+                    {showAllTransactions 
+                      ? `Showing all ${filteredTransactions.length} transactions`
+                      : `Showing ${startIndex + 1} to ${Math.min(endIndex, filteredTransactions.length)} of ${filteredTransactions.length} transactions`
+                    }
                   </span>
                   <select
                     value={transactionsPerPage}
@@ -543,7 +669,10 @@ export default function Transactions() {
               <div className="flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-700 dark:text-gray-300">
-                    {startIndex + 1}-{Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length}
+                    {showAllTransactions 
+                      ? `All ${filteredTransactions.length}`
+                      : `${startIndex + 1}-${Math.min(endIndex, filteredTransactions.length)} of ${filteredTransactions.length}`
+                    }
                   </span>
                   <select
                     value={transactionsPerPage}

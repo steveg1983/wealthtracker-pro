@@ -1,14 +1,18 @@
+import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useApp } from '../contexts/AppContext';
+import { useCurrency } from '../hooks/useCurrency';
 
-export default function AccountBalancesChart() {
+const AccountBalancesChart = React.memo(function AccountBalancesChart() {
   const { accounts } = useApp();
+  const { formatCurrency } = useCurrency();
   
-  const data = accounts.map(account => ({
-    name: account.name,
-    balance: account.balance,
-    type: account.type,
-  }));
+  const data = useMemo(() => 
+    accounts.map(account => ({
+      name: account.name,
+      balance: account.balance,
+      type: account.type,
+    })), [accounts]);
 
   const getColor = (type: string) => {
     const colors: Record<string, string> = {
@@ -22,7 +26,7 @@ export default function AccountBalancesChart() {
     return colors[type] || colors.other;
   };
 
-  const formatCurrency = (value: number) => `£${Math.abs(value).toFixed(0)}`;
+  const formatCurrencyShort = (value: number) => `£${Math.abs(value).toFixed(0)}`;
 
   if (data.length === 0) {
     return null;
@@ -34,9 +38,9 @@ export default function AccountBalancesChart() {
       <ResponsiveContainer width="100%" height={300}>
         <BarChart data={data} layout="horizontal">
           <CartesianGrid strokeDasharray="3 3" />
-          <XAxis type="number" tickFormatter={formatCurrency} />
+          <XAxis type="number" tickFormatter={formatCurrencyShort} />
           <YAxis dataKey="name" type="category" width={100} />
-          <Tooltip formatter={(value: number) => `£${value.toFixed(2)}`} />
+          <Tooltip formatter={(value: number) => formatCurrency(value)} />
           <Bar dataKey="balance">
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={getColor(entry.type)} />
@@ -46,4 +50,6 @@ export default function AccountBalancesChart() {
       </ResponsiveContainer>
     </div>
   );
-}
+});
+
+export default AccountBalancesChart;

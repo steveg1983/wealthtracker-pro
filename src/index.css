@@ -6,6 +6,10 @@
 :root {
   --color-primary: #0078d4;
   --color-secondary: #005a9e;
+  --color-light-bg: #f8fafc;
+  --color-light-card: #ffffff;
+  --color-light-border: #e5e7eb;
+  --color-light-accent: #f0f9ff;
 }
 
 /* Accent color classes */

@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Calendar, Tag, FileText, Check, Link, Plus } from 'lucide-react';
+import { Calendar, Tag, FileText, Check, Link, Plus, X } from 'lucide-react';
 import type { Transaction } from '../types';
 import CategoryCreationModal from './CategoryCreationModal';
 import { getCurrencySymbol } from '../utils/currency';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { useModalForm } from '../hooks/useModalForm';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -11,94 +13,110 @@ interface EditTransactionModalProps {
   transaction: Transaction | null;
 }
 
+interface FormData {
+  date: string;
+  description: string;
+  amount: string;
+  type: 'income' | 'expense' | 'transfer';
+  category: string;
+  subCategory: string;
+  accountId: string;
+  tags: string[];
+  notes: string;
+  cleared: boolean;
+  reconciledWith: string;
+}
+
 export default function EditTransactionModal({ isOpen, onClose, transaction }: EditTransactionModalProps) {
   const { accounts, categories, addTransaction, updateTransaction, deleteTransaction, getSubCategories, getDetailCategories } = useApp();
   
-  // Form state
-  const [date, setDate] = useState('');
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income' | 'expense' | 'transfer'>('expense');
-  const [category, setCategory] = useState('');
-  const [subCategory, setSubCategory] = useState('');
-  const [accountId, setAccountId] = useState('');
-  const [tags, setTags] = useState<string[]>([]);
-  const [notes, setNotes] = useState('');
-  const [cleared, setCleared] = useState(false);
-  const [reconciledWith, setReconciledWith] = useState('');
   const [tagInput, setTagInput] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  
+  const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
+    {
+      date: '',
+      description: '',
+      amount: '',
+      type: 'expense',
+      category: '',
+      subCategory: '',
+      accountId: '',
+      tags: [],
+      notes: '',
+      cleared: false,
+      reconciledWith: ''
+    },
+    {
+      onSubmit: (data) => {
+        const transactionData = {
+          date: new Date(data.date),
+          description: data.description,
+          amount: Math.round((parseFloat(data.amount) || 0) * 100) / 100,
+          type: data.type,
+          category: data.category,
+          accountId: data.accountId,
+          tags: data.tags.length > 0 ? data.tags : undefined,
+          notes: data.notes.trim() || undefined,
+          cleared: data.cleared,
+          reconciledWith: data.reconciledWith.trim() || undefined
+        };
+
+        if (transaction) {
+          updateTransaction(transaction.id, transactionData);
+        } else {
+          addTransaction(transactionData);
+        }
+      },
+      onClose
+    }
+  );
 
   // Get available sub-categories based on transaction type
-  const availableSubCategories = getSubCategories(`type-${type}`);
+  const availableSubCategories = getSubCategories(`type-${formData.type}`);
 
   // Initialize form when transaction changes
   useEffect(() => {
     if (transaction) {
-      setDate(transaction.date.toISOString().split('T')[0]);
-      setDescription(transaction.description);
-      setAmount(Math.abs(transaction.amount).toFixed(2));
-      setType(transaction.type);
-      
-      // Find category and its parent
       const categoryObj = categories.find(c => c.id === transaction.category);
-      if (categoryObj && categoryObj.parentId) {
-        setSubCategory(categoryObj.parentId);
-        setCategory(transaction.category);
-      } else {
-        setSubCategory('');
-        setCategory(transaction.category);
-      }
+      const subCategoryId = categoryObj?.parentId || '';
+      const categoryId = categoryObj?.parentId ? transaction.category : '';
       
-      setAccountId(transaction.accountId);
-      setTags(transaction.tags || []);
-      setNotes(transaction.notes || '');
-      setCleared(transaction.cleared || false);
-      setReconciledWith(transaction.reconciledWith || '');
+      setFormData({
+        date: transaction.date.toISOString().split('T')[0],
+        description: transaction.description,
+        amount: Math.abs(transaction.amount).toFixed(2),
+        type: transaction.type,
+        category: categoryId,
+        subCategory: subCategoryId,
+        accountId: transaction.accountId,
+        tags: transaction.tags || [],
+        notes: transaction.notes || '',
+        cleared: transaction.cleared || false,
+        reconciledWith: transaction.reconciledWith || ''
+      });
     } else {
       // Reset form for new transaction
       const today = new Date().toISOString().split('T')[0];
-      setDate(today);
-      setDescription('');
-      setAmount('');
-      setType('expense');
-      setSubCategory('');
-      setCategory('');
-      setAccountId(accounts.length > 0 ? accounts[0].id : '');
-      setTags([]);
-      setNotes('');
-      setCleared(false);
-      setReconciledWith('');
+      setFormData({
+        date: today,
+        description: '',
+        amount: '',
+        type: 'expense',
+        subCategory: '',
+        category: '',
+        accountId: accounts.length > 0 ? accounts[0].id : '',
+        tags: [],
+        notes: '',
+        cleared: false,
+        reconciledWith: ''
+      });
     }
     setTagInput('');
     setShowDeleteConfirm(false);
-  }, [transaction, accounts, categories]);
+  }, [transaction, accounts, categories, setFormData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const transactionData = {
-      date: new Date(date),
-      description,
-      amount: Math.round((parseFloat(amount) || 0) * 100) / 100,
-      type,
-      category,
-      accountId,
-      tags: tags.length > 0 ? tags : undefined,
-      notes: notes.trim() || undefined,
-      cleared,
-      reconciledWith: reconciledWith.trim() || undefined
-    };
-
-    if (transaction) {
-      updateTransaction(transaction.id, transactionData);
-    } else {
-      addTransaction(transactionData);
-    }
-    
-    onClose();
-  };
 
   const handleDelete = () => {
     if (!transaction) return;
@@ -108,14 +126,14 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
 
   const handleAddTag = () => {
     const trimmedTag = tagInput.trim();
-    if (trimmedTag && !tags.includes(trimmedTag)) {
-      setTags([...tags, trimmedTag]);
+    if (trimmedTag && !formData.tags.includes(trimmedTag)) {
+      updateField('tags', [...formData.tags, trimmedTag]);
       setTagInput('');
     }
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
+    updateField('tags', formData.tags.filter(tag => tag !== tagToRemove));
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -125,27 +143,11 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     }
   };
 
-  if (!isOpen) return null;
-
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-t-lg sm:rounded-lg shadow-xl w-full sm:max-w-2xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 sm:py-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
-              {transaction ? 'Edit Transaction' : 'New Transaction'}
-            </h2>
-            <button
-              onClick={onClose}
-              className="p-1 -m-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              <X size={24} />
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} title={transaction ? 'Edit Transaction' : 'New Transaction'} size="xl">
+        <form onSubmit={handleSubmit}>
+          <ModalBody>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Date */}
             <div>
@@ -155,8 +157,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               </label>
               <input
                 type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                value={formData.date}
+                onChange={(e) => updateField('date', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               />
@@ -168,8 +170,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 Account
               </label>
               <select
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
+                value={formData.accountId}
+                onChange={(e) => updateField('accountId', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               >
@@ -190,8 +192,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               </label>
               <input
                 type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={formData.description}
+                onChange={(e) => updateField('description', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               />
@@ -207,8 +209,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                   <input
                     type="radio"
                     value="income"
-                    checked={type === 'income'}
-                    onChange={(e) => setType(e.target.value as 'income' | 'expense' | 'transfer')}
+                    checked={formData.type === 'income'}
+                    onChange={(e) => updateField('type', e.target.value as 'income' | 'expense' | 'transfer')}
                     className="mr-2"
                   />
                   <span className="text-green-600 dark:text-green-400">Income</span>
@@ -217,8 +219,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                   <input
                     type="radio"
                     value="expense"
-                    checked={type === 'expense'}
-                    onChange={(e) => setType(e.target.value as 'income' | 'expense' | 'transfer')}
+                    checked={formData.type === 'expense'}
+                    onChange={(e) => updateField('type', e.target.value as 'income' | 'expense' | 'transfer')}
                     className="mr-2"
                   />
                   <span className="text-red-600 dark:text-red-400">Expense</span>
@@ -227,8 +229,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                   <input
                     type="radio"
                     value="transfer"
-                    checked={type === 'transfer'}
-                    onChange={(e) => setType(e.target.value as 'income' | 'expense' | 'transfer')}
+                    checked={formData.type === 'transfer'}
+                    onChange={(e) => updateField('type', e.target.value as 'income' | 'expense' | 'transfer')}
                     className="mr-2"
                   />
                   <span className="text-blue-600 dark:text-blue-400">Transfer</span>
@@ -239,16 +241,16 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             {/* Amount */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Amount {accountId && (() => {
-                  const selectedAccount = accounts.find(a => a.id === accountId);
+                Amount {formData.accountId && (() => {
+                  const selectedAccount = accounts.find(a => a.id === formData.accountId);
                   return selectedAccount ? `(${getCurrencySymbol(selectedAccount.currency)})` : '';
                 })()}
               </label>
               <input
                 type="number"
                 step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                value={formData.amount}
+                onChange={(e) => updateField('amount', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               />
@@ -272,10 +274,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                   </button>
                 </div>
                 <select
-                  value={subCategory}
+                  value={formData.subCategory}
                   onChange={(e) => {
-                    setSubCategory(e.target.value);
-                    setCategory(''); // Reset detail category
+                    updateField('subCategory', e.target.value);
+                    updateField('category', ''); // Reset detail category
                   }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                   required
@@ -288,19 +290,19 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               </div>
 
               {/* Detail category */}
-              {subCategory && (
+              {formData.subCategory && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Sub-category
                   </label>
                   <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    value={formData.category}
+                    onChange={(e) => updateField('category', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                     required
                   >
                     <option value="">Select sub-category</option>
-                    {getDetailCategories(subCategory).map(cat => (
+                    {getDetailCategories(formData.subCategory).map(cat => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
@@ -315,7 +317,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 Tags
               </label>
               <div className="flex gap-2 mb-2 flex-wrap">
-                {tags.map(tag => (
+                {formData.tags.map(tag => (
                   <span
                     key={tag}
                     className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm"
@@ -356,8 +358,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 Notes
               </label>
               <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                value={formData.notes}
+                onChange={(e) => updateField('notes', e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 placeholder="Add any additional notes..."
@@ -369,8 +371,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={cleared}
-                  onChange={(e) => setCleared(e.target.checked)}
+                  checked={formData.cleared}
+                  onChange={(e) => updateField('cleared', e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-600"
                 />
                 <Check size={16} className="text-green-600 dark:text-green-400" />
@@ -382,7 +384,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={!!reconciledWith && reconciledWith !== 'manual'}
+                  checked={!!formData.reconciledWith && formData.reconciledWith !== 'manual'}
                   disabled
                   className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
@@ -400,36 +402,38 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               )}
             </div>
           </div>
-
-          {/* Action buttons */}
-          <div className="flex justify-between gap-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            {transaction && (
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(true)}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
-              >
-                Delete
-              </button>
-            )}
-            
-            <div className="flex gap-3 ml-auto">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
-              >
-                {transaction ? 'Save Changes' : 'Add Transaction'}
-              </button>
+          </ModalBody>
+          <ModalFooter>
+            <div className="flex justify-between gap-3 w-full">
+              {transaction && (
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                >
+                  Delete
+                </button>
+              )}
+              
+              <div className="flex gap-3 ml-auto">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+                >
+                  {transaction ? 'Save Changes' : 'Add Transaction'}
+                </button>
+              </div>
             </div>
-          </div>
+          </ModalFooter>
         </form>
+      </Modal>
 
         {/* Delete confirmation */}
         {showDeleteConfirm && (
@@ -463,23 +467,22 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
         <CategoryCreationModal
           isOpen={showCategoryModal}
           onClose={() => setShowCategoryModal(false)}
-          initialType={type === 'transfer' ? 'expense' : type}
+          initialType={formData.type === 'transfer' ? 'expense' : formData.type}
           onCategoryCreated={(categoryId) => {
             // Find the created category and its parent
             const createdCategory = categories.find(c => c.id === categoryId);
             if (createdCategory) {
               if (createdCategory.level === 'detail') {
-                setSubCategory(createdCategory.parentId || '');
-                setCategory(categoryId);
+                updateField('subCategory', createdCategory.parentId || '');
+                updateField('category', categoryId);
               } else {
-                setSubCategory(categoryId);
-                setCategory('');
+                updateField('subCategory', categoryId);
+                updateField('category', '');
               }
             }
             setShowCategoryModal(false);
           }}
         />
-      </div>
-    </div>
+    </>
   );
 }

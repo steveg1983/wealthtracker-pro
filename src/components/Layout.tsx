@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Database, Tag, Settings2, LineChart } from 'lucide-react';
 import Breadcrumbs from './Breadcrumbs';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { useLayout } from '../contexts/LayoutContext';
 
 interface SidebarLinkProps {
   to: string;
@@ -17,10 +18,12 @@ interface SidebarLinkProps {
 
 function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onClick, onNavigate }: SidebarLinkProps) {
   const location = useLocation();
-  const isActive = location.pathname === to || 
+  const navigate = useNavigate();
+  const { isWideView } = useLayout();
+  const isActive = !isWideView && (location.pathname === to || 
     (hasSubItems && location.pathname.startsWith(to)) ||
     (to === '/accounts' && (location.pathname.startsWith('/transactions') || location.pathname.startsWith('/reconciliation'))) ||
-    (to === '/forecasting' && (location.pathname.startsWith('/budget') || location.pathname.startsWith('/goals')));
+    (to === '/forecasting' && (location.pathname.startsWith('/budget') || location.pathname.startsWith('/goals'))));
 
   const handleClick = (e: React.MouseEvent) => {
     if (onClick) {
@@ -58,7 +61,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
   } ${
     isActive
       ? 'bg-blue-600 text-white shadow-md'
-      : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-600'
+      : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50/70 dark:hover:bg-gray-600'
   }`;
 
   if (onClick && !to) {
@@ -93,10 +96,18 @@ export default function Layout() {
   const [forecastingExpanded, setForecastingExpanded] = useState(false);
   const location = useLocation();
   const { showBudget, showGoals, showAnalytics } = usePreferences();
+  const { isWideView } = useLayout();
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
   };
+  
+  // Auto-collapse sidebar when wide view is active
+  useEffect(() => {
+    if (isWideView) {
+      setIsSidebarCollapsed(true);
+    }
+  }, [isWideView]);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -131,27 +142,27 @@ export default function Layout() {
   }, [location.pathname]);
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-screen bg-[#D9E1F2] dark:bg-gray-900">
       {/* Sidebar */}
       <aside
         className={`${
           isSidebarCollapsed ? 'w-16' : 'w-64'
-        } bg-white dark:bg-gray-800 shadow-lg border-r border-blue-100 dark:border-gray-700 transition-all duration-300 hidden md:block`}
+        } bg-[#8EA9DB] dark:bg-gray-800 shadow-lg border-r border-blue-200 dark:border-gray-700 transition-all duration-300 hidden md:block`}
       >
         <div className="p-4">
           <div className="flex items-center justify-between mb-8">
             {!isSidebarCollapsed && (
-              <h1 className="text-xl font-bold text-blue-800 dark:text-white">Wealth Tracker</h1>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent dark:text-white">Wealth Tracker</h1>
             )}
             <button
               onClick={toggleSidebar}
-              className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600"
+              className="p-1 rounded hover:bg-blue-100 dark:hover:bg-gray-600"
             >
               <Menu size={20} className="text-gray-600 dark:text-gray-400" />
             </button>
           </div>
           <nav className="space-y-2">
-            <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/dashboard" icon={Home} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             
             {/* Accounts with Sub-navigation */}
             <div>
@@ -223,7 +234,7 @@ export default function Layout() {
       {/* Mobile Menu Button */}
       <button
         onClick={toggleMobileMenu}
-        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-[#8EA9DB] dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-blue-200 dark:border-gray-700"
       >
         {isMobileMenuOpen ? <X size={28} className="text-gray-600 dark:text-gray-300" /> : <Menu size={28} className="text-gray-600 dark:text-gray-300" />}
       </button>
@@ -231,11 +242,11 @@ export default function Layout() {
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black bg-opacity-50" onClick={toggleMobileMenu}>
-          <aside className="w-72 h-full bg-white dark:bg-gray-800 shadow-md overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <aside className="w-72 h-full bg-[#8EA9DB] dark:bg-gray-800 shadow-md overflow-y-auto" onClick={e => e.stopPropagation()}>
             <div className="p-4 pb-6">
               {/* Mobile header with close button */}
               <div className="flex justify-between items-center mb-8">
-                <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Wealth Tracker</h1>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent dark:text-white">Wealth Tracker</h1>
                 <button
                   onClick={toggleMobileMenu}
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
@@ -322,7 +333,6 @@ export default function Layout() {
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
         <div className="p-4 md:p-6 lg:p-8 pt-20 md:pt-6 lg:pt-8 max-w-7xl mx-auto">
-          <Breadcrumbs />
           <Outlet />
         </div>
       </main>

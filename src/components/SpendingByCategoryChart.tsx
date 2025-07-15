@@ -1,29 +1,26 @@
+import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useApp } from '../contexts/AppContext';
+import { useCurrency } from '../hooks/useCurrency';
 
-export default function SpendingByCategoryChart() {
+const SpendingByCategoryChart = React.memo(function SpendingByCategoryChart() {
   const { transactions } = useApp();
+  const { formatCurrency } = useCurrency();
 
-  // Helper function to format currency
-  const formatCurrency = (amount: number): string => {
-    return '£' + new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(Math.abs(amount));
-  };
+  // Calculate spending by category with memoization
+  const data = useMemo(() => {
+    const spendingByCategory = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((acc, t) => {
+        acc[t.category] = (acc[t.category] || 0) + t.amount;
+        return acc;
+      }, {} as Record<string, number>);
 
-  // Calculate spending by category
-  const spendingByCategory = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount;
-      return acc;
-    }, {} as Record<string, number>);
-
-  const data = Object.entries(spendingByCategory)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 6); // Top 6 categories
+    return Object.entries(spendingByCategory)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6); // Top 6 categories
+  }, [transactions]);
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -65,4 +62,6 @@ export default function SpendingByCategoryChart() {
       )}
     </div>
   );
-}
+});
+
+export default SpendingByCategoryChart;

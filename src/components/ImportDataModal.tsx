@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Upload, FileText, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
+import { Upload, FileText, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 import { parseMNY, parseMBF, applyMappingToData } from '../utils/mnyParser';
 import { parseQIF as enhancedParseQIF } from '../utils/qifParser';
 import MnyMappingModal from './MnyMappingModal';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
 
 interface ImportDataModalProps {
   isOpen: boolean;
@@ -293,25 +294,13 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     }
   };
 
-  if (!isOpen) return null;
-
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold dark:text-white">Import Financial Data</h2>
-            <button
-              onClick={() => {
-                onClose();
-                setShowTestDataWarning(false);
-              }}
-              disabled={parsing}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 disabled:opacity-50"
-            >
-              <X size={24} />
-            </button>
-          </div>
+      <Modal isOpen={isOpen} onClose={() => {
+        onClose();
+        setShowTestDataWarning(false);
+      }} title="Import Financial Data" size="xl">
+        <ModalBody>
 
           <div className="mb-6">
             <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -423,7 +412,9 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
             </div>
           )}
 
-          <div className="flex gap-3">
+        </ModalBody>
+        <ModalFooter>
+          <div className="flex gap-3 w-full">
             <button
               onClick={() => {
                 onClose();
@@ -446,8 +437,8 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               {importing ? 'Importing...' : 'Import Data'}
             </button>
           </div>
-        </div>
-      </div>
+        </ModalFooter>
+      </Modal>
 
       <MnyMappingModal
         isOpen={showMappingModal}

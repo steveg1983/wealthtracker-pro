@@ -9,7 +9,7 @@ import PortfolioView from '../components/PortfolioView';
 import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2, CheckCircle, Home, PieChart, Settings } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
 
-export default function Accounts() {
+export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
   const { accounts, updateAccount, deleteAccount } = useApp();
   const { formatCurrency: formatDisplayCurrency } = useCurrency();
   const navigate = useNavigate();
@@ -45,7 +45,7 @@ export default function Accounts() {
       title: 'Current Accounts', 
       icon: Wallet, 
       color: 'text-blue-600 dark:text-blue-400',
-      bgColor: 'bg-blue-50 dark:bg-blue-900/20',
+      bgColor: 'bg-blue-200 dark:bg-blue-900/20',
       borderColor: 'border-blue-200 dark:border-blue-800'
     },
     { 
@@ -53,7 +53,7 @@ export default function Accounts() {
       title: 'Savings Accounts', 
       icon: PiggyBank, 
       color: 'text-green-600 dark:text-green-400',
-      bgColor: 'bg-green-50 dark:bg-green-900/20',
+      bgColor: 'bg-green-200 dark:bg-green-900/20',
       borderColor: 'border-green-200 dark:border-green-800'
     },
     { 
@@ -61,7 +61,7 @@ export default function Accounts() {
       title: 'Credit Cards', 
       icon: CreditCard, 
       color: 'text-orange-600 dark:text-orange-400',
-      bgColor: 'bg-orange-50 dark:bg-orange-900/20',
+      bgColor: 'bg-orange-200 dark:bg-orange-900/20',
       borderColor: 'border-orange-200 dark:border-orange-800'
     },
     { 
@@ -69,7 +69,7 @@ export default function Accounts() {
       title: 'Loans', 
       icon: TrendingDown, 
       color: 'text-red-600 dark:text-red-400',
-      bgColor: 'bg-red-50 dark:bg-red-900/20',
+      bgColor: 'bg-red-200 dark:bg-red-900/20',
       borderColor: 'border-red-200 dark:border-red-800'
     },
     { 
@@ -77,7 +77,7 @@ export default function Accounts() {
       title: 'Investments', 
       icon: TrendingUp, 
       color: 'text-purple-600 dark:text-purple-400',
-      bgColor: 'bg-purple-50 dark:bg-purple-900/20',
+      bgColor: 'bg-purple-200 dark:bg-purple-900/20',
       borderColor: 'border-purple-200 dark:border-purple-800'
     },
     { 
@@ -85,7 +85,7 @@ export default function Accounts() {
       title: 'Other Assets', 
       icon: Home, 
       color: 'text-indigo-600 dark:text-indigo-400',
-      bgColor: 'bg-indigo-50 dark:bg-indigo-900/20',
+      bgColor: 'bg-indigo-200 dark:bg-indigo-900/20',
       borderColor: 'border-indigo-200 dark:border-indigo-800'
     },
   ];
@@ -122,7 +122,7 @@ export default function Accounts() {
         <h1 className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-white">Accounts</h1>
         <button 
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-2 self-end sm:self-auto"
+          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 self-end sm:self-auto"
         >
           <Plus size={20} />
           <span className="hidden sm:inline">Add Account</span>
@@ -132,7 +132,7 @@ export default function Accounts() {
 
 
       {/* Accounts by Category */}
-      <div className="space-y-6">
+      <div className="grid gap-6">
         {accountTypes.map(({ type, title, icon: Icon, color, bgColor, borderColor }) => {
           const typeAccounts = accountsByType[type] || [];
           if (typeAccounts.length === 0) return null;
@@ -140,8 +140,8 @@ export default function Accounts() {
           const typeTotal = typeAccounts.reduce((sum, acc) => sum + acc.balance, 0);
 
           return (
-            <div key={type} className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-              <div className={`${bgColor} ${borderColor} border-b px-4 md:px-6 py-3 md:py-4`}>
+            <div key={type} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 overflow-hidden">
+              <div className={`${bgColor} bg-opacity-50 dark:bg-opacity-20 backdrop-blur-sm ${borderColor} border-b px-6 py-4`}>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center gap-2 md:gap-3">
                     <Icon className={color} size={20} />
@@ -156,15 +156,19 @@ export default function Accounts() {
                 </div>
               </div>
 
-              <div className="divide-y divide-gray-200 dark:divide-gray-700">
+              <div className="divide-y divide-gray-200/50 dark:divide-gray-700/50">
                 {typeAccounts.map((account) => (
                   <div 
                     key={account.id} 
-                    className="p-4 md:p-6 hover:bg-gray-50 dark:hover:bg-gray-600/70 transition-colors cursor-pointer"
+                    className="p-6 bg-white/50 dark:bg-gray-800/50 hover:bg-white/70 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer backdrop-blur-sm"
                     onClick={(e) => {
                       // Don't navigate if clicking on buttons or inputs
                       if ((e.target as HTMLElement).closest('button, input')) return;
-                      navigate(`/transactions?account=${account.id}`);
+                      if (onAccountClick) {
+                        onAccountClick(account.id);
+                      } else {
+                        navigate(`/transactions?account=${account.id}`);
+                      }
                     }}
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -212,67 +216,73 @@ export default function Accounts() {
                           </div>
                         ) : (
                           <>
-                            <div className="flex items-center gap-2 sm:gap-3">
-                              <p className={`text-lg md:text-xl font-semibold min-w-[120px] sm:min-w-[140px] text-right ${
+                            <div className="flex items-center gap-2">
+                              <p className={`text-lg md:text-xl font-semibold w-[140px] sm:w-[180px] text-right tabular-nums whitespace-nowrap ${
                                 account.balance >= 0 
                                   ? 'text-gray-900 dark:text-white' 
                                   : 'text-red-600 dark:text-red-400'
                               }`}>
                                 {account.balance < 0 ? '-' : ''}{formatDisplayCurrency(Math.abs(account.balance), account.currency)}
                               </p>
-                              <div className="flex items-center gap-1">
-                              {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
+                              <div className="flex items-center gap-1 w-[120px] sm:w-[160px] justify-start">
+                              {/* Space for future icons */}
+                              <div className="w-[40px] sm:w-[60px]">
+                                {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button
                                   onClick={() => setPortfolioAccountId(account.id)}
-                                  className="p-1.5 sm:p-1 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded relative group"
+                                  className="p-2 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-100/50 dark:hover:bg-purple-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="View Portfolio"
                                 >
                                   <PieChart size={16} />
-                                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
+                                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
                                     View Portfolio
                                   </span>
                                 </button>
-                              )}
-                              <button
-                                onClick={() => setSettingsAccountId(account.id)}
-                                className="p-1.5 sm:p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded relative group"
-                                title="Account Settings"
-                              >
-                                <Settings size={16} />
-                                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
-                                  Account Settings
-                                </span>
-                              </button>
-                              <button
-                                onClick={() => setReconcileAccountId(account.id)}
-                                className="p-1.5 sm:p-1 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded relative group"
-                                title="Reconcile Account"
-                              >
-                                <CheckCircle size={16} />
-                                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
-                                  Reconcile Account
-                                </span>
-                              </button>
-                              <button
-                                onClick={() => handleEdit(account.id, account.balance)}
-                                className="p-1.5 sm:p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded relative group"
-                                title="Edit Balance"
-                              >
-                                <Edit size={16} />
-                                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
-                                  Edit Balance
-                                </span>
-                              </button>
-                              <button
-                                onClick={() => handleDelete(account.id)}
-                                className="p-1.5 sm:p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded relative group"
-                                title="Delete Account"
-                              >
-                                <Trash2 size={16} />
-                                <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-gray-900 dark:bg-gray-700 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-150 whitespace-nowrap pointer-events-none">
-                                  Delete Account
-                                </span>
-                              </button>
+                                )}
+                              </div>
+                              {/* Fixed icon positions */}
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => setSettingsAccountId(account.id)}
+                                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-600/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  title="Account Settings"
+                                >
+                                  <Settings size={16} />
+                                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
+                                    Account Settings
+                                  </span>
+                                </button>
+                                <button
+                                  onClick={() => setReconcileAccountId(account.id)}
+                                  className="p-2 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  title="Reconcile Account"
+                                >
+                                  <CheckCircle size={16} />
+                                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
+                                    Reconcile Account
+                                  </span>
+                                </button>
+                                <button
+                                  onClick={() => handleEdit(account.id, account.balance)}
+                                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-600/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  title="Edit Balance"
+                                >
+                                  <Edit size={16} />
+                                  <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
+                                    Edit Balance
+                                  </span>
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(account.id)}
+                                  className="p-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  title="Delete Account"
+                                >
+                                  <Trash2 size={16} />
+                                  <span className="absolute bottom-full right-0 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
+                                    Delete Account
+                                  </span>
+                                </button>
+                              </div>
                               </div>
                             </div>
                           </>
@@ -288,7 +298,7 @@ export default function Accounts() {
       </div>
 
       {accounts.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
           <p className="text-gray-500 dark:text-gray-400">
             No accounts yet. Click "Add Account" to get started!
           </p>

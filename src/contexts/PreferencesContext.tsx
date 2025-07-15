@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 
 interface PreferencesContextType {
@@ -77,33 +77,35 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('dark');
 
+  // Memoize updateActualTheme to avoid recreating it
+  const updateActualTheme = useCallback(() => {
+    let newTheme: 'light' | 'dark' = 'light';
+    
+    if (theme === 'dark') {
+      newTheme = 'dark';
+    } else if (theme === 'auto') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      newTheme = prefersDark ? 'dark' : 'light';
+    } else {
+      newTheme = 'light';
+    }
+    
+    setActualTheme(newTheme);
+  }, [theme]);
+
   // Handle theme changes and auto theme
   useEffect(() => {
-    const updateActualTheme = () => {
-      let newTheme: 'light' | 'dark' = 'light';
-      
-      if (theme === 'dark') {
-        newTheme = 'dark';
-      } else if (theme === 'auto') {
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        newTheme = prefersDark ? 'dark' : 'light';
-      } else {
-        newTheme = 'light';
-      }
-      
-      setActualTheme(newTheme);
-    };
-
     updateActualTheme();
 
     if (theme === 'auto') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = () => updateActualTheme();
+      
+      // Use the modern addEventListener/removeEventListener pattern
       mediaQuery.addEventListener('change', handleChange);
-
       return () => mediaQuery.removeEventListener('change', handleChange);
     }
-  }, [theme]);
+  }, [theme, updateActualTheme]);
 
   // Apply theme classes
   useEffect(() => {
@@ -153,37 +155,24 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     }
   }, [accentColor]);
 
+  // Consolidate all localStorage updates into a single effect for better performance
   useEffect(() => {
-    localStorage.setItem('money_management_compact_view', compactView.toString());
-  }, [compactView]);
+    const savePreferences = () => {
+      localStorage.setItem('money_management_compact_view', compactView.toString());
+      localStorage.setItem('money_management_currency', currency);
+      localStorage.setItem('money_management_theme', theme);
+      localStorage.setItem('money_management_accent_color', accentColor);
+      localStorage.setItem('money_management_first_name', firstName);
+      localStorage.setItem('money_management_show_budget', showBudget.toString());
+      localStorage.setItem('money_management_show_goals', showGoals.toString());
+      localStorage.setItem('money_management_show_analytics', showAnalytics.toString());
+    };
 
-  useEffect(() => {
-    localStorage.setItem('money_management_currency', currency);
-  }, [currency]);
-
-  useEffect(() => {
-    localStorage.setItem('money_management_theme', theme);
-  }, [theme]);
-
-  useEffect(() => {
-    localStorage.setItem('money_management_accent_color', accentColor);
-  }, [accentColor]);
-
-  useEffect(() => {
-    localStorage.setItem('money_management_first_name', firstName);
-  }, [firstName]);
-
-  useEffect(() => {
-    localStorage.setItem('money_management_show_budget', showBudget.toString());
-  }, [showBudget]);
-
-  useEffect(() => {
-    localStorage.setItem('money_management_show_goals', showGoals.toString());
-  }, [showGoals]);
-
-  useEffect(() => {
-    localStorage.setItem('money_management_show_analytics', showAnalytics.toString());
-  }, [showAnalytics]);
+    // Debounce the save to avoid excessive localStorage writes
+    const timeoutId = setTimeout(savePreferences, 300);
+    
+    return () => clearTimeout(timeoutId);
+  }, [compactView, currency, theme, accentColor, firstName, showBudget, showGoals, showAnalytics]);
 
   return (
     <PreferencesContext.Provider value={{

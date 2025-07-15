@@ -2,6 +2,22 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Getting Started
+
+### Running the Development Server
+
+**Important:** After restarting your computer, you need to start the development server to access the app:
+
+```bash
+npm run dev
+```
+
+The app will be available at:
+- http://localhost:5173
+- http://127.0.0.1:5173 (if localhost doesn't work)
+
+If you cannot access the app via localhost, make sure the development server is running by checking for the "VITE v7.x.x ready" message in your terminal.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh

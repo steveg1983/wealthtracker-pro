@@ -1,12 +1,22 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { useModalForm } from '../hooks/useModalForm';
 
 interface CategoryCreationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCategoryCreated?: (categoryId: string) => void;
   initialType?: 'income' | 'expense';
+}
+
+interface FormData {
+  type: 'income' | 'expense';
+  selectedCategory: string;
+  newCategoryName: string;
+  selectedSpecific: string;
+  newSpecificName: string;
 }
 
 export default function CategoryCreationModal({ 
@@ -17,13 +27,22 @@ export default function CategoryCreationModal({
 }: CategoryCreationModalProps) {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   
-  const [type, setType] = useState<'income' | 'expense'>(initialType);
-  const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [showNewCategory, setShowNewCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [selectedSpecific, setSelectedSpecific] = useState<string>('');
   const [showNewSpecific, setShowNewSpecific] = useState(false);
-  const [newSpecificName, setNewSpecificName] = useState('');
+  
+  const { formData, updateField, reset } = useModalForm<FormData>(
+    {
+      type: initialType,
+      selectedCategory: '',
+      newCategoryName: '',
+      selectedSpecific: '',
+      newSpecificName: ''
+    },
+    {
+      onSubmit: () => {},
+      onClose
+    }
+  );
 
   // Predefined category suggestions
   const suggestedCategories = {
@@ -32,47 +51,47 @@ export default function CategoryCreationModal({
   };
 
   // Get available categories based on type
-  const availableCategories = getSubCategories(`type-${type}`);
+  const availableCategories = getSubCategories(`type-${formData.type}`);
   const existingCategoryNames = availableCategories.map(cat => cat.name);
   
   // Filter suggestions to only show ones that don't exist yet
-  const filteredSuggestions = suggestedCategories[type].filter(
+  const filteredSuggestions = suggestedCategories[formData.type].filter(
     name => !existingCategoryNames.includes(name)
   );
 
   const handleSubmit = () => {
-    let resultCategoryId = selectedCategory || selectedSpecific;
+    let resultCategoryId = formData.selectedCategory || formData.selectedSpecific;
     
     // Create new category if needed
-    if (showNewCategory && newCategoryName.trim()) {
+    if (showNewCategory && formData.newCategoryName.trim()) {
       const newCategory = {
-        name: newCategoryName.trim(),
-        type,
+        name: formData.newCategoryName.trim(),
+        type: formData.type,
         level: 'sub' as const,
-        parentId: `type-${type}`,
+        parentId: `type-${formData.type}`,
         isSystem: false
       };
       
       addCategory(newCategory);
       
       // For new categories, we'll use a generated ID - the AppContext will handle the actual ID
-      resultCategoryId = `new-sub-${newCategoryName.trim()}`;
+      resultCategoryId = `new-sub-${formData.newCategoryName.trim()}`;
     }
 
     // Create new specific category if needed
-    if ((selectedCategory || resultCategoryId) && showNewSpecific && newSpecificName.trim()) {
-      const parentId = selectedCategory || resultCategoryId;
+    if ((formData.selectedCategory || resultCategoryId) && showNewSpecific && formData.newSpecificName.trim()) {
+      const parentId = formData.selectedCategory || resultCategoryId;
       
       const newSpecific = {
-        name: newSpecificName.trim(),
-        type,
+        name: formData.newSpecificName.trim(),
+        type: formData.type,
         level: 'detail' as const,
-        parentId: parentId.startsWith('new-sub-') ? `type-${type}` : parentId, // Use type if parent is new
+        parentId: parentId.startsWith('new-sub-') ? `type-${formData.type}` : parentId, // Use type if parent is new
         isSystem: false
       };
       
       addCategory(newSpecific);
-      resultCategoryId = `new-detail-${newSpecificName.trim()}`;
+      resultCategoryId = `new-detail-${formData.newSpecificName.trim()}`;
     }
 
     // Notify parent component
@@ -82,7 +101,7 @@ export default function CategoryCreationModal({
         if (resultCategoryId.startsWith('new-')) {
           // Find the actual created category
           const categoryName = resultCategoryId.includes('detail') ? 
-            newSpecificName.trim() : newCategoryName.trim();
+            formData.newSpecificName.trim() : formData.newCategoryName.trim();
           const level = resultCategoryId.includes('detail') ? 'detail' : 'sub';
           
           const foundCategory = categories.find(c => 
@@ -99,12 +118,9 @@ export default function CategoryCreationModal({
     }
 
     // Reset form
-    setSelectedCategory('');
+    reset();
     setShowNewCategory(false);
-    setNewCategoryName('');
-    setSelectedSpecific('');
     setShowNewSpecific(false);
-    setNewSpecificName('');
     
     onClose();
   };
@@ -112,53 +128,38 @@ export default function CategoryCreationModal({
   const handleCategoryChange = (value: string) => {
     if (value === 'new') {
       setShowNewCategory(true);
-      setSelectedCategory('');
+      updateField('selectedCategory', '');
     } else if (value.startsWith('suggest-')) {
       // Handle suggested categories
       const categoryName = value.replace('suggest-', '');
       setShowNewCategory(true);
-      setNewCategoryName(categoryName);
-      setSelectedCategory('');
+      updateField('newCategoryName', categoryName);
+      updateField('selectedCategory', '');
     } else {
       setShowNewCategory(false);
-      setSelectedCategory(value);
-      setNewCategoryName('');
+      updateField('selectedCategory', value);
+      updateField('newCategoryName', '');
     }
     // Reset specific category selection
-    setSelectedSpecific('');
+    updateField('selectedSpecific', '');
     setShowNewSpecific(false);
-    setNewSpecificName('');
+    updateField('newSpecificName', '');
   };
 
   const handleSpecificChange = (value: string) => {
     if (value === 'new') {
       setShowNewSpecific(true);
-      setSelectedSpecific('');
+      updateField('selectedSpecific', '');
     } else {
       setShowNewSpecific(false);
-      setSelectedSpecific(value);
-      setNewSpecificName('');
+      updateField('selectedSpecific', value);
+      updateField('newSpecificName', '');
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-t-lg sm:rounded-lg shadow-xl w-full sm:max-w-md max-h-[90vh] sm:max-h-[85vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 sm:p-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg sm:text-xl font-semibold dark:text-white">Create New Category</h2>
-            <button
-              onClick={onClose}
-              className="p-1 -m-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              <X size={24} />
-            </button>
-          </div>
-        </div>
-
-        <div className="p-4 sm:p-6 space-y-4">
+    <Modal isOpen={isOpen} onClose={onClose} title="Create New Category" size="md">
+      <ModalBody className="space-y-4">
           {/* Type Selection */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -167,16 +168,16 @@ export default function CategoryCreationModal({
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => {
-                  setType('income');
-                  setSelectedCategory('');
+                  updateField('type', 'income');
+                  updateField('selectedCategory', '');
                   setShowNewCategory(false);
-                  setNewCategoryName('');
-                  setSelectedSpecific('');
+                  updateField('newCategoryName', '');
+                  updateField('selectedSpecific', '');
                   setShowNewSpecific(false);
-                  setNewSpecificName('');
+                  updateField('newSpecificName', '');
                 }}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  type === 'income'
+                  formData.type === 'income'
                     ? 'bg-green-500 text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
@@ -185,16 +186,16 @@ export default function CategoryCreationModal({
               </button>
               <button
                 onClick={() => {
-                  setType('expense');
-                  setSelectedCategory('');
+                  updateField('type', 'expense');
+                  updateField('selectedCategory', '');
                   setShowNewCategory(false);
-                  setNewCategoryName('');
-                  setSelectedSpecific('');
+                  updateField('newCategoryName', '');
+                  updateField('selectedSpecific', '');
                   setShowNewSpecific(false);
-                  setNewSpecificName('');
+                  updateField('newSpecificName', '');
                 }}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  type === 'expense'
+                  formData.type === 'expense'
                     ? 'bg-red-500 text-white'
                     : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
@@ -210,7 +211,7 @@ export default function CategoryCreationModal({
               Category
             </label>
             <select
-              value={showNewCategory ? 'new' : selectedCategory}
+              value={showNewCategory ? 'new' : formData.selectedCategory}
               onChange={(e) => handleCategoryChange(e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
             >
@@ -239,8 +240,8 @@ export default function CategoryCreationModal({
             {showNewCategory && (
               <input
                 type="text"
-                value={newCategoryName}
-                onChange={(e) => setNewCategoryName(e.target.value)}
+                value={formData.newCategoryName}
+                onChange={(e) => updateField('newCategoryName', e.target.value)}
                 placeholder="Enter new category name"
                 className="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 autoFocus
@@ -249,20 +250,20 @@ export default function CategoryCreationModal({
           </div>
 
           {/* Specific Category Selection */}
-          {(selectedCategory || (showNewCategory && newCategoryName)) && (
+          {(formData.selectedCategory || (showNewCategory && formData.newCategoryName)) && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Specific Category
               </label>
-              {selectedCategory && !showNewCategory ? (
+              {formData.selectedCategory && !showNewCategory ? (
                 <select
-                  value={showNewSpecific ? 'new' : selectedSpecific}
+                  value={showNewSpecific ? 'new' : formData.selectedSpecific}
                   onChange={(e) => handleSpecificChange(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Select specific category (optional)</option>
                   
-                  {getDetailCategories(selectedCategory).map(cat => (
+                  {getDetailCategories(formData.selectedCategory).map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                   
@@ -275,11 +276,11 @@ export default function CategoryCreationModal({
               )}
 
               {/* New Specific Category Input */}
-              {showNewSpecific && selectedCategory && (
+              {showNewSpecific && formData.selectedCategory && (
                 <input
                   type="text"
-                  value={newSpecificName}
-                  onChange={(e) => setNewSpecificName(e.target.value)}
+                  value={formData.newSpecificName}
+                  onChange={(e) => updateField('newSpecificName', e.target.value)}
                   placeholder="Enter new specific category name"
                   className="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                   autoFocus
@@ -288,26 +289,26 @@ export default function CategoryCreationModal({
             </div>
           )}
 
-          {/* Action Buttons */}
-          <div className="flex gap-2 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!((selectedCategory || (showNewCategory && newCategoryName.trim())) || 
-                        (selectedSpecific || (showNewSpecific && newSpecificName.trim())))}
-              className="flex-1 px-4 py-2 text-sm sm:text-base bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            >
-              <Plus size={16} />
-              Create Category
-            </button>
-          </div>
+      </ModalBody>
+      <ModalFooter>
+        <div className="flex gap-2 w-full">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={!((formData.selectedCategory || (showNewCategory && formData.newCategoryName.trim())) || 
+                      (formData.selectedSpecific || (showNewSpecific && formData.newSpecificName.trim())))}
+            className="flex-1 px-4 py-2 text-sm sm:text-base bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            <Plus size={16} />
+            Create Category
+          </button>
         </div>
-      </div>
-    </div>
+      </ModalFooter>
+    </Modal>
   );
 }

@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useApp } from "../contexts/AppContext";
 import type { Goal } from "../types";
-import { X } from "lucide-react";
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { useModalForm } from '../hooks/useModalForm';
 
 interface GoalModalProps {
   isOpen: boolean;
@@ -9,18 +10,54 @@ interface GoalModalProps {
   goal?: Goal;
 }
 
+interface FormData {
+  name: string;
+  type: Goal["type"];
+  targetAmount: string;
+  currentAmount: string;
+  targetDate: string;
+  description: string;
+  linkedAccountIds: string[];
+  isActive: boolean;
+}
+
 export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
   const { addGoal, updateGoal, accounts } = useApp();
-  const [formData, setFormData] = useState({
-    name: "",
-    type: "savings" as Goal["type"],
-    targetAmount: "",
-    currentAmount: "",
-    targetDate: "",
-    description: "",
-    linkedAccountIds: [] as string[],
-    isActive: true,
-  });
+  
+  const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
+    {
+      name: "",
+      type: "savings",
+      targetAmount: "",
+      currentAmount: "",
+      targetDate: "",
+      description: "",
+      linkedAccountIds: [],
+      isActive: true,
+    },
+    {
+      onSubmit: (data) => {
+        const goalData = {
+          name: data.name,
+          type: data.type,
+          targetAmount: parseFloat(data.targetAmount) || 0,
+          currentAmount: parseFloat(data.currentAmount) || 0,
+          targetDate: new Date(data.targetDate),
+          description: data.description || undefined,
+          linkedAccountIds: data.linkedAccountIds.length > 0 ? data.linkedAccountIds : undefined,
+          isActive: data.isActive,
+          createdAt: goal?.createdAt || new Date(),
+        };
+
+        if (goal) {
+          updateGoal(goal.id, goalData);
+        } else {
+          addGoal(goalData);
+        }
+      },
+      onClose
+    }
+  );
 
   useEffect(() => {
     if (goal) {
@@ -46,59 +83,21 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
         isActive: true,
       });
     }
-  }, [goal, isOpen]);
+  }, [goal, isOpen, setFormData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    const goalData = {
-      name: formData.name,
-      type: formData.type,
-      targetAmount: parseFloat(formData.targetAmount) || 0,
-      currentAmount: parseFloat(formData.currentAmount) || 0,
-      targetDate: new Date(formData.targetDate),
-      description: formData.description || undefined,
-      linkedAccountIds: formData.linkedAccountIds.length > 0 ? formData.linkedAccountIds : undefined,
-      isActive: formData.isActive,
-      createdAt: goal?.createdAt || new Date(),
-    };
-
-    if (goal) {
-      updateGoal(goal.id, goalData);
-    } else {
-      addGoal(goalData);
-    }
-
-    onClose();
-  };
 
   const toggleLinkedAccount = (accountId: string) => {
-    setFormData(prev => ({
-      ...prev,
-      linkedAccountIds: prev.linkedAccountIds.includes(accountId)
-        ? prev.linkedAccountIds.filter(id => id !== accountId)
-        : [...prev.linkedAccountIds, accountId]
-    }));
+    updateField('linkedAccountIds', 
+      formData.linkedAccountIds.includes(accountId)
+        ? formData.linkedAccountIds.filter(id => id !== accountId)
+        : [...formData.linkedAccountIds, accountId]
+    );
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            {goal ? "Edit Goal" : "Create New Goal"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
+    <Modal isOpen={isOpen} onClose={onClose} title={goal ? "Edit Goal" : "Create New Goal"} size="md">
+      <form onSubmit={handleSubmit}>
+        <ModalBody className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Goal Name
@@ -107,7 +106,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
               type="text"
               required
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => updateField('name', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               placeholder="e.g., Emergency Fund"
             />
@@ -119,7 +118,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
             </label>
             <select
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value as Goal["type"] })}
+              onChange={(e) => updateField('type', e.target.value as Goal["type"])}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="savings">Savings Goal</option>
@@ -139,7 +138,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
                 step="0.01"
                 required
                 value={formData.currentAmount}
-                onChange={(e) => setFormData({ ...formData, currentAmount: e.target.value })}
+                onChange={(e) => updateField('currentAmount', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="0.00"
               />
@@ -154,7 +153,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
                 step="0.01"
                 required
                 value={formData.targetAmount}
-                onChange={(e) => setFormData({ ...formData, targetAmount: e.target.value })}
+                onChange={(e) => updateField('targetAmount', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 placeholder="0.00"
               />
@@ -169,7 +168,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
               type="date"
               required
               value={formData.targetDate}
-              onChange={(e) => setFormData({ ...formData, targetDate: e.target.value })}
+              onChange={(e) => updateField('targetDate', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
             />
           </div>
@@ -180,7 +179,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
             </label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) => updateField('description', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
               rows={3}
               placeholder="What is this goal for?"
@@ -213,7 +212,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
               <input
                 type="checkbox"
                 checked={formData.isActive}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                onChange={(e) => updateField('isActive', e.target.checked)}
                 className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -221,8 +220,9 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
               </span>
             </label>
           </div>
-
-          <div className="flex justify-end space-x-3 pt-4">
+        </ModalBody>
+        <ModalFooter>
+          <div className="flex justify-end space-x-3 w-full">
             <button
               type="button"
               onClick={onClose}
@@ -237,8 +237,8 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
               {goal ? "Update Goal" : "Create Goal"}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

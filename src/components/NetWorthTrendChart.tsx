@@ -1,20 +1,15 @@
+import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '../contexts/AppContext';
+import { useCurrency } from '../hooks/useCurrency';
 
-export default function NetWorthTrendChart() {
+const NetWorthTrendChart = React.memo(function NetWorthTrendChart() {
   const { accounts, transactions } = useApp();
-
-  // Helper function to format currency
-  const formatCurrency = (amount: number): string => {
-    return '£' + new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(Math.abs(amount));
-  };
+  const { formatCurrency } = useCurrency();
 
   // Calculate net worth over the last 6 months
-  const generateNetWorthData = () => {
-    const data = [];
+  const data = useMemo(() => {
+    const result = [];
     const today = new Date();
     
     for (let i = 5; i >= 0; i--) {
@@ -40,16 +35,14 @@ export default function NetWorthTrendChart() {
       // In a real app, you'd track historical balances
       const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
       
-      data.push({
+      result.push({
         month: monthName,
         balance: totalBalance + (transactionBalance * (i / 5))
       });
     }
     
-    return data;
-  };
-
-  const data = generateNetWorthData();
+    return result;
+  }, [accounts, transactions]);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
@@ -83,4 +76,6 @@ export default function NetWorthTrendChart() {
       </div>
     </div>
   );
-}
+});
+
+export default NetWorthTrendChart;

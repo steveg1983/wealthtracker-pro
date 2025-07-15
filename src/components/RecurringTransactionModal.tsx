@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useApp } from '../contexts/AppContext';
-import { X, Repeat } from "lucide-react";
+import { Repeat } from "lucide-react";
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { useModalForm } from '../hooks/useModalForm';
 
 interface RecurringTransactionModalProps {
   isOpen: boolean;
@@ -22,21 +24,10 @@ interface RecurringTransaction {
 
 export default function RecurringTransactionModal({ isOpen, onClose }: RecurringTransactionModalProps) {
   const { accounts, addTransaction, recurringTransactions = [], addRecurringTransaction, deleteRecurringTransaction } = useApp();
-  const [formData, setFormData] = useState<RecurringTransaction>({
-    description: '',
-    amount: 0,
-    type: 'expense',
-    category: '',
-    accountId: accounts[0]?.id || '',
-    frequency: 'monthly',
-    startDate: new Date().toISOString().split('T')[0]
-  });
   const [showForm, setShowForm] = useState(false);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    addRecurringTransaction(formData);
-    setFormData({
+  
+  const { formData, updateField, handleSubmit, reset } = useModalForm<RecurringTransaction>(
+    {
       description: '',
       amount: 0,
       type: 'expense',
@@ -44,9 +35,20 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
       accountId: accounts[0]?.id || '',
       frequency: 'monthly',
       startDate: new Date().toISOString().split('T')[0]
-    });
-    setShowForm(false);
-  };
+    },
+    {
+      onSubmit: (data) => {
+        addRecurringTransaction(data);
+        reset();
+        setShowForm(false);
+      },
+      onClose: () => {
+        setShowForm(false);
+        onClose();
+      }
+    }
+  );
+
 
   const processRecurringTransaction = (recurring: RecurringTransaction) => {
     const today = new Date();
@@ -103,24 +105,15 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold dark:text-white flex items-center gap-2">
-            <Repeat size={24} />
-            Recurring Transactions
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <X size={24} />
-          </button>
-        </div>
+    <Modal isOpen={isOpen} onClose={onClose} title="Recurring Transactions" size="lg">
+      <ModalBody>
 
+        <div className="flex items-center gap-2 mb-4">
+          <Repeat size={20} className="text-gray-600 dark:text-gray-400" />
+          <span className="text-sm text-gray-600 dark:text-gray-400">Manage your recurring transactions</span>
+        </div>
+        
         {!showForm ? (
           <>
             <button
@@ -175,7 +168,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                 type="text"
                 required
                 value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                onChange={(e) => updateField('description', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
             </div>
@@ -187,7 +180,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                 </label>
                 <select
                   value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' | 'transfer' })}
+                  onChange={(e) => updateField('type', e.target.value as 'income' | 'expense' | 'transfer')}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="expense">Expense</option>
@@ -205,7 +198,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                   required
                   step="0.01"
                   value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
+                  onChange={(e) => updateField('amount', parseFloat(e.target.value) || 0)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
@@ -220,7 +213,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                   type="text"
                   required
                   value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  onChange={(e) => updateField('category', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
@@ -231,7 +224,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                 </label>
                 <select
                   value={formData.accountId}
-                  onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
+                  onChange={(e) => updateField('accountId', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   {accounts.map(account => (
@@ -247,7 +240,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
               </label>
               <select
                 value={formData.frequency}
-                onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
+                onChange={(e) => updateField('frequency', e.target.value as any)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="daily">Daily</option>
@@ -266,7 +259,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                   type="date"
                   required
                   value={formData.startDate}
-                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  onChange={(e) => updateField('startDate', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
@@ -278,13 +271,13 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                 <input
                   type="date"
                   value={formData.endDate || ''}
-                  onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
+                  onChange={(e) => updateField('endDate', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-6">
               <button
                 type="button"
                 onClick={() => setShowForm(false)}
@@ -301,7 +294,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
             </div>
           </form>
         )}
-      </div>
-    </div>
+      </ModalBody>
+    </Modal>
   );
 }

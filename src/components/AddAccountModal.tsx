@@ -1,65 +1,59 @@
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
-import { X } from 'lucide-react';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { useModalForm } from '../hooks/useModalForm';
 
 interface AddAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+interface AccountFormData {
+  name: string;
+  type: 'current' | 'checking' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
+  balance: string;
+  currency: string;
+  institution: string;
+}
+
 export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
   const { addAccount } = useApp();
   const { currency: defaultCurrency } = usePreferences();
-  const [name, setName] = useState('');
-  const [type, setType] = useState<'current' | 'checking' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other'>('current');
-  const [balance, setBalance] = useState('');
-  const [currency, setCurrency] = useState(defaultCurrency);
-  const [institution, setInstitution] = useState('');
+
+  const { formData, updateField, handleSubmit } = useModalForm<AccountFormData>(
+    {
+      name: '',
+      type: 'current',
+      balance: '',
+      currency: defaultCurrency,
+      institution: ''
+    },
+    {
+      onSubmit: (data) => {
+        addAccount({
+          name: data.name,
+          type: data.type === 'checking' ? 'current' : data.type,
+          balance: parseFloat(data.balance) || 0,
+          currency: data.currency,
+          institution: data.institution,
+          lastUpdated: new Date(),
+        });
+      },
+      onClose
+    }
+  );
 
   useEffect(() => {
     if (isOpen) {
-      setCurrency(defaultCurrency);
+      updateField('currency', defaultCurrency);
     }
-  }, [isOpen, defaultCurrency]);
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    addAccount({
-      name,
-      type: type === 'checking' ? 'current' : type,
-      balance: parseFloat(balance) || 0,
-      currency,
-      institution,
-      lastUpdated: new Date(),
-    });
-
-    // Reset form
-    setName('');
-    setType('checking');
-    setBalance('');
-    setCurrency(defaultCurrency);
-    setInstitution('');
-    onClose();
-  };
-
-  if (!isOpen) return null;
+  }, [isOpen, defaultCurrency, updateField]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold dark:text-white">Add New Account</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-          >
-            <X size={24} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
+    <Modal isOpen={isOpen} onClose={onClose} title="Add New Account">
+      <form onSubmit={handleSubmit}>
+        <ModalBody>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -67,8 +61,8 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
               </label>
               <input
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                value={formData.name}
+                onChange={(e) => updateField('name', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 required
               />
@@ -79,8 +73,8 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
                 Account Type
               </label>
               <select
-                value={type}
-                onChange={(e) => setType(e.target.value as any)}
+                value={formData.type}
+                onChange={(e) => updateField('type', e.target.value as AccountFormData['type'])}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="current">Current</option>
@@ -99,8 +93,8 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
               <input
                 type="number"
                 step="0.01"
-                value={balance}
-                onChange={(e) => setBalance(e.target.value)}
+                value={formData.balance}
+                onChange={(e) => updateField('balance', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 required
               />
@@ -111,8 +105,8 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
                 Currency
               </label>
               <select
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value)}
+                value={formData.currency}
+                onChange={(e) => updateField('currency', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="GBP">GBP £</option>
@@ -127,15 +121,16 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
               </label>
               <input
                 type="text"
-                value={institution}
-                onChange={(e) => setInstitution(e.target.value)}
+                value={formData.institution}
+                onChange={(e) => updateField('institution', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="e.g., Barclays, HSBC"
               />
             </div>
           </div>
-
-          <div className="flex gap-3 mt-6">
+        </ModalBody>
+        <ModalFooter>
+          <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
@@ -150,8 +145,8 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
               Add Account
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

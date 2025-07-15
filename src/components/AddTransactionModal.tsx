@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import CategoryCreationModal from './CategoryCreationModal';
 import { getCurrencySymbol } from '../utils/currency';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { useModalForm } from '../hooks/useModalForm';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -10,60 +12,53 @@ interface AddTransactionModalProps {
 }
 
 
+interface FormData {
+  description: string;
+  amount: string;
+  type: 'income' | 'expense' | 'transfer';
+  category: string;
+  subCategory: string;
+  accountId: string;
+  date: string;
+}
+
 export default function AddTransactionModal({ isOpen, onClose }: AddTransactionModalProps) {
   const { accounts, addTransaction, categories, getSubCategories, getDetailCategories } = useApp();
-  const [description, setDescription] = useState('');
-  const [amount, setAmount] = useState('');
-  const [type, setType] = useState<'income' | 'expense' | 'transfer'>('expense');
-  const [category, setCategory] = useState('');
-  const [subCategory, setSubCategory] = useState('');
-  const [accountId, setAccountId] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  
+  const { formData, updateField, handleSubmit } = useModalForm<FormData>(
+    {
+      description: '',
+      amount: '',
+      type: 'expense',
+      category: '',
+      subCategory: '',
+      accountId: '',
+      date: new Date().toISOString().split('T')[0]
+    },
+    {
+      onSubmit: (data) => {
+        if (!data.description || !data.amount || !data.category || !data.accountId) return;
+        
+        addTransaction({
+          description: data.description,
+          amount: Math.round(parseFloat(data.amount) * 100) / 100,
+          type: data.type,
+          category: data.category,
+          accountId: data.accountId,
+          date: new Date(data.date),
+        });
+      },
+      onClose
+    }
+  );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!description || !amount || !category || !accountId) return;
-
-    addTransaction({
-      description,
-      amount: Math.round(parseFloat(amount) * 100) / 100,
-      type,
-      category,
-      accountId,
-      date: new Date(date),
-    });
-
-    // Reset form
-    setDescription('');
-    setAmount('');
-    setType('expense');
-    setCategory('');
-    setAccountId('');
-    setSubCategory('');
-    setDate(new Date().toISOString().split('T')[0]);
-    onClose();
-  };
-
-  if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end sm:items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-t-lg sm:rounded-lg shadow-xl w-full sm:max-w-md max-h-[90vh] sm:max-h-[85vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 sm:p-6">
-          <div className="flex justify-between items-center">
-            <h2 className="text-lg sm:text-xl font-semibold dark:text-white">Add Transaction</h2>
-            <button
-              onClick={onClose}
-              className="p-1 -m-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-            >
-              <X size={24} />
-            </button>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} title="Add Transaction" size="md">
+        <form onSubmit={handleSubmit}>
+          <ModalBody>
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -72,9 +67,9 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
-                  onClick={() => setType('income')}
+                  onClick={() => updateField('type', 'income')}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    type === 'income'
+                    formData.type === 'income'
                       ? 'bg-green-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
@@ -83,9 +78,9 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 </button>
                 <button
                   type="button"
-                  onClick={() => setType('expense')}
+                  onClick={() => updateField('type', 'expense')}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    type === 'expense'
+                    formData.type === 'expense'
                       ? 'bg-red-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
@@ -94,9 +89,9 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 </button>
                 <button
                   type="button"
-                  onClick={() => setType('transfer')}
+                  onClick={() => updateField('type', 'transfer')}
                   className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    type === 'transfer'
+                    formData.type === 'transfer'
                       ? 'bg-blue-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
@@ -111,8 +106,8 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 Account
               </label>
               <select
-                value={accountId}
-                onChange={(e) => setAccountId(e.target.value)}
+                value={formData.accountId}
+                onChange={(e) => updateField('accountId', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 required
               >
@@ -131,8 +126,8 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               </label>
               <input
                 type="text"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                value={formData.description}
+                onChange={(e) => updateField('description', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="e.g., Grocery shopping"
                 required
@@ -141,16 +136,16 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Amount {accountId && (() => {
-                  const selectedAccount = accounts.find(a => a.id === accountId);
+                Amount {formData.accountId && (() => {
+                  const selectedAccount = accounts.find(a => a.id === formData.accountId);
                   return selectedAccount ? `(${getCurrencySymbol(selectedAccount.currency)})` : '(£)';
                 })()}
               </label>
               <input
                 type="number"
                 step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                value={formData.amount}
+                onChange={(e) => updateField('amount', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="0.00"
                 required
@@ -175,35 +170,35 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                   </button>
                 </div>
                 <select
-                  value={subCategory}
+                  value={formData.subCategory}
                   onChange={(e) => {
-                    setSubCategory(e.target.value);
-                    setCategory(''); // Reset detail category
+                    updateField('subCategory', e.target.value);
+                    updateField('category', ''); // Reset detail category
                   }}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   required
                 >
                   <option value="">Select category</option>
-                  {getSubCategories(`type-${type}`).map(cat => (
+                  {getSubCategories(`type-${formData.type}`).map(cat => (
                     <option key={cat.id} value={cat.id}>{cat.name}</option>
                   ))}
                 </select>
               </div>
 
               {/* Detail category */}
-              {subCategory && (
+              {formData.subCategory && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Sub-category
                   </label>
                   <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    value={formData.category}
+                    onChange={(e) => updateField('category', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                     required
                   >
                     <option value="">Select sub-category</option>
-                    {getDetailCategories(subCategory).map(cat => (
+                    {getDetailCategories(formData.subCategory).map(cat => (
                       <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
@@ -217,52 +212,54 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               </label>
               <input
                 type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                value={formData.date}
+                onChange={(e) => updateField('date', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 required
               />
             </div>
           </div>
-
-          <div className="flex gap-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="flex-1 px-4 py-2 text-sm sm:text-base bg-primary text-white rounded-lg hover:bg-secondary"
-            >
-              Add Transaction
-            </button>
-          </div>
+          </ModalBody>
+          <ModalFooter>
+            <div className="flex gap-3 w-full">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="flex-1 px-4 py-2 text-sm sm:text-base bg-primary text-white rounded-lg hover:bg-secondary"
+              >
+                Add Transaction
+              </button>
+            </div>
+          </ModalFooter>
         </form>
+      </Modal>
 
         {/* Category Creation Modal */}
         <CategoryCreationModal
           isOpen={showCategoryModal}
           onClose={() => setShowCategoryModal(false)}
-          initialType={type === 'transfer' ? 'expense' : type}
+          initialType={formData.type === 'transfer' ? 'expense' : formData.type}
           onCategoryCreated={(categoryId) => {
             // Find the created category and its parent
             const createdCategory = categories.find(c => c.id === categoryId);
             if (createdCategory) {
               if (createdCategory.level === 'detail') {
-                setSubCategory(createdCategory.parentId || '');
-                setCategory(categoryId);
+                updateField('subCategory', createdCategory.parentId || '');
+                updateField('category', categoryId);
               } else {
-                setSubCategory(categoryId);
-                setCategory('');
+                updateField('subCategory', categoryId);
+                updateField('category', '');
               }
             }
             setShowCategoryModal(false);
           }}
         />
-      </div>
-    </div>
+    </>
   );
 }

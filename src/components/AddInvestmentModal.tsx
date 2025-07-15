@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
 import { getCurrencySymbol } from '../utils/currency';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { useModalForm } from '../hooks/useModalForm';
 
 interface AddInvestmentModalProps {
   isOpen: boolean;
@@ -10,20 +12,73 @@ interface AddInvestmentModalProps {
   accountId?: string;
 }
 
+interface FormData {
+  selectedAccountId: string;
+  investmentType: 'fund' | 'share' | 'cash' | 'other';
+  stockCode: string;
+  name: string;
+  units: string;
+  pricePerUnit: string;
+  fees: string;
+  date: string;
+  notes: string;
+}
+
 export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddInvestmentModalProps) {
   const { accounts, addTransaction } = useApp();
   const { formatCurrency } = useCurrency();
   
-  // Form state
-  const [selectedAccountId, setSelectedAccountId] = useState(accountId || '');
-  const [investmentType, setInvestmentType] = useState<'fund' | 'share' | 'cash' | 'other'>('share');
-  const [stockCode, setStockCode] = useState('');
-  const [name, setName] = useState('');
-  const [units, setUnits] = useState('');
-  const [pricePerUnit, setPricePerUnit] = useState('');
-  const [fees, setFees] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [notes, setNotes] = useState('');
+  const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
+    {
+      selectedAccountId: accountId || '',
+      investmentType: 'share',
+      stockCode: '',
+      name: '',
+      units: '',
+      pricePerUnit: '',
+      fees: '',
+      date: new Date().toISOString().split('T')[0],
+      notes: ''
+    },
+    {
+      onSubmit: (data) => {
+        if (!data.selectedAccountId || !data.name || !data.units || !data.pricePerUnit) {
+          alert('Please fill in all required fields');
+          return;
+        }
+        
+        const unitsNum = parseFloat(data.units) || 0;
+        const priceNum = parseFloat(data.pricePerUnit) || 0;
+        const feesNum = parseFloat(data.fees) || 0;
+        const total = unitsNum * priceNum + feesNum;
+        const account = accounts.find(a => a.id === data.selectedAccountId);
+        
+        // Create the investment transaction
+        const description = `${data.investmentType === 'share' ? 'Buy' : 'Investment'}: ${data.name}${data.stockCode ? ` (${data.stockCode})` : ''} - ${data.units} units @ ${formatCurrency(parseFloat(data.pricePerUnit), account?.currency || 'GBP')}/unit`;
+        
+        // Structure the notes in a parseable format
+        const structuredNotes = [
+          `Investment Type: ${data.investmentType}`,
+          `Stock Code: ${data.stockCode || 'N/A'}`,
+          `Units: ${data.units}`,
+          `Price per unit: ${data.pricePerUnit}`,
+          `Fees: ${data.fees || '0'}`
+        ].join('\n');
+        
+        addTransaction({
+          date: new Date(data.date),
+          description,
+          amount: total,
+          type: 'expense',
+          category: 'cat-27', // Investment category
+          accountId: data.selectedAccountId,
+          notes: data.notes ? `${structuredNotes}\n\nAdditional Notes: ${data.notes}` : structuredNotes,
+          tags: ['investment', data.investmentType, data.stockCode].filter(Boolean)
+        });
+      },
+      onClose
+    }
+  );
   
   // Filter to only show investment accounts
   const investmentAccounts = accounts.filter(acc => acc.type === 'investment');
@@ -31,86 +86,36 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
   // Reset form when modal opens/closes
   useEffect(() => {
     if (!isOpen) {
-      setInvestmentType('share');
-      setStockCode('');
-      setName('');
-      setUnits('');
-      setPricePerUnit('');
-      setFees('');
-      setDate(new Date().toISOString().split('T')[0]);
-      setNotes('');
-      if (!accountId) {
-        setSelectedAccountId('');
-      }
+      setFormData({
+        selectedAccountId: accountId || '',
+        investmentType: 'share',
+        stockCode: '',
+        name: '',
+        units: '',
+        pricePerUnit: '',
+        fees: '',
+        date: new Date().toISOString().split('T')[0],
+        notes: ''
+      });
     }
-  }, [isOpen, accountId]);
+  }, [isOpen, accountId, setFormData]);
   
   // Calculate total cost
   const calculateTotal = () => {
-    const unitsNum = parseFloat(units) || 0;
-    const priceNum = parseFloat(pricePerUnit) || 0;
-    const feesNum = parseFloat(fees) || 0;
+    const unitsNum = parseFloat(formData.units) || 0;
+    const priceNum = parseFloat(formData.pricePerUnit) || 0;
+    const feesNum = parseFloat(formData.fees) || 0;
     return unitsNum * priceNum + feesNum;
   };
   
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedAccountId || !name || !units || !pricePerUnit) {
-      alert('Please fill in all required fields');
-      return;
-    }
-    
-    const total = calculateTotal();
-    const account = accounts.find(a => a.id === selectedAccountId);
-    
-    // Create the investment transaction
-    const description = `${investmentType === 'share' ? 'Buy' : 'Investment'}: ${name}${stockCode ? ` (${stockCode})` : ''} - ${units} units @ ${formatCurrency(parseFloat(pricePerUnit), account?.currency || 'GBP')}/unit`;
-    
-    // Structure the notes in a parseable format
-    const structuredNotes = [
-      `Investment Type: ${investmentType}`,
-      `Stock Code: ${stockCode || 'N/A'}`,
-      `Units: ${units}`,
-      `Price per unit: ${pricePerUnit}`,
-      `Fees: ${fees || '0'}`
-    ].join('\n');
-    
-    addTransaction({
-      date: new Date(date),
-      description,
-      amount: total,
-      type: 'expense',
-      category: 'cat-27', // Investment category
-      accountId: selectedAccountId,
-      notes: notes ? `${structuredNotes}\n\nAdditional Notes: ${notes}` : structuredNotes,
-      tags: ['investment', investmentType, stockCode].filter(Boolean)
-    });
-    
-    onClose();
-  };
   
-  if (!isOpen) return null;
-  
-  const selectedAccount = accounts.find(a => a.id === selectedAccountId);
+  const selectedAccount = accounts.find(a => a.id === formData.selectedAccountId);
   const currencySymbol = selectedAccount ? getCurrencySymbol(selectedAccount.currency) : '£';
   
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Add Investment</h2>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
-            >
-              <X size={20} className="text-gray-500 dark:text-gray-400" />
-            </button>
-          </div>
-        </div>
-        
-        <form onSubmit={handleSubmit} className="p-6">
+    <Modal isOpen={isOpen} onClose={onClose} title="Add Investment" size="xl">
+      <form onSubmit={handleSubmit}>
+        <ModalBody>
           {/* Account Selection */}
           {!accountId && (
             <div className="mb-6">
@@ -118,8 +123,8 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 Investment Account*
               </label>
               <select
-                value={selectedAccountId}
-                onChange={(e) => setSelectedAccountId(e.target.value)}
+                value={formData.selectedAccountId}
+                onChange={(e) => updateField('selectedAccountId', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               >
@@ -153,9 +158,9 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 <button
                   key={type.value}
                   type="button"
-                  onClick={() => setInvestmentType(type.value as any)}
+                  onClick={() => updateField('investmentType', type.value as any)}
                   className={`px-4 py-2 rounded-lg transition-colors ${
-                    investmentType === type.value
+                    formData.investmentType === type.value
                       ? 'bg-blue-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
@@ -170,16 +175,16 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             {/* Stock/Fund Code */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {investmentType === 'fund' ? 'Fund Code' : investmentType === 'share' ? 'Stock Code' : 'Reference'} 
-                {investmentType !== 'cash' && <span className="text-gray-400 text-xs ml-1">(e.g. AAPL)</span>}
+                {formData.investmentType === 'fund' ? 'Fund Code' : formData.investmentType === 'share' ? 'Stock Code' : 'Reference'} 
+                {formData.investmentType !== 'cash' && <span className="text-gray-400 text-xs ml-1">(e.g. AAPL)</span>}
               </label>
               <input
                 type="text"
-                value={stockCode}
-                onChange={(e) => setStockCode(e.target.value.toUpperCase())}
-                placeholder={investmentType === 'share' ? 'AAPL' : investmentType === 'fund' ? 'ISIN/SEDOL' : 'Optional'}
+                value={formData.stockCode}
+                onChange={(e) => updateField('stockCode', e.target.value.toUpperCase())}
+                placeholder={formData.investmentType === 'share' ? 'AAPL' : formData.investmentType === 'fund' ? 'ISIN/SEDOL' : 'Optional'}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
-                disabled={investmentType === 'cash'}
+                disabled={formData.investmentType === 'cash'}
               />
             </div>
             
@@ -190,9 +195,9 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
               </label>
               <input
                 type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={investmentType === 'share' ? 'Apple Inc.' : investmentType === 'fund' ? 'Fund Name' : 'Description'}
+                value={formData.name}
+                onChange={(e) => updateField('name', e.target.value)}
+                placeholder={formData.investmentType === 'share' ? 'Apple Inc.' : formData.investmentType === 'fund' ? 'Fund Name' : 'Description'}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               />
@@ -201,14 +206,14 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             {/* Number of Units */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {investmentType === 'cash' ? 'Amount' : 'Number of Units/Shares'}*
+                {formData.investmentType === 'cash' ? 'Amount' : 'Number of Units/Shares'}*
               </label>
               <input
                 type="number"
                 step="0.0001"
-                value={units}
-                onChange={(e) => setUnits(e.target.value)}
-                placeholder={investmentType === 'cash' ? '1000.00' : '100'}
+                value={formData.units}
+                onChange={(e) => updateField('units', e.target.value)}
+                placeholder={formData.investmentType === 'cash' ? '1000.00' : '100'}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               />
@@ -217,14 +222,14 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             {/* Price per Unit */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                {investmentType === 'cash' ? `Price per Unit (${currencySymbol})` : `Price per Unit/Share (${currencySymbol})`}*
+                {formData.investmentType === 'cash' ? `Price per Unit (${currencySymbol})` : `Price per Unit/Share (${currencySymbol})`}*
               </label>
               <input
                 type="number"
                 step="0.01"
-                value={pricePerUnit}
-                onChange={(e) => setPricePerUnit(e.target.value)}
-                placeholder={investmentType === 'cash' ? '1.00' : '150.00'}
+                value={formData.pricePerUnit}
+                onChange={(e) => updateField('pricePerUnit', e.target.value)}
+                placeholder={formData.investmentType === 'cash' ? '1.00' : '150.00'}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               />
@@ -238,8 +243,8 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
               <input
                 type="number"
                 step="0.01"
-                value={fees}
-                onChange={(e) => setFees(e.target.value)}
+                value={formData.fees}
+                onChange={(e) => updateField('fees', e.target.value)}
                 placeholder="0.00"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
               />
@@ -252,8 +257,8 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
               </label>
               <input
                 type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
+                value={formData.date}
+                onChange={(e) => updateField('date', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               />
@@ -268,10 +273,10 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 {formatCurrency(calculateTotal(), selectedAccount?.currency || 'GBP')}
               </span>
             </div>
-            {fees && parseFloat(fees) > 0 && (
+            {formData.fees && parseFloat(formData.fees) > 0 && (
               <div className="flex justify-between items-center mt-1 text-sm">
                 <span className="text-gray-500 dark:text-gray-400">
-                  ({units || '0'} × {currencySymbol}{pricePerUnit || '0'} + {currencySymbol}{fees} fees)
+                  ({formData.units || '0'} × {currencySymbol}{formData.pricePerUnit || '0'} + {currencySymbol}{formData.fees} fees)
                 </span>
               </div>
             )}
@@ -283,16 +288,17 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
               Notes
             </label>
             <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              value={formData.notes}
+              onChange={(e) => updateField('notes', e.target.value)}
               rows={3}
               placeholder="Additional information about this investment..."
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
             />
           </div>
           
-          {/* Action Buttons */}
-          <div className="flex justify-end gap-3 mt-8">
+        </ModalBody>
+        <ModalFooter>
+          <div className="flex justify-end gap-3 w-full">
             <button
               type="button"
               onClick={onClose}
@@ -308,8 +314,8 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
               Add Investment
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+        </ModalFooter>
+      </form>
+    </Modal>
   );
 }

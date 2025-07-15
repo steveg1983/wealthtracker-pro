@@ -48,6 +48,12 @@ export default function Dashboard() {
     showSettings: false,
     showCategoryModal: false
   });
+
+  // Memoize recent transactions
+  const recentTransactions = useMemo(() => 
+    transactions.slice(0, 10),
+    [transactions]
+  );
   
   // Calculate totals with currency conversion
   useEffect(() => {
@@ -110,6 +116,12 @@ export default function Dashboard() {
 
   // Use reconciliation hook
   const { reconciliationDetails } = useReconciliation(accounts, transactions);
+
+  // Memoize reconciliation calculations
+  const reconciliationSummary = useMemo(() => ({
+    totalUnreconciledCount: reconciliationDetails.reduce((sum, acc) => sum + acc.unreconciledCount, 0),
+    totalUnreconciledValue: reconciliationDetails.reduce((sum, acc) => sum + acc.totalToReconcile, 0)
+  }), [reconciliationDetails]);
 
   // Generate net worth data for chart
   const netWorthData = useMemo(() => {
@@ -848,7 +860,7 @@ export default function Dashboard() {
             >
               <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Total Outstanding</p>
               <p className="text-base md:text-lg font-bold text-orange-600 dark:text-orange-400">
-                {reconciliationDetails.reduce((sum, acc) => sum + acc.unreconciledCount, 0)} items
+                {reconciliationSummary.totalUnreconciledCount} items
               </p>
             </div>
           </div>
@@ -899,13 +911,13 @@ export default function Dashboard() {
             >
               <p className="text-xs sm:text-sm text-orange-600 dark:text-orange-400">Unreconciled</p>
               <p className="text-base sm:text-lg font-bold text-orange-700 dark:text-orange-300">
-                {reconciliationDetails.reduce((sum, acc) => sum + acc.unreconciledCount, 0)}
+                {reconciliationSummary.totalUnreconciledCount}
               </p>
             </div>
             <div className="text-center p-2 sm:p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
               <p className="text-xs sm:text-sm text-green-600 dark:text-green-400">Total Value</p>
               <p className="text-base sm:text-lg font-bold text-green-700 dark:text-green-300">
-                {formatCurrency(reconciliationDetails.reduce((sum, acc) => sum + acc.totalToReconcile, 0))}
+                {formatCurrency(reconciliationSummary.totalUnreconciledValue)}
               </p>
             </div>
           </div>
@@ -952,7 +964,7 @@ export default function Dashboard() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
         <h2 className="text-lg md:text-xl font-semibold mb-2 md:mb-3 text-blue-900 dark:text-white">Recent Transactions</h2>
         <div className="space-y-1">
-          {transactions.slice(0, 10).map(transaction => (
+          {recentTransactions.map(transaction => (
             <div 
               key={transaction.id} 
               className="flex items-center gap-3 py-1.5 border-b dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors rounded px-2 -mx-2"
