@@ -665,6 +665,7 @@ export default function CategoriesSettings() {
               })}
             </div>
           </div>
+          </div>
           <DragOverlay>
             {activeId ? (
               <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl p-2 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 opacity-90">
