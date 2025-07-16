@@ -764,7 +764,7 @@ export default function Transactions() {
                 {paginatedTransactions.map((transaction, index) => (
                   <tr 
                     key={transaction.id} 
-                    className={`${index % 2 === 1 ? 'bg-[#D9E1F2]/25' : 'bg-white'} dark:${index % 2 === 1 ? 'bg-gray-800/50' : 'bg-gray-800'} cursor-pointer hover:shadow-[inset_2px_0_0_3px_rgb(209,213,219),inset_0_2px_0_3px_rgb(209,213,219),inset_0_-2px_0_3px_rgb(209,213,219),inset_-2px_0_0_3px_rgb(209,213,219)] dark:hover:shadow-[inset_2px_0_0_3px_rgb(75,85,99),inset_0_2px_0_3px_rgb(75,85,99),inset_0_-2px_0_3px_rgb(75,85,99),inset_-2px_0_0_3px_rgb(75,85,99)] transition-shadow relative`}
+                    className={`${index % 2 === 1 ? 'bg-[#D9E1F2]/25' : 'bg-white'} ${index % 2 === 1 ? 'dark:bg-gray-700/30' : 'dark:bg-gray-800'} cursor-pointer hover:shadow-[inset_2px_0_0_3px_rgb(209,213,219),inset_0_2px_0_3px_rgb(209,213,219),inset_0_-2px_0_3px_rgb(209,213,219),inset_-2px_0_0_3px_rgb(209,213,219)] dark:hover:shadow-[inset_2px_0_0_3px_rgb(75,85,99),inset_0_2px_0_3px_rgb(75,85,99),inset_0_-2px_0_3px_rgb(75,85,99),inset_-2px_0_0_3px_rgb(75,85,99)] transition-shadow relative`}
                     onClick={() => handleEdit(transaction)}
                   >
                     {columnOrder.map(columnKey => renderDataCell(columnKey, transaction, index))}

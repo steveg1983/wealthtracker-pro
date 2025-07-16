@@ -166,7 +166,7 @@ export default function Analytics() {
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Average Monthly Income</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Average Monthly Income</p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                 {formatCurrency(totalIncome / 12)}
               </p>
@@ -178,7 +178,7 @@ export default function Analytics() {
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Average Monthly Expenses</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Average Monthly Expenses</p>
               <p className="text-2xl font-bold text-red-600 dark:text-red-400">
                 {formatCurrency(totalExpenses / 12)}
               </p>
@@ -190,7 +190,7 @@ export default function Analytics() {
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Savings Rate</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Savings Rate</p>
               <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                 {savingsRate.toFixed(1)}%
               </p>
@@ -202,7 +202,7 @@ export default function Analytics() {
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Transactions</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Transactions</p>
               <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                 {transactions.length}
               </p>
@@ -324,12 +324,12 @@ export default function Analytics() {
               {topExpenses.map((expense, index) => (
                 <div key={expense.id} className="flex justify-between items-center p-2 bg-gray-50 dark:bg-gray-800/50 rounded-2xl">
                   <div className="flex items-center gap-3">
-                    <span className="text-xl font-bold text-gray-400 dark:text-gray-500">
+                    <span className="text-xl font-bold text-gray-500 dark:text-gray-300">
                       #{index + 1}
                     </span>
                     <div>
                       <p className="font-medium text-gray-900 dark:text-white text-sm">{expense.description}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-gray-600 dark:text-gray-300">
                         {expense.category} • {new Date(expense.date).toLocaleDateString()}
                       </p>
                     </div>
@@ -340,7 +340,7 @@ export default function Analytics() {
                 </div>
               ))}
               {topExpenses.length === 0 && (
-                <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                <p className="text-gray-600 dark:text-gray-300 text-center py-4">
                   No expenses yet
                 </p>
               )}
@@ -353,10 +353,10 @@ export default function Analytics() {
           <GridItem key="forecast-grid" title="Financial Forecast">
             <div className="h-full min-h-[200px] flex items-center justify-center">
               <div className="text-center">
-                <p className="text-gray-500 dark:text-gray-400 mb-2">
+                <p className="text-gray-600 dark:text-gray-300 mb-2">
                   Forecast visualization coming soon
                 </p>
-                <p className="text-sm text-gray-400 dark:text-gray-500">
+                <p className="text-sm text-gray-500 dark:text-gray-300">
                   This will show predicted income, expenses, and savings based on historical data
                 </p>
               </div>

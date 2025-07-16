@@ -87,17 +87,17 @@ export default function NetWorthSummary() {
   const getIcon = (accountType: string) => {
     switch (accountType) {
       case 'current':
-        return <Building2 size={20} className="text-gray-500" />;
+        return <Building2 size={20} className="text-gray-600 dark:text-gray-300" />;
       case 'savings':
-        return <PiggyBank size={20} className="text-gray-500" />;
+        return <PiggyBank size={20} className="text-gray-600 dark:text-gray-300" />;
       case 'credit':
-        return <CreditCard size={20} className="text-gray-500" />;
+        return <CreditCard size={20} className="text-gray-600 dark:text-gray-300" />;
       case 'loan':
-        return <Landmark size={20} className="text-gray-500" />;
+        return <Landmark size={20} className="text-gray-600 dark:text-gray-300" />;
       case 'investment':
-        return <TrendingUp size={20} className="text-gray-500" />;
+        return <TrendingUp size={20} className="text-gray-600 dark:text-gray-300" />;
       default:
-        return <Banknote size={20} className="text-gray-500" />;
+        return <Banknote size={20} className="text-gray-600 dark:text-gray-300" />;
     }
   };
 

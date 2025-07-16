@@ -181,11 +181,11 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                         <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                           {account.institution || 'Unknown Institution'}
                         </p>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                        <p className="text-xs text-gray-500 dark:text-gray-300">
                           Last updated: {new Date(account.lastUpdated).toLocaleDateString()}
                         </p>
                         {account.openingBalance !== undefined && (
-                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-300 mt-1">
                             Opening balance: {formatDisplayCurrency(account.openingBalance, account.currency)} 
                             {account.openingBalanceDate && ` on ${new Date(account.openingBalanceDate).toLocaleDateString()}`}
                           </p>

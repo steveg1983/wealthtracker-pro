@@ -115,7 +115,7 @@ export default function PortfolioView({
             <p className="text-gray-500 dark:text-gray-400">
               No holdings in this portfolio yet.
             </p>
-            <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
+            <p className="text-sm text-gray-500 dark:text-gray-300 mt-2">
               Add holdings to track your investments.
             </p>
           </div>
@@ -164,22 +164,22 @@ export default function PortfolioView({
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-700">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Ticker
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Shares/Units
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Price per Share
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Value
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   % of Portfolio
                 </th>
               </tr>
@@ -231,13 +231,13 @@ export default function PortfolioView({
               <div className="flex justify-between items-start mb-2">
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white">{holding.ticker}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{holding.name}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{holding.name}</p>
                 </div>
                 <div className="text-right">
                   <p className="font-medium text-gray-900 dark:text-white">
                     {formatCurrency(holding.value, currency)}
                   </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
                     {getPercentage(holding.value)}%
                   </p>
                 </div>
