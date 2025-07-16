@@ -157,41 +157,7 @@ export default function Reconciliation() {
     });
   };
 
-  // Get category display name - memoized for performance
-  const getCategoryDisplay = useMemo(() => {
-    const categoryCache = new Map<string, string>();
-    
-    return (categoryId: string) => {
-      if (!categoryId) return 'Uncategorized';
-      if (categoryId === 'multiple') return 'Multiple';
-      
-      // Check cache first
-      if (categoryCache.has(categoryId)) {
-        return categoryCache.get(categoryId)!;
-      }
-      
-      const category = categories.find(c => c.id === categoryId);
-      if (!category) return 'Uncategorized';
-      
-      // Build the full path for the category
-      let path = category.name;
-      let currentCategory = category;
-      
-      while (currentCategory.parentId) {
-        const parent = categories.find(c => c.id === currentCategory.parentId);
-        if (parent) {
-          path = `${parent.name} > ${path}`;
-          currentCategory = parent;
-        } else {
-          break;
-        }
-      }
-      
-      // Cache the result
-      categoryCache.set(categoryId, path);
-      return path;
-    };
-  }, [categories]);
+  // getCategoryDisplay function removed - it was unused
 
   // Handle split toggle
   const handleSplitToggle = (transactionId: string) => {
@@ -258,19 +224,23 @@ export default function Reconciliation() {
     saveInlineEdits(splittingTransaction.id);
 
     // Create new transactions for each split
-    splitItems.forEach((item, index) => {
-      const newTransaction = {
-        date: splittingTransaction.date,
-        description: item.description,
-        amount: Math.abs(item.amount),
-        type: item.amount >= 0 ? splittingTransaction.type : (splittingTransaction.type === 'income' ? 'expense' : 'income'),
-        category: item.category,
-        accountId: splittingTransaction.accountId,
-        cleared: false,
-        isSplit: false,
-        originalTransactionId: splittingTransaction.id,
-        notes: `Split from: ${splittingTransaction.description}`
-      };
+    splitItems.forEach(() => {
+      // Note: newTransaction variable removed as it's not being used
+      // The transaction creation logic is commented out and needs to be implemented
+      // when addTransaction function is available in the app context
+      
+      // const newTransaction = {
+      //   date: splittingTransaction.date,
+      //   description: item.description,
+      //   amount: Math.abs(item.amount),
+      //   type: item.amount >= 0 ? splittingTransaction.type : (splittingTransaction.type === 'income' ? 'expense' : 'income'),
+      //   category: item.category,
+      //   accountId: splittingTransaction.accountId,
+      //   cleared: false,
+      //   isSplit: false,
+      //   originalTransactionId: splittingTransaction.id,
+      //   notes: `Split from: ${splittingTransaction.description}`
+      // };
       
       // Add transaction using the app context (you'll need to add this function)
       // addTransaction(newTransaction);
@@ -317,7 +287,7 @@ export default function Reconciliation() {
         </div>
 
         {accountSummaries.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-12 text-center">
             <CheckCircle className="mx-auto text-green-500 mb-4" size={48} />
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
               All caught up!
@@ -328,7 +298,7 @@ export default function Reconciliation() {
           </div>
         ) : (
           <>
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 mb-6">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
@@ -344,11 +314,12 @@ export default function Reconciliation() {
               </div>
             </div>
 
-            <div className="grid gap-4">
+            <div className="pt-4">
+              <div className="grid gap-4">
               {accountSummaries.map(({ account, unreconciledCount, totalToReconcile, lastImportDate }: any) => (
                 <div
                   key={account.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow cursor-pointer"
+                  className="bg-white dark:bg-gray-800 rounded-2xl shadow hover:shadow-lg transition-shadow cursor-pointer"
                   onClick={() => handleSelectAccount(account.id)}
                 >
                   <div className="p-6">
@@ -389,6 +360,7 @@ export default function Reconciliation() {
                   </div>
                 </div>
               ))}
+              </div>
             </div>
           </>
         )}
@@ -443,7 +415,7 @@ export default function Reconciliation() {
       ) : (
         <div>
           {/* Action Bar */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 mb-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-4">
                 <button
@@ -497,7 +469,7 @@ export default function Reconciliation() {
               return (
                 <div
                   key={transaction.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 hover:shadow-lg transition-shadow"
+                  className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 hover:shadow-lg transition-shadow"
                 >
                   <div className="flex items-start gap-4">
                     {/* Checkbox */}
@@ -649,7 +621,7 @@ export default function Reconciliation() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow px-6 py-4">
+            <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow px-6 py-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   Showing {startIndex + 1} to {Math.min(endIndex, unclearedTransactions.length)} of {unclearedTransactions.length} transactions
@@ -692,7 +664,7 @@ export default function Reconciliation() {
       {/* Split Transaction Modal */}
       {showSplitModal && splittingTransaction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Split Transaction</h2>
@@ -808,7 +780,7 @@ export default function Reconciliation() {
                       setSplittingTransaction(null);
                       setSplitItems([]);
                     }}
-                    className="px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     Cancel
                   </button>

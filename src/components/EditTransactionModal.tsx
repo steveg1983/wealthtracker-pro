@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { Calendar, Tag, FileText, Check, Link, Plus, X } from 'lucide-react';
+import { Calendar, Tag, FileText, Check, Link, Plus, Hash, Wallet, ArrowRightLeft, Banknote } from 'lucide-react';
 import type { Transaction } from '../types';
 import CategoryCreationModal from './CategoryCreationModal';
+import TagSelector from './TagSelector';
 import { getCurrencySymbol } from '../utils/currency';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
@@ -30,7 +31,6 @@ interface FormData {
 export default function EditTransactionModal({ isOpen, onClose, transaction }: EditTransactionModalProps) {
   const { accounts, categories, addTransaction, updateTransaction, deleteTransaction, getSubCategories, getDetailCategories } = useApp();
   
-  const [tagInput, setTagInput] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   
@@ -84,7 +84,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
       const categoryId = categoryObj?.parentId ? transaction.category : '';
       
       setFormData({
-        date: transaction.date.toISOString().split('T')[0],
+        date: transaction.date instanceof Date ? transaction.date.toISOString().split('T')[0] : new Date(transaction.date).toISOString().split('T')[0],
         description: transaction.description,
         amount: Math.abs(transaction.amount).toFixed(2),
         type: transaction.type,
@@ -113,7 +113,6 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
         reconciledWith: ''
       });
     }
-    setTagInput('');
     setShowDeleteConfirm(false);
   }, [transaction, accounts, categories, setFormData]);
 
@@ -124,33 +123,15 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     onClose();
   };
 
-  const handleAddTag = () => {
-    const trimmedTag = tagInput.trim();
-    if (trimmedTag && !formData.tags.includes(trimmedTag)) {
-      updateField('tags', [...formData.tags, trimmedTag]);
-      setTagInput('');
-    }
-  };
-
-  const handleRemoveTag = (tagToRemove: string) => {
-    updateField('tags', formData.tags.filter(tag => tag !== tagToRemove));
-  };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      handleAddTag();
-    }
-  };
 
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} title={transaction ? 'Edit Transaction' : 'New Transaction'} size="xl">
         <form onSubmit={handleSubmit}>
           <ModalBody>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             {/* Date */}
-            <div>
+            <div className="md:col-span-5">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 <Calendar size={16} />
                 Date
@@ -159,20 +140,21 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 type="date"
                 value={formData.date}
                 onChange={(e) => updateField('date', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 h-[42px] bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
               />
             </div>
 
             {/* Account */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <div className="md:col-span-7">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <Wallet size={16} />
                 Account
               </label>
               <select
                 value={formData.accountId}
                 onChange={(e) => updateField('accountId', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 h-[42px] bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
               >
                 <option value="">Select account</option>
@@ -185,7 +167,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             </div>
 
             {/* Description */}
-            <div className="md:col-span-2">
+            <div className="md:col-span-12">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 <FileText size={16} />
                 Description
@@ -194,17 +176,18 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 type="text"
                 value={formData.description}
                 onChange={(e) => updateField('description', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 h-[42px] bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
               />
             </div>
 
             {/* Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <div className="md:col-span-12">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <ArrowRightLeft size={16} />
                 Type
               </label>
-              <div className="flex gap-4">
+              <div className="flex gap-4 items-center h-[42px]">
                 <label className="flex items-center">
                   <input
                     type="radio"
@@ -233,14 +216,15 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                     onChange={(e) => updateField('type', e.target.value as 'income' | 'expense' | 'transfer')}
                     className="mr-2"
                   />
-                  <span className="text-blue-600 dark:text-blue-400">Transfer</span>
+                  <span className="text-gray-700 dark:text-gray-300">Transfer</span>
                 </label>
               </div>
             </div>
 
             {/* Amount */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <div className="md:col-span-5">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <Banknote size={16} />
                 Amount {formData.accountId && (() => {
                   const selectedAccount = accounts.find(a => a.id === formData.accountId);
                   return selectedAccount ? `(${getCurrencySymbol(selectedAccount.currency)})` : '';
@@ -251,17 +235,18 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 step="0.01"
                 value={formData.amount}
                 onChange={(e) => updateField('amount', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 h-[42px] text-right bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
               />
             </div>
 
             {/* Category Selection */}
-            <div className="md:col-span-2 space-y-3">
+            <div className="md:col-span-12 space-y-3">
               {/* Sub-category */}
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <Tag size={16} />
                     Category
                   </label>
                   <button
@@ -279,7 +264,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                     updateField('subCategory', e.target.value);
                     updateField('category', ''); // Reset detail category
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2 h-[42px] bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                   required
                 >
                   <option value="">Select category</option>
@@ -292,13 +277,14 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               {/* Detail category */}
               {formData.subCategory && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <div className="w-4 h-4"></div>
                     Sub-category
                   </label>
                   <select
                     value={formData.category}
                     onChange={(e) => updateField('category', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                    className="w-full px-3 py-2 h-[42px] bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                     required
                   >
                     <option value="">Select sub-category</option>
@@ -311,63 +297,36 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             </div>
 
             {/* Tags */}
-            <div className="md:col-span-2">
+            <div className="md:col-span-12">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Tag size={16} />
+                <Hash size={16} />
                 Tags
               </label>
-              <div className="flex gap-2 mb-2 flex-wrap">
-                {formData.tags.map(tag => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-sm"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
-                    >
-                      <X size={14} />
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={tagInput}
-                  onChange={(e) => setTagInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Add a tag"
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
-                />
-                <button
-                  type="button"
-                  onClick={handleAddTag}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-                >
-                  Add
-                </button>
-              </div>
+              <TagSelector
+                selectedTags={formData.tags}
+                onTagsChange={(tags) => updateField('tags', tags)}
+                placeholder="Search or create tags..."
+                allowNewTags={true}
+              />
             </div>
 
             {/* Notes */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <div className="md:col-span-12">
+              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <FileText size={16} />
                 Notes
               </label>
               <textarea
                 value={formData.notes}
                 onChange={(e) => updateField('notes', e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 h-[42px] bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 placeholder="Add any additional notes..."
               />
             </div>
 
             {/* Status */}
-            <div className="md:col-span-2 space-y-3">
+            <div className="md:col-span-12 space-y-3">
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -377,7 +336,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 />
                 <Check size={16} className="text-green-600 dark:text-green-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
-                  Transaction Reconciled
+                  Reconciled
                 </span>
               </label>
 
@@ -437,8 +396,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
 
         {/* Delete confirmation */}
         {showDeleteConfirm && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-md mx-4">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 w-full max-w-md mx-4 shadow-xl">
               <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Delete Transaction?
               </h3>

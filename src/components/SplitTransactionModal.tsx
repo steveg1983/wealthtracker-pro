@@ -133,7 +133,7 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
                     placeholder="Category"
                     value={split.category}
                     onChange={(e) => handleSplitChange(index, 'category', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div className="col-span-3">
@@ -143,7 +143,7 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
                     value={split.amount}
                     onChange={(e) => handleSplitChange(index, 'amount', parseFloat(e.target.value) || 0)}
                     step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div className="col-span-4">
@@ -152,7 +152,7 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
                     placeholder="Description"
                     value={split.description}
                     onChange={(e) => handleSplitChange(index, 'description', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
                 </div>
                 <div className="col-span-1 flex items-center">
@@ -172,7 +172,7 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
 
         <button
           onClick={handleAddSplit}
-          className="mb-4 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-gray-700 dark:text-gray-300"
+          className="mb-4 px-4 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-gray-700 dark:text-gray-300"
         >
           <Plus size={20} />
           Add Split

@@ -18,13 +18,13 @@ export default function Forecasting() {
         {showBudget && (
           <Link 
             to="/budget"
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6"
+            className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-white/20 dark:border-gray-700/50"
           >
             <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
                 <Target className="text-blue-600 dark:text-blue-400" size={32} />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Budget</h2>
+              <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Budget</h2>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               Track your spending against monthly or yearly budgets by category
@@ -39,13 +39,13 @@ export default function Forecasting() {
         {showGoals && (
           <Link 
             to="/goals"
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow p-6"
+            className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-white/20 dark:border-gray-700/50"
           >
             <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-2xl">
                 <Goal className="text-green-600 dark:text-green-400" size={32} />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Goals</h2>
+              <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Goals</h2>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               Set and track financial goals for savings, debt payoff, and investments
@@ -59,9 +59,9 @@ export default function Forecasting() {
       </div>
 
       {!showBudget && !showGoals && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg p-12 text-center border border-white/20 dark:border-gray-700/50">
           <LineChart className="mx-auto text-gray-400 mb-4" size={48} />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-2">
             No Forecasting Features Enabled
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -69,7 +69,7 @@ export default function Forecasting() {
           </p>
           <Link
             to="/settings/app"
-            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-colors"
           >
             Go to Settings
           </Link>

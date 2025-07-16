@@ -87,7 +87,7 @@ export default function Reports() {
       }, {} as Record<string, number>);
 
     const sortedCategories = Object.entries(categoryTotals)
-      .sort(([, a], [, b]) => b - a)
+      .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 8);
 
     return {
@@ -181,7 +181,7 @@ export default function Reports() {
         <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Reports</h1>
         <button
           onClick={exportToCSV}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors"
         >
           <Download size={20} />
           Export CSV
@@ -189,14 +189,14 @@ export default function Reports() {
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-6">
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex items-center gap-2">
             <Calendar className="text-gray-500" size={20} />
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="month">Last Month</option>
               <option value="quarter">Last Quarter</option>
@@ -210,7 +210,7 @@ export default function Reports() {
             <select
               value={selectedAccount}
               onChange={(e) => setSelectedAccount(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="all">All Accounts</option>
               {accounts.map(account => (
@@ -221,23 +221,25 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+      {/* Main content grid with consistent spacing */}
+      <div className="grid gap-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Income</p>
           <p className="text-2xl font-bold text-green-600 dark:text-green-400">
             {formatCurrency(summary.income)}
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Expenses</p>
           <p className="text-2xl font-bold text-red-600 dark:text-red-400">
             {formatCurrency(summary.expenses)}
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Net Income</p>
           <p className={`text-2xl font-bold ${
             summary.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
@@ -246,7 +248,7 @@ export default function Reports() {
           </p>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Savings Rate</p>
           <p className={`text-2xl font-bold ${
             summary.savingsRate >= 20 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
@@ -254,13 +256,14 @@ export default function Reports() {
             {summary.savingsRate.toFixed(1)}%
           </p>
         </div>
-      </div>
+        </div>
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Charts */}
+        <div className="pt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Monthly Trend */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-blue-800 dark:text-white">
             <TrendingUp size={20} />
             Income vs Expenses Trend
           </h2>
@@ -286,8 +289,8 @@ export default function Reports() {
         </div>
 
         {/* Category Breakdown */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-blue-800 dark:text-white">
             <PieChart size={20} />
             Expense Categories
           </h2>
@@ -306,12 +309,13 @@ export default function Reports() {
             />
           </div>
         </div>
-      </div>
+        </div>
+        </div>
 
-      {/* Top Transactions */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        {/* Top Transactions */}
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold dark:text-white">Top Transactions</h2>
+          <h2 className="text-lg font-semibold text-blue-800 dark:text-white">Top Transactions</h2>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -347,6 +351,7 @@ export default function Reports() {
                 ))}
             </tbody>
           </table>
+        </div>
         </div>
       </div>
     </div>

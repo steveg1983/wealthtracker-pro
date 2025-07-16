@@ -9,6 +9,19 @@ interface Category {
   isSystem?: boolean;
 }
 
+export function getMinimalSystemCategories(): Category[] {
+  return [
+    // Only the essential system categories
+    { id: 'type-income', name: 'Income', type: 'income', level: 'type', isSystem: true },
+    { id: 'type-expense', name: 'Expense', type: 'expense', level: 'type', isSystem: true },
+    { id: 'type-transfer', name: 'Transfer', type: 'both', level: 'type', isSystem: true },
+    
+    // Transfer detail categories (required for transfers to work)
+    { id: 'transfer-in', name: 'Transfer In', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
+    { id: 'transfer-out', name: 'Transfer Out', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
+  ];
+}
+
 export function getDefaultCategories(): Category[] {
   return [
     // Type level categories

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Calendar, DollarSign, Calculator } from 'lucide-react';
+import { X, Calendar, Banknote, Calculator } from 'lucide-react';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 import CategoryCreationModal from './CategoryCreationModal';
 
@@ -114,7 +114,7 @@ export default function AccountReconciliationModal({
                 type="date"
                 value={reconciliationDate}
                 onChange={(e) => setReconciliationDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               />
             </div>
@@ -135,7 +135,7 @@ export default function AccountReconciliationModal({
             {/* Statement Balance */}
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <DollarSign size={16} />
+                <Banknote size={16} />
                 Statement Balance ({getCurrencySymbol(account.currency)})
               </label>
               <input
@@ -144,7 +144,7 @@ export default function AccountReconciliationModal({
                 value={statementBalance}
                 onChange={(e) => setStatementBalance(e.target.value)}
                 placeholder="Enter balance from your bank statement"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                 required
               />
             </div>
@@ -191,7 +191,7 @@ export default function AccountReconciliationModal({
                         setSubCategory(e.target.value);
                         setCategory(''); // Reset detail category
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                      className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                     >
                       <option value="">Select category (optional)</option>
                       {availableSubCategories.map(cat => (
@@ -209,7 +209,7 @@ export default function AccountReconciliationModal({
                       <select
                         value={category}
                         onChange={(e) => setCategory(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                        className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                       >
                         <option value="cat-blank">Blank (No category)</option>
                         {getDetailCategories(subCategory).map(cat => (
@@ -230,7 +230,7 @@ export default function AccountReconciliationModal({
                     onChange={(e) => setNotes(e.target.value)}
                     rows={3}
                     placeholder="Add any notes about this reconciliation..."
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                    className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
                   />
                 </div>
               </>

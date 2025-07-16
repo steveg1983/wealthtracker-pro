@@ -37,11 +37,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(() => {
     const saved = localStorage.getItem('money_management_theme');
     if (!saved) {
-      localStorage.setItem('money_management_theme', 'dark');
-      return 'dark';
+      localStorage.setItem('money_management_theme', 'light');
+      return 'light';
     }
     if (!['light', 'dark', 'auto'].includes(saved)) {
-      return 'dark';
+      return 'light';
     }
     return saved as 'light' | 'dark' | 'auto';
   });

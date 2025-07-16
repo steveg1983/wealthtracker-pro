@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Building2, CreditCard, Landmark, PiggyBank } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Banknote, Building2, CreditCard, Landmark, PiggyBank } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
 
@@ -90,7 +90,7 @@ export default function MonthlyNetWorth() {
       case 'investment':
         return <TrendingUp size={20} className="text-gray-500" />;
       default:
-        return <DollarSign size={20} className="text-gray-500" />;
+        return <Banknote size={20} className="text-gray-500" />;
     }
   };
 
@@ -145,9 +145,11 @@ export default function MonthlyNetWorth() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      {/* Main content grid with consistent spacing */}
+      <div className="grid gap-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Net Worth</p>
@@ -159,11 +161,11 @@ export default function MonthlyNetWorth() {
                 {isLoading ? '...' : formatCurrency(netWorth)}
               </p>
             </div>
-            <DollarSign className="text-primary" size={24} />
+            <Banknote className="text-primary" size={24} />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Assets</p>
@@ -175,7 +177,7 @@ export default function MonthlyNetWorth() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Liabilities</p>
@@ -186,14 +188,15 @@ export default function MonthlyNetWorth() {
             <TrendingDown className="text-red-500" size={24} />
           </div>
         </div>
-      </div>
+        </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="pt-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Assets Section */}
         <div>
           <h2 className="text-2xl font-bold text-blue-900 dark:text-white mb-6">Assets</h2>
           {Object.keys(groupedAssets).length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-8 text-center">
               <p className="text-gray-500 dark:text-gray-400">No assets to display</p>
             </div>
           ) : (
@@ -202,7 +205,7 @@ export default function MonthlyNetWorth() {
                 const typeTotal = accountsList.reduce((sum, acc) => sum + acc.convertedBalance, 0);
                 
                 return (
-                  <div key={accountType} className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                  <div key={accountType} className="bg-white dark:bg-gray-800 rounded-2xl shadow">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -263,7 +266,7 @@ export default function MonthlyNetWorth() {
         <div>
           <h2 className="text-2xl font-bold text-blue-900 dark:text-white mb-6">Liabilities</h2>
           {Object.keys(groupedLiabilities).length === 0 ? (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-8 text-center">
               <p className="text-gray-500 dark:text-gray-400">No liabilities to display</p>
             </div>
           ) : (
@@ -272,7 +275,7 @@ export default function MonthlyNetWorth() {
                 const typeTotal = accountsList.reduce((sum, acc) => sum + Math.abs(acc.convertedBalance), 0);
                 
                 return (
-                  <div key={accountType} className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                  <div key={accountType} className="bg-white dark:bg-gray-800 rounded-2xl shadow">
                     <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -327,6 +330,8 @@ export default function MonthlyNetWorth() {
               })}
             </div>
           )}
+        </div>
+        </div>
         </div>
       </div>
     </div>

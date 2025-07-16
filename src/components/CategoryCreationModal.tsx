@@ -213,7 +213,7 @@ export default function CategoryCreationModal({
             <select
               value={showNewCategory ? 'new' : formData.selectedCategory}
               onChange={(e) => handleCategoryChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="">Select a category</option>
               
@@ -243,7 +243,7 @@ export default function CategoryCreationModal({
                 value={formData.newCategoryName}
                 onChange={(e) => updateField('newCategoryName', e.target.value)}
                 placeholder="Enter new category name"
-                className="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                className="mt-2 w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 autoFocus
               />
             )}
@@ -259,7 +259,7 @@ export default function CategoryCreationModal({
                 <select
                   value={showNewSpecific ? 'new' : formData.selectedSpecific}
                   onChange={(e) => handleSpecificChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 >
                   <option value="">Select specific category (optional)</option>
                   
@@ -282,7 +282,7 @@ export default function CategoryCreationModal({
                   value={formData.newSpecificName}
                   onChange={(e) => updateField('newSpecificName', e.target.value)}
                   placeholder="Enter new specific category name"
-                  className="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+                  className="mt-2 w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                   autoFocus
                 />
               )}

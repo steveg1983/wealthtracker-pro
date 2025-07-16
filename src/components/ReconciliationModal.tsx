@@ -99,7 +99,7 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold dark:text-white">
             {match ? 'Review Transfer Match' : 'Manual Reconciliation'}
@@ -217,12 +217,12 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
                 placeholder="Search transactions..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="flex-1 px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
               <select
                 value={filterAccount}
                 onChange={(e) => setFilterAccount(e.target.value)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">All Accounts</option>
                 {accounts.filter(a => transaction && a.id !== transaction.accountId).map(account => (
@@ -288,7 +288,7 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
             placeholder="Add any notes about this reconciliation..."
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         </div>
 

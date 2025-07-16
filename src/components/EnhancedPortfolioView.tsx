@@ -121,21 +121,21 @@ export default function EnhancedPortfolioView({
   };
   
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
+    <div>
+      <div className="p-6 border-b-2 border-[#5A729A] dark:border-gray-700 bg-[#6B86B3] dark:bg-gray-800">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={onClose}
-              className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              className="p-2 text-white/70 hover:text-white dark:text-gray-400 dark:hover:text-gray-200 rounded-lg"
             >
               <ArrowLeft size={24} />
             </button>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl md:text-3xl font-bold text-white dark:text-white">
                 {accountName} Portfolio
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-sm text-white/80 dark:text-gray-300 mt-1">
                 Real-time portfolio valuation
               </p>
             </div>
@@ -143,7 +143,7 @@ export default function EnhancedPortfolioView({
           
           <button
             onClick={handleRefresh}
-            className={`flex items-center gap-2 px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 ${
+            className={`flex items-center gap-2 px-4 py-2 text-sm border border-white/30 dark:border-gray-600 rounded-lg hover:bg-white/10 dark:hover:bg-gray-700 text-white dark:text-gray-200 ${
               refreshing ? 'opacity-50 cursor-not-allowed' : ''
             }`}
             disabled={refreshing || loading}
@@ -152,6 +152,9 @@ export default function EnhancedPortfolioView({
             Refresh Prices
           </button>
         </div>
+      </div>
+      
+      <div className="p-6 bg-white dark:bg-gray-800 m-6 rounded-lg shadow-md border-2 border-blue-200 dark:border-gray-700 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 8rem)' }}>
 
         {error && (
           <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
@@ -169,7 +172,6 @@ export default function EnhancedPortfolioView({
             View Transactions
           </button>
         </div>
-      </div>
       
       {/* Portfolio Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
@@ -282,29 +284,29 @@ export default function EnhancedPortfolioView({
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-700">
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              <tr className="bg-[#6B86B3] dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider">
                   Ticker
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider">
                   Shares
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider">
                   Avg Cost
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider">
                   Current Price
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider">
                   Market Value
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider">
                   Gain/Loss
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider">
                   % Portfolio
                 </th>
               </tr>
@@ -454,6 +456,7 @@ export default function EnhancedPortfolioView({
         )}
         </>
         )}
+      </div>
       </div>
     </div>
   );

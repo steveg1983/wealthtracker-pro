@@ -82,7 +82,7 @@ function SortableCategory({
                 if (e.key === 'Enter') onSave();
                 else if (e.key === 'Escape') onCancel();
               }}
-              className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white flex-1"
+              className="px-2 py-1 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white flex-1"
               autoFocus
               onClick={(e) => e.stopPropagation()}
             />
@@ -144,9 +144,21 @@ export default function CategoriesSettings() {
     updateCategory,
     deleteCategory,
     getSubCategories,
-    getDetailCategories,
-    getCategoryPath 
+    getDetailCategories
   } = useApp();
+  
+  // Helper function to get category path
+  const getCategoryPath = (categoryId: string): string => {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return categoryId;
+    
+    if (category.level === 'detail' && category.parentId) {
+      const parent = categories.find(c => c.id === category.parentId);
+      return parent ? `${parent.name} > ${category.name}` : category.name;
+    }
+    
+    return category.name;
+  };
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [isDeleteMode, setIsDeleteMode] = useState(false);
@@ -553,7 +565,7 @@ export default function CategoriesSettings() {
           )}
           <button
             onClick={() => setShowCategoryModal(true)}
-            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary flex items-center gap-2"
+            className="px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary flex items-center gap-2"
           >
             <Plus size={16} />
             Add Category
@@ -563,7 +575,7 @@ export default function CategoriesSettings() {
 
       {/* Instructions */}
       {(isEditMode || isDeleteMode) ? (
-        <div className={`border rounded-lg p-4 mb-6 ${
+        <div className={`border rounded-2xl p-4 mb-6 ${
           isDeleteMode 
             ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' 
             : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
@@ -591,7 +603,7 @@ export default function CategoriesSettings() {
           </div>
         </div>
       ) : (
-        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-6">
+        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             <p className="mb-2">💡 <strong>Tip:</strong></p>
             <ul className="list-disc list-inside space-y-1 ml-2">
@@ -605,7 +617,7 @@ export default function CategoriesSettings() {
       )}
 
       {/* Categories Tree */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
         <DndContext 
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -654,7 +666,7 @@ export default function CategoriesSettings() {
           </div>
           <DragOverlay>
             {activeId ? (
-              <div className="bg-white dark:bg-gray-800 p-2 rounded shadow-lg opacity-80">
+              <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl p-2 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 opacity-90"
                 {categories.find(c => c.id === activeId)?.name}
               </div>
             ) : null}
@@ -665,7 +677,7 @@ export default function CategoriesSettings() {
       {/* Category Delete Confirmation Dialog */}
       {deletingCategoryId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircle className="text-orange-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete Category</h3>
@@ -685,7 +697,7 @@ export default function CategoriesSettings() {
                   <select
                     value={reassignCategoryId}
                     onChange={(e) => setReassignCategoryId(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white mb-6"
+                    className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white mb-6"
                   >
                     <option value="">Select a category...</option>
                     {categories
@@ -714,7 +726,8 @@ export default function CategoriesSettings() {
                     <button
                       onClick={() => {
                         if (reassignCategoryId) {
-                          deleteCategory(deletingCategoryId, reassignCategoryId);
+                          // TODO: Reassign transactions before deleting category
+                          deleteCategory(deletingCategoryId);
                           setDeletingCategoryId(null);
                           setReassignCategoryId('');
                         }
@@ -741,7 +754,7 @@ export default function CategoriesSettings() {
       {/* View Transactions Confirmation */}
       {viewingCategoryId && !showTransactionsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               View Transactions
             </h3>

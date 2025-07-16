@@ -122,7 +122,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         <h1 className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-white">Accounts</h1>
         <button 
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 self-end sm:self-auto"
+          className="bg-primary text-white px-4 py-2 rounded-2xl hover:bg-primary/90 transition-colors flex items-center gap-2 self-end sm:self-auto"
         >
           <Plus size={20} />
           <span className="hidden sm:inline">Add Account</span>
@@ -137,11 +137,11 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           const typeAccounts = accountsByType[type] || [];
           if (typeAccounts.length === 0) return null;
 
-          const typeTotal = typeAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+          const typeTotal = typeAccounts.reduce((sum: number, acc: any) => sum + acc.balance, 0);
 
           return (
             <div key={type} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 overflow-hidden">
-              <div className={`${bgColor} bg-opacity-50 dark:bg-opacity-20 backdrop-blur-sm ${borderColor} border-b px-6 py-4`}>
+              <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-gray-800/50 dark:to-gray-700/50 backdrop-blur-sm border-b border-blue-200/50 dark:border-gray-600/50 px-6 py-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center gap-2 md:gap-3">
                     <Icon className={color} size={20} />
@@ -156,18 +156,18 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                 </div>
               </div>
 
-              <div className="divide-y divide-gray-200/50 dark:divide-gray-700/50">
-                {typeAccounts.map((account) => (
+              <div className="p-4 space-y-3">
+                {typeAccounts.map((account: any) => (
                   <div 
                     key={account.id} 
-                    className="p-6 bg-white/50 dark:bg-gray-800/50 hover:bg-white/70 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer backdrop-blur-sm"
+                    className="p-4 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 hover:shadow-xl hover:border-blue-200/50 transition-all duration-300 cursor-pointer"
                     onClick={(e) => {
                       // Don't navigate if clicking on buttons or inputs
                       if ((e.target as HTMLElement).closest('button, input')) return;
                       if (onAccountClick) {
                         onAccountClick(account.id);
                       } else {
-                        navigate(`/transactions?account=${account.id}`);
+                        navigate(`/accounts/${account.id}`);
                       }
                     }}
                   >
@@ -348,7 +348,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         
         return (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <PortfolioView
                   accountId={portfolioAccountId}

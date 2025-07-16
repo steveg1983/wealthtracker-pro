@@ -1,26 +1,29 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Banknote, Settings } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
 import { useReconciliation } from '../hooks/useReconciliation';
+import { useLayoutConfig } from '../hooks/useLayoutConfig';
+import { DraggableGrid } from '../components/layout/DraggableGrid';
+import { GridItem } from '../components/layout/GridItem';
 import TestDataWarningModal from '../components/TestDataWarningModal';
 import OnboardingModal from '../components/OnboardingModal';
 import DashboardModal from '../components/DashboardModal';
-import IncomeExpenditureReport from '../components/IncomeExpenditureReport';
 import EditTransactionModal from '../components/EditTransactionModal';
-import ErrorBoundary from '../components/ErrorBoundary';
 
 export default function Dashboard() {
   const { accounts, transactions, categories, hasTestData, clearAllData } = useApp();
   const { firstName, setFirstName, setCurrency } = usePreferences();
   const { formatCurrency, convertAndSum, displayCurrency } = useCurrency();
+  const { layouts, updateDashboardLayout, resetDashboardLayout } = useLayoutConfig();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showLayoutControls, setShowLayoutControls] = useState(false);
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     type: 'networth-chart' | 'account-distribution' | 'income-expenditure' | 'reconciliation' | null;
@@ -37,9 +40,18 @@ export default function Dashboard() {
     netWorth: 0
   });
   const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [showAccountBreakdown, setShowAccountBreakdown] = useState<{
+    isOpen: boolean;
+    type: 'networth' | 'assets' | 'liabilities' | null;
+    title: string;
+  }>({
+    isOpen: false,
+    type: null,
+    title: ''
+  });
   
   // Income/Expenditure report settings
-  const [incomeExpReportSettings, setIncomeExpReportSettings] = useState({
+  const [incomeExpReportSettings] = useState({
     categoryLevel: 'type' as 'type' | 'sub' | 'detail',
     excludedCategories: [] as string[],
     timePeriod: '12months' as '1month' | '12months' | '24months' | 'custom',
@@ -115,13 +127,9 @@ export default function Dashboard() {
   }, [firstName, showTestDataWarning]);
 
   // Use reconciliation hook
-  const { reconciliationDetails } = useReconciliation(accounts, transactions);
+  // Reconciliation details available if needed later
+  useReconciliation(accounts, transactions);
 
-  // Memoize reconciliation calculations
-  const reconciliationSummary = useMemo(() => ({
-    totalUnreconciledCount: reconciliationDetails.reduce((sum, acc) => sum + acc.unreconciledCount, 0),
-    totalUnreconciledValue: reconciliationDetails.reduce((sum, acc) => sum + acc.totalToReconcile, 0)
-  }), [reconciliationDetails]);
 
   // Generate net worth data for chart
   const netWorthData = useMemo(() => {
@@ -159,21 +167,25 @@ export default function Dashboard() {
 
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
+  const isDarkMode = document.documentElement.classList.contains('dark');
+  
   const chartStyles = useMemo(() => ({
     tooltip: {
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      border: '1px solid #E5E7EB',
-      borderRadius: '8px'
+      backgroundColor: isDarkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+      border: isDarkMode ? '1px solid #374151' : '1px solid #E5E7EB',
+      borderRadius: '8px',
+      color: isDarkMode ? '#E5E7EB' : '#111827'
     },
     pieTooltip: {
-      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      border: '1px solid #ccc',
-      borderRadius: '8px'
+      backgroundColor: isDarkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+      border: isDarkMode ? '1px solid #374151' : '1px solid #ccc',
+      borderRadius: '8px',
+      color: isDarkMode ? '#E5E7EB' : '#111827'
     }
-  }), []);
+  }), [isDarkMode]);
 
   // Generate income and expenditure data based on settings
-  const incomeExpenditureData = useMemo(() => {
+  useMemo(() => {
     try {
       // Generate months based on time period setting
       const months: Array<{
@@ -667,15 +679,6 @@ export default function Dashboard() {
   };
 
   // Modal helpers
-  const openModal = (type: typeof modalState.type, title: string, data?: any) => {
-    setModalState({
-      isOpen: true,
-      type,
-      title,
-      data
-    });
-  };
-
   const closeModal = () => {
     setModalState({
       isOpen: false,
@@ -686,21 +689,45 @@ export default function Dashboard() {
 
   return (
     <div>
-      <h1 className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-white mb-2">
-        Welcome back, {firstName || 'User'}!
-      </h1>
-      <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mb-4 md:mb-6">
-        Here's your financial overview
-      </p>
+      <div className="flex justify-between items-start mb-4">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-white mb-2">
+            Financial Dashboard
+          </h1>
+          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
+            Your complete financial overview
+          </p>
+        </div>
+        <button
+          onClick={() => setShowLayoutControls(!showLayoutControls)}
+          className="p-2 rounded-2xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          title="Customize Layout"
+        >
+          <Settings size={20} />
+        </button>
+      </div>
 
-      {/* Summary Cards */}
-      <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-3">
-        Click any card to view details
-      </p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6 md:mb-8">
+      {showLayoutControls && (
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
+          <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+            Drag the widgets below to rearrange your dashboard. Resize by dragging the bottom-right corner.
+          </p>
+          <button
+            onClick={resetDashboardLayout}
+            className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm"
+          >
+            Reset to Default Layout
+          </button>
+        </div>
+      )}
+
+      {/* Main content grid with consistent spacing */}
+      <div className="grid gap-6">
+        {/* Fixed Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <div 
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-blue-100 dark:border-gray-700 p-4 md:p-6 cursor-pointer hover:shadow-lg hover:border-blue-200 transition-all"
-          onClick={() => navigate('/networth')}
+          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 md:p-6 cursor-pointer hover:shadow-xl hover:border-blue-200/50 transition-all"
+          onClick={() => setShowAccountBreakdown({ isOpen: true, type: 'networth', title: 'Net Worth Breakdown' })}
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">
@@ -709,13 +736,13 @@ export default function Dashboard() {
                 {isLoading ? '...' : formatCurrency(netWorth)}
               </p>
             </div>
-            <DollarSign className="text-primary ml-2" size={20} />
+            <Banknote className="text-primary ml-2" size={20} />
           </div>
         </div>
 
         <div 
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-blue-100 dark:border-gray-700 p-4 md:p-6 cursor-pointer hover:shadow-lg hover:border-blue-200 transition-all"
-          onClick={() => navigate('/networth/assets')}
+          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 md:p-6 cursor-pointer hover:shadow-xl hover:border-blue-200/50 transition-all"
+          onClick={() => setShowAccountBreakdown({ isOpen: true, type: 'assets', title: 'Assets Breakdown' })}
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">
@@ -729,8 +756,8 @@ export default function Dashboard() {
         </div>
 
         <div 
-          className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-blue-100 dark:border-gray-700 p-4 md:p-6 cursor-pointer hover:shadow-lg hover:border-blue-200 transition-all"
-          onClick={() => navigate('/networth/liabilities')}
+          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 md:p-6 cursor-pointer hover:shadow-xl hover:border-blue-200/50 transition-all"
+          onClick={() => setShowAccountBreakdown({ isOpen: true, type: 'liabilities', title: 'Liabilities Breakdown' })}
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">
@@ -742,256 +769,147 @@ export default function Dashboard() {
             <TrendingDown className="text-red-500 ml-2" size={20} />
           </div>
         </div>
+        </div>
 
-      </div>
+        {/* Draggable Widgets */}
+        <div>
+          <DraggableGrid
+          layouts={{ lg: layouts.dashboard }}
+          onLayoutChange={updateDashboardLayout}
+          isDraggable={showLayoutControls}
+          isResizable={showLayoutControls}
+        >
 
-      {/* Charts and Additional Info */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-6 md:mb-8">
-        {/* Net Worth Over Time Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-blue-100 dark:border-gray-700 p-4 md:p-6">
-          <div className="mb-3 md:mb-4">
-            <h2 
-              className="text-lg md:text-xl font-semibold text-blue-900 dark:text-white cursor-pointer hover:text-primary transition-colors"
-              onClick={() => openModal('networth-chart', 'Net Worth Over Time', netWorthData)}
-            >
-              Net Worth Over Time
-            </h2>
-            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
+        {/* Net Worth Chart */}
+        <div key="asset-chart">
+          <GridItem key="net-worth-chart" title="Net Worth Over Time">
+            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-2">
               Click title for expanded view • Click any bar to see detailed breakdown
             </p>
-          </div>
-          <div className="h-48 md:h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={netWorthData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-                <XAxis 
-                  dataKey="month" 
-                  stroke="#6B7280"
-                  fontSize={12}
-                  tickFormatter={(value) => value.slice(0, 3)}
-                />
-                <YAxis 
-                  stroke="#6B7280"
-                  fontSize={12}
-                  tickFormatter={(value) => {
-                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-                    return value.toString();
-                  }}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [formatCurrency(value), 'Net Worth']}
-                  contentStyle={chartStyles.tooltip}
-                />
-                <Bar 
-                  dataKey="netWorth" 
-                  fill="#8B5CF6" 
-                  radius={[4, 4, 0, 0]}
-                  style={{ cursor: 'pointer' }}
-                  onClick={(data: any) => {
-                    if (data && data.month) {
-                      navigate(`/networth/monthly/${data.month}`);
-                    }
-                  }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+            <div className="h-full min-h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={netWorthData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
+                  <XAxis 
+                    dataKey="month" 
+                    stroke="#6B7280"
+                    fontSize={12}
+                    tickFormatter={(value) => value.slice(0, 3)}
+                  />
+                  <YAxis 
+                    stroke="#6B7280"
+                    fontSize={12}
+                    tickFormatter={(value) => {
+                      if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                      if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+                      return value.toString();
+                    }}
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => [formatCurrency(value), 'Net Worth']}
+                    contentStyle={chartStyles.tooltip}
+                  />
+                  <Bar 
+                    dataKey="netWorth" 
+                    fill="#8B5CF6" 
+                    radius={[4, 4, 0, 0]}
+                    style={{ cursor: 'pointer' }}
+                    onClick={(data: any) => {
+                      if (data && data.month) {
+                        navigate(`/networth/monthly/${data.month}`);
+                      }
+                    }}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </GridItem>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-blue-100 dark:border-gray-700 p-4 md:p-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 md:mb-4 gap-1">
-            <h2 
-              className="text-lg md:text-xl font-semibold text-blue-900 dark:text-white cursor-pointer hover:text-primary transition-colors"
-              onClick={() => openModal('account-distribution', 'Account Distribution', pieData)}
-            >
-              Account Distribution
-            </h2>
-            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
-              Click title for expanded view • Click to view transactions
-            </p>
-          </div>
-          <div className="h-48 md:h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  onClick={(data) => {
-                    navigate(`/transactions?account=${data.id}`);
-                  }}
-                  style={{ cursor: 'pointer' }}
+        {/* Recent Transactions */}
+        <div key="recent-transactions">
+          <GridItem key="recent-transactions-grid" title="Recent Transactions">
+            <div className="space-y-1 overflow-auto" style={{ maxHeight: '300px' }}>
+              {recentTransactions.map(transaction => (
+                <div 
+                  key={transaction.id} 
+                  className="flex items-center gap-3 py-1.5 border-b dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors rounded px-2 -mx-2"
+                  onClick={() => setEditingTransaction(transaction)}
                 >
-                  {pieData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={chartStyles.pieTooltip}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
+                  <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
+                    {new Date(transaction.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                  </span>
+                  <span className="text-xs font-bold text-gray-600 dark:text-gray-400 w-4 text-center">
+                    {transaction.cleared ? 'R' : 'N'}
+                  </span>
+                  <p className="text-sm font-medium dark:text-white truncate flex-1">{transaction.description}</p>
+                  <span className={`text-sm font-semibold whitespace-nowrap ${
+                    transaction.type === 'income' 
+                      ? 'text-green-600 dark:text-green-400' 
+                      : 'text-red-600 dark:text-red-400'
+                  }`}>
+                    {formatCurrency(transaction.amount)}
+                  </span>
+                </div>
+              ))}
+              {transactions.length === 0 && (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-6">
+                  No transactions yet
+                </p>
+              )}
+            </div>
+          </GridItem>
         </div>
-      </div>
 
-      {/* Outstanding Reconciliation Summary */}
-      {reconciliationDetails.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 mb-6 md:mb-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 md:mb-4 gap-2">
-            <div className="flex items-center gap-2">
-              <div className="w-1 h-6 bg-blue-500 rounded-full"></div>
-              <h2 
-                className="text-lg md:text-xl font-semibold text-blue-900 dark:text-white cursor-pointer hover:text-primary transition-colors"
-                onClick={() => openModal('reconciliation', 'Outstanding Reconciliations', reconciliationDetails)}
-              >
-                Outstanding Reconciliations
-              </h2>
-            </div>
-            <div 
-              className="sm:text-right cursor-pointer hover:opacity-80 transition-opacity"
-              onClick={() => navigate('/reconciliation')}
-            >
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Total Outstanding</p>
-              <p className="text-base md:text-lg font-bold text-orange-600 dark:text-orange-400">
-                {reconciliationSummary.totalUnreconciledCount} items
-              </p>
-            </div>
-          </div>
-          
-          <p className="text-xs md:text-sm text-gray-600 dark:text-gray-400 mb-3 md:mb-4">
-            {reconciliationDetails.length} account{reconciliationDetails.length !== 1 ? 's' : ''} with unreconciled bank transactions.
-          </p>
-
-          {/* Summary Table */}
-          <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg overflow-x-auto">
-            <div className="min-w-[300px]">
-              <div className="grid grid-cols-3 gap-2 sm:gap-4 p-2 sm:p-3 bg-gray-100 dark:bg-gray-600 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">
-                <div>Account</div>
-                <div className="text-center">Unreconciled</div>
-                <div className="text-center">Total Amount</div>
-              </div>
-              <div className="divide-y divide-gray-200 dark:divide-gray-600">
-                {reconciliationDetails.map(account => (
-                  <div 
-                    key={account.account.id}
-                    className="grid grid-cols-3 gap-2 sm:gap-4 p-2 sm:p-3 hover:bg-gray-100 dark:hover:bg-gray-500 cursor-pointer transition-colors"
-                    onClick={() => navigate(`/reconciliation?account=${account.account.id}`)}
+        {/* Investment Performance - placeholder for now */}
+        <div key="investment-performance">
+          <GridItem key="account-distribution-grid" title="Account Distribution">
+            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-2">
+              Click to view transactions
+            </p>
+            <div className="h-full min-h-[200px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={pieData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    onClick={(data) => {
+                      navigate(`/transactions?account=${data.id}`);
+                    }}
+                    style={{ cursor: 'pointer' }}
                   >
-                    <div className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {account.account.name}
-                    </div>
-                    <div className="text-center text-xs sm:text-sm font-medium text-orange-600 dark:text-orange-400">
-                      {account.unreconciledCount}
-                    </div>
-                    <div className="text-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                      {formatCurrency(account.totalToReconcile)}
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    {pieData.map((_, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number) => formatCurrency(value)}
+                    contentStyle={chartStyles.pieTooltip}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-          </div>
-
-          {/* Summary Statistics */}
-          <div className="grid grid-cols-3 gap-2 sm:gap-4 mt-3 md:mt-4">
-            <div className="text-center p-2 sm:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-              <p className="text-xs sm:text-sm text-blue-600 dark:text-blue-400">Accounts</p>
-              <p className="text-base sm:text-lg font-bold text-blue-700 dark:text-blue-300">{reconciliationDetails.length}</p>
-            </div>
-            <div 
-              className="text-center p-2 sm:p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg cursor-pointer hover:bg-orange-100 dark:hover:bg-orange-900/30 transition-colors"
-              onClick={() => navigate('/reconciliation')}
-            >
-              <p className="text-xs sm:text-sm text-orange-600 dark:text-orange-400">Unreconciled</p>
-              <p className="text-base sm:text-lg font-bold text-orange-700 dark:text-orange-300">
-                {reconciliationSummary.totalUnreconciledCount}
-              </p>
-            </div>
-            <div className="text-center p-2 sm:p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-              <p className="text-xs sm:text-sm text-green-600 dark:text-green-400">Total Value</p>
-              <p className="text-base sm:text-lg font-bold text-green-700 dark:text-green-300">
-                {formatCurrency(reconciliationSummary.totalUnreconciledValue)}
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-3 md:mt-4 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-              💡 <strong>Tip:</strong> Click on any account row to start reconciliation. Focus on accounts with the highest number of outstanding items first.
-            </p>
-          </div>
+          </GridItem>
         </div>
-      )}
-
-      {/* Income and Expenditure over Time */}
-      {(incomeExpenditureData.categories.length > 0 || true) && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6 mb-6 md:mb-8">
-          <ErrorBoundary>
-            <IncomeExpenditureReport
-                data={incomeExpenditureData}
-                settings={incomeExpReportSettings}
-                setSettings={setIncomeExpReportSettings}
-                categories={categories}
-                transactions={transactions}
-                accounts={accounts}
-                isModal={false}
-                onOpenModal={() => openModal(
-                  'income-expenditure',
-                  'Income and Expenditure over Time',
-                  {
-                    ...incomeExpenditureData,
-                    settings: incomeExpReportSettings,
-                    setSettings: setIncomeExpReportSettings,
-                    categories: categories,
-                    transactions: transactions,
-                    accounts: accounts
-                  }
-                )}
-              />
-          </ErrorBoundary>
+          </DraggableGrid>
         </div>
-      )}
 
-
-      {/* Recent Transactions */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 md:p-6">
-        <h2 className="text-lg md:text-xl font-semibold mb-2 md:mb-3 text-blue-900 dark:text-white">Recent Transactions</h2>
-        <div className="space-y-1">
-          {recentTransactions.map(transaction => (
-            <div 
-              key={transaction.id} 
-              className="flex items-center gap-3 py-1.5 border-b dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors rounded px-2 -mx-2"
-              onClick={() => setEditingTransaction(transaction)}
-            >
-              <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
-                {new Date(transaction.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
-              </span>
-              <span className="text-xs font-bold text-gray-600 dark:text-gray-400 w-4 text-center">
-                {transaction.cleared ? 'R' : 'N'}
-              </span>
-              <p className="text-sm font-medium dark:text-white truncate flex-1">{transaction.description}</p>
-              <span className={`text-sm font-semibold whitespace-nowrap ${
-                transaction.type === 'income' 
-                  ? 'text-green-600 dark:text-green-400' 
-                  : 'text-red-600 dark:text-red-400'
-              }`}>
-                {formatCurrency(transaction.amount)}
-              </span>
-            </div>
-          ))}
-          {transactions.length === 0 && (
-            <p className="text-gray-500 dark:text-gray-400 text-center py-6">
-              No transactions yet
-            </p>
-          )}
-        </div>
+        {/* Layout Controls */}
+        {showLayoutControls && (
+          <div className="layout-controls">
+            <button onClick={() => setShowLayoutControls(false)}>
+              Done Editing
+            </button>
+            <button onClick={resetDashboardLayout} className="secondary">
+              Reset Layout
+            </button>
+          </div>
+        )}
       </div>
       
       {/* Test Data Warning Modal */}
@@ -1026,6 +944,160 @@ export default function Dashboard() {
         onClose={() => setEditingTransaction(null)}
         transaction={editingTransaction}
       />
+
+      {/* Account Breakdown Modal */}
+      {showAccountBreakdown.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-[#D9E1F2] dark:bg-gray-900 rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden border-2 border-blue-300 dark:border-gray-700">
+            <div className="p-6 border-b-2 border-[#5A729A] dark:border-gray-700 bg-[#6B86B3] dark:bg-gray-800">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-white dark:text-white">
+                  {showAccountBreakdown.title}
+                </h2>
+                <button
+                  onClick={() => setShowAccountBreakdown({ isOpen: false, type: null, title: '' })}
+                  className="text-white/70 hover:text-white dark:text-gray-400 dark:hover:text-gray-200"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 bg-white dark:bg-gray-800 m-6 rounded-2xl shadow-md border-2 border-blue-200 dark:border-gray-700 overflow-y-auto" style={{ maxHeight: 'calc(60vh - 3rem)' }}>
+              {(() => {
+                const assetAccounts = accounts.filter(acc => acc.balance > 0);
+                const liabilityAccounts = accounts.filter(acc => acc.balance < 0);
+                
+                let displayAccounts: typeof accounts = [];
+                
+                if (showAccountBreakdown.type === 'networth') {
+                  displayAccounts = accounts;
+                } else if (showAccountBreakdown.type === 'assets') {
+                  displayAccounts = assetAccounts;
+                } else if (showAccountBreakdown.type === 'liabilities') {
+                  displayAccounts = liabilityAccounts;
+                }
+
+                // Group accounts by type
+                const groupedAccounts = displayAccounts.reduce((groups, account) => {
+                  const type = account.type || 'other';
+                  if (!groups[type]) {
+                    groups[type] = [];
+                  }
+                  groups[type].push(account);
+                  return groups;
+                }, {} as Record<string, typeof accounts>);
+
+                const getAccountTypeLabel = (type: string) => {
+                  switch (type) {
+                    case 'current': return 'Current Accounts';
+                    case 'savings': return 'Savings Accounts';
+                    case 'credit': return 'Credit Cards';
+                    case 'loan': return 'Loans';
+                    case 'investment': return 'Investments';
+                    default: return 'Other Accounts';
+                  }
+                };
+
+                return (
+                  <div className="space-y-6">
+                    {Object.entries(groupedAccounts).map(([type, typeAccounts]) => {
+                      const typeTotal = typeAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+                      
+                      return (
+                        <div key={type}>
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+                            {getAccountTypeLabel(type)}
+                          </h3>
+                          <div className="space-y-2">
+                            {typeAccounts.map(account => (
+                              <div
+                                key={account.id}
+                                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-2xl hover:bg-[#D9E1F2]/30 dark:hover:bg-gray-600 cursor-pointer transition-colors border border-gray-200 dark:border-gray-600"
+                                onClick={() => {
+                                  navigate(`/transactions?account=${account.id}`);
+                                  setShowAccountBreakdown({ isOpen: false, type: null, title: '' });
+                                }}
+                              >
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white">
+                                    {account.name}
+                                  </p>
+                                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                                    {account.institution || 'No institution'}
+                                  </p>
+                                </div>
+                                <p className={`font-semibold ${
+                                  account.balance >= 0 
+                                    ? 'text-green-600 dark:text-green-400' 
+                                    : 'text-red-600 dark:text-red-400'
+                                }`}>
+                                  {formatCurrency(Math.abs(account.balance))}
+                                </p>
+                              </div>
+                            ))}
+                            <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
+                              <div className="flex justify-between items-center">
+                                <p className="font-medium text-gray-700 dark:text-gray-300">
+                                  Subtotal
+                                </p>
+                                <p className={`font-bold ${
+                                  typeTotal >= 0 
+                                    ? 'text-green-600 dark:text-green-400' 
+                                    : 'text-red-600 dark:text-red-400'
+                                }`}>
+                                  {formatCurrency(Math.abs(typeTotal))}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {showAccountBreakdown.type === 'networth' && (
+                      <div className="border-t-2 border-gray-300 dark:border-gray-600 pt-4 mt-6">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <p className="font-medium text-gray-700 dark:text-gray-300">
+                              Total Assets
+                            </p>
+                            <p className="font-semibold text-green-600 dark:text-green-400">
+                              {formatCurrency(totalAssets)}
+                            </p>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <p className="font-medium text-gray-700 dark:text-gray-300">
+                              Total Liabilities
+                            </p>
+                            <p className="font-semibold text-red-600 dark:text-red-400">
+                              {formatCurrency(totalLiabilities)}
+                            </p>
+                          </div>
+                          <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
+                            <p className="text-lg font-bold text-gray-900 dark:text-white">
+                              Net Worth
+                            </p>
+                            <p className={`text-lg font-bold ${
+                              netWorth >= 0 
+                                ? 'text-gray-900 dark:text-white' 
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {formatCurrency(netWorth)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

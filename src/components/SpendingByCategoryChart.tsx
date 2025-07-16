@@ -18,7 +18,7 @@ const SpendingByCategoryChart = React.memo(function SpendingByCategoryChart() {
 
     return Object.entries(spendingByCategory)
       .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
+      .sort((a, b) => (b.value as number) - (a.value as number))
       .slice(0, 6); // Top 6 categories
   }, [transactions]);
 

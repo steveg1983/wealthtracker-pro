@@ -9,5 +9,22 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     open: false
+  },
+  build: {
+    // Increase chunk size warning limit slightly since we're now splitting
+    chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Manual chunks for better caching
+        manualChunks: {
+          // Group vendor libraries
+          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+          'chart-vendor': ['recharts', 'react-chartjs-2', 'chart.js'],
+          'ui-vendor': ['lucide-react', '@dnd-kit/core', '@dnd-kit/sortable', 'react-grid-layout'],
+          // Group utility libraries
+          'utils': ['uuid', '@supabase/supabase-js']
+        }
+      }
+    }
   }
 })

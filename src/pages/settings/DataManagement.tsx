@@ -25,10 +25,7 @@ export default function DataManagementSettings() {
   const handleClearData = () => {
     clearAllData();
     setShowDeleteConfirm(false);
-    // Force reload to ensure UI updates
-    setTimeout(() => {
-      window.location.reload();
-    }, 100);
+    // No need to reload - the state updates will trigger re-renders
   };
 
   const handleLoadTestData = () => {
@@ -41,7 +38,7 @@ export default function DataManagementSettings() {
       <h1 className="text-3xl font-bold text-blue-900 dark:text-white mb-6">Data Management</h1>
 
       {hasTestData && (
-        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6 flex items-start gap-3">
+        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-2xl p-4 mb-6 flex items-start gap-3">
           <AlertCircle className="text-orange-600 dark:text-orange-400 mt-0.5" size={20} />
           <div>
             <p className="font-medium text-orange-800 dark:text-orange-200">Test Data Active</p>
@@ -52,7 +49,7 @@ export default function DataManagementSettings() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
         <div className="space-y-3">
           <button
             onClick={() => setShowImportModal(true)}
@@ -91,7 +88,7 @@ export default function DataManagementSettings() {
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircle className="text-red-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirm Delete All Data</h3>
@@ -128,7 +125,7 @@ export default function DataManagementSettings() {
       {/* Test Data Confirmation Dialog */}
       {showTestDataConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <Database className="text-purple-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Load Test Data</h3>

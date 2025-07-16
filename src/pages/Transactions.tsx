@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
@@ -7,8 +7,8 @@ import { useCurrency } from '../hooks/useCurrency';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { Plus, TrendingUp, TrendingDown, Calendar, Trash2, Minimize2, Maximize2, Edit2, Search, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Expand, Shrink } from 'lucide-react';
 
-export default function Transactions({ selectedAccountId }: { selectedAccountId?: string | null }) {
-  const { transactions, accounts, deleteTransaction, categories, getCategoryPath } = useApp();
+export default function Transactions() {
+  const { transactions, accounts, deleteTransaction, categories } = useApp();
   const { compactView, setCompactView, currency: displayCurrency } = usePreferences();
   const { isWideView, setIsWideView } = useLayout();
   const { formatCurrency } = useCurrency();
@@ -24,17 +24,44 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
   const [transactionsPerPage, setTransactionsPerPage] = useState(20);
   const [sortField, setSortField] = useState<'date' | 'account' | 'description' | 'category' | 'amount'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [columnWidths, setColumnWidths] = useState({
+    date: 120,
+    reconciled: 40,
+    account: 150,
+    description: 300,
+    category: 180,
+    amount: 120,
+    actions: 100
+  });
+  const [isResizing, setIsResizing] = useState<string | null>(null);
+  const [startX, setStartX] = useState(0);
+  const [startWidth, setStartWidth] = useState(0);
+  const [columnOrder, setColumnOrder] = useState(['date', 'reconciled', 'account', 'description', 'category', 'amount', 'actions']);
+  const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
+  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
-  // Get account ID from URL params or props
-  const accountIdFromUrl = searchParams.get('account');
-  const effectiveAccountId = selectedAccountId || accountIdFromUrl;
-  
-  // Set filter from URL or props on mount
-  useEffect(() => {
-    if (effectiveAccountId) {
-      setFilterAccountId(effectiveAccountId);
+  // Helper function to get category path
+  const getCategoryPath = (categoryId: string): string => {
+    const category = categories.find(c => c.id === categoryId);
+    if (!category) return categoryId;
+    
+    if (category.level === 'detail' && category.parentId) {
+      const parent = categories.find(c => c.id === category.parentId);
+      return parent ? `${parent.name} > ${category.name}` : category.name;
     }
-  }, [effectiveAccountId]);
+    
+    return category.name;
+  };
+
+  // Get account ID from URL params
+  const accountIdFromUrl = searchParams.get('account');
+  
+  // Set filter from URL on mount
+  useEffect(() => {
+    if (accountIdFromUrl) {
+      setFilterAccountId(accountIdFromUrl);
+    }
+  }, [accountIdFromUrl]);
 
 
   // Sort handler
@@ -47,6 +74,115 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
     }
     setCurrentPage(1); // Reset to first page when sorting changes
   };
+
+  // Handle column resize
+  const handleMouseDown = (column: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsResizing(column);
+    setStartX(e.clientX);
+    setStartWidth(columnWidths[column as keyof typeof columnWidths]);
+  };
+
+  // Handle column drag start
+  const handleDragStart = (column: string, e: React.DragEvent) => {
+    setDraggedColumn(column);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', column);
+    
+    // Create a custom drag image with enhanced styling
+    const dragImage = document.createElement('div');
+    dragImage.innerHTML = columnConfig[column as keyof typeof columnConfig].label;
+    dragImage.style.cssText = `
+      position: absolute;
+      top: -1000px;
+      left: -1000px;
+      padding: 12px 24px;
+      background: rgba(107, 134, 179, 0.95);
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: 8px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+      border: 2px solid rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+    `;
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    
+    // Clean up drag image after a short delay
+    setTimeout(() => {
+      document.body.removeChild(dragImage);
+    }, 0);
+  };
+
+  // Handle column drag over
+  const handleDragOver = (column: string, e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverColumn(column);
+  };
+
+  // Handle column drag leave
+  const handleDragLeave = () => {
+    setDragOverColumn(null);
+  };
+
+  // Handle column drop
+  const handleDrop = (targetColumn: string, e: React.DragEvent) => {
+    e.preventDefault();
+    const draggedColumn = e.dataTransfer.getData('text/plain');
+    
+    if (draggedColumn && draggedColumn !== targetColumn) {
+      const newOrder = [...columnOrder];
+      const draggedIndex = newOrder.indexOf(draggedColumn);
+      const targetIndex = newOrder.indexOf(targetColumn);
+      
+      // Remove dragged column from its current position
+      newOrder.splice(draggedIndex, 1);
+      
+      // Insert dragged column at target position
+      newOrder.splice(targetIndex, 0, draggedColumn);
+      
+      setColumnOrder(newOrder);
+    }
+    
+    setDraggedColumn(null);
+    setDragOverColumn(null);
+  };
+
+
+  // Add mouse event listeners when resizing
+  React.useEffect(() => {
+    if (isResizing) {
+      const handleMouseMoveEvent = (e: MouseEvent) => {
+        if (!isResizing) return;
+        
+        const diff = e.clientX - startX;
+        const newWidth = Math.max(50, startWidth + diff);
+        
+        setColumnWidths(prev => ({
+          ...prev,
+          [isResizing]: newWidth
+        }));
+      };
+
+      const handleMouseUpEvent = () => {
+        setIsResizing(null);
+      };
+
+      document.addEventListener('mousemove', handleMouseMoveEvent);
+      document.addEventListener('mouseup', handleMouseUpEvent);
+      
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMoveEvent);
+        document.removeEventListener('mouseup', handleMouseUpEvent);
+      };
+    }
+  }, [isResizing, startX, startWidth]);
 
   // Sort transactions based on current sort field and direction
   const sortedTransactions = useMemo(() => {
@@ -149,7 +285,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
   );
 
   // Pagination logic - show all transactions if account is selected
-  const showAllTransactions = !!effectiveAccountId;
+  const showAllTransactions = !!accountIdFromUrl;
   const totalPages = showAllTransactions ? 1 : Math.ceil(filteredTransactions.length / transactionsPerPage);
   const startIndex = showAllTransactions ? 0 : (currentPage - 1) * transactionsPerPage;
   const endIndex = showAllTransactions ? filteredTransactions.length : startIndex + transactionsPerPage;
@@ -200,6 +336,196 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
   // Get filtered account name for display
   const filteredAccount = filterAccountId ? accounts.find(a => a.id === filterAccountId) : null;
 
+  // Column configuration with display names and properties
+  const columnConfig = {
+    date: {
+      label: 'Date',
+      sortable: true,
+      className: 'text-left',
+      cellClassName: 'pl-7 pr-6',
+      hidden: ''
+    },
+    reconciled: {
+      label: 'R',
+      sortable: false,
+      className: 'text-center',
+      cellClassName: 'px-2',
+      hidden: ''
+    },
+    account: {
+      label: 'Account',
+      sortable: true,
+      className: 'text-left',
+      cellClassName: 'px-6',
+      hidden: ''
+    },
+    description: {
+      label: 'Description',
+      sortable: true,
+      className: 'text-left',
+      cellClassName: 'px-6',
+      hidden: ''
+    },
+    category: {
+      label: 'Category',
+      sortable: true,
+      className: 'text-left',
+      cellClassName: 'px-6',
+      hidden: 'hidden sm:table-cell'
+    },
+    amount: {
+      label: 'Amount',
+      sortable: true,
+      className: 'text-right',
+      cellClassName: 'px-6',
+      hidden: ''
+    },
+    actions: {
+      label: 'Actions',
+      sortable: false,
+      className: 'text-right',
+      cellClassName: 'pl-6 pr-7',
+      hidden: ''
+    }
+  };
+
+  // Render table header cell
+  const renderHeaderCell = (columnKey: string) => {
+    const config = columnConfig[columnKey as keyof typeof columnConfig];
+    if (!config) return null;
+
+    const isDragging = draggedColumn === columnKey;
+    const isDragOver = dragOverColumn === columnKey;
+
+    return (
+      <th
+        key={columnKey}
+        draggable={!isResizing}
+        onDragStart={(e) => handleDragStart(columnKey, e)}
+        onDragOver={(e) => handleDragOver(columnKey, e)}
+        onDragLeave={handleDragLeave}
+        onDrop={(e) => handleDrop(columnKey, e)}
+        className={`px-6 ${compactView ? 'py-2' : 'py-3'} ${config.className} text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider ${
+          config.sortable ? 'cursor-pointer hover:text-white/80 dark:hover:text-gray-100' : ''
+        } ${config.hidden || ''} relative ${
+          isDragging ? 'opacity-70 shadow-2xl border-2 border-white/50 dark:border-gray-300/50 bg-white/10 dark:bg-gray-700/50 transform scale-105 z-50' : ''
+        } ${
+          isDragOver ? 'bg-white/20 border-l-4 border-l-white/80 dark:border-l-gray-300/80 before:absolute before:top-0 before:left-0 before:w-full before:h-full before:bg-white/10 before:animate-pulse' : ''
+        } transition-all duration-200 ease-in-out`}
+        style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}
+        onClick={config.sortable ? () => handleSort(columnKey as any) : undefined}
+      >
+        <div className="flex items-center gap-1" style={{ justifyContent: config.className === 'text-right' ? 'flex-end' : 'flex-start' }}>
+          {config.label}
+          {config.sortable && sortField === columnKey && (
+            <span className="font-bold text-white dark:text-gray-200">
+              {sortDirection === 'asc' ? <ChevronUp size={18} strokeWidth={3} /> : <ChevronDown size={18} strokeWidth={3} />}
+            </span>
+          )}
+        </div>
+        <div 
+          className="absolute right-0 top-0 bottom-0 w-px cursor-col-resize bg-[#5A729A] dark:bg-gray-600"
+          onMouseDown={(e) => handleMouseDown(columnKey, e)}
+        />
+      </th>
+    );
+  };
+
+  // Render table data cell
+  const renderDataCell = (columnKey: string, transaction: any, _index: number) => {
+    const config = columnConfig[columnKey as keyof typeof columnConfig];
+    if (!config) return null;
+
+    const account = accounts.find(a => a.id === transaction.accountId);
+
+    switch (columnKey) {
+      case 'date':
+        return (
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-xs text-gray-900 dark:text-gray-100`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+            {new Date(transaction.date).toLocaleDateString()}
+          </td>
+        );
+      case 'reconciled':
+        return (
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} text-center`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+            <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+              {transaction.cleared ? 'R' : 'N'}
+            </span>
+          </td>
+        );
+      case 'account':
+        return (
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-xs text-gray-500 dark:text-gray-400`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+            <div className="truncate">
+              {account?.name || 'Unknown'}
+            </div>
+          </td>
+        );
+      case 'description':
+        return (
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+            <div className="flex items-center gap-2">
+              {getTypeIcon(transaction.type)}
+              <span className={`${compactView ? 'text-xs' : 'text-xs'} text-gray-900 dark:text-gray-100 truncate`}>{transaction.description}</span>
+            </div>
+          </td>
+        );
+      case 'category':
+        return (
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 ${config.hidden}`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+            <div className="truncate">
+              {(() => {
+                const category = categories.find(c => c.id === transaction.category);
+                if (!category) return transaction.categoryName || transaction.category;
+                
+                if (category.level === 'detail' && category.parentId) {
+                  const parent = categories.find(c => c.id === category.parentId);
+                  return `${parent?.name} > ${category.name}`;
+                }
+                return category.name;
+              })()}
+            </div>
+          </td>
+        );
+      case 'amount':
+        return (
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-xs text-right font-medium ${
+            transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+          }`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+            {transaction.type === 'income' ? '+' : '-'}
+            {formatCurrency(transaction.amount, account?.currency || 'GBP')}
+          </td>
+        );
+      case 'actions':
+        return (
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-right text-xs font-medium`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleEdit(transaction);
+                }}
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              >
+                <Edit2 size={16} />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDelete(transaction.id);
+                }}
+                className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          </td>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className={isWideView ? "w-[100vw] relative left-[50%] right-[50%] ml-[-50vw] mr-[-50vw] px-4 md:px-6 lg:px-8" : ""}>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 md:mb-6 gap-3">
@@ -215,7 +541,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
           {/* Compact View Toggle */}
           <button
             onClick={() => setCompactView(!compactView)}
-            className="flex items-center gap-2 px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             title={compactView ? "Switch to normal view" : "Switch to compact view"}
           >
             {compactView ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
@@ -227,7 +553,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
           {/* Wide View Toggle */}
           <button
             onClick={() => setIsWideView(!isWideView)}
-            className="flex items-center gap-2 px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
             title={isWideView ? "Switch to standard width" : "Switch to wide view"}
           >
             {isWideView ? <Shrink size={16} /> : <Expand size={16} />}
@@ -238,7 +564,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
           
           <button 
             onClick={() => setIsModalOpen(true)}
-            className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
+            className="bg-primary text-white px-4 py-2 rounded-2xl hover:bg-secondary transition-colors flex items-center gap-2"
           >
             <Plus size={20} />
             <span className="hidden sm:inline">Add Transaction</span>
@@ -246,9 +572,11 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 mb-4 md:mb-6">
-        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg shadow">
+      {/* Main content grid with consistent spacing */}
+      <div className="grid gap-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Income</p>
@@ -257,7 +585,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
             <TrendingUp className="text-green-500" size={20} />
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg shadow">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Expenses</p>
@@ -266,7 +594,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
             <TrendingDown className="text-red-500" size={20} />
           </div>
         </div>
-        <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg shadow">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Net</p>
@@ -277,10 +605,11 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
             <Calendar className="text-primary" size={20} />
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* Filters and Search */}
-      <div className="bg-white dark:bg-gray-800 p-3 md:p-4 rounded-lg shadow mb-4 md:mb-6">
+        {/* Filters and Search */}
+        <div className="pt-4">
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
         <div className="space-y-3">
           {/* Search Input */}
           <div className="w-full">
@@ -291,7 +620,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
                 placeholder="Search transactions..."
                 value={searchQuery}
                 onChange={(e) => handleFilterChange(setSearchQuery)(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full pl-9 pr-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
             </div>
           </div>
@@ -301,7 +630,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
             {/* Type Filter */}
             <div className="flex-1 min-w-[140px]">
               <select
-                className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 value={filterType}
                 onChange={(e) => handleFilterChange(setFilterType)(e.target.value as any)}
               >
@@ -314,7 +643,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
             {/* Account Filter */}
             <div className="flex-1 min-w-[140px]">
               <select
-                className="w-full px-3 py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 value={filterAccountId}
                 onChange={(e) => handleFilterChange(setFilterAccountId)(e.target.value)}
               >
@@ -333,7 +662,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
               type="date"
               value={dateFrom}
               onChange={(e) => handleFilterChange(setDateFrom)(e.target.value)}
-              className="flex-1 min-w-[130px] px-3 py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="flex-1 min-w-[130px] px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               placeholder="From"
             />
             <span className="text-sm text-gray-500 dark:text-gray-400">to</span>
@@ -341,7 +670,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
               type="date"
               value={dateTo}
               onChange={(e) => handleFilterChange(setDateTo)(e.target.value)}
-              className="flex-1 min-w-[130px] px-3 py-2 text-sm md:text-base border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="flex-1 min-w-[130px] px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               placeholder="To"
             />
             {(dateFrom || dateTo) && (
@@ -359,11 +688,12 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
             )}
           </div>
         </div>
-      </div>
+        </div>
+        </div>
 
-      {/* Transactions List */}
-      {filteredTransactions.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        {/* Transactions List */}
+        {filteredTransactions.length === 0 ? (
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-white/20 dark:border-gray-700/50">
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
             {transactions.length === 0 
               ? "No transactions yet. Click 'Add Transaction' to record your first one!"
@@ -388,7 +718,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
               return (
                 <div 
                   key={transaction.id}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 cursor-pointer hover:shadow-lg transition-shadow"
+                  className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-shadow border border-white/20 dark:border-gray-700/50"
                   onClick={() => handleEdit(transaction)}
                 >
                   <div className="flex justify-between items-start mb-2">
@@ -422,143 +752,24 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
           </div>
           
           {/* Desktop Table View */}
-          <div className={`hidden sm:block bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden ${isWideView ? 'w-full' : ''}`}>
+          <div className={`hidden sm:block bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50 ${isWideView ? 'w-full' : ''}`} style={{ cursor: isResizing ? 'col-resize' : 'default' }}>
             <div className={isWideView ? '' : 'overflow-x-auto'}>
-              <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+              <table className="w-full" style={{ tableLayout: 'fixed' }}>
+              <thead className="bg-[#6B86B3] dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
                 <tr>
-                  <th 
-                    className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
-                    onClick={() => handleSort('date')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Date
-                      {sortField === 'date' && (
-                        sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
-                      )}
-                    </div>
-                  </th>
-                  <th className={`px-2 ${compactView ? 'py-2' : 'py-3'} text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider w-10`}>
-                    R
-                  </th>
-                  <th 
-                    className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
-                    onClick={() => handleSort('account')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Account
-                      {sortField === 'account' && (
-                        sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
-                      )}
-                    </div>
-                  </th>
-                  <th 
-                    className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
-                    onClick={() => handleSort('description')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Description
-                      {sortField === 'description' && (
-                        sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
-                      )}
-                    </div>
-                  </th>
-                  <th 
-                    className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider hidden sm:table-cell cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
-                    onClick={() => handleSort('category')}
-                  >
-                    <div className="flex items-center gap-1">
-                      Category
-                      {sortField === 'category' && (
-                        sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
-                      )}
-                    </div>
-                  </th>
-                  <th 
-                    className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-700 dark:hover:text-gray-200`}
-                    onClick={() => handleSort('amount')}
-                  >
-                    <div className="flex items-center justify-end gap-1">
-                      Amount
-                      {sortField === 'amount' && (
-                        sortDirection === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />
-                      )}
-                    </div>
-                  </th>
-                  <th className={`px-6 ${compactView ? 'py-2' : 'py-3'} text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider`}>
-                    Actions
-                  </th>
+                  {columnOrder.map(renderHeaderCell)}
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {paginatedTransactions.map((transaction) => {
-                  const account = accounts.find(a => a.id === transaction.accountId);
-                  return (
-                    <tr 
-                      key={transaction.id} 
-                      className="hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer transition-colors"
-                      onClick={() => handleEdit(transaction)}
-                    >
-                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-900 dark:text-gray-100`}>
-                        {new Date(transaction.date).toLocaleDateString()}
-                      </td>
-                      <td className={`px-2 ${compactView ? 'py-2' : 'py-4'} text-center w-10`}>
-                        <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
-                          {transaction.cleared ? 'R' : 'N'}
-                        </span>
-                      </td>
-                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-500 dark:text-gray-400`}>
-                        {account?.name || 'Unknown'}
-                      </td>
-                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap`}>
-                        <div className="flex items-center gap-2">
-                          {getTypeIcon(transaction.type)}
-                          <span className={`${compactView ? 'text-sm' : 'text-sm'} text-gray-900 dark:text-gray-100`}>{transaction.description}</span>
-                        </div>
-                      </td>
-                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 hidden sm:table-cell`}>
-                        {(() => {
-                          const category = categories.find(c => c.id === transaction.category);
-                          if (!category) return transaction.categoryName || transaction.category;
-                          
-                          if (category.level === 'detail' && category.parentId) {
-                            const parent = categories.find(c => c.id === category.parentId);
-                            return `${parent?.name} > ${category.name}`;
-                          }
-                          return category.name;
-                        })()}
-                      </td>
-                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-right font-medium ${
-                        transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                      }`}>
-                        {transaction.type === 'income' ? '+' : '-'}
-                        {formatCurrency(transaction.amount, account?.currency || 'GBP')}
-                      </td>
-                      <td className={`px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-right text-sm font-medium`}>
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEdit(transaction);
-                            }}
-                            className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-                          >
-                            <Edit2 size={16} />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDelete(transaction.id);
-                            }}
-                            className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                          >
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {paginatedTransactions.map((transaction, index) => (
+                  <tr 
+                    key={transaction.id} 
+                    className={`${index % 2 === 1 ? 'bg-[#D9E1F2]/25' : 'bg-white'} dark:${index % 2 === 1 ? 'bg-gray-800/50' : 'bg-gray-800'} cursor-pointer hover:shadow-[inset_2px_0_0_3px_rgb(209,213,219),inset_0_2px_0_3px_rgb(209,213,219),inset_0_-2px_0_3px_rgb(209,213,219),inset_-2px_0_0_3px_rgb(209,213,219)] dark:hover:shadow-[inset_2px_0_0_3px_rgb(75,85,99),inset_0_2px_0_3px_rgb(75,85,99),inset_0_-2px_0_3px_rgb(75,85,99),inset_-2px_0_0_3px_rgb(75,85,99)] transition-shadow relative`}
+                    onClick={() => handleEdit(transaction)}
+                  >
+                    {columnOrder.map(columnKey => renderDataCell(columnKey, transaction, index))}
+                  </tr>
+                ))}
               </tbody>
             </table>
             </div>
@@ -581,7 +792,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
                       setTransactionsPerPage(value);
                       setCurrentPage(1);
                     }}
-                    className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="px-2 py-1 text-sm bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                   >
                     <option value={10}>10 per page</option>
                     <option value={20}>20 per page</option>
@@ -665,7 +876,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
           
           {/* Mobile Pagination Controls */}
           {totalPages > 1 && (
-            <div className="sm:hidden bg-white dark:bg-gray-800 rounded-lg shadow px-4 py-3">
+            <div className="sm:hidden bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg px-4 py-3 border border-white/20 dark:border-gray-700/50">
               <div className="flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-700 dark:text-gray-300">
@@ -680,7 +891,7 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
                       setTransactionsPerPage(Number(e.target.value));
                       setCurrentPage(1);
                     }}
-                    className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded focus:outline-none focus:ring-2 focus:ring-primary"
+                    className="px-2 py-1 text-xs bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                   >
                     <option value={10}>10/page</option>
                     <option value={20}>20/page</option>
@@ -719,7 +930,8 @@ export default function Transactions({ selectedAccountId }: { selectedAccountId?
             </div>
           )}
         </>
-      )}
+        )}
+      </div>
 
       <EditTransactionModal 
         isOpen={isModalOpen} 

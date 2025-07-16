@@ -1,4 +1,4 @@
-import { Palette, Database, Tag, Settings2 } from 'lucide-react';
+import { Palette, Database, Tag, Settings2, Hash } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function Settings() {
@@ -23,6 +23,13 @@ export default function Settings() {
       icon: Tag,
       path: '/settings/categories',
       color: 'bg-green-500'
+    },
+    {
+      title: 'Tags',
+      description: 'Manage transaction tags and labels',
+      icon: Hash,
+      path: '/settings/tags',
+      color: 'bg-purple-500'
     }
   ];
 
@@ -34,7 +41,7 @@ export default function Settings() {
       </p>
 
       {/* Main About Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 mb-8">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-8 mb-8">
         <div className="flex items-center gap-4 mb-6">
           <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center">
             <span className="text-2xl font-bold text-white">WT</span>
@@ -87,7 +94,7 @@ export default function Settings() {
       </div>
 
       {/* Quick Settings Links */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Settings</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {settingsOptions.map((option) => (

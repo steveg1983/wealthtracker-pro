@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
 import { Home, Wallet, Settings } from 'lucide-react';
 

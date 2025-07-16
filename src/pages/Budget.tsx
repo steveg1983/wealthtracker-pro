@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
-import { PlusCircle, Edit2, Trash2, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, TrendingUp, TrendingDown, Banknote } from 'lucide-react';
 import BudgetModal from '../components/BudgetModal';
 
 export default function Budget() {
@@ -92,14 +92,13 @@ export default function Budget() {
   };
 
   // Calculate totals with memoization
-  const { activeBudgets, totalBudgeted, totalSpent, totalRemaining } = useMemo(() => {
+  const { totalBudgeted, totalSpent, totalRemaining } = useMemo(() => {
     const active = budgetsWithSpent.filter(b => b && b.isActive !== false);
     const budgeted = active.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
     const spent = active.reduce((sum, b) => sum + (b.spent || 0), 0);
     const remaining = budgeted - spent;
     
     return {
-      activeBudgets: active,
       totalBudgeted: budgeted,
       totalSpent: spent,
       totalRemaining: remaining
@@ -112,16 +111,18 @@ export default function Budget() {
         <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Budget</h1>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors"
         >
           <PlusCircle size={20} />
           Add Budget
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+      {/* Main content grid with consistent spacing */}
+      <div className="grid gap-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Budgeted</p>
@@ -129,11 +130,11 @@ export default function Budget() {
                 {formatCurrency(totalBudgeted)}
               </p>
             </div>
-            <DollarSign className="text-gray-400" size={24} />
+            <Banknote className="text-gray-400" size={24} />
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Spent</p>
@@ -145,7 +146,7 @@ export default function Budget() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Remaining</p>
@@ -158,14 +159,15 @@ export default function Budget() {
             <TrendingUp className={totalRemaining >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* Budgets List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Budgets List */}
+        <div className="pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {budgetsWithSpent.map(budget => budget && (
           <div
             key={budget.id}
-            className={`bg-white dark:bg-gray-800 p-6 rounded-lg shadow ${
+            className={`bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 ${
               budget.isActive === false ? 'opacity-60' : ''
             }`}
           >
@@ -237,19 +239,21 @@ export default function Budget() {
             </div>
           </div>
         ))}
-      </div>
+          </div>
 
-      {budgets.length === 0 && (
-        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-lg shadow">
-          <p className="text-gray-500 dark:text-gray-400 mb-4">No budgets set up yet</p>
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className="text-primary hover:underline"
-          >
-            Create your first budget
-          </button>
+          {budgets.length === 0 && (
+          <div className="text-center py-12 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+            <p className="text-gray-500 dark:text-gray-400 mb-4">No budgets set up yet</p>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="text-primary hover:underline"
+            >
+              Create your first budget
+            </button>
+          </div>
+        )}
         </div>
-      )}
+      </div>
 
       <BudgetModal
         isOpen={isModalOpen}

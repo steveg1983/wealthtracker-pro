@@ -1,3 +1,6 @@
+/* Import enhanced borders and shadows */
+@import './styles/borders.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

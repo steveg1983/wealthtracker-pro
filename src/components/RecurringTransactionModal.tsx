@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useApp } from '../contexts/AppContext';
 import { Repeat } from "lucide-react";
-import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { Modal, ModalBody } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
 
 interface RecurringTransactionModalProps {
@@ -169,7 +169,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                 required
                 value={formData.description}
                 onChange={(e) => updateField('description', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
             </div>
 
@@ -181,7 +181,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                 <select
                   value={formData.type}
                   onChange={(e) => updateField('type', e.target.value as 'income' | 'expense' | 'transfer')}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 >
                   <option value="expense">Expense</option>
                   <option value="income">Income</option>
@@ -199,7 +199,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                   step="0.01"
                   value={formData.amount}
                   onChange={(e) => updateField('amount', parseFloat(e.target.value) || 0)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 />
               </div>
             </div>
@@ -214,7 +214,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                   required
                   value={formData.category}
                   onChange={(e) => updateField('category', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 />
               </div>
 
@@ -225,7 +225,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                 <select
                   value={formData.accountId}
                   onChange={(e) => updateField('accountId', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 >
                   {accounts.map(account => (
                     <option key={account.id} value={account.id}>{account.name}</option>
@@ -241,7 +241,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
               <select
                 value={formData.frequency}
                 onChange={(e) => updateField('frequency', e.target.value as any)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -260,7 +260,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                   required
                   value={formData.startDate}
                   onChange={(e) => updateField('startDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 />
               </div>
 
@@ -272,7 +272,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                   type="date"
                   value={formData.endDate || ''}
                   onChange={(e) => updateField('endDate', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 />
               </div>
             </div>

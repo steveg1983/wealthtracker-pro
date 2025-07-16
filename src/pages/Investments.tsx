@@ -121,9 +121,9 @@ export default function Investments() {
       <div>
         <h1 className="text-3xl font-bold text-blue-900 dark:text-white mb-6">Investments</h1>
         
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-8 text-center">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
           <BarChart3 className="mx-auto text-gray-400 mb-4" size={64} />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-2">
             No Investment Accounts Yet
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -144,7 +144,7 @@ export default function Investments() {
         {investmentAccounts.length > 0 && (
           <button
             onClick={() => setShowAddInvestmentModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-colors"
           >
             <Plus size={20} />
             Add Investment
@@ -152,9 +152,11 @@ export default function Investments() {
         )}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      {/* Main content grid with consistent spacing */}
+      <div className="grid gap-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Portfolio Value</p>
@@ -166,7 +168,7 @@ export default function Investments() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Invested</p>
@@ -178,7 +180,7 @@ export default function Investments() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Return</p>
@@ -190,7 +192,7 @@ export default function Investments() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Return %</p>
@@ -201,12 +203,12 @@ export default function Investments() {
             <TrendingDown className={returnPercentage >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* Performance Chart */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-8">
+        {/* Performance Chart */}
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold dark:text-white">Portfolio Performance</h2>
+          <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Portfolio Performance</h2>
           <div className="flex gap-2">
             {['1M', '3M', '6M', '1Y', 'ALL'].map((period) => (
               <button
@@ -256,13 +258,12 @@ export default function Investments() {
             </LineChart>
           </ResponsiveContainer>
         </div>
-      </div>
 
-      {/* Holdings */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Holdings */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Holdings List */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">Holdings</h2>
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+          <h2 className="text-xl font-semibold mb-4 text-blue-800 dark:text-white">Holdings</h2>
           {holdings.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No holdings to display
@@ -317,8 +318,8 @@ export default function Investments() {
         </div>
 
         {/* Allocation Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-4 dark:text-white">Asset Allocation</h2>
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+          <h2 className="text-xl font-semibold mb-4 text-blue-800 dark:text-white">Asset Allocation</h2>
           {holdings.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No data to display
@@ -371,22 +372,24 @@ export default function Investments() {
             </>
           )}
         </div>
-      </div>
 
-      {/* Investment Tips */}
-      <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
-        <div className="flex items-start gap-3">
-          <AlertCircle className="text-blue-600 dark:text-blue-400 mt-1" size={20} />
-          <div>
-            <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Investment Tips</h3>
-            <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-              <li>• Add investment accounts to track your portfolio</li>
-              <li>• Record investment transactions with appropriate categories</li>
-              <li>• Review your asset allocation regularly</li>
-              <li>• Consider your risk tolerance and investment timeline</li>
-            </ul>
+        {/* Investment Tips */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="text-blue-600 dark:text-blue-400 mt-1" size={20} />
+            <div>
+              <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Investment Tips</h3>
+              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                <li>• Add investment accounts to track your portfolio</li>
+                <li>• Record investment transactions with appropriate categories</li>
+                <li>• Review your asset allocation regularly</li>
+                <li>• Consider your risk tolerance and investment timeline</li>
+              </ul>
+            </div>
           </div>
         </div>
+        </div>
+      </div>
       </div>
       
       {/* Portfolio View Modal */}
@@ -396,16 +399,14 @@ export default function Investments() {
         
         return (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-              <div className="p-6">
-                <EnhancedPortfolioView
-                  accountId={selectedAccountId}
-                  accountName={account.name}
-                  holdings={account.holdings || []}
-                  currency={account.currency}
-                  onClose={() => setSelectedAccountId(null)}
-                />
-              </div>
+            <div className="bg-[#D9E1F2] dark:bg-gray-900 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden border-2 border-blue-300 dark:border-gray-700">
+              <EnhancedPortfolioView
+                accountId={selectedAccountId}
+                accountName={account.name}
+                holdings={account.holdings || []}
+                currency={account.currency}
+                onClose={() => setSelectedAccountId(null)}
+              />
             </div>
           </div>
         );

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 
 interface UseModalFormOptions<T> {
   onSubmit: (data: T) => void | Promise<void>;
@@ -10,20 +10,14 @@ export function useModalForm<T>(
   initialState: T | (() => T),
   { onSubmit, onClose, resetOnClose = true }: UseModalFormOptions<T>
 ) {
-  const [formData, setFormData] = useState<T>(initialState);
+  // Store the initial value once to avoid recalculating
+  const [initialValue] = useState<T>(() => 
+    typeof initialState === 'function' ? (initialState as () => T)() : initialState
+  );
+  
+  const [formData, setFormData] = useState<T>(initialValue);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Reset form when modal closes if resetOnClose is true
-  useEffect(() => {
-    if (resetOnClose) {
-      return () => {
-        setFormData(typeof initialState === 'function' ? initialState() : initialState);
-        setErrors({});
-        setIsSubmitting(false);
-      };
-    }
-  }, [initialState, resetOnClose]);
 
   const updateField = useCallback(<K extends keyof T>(field: K, value: T[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -58,7 +52,7 @@ export function useModalForm<T>(
       
       // Reset form after successful submission
       if (resetOnClose) {
-        setFormData(typeof initialState === 'function' ? initialState() : initialState);
+        reset();
       }
       
       onClose();
@@ -68,13 +62,14 @@ export function useModalForm<T>(
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, onSubmit, onClose, initialState, resetOnClose, clearErrors]);
+  }, [formData, onSubmit, onClose, resetOnClose, clearErrors]);
 
   const reset = useCallback(() => {
-    setFormData(typeof initialState === 'function' ? initialState() : initialState);
+    // Reset to the stored initial value
+    setFormData(initialValue);
     setErrors({});
     setIsSubmitting(false);
-  }, [initialState]);
+  }, [initialValue]);
 
   return {
     formData,

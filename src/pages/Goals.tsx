@@ -73,16 +73,18 @@ export default function Goals() {
         <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Goals</h1>
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700"
         >
           <Plus className="h-5 w-5" />
           Add Goal
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+      {/* Main content grid with consistent spacing */}
+      <div className="grid gap-6">
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Active Goals</p>
@@ -92,7 +94,7 @@ export default function Goals() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Total Target</p>
@@ -104,7 +106,7 @@ export default function Goals() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Total Saved</p>
@@ -129,7 +131,7 @@ export default function Goals() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Completed</p>
@@ -138,12 +140,13 @@ export default function Goals() {
             <div className="text-2xl">🏆</div>
           </div>
         </div>
-      </div>
+        </div>
 
-      {/* Active Goals */}
-      {activeGoals.length > 0 && (
+        {/* Active Goals */}
+        <div className="pt-4">
+          {activeGoals.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Active Goals</h2>
+          <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">Active Goals</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {activeGoals.map((goal) => {
               const progress = getProgressPercentage(goal);
@@ -151,7 +154,7 @@ export default function Goals() {
               const linkedBalance = getLinkedAccountsBalance(goal.linkedAccountIds);
 
               return (
-                <div key={goal.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <div key={goal.id} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-start gap-3">
                       <span className="text-2xl">{getGoalIcon(goal.type)}</span>
@@ -235,8 +238,8 @@ export default function Goals() {
       {/* Completed Goals */}
       {completedGoals.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Completed Goals</h2>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">Completed Goals</h2>
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {completedGoals.map((goal) => (
                 <div key={goal.id} className="p-4 flex items-center justify-between">
@@ -268,26 +271,28 @@ export default function Goals() {
             </div>
           </div>
         </div>
-      )}
+        )}
 
-      {goals.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12">
-          <div className="text-center">
-            <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No goals yet</h3>
-            <p className="text-gray-500 dark:text-gray-400 mb-4">
-              Start tracking your financial goals and watch your progress grow!
-            </p>
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              <Plus className="h-5 w-5" />
-              Create Your First Goal
-            </button>
+          {goals.length === 0 && (
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-12">
+            <div className="text-center">
+              <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No goals yet</h3>
+              <p className="text-gray-500 dark:text-gray-400 mb-4">
+                Start tracking your financial goals and watch your progress grow!
+              </p>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700"
+              >
+                <Plus className="h-5 w-5" />
+                Create Your First Goal
+              </button>
+            </div>
           </div>
+        )}
         </div>
-      )}
+      </div>
 
       <GoalModal
         isOpen={isModalOpen}

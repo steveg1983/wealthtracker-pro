@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { AccountProvider } from './AccountContext';
 import { TransactionProvider } from './TransactionContext';
 import { BudgetProvider } from './BudgetContext';

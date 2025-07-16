@@ -1,12 +1,6 @@
 export function generateTestData() {
   const today = new Date();
   
-  // Helper function for date manipulation
-  function subDaysFromDate(date: Date, days: number): Date {
-    const result = new Date(date);
-    result.setDate(result.getDate() - days);
-    return result;
-  }
 
   // Test Accounts - More variety
   const accounts = [
@@ -102,25 +96,25 @@ export function generateTestData() {
       id: 'acc10',
       name: 'Vanguard ISA',
       type: 'investment' as const,
-      balance: 15670.50,
+      balance: 45678.90,
       currency: 'GBP',
-      institution: 'Vanguard',
+      institution: 'Vanguard UK',
       lastUpdated: today,
     },
     {
       id: 'acc11',
       name: 'Hargreaves Lansdown SIPP',
       type: 'investment' as const,
-      balance: 45230.75,
+      balance: 67890.12,
       currency: 'GBP',
       institution: 'Hargreaves Lansdown',
       lastUpdated: today,
     },
     {
       id: 'acc12',
-      name: 'Trading 212 - UK Stocks',
+      name: 'Trading 212',
       type: 'investment' as const,
-      balance: 3456.78,
+      balance: 8765.43,
       currency: 'GBP',
       institution: 'Trading 212',
       lastUpdated: today,
@@ -129,278 +123,516 @@ export function generateTestData() {
     // US Investments
     {
       id: 'acc13',
-      name: 'Robinhood - US Stocks',
+      name: 'Robinhood',
       type: 'investment' as const,
-      balance: 5234.00,
+      balance: 12345.67,
       currency: 'USD',
       institution: 'Robinhood',
       lastUpdated: today,
     },
     {
       id: 'acc14',
-      name: 'E*TRADE Portfolio',
+      name: 'E*TRADE IRA',
       type: 'investment' as const,
-      balance: 12500.00,
+      balance: 34567.89,
       currency: 'USD',
       institution: 'E*TRADE',
       lastUpdated: today,
     },
     
-    // Crypto (as investment)
+    // Crypto
     {
       id: 'acc15',
-      name: 'Coinbase Crypto',
+      name: 'Coinbase',
       type: 'investment' as const,
-      balance: 2890.45,
+      balance: 9876.54,
       currency: 'GBP',
       institution: 'Coinbase',
       lastUpdated: today,
     },
   ];
 
-  // Generate transactions for the last 60 days
+  // Generate transactions for 12 months starting from July 1, 2024
   const transactions = [];
+  const startDate = new Date(2024, 6, 1); // July 1, 2024
+  const endDate = today;
+  const daysDiff = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  
+  const totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
+  
+  console.log('Test data generation:', {
+    startDate: startDate.toDateString(),
+    endDate: endDate.toDateString(),
+    daysDiff: daysDiff,
+    monthsDiff: totalMonths
+  });
+
   let transactionId = 1;
 
-  // Recurring transactions
-  const recurringTransactions = [
-    // Income
-    { description: 'Salary - Main Job', amount: 3850, type: 'income' as const, category: 'Salary', accountId: 'acc1', dayOfMonth: 28 },
-    { description: 'Freelance Income', amount: 750, type: 'income' as const, category: 'Freelance', accountId: 'acc1', dayOfMonth: 15 },
-    
-    // Housing
-    { description: 'Mortgage Payment', amount: 1450, type: 'expense' as const, category: 'Bills', accountId: 'acc3', dayOfMonth: 1 },
-    { description: 'Council Tax', amount: 156, type: 'expense' as const, category: 'Bills', accountId: 'acc3', dayOfMonth: 5 },
-    { description: 'Gas & Electric', amount: 125, type: 'expense' as const, category: 'Bills', accountId: 'acc3', dayOfMonth: 15 },
-    { description: 'Water Bill', amount: 35, type: 'expense' as const, category: 'Bills', accountId: 'acc3', dayOfMonth: 20 },
-    { description: 'Internet - BT Fibre', amount: 49.99, type: 'expense' as const, category: 'Bills', accountId: 'acc1', dayOfMonth: 12 },
-    
-    // Transport
-    { description: 'Car Finance - Tesla', amount: 425, type: 'expense' as const, category: 'Transport', accountId: 'acc1', dayOfMonth: 10 },
-    { description: 'Car Insurance', amount: 89, type: 'expense' as const, category: 'Transport', accountId: 'acc1', dayOfMonth: 8 },
-    
-    // Subscriptions
-    { description: 'Mobile Phone - EE', amount: 45, type: 'expense' as const, category: 'Bills', accountId: 'acc1', dayOfMonth: 22 },
-    { description: 'Gym - PureGym', amount: 24.99, type: 'expense' as const, category: 'Healthcare', accountId: 'acc5', dayOfMonth: 5 },
-    { description: 'Netflix', amount: 15.99, type: 'expense' as const, category: 'Entertainment', accountId: 'acc5', dayOfMonth: 8 },
-    { description: 'Spotify Premium', amount: 10.99, type: 'expense' as const, category: 'Entertainment', accountId: 'acc5', dayOfMonth: 12 },
-    
-    // Investments
-    { description: 'Vanguard ISA - Monthly', amount: 500, type: 'expense' as const, category: 'Investment', accountId: 'acc1', dayOfMonth: 1 },
-    { description: 'Pension Contribution', amount: 300, type: 'expense' as const, category: 'Investment', accountId: 'acc1', dayOfMonth: 28 },
-  ];
+  // Helper function to generate transaction ID
+  const generateTransactionId = () => `txn${transactionId++}`;
 
-  // Random transactions
-  const randomExpenses = [
-    // UK Shops
-    { description: 'Tesco Metro', category: 'Food & Dining', min: 15, max: 80 },
-    { description: 'Sainsbury\'s Local', category: 'Food & Dining', min: 10, max: 60 },
-    { description: 'Waitrose', category: 'Food & Dining', min: 25, max: 100 },
-    { description: 'ASDA', category: 'Food & Dining', min: 30, max: 120 },
-    { description: 'M&S Food', category: 'Food & Dining', min: 15, max: 50 },
+  // Helper function to generate matching transfer transactions
+  const generateTransfer = (date: Date, fromAccount: string, toAccount: string, amount: number, description: string) => {
+    const baseId = generateTransactionId();
     
-    // Coffee & Dining
-    { description: 'Pret A Manger', category: 'Food & Dining', min: 4, max: 12 },
-    { description: 'Costa Coffee', category: 'Food & Dining', min: 3, max: 8 },
-    { description: 'Starbucks', category: 'Food & Dining', min: 4, max: 10 },
-    { description: 'Nando\'s', category: 'Food & Dining', min: 15, max: 35 },
-    { description: 'Pizza Express', category: 'Food & Dining', min: 25, max: 60 },
-    { description: 'Dishoom', category: 'Food & Dining', min: 30, max: 80 },
+    // From account (money going out)
+    transactions.push({
+      id: `${baseId}-out`,
+      accountId: fromAccount,
+      date: date,
+      description: description,
+      amount: amount,
+      type: 'expense' as const,
+      category: 'transfer-out',
+      cleared: false,  // Not reconciled
+      tags: [],
+    });
     
-    // Shopping
-    { description: 'Amazon UK', category: 'Shopping', min: 10, max: 150 },
-    { description: 'John Lewis', category: 'Shopping', min: 30, max: 200 },
-    { description: 'Next', category: 'Shopping', min: 25, max: 100 },
-    { description: 'Zara', category: 'Shopping', min: 20, max: 80 },
-    { description: 'Boots', category: 'Healthcare', min: 5, max: 40 },
-    { description: 'Waterstones', category: 'Shopping', min: 10, max: 30 },
-    
-    // Transport
-    { description: 'Shell Petrol', category: 'Transport', min: 40, max: 70 },
-    { description: 'BP Fuel', category: 'Transport', min: 45, max: 75 },
-    { description: 'TfL - Oyster Card', category: 'Transport', min: 5, max: 20 },
-    { description: 'Uber', category: 'Transport', min: 8, max: 25 },
-    { description: 'National Rail', category: 'Transport', min: 15, max: 50 },
-    
-    // Entertainment
-    { description: 'Vue Cinema', category: 'Entertainment', min: 10, max: 25 },
-    { description: 'Steam Games', category: 'Entertainment', min: 5, max: 40 },
-    { description: 'The Gym Group', category: 'Healthcare', min: 3, max: 10 },
-  ];
+    // To account (money coming in)
+    transactions.push({
+      id: `${baseId}-in`,
+      accountId: toAccount,
+      date: date,
+      description: description,
+      amount: amount,
+      type: 'income' as const,
+      category: 'transfer-in',
+      cleared: false,  // Not reconciled
+      tags: [],
+    });
+  };
 
-  // Generate transactions for last 60 days
-  for (let daysAgo = 60; daysAgo >= 0; daysAgo--) {
-    const currentDate = subDaysFromDate(today, daysAgo);
-    const dayOfMonth = currentDate.getDate();
+  // Generate monthly recurring transactions
+  // Calculate actual months between dates
+  const monthsDiff = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
+  
+  for (let monthOffset = 0; monthOffset <= monthsDiff; monthOffset++) {
+    // Create date properly to avoid month boundary issues
+    const year = startDate.getFullYear();
+    const month = startDate.getMonth() + monthOffset;
+    const monthDate = new Date(year, month, 1);
 
-    // Add recurring transactions
-    recurringTransactions.forEach(recurring => {
-      if (dayOfMonth === recurring.dayOfMonth) {
+    // Salary - 25th of each month
+    const salaryDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 25);
+    if (salaryDate <= endDate && salaryDate >= startDate) {
+      transactions.push({
+        id: generateTransactionId(),
+        accountId: 'acc1', // Barclays Current Account
+        date: salaryDate,
+        description: 'Salary - Acme Corp Ltd',
+        amount: 4500.00,
+        type: 'income' as const,
+        category: 'inc-salary-regular',
+        cleared: false,
+        tags: ['salary'],
+      });
+    }
+
+    // Mortgage payment - 1st of each month
+    const mortgageDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+    if (mortgageDate <= endDate && mortgageDate >= startDate) {
+      generateTransfer(
+        mortgageDate,
+        'acc1', // From Barclays Current
+        'acc7', // To Mortgage
+        1250.00,
+        'Mortgage Payment - Nationwide'
+      );
+    }
+
+    // Car loan payment - 5th of each month
+    const carLoanDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 5);
+    if (carLoanDate <= endDate && carLoanDate >= startDate) {
+      generateTransfer(
+        carLoanDate,
+        'acc1', // From Barclays Current
+        'acc8', // To Car Finance
+        450.00,
+        'Car Finance Payment - Tesla'
+      );
+    }
+
+    // Credit card payments - 15th of each month
+    const ccPaymentDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 15);
+    if (ccPaymentDate <= endDate && ccPaymentDate >= startDate) {
+      // Pay off Amex
+      if (Math.random() > 0.3) { // 70% chance of paying
+        generateTransfer(
+          ccPaymentDate,
+          'acc1', // From Barclays Current
+          'acc5', // To Amex
+          Math.random() * 1500 + 500, // Random amount between 500-2000
+          'Amex Payment'
+        );
+      }
+      
+      // Pay off Barclaycard
+      if (Math.random() > 0.5) { // 50% chance of paying
+        generateTransfer(
+          ccPaymentDate,
+          'acc1', // From Barclays Current
+          'acc6', // To Barclaycard
+          Math.random() * 300 + 200, // Random amount between 200-500
+          'Barclaycard Payment'
+        );
+      }
+    }
+
+    // Transfer to savings - 26th of each month
+    const savingsDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 26);
+    if (savingsDate <= endDate && savingsDate >= startDate) {
+      generateTransfer(
+        savingsDate,
+        'acc1', // From Barclays Current
+        'acc2', // To Halifax Savings
+        500.00,
+        'Monthly Savings'
+      );
+    }
+
+    // ISA contribution - 10th of each month
+    const isaDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), 10);
+    if (isaDate <= endDate && isaDate >= startDate) {
+      generateTransfer(
+        isaDate,
+        'acc1', // From Barclays Current
+        'acc10', // To Vanguard ISA
+        300.00,
+        'ISA Monthly Contribution'
+      );
+    }
+
+    // Utilities and bills
+    const bills = [
+      { day: 3, desc: 'British Gas - Electricity & Gas', amount: 145.00, category: 'exp-utilities-electricity' },
+      { day: 5, desc: 'Thames Water', amount: 35.50, category: 'exp-utilities-water' },
+      { day: 8, desc: 'BT Broadband', amount: 49.99, category: 'exp-utilities-internet' },
+      { day: 10, desc: 'Council Tax - Westminster', amount: 189.00, category: 'exp-housing-tax' },
+      { day: 12, desc: 'EE Mobile', amount: 45.00, category: 'exp-utilities-phone' },
+      { day: 20, desc: 'Netflix', amount: 15.99, category: 'exp-entertainment-streaming' },
+      { day: 21, desc: 'Spotify Premium', amount: 10.99, category: 'exp-entertainment-streaming' },
+      { day: 22, desc: 'Amazon Prime', amount: 8.99, category: 'exp-shopping-online' },
+    ];
+
+    bills.forEach(bill => {
+      const billDate = new Date(monthDate.getFullYear(), monthDate.getMonth(), bill.day);
+      if (billDate <= endDate && billDate >= startDate) {
         transactions.push({
-          id: `trans${transactionId++}`,
-          accountId: recurring.accountId,
-          date: currentDate,
-          description: recurring.description,
-          amount: recurring.amount,
-          type: recurring.type,
-          category: recurring.category,
+          id: generateTransactionId(),
+          accountId: 'acc1', // Barclays Current Account
+          date: billDate,
+          description: bill.desc,
+          amount: bill.amount,
+          type: 'expense' as const,
+          category: bill.category,
+          cleared: false,
+          tags: ['bills'],
         });
       }
     });
+  }
 
-    // Add 1-4 random transactions per day
-    const numRandomTransactions = Math.floor(Math.random() * 4) + 1;
-    for (let i = 0; i < numRandomTransactions; i++) {
-      const expense = randomExpenses[Math.floor(Math.random() * randomExpenses.length)];
-      const amount = expense.min + Math.random() * (expense.max - expense.min);
-      
-      // Mix between accounts - 50% checking, 30% joint, 20% credit cards
-      let accountId = 'acc1';
-      const accountChoice = Math.random();
-      if (accountChoice < 0.5) {
-        accountId = 'acc1'; // Main checking
-      } else if (accountChoice < 0.8) {
-        accountId = 'acc3'; // Joint account
-      } else if (accountChoice < 0.9) {
-        accountId = 'acc5'; // Amex
-      } else {
-        accountId = 'acc6'; // Barclaycard
-      }
+  // Generate daily random transactions
+  for (let dayOffset = 0; dayOffset <= daysDiff; dayOffset++) {
+    // Create a new date by adding days to the start date's timestamp
+    const transactionDate = new Date(startDate.getTime() + (dayOffset * 24 * 60 * 60 * 1000));
+
+    // Skip some days randomly
+    if (Math.random() < 0.3) continue;
+
+    // Grocery shopping (2-3 times per week)
+    if (Math.random() < 0.43) { // ~3 times per week
+      const groceryStores = [
+        { name: 'Tesco Express', category: 'exp-food-groceries' },
+        { name: 'Sainsbury\'s Local', category: 'exp-food-groceries' },
+        { name: 'Waitrose', category: 'exp-food-groceries' },
+        { name: 'Marks & Spencer Food', category: 'exp-food-groceries' },
+        { name: 'Co-op Food', category: 'exp-food-groceries' },
+      ];
+      const store = groceryStores[Math.floor(Math.random() * groceryStores.length)];
       
       transactions.push({
-        id: `trans${transactionId++}`,
-        accountId: accountId,
-        date: currentDate,
-        description: expense.description,
-        amount: Number(amount.toFixed(2)),
+        id: generateTransactionId(),
+        accountId: Math.random() > 0.7 ? 'acc5' : 'acc1', // 30% chance on Amex
+        date: transactionDate,
+        description: store.name,
+        amount: Math.random() * 80 + 20, // £20-100
         type: 'expense' as const,
-        category: expense.category,
+        category: store.category,
+        cleared: false,
+        tags: ['groceries'],
+      });
+    }
+
+    // Restaurants and takeaways
+    if (Math.random() < 0.3) {
+      const restaurants = [
+        { name: 'Pret A Manger', category: 'exp-food-restaurants', amount: [8, 15] },
+        { name: 'Wagamama', category: 'exp-food-restaurants', amount: [25, 40] },
+        { name: 'Nando\'s', category: 'exp-food-restaurants', amount: [20, 35] },
+        { name: 'Pizza Express', category: 'exp-food-restaurants', amount: [30, 50] },
+        { name: 'Dishoom', category: 'exp-food-restaurants', amount: [35, 60] },
+        { name: 'Starbucks', category: 'exp-food-coffee', amount: [4, 8] },
+        { name: 'Costa Coffee', category: 'exp-food-coffee', amount: [3, 7] },
+        { name: 'Deliveroo', category: 'exp-food-takeaway', amount: [25, 45] },
+        { name: 'Uber Eats', category: 'exp-food-takeaway', amount: [20, 40] },
+      ];
+      const restaurant = restaurants[Math.floor(Math.random() * restaurants.length)];
+      
+      transactions.push({
+        id: generateTransactionId(),
+        accountId: Math.random() > 0.5 ? 'acc5' : 'acc1', // 50% chance on Amex
+        date: transactionDate,
+        description: restaurant.name,
+        amount: Math.random() * (restaurant.amount[1] - restaurant.amount[0]) + restaurant.amount[0],
+        type: 'expense' as const,
+        category: restaurant.category,
+        cleared: false,
+        tags: ['dining'],
+      });
+    }
+
+    // Transport
+    if (Math.random() < 0.4) {
+      const transport = [
+        { name: 'TfL Travel', category: 'exp-transport-public', amount: [2.80, 9.50] },
+        { name: 'Uber', category: 'exp-transport-taxi', amount: [8, 25] },
+        { name: 'Shell Petrol Station', category: 'exp-transport-fuel', amount: [40, 80] },
+        { name: 'BP Fuel', category: 'exp-transport-fuel', amount: [45, 85] },
+      ];
+      const trip = transport[Math.floor(Math.random() * transport.length)];
+      
+      transactions.push({
+        id: generateTransactionId(),
+        accountId: 'acc1', // Barclays Current Account
+        date: transactionDate,
+        description: trip.name,
+        amount: Math.random() * (trip.amount[1] - trip.amount[0]) + trip.amount[0],
+        type: 'expense' as const,
+        category: trip.category,
+        cleared: false,
+        tags: ['transport'],
+      });
+    }
+
+    // Shopping (occasional)
+    if (Math.random() < 0.15) {
+      const shops = [
+        { name: 'John Lewis', category: 'exp-shopping-clothing', amount: [50, 200] },
+        { name: 'Zara', category: 'exp-shopping-clothing', amount: [30, 120] },
+        { name: 'Boots', category: 'exp-personal-care', amount: [15, 50] },
+        { name: 'Argos', category: 'exp-shopping-household', amount: [20, 150] },
+        { name: 'Amazon.co.uk', category: 'exp-shopping-online', amount: [15, 100] },
+      ];
+      const shop = shops[Math.floor(Math.random() * shops.length)];
+      
+      transactions.push({
+        id: generateTransactionId(),
+        accountId: Math.random() > 0.6 ? 'acc5' : 'acc6', // Mix of credit cards
+        date: transactionDate,
+        description: shop.name,
+        amount: Math.random() * (shop.amount[1] - shop.amount[0]) + shop.amount[0],
+        type: 'expense' as const,
+        category: shop.category,
+        cleared: false,
+        tags: ['shopping'],
+      });
+    }
+
+    // Entertainment (occasional)
+    if (Math.random() < 0.1) {
+      const entertainment = [
+        { name: 'Vue Cinema', category: 'exp-entertainment-movies', amount: [12, 25] },
+        { name: 'Odeon Cinema', category: 'exp-entertainment-movies', amount: [10, 22] },
+        { name: 'The Old Vic Theatre', category: 'exp-entertainment-events', amount: [35, 85] },
+        { name: 'O2 Arena - Concert', category: 'exp-entertainment-events', amount: [50, 150] },
+      ];
+      const event = entertainment[Math.floor(Math.random() * entertainment.length)];
+      
+      transactions.push({
+        id: generateTransactionId(),
+        accountId: 'acc5', // Amex
+        date: transactionDate,
+        description: event.name,
+        amount: Math.random() * (event.amount[1] - event.amount[0]) + event.amount[0],
+        type: 'expense' as const,
+        category: event.category,
+        cleared: false,
+        tags: ['entertainment'],
+      });
+    }
+
+    // Healthcare (occasional)
+    if (Math.random() < 0.05) {
+      const healthcare = [
+        { name: 'Boots Pharmacy', category: 'exp-healthcare-pharmacy', amount: [8, 25] },
+        { name: 'Private GP Consultation', category: 'exp-healthcare-doctor', amount: [150, 250] },
+        { name: 'Dental Checkup', category: 'exp-healthcare-dental', amount: [60, 150] },
+      ];
+      const health = healthcare[Math.floor(Math.random() * healthcare.length)];
+      
+      transactions.push({
+        id: generateTransactionId(),
+        accountId: 'acc1',
+        date: transactionDate,
+        description: health.name,
+        amount: Math.random() * (health.amount[1] - health.amount[0]) + health.amount[0],
+        type: 'expense' as const,
+        category: health.category,
+        cleared: false,
+        tags: ['healthcare'],
       });
     }
   }
 
   // Add some investment transactions
-  const investmentTransactions = [
-    // UK Stocks
-    { accountId: 'acc12', description: 'Bought Rolls-Royce shares', amount: 500, date: subDaysFromDate(today, 45) },
-    { accountId: 'acc12', description: 'Bought BP shares', amount: 300, date: subDaysFromDate(today, 38) },
-    { accountId: 'acc12', description: 'Bought Lloyds shares', amount: 250, date: subDaysFromDate(today, 30) },
-    { accountId: 'acc10', description: 'Dividend - FTSE All-Share', amount: 125.50, date: subDaysFromDate(today, 25), type: 'income' },
-    
-    // US Stocks
-    { accountId: 'acc13', description: 'Bought Apple shares', amount: 1000, date: subDaysFromDate(today, 40) },
-    { accountId: 'acc13', description: 'Bought Microsoft shares', amount: 750, date: subDaysFromDate(today, 35) },
-    { accountId: 'acc13', description: 'Bought Tesla shares', amount: 500, date: subDaysFromDate(today, 28) },
-    { accountId: 'acc14', description: 'Bought Amazon shares', amount: 1500, date: subDaysFromDate(today, 20) },
-    { accountId: 'acc14', description: 'Dividend - S&P 500 ETF', amount: 85.25, date: subDaysFromDate(today, 15), type: 'income' },
-    
-    // Crypto
-    { accountId: 'acc15', description: 'Bought Bitcoin', amount: 500, date: subDaysFromDate(today, 22) },
-    { accountId: 'acc15', description: 'Bought Ethereum', amount: 300, date: subDaysFromDate(today, 18) },
+  const investmentDates = [
+    new Date(2024, 7, 15),  // Aug 15
+    new Date(2024, 9, 20),  // Oct 20
+    new Date(2024, 11, 10), // Dec 10
+    new Date(2025, 1, 15),  // Feb 15
+    new Date(2025, 3, 25),  // Apr 25
   ];
 
-  investmentTransactions.forEach(inv => {
-    transactions.push({
-      id: `trans${transactionId++}`,
-      accountId: inv.accountId,
-      date: inv.date,
-      description: inv.description,
-      amount: inv.amount,
-      type: (inv.type || 'expense') as 'income' | 'expense',
-      category: 'Investment',
-    });
+  investmentDates.forEach(date => {
+    if (date <= endDate) {
+      // Dividend income
+      transactions.push({
+        id: generateTransactionId(),
+        accountId: 'acc10', // Vanguard ISA
+        date: date,
+        description: 'Dividend Payment - FTSE All-Share',
+        amount: Math.random() * 200 + 50,
+        type: 'income' as const,
+        category: 'inc-investment-dividends',
+        cleared: false,
+        tags: ['investment', 'dividend'],
+      });
+
+      // US dividend (in USD)
+      transactions.push({
+        id: generateTransactionId(),
+        accountId: 'acc13', // Robinhood
+        date: date,
+        description: 'Dividend - S&P 500 ETF',
+        amount: Math.random() * 100 + 25,
+        type: 'income' as const,
+        category: 'inc-investment-dividends',
+        cleared: false,
+        tags: ['investment', 'dividend'],
+      });
+    }
   });
 
-  // Add some loan payments that aren't recurring
-  transactions.push(
-    {
-      id: `trans${transactionId++}`,
-      accountId: 'acc1',
-      date: subDaysFromDate(today, 50),
-      description: 'Student Loan - Extra Payment',
-      amount: 200,
-      type: 'expense' as const,
-      category: 'Bills',
-    },
-    {
-      id: `trans${transactionId++}`,
-      accountId: 'acc2',
-      date: subDaysFromDate(today, 15),
-      description: 'Interest Earned',
-      amount: 45.83,
-      type: 'income' as const,
-      category: 'Investment',
-    },
-    {
-      id: `trans${transactionId++}`,
-      accountId: 'acc4',
-      date: subDaysFromDate(today, 10),
-      description: 'Marcus Interest',
-      amount: 89.58,
-      type: 'income' as const,
-      category: 'Investment',
-    }
-  );
+  // Add some irregular income
+  const bonusDates = [
+    { date: new Date(2024, 11, 20), desc: 'Year End Bonus', amount: 8500 },
+    { date: new Date(2025, 2, 25), desc: 'Performance Bonus Q1', amount: 2500 },
+  ];
 
-  // Test Budgets
+  bonusDates.forEach(bonus => {
+    if (bonus.date <= endDate) {
+      transactions.push({
+        id: generateTransactionId(),
+        accountId: 'acc1',
+        date: bonus.date,
+        description: bonus.desc,
+        amount: bonus.amount,
+        type: 'income' as const,
+        category: 'inc-salary-bonus',
+        cleared: false,
+        tags: ['bonus'],
+      });
+    }
+  });
+
+  // Sort transactions by date (newest first)
+  transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
+  
+  console.log(`Generated ${transactions.length} transactions`);
+  console.log(`Date range: ${transactions[transactions.length - 1].date.toDateString()} to ${transactions[0].date.toDateString()}`);
+
+  // Budgets
   const budgets = [
     {
       id: 'budget1',
-      category: 'Food & Dining',
+      category: 'exp-food',
       amount: 600,
       period: 'monthly' as const,
-      isActive: true,
-      createdAt: today,
+      spent: 0, // Will be calculated by the app
     },
     {
       id: 'budget2',
-      category: 'Shopping',
-      amount: 400,
+      category: 'exp-shopping',
+      amount: 300,
       period: 'monthly' as const,
-      isActive: true,
-      createdAt: today,
+      spent: 0,
     },
     {
       id: 'budget3',
-      category: 'Transport',
-      amount: 250,
+      category: 'exp-transport',
+      amount: 200,
       period: 'monthly' as const,
-      isActive: true,
-      createdAt: today,
+      spent: 0,
     },
     {
       id: 'budget4',
-      category: 'Entertainment',
+      category: 'exp-entertainment',
       amount: 150,
       period: 'monthly' as const,
-      isActive: true,
-      createdAt: today,
+      spent: 0,
     },
     {
       id: 'budget5',
-      category: 'Bills',
-      amount: 2200,
+      category: 'exp-utilities',
+      amount: 350,
       period: 'monthly' as const,
-      isActive: true,
-      createdAt: today,
+      spent: 0,
     },
     {
       id: 'budget6',
-      category: 'Healthcare',
+      category: 'exp-healthcare',
       amount: 100,
       period: 'monthly' as const,
-      isActive: true,
-      createdAt: today,
+      spent: 0,
     },
     {
       id: 'budget7',
-      category: 'Investment',
-      amount: 800,
+      category: 'exp-housing',
+      amount: 1500,
       period: 'monthly' as const,
-      isActive: true,
-      createdAt: today,
+      spent: 0,
     },
   ];
 
-  return { accounts, transactions, budgets };
+  // Goals
+  const goals = [
+    {
+      id: 'goal1',
+      name: 'Emergency Fund',
+      targetAmount: 15000,
+      currentAmount: 12750, // Halifax Savings balance
+      targetDate: new Date(2025, 11, 31), // End of 2025
+      category: 'Emergency Fund',
+    },
+    {
+      id: 'goal2',
+      name: 'House Deposit',
+      targetAmount: 50000,
+      currentAmount: 25000, // Marcus Savings balance
+      targetDate: new Date(2026, 11, 31), // End of 2026
+      category: 'Property',
+    },
+    {
+      id: 'goal3',
+      name: 'Dream Holiday - Japan',
+      targetAmount: 5000,
+      currentAmount: 1500,
+      targetDate: new Date(2025, 6, 1), // July 2025
+      category: 'Travel',
+    },
+  ];
+
+  return { accounts, transactions, budgets, goals };
 }

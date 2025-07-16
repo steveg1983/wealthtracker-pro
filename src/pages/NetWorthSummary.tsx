@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, DollarSign, ChevronRight, Building2, CreditCard, Landmark, PiggyBank } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Banknote, ChevronRight, Building2, CreditCard, Landmark, PiggyBank } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
 
@@ -108,7 +108,7 @@ export default function NetWorthSummary() {
       case 'investment':
         return <TrendingUp size={20} className="text-gray-500" />;
       default:
-        return <DollarSign size={20} className="text-gray-500" />;
+        return <Banknote size={20} className="text-gray-500" />;
     }
   };
 
@@ -172,7 +172,7 @@ export default function NetWorthSummary() {
       </div>
 
       {/* Summary Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
         <div className="text-center">
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{getTitle()}</p>
           <p className={`text-4xl font-bold ${
@@ -188,7 +188,7 @@ export default function NetWorthSummary() {
           {type === 'networth' && !isLoading && (
             <div className="mt-6 grid grid-cols-2 gap-4 text-center">
               <div 
-                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-4 rounded-lg transition-colors"
+                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-4 rounded-2xl transition-colors"
                 onClick={() => navigate('/networth/assets')}
               >
                 <p className="text-sm text-gray-500 dark:text-gray-400">Assets</p>
@@ -197,7 +197,7 @@ export default function NetWorthSummary() {
                 </p>
               </div>
               <div 
-                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-4 rounded-lg transition-colors"
+                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 p-4 rounded-2xl transition-colors"
                 onClick={() => navigate('/networth/liabilities')}
               >
                 <p className="text-sm text-gray-500 dark:text-gray-400">Liabilities</p>
@@ -216,7 +216,7 @@ export default function NetWorthSummary() {
           const typeTotal = (accountsList as any[]).reduce((sum: number, acc: any) => sum + acc.convertedBalance, 0);
           
           return (
-            <div key={accountType} className="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div key={accountType} className="bg-white dark:bg-gray-800 rounded-2xl shadow">
               <div className="p-4 border-b border-gray-200 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -283,7 +283,7 @@ export default function NetWorthSummary() {
       </div>
 
       {relevantAccounts.length === 0 && !isLoading && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-12 text-center">
           <p className="text-gray-500 dark:text-gray-400">
             No {type === 'assets' ? 'assets' : type === 'liabilities' ? 'liabilities' : 'accounts'} to display
           </p>

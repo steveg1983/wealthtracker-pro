@@ -91,8 +91,8 @@ export default function AppSettings() {
       </div>
 
       {/* Personal Information */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Personal Information</h2>
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
+        <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">Personal Information</h2>
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             First Name
@@ -102,7 +102,7 @@ export default function AppSettings() {
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             placeholder="Enter your first name"
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
+            className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
           />
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
             This will be used in the welcome message on your dashboard. Leave blank to use "User".
@@ -111,10 +111,10 @@ export default function AppSettings() {
       </div>
 
       {/* Base Currency */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <Globe className="text-gray-600 dark:text-gray-400" size={20} />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Base Currency</h2>
+          <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Base Currency</h2>
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Choose your preferred base currency for displaying your net worth and performing currency conversions
@@ -122,7 +122,7 @@ export default function AppSettings() {
         <select
           value={currency}
           onChange={(e) => setCurrency(e.target.value)}
-          className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+          className="w-full px-4 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
         >
           {currencies.map((curr) => (
             <option key={curr.code} value={curr.code}>
@@ -133,8 +133,8 @@ export default function AppSettings() {
       </div>
 
       {/* Appearance */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Appearance</h2>
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
+        <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">Appearance</h2>
         
         {/* Theme Selection */}
         <div className="mb-6">
@@ -184,8 +184,8 @@ export default function AppSettings() {
       </div>
 
       {/* Page Visibility */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Page Visibility</h2>
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+        <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">Page Visibility</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
           Choose which pages appear in the navigation sidebar
         </p>
@@ -194,7 +194,7 @@ export default function AppSettings() {
           {pageToggles.map((toggle) => (
             <div
               key={toggle.title}
-              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg"
+              className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-2xl"
             >
               <div className="flex-1">
                 <div className="flex items-center gap-3">
@@ -221,7 +221,7 @@ export default function AppSettings() {
           ))}
         </div>
 
-        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
           <p className="text-sm text-blue-800 dark:text-blue-200">
             <strong>Note:</strong> Hidden pages will not appear in the sidebar navigation but can still be accessed if you have a direct link.
           </p>

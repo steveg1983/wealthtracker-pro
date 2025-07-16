@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
-import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Database, Tag, Settings2, LineChart } from 'lucide-react';
-import Breadcrumbs from './Breadcrumbs';
+import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Database, Tag, Settings2, LineChart, Hash } from 'lucide-react';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 
@@ -12,32 +11,20 @@ interface SidebarLinkProps {
   isCollapsed: boolean;
   hasSubItems?: boolean;
   isSubItem?: boolean;
-  onClick?: () => void;
   onNavigate?: () => void;
 }
 
-function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onClick, onNavigate }: SidebarLinkProps) {
+function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onNavigate }: SidebarLinkProps) {
   const location = useLocation();
-  const navigate = useNavigate();
   const { isWideView } = useLayout();
   const isActive = !isWideView && (location.pathname === to || 
     (hasSubItems && location.pathname.startsWith(to)) ||
     (to === '/accounts' && (location.pathname.startsWith('/transactions') || location.pathname.startsWith('/reconciliation'))) ||
     (to === '/forecasting' && (location.pathname.startsWith('/budget') || location.pathname.startsWith('/goals'))));
 
-  const handleClick = (e: React.MouseEvent) => {
-    if (onClick) {
-      e.preventDefault();
-      onClick();
-    }
-  };
-
-  const handleLinkClick = (e: React.MouseEvent) => {
-    // If we're already on this page and it has sub-items, just toggle the expansion
-    if (hasSubItems && location.pathname === to && onClick) {
-      e.preventDefault();
-      onClick();
-    } else if (onNavigate) {
+  const handleLinkClick = () => {
+    // For mobile menu, close it
+    if (onNavigate) {
       onNavigate();
     }
   };
@@ -59,22 +46,14 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
   const className = `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
     isSubItem ? 'ml-6 text-sm' : ''
   } ${
+    isCollapsed ? 'sidebar-link-collapsed' : ''
+  } ${
     isActive
-      ? 'bg-blue-600 text-white shadow-md'
-      : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50/70 dark:hover:bg-gray-600'
+      ? isCollapsed
+        ? 'text-black dark:text-white'
+        : 'bg-[#B8D4F1] dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-[#4A6FA5] dark:border-gray-600'
+      : 'bg-[#6B86B3] text-white dark:text-gray-300 hover:bg-[#5A729A] dark:hover:bg-gray-800/50'
   }`;
-
-  if (onClick && !to) {
-    return (
-      <button
-        onClick={handleClick}
-        className={className}
-        title={isCollapsed ? label : undefined}
-      >
-        {content}
-      </button>
-    );
-  }
 
   return (
     <Link
@@ -147,22 +126,23 @@ export default function Layout() {
       <aside
         className={`${
           isSidebarCollapsed ? 'w-16' : 'w-64'
-        } bg-[#8EA9DB] dark:bg-gray-800 shadow-lg border-r border-blue-200 dark:border-gray-700 transition-all duration-300 hidden md:block`}
+        } bg-[#8EA9DB] dark:bg-gray-800 shadow-2xl rounded-2xl transition-all duration-300 hidden md:block m-4 h-[calc(100vh-2rem)]`}
       >
-        <div className="p-4">
+        <div className="p-4 h-full flex flex-col">
           <div className="flex items-center justify-between mb-8">
             {!isSidebarCollapsed && (
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent dark:text-white">Wealth Tracker</h1>
+              <h1 className="text-xl font-bold text-white dark:text-white">Wealth Tracker</h1>
             )}
             <button
               onClick={toggleSidebar}
-              className="p-1 rounded hover:bg-blue-100 dark:hover:bg-gray-600"
+              className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600"
             >
-              <Menu size={20} className="text-gray-600 dark:text-gray-400" />
+              <Menu size={20} className="text-white dark:text-gray-400" />
             </button>
           </div>
-          <nav className="space-y-2">
-            <SidebarLink to="/dashboard" icon={Home} label="Dashboard" isCollapsed={isSidebarCollapsed} />
+          <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
+            <SidebarLink to="/" icon={Home} label="Home" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/dashboard" icon={BarChart3} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             
             {/* Accounts with Sub-navigation */}
             <div>
@@ -172,8 +152,6 @@ export default function Layout() {
                 label="Accounts" 
                 isCollapsed={isSidebarCollapsed}
                 hasSubItems={!isSidebarCollapsed}
-                onClick={() => setAccountsExpanded(!accountsExpanded)}
-                onNavigate={() => !isSidebarCollapsed && setAccountsExpanded(true)}
               />
               {accountsExpanded && !isSidebarCollapsed && (
                 <div className="mt-1 space-y-1">
@@ -194,8 +172,6 @@ export default function Layout() {
                   label="Forecasting" 
                   isCollapsed={isSidebarCollapsed}
                   hasSubItems={!isSidebarCollapsed}
-                  onClick={() => setForecastingExpanded(!forecastingExpanded)}
-                  onNavigate={() => !isSidebarCollapsed && setForecastingExpanded(true)}
                 />
                 {forecastingExpanded && !isSidebarCollapsed && (
                   <div className="mt-1 space-y-1">
@@ -216,14 +192,13 @@ export default function Layout() {
                 label="Settings" 
                 isCollapsed={isSidebarCollapsed}
                 hasSubItems={!isSidebarCollapsed}
-                onClick={() => setSettingsExpanded(!settingsExpanded)}
-                onNavigate={() => !isSidebarCollapsed && setSettingsExpanded(true)}
               />
               {settingsExpanded && !isSidebarCollapsed && (
                 <div className="mt-1 space-y-1">
                   <SidebarLink to="/settings/app" icon={Settings2} label="App Settings" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/settings/tags" icon={Hash} label="Tags" isCollapsed={false} isSubItem={true} />
                 </div>
               )}
             </div>
@@ -234,28 +209,29 @@ export default function Layout() {
       {/* Mobile Menu Button */}
       <button
         onClick={toggleMobileMenu}
-        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-[#8EA9DB] dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow border border-blue-200 dark:border-gray-700"
+        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-[#8EA9DB] dark:bg-gray-800 rounded-xl shadow-2xl hover:shadow-xl transition-shadow"
       >
-        {isMobileMenuOpen ? <X size={28} className="text-gray-600 dark:text-gray-300" /> : <Menu size={28} className="text-gray-600 dark:text-gray-300" />}
+        {isMobileMenuOpen ? <X size={28} className="text-white dark:text-gray-300" /> : <Menu size={28} className="text-white dark:text-gray-300" />}
       </button>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black bg-opacity-50" onClick={toggleMobileMenu}>
-          <aside className="w-72 h-full bg-[#8EA9DB] dark:bg-gray-800 shadow-md overflow-y-auto" onClick={e => e.stopPropagation()}>
+          <aside className="w-72 h-full bg-[#8EA9DB] dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl" onClick={e => e.stopPropagation()}>
             <div className="p-4 pb-6">
               {/* Mobile header with close button */}
               <div className="flex justify-between items-center mb-8">
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 bg-clip-text text-transparent dark:text-white">Wealth Tracker</h1>
+                <h1 className="text-2xl font-bold text-white dark:text-white">Wealth Tracker</h1>
                 <button
                   onClick={toggleMobileMenu}
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
                 >
-                  <X size={24} className="text-gray-600 dark:text-gray-300" />
+                  <X size={24} className="text-white dark:text-gray-300" />
                 </button>
               </div>
               <nav className="space-y-2">
-                <SidebarLink to="/" icon={Home} label="Dashboard" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/" icon={Home} label="Home" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/dashboard" icon={BarChart3} label="Dashboard" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 
                 {/* Accounts with Sub-navigation */}
                 <div>
@@ -289,7 +265,6 @@ export default function Layout() {
                       label="Forecasting" 
                       isCollapsed={false}
                       hasSubItems={true}
-                      onClick={() => setForecastingExpanded(!forecastingExpanded)}
                       onNavigate={() => {
                         setForecastingExpanded(true);
                         toggleMobileMenu();
@@ -314,13 +289,13 @@ export default function Layout() {
                     label="Settings" 
                     isCollapsed={false}
                     hasSubItems={true}
-                    onClick={() => setSettingsExpanded(!settingsExpanded)}
                   />
                   {settingsExpanded && (
                     <div className="mt-1 space-y-1">
                       <SidebarLink to="/settings/app" icon={Settings2} label="App Settings" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/tags" icon={Hash} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>
@@ -331,7 +306,7 @@ export default function Layout() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto md:pl-0">
         <div className="p-4 md:p-6 lg:p-8 pt-20 md:pt-6 lg:pt-8 max-w-7xl mx-auto">
           <Outlet />
         </div>
