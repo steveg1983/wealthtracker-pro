@@ -1001,7 +1001,7 @@ export default function Dashboard() {
                 return (
                   <div className="space-y-6">
                     {Object.entries(groupedAccounts).map(([type, typeAccounts]) => {
-                      const typeTotal = typeAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+                      const typeTotal = (typeAccounts as any[]).reduce((sum: number, acc: any) => sum + acc.balance, 0);
                       
                       return (
                         <div key={type}>
@@ -1009,7 +1009,7 @@ export default function Dashboard() {
                             {getAccountTypeLabel(type)}
                           </h3>
                           <div className="space-y-2">
-                            {typeAccounts.map(account => (
+                            {(typeAccounts as any[]).map((account: any) => (
                               <div
                                 key={account.id}
                                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-2xl hover:bg-[#D9E1F2]/30 dark:hover:bg-gray-600 cursor-pointer transition-colors border border-gray-200 dark:border-gray-600"

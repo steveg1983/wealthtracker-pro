@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
-import { ArrowLeft, Search, Edit2, Trash2, ChevronUp, ChevronDown, Plus, Calendar, Banknote, FileText, Tag as TagIcon, ArrowRightLeft, X, Settings, Minimize2, Maximize2 } from 'lucide-react';
+import { ArrowLeft, Search, ChevronUp, ChevronDown, Plus, Calendar, Banknote, FileText, Tag as TagIcon, ArrowRightLeft, X, Settings, Minimize2, Maximize2 } from 'lucide-react';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
@@ -347,10 +347,6 @@ export default function AccountTransactions() {
     });
   };
   
-  // Handle delete
-  const handleDeleteClick = (transaction: Transaction) => {
-    setDeleteConfirmTransaction(transaction);
-  };
   
   const handleDeleteConfirm = () => {
     if (deleteConfirmTransaction) {

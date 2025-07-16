@@ -135,7 +135,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
       {/* Accounts by Category */}
       <div className="grid gap-6">
-        {accountTypes.map(({ type, title, icon: Icon, color, bgColor, borderColor }) => {
+        {accountTypes.map(({ type, title, icon: Icon, color }) => {
           const typeAccounts = accountsByType[type] || [];
           if (typeAccounts.length === 0) return null;
 
