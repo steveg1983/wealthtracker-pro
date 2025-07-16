@@ -135,13 +135,10 @@ export default function MonthlyNetWorth() {
         >
           <ArrowLeft size={24} />
         </button>
-        <div>
-          <h1 className="text-3xl font-bold text-blue-900 dark:text-white">
-            Net Worth for {month}
+        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <h1 className="text-3xl font-bold text-white">
+            Monthly Net Worth
           </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Detailed breakdown of your assets and liabilities
-          </p>
         </div>
       </div>
 

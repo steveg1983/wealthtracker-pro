@@ -280,7 +280,9 @@ export default function Reconciliation() {
     return (
       <div>
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Bank Reconciliation</h1>
+          <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+            <h1 className="text-3xl font-bold text-white">Reconciliation</h1>
+          </div>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             Select an account below to reconcile imported bank transactions
           </p>
@@ -382,11 +384,11 @@ export default function Reconciliation() {
           >
             <ArrowLeft size={24} />
           </button>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+            <h1 className="text-3xl font-bold text-white">
               Reconcile {selectedAccountData?.name}
             </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-white/80">
               {selectedAccountData?.institution}
             </p>
           </div>

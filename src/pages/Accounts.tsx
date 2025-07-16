@@ -119,7 +119,9 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 md:mb-6 gap-3">
-        <h1 className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-white">Accounts</h1>
+        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <h1 className="text-3xl font-bold text-white">Accounts</h1>
+        </div>
         <button 
           onClick={() => setIsAddModalOpen(true)}
           className="bg-primary text-white px-4 py-2 rounded-2xl hover:bg-primary/90 transition-colors flex items-center gap-2 self-end sm:self-auto"

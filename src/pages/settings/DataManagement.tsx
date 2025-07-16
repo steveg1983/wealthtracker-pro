@@ -35,7 +35,9 @@ export default function DataManagementSettings() {
 
   return (
     <div>
-      <h1 className="text-3xl font-bold text-blue-900 dark:text-white mb-6">Data Management</h1>
+      <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4 mb-6">
+        <h1 className="text-3xl font-bold text-white">Data Management</h1>
+      </div>
 
       {hasTestData && (
         <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-2xl p-4 mb-6 flex items-start gap-3">

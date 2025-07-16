@@ -125,11 +125,8 @@ export default function Tags() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Tags</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Manage transaction tags and labels
-          </p>
+        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <h1 className="text-3xl font-bold text-white">Tags</h1>
         </div>
         <button
           onClick={() => setShowAddForm(true)}

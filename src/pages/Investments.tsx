@@ -119,7 +119,9 @@ export default function Investments() {
   if (investmentAccounts.length === 0) {
     return (
       <div>
-        <h1 className="text-3xl font-bold text-blue-900 dark:text-white mb-6">Investments</h1>
+        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4 mb-6">
+          <h1 className="text-3xl font-bold text-white">Investments</h1>
+        </div>
         
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
           <BarChart3 className="mx-auto text-gray-400 mb-4" size={64} />
@@ -140,7 +142,9 @@ export default function Investments() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Investments</h1>
+        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <h1 className="text-3xl font-bold text-white">Investments</h1>
+        </div>
         {investmentAccounts.length > 0 && (
           <button
             onClick={() => setShowAddInvestmentModal(true)}

@@ -529,10 +529,10 @@ export default function Transactions() {
   return (
     <div className={isWideView ? "w-[100vw] relative left-[50%] right-[50%] ml-[-50vw] mr-[-50vw] px-4 md:px-6 lg:px-8" : ""}>
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 md:mb-6 gap-3">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-white">Transactions</h1>
+        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <h1 className="text-3xl font-bold text-white">Transactions</h1>
           {filteredAccount && (
-            <p className="text-sm md:text-base text-gray-600 dark:text-gray-400 mt-1">
+            <p className="text-sm text-white/80 mt-1">
               Showing transactions for: <span className="font-semibold">{filteredAccount.name}</span>
             </p>
           )}

@@ -84,9 +84,8 @@ export default function AppSettings() {
         >
           <ArrowLeft className="text-gray-600 dark:text-gray-400" size={20} />
         </button>
-        <div>
-          <h1 className="text-3xl font-bold text-blue-900 dark:text-white">App Settings</h1>
-          <p className="text-gray-600 dark:text-gray-400">Configure application behavior and features</p>
+        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <h1 className="text-3xl font-bold text-white">App Settings</h1>
         </div>
       </div>
 

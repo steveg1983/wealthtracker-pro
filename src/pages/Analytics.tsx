@@ -133,7 +133,9 @@ export default function Analytics() {
   return (
     <div>
       <div className="flex justify-between items-start mb-4">
-        <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Analytics</h1>
+        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <h1 className="text-3xl font-bold text-white">Analytics</h1>
+        </div>
         <button
           onClick={() => setShowLayoutControls(!showLayoutControls)}
           className="p-2 rounded-2xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"

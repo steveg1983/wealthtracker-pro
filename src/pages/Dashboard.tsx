@@ -690,13 +690,10 @@ export default function Dashboard() {
   return (
     <div>
       <div className="flex justify-between items-start mb-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-blue-900 dark:text-white mb-2">
-            Financial Dashboard
+        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <h1 className="text-3xl font-bold text-white">
+            Dashboard
           </h1>
-          <p className="text-sm md:text-base text-gray-600 dark:text-gray-400">
-            Your complete financial overview
-          </p>
         </div>
         <button
           onClick={() => setShowLayoutControls(!showLayoutControls)}
