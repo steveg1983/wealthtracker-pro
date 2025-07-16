@@ -1,22 +1,13 @@
 import { X } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
-
-interface Transaction {
-  id: string;
-  date: Date;
-  description: string;
-  amount: number;
-  type: 'income' | 'expense' | 'transfer';
-  accountId: string;
-  category: string;
-}
+import type { Transaction, Account } from '../types';
 
 interface TransactionDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   transactions: Transaction[];
   title: string;
-  accounts: any[];
+  accounts: Account[];
 }
 
 export default function TransactionDetailsModal({

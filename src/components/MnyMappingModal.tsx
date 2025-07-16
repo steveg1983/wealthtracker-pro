@@ -4,8 +4,8 @@ import { X, AlertCircle, CheckCircle } from 'lucide-react';
 interface MnyMappingModalProps {
   isOpen: boolean;
   onClose: () => void;
-  rawData: any[];
-  onMappingComplete: (mapping: FieldMapping, data: any[]) => void;
+  rawData: Array<Record<string, unknown>>;
+  onMappingComplete: (mapping: FieldMapping, data: Array<Record<string, unknown>>) => void;
 }
 
 interface FieldMapping {
@@ -33,7 +33,7 @@ const FIELD_OPTIONS = [
 
 export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingComplete }: MnyMappingModalProps) {
   const [mapping, setMapping] = useState<Record<number, string>>({});
-  const [preview, setPreview] = useState<any[]>([]);
+  const [preview, setPreview] = useState<Array<Record<string, unknown>>>([]);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
   };
 
   const validateMapping = (): FieldMapping | null => {
-    const fieldMapping: any = {};
+    const fieldMapping: Partial<FieldMapping> = {};
     let hasDate = false;
     let hasAmount = false;
     let hasDescription = false;
@@ -93,7 +93,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
       return null;
     }
 
-    return fieldMapping as FieldMapping;
+    return fieldMapping as Required<Pick<FieldMapping, 'date' | 'amount' | 'description'>> & Partial<Omit<FieldMapping, 'date' | 'amount' | 'description'>>;
   };
 
   const handleSaveMapping = () => {
@@ -103,7 +103,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
     }
   };
 
-  const formatCellValue = (value: any): string => {
+  const formatCellValue = (value: unknown): string => {
     if (value === null || value === undefined) return '';
     
     // If it's a date object

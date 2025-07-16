@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 // Restore working AppContext with test data
 import { createContext, useContext, type ReactNode, useState, useEffect } from 'react';
 import { 
@@ -7,8 +8,9 @@ import {
   getDefaultTestGoals 
 } from '../data/defaultTestData';
 import { getDefaultCategories, getMinimalSystemCategories } from '../data/defaultCategories';
+import type { Account, Transaction, Budget, Goal } from '../types';
 
-interface Tag {
+export interface Tag {
   id: string;
   name: string;
   color?: string;
@@ -17,45 +19,73 @@ interface Tag {
   updatedAt: Date;
 }
 
+interface Category {
+  id: string;
+  name: string;
+  type: 'income' | 'expense' | 'both';
+  level: 'type' | 'sub' | 'detail';
+  parentId?: string;
+  color?: string;
+  icon?: string;
+  isSystem?: boolean;
+}
+
+interface RecurringTransaction {
+  id: string;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense';
+  category: string;
+  accountId: string;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  interval: number;
+  startDate: Date;
+  endDate?: Date;
+  nextDate: Date;
+  isActive: boolean;
+  tags?: string[];
+  notes?: string;
+}
+
 interface AppContextType {
-  accounts: any[];
-  transactions: any[];
-  budgets: any[];
-  categories: any[];
-  goals: any[];
+  accounts: Account[];
+  transactions: Transaction[];
+  budgets: Budget[];
+  categories: Category[];
+  goals: Goal[];
   tags: Tag[];
   hasTestData: boolean;
   clearAllData: () => void;
   exportData: () => string;
   loadTestData: () => void;
   // Add required methods
-  addAccount: (account: any) => void;
-  updateAccount: (id: string, updates: any) => void;
+  addAccount: (account: Omit<Account, 'id' | 'lastUpdated'>) => void;
+  updateAccount: (id: string, updates: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
-  addTransaction: (transaction: any) => void;
-  updateTransaction: (id: string, updates: any) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => void;
   deleteTransaction: (id: string) => void;
-  addBudget: (budget: any) => void;
-  updateBudget: (id: string, updates: any) => void;
+  addBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => void;
+  updateBudget: (id: string, updates: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
-  addCategory: (category: any) => void;
-  updateCategory: (id: string, updates: any) => void;
+  addCategory: (category: Omit<Category, 'id'>) => void;
+  updateCategory: (id: string, updates: Partial<Category>) => void;
   deleteCategory: (id: string) => void;
-  addGoal: (goal: any) => void;
-  updateGoal: (id: string, updates: any) => void;
+  addGoal: (goal: Omit<Goal, 'id' | 'createdAt'>) => void;
+  updateGoal: (id: string, updates: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
   addTag: (tag: Omit<Tag, 'id' | 'createdAt' | 'updatedAt'>) => void;
   updateTag: (id: string, updates: Partial<Tag>) => void;
   deleteTag: (id: string) => void;
   getTagUsageCount: (tagName: string) => number;
   getAllUsedTags: () => string[];
-  recurringTransactions: any[];
-  addRecurringTransaction: (transaction: any) => void;
-  updateRecurringTransaction: (id: string, updates: any) => void;
+  recurringTransactions: RecurringTransaction[];
+  addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id'>) => void;
+  updateRecurringTransaction: (id: string, updates: Partial<RecurringTransaction>) => void;
   deleteRecurringTransaction: (id: string) => void;
-  importTransactions: (transactions: any[]) => void;
-  getSubCategories: (parentId: string) => any[];
-  getDetailCategories: (parentId: string) => any[];
+  importTransactions: (transactions: Omit<Transaction, 'id'>[]) => void;
+  getSubCategories: (parentId: string) => Category[];
+  getDetailCategories: (parentId: string) => Category[];
   createTransferTransaction: (from: string, to: string, amount: number, date: Date) => void;
 }
 
@@ -140,7 +170,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return [];
   });
   
-  const [recurringTransactions, setRecurringTransactions] = useState<any[]>(() => {
+  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>(() => {
     const saved = localStorage.getItem('wealthtracker_recurring');
     if (saved) {
       try {
@@ -155,7 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Determine if we have test data based on actual data presence
   const [hasTestData, setHasTestData] = useState(() => {
     // Check if we have the default test data loaded
-    return accounts.length > 0 && accounts.some((acc: any) => 
+    return accounts.length > 0 && accounts.some((acc) => 
       acc.name === 'Main Checking' || acc.name === 'Savings Account'
     );
   });
@@ -212,14 +242,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem('wealthtracker_tags');
       localStorage.removeItem('wealthtracker_recurring');
       
-      // Also clear any other app-related keys
+      // Also clear other app-related keys
       localStorage.removeItem('testDataWarningDismissed');
       localStorage.removeItem('onboardingCompleted');
       
       // Set a flag to prevent loading test data on refresh
       localStorage.setItem('wealthtracker_data_cleared', 'true');
       
-      // Clear any money_management keys from old versions
+      // Clear money_management keys from old versions
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
@@ -257,21 +287,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Remove the cleared flag since we're loading data
       localStorage.removeItem('wealthtracker_data_cleared');
     },
-    addAccount: (account: any) => setAccounts((prev: any[]) => [...prev, { ...account, id: Date.now().toString() }]),
-    updateAccount: (id: string, updates: any) => setAccounts((prev: any[]) => prev.map((a: any) => a.id === id ? { ...a, ...updates } : a)),
-    deleteAccount: (id: string) => setAccounts((prev: any[]) => prev.filter((a: any) => a.id !== id)),
-    addTransaction: (transaction: any) => setTransactions((prev: any[]) => [...prev, { ...transaction, id: Date.now().toString() }]),
-    updateTransaction: (id: string, updates: any) => setTransactions((prev: any[]) => prev.map((t: any) => t.id === id ? { ...t, ...updates } : t)),
-    deleteTransaction: (id: string) => setTransactions((prev: any[]) => prev.filter((t: any) => t.id !== id)),
-    addBudget: (budget: any) => setBudgets((prev: any[]) => [...prev, { ...budget, id: Date.now().toString() }]),
-    updateBudget: (id: string, updates: any) => setBudgets((prev: any[]) => prev.map((b: any) => b.id === id ? { ...b, ...updates } : b)),
-    deleteBudget: (id: string) => setBudgets((prev: any[]) => prev.filter((b: any) => b.id !== id)),
-    addCategory: (category: any) => setCategories((prev: any[]) => [...prev, { ...category, id: Date.now().toString() }]),
-    updateCategory: (id: string, updates: any) => setCategories((prev: any[]) => prev.map((c: any) => c.id === id ? { ...c, ...updates } : c)),
-    deleteCategory: (id: string) => setCategories((prev: any[]) => prev.filter((c: any) => c.id !== id)),
-    addGoal: (goal: any) => setGoals((prev: any[]) => [...prev, { ...goal, id: Date.now().toString() }]),
-    updateGoal: (id: string, updates: any) => setGoals((prev: any[]) => prev.map((g: any) => g.id === id ? { ...g, ...updates } : g)),
-    deleteGoal: (id: string) => setGoals((prev: any[]) => prev.filter((g: any) => g.id !== id)),
+    addAccount: (account) => setAccounts(prev => [...prev, { ...account, id: Date.now().toString(), lastUpdated: new Date() }]),
+    updateAccount: (id, updates) => setAccounts(prev => prev.map(a => a.id === id ? { ...a, ...updates, lastUpdated: new Date() } : a)),
+    deleteAccount: (id) => setAccounts(prev => prev.filter(a => a.id !== id)),
+    addTransaction: (transaction) => setTransactions(prev => [...prev, { ...transaction, id: Date.now().toString() }]),
+    updateTransaction: (id, updates) => setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t)),
+    deleteTransaction: (id) => setTransactions(prev => prev.filter(t => t.id !== id)),
+    addBudget: (budget) => setBudgets(prev => [...prev, { ...budget, id: Date.now().toString(), createdAt: new Date() }]),
+    updateBudget: (id, updates) => setBudgets(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b)),
+    deleteBudget: (id) => setBudgets(prev => prev.filter(b => b.id !== id)),
+    addCategory: (category) => setCategories(prev => [...prev, { ...category, id: Date.now().toString() }]),
+    updateCategory: (id, updates) => setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c)),
+    deleteCategory: (id) => setCategories(prev => prev.filter(c => c.id !== id)),
+    addGoal: (goal) => setGoals(prev => [...prev, { ...goal, id: Date.now().toString(), createdAt: new Date() }]),
+    updateGoal: (id, updates) => setGoals(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g)),
+    deleteGoal: (id) => setGoals(prev => prev.filter(g => g.id !== id)),
     addTag: (tag: Omit<Tag, 'id' | 'createdAt' | 'updatedAt'>) => {
       const newTag: Tag = {
         ...tag,
@@ -281,34 +311,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
       };
       setTags((prev: Tag[]) => [...prev, newTag]);
     },
-    updateTag: (id: string, updates: Partial<Tag>) => {
-      setTags((prev: Tag[]) => prev.map((t: Tag) => 
+    updateTag: (id, updates) => {
+      setTags(prev => prev.map(t => 
         t.id === id ? { ...t, ...updates, updatedAt: new Date() } : t
       ));
     },
-    deleteTag: (id: string) => setTags((prev: Tag[]) => prev.filter((t: Tag) => t.id !== id)),
-    getTagUsageCount: (tagName: string) => {
-      return transactions.filter((t: any) => t.tags?.includes(tagName)).length;
+    deleteTag: (id) => setTags(prev => prev.filter(t => t.id !== id)),
+    getTagUsageCount: (tagName) => {
+      return transactions.filter(t => t.tags?.includes(tagName)).length;
     },
     getAllUsedTags: () => {
       const allTags = new Set<string>();
-      transactions.forEach((t: any) => {
+      transactions.forEach(t => {
         if (t.tags) {
-          t.tags.forEach((tag: string) => allTags.add(tag));
+          t.tags.forEach(tag => allTags.add(tag));
         }
       });
       return Array.from(allTags);
     },
     recurringTransactions,
-    addRecurringTransaction: (transaction: any) => setRecurringTransactions((prev: any[]) => [...prev, { ...transaction, id: Date.now().toString() }]),
-    updateRecurringTransaction: (id: string, updates: any) => setRecurringTransactions((prev: any[]) => prev.map((t: any) => t.id === id ? { ...t, ...updates } : t)),
-    deleteRecurringTransaction: (id: string) => setRecurringTransactions((prev: any[]) => prev.filter((t: any) => t.id !== id)),
-    importTransactions: (newTransactions: any[]) => setTransactions((prev: any[]) => [...prev, ...newTransactions]),
-    getSubCategories: (parentId: string) => categories.filter((c: any) => c.parentId === parentId && c.level === 'sub'),
-    getDetailCategories: (parentId: string) => categories.filter((c: any) => c.parentId === parentId && c.level === 'detail'),
+    addRecurringTransaction: (transaction) => setRecurringTransactions(prev => [...prev, { ...transaction, id: Date.now().toString() }]),
+    updateRecurringTransaction: (id, updates) => setRecurringTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t)),
+    deleteRecurringTransaction: (id) => setRecurringTransactions(prev => prev.filter(t => t.id !== id)),
+    importTransactions: (newTransactions) => setTransactions(prev => [...prev, ...newTransactions.map(t => ({ ...t, id: Date.now().toString() + Math.random() }))]),
+    getSubCategories: (parentId) => categories.filter(c => c.parentId === parentId && c.level === 'sub'),
+    getDetailCategories: (parentId) => categories.filter(c => c.parentId === parentId && c.level === 'detail'),
     createTransferTransaction: (from, to, amount, date) => {
       // Create transfer transactions
-      setTransactions((prev: any[]) => [...prev,
+      setTransactions((prev) => [...prev,
         { id: Date.now().toString(), date, description: 'Transfer Out', amount, type: 'expense', category: 'transfer-out', accountId: from, cleared: false },
         { id: (Date.now() + 1).toString(), date, description: 'Transfer In', amount, type: 'income', category: 'transfer-in', accountId: to, cleared: false }
       ]);

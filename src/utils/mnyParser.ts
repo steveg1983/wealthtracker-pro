@@ -21,7 +21,7 @@ export interface ParseResult {
   accounts: ParsedAccount[];
   transactions: ParsedTransaction[];
   warning?: string;
-  rawData?: any[];
+  rawData?: Array<Record<string, unknown>>;
   needsMapping?: boolean;
 }
 
@@ -32,7 +32,7 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   console.log('Parsing Microsoft Money .mny file, size:', arrayBuffer.byteLength);
   
   // Try to extract structured data that could be transactions
-  const potentialRecords: any[] = [];
+  const potentialRecords: Array<Record<string, unknown>> = [];
   const recordSize = 256; // Guess at record size
   const maxRecords = 10000;
   
@@ -40,7 +40,7 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   // We'll extract data and let the user tell us what it means
   
   for (let offset = 0; offset < arrayBuffer.byteLength - recordSize && potentialRecords.length < maxRecords; offset += recordSize) {
-    const record: any = {};
+    const record: Record<string, unknown> = {};
     
     // Try to read various data types at different offsets
     for (let i = 0; i < Math.min(10, recordSize / 8); i++) {
@@ -139,7 +139,17 @@ function readUTF16String(uint8Array: Uint8Array, offset: number, maxLength: numb
   return str.trim();
 }
 
-export function applyMappingToData(rawData: any[], mapping: any): { accounts: ParsedAccount[], transactions: ParsedTransaction[] } {
+interface FieldMapping {
+  date: number;
+  amount: number;
+  description: number;
+  payee?: number;
+  category?: number;
+  accountName?: number;
+  type?: number;
+}
+
+export function applyMappingToData(rawData: Array<Record<string, unknown>>, mapping: FieldMapping): { accounts: ParsedAccount[], transactions: ParsedTransaction[] } {
   const accounts = new Map<string, ParsedAccount>();
   const transactions: ParsedTransaction[] = [];
   
@@ -238,7 +248,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   console.log(`Readable text percentage in first 10KB: ${textPercentage.toFixed(1)}%`);
   
   // Try to extract structured data
-  const potentialRecords: any[] = [];
+  const potentialRecords: Array<Record<string, unknown>> = [];
   
   // MBF files might have different structure than MNY
   // Let's try multiple approaches
@@ -248,10 +258,10 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   
   for (const recordSize of recordSizes) {
     console.log(`Trying record size: ${recordSize} bytes`);
-    const testRecords: any[] = [];
+    const testRecords: Array<Record<string, unknown>> = [];
     
     for (let offset = 0; offset < Math.min(50000, arrayBuffer.byteLength) && testRecords.length < 100; offset += recordSize) {
-      const record: any = {};
+      const record: Record<string, unknown> = {};
       let hasData = false;
       
       // Try to extract different data types
@@ -324,7 +334,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
     
     // MBF might use different date encoding
     for (let i = 0; i < Math.min(arrayBuffer.byteLength - 100, 100000); i++) {
-      const record: any = {};
+      const record: Record<string, unknown> = {};
       let foundDate = false;
       let foundAmount = false;
       

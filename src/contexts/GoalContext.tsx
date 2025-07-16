@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -37,7 +38,7 @@ export function GoalProvider({ children, initialGoals = [] }: GoalProviderProps)
     if (savedGoals) {
       try {
         const parsed = JSON.parse(savedGoals);
-        return parsed.map((goal: any) => ({
+        return parsed.map((goal: Goal) => ({
           ...goal,
           targetDate: new Date(goal.targetDate),
           createdAt: new Date(goal.createdAt)

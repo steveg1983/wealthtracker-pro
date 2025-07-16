@@ -139,7 +139,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           const typeAccounts = accountsByType[type] || [];
           if (typeAccounts.length === 0) return null;
 
-          const typeTotal = typeAccounts.reduce((sum: number, acc: any) => sum + acc.balance, 0);
+          const typeTotal = typeAccounts.reduce((sum, acc) => sum + acc.balance, 0);
 
           return (
             <div key={type} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 overflow-hidden">
@@ -159,7 +159,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
               </div>
 
               <div className="p-4 space-y-3">
-                {typeAccounts.map((account: any) => (
+                {typeAccounts.map((account) => (
                   <div 
                     key={account.id} 
                     className="p-4 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 hover:shadow-xl hover:border-blue-200/50 transition-all duration-300 cursor-pointer"

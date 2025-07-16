@@ -1,6 +1,21 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+
+interface Holding {
+  ticker: string;
+  name: string;
+  shares: number;
+  value: number;
+  averageCost?: number;
+  currentPrice?: number;
+  marketValue?: number;
+  gain?: number;
+  gainPercent?: number;
+  currency?: string;
+  lastUpdated?: Date;
+}
 
 interface Account {
   id: string;
@@ -10,7 +25,7 @@ interface Account {
   currency: string;
   institution?: string;
   lastUpdated: Date;
-  holdings?: any[];
+  holdings?: Holding[];
   notes?: string;
   openingBalance?: number;
   openingBalanceDate?: Date;
@@ -39,7 +54,7 @@ export function AccountProvider({ children, initialAccounts = [] }: AccountProvi
     if (savedAccounts) {
       try {
         const parsed = JSON.parse(savedAccounts);
-        return parsed.map((acc: any) => ({
+        return parsed.map((acc: Account) => ({
           ...acc,
           lastUpdated: new Date(acc.lastUpdated),
           openingBalanceDate: acc.openingBalanceDate ? new Date(acc.openingBalanceDate) : undefined
@@ -102,3 +117,4 @@ export function useAccounts() {
   }
   return context;
 }
+

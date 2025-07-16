@@ -26,7 +26,7 @@ export function parseQIF(content: string): ParsedData {
   const transactions: ParsedTransaction[] = [];
   const accountsMap = new Map<string, ParsedAccount>();
   
-  let currentTransaction: any = {};
+  let currentTransaction: Partial<ParsedTransaction> = {};
   let currentAccountName = '';
   let currentAccountType = 'checking';
   

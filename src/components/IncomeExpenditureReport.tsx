@@ -2,16 +2,57 @@ import { useState } from 'react';
 import { Settings, Maximize2 } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
 import TransactionDetailsModal from './TransactionDetailsModal';
+import type { Transaction, Account } from '../types';
+
+interface Category {
+  id: string;
+  name: string;
+  type: 'income' | 'expense' | 'both';
+  level: 'type' | 'sub' | 'detail';
+  parentId?: string;
+  color?: string;
+  icon?: string;
+  isSystem?: boolean;
+}
+
+interface MonthData {
+  startDate: Date;
+  endDate: Date;
+  label: string;
+}
+
+interface CategoryData {
+  category: Category;
+  [monthKey: string]: {
+    income: number;
+    expenditure: number;
+  } | Category;
+}
+
+interface ReportData {
+  months: MonthData[];
+  categories: CategoryData[];
+}
+
+interface ReportSettings {
+  showSettings: boolean;
+  categoryLevel: 'type' | 'sub' | 'detail';
+  timePeriod: '1month' | '12months' | '24months' | 'custom';
+  customStartDate: string;
+  customEndDate: string;
+  showCategoryModal: boolean;
+  excludedCategories: string[];
+}
 
 interface IncomeExpenditureReportProps {
-  data: any;
-  settings: any;
-  setSettings: (settings: any) => void;
-  categories: any[];
+  data: ReportData;
+  settings: ReportSettings;
+  setSettings: (settings: ReportSettings | ((prev: ReportSettings) => ReportSettings)) => void;
+  categories: Category[];
   isModal?: boolean;
   onOpenModal?: () => void;
-  transactions?: any[];
-  accounts?: any[];
+  transactions?: Transaction[];
+  accounts?: Account[];
 }
 
 export default function IncomeExpenditureReport({ 
@@ -27,7 +68,7 @@ export default function IncomeExpenditureReport({
   const { formatCurrency } = useCurrency();
   const [transactionModalData, setTransactionModalData] = useState<{
     isOpen: boolean;
-    transactions: any[];
+    transactions: Transaction[];
     title: string;
   }>({
     isOpen: false,
@@ -35,7 +76,7 @@ export default function IncomeExpenditureReport({
     title: ''
   });
 
-  const handleCellClick = (categoryData: any, monthData: any, month: any) => {
+  const handleCellClick = (categoryData: CategoryData, monthData: { income: number; expenditure: number }, month: MonthData) => {
     if (!transactions.length || !monthData || (monthData.income === 0 && monthData.expenditure === 0)) return;
     
     // Get all descendant category IDs
@@ -109,7 +150,7 @@ export default function IncomeExpenditureReport({
           <button
             onClick={(e) => {
               e.stopPropagation();
-              setSettings((prev: any) => ({ ...prev, showSettings: !prev.showSettings }));
+              setSettings(prev => ({ ...prev, showSettings: !prev.showSettings }));
             }}
             className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             title="Report settings"
@@ -127,7 +168,7 @@ export default function IncomeExpenditureReport({
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Category Level</label>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setSettings((prev: any) => ({ ...prev, categoryLevel: 'type' }))}
+                onClick={() => setSettings(prev => ({ ...prev, categoryLevel: 'type' }))}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   settings.categoryLevel === 'type'
                     ? 'bg-primary text-white'
@@ -137,7 +178,7 @@ export default function IncomeExpenditureReport({
                 Income/Expense Only
               </button>
               <button
-                onClick={() => setSettings((prev: any) => ({ ...prev, categoryLevel: 'sub' }))}
+                onClick={() => setSettings(prev => ({ ...prev, categoryLevel: 'sub' }))}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   settings.categoryLevel === 'sub'
                     ? 'bg-primary text-white'
@@ -147,7 +188,7 @@ export default function IncomeExpenditureReport({
                 Sub-Categories
               </button>
               <button
-                onClick={() => setSettings((prev: any) => ({ ...prev, categoryLevel: 'detail' }))}
+                onClick={() => setSettings(prev => ({ ...prev, categoryLevel: 'detail' }))}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   settings.categoryLevel === 'detail'
                     ? 'bg-primary text-white'
@@ -164,7 +205,7 @@ export default function IncomeExpenditureReport({
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Time Period</label>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setSettings((prev: any) => ({ ...prev, timePeriod: '1month' }))}
+                onClick={() => setSettings(prev => ({ ...prev, timePeriod: '1month' }))}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   settings.timePeriod === '1month'
                     ? 'bg-primary text-white'
@@ -174,7 +215,7 @@ export default function IncomeExpenditureReport({
                 Past Month
               </button>
               <button
-                onClick={() => setSettings((prev: any) => ({ ...prev, timePeriod: '12months' }))}
+                onClick={() => setSettings(prev => ({ ...prev, timePeriod: '12months' }))}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   settings.timePeriod === '12months'
                     ? 'bg-primary text-white'
@@ -184,7 +225,7 @@ export default function IncomeExpenditureReport({
                 Past 12 Months
               </button>
               <button
-                onClick={() => setSettings((prev: any) => ({ ...prev, timePeriod: '24months' }))}
+                onClick={() => setSettings(prev => ({ ...prev, timePeriod: '24months' }))}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   settings.timePeriod === '24months'
                     ? 'bg-primary text-white'
@@ -194,7 +235,7 @@ export default function IncomeExpenditureReport({
                 Past 24 Months
               </button>
               <button
-                onClick={() => setSettings((prev: any) => ({ ...prev, timePeriod: 'custom' }))}
+                onClick={() => setSettings(prev => ({ ...prev, timePeriod: 'custom' }))}
                 className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
                   settings.timePeriod === 'custom'
                     ? 'bg-primary text-white'
@@ -210,14 +251,14 @@ export default function IncomeExpenditureReport({
                 <input
                   type="date"
                   value={settings.customStartDate}
-                  onChange={(e) => setSettings((prev: any) => ({ ...prev, customStartDate: e.target.value }))}
+                  onChange={(e) => setSettings(prev => ({ ...prev, customStartDate: e.target.value }))}
                   className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
                 <span className="text-sm text-gray-500 dark:text-gray-400">to</span>
                 <input
                   type="date"
                   value={settings.customEndDate}
-                  onChange={(e) => setSettings((prev: any) => ({ ...prev, customEndDate: e.target.value }))}
+                  onChange={(e) => setSettings(prev => ({ ...prev, customEndDate: e.target.value }))}
                   className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
@@ -235,7 +276,7 @@ export default function IncomeExpenditureReport({
               }
             </label>
             <button
-              onClick={() => setSettings((prev: any) => ({ ...prev, showCategoryModal: true }))}
+              onClick={() => setSettings(prev => ({ ...prev, showCategoryModal: true }))}
               className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors text-sm"
             >
               Manage Category Selection
@@ -243,7 +284,7 @@ export default function IncomeExpenditureReport({
           </div>
 
           <button
-            onClick={() => setSettings((prev: any) => ({ ...prev, showSettings: false }))}
+            onClick={() => setSettings(prev => ({ ...prev, showSettings: false }))}
             className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors text-sm"
           >
             Close Settings
@@ -258,7 +299,7 @@ export default function IncomeExpenditureReport({
               <th className="text-left py-3 px-2 font-medium text-gray-900 dark:text-white sticky left-0 bg-white dark:bg-gray-800 min-w-[120px]">
                 Category
               </th>
-              {data.months.map((month: any) => (
+              {data.months.map(month => (
                 <th key={month.key} className="text-center py-3 px-2 font-medium text-gray-500 dark:text-gray-400 min-w-[80px]">
                   {month.label}
                 </th>
@@ -269,7 +310,7 @@ export default function IncomeExpenditureReport({
             </tr>
           </thead>
           <tbody>
-            {data.categories.map((categoryData: any) => {
+            {data.categories.map(categoryData => {
               // Skip invalid category data
               if (!categoryData || !categoryData.category || !categoryData.category.id) {
                 console.warn('Skipping invalid category data:', categoryData);
@@ -302,7 +343,7 @@ export default function IncomeExpenditureReport({
                 </td>
                 {categoryData.category.isHeader && !categoryData.showSubtotal ? (
                   // Empty cells for headers without subtotals
-                  data.months.map((month: any) => (
+                  data.months.map((month) => (
                     <td key={month.key} className={`py-2.5 px-2 text-center ${
                       categoryData.isIndented 
                         ? 'bg-gray-50 dark:bg-gray-700/30' 
@@ -313,7 +354,7 @@ export default function IncomeExpenditureReport({
                   ))
                 ) : categoryData.showSubtotal && Array.isArray(categoryData.monthlyData) ? (
                   // Subtotal cells for category headers
-                  categoryData.monthlyData.map((monthData: any) => (
+                  categoryData.monthlyData.map((monthData: { month: string; income: number; expenditure: number }) => (
                     <td key={monthData.month} className="py-2.5 px-1 text-center bg-gray-100 dark:bg-gray-700/70">
                       {monthData.net !== 0 && (
                         <div className={`text-xs font-bold ${
@@ -329,7 +370,7 @@ export default function IncomeExpenditureReport({
                   ))
                 ) : Array.isArray(categoryData.monthlyData) ? (
                   // Normal data cells
-                  categoryData.monthlyData.map((monthData: any, monthIndex: number) => {
+                  categoryData.monthlyData.map((monthData: { month: string; income: number; expenditure: number }, monthIndex: number) => {
                     const month = data.months[monthIndex];
                     const hasValue = monthData.income > 0 || monthData.expenditure > 0;
                     const isClickable = hasValue && transactions.length > 0 && !categoryData.category.isHeader;
@@ -360,7 +401,7 @@ export default function IncomeExpenditureReport({
                   })
                 ) : (
                   // Fallback when monthlyData is not available
-                  data.months.map((month: any) => (
+                  data.months.map((month) => (
                     <td key={month.key} className="py-2.5 px-1 text-center">
                       <div className="text-xs text-gray-300 dark:text-gray-600">-</div>
                     </td>
@@ -408,7 +449,7 @@ export default function IncomeExpenditureReport({
               <td className="py-3 px-3 font-bold text-gray-900 dark:text-white sticky left-0 bg-gray-100 dark:bg-gray-700/70 uppercase text-sm tracking-wider">
                 TOTALS
               </td>
-              {Array.isArray(data.monthlyTotals) ? data.monthlyTotals.map((monthTotal: any) => {
+              {Array.isArray(data.monthlyTotals) ? data.monthlyTotals.map((monthTotal: { month: string; income: number; expenditure: number }) => {
                 const netAmount = monthTotal.income - monthTotal.expenditure;
                 return (
                   <td key={monthTotal.month} className="py-3 px-1 text-center bg-gray-100 dark:bg-gray-700/70">
@@ -425,7 +466,7 @@ export default function IncomeExpenditureReport({
                 );
               }) : (
                 // Fallback when monthlyTotals is not available
-                data.months.map((month: any) => (
+                data.months.map((month) => (
                   <td key={month.key} className="py-3 px-1 text-center bg-gray-100 dark:bg-gray-700/70">
                     <div className="text-xs font-medium text-gray-500">-</div>
                   </td>
@@ -474,7 +515,7 @@ export default function IncomeExpenditureReport({
             <div className="p-6 overflow-y-auto max-h-[60vh]">
               <div className="mb-4 flex gap-2">
                 <button
-                  onClick={() => setSettings((prev: any) => ({ ...prev, excludedCategories: [] }))}
+                  onClick={() => setSettings(prev => ({ ...prev, excludedCategories: [] }))}
                   className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
                 >
                   Select All
@@ -484,7 +525,7 @@ export default function IncomeExpenditureReport({
                     const allCategoryIds = categories
                       .filter(cat => !cat.name.toLowerCase().includes('transfer'))
                       .map(cat => cat.id);
-                    setSettings((prev: any) => ({ ...prev, excludedCategories: allCategoryIds }));
+                    setSettings(prev => ({ ...prev, excludedCategories: allCategoryIds }));
                   }}
                   className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                 >
@@ -510,12 +551,12 @@ export default function IncomeExpenditureReport({
                                 checked={!settings.excludedCategories.includes(subCat.id)}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setSettings((prev: any) => ({
+                                    setSettings(prev => ({
                                       ...prev,
-                                      excludedCategories: prev.excludedCategories.filter((id: string) => id !== subCat.id)
+                                      excludedCategories: prev.excludedCategories.filter(id => id !== subCat.id)
                                     }));
                                   } else {
-                                    setSettings((prev: any) => ({
+                                    setSettings(prev => ({
                                       ...prev,
                                       excludedCategories: [...prev.excludedCategories, subCat.id]
                                     }));
@@ -536,12 +577,12 @@ export default function IncomeExpenditureReport({
                                     checked={!settings.excludedCategories.includes(detailCat.id)}
                                     onChange={(e) => {
                                       if (e.target.checked) {
-                                        setSettings((prev: any) => ({
+                                        setSettings(prev => ({
                                           ...prev,
-                                          excludedCategories: prev.excludedCategories.filter((id: string) => id !== detailCat.id)
+                                          excludedCategories: prev.excludedCategories.filter(id => id !== detailCat.id)
                                         }));
                                       } else {
-                                        setSettings((prev: any) => ({
+                                        setSettings(prev => ({
                                           ...prev,
                                           excludedCategories: [...prev.excludedCategories, detailCat.id]
                                         }));
@@ -576,12 +617,12 @@ export default function IncomeExpenditureReport({
                                 checked={!settings.excludedCategories.includes(subCat.id)}
                                 onChange={(e) => {
                                   if (e.target.checked) {
-                                    setSettings((prev: any) => ({
+                                    setSettings(prev => ({
                                       ...prev,
-                                      excludedCategories: prev.excludedCategories.filter((id: string) => id !== subCat.id)
+                                      excludedCategories: prev.excludedCategories.filter(id => id !== subCat.id)
                                     }));
                                   } else {
-                                    setSettings((prev: any) => ({
+                                    setSettings(prev => ({
                                       ...prev,
                                       excludedCategories: [...prev.excludedCategories, subCat.id]
                                     }));
@@ -602,12 +643,12 @@ export default function IncomeExpenditureReport({
                                     checked={!settings.excludedCategories.includes(detailCat.id)}
                                     onChange={(e) => {
                                       if (e.target.checked) {
-                                        setSettings((prev: any) => ({
+                                        setSettings(prev => ({
                                           ...prev,
-                                          excludedCategories: prev.excludedCategories.filter((id: string) => id !== detailCat.id)
+                                          excludedCategories: prev.excludedCategories.filter(id => id !== detailCat.id)
                                         }));
                                       } else {
-                                        setSettings((prev: any) => ({
+                                        setSettings(prev => ({
                                           ...prev,
                                           excludedCategories: [...prev.excludedCategories, detailCat.id]
                                         }));
@@ -627,7 +668,7 @@ export default function IncomeExpenditureReport({
             
             <div className="p-6 bg-gray-50 dark:bg-gray-700/50 border-t border-gray-200 dark:border-gray-700">
               <button
-                onClick={() => setSettings((prev: any) => ({ ...prev, showCategoryModal: false }))}
+                onClick={() => setSettings(prev => ({ ...prev, showCategoryModal: false }))}
                 className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
               >
                 Apply Selection

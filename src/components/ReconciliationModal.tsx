@@ -1,17 +1,25 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { X, ArrowRight, Check, AlertCircle } from 'lucide-react';
+import type { Transaction } from '../types';
+
+interface ReconciliationMatch {
+  outTransaction: Transaction;
+  inTransaction: Transaction;
+  confidence: number;
+  reason: string;
+}
 
 interface ReconciliationModalProps {
   isOpen: boolean;
   onClose: () => void;
-  match?: any;
-  transaction?: any;
+  match?: ReconciliationMatch;
+  transaction?: Transaction;
 }
 
 export default function ReconciliationModal({ isOpen, onClose, match, transaction }: ReconciliationModalProps) {
   const { transactions, accounts, updateTransaction } = useApp();
-  const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAccount, setFilterAccount] = useState('');
   const [notes, setNotes] = useState('');

@@ -15,7 +15,7 @@ export default function Diagnostic() {
         localStorage.setItem('test', 'test');
         localStorage.removeItem('test');
         newChecks['LocalStorage'] = true;
-      } catch (e) {
+      } catch {
         newChecks['LocalStorage'] = false;
       }
       
@@ -23,7 +23,7 @@ export default function Diagnostic() {
       try {
         const hasAppContext = true; // Will error if context provider missing
         newChecks['Contexts'] = hasAppContext;
-      } catch (e) {
+      } catch {
         newChecks['Contexts'] = false;
       }
       

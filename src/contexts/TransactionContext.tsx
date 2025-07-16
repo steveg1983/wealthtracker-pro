@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
@@ -69,7 +70,7 @@ export function TransactionProvider({
     if (savedTransactions) {
       try {
         const parsed = JSON.parse(savedTransactions);
-        return parsed.map((t: any) => ({
+        return parsed.map((t: Transaction) => ({
           ...t,
           date: new Date(t.date),
           reconciledDate: t.reconciledDate ? new Date(t.reconciledDate) : undefined

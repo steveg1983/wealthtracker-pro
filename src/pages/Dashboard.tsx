@@ -13,6 +13,18 @@ import TestDataWarningModal from '../components/TestDataWarningModal';
 import OnboardingModal from '../components/OnboardingModal';
 import DashboardModal from '../components/DashboardModal';
 import EditTransactionModal from '../components/EditTransactionModal';
+import type { Transaction } from '../types';
+
+interface Category {
+  id: string;
+  name: string;
+  type: 'income' | 'expense' | 'both';
+  level: 'type' | 'sub' | 'detail';
+  parentId?: string;
+  color?: string;
+  icon?: string;
+  isSystem?: boolean;
+}
 
 export default function Dashboard() {
   const { accounts, transactions, categories, hasTestData, clearAllData } = useApp();
@@ -28,7 +40,7 @@ export default function Dashboard() {
     isOpen: boolean;
     type: 'networth-chart' | 'account-distribution' | 'income-expenditure' | 'reconciliation' | null;
     title: string;
-    data?: any;
+    data?: unknown;
   }>({
     isOpen: false,
     type: null,
@@ -39,7 +51,7 @@ export default function Dashboard() {
     liabilities: 0,
     netWorth: 0
   });
-  const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showAccountBreakdown, setShowAccountBreakdown] = useState<{
     isOpen: boolean;
     type: 'networth' | 'assets' | 'liabilities' | null;
@@ -248,7 +260,7 @@ export default function Dashboard() {
       };
 
       // Calculate data for each category and month
-      const calculateCategoryData = (category: any) => {
+      const calculateCategoryData = (category: Category) => {
         if (!category || !category.id) {
           return {
             category: category || { id: 'unknown', name: 'Unknown' },
@@ -299,7 +311,13 @@ export default function Dashboard() {
       };
 
       // Build report data based on category level
-      let reportData: any[] = [];
+      const reportData: Array<{
+        category: { name: string; isHeader?: boolean };
+        monthlyData: Array<{ month: string; income: number; expenditure: number; net: number }>;
+        isIndented?: boolean;
+        isDoubleIndented?: boolean;
+        showSubtotal?: boolean;
+      }> = [];
       const incomeType = categories.find(c => c.id === 'type-income' || (c.level === 'type' && c.name === 'Income'));
       const expenseType = categories.find(c => c.id === 'type-expense' || (c.level === 'type' && c.name === 'Expense'));
       
@@ -351,7 +369,7 @@ export default function Dashboard() {
                     console.warn('Invalid item in incomeSubData:', item);
                     return sum;
                   }
-                  const monthData = item.monthlyData.find((m: any) => m.month === month.key);
+                  const monthData = item.monthlyData.find((m) => m.month === month.key);
                   return sum + (monthData ? monthData.net : 0);
                 }, 0);
                 return {
@@ -409,7 +427,7 @@ export default function Dashboard() {
                     console.warn('Invalid item in expenseSubData:', item);
                     return sum;
                   }
-                  const monthData = item.monthlyData.find((m: any) => m.month === month.key);
+                  const monthData = item.monthlyData.find((m) => m.month === month.key);
                   return sum + (monthData ? monthData.net : 0);
                 }, 0);
                 return {
@@ -449,7 +467,7 @@ export default function Dashboard() {
       } else if (incomeExpReportSettings.categoryLevel === 'detail') {
         // Detail level - show full hierarchy
         if (incomeType && !incomeExpReportSettings.excludedCategories.includes(incomeType.id)) {
-          const allIncomeDetailData: any[] = [];
+          const allIncomeDetailData: Array<{ month: string; income: number; expenditure: number }> = [];
           const incomeSubs = categories.filter(c => 
             c.parentId === incomeType.id && 
             c.level === 'sub' &&
@@ -476,7 +494,7 @@ export default function Dashboard() {
             // Calculate income subtotals
             const incomeMonthlySubtotals = months.map(month => {
               const monthTotal = allIncomeDetailData.reduce((sum, item) => {
-                const monthData = item.monthlyData.find((m: any) => m.month === month.key);
+                const monthData = item.monthlyData.find((m) => m.month === month.key);
                 return sum + (monthData ? monthData.net : 0);
               }, 0);
               return {
@@ -529,7 +547,7 @@ export default function Dashboard() {
         }
         
         if (expenseType && !incomeExpReportSettings.excludedCategories.includes(expenseType.id)) {
-          const allExpenseDetailData: any[] = [];
+          const allExpenseDetailData: Array<{ month: string; income: number; expenditure: number }> = [];
           const expenseSubs = categories.filter(c => 
             c.parentId === expenseType.id && 
             c.level === 'sub' &&
@@ -556,7 +574,7 @@ export default function Dashboard() {
             // Calculate expense subtotals
             const expenseMonthlySubtotals = months.map(month => {
               const monthTotal = allExpenseDetailData.reduce((sum, item) => {
-                const monthData = item.monthlyData.find((m: any) => m.month === month.key);
+                const monthData = item.monthlyData.find((m) => m.month === month.key);
                 return sum + (monthData ? monthData.net : 0);
               }, 0);
               return {
@@ -811,7 +829,7 @@ export default function Dashboard() {
                     fill="#8B5CF6" 
                     radius={[4, 4, 0, 0]}
                     style={{ cursor: 'pointer' }}
-                    onClick={(data: any) => {
+                    onClick={(data) => {
                       if (data && data.month) {
                         navigate(`/networth/monthly/${data.month}`);
                       }
@@ -1001,7 +1019,7 @@ export default function Dashboard() {
                 return (
                   <div className="space-y-6">
                     {Object.entries(groupedAccounts).map(([type, typeAccounts]) => {
-                      const typeTotal = (typeAccounts as any[]).reduce((sum: number, acc: any) => sum + acc.balance, 0);
+                      const typeTotal = (typeAccounts as Account[]).reduce((sum, acc) => sum + acc.balance, 0);
                       
                       return (
                         <div key={type}>
@@ -1009,7 +1027,7 @@ export default function Dashboard() {
                             {getAccountTypeLabel(type)}
                           </h3>
                           <div className="space-y-2">
-                            {(typeAccounts as any[]).map((account: any) => (
+                            {(typeAccounts as Account[]).map((account) => (
                               <div
                                 key={account.id}
                                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-2xl hover:bg-[#D9E1F2]/30 dark:hover:bg-gray-600 cursor-pointer transition-colors border border-gray-200 dark:border-gray-600"

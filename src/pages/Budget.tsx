@@ -3,27 +3,15 @@ import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
 import { PlusCircle, Edit2, Trash2, TrendingUp, TrendingDown, Banknote } from 'lucide-react';
 import BudgetModal from '../components/BudgetModal';
+import type { Budget } from '../types';
 
 export default function Budget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingBudget, setEditingBudget] = useState<any>(null);
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const { formatCurrency } = useCurrency();
   
-  // Get data from context with error handling
-  let budgets: any[] = [];
-  let transactions: any[] = [];
-  let updateBudget: (id: string, budget: any) => void = () => {};
-  let deleteBudget: (id: string) => void = () => {};
-  
-  try {
-    const context = useApp();
-    budgets = context.budgets || [];
-    transactions = context.transactions || [];
-    updateBudget = context.updateBudget || (() => {});
-    deleteBudget = context.deleteBudget || (() => {});
-  } catch (error) {
-    console.error('Error accessing app context:', error);
-  }
+  // Get data from context
+  const { budgets, transactions, updateBudget, deleteBudget } = useApp();
 
   // Memoize current date values
   const { currentMonth, currentYear } = useMemo(() => {
@@ -71,7 +59,7 @@ export default function Budget() {
     });
   }, [budgets, transactions, currentMonth, currentYear]);
 
-  const handleEdit = (budget: any) => {
+  const handleEdit = (budget: Budget) => {
     setEditingBudget(budget);
     setIsModalOpen(true);
   };

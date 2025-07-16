@@ -2,11 +2,12 @@ import { useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
+import type { Budget } from '../types';
 
 interface BudgetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  budget?: any;
+  budget?: Budget;
 }
 
 interface FormData {

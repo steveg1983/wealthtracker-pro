@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
@@ -6,6 +6,7 @@ import { useLayout } from '../contexts/LayoutContext';
 import { useCurrency } from '../hooks/useCurrency';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { Plus, TrendingUp, TrendingDown, Calendar, Trash2, Minimize2, Maximize2, Edit2, Search, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Expand, Shrink } from 'lucide-react';
+import type { Transaction } from '../types';
 
 export default function Transactions() {
   const { transactions, accounts, deleteTransaction, categories } = useApp();
@@ -14,7 +15,7 @@ export default function Transactions() {
   const { formatCurrency } = useCurrency();
   const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterAccountId, setFilterAccountId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -41,7 +42,7 @@ export default function Transactions() {
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
 
   // Helper function to get category path
-  const getCategoryPath = (categoryId: string): string => {
+  const getCategoryPath = useCallback((categoryId: string): string => {
     const category = categories.find(c => c.id === categoryId);
     if (!category) return categoryId;
     
@@ -51,7 +52,7 @@ export default function Transactions() {
     }
     
     return category.name;
-  };
+  }, [categories]);
 
   // Get account ID from URL params
   const accountIdFromUrl = searchParams.get('account');
@@ -187,25 +188,26 @@ export default function Transactions() {
   // Sort transactions based on current sort field and direction
   const sortedTransactions = useMemo(() => {
     const sorted = [...transactions].sort((a, b) => {
-      let aValue: any;
-      let bValue: any;
+      let aValue: string | number;
+      let bValue: string | number;
 
       switch (sortField) {
         case 'date':
           aValue = new Date(a.date).getTime();
           bValue = new Date(b.date).getTime();
           break;
-        case 'account':
+        case 'account': {
           const accountA = accounts.find(acc => acc.id === a.accountId);
           const accountB = accounts.find(acc => acc.id === b.accountId);
           aValue = accountA?.name || '';
           bValue = accountB?.name || '';
           break;
+        }
         case 'description':
           aValue = a.description.toLowerCase();
           bValue = b.description.toLowerCase();
           break;
-        case 'category':
+        case 'category': {
           const categoryA = categories.find(c => c.id === a.category);
           const categoryB = categories.find(c => c.id === b.category);
           
@@ -227,6 +229,7 @@ export default function Transactions() {
           aValue = aValue.toLowerCase();
           bValue = bValue.toLowerCase();
           break;
+        }
         case 'amount':
           aValue = a.amount;
           bValue = b.amount;
@@ -297,7 +300,7 @@ export default function Transactions() {
   };
 
   // Add this to filter change handlers
-  const handleFilterChange = (filterSetter: any) => (value: any) => {
+  const handleFilterChange = <T,>(filterSetter: React.Dispatch<React.SetStateAction<T>>) => (value: T) => {
     filterSetter(value);
     resetPagination();
   };
@@ -316,7 +319,7 @@ export default function Transactions() {
     }
   };
 
-  const handleEdit = (transaction: any) => {
+  const handleEdit = (transaction: Transaction) => {
     setEditingTransaction(transaction);
     setIsModalOpen(true);
   };
@@ -413,7 +416,7 @@ export default function Transactions() {
           isDragOver ? 'bg-white/20 border-l-4 border-l-white/80 dark:border-l-gray-300/80 before:absolute before:top-0 before:left-0 before:w-full before:h-full before:bg-white/10 before:animate-pulse' : ''
         } transition-all duration-200 ease-in-out`}
         style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}
-        onClick={config.sortable ? () => handleSort(columnKey as any) : undefined}
+        onClick={config.sortable ? () => handleSort(columnKey as keyof typeof columnConfig) : undefined}
       >
         <div className="flex items-center gap-1" style={{ justifyContent: config.className === 'text-right' ? 'flex-end' : 'flex-start' }}>
           {config.label}
@@ -432,7 +435,7 @@ export default function Transactions() {
   };
 
   // Render table data cell
-  const renderDataCell = (columnKey: string, transaction: any, _index: number) => {
+  const renderDataCell = (columnKey: string, transaction: Transaction) => {
     const config = columnConfig[columnKey as keyof typeof columnConfig];
     if (!config) return null;
 
@@ -632,7 +635,7 @@ export default function Transactions() {
               <select
                 className="w-full px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 value={filterType}
-                onChange={(e) => handleFilterChange(setFilterType)(e.target.value as any)}
+                onChange={(e) => handleFilterChange(setFilterType)(e.target.value as 'all' | 'income' | 'expense')}
               >
                 <option value="all">All Types</option>
                 <option value="income">Income Only</option>
@@ -767,7 +770,7 @@ export default function Transactions() {
                     className={`${index % 2 === 1 ? 'bg-[#D9E1F2]/25' : 'bg-white'} ${index % 2 === 1 ? 'dark:bg-gray-700/30' : 'dark:bg-gray-800'} cursor-pointer hover:shadow-[inset_2px_0_0_3px_rgb(209,213,219),inset_0_2px_0_3px_rgb(209,213,219),inset_0_-2px_0_3px_rgb(209,213,219),inset_-2px_0_0_3px_rgb(209,213,219)] dark:hover:shadow-[inset_2px_0_0_3px_rgb(75,85,99),inset_0_2px_0_3px_rgb(75,85,99),inset_0_-2px_0_3px_rgb(75,85,99),inset_-2px_0_0_3px_rgb(75,85,99)] transition-shadow relative`}
                     onClick={() => handleEdit(transaction)}
                   >
-                    {columnOrder.map(columnKey => renderDataCell(columnKey, transaction, index))}
+                    {columnOrder.map(columnKey => renderDataCell(columnKey, transaction))}
                   </tr>
                 ))}
               </tbody>

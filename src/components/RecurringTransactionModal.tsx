@@ -55,7 +55,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
     const lastProcessed = recurring.lastProcessed ? new Date(recurring.lastProcessed) : new Date(recurring.startDate);
     
     // Calculate next date based on frequency
-    let nextDate = new Date(lastProcessed);
+    const nextDate = new Date(lastProcessed);
     
     switch (recurring.frequency) {
       case 'daily':
@@ -240,7 +240,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
               </label>
               <select
                 value={formData.frequency}
-                onChange={(e) => updateField('frequency', e.target.value as any)}
+                onChange={(e) => updateField('frequency', e.target.value as 'daily' | 'weekly' | 'monthly' | 'yearly')}
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               >
                 <option value="daily">Daily</option>

@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { X, Plus, Trash2 } from 'lucide-react';
+import type { Transaction } from '../types';
+
+interface TransactionWithSplits extends Transaction {
+  splits?: SplitItem[];
+}
 
 interface SplitTransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  transaction: any;
+  transaction: TransactionWithSplits;
 }
 
 interface SplitItem {
@@ -52,7 +57,7 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
     setSplits(splits.filter((_, i) => i !== index));
   };
 
-  const handleSplitChange = (index: number, field: keyof SplitItem, value: any) => {
+  const handleSplitChange = (index: number, field: keyof SplitItem, value: string | number) => {
     const newSplits = [...splits];
     newSplits[index] = { ...newSplits[index], [field]: value };
     setSplits(newSplits);

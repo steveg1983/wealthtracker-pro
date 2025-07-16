@@ -9,8 +9,20 @@ import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrate
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
+interface Category {
+  id: string;
+  name: string;
+  type: 'income' | 'expense' | 'both';
+  level: 'type' | 'sub' | 'detail';
+  parentId?: string;
+  color?: string;
+  icon?: string;
+  isSystem?: boolean;
+  order?: number;
+}
+
 interface SortableCategoryProps {
-  category: any;
+  category: Category;
   isEditMode: boolean;
   isDeleteMode: boolean;
   isEditing: boolean;

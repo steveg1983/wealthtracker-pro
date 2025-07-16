@@ -6,6 +6,7 @@ import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelect from '../components/CategorySelect';
 import { useCurrency } from '../hooks/useCurrency';
 import { useReconciliation } from '../hooks/useReconciliation';
+import type { Transaction } from '../types';
 
 // Bank transactions are now imported from shared utility
 
@@ -17,13 +18,13 @@ export default function Reconciliation() {
     searchParams.get('account') || null
   );
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<any>(null);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [transactionsPerPage, setTransactionsPerPage] = useState(20);
   const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
-  const [editingFields, setEditingFields] = useState<Record<string, any>>({});
+  const [editingFields, setEditingFields] = useState<Record<string, Partial<Transaction>>>({});
   const [showSplitModal, setShowSplitModal] = useState(false);
-  const [splittingTransaction, setSplittingTransaction] = useState<any>(null);
+  const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
   const [splitItems, setSplitItems] = useState<Array<{id: string, description: string, category: string, amount: number}>>([]);
 
   // Use shared reconciliation hook
@@ -89,7 +90,7 @@ export default function Reconciliation() {
   };
 
   // Handle editing transaction
-  const handleEdit = (transaction: any) => {
+  const handleEdit = (transaction: Transaction) => {
     setEditingTransaction(transaction);
     setShowEditModal(true);
   };
@@ -128,7 +129,7 @@ export default function Reconciliation() {
   };
 
   // Handle inline field editing
-  const handleFieldEdit = (transactionId: string, field: string, value: any) => {
+  const handleFieldEdit = (transactionId: string, field: keyof Transaction, value: Transaction[keyof Transaction]) => {
     setEditingFields(prev => ({
       ...prev,
       [transactionId]: {
@@ -189,7 +190,7 @@ export default function Reconciliation() {
   };
 
   // Update split item
-  const updateSplitItem = (id: string, field: string, value: any) => {
+  const updateSplitItem = (id: string, field: 'description' | 'category' | 'amount', value: string | number) => {
     setSplitItems(splitItems.map(item => 
       item.id === id ? { ...item, [field]: value } : item
     ));
@@ -318,7 +319,7 @@ export default function Reconciliation() {
 
             <div className="pt-4">
               <div className="grid gap-4">
-              {accountSummaries.map(({ account, unreconciledCount, totalToReconcile, lastImportDate }: any) => (
+              {accountSummaries.map(({ account, unreconciledCount, totalToReconcile, lastImportDate }) => (
                 <div
                   key={account.id}
                   className="bg-white dark:bg-gray-800 rounded-2xl shadow hover:shadow-lg transition-shadow cursor-pointer"

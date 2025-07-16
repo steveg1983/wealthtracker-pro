@@ -39,6 +39,13 @@ export function useModalForm<T>(
     setErrors({});
   }, []);
 
+  const reset = useCallback(() => {
+    // Reset to the stored initial value
+    setFormData(initialValue);
+    setErrors({});
+    setIsSubmitting(false);
+  }, [initialValue]);
+
   const handleSubmit = useCallback(async (e?: React.FormEvent) => {
     if (e) {
       e.preventDefault();
@@ -62,14 +69,7 @@ export function useModalForm<T>(
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, onSubmit, onClose, resetOnClose, clearErrors]);
-
-  const reset = useCallback(() => {
-    // Reset to the stored initial value
-    setFormData(initialValue);
-    setErrors({});
-    setIsSubmitting(false);
-  }, [initialValue]);
+  }, [formData, onSubmit, onClose, resetOnClose, clearErrors, reset]);
 
   return {
     formData,

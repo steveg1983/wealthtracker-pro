@@ -1,19 +1,11 @@
 import { useEffect } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
+import type { Account as BaseAccount } from '../types';
 
-interface Account {
-  id: string;
-  name: string;
+// Extend the base Account type with additional fields needed for settings
+interface Account extends BaseAccount {
   type: "current" | "savings" | "credit" | "loan" | "investment" | "assets" | "other";
-  balance: number;
-  currency: string;
-  institution?: string;
-  lastUpdated: Date;
-  holdings?: any[];
-  notes?: string;
-  openingBalance?: number;
-  openingBalanceDate?: Date;
   sortCode?: string;
   accountNumber?: string;
 }

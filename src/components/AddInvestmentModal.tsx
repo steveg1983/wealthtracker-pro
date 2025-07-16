@@ -158,7 +158,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 <button
                   key={type.value}
                   type="button"
-                  onClick={() => updateField('investmentType', type.value as any)}
+                  onClick={() => updateField('investmentType', type.value as FormData['investmentType'])}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     formData.investmentType === type.value
                       ? 'bg-blue-600 text-white'

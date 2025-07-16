@@ -87,8 +87,8 @@ export default function AccountTransactions() {
         );
       })
       .sort((a, b) => {
-        let aValue: any = a[sortField];
-        let bValue: any = b[sortField];
+        let aValue: string | number | Date = a[sortField as keyof Transaction] as string | number | Date;
+        let bValue: string | number | Date = b[sortField as keyof Transaction] as string | number | Date;
         
         if (sortField === 'date') {
           aValue = new Date(a.date).getTime();
@@ -392,7 +392,7 @@ export default function AccountTransactions() {
           isDragOver ? 'bg-white/20 border-l-4 border-l-white/80 dark:border-l-gray-300/80' : ''
         } transition-all duration-200 ease-in-out`}
         style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}
-        onClick={config.sortable ? () => handleSort(columnKey as any) : undefined}
+        onClick={config.sortable ? () => handleSort(columnKey as keyof typeof columnConfig) : undefined}
       >
         <div className="flex items-center gap-1" style={{ justifyContent: config.className === 'text-right' ? 'flex-end' : 'flex-start' }}>
           {config.label}
@@ -444,8 +444,8 @@ export default function AccountTransactions() {
             </h1>
             <div className="mt-2 flex items-center justify-between">
               <div className="text-sm text-white/80">
-                <span>{(account as any).sortCode || '00-00-00'}</span>
-                <span className="ml-4">{(account as any).accountNumber || '00000000'}</span>
+                <span>00-00-00</span>
+                <span className="ml-4">00000000</span>
               </div>
               <button
                 onClick={() => navigate(`/settings/accounts/${account.id}`)}
@@ -477,11 +477,7 @@ export default function AccountTransactions() {
             <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
               <div className="flex items-center justify-between gap-4">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Imported Bank Balance</span>
-                <span className={`text-xl font-bold ${
-                  0 >= 0 
-                    ? 'text-green-600 dark:text-green-400' 
-                    : 'text-red-600 dark:text-red-400'
-                }`}>
+                <span className="text-xl font-bold text-gray-600 dark:text-gray-400">
                   {formatCurrency(0, account.currency)}
                 </span>
               </div>

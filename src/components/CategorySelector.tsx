@@ -2,6 +2,17 @@ import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { ChevronDown, Plus, Tag } from 'lucide-react';
 
+interface Category {
+  id: string;
+  name: string;
+  type: 'income' | 'expense' | 'both';
+  level: 'type' | 'sub' | 'detail';
+  parentId?: string;
+  color?: string;
+  icon?: string;
+  isSystem?: boolean;
+}
+
 interface CategorySelectorProps {
   selectedCategory: string;
   onCategoryChange: (categoryId: string) => void;
@@ -37,7 +48,7 @@ export default function CategorySelector({
   // Get all detail categories for the transaction type
   const getAllDetailCategories = () => {
     const subCategories = getSubCategoriesForType();
-    const detailCategories: any[] = [];
+    const detailCategories: Category[] = [];
     
     subCategories.forEach(subCat => {
       const details = getDetailCategories(subCat.id);

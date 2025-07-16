@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { Plus, Edit2, Trash2, Hash, X, Check, AlertCircle } from 'lucide-react';
+import type { Tag } from '../../contexts/AppContext';
 
 interface TagFormData {
   name: string;
@@ -34,7 +35,7 @@ export default function Tags() {
         description: 'Auto-created from transaction'
       });
     });
-  }, []);
+  }, [addTag, unregisteredTags]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -82,7 +83,7 @@ export default function Tags() {
     setEditingTag(null);
   };
 
-  const handleEdit = (tag: any) => {
+  const handleEdit = (tag: Tag) => {
     setFormData({
       name: tag.name,
       color: tag.color || '#3B82F6',

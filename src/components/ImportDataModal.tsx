@@ -30,7 +30,7 @@ interface ParsedData {
   accounts: ParsedAccount[];
   transactions: ParsedTransaction[];
   warning?: string;
-  rawData?: any[];
+  rawData?: Array<Record<string, unknown>>;
   needsMapping?: boolean;
 }
 
@@ -43,7 +43,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   const [message, setMessage] = useState('');
   const [preview, setPreview] = useState<ParsedData | null>(null);
   const [showMappingModal, setShowMappingModal] = useState(false);
-  const [rawMnyData, setRawMnyData] = useState<any[]>([]);
+  const [rawMnyData, setRawMnyData] = useState<Array<Record<string, unknown>>>([]);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
 
   // Parse OFX file format
@@ -186,7 +186,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     }
   };
 
-  const handleMappingComplete = (mapping: any, data: any[]) => {
+  const handleMappingComplete = (mapping: Record<string, string>, data: Array<Record<string, unknown>>) => {
     console.log('Applying mapping to data...');
     const result = applyMappingToData(data, mapping);
     

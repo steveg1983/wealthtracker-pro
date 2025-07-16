@@ -7,7 +7,19 @@ interface Account {
   currency: string;
   institution?: string;
   lastUpdated: Date;
-  holdings?: any[];
+  holdings?: Array<{
+    ticker: string;
+    name: string;
+    shares: number;
+    value: number;
+    averageCost?: number;
+    currentPrice?: number;
+    marketValue?: number;
+    gain?: number;
+    gainPercent?: number;
+    currency?: string;
+    lastUpdated?: Date;
+  }>;
   notes?: string;
   openingBalance?: number;
   openingBalanceDate?: Date;

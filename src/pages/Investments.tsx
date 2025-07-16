@@ -61,7 +61,7 @@ export default function Investments() {
       case '3M': periodMonths = 3; break;
       case '6M': periodMonths = 6; break;
       case '1Y': periodMonths = 12; break;
-      case 'ALL': 
+      case 'ALL': {
         // Find earliest transaction date
         const earliestDate = investmentTransactions.reduce((earliest, t) => {
           const tDate = new Date(t.date);
@@ -69,6 +69,7 @@ export default function Investments() {
         }, new Date());
         periodMonths = Math.max(12, Math.ceil((today.getTime() - earliestDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
         break;
+      }
     }
     
     let cumulativeValue = 0;
@@ -217,7 +218,7 @@ export default function Investments() {
             {['1M', '3M', '6M', '1Y', 'ALL'].map((period) => (
               <button
                 key={period}
-                onClick={() => setSelectedPeriod(period as any)}
+                onClick={() => setSelectedPeriod(period as '1M' | '3M' | '6M' | '1Y' | 'ALL')}
                 className={`px-3 py-1 text-sm rounded-lg transition-colors ${
                   selectedPeriod === period
                     ? 'bg-primary text-white'

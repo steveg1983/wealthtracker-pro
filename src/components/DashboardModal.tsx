@@ -6,13 +6,62 @@ import { useCurrency } from '../hooks/useCurrency';
 import IncomeExpenditureReport from './IncomeExpenditureReport';
 import ErrorBoundary from './ErrorBoundary';
 
+interface NetWorthData {
+  month: string;
+  netWorth: number;
+}
+
+interface AccountDistributionData {
+  id: string;
+  name: string;
+  value: number;
+}
+
+interface ReconciliationData {
+  account: {
+    id: string;
+    name: string;
+  };
+  unreconciledCount: number;
+  totalToReconcile: number;
+}
+
+interface IncomeExpenditureData {
+  settings: Record<string, unknown>;
+  setSettings: (settings: Record<string, unknown>) => void;
+  categories: Array<{
+    id: string;
+    name: string;
+    type: string;
+    level: string;
+    parentId?: string;
+  }>;
+  transactions: Array<{
+    id: string;
+    date: Date;
+    amount: number;
+    category: string;
+    accountId: string;
+    type: string;
+  }>;
+  accounts: Array<{
+    id: string;
+    name: string;
+    type: string;
+    balance: number;
+  }>;
+}
+
 interface DashboardModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
   type: 'networth-chart' | 'account-distribution' | 'income-expenditure' | 'reconciliation' | null;
-  data?: any;
-  chartStyles?: any;
+  data?: NetWorthData[] | AccountDistributionData[] | ReconciliationData[] | IncomeExpenditureData;
+  chartStyles?: {
+    tooltip?: React.CSSProperties;
+    pieTooltip?: React.CSSProperties;
+  };
 }
 
 export default function DashboardModal({ 
@@ -70,9 +119,10 @@ export default function DashboardModal({
                   fill="#8B5CF6" 
                   radius={[4, 4, 0, 0]}
                   style={{ cursor: 'pointer' }}
-                  onClick={(data: any) => {
-                    if (data && data.month) {
-                      navigate(`/networth/monthly/${data.month}`);
+                  onClick={(data) => {
+                    const monthData = data as NetWorthData;
+                    if (monthData && monthData.month) {
+                      navigate(`/networth/monthly/${monthData.month}`);
                       onClose();
                     }
                   }}
@@ -101,7 +151,7 @@ export default function DashboardModal({
                   }}
                   style={{ cursor: 'pointer' }}
                 >
-                  {data?.map((_: any, index: number) => (
+                  {(data as AccountDistributionData[])?.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Pie>
@@ -142,13 +192,13 @@ export default function DashboardModal({
               <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                 <p className="text-sm text-orange-600 dark:text-orange-400">Unreconciled</p>
                 <p className="text-2xl font-bold text-orange-700 dark:text-orange-300">
-                  {data?.reduce((sum: number, acc: any) => sum + acc.unreconciledCount, 0) || 0}
+                  {(data as ReconciliationData[])?.reduce((sum, acc) => sum + acc.unreconciledCount, 0) || 0}
                 </p>
               </div>
               <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
                 <p className="text-sm text-green-600 dark:text-green-400">Total Value</p>
                 <p className="text-2xl font-bold text-green-700 dark:text-green-300">
-                  {formatCurrency(data?.reduce((sum: number, acc: any) => sum + acc.totalToReconcile, 0) || 0)}
+                  {formatCurrency((data as ReconciliationData[])?.reduce((sum, acc) => sum + acc.totalToReconcile, 0) || 0)}
                 </p>
               </div>
             </div>
@@ -160,7 +210,7 @@ export default function DashboardModal({
                 <div className="text-center">Total Amount</div>
               </div>
               <div className="divide-y divide-gray-200 dark:divide-gray-600">
-                {data?.map((account: any) => (
+                {(data as ReconciliationData[])?.map((account) => (
                   <div 
                     key={account.account.id}
                     className="grid grid-cols-3 gap-4 p-4 hover:bg-gray-100 dark:hover:bg-gray-600 cursor-pointer transition-colors"

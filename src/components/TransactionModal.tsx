@@ -3,11 +3,12 @@ import { useApp } from '../contexts/AppContext';
 import { X } from 'lucide-react';
 import TagSelector from './TagSelector';
 import CategorySelector from './CategorySelector';
+import type { Transaction } from '../types';
 
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  transaction?: any;
+  transaction?: Transaction;
 }
 
 export default function TransactionModal({ isOpen, onClose, transaction }: TransactionModalProps) {

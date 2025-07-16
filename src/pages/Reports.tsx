@@ -197,7 +197,7 @@ export default function Reports() {
             <Calendar className="text-gray-500" size={20} />
             <select
               value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as any)}
+              onChange={(e) => setDateRange(e.target.value as 'month' | 'quarter' | 'year' | 'all')}
               className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="month">Last Month</option>

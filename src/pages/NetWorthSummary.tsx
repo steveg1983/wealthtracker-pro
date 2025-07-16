@@ -3,8 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, Banknote, ChevronRight, Building2, CreditCard, Landmark, PiggyBank } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
+import type { Account } from '../types';
 
 type SummaryType = 'networth' | 'assets' | 'liabilities';
+
+interface ConvertedAccount extends Account {
+  convertedBalance: number;
+}
 
 export default function NetWorthSummary() {
   const { accounts } = useApp();
@@ -12,20 +17,7 @@ export default function NetWorthSummary() {
   const navigate = useNavigate();
   const { type = 'networth' } = useParams<{ type: SummaryType }>();
   const [isLoading, setIsLoading] = useState(true);
-  const [convertedAccounts, setConvertedAccounts] = useState<any[]>([]);
-
-  // Get relevant accounts based on type
-  const getRelevantAccounts = () => {
-    switch (type) {
-      case 'assets':
-        return accounts.filter(acc => acc.balance > 0);
-      case 'liabilities':
-        return accounts.filter(acc => acc.balance < 0);
-      case 'networth':
-      default:
-        return accounts;
-    }
-  };
+  const [convertedAccounts, setConvertedAccounts] = useState<ConvertedAccount[]>([]);
 
   // Convert account balances to display currency
   useEffect(() => {
@@ -33,6 +25,20 @@ export default function NetWorthSummary() {
 
     const convertAccounts = async () => {
       setIsLoading(true);
+      
+      // Get relevant accounts based on type
+      const getRelevantAccounts = () => {
+        switch (type) {
+          case 'assets':
+            return accounts.filter(acc => acc.balance > 0);
+          case 'liabilities':
+            return accounts.filter(acc => acc.balance < 0);
+          case 'networth':
+          default:
+            return accounts;
+        }
+      };
+      
       const relevantAccounts = getRelevantAccounts();
       
       try {
@@ -66,7 +72,7 @@ export default function NetWorthSummary() {
     return () => {
       cancelled = true;
     };
-  }, [accounts, type, displayCurrency]);
+  }, [accounts, type, displayCurrency, convertAndSum]);
 
   const relevantAccounts = convertedAccounts;
   const totalAmount = relevantAccounts.reduce((sum, acc) => sum + acc.convertedBalance, 0);
@@ -201,7 +207,7 @@ export default function NetWorthSummary() {
       {/* Accounts by Type */}
       <div className="space-y-6">
         {Object.entries(groupedAccounts).map(([accountType, accountsList]) => {
-          const typeTotal = (accountsList as any[]).reduce((sum: number, acc: any) => sum + acc.convertedBalance, 0);
+          const typeTotal = (accountsList as ConvertedAccount[]).reduce((sum, acc) => sum + acc.convertedBalance, 0);
           
           return (
             <div key={accountType} className="bg-white dark:bg-gray-800 rounded-2xl shadow">
@@ -214,7 +220,7 @@ export default function NetWorthSummary() {
                         {getAccountTypeLabel(accountType)}
                       </h3>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {(accountsList as any[]).length} {(accountsList as any[]).length === 1 ? 'account' : 'accounts'}
+                        {(accountsList as ConvertedAccount[]).length} {(accountsList as ConvertedAccount[]).length === 1 ? 'account' : 'accounts'}
                       </p>
                     </div>
                   </div>
@@ -229,7 +235,7 @@ export default function NetWorthSummary() {
               </div>
               
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {(accountsList as any[]).map((account: any) => (
+                {(accountsList as ConvertedAccount[]).map((account) => (
                   <div
                     key={account.id}
                     className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"

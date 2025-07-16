@@ -144,7 +144,7 @@ export default function AppSettings() {
             {themeOptions.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
-                onClick={() => setTheme(value as any)}
+                onClick={() => setTheme(value as 'light' | 'dark' | 'auto')}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${
                   theme === value
                     ? 'border-primary bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
