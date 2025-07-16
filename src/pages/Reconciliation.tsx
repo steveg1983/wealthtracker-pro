@@ -205,12 +205,15 @@ export default function Reconciliation() {
 
   // Validate split amounts
   const validateSplitAmounts = () => {
+    if (!splittingTransaction) return false;
     const total = splitItems.reduce((sum, item) => sum + parseFloat(item.amount.toString() || '0'), 0);
     return Math.abs(total - splittingTransaction.amount) < 0.01; // Allow for small rounding differences
   };
 
   // Save split transaction
   const saveSplitTransaction = () => {
+    if (!splittingTransaction) return;
+    
     if (!validateSplitAmounts()) {
       alert('Split amounts must equal the original transaction amount');
       return;
@@ -219,7 +222,6 @@ export default function Reconciliation() {
     // Mark original transaction as split and update its display
     handleFieldEdit(splittingTransaction.id, 'description', 'Various');
     handleFieldEdit(splittingTransaction.id, 'category', 'multiple');
-    handleFieldEdit(splittingTransaction.id, 'isSplit', true);
     
     // Save the edits
     saveInlineEdits(splittingTransaction.id);

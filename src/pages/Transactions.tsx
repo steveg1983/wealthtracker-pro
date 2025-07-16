@@ -416,7 +416,7 @@ export default function Transactions() {
           isDragOver ? 'bg-white/20 border-l-4 border-l-white/80 dark:border-l-gray-300/80 before:absolute before:top-0 before:left-0 before:w-full before:h-full before:bg-white/10 before:animate-pulse' : ''
         } transition-all duration-200 ease-in-out`}
         style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}
-        onClick={config.sortable ? () => handleSort(columnKey as keyof typeof columnConfig) : undefined}
+        onClick={config.sortable && ['date', 'account', 'description', 'category', 'amount'].includes(columnKey) ? () => handleSort(columnKey as 'date' | 'account' | 'description' | 'category' | 'amount') : undefined}
       >
         <div className="flex items-center gap-1" style={{ justifyContent: config.className === 'text-right' ? 'flex-end' : 'flex-start' }}>
           {config.label}

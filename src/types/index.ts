@@ -41,6 +41,8 @@ export interface Transaction {
   reconciledWith?: string;
   bankReference?: string;
   isRecurring?: boolean;
+  isSplit?: boolean;
+  isImported?: boolean;
 }
 
 export interface Budget {

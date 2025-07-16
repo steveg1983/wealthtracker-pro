@@ -169,7 +169,7 @@ export function applyMappingToData(rawData: Array<Record<string, unknown>>, mapp
       } else if (dateField instanceof Date) {
         date = dateField;
       } else {
-        date = new Date(dateField);
+        date = new Date(String(dateField));
       }
       
       if (isNaN(date.getTime())) return;
@@ -180,9 +180,9 @@ export function applyMappingToData(rawData: Array<Record<string, unknown>>, mapp
       const amount = Math.round(rawAmount * 100) / 100;
       
       // Get optional fields
-      const payee = mapping.payee !== undefined ? record[Object.keys(record)[mapping.payee]] : undefined;
-      const category = mapping.category !== undefined ? record[Object.keys(record)[mapping.category]] : 'Imported';
-      const accountName = mapping.accountName !== undefined ? record[Object.keys(record)[mapping.accountName]] : 'Primary Account';
+      const payee = mapping.payee !== undefined ? String(record[Object.keys(record)[mapping.payee]] || '') : undefined;
+      const category = mapping.category !== undefined ? String(record[Object.keys(record)[mapping.category]] || 'Imported') : 'Imported';
+      const accountName = mapping.accountName !== undefined ? String(record[Object.keys(record)[mapping.accountName]] || 'Primary Account') : 'Primary Account';
       
       // Add account if new
       if (accountName && !accounts.has(accountName)) {

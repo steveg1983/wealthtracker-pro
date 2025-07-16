@@ -8,6 +8,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { useReconciliation } from '../hooks/useReconciliation';
 import { useLayoutConfig } from '../hooks/useLayoutConfig';
 import { DraggableGrid } from '../components/layout/DraggableGrid';
+import type { Account } from '../types';
 import { GridItem } from '../components/layout/GridItem';
 import TestDataWarningModal from '../components/TestDataWarningModal';
 import OnboardingModal from '../components/OnboardingModal';
@@ -40,7 +41,7 @@ export default function Dashboard() {
     isOpen: boolean;
     type: 'networth-chart' | 'account-distribution' | 'income-expenditure' | 'reconciliation' | null;
     title: string;
-    data?: unknown;
+    data?: any;
   }>({
     isOpen: false,
     type: null,
@@ -312,11 +313,20 @@ export default function Dashboard() {
 
       // Build report data based on category level
       const reportData: Array<{
-        category: { name: string; isHeader?: boolean };
+        category: { 
+          id?: string;
+          name: string; 
+          type?: string;
+          level?: string;
+          isHeader?: boolean;
+        };
         monthlyData: Array<{ month: string; income: number; expenditure: number; net: number }>;
         isIndented?: boolean;
         isDoubleIndented?: boolean;
         showSubtotal?: boolean;
+        totalIncome?: number;
+        totalExpenditure?: number;
+        totalNet?: number;
       }> = [];
       const incomeType = categories.find(c => c.id === 'type-income' || (c.level === 'type' && c.name === 'Income'));
       const expenseType = categories.find(c => c.id === 'type-expense' || (c.level === 'type' && c.name === 'Expense'));
@@ -485,7 +495,9 @@ export default function Dashboard() {
             subDetails.forEach(detail => {
               const data = calculateCategoryData(detail);
               if (data.totalIncome > 0 || data.totalExpenditure > 0) {
-                allIncomeDetailData.push(data);
+                data.monthlyData.forEach(monthData => {
+                  allIncomeDetailData.push(monthData);
+                });
               }
             });
           });
@@ -493,10 +505,9 @@ export default function Dashboard() {
           if (allIncomeDetailData.length > 0) {
             // Calculate income subtotals
             const incomeMonthlySubtotals = months.map(month => {
-              const monthTotal = allIncomeDetailData.reduce((sum, item) => {
-                const monthData = item.monthlyData.find((m) => m.month === month.key);
-                return sum + (monthData ? monthData.net : 0);
-              }, 0);
+              const monthTotal = allIncomeDetailData
+                .filter(item => item.month === month.key)
+                .reduce((sum, item) => sum + item.net, 0);
               return {
                 month: month.key,
                 monthLabel: month.label,
@@ -506,7 +517,7 @@ export default function Dashboard() {
               };
             });
             
-            const incomeTotalNet = allIncomeDetailData.reduce((sum, item) => sum + item.totalNet, 0);
+            const incomeTotalNet = allIncomeDetailData.reduce((sum, item) => sum + item.net, 0);
             
             reportData.push({
               category: { ...incomeType, isHeader: true },
@@ -565,7 +576,9 @@ export default function Dashboard() {
             subDetails.forEach(detail => {
               const data = calculateCategoryData(detail);
               if (data.totalIncome > 0 || data.totalExpenditure > 0) {
-                allExpenseDetailData.push(data);
+                data.monthlyData.forEach(monthData => {
+                  allExpenseDetailData.push(monthData);
+                });
               }
             });
           });
@@ -573,10 +586,9 @@ export default function Dashboard() {
           if (allExpenseDetailData.length > 0) {
             // Calculate expense subtotals
             const expenseMonthlySubtotals = months.map(month => {
-              const monthTotal = allExpenseDetailData.reduce((sum, item) => {
-                const monthData = item.monthlyData.find((m) => m.month === month.key);
-                return sum + (monthData ? monthData.net : 0);
-              }, 0);
+              const monthTotal = allExpenseDetailData
+                .filter(item => item.month === month.key)
+                .reduce((sum, item) => sum + item.net, 0);
               return {
                 month: month.key,
                 monthLabel: month.label,
@@ -586,7 +598,7 @@ export default function Dashboard() {
               };
             });
             
-            const expenseTotalNet = allExpenseDetailData.reduce((sum, item) => sum + item.totalNet, 0);
+            const expenseTotalNet = allExpenseDetailData.reduce((sum, item) => sum + item.net, 0);
             
             reportData.push({
               category: { ...expenseType, isHeader: true },

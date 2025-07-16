@@ -24,39 +24,39 @@ export default function Budget() {
 
   // Calculate spent amounts for each budget with memoization
   const budgetsWithSpent = useMemo(() => {
-    return budgets.map(budget => {
-      if (!budget) return { ...budget, spent: 0, percentage: 0, remaining: 0 };
-
-      // Filter transactions for this budget's category
-      const categoryTransactions = transactions.filter(t => {
-        if (!t || !t.category || !t.date) return false;
-        if (t.category !== budget.category || t.type !== 'expense') return false;
-        
-        try {
-          const transDate = new Date(t.date);
-          if (budget.period === 'monthly') {
-            return transDate.getMonth() === currentMonth && 
-                   transDate.getFullYear() === currentYear;
-          } else {
-            return transDate.getFullYear() === currentYear;
+    return budgets
+      .filter(budget => budget !== null && budget !== undefined)
+      .map(budget => {
+        // Filter transactions for this budget's category
+        const categoryTransactions = transactions.filter(t => {
+          if (!t || !t.category || !t.date) return false;
+          if (t.category !== budget.category || t.type !== 'expense') return false;
+          
+          try {
+            const transDate = new Date(t.date);
+            if (budget.period === 'monthly') {
+              return transDate.getMonth() === currentMonth && 
+                     transDate.getFullYear() === currentYear;
+            } else {
+              return transDate.getFullYear() === currentYear;
+            }
+          } catch {
+            return false;
           }
-        } catch {
-          return false;
-        }
+        });
+
+        const spent = categoryTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+        const budgetAmount = Number(budget.amount) || 0;
+        const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
+        const remaining = budgetAmount - spent;
+
+        return {
+          ...budget,
+          spent,
+          percentage,
+          remaining
+        };
       });
-
-      const spent = categoryTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-      const budgetAmount = Number(budget.amount) || 0;
-      const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
-      const remaining = budgetAmount - spent;
-
-      return {
-        ...budget,
-        spent,
-        percentage,
-        remaining
-      };
-    });
   }, [budgets, transactions, currentMonth, currentYear]);
 
   const handleEdit = (budget: Budget) => {
@@ -248,7 +248,7 @@ export default function Budget() {
       <BudgetModal
         isOpen={isModalOpen}
         onClose={handleModalClose}
-        budget={editingBudget}
+        budget={editingBudget || undefined}
       />
     </div>
   );
