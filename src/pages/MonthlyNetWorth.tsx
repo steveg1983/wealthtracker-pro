@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, TrendingUp, TrendingDown, Banknote, Building2, CreditCard, Landmark, PiggyBank } from 'lucide-react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
