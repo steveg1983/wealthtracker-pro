@@ -15,7 +15,7 @@ export interface Holding {
 export interface Account {
   id: string;
   name: string;
-  type: 'current' | 'checking' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
+  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
   balance: number;
   currency: string;
   institution?: string;

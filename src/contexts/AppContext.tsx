@@ -30,7 +30,7 @@ interface Category {
   isSystem?: boolean;
 }
 
-interface RecurringTransaction {
+export interface RecurringTransaction {
   id: string;
   description: string;
   amount: number;
@@ -185,7 +185,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   // Determine if we have test data based on actual data presence
   const [hasTestData, setHasTestData] = useState(() => {
     // Check if we have the default test data loaded
-    return accounts.length > 0 && accounts.some((acc) => 
+    return accounts.length > 0 && accounts.some((acc: Account) => 
       acc.name === 'Main Checking' || acc.name === 'Savings Account'
     );
   });
@@ -287,21 +287,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Remove the cleared flag since we're loading data
       localStorage.removeItem('wealthtracker_data_cleared');
     },
-    addAccount: (account) => setAccounts(prev => [...prev, { ...account, id: Date.now().toString(), lastUpdated: new Date() }]),
-    updateAccount: (id, updates) => setAccounts(prev => prev.map(a => a.id === id ? { ...a, ...updates, lastUpdated: new Date() } : a)),
-    deleteAccount: (id) => setAccounts(prev => prev.filter(a => a.id !== id)),
-    addTransaction: (transaction) => setTransactions(prev => [...prev, { ...transaction, id: Date.now().toString() }]),
-    updateTransaction: (id, updates) => setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t)),
-    deleteTransaction: (id) => setTransactions(prev => prev.filter(t => t.id !== id)),
-    addBudget: (budget) => setBudgets(prev => [...prev, { ...budget, id: Date.now().toString(), createdAt: new Date() }]),
-    updateBudget: (id, updates) => setBudgets(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b)),
-    deleteBudget: (id) => setBudgets(prev => prev.filter(b => b.id !== id)),
+    addAccount: (account) => setAccounts((prev: Account[]) => [...prev, { ...account, id: Date.now().toString(), lastUpdated: new Date() }]),
+    updateAccount: (id, updates) => setAccounts((prev: Account[]) => prev.map((a: Account) => a.id === id ? { ...a, ...updates, lastUpdated: new Date() } : a)),
+    deleteAccount: (id) => setAccounts((prev: Account[]) => prev.filter((a: Account) => a.id !== id)),
+    addTransaction: (transaction) => setTransactions((prev: Transaction[]) => [...prev, { ...transaction, id: Date.now().toString() }]),
+    updateTransaction: (id, updates) => setTransactions((prev: Transaction[]) => prev.map((t: Transaction) => t.id === id ? { ...t, ...updates } : t)),
+    deleteTransaction: (id) => setTransactions((prev: Transaction[]) => prev.filter((t: Transaction) => t.id !== id)),
+    addBudget: (budget) => setBudgets((prev: Budget[]) => [...prev, { ...budget, id: Date.now().toString(), createdAt: new Date() }]),
+    updateBudget: (id, updates) => setBudgets((prev: Budget[]) => prev.map((b: Budget) => b.id === id ? { ...b, ...updates } : b)),
+    deleteBudget: (id) => setBudgets((prev: Budget[]) => prev.filter((b: Budget) => b.id !== id)),
     addCategory: (category) => setCategories(prev => [...prev, { ...category, id: Date.now().toString() }]),
     updateCategory: (id, updates) => setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c)),
     deleteCategory: (id) => setCategories(prev => prev.filter(c => c.id !== id)),
-    addGoal: (goal) => setGoals(prev => [...prev, { ...goal, id: Date.now().toString(), createdAt: new Date() }]),
-    updateGoal: (id, updates) => setGoals(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g)),
-    deleteGoal: (id) => setGoals(prev => prev.filter(g => g.id !== id)),
+    addGoal: (goal) => setGoals((prev: Goal[]) => [...prev, { ...goal, id: Date.now().toString(), createdAt: new Date() }]),
+    updateGoal: (id, updates) => setGoals((prev: Goal[]) => prev.map((g: Goal) => g.id === id ? { ...g, ...updates } : g)),
+    deleteGoal: (id) => setGoals((prev: Goal[]) => prev.filter((g: Goal) => g.id !== id)),
     addTag: (tag: Omit<Tag, 'id' | 'createdAt' | 'updatedAt'>) => {
       const newTag: Tag = {
         ...tag,
@@ -318,13 +318,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     deleteTag: (id) => setTags(prev => prev.filter(t => t.id !== id)),
     getTagUsageCount: (tagName) => {
-      return transactions.filter(t => t.tags?.includes(tagName)).length;
+      return transactions.filter((t: Transaction) => t.tags?.includes(tagName)).length;
     },
     getAllUsedTags: () => {
       const allTags = new Set<string>();
-      transactions.forEach(t => {
+      transactions.forEach((t: Transaction) => {
         if (t.tags) {
-          t.tags.forEach(tag => allTags.add(tag));
+          t.tags.forEach((tag: string) => allTags.add(tag));
         }
       });
       return Array.from(allTags);
@@ -333,12 +333,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     addRecurringTransaction: (transaction) => setRecurringTransactions(prev => [...prev, { ...transaction, id: Date.now().toString() }]),
     updateRecurringTransaction: (id, updates) => setRecurringTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t)),
     deleteRecurringTransaction: (id) => setRecurringTransactions(prev => prev.filter(t => t.id !== id)),
-    importTransactions: (newTransactions) => setTransactions(prev => [...prev, ...newTransactions.map(t => ({ ...t, id: Date.now().toString() + Math.random() }))]),
+    importTransactions: (newTransactions) => setTransactions((prev: Transaction[]) => [...prev, ...newTransactions.map(t => ({ ...t, id: Date.now().toString() + Math.random() }))]),
     getSubCategories: (parentId) => categories.filter(c => c.parentId === parentId && c.level === 'sub'),
     getDetailCategories: (parentId) => categories.filter(c => c.parentId === parentId && c.level === 'detail'),
     createTransferTransaction: (from, to, amount, date) => {
       // Create transfer transactions
-      setTransactions((prev) => [...prev,
+      setTransactions((prev: Transaction[]) => [...prev,
         { id: Date.now().toString(), date, description: 'Transfer Out', amount, type: 'expense', category: 'transfer-out', accountId: from, cleared: false },
         { id: (Date.now() + 1).toString(), date, description: 'Transfer In', amount, type: 'income', category: 'transfer-in', accountId: to, cleared: false }
       ]);

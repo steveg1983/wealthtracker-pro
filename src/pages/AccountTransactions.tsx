@@ -23,7 +23,7 @@ export default function AccountTransactions() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
-  const [sortField, setSortField] = useState<'date' | 'description' | 'amount'>('date');
+  const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // State for modals and selection
@@ -309,7 +309,7 @@ export default function AccountTransactions() {
   };
   
   // Handle sort
-  const handleSort = (field: 'date' | 'description' | 'amount') => {
+  const handleSort = (field: typeof sortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -392,7 +392,7 @@ export default function AccountTransactions() {
           isDragOver ? 'bg-white/20 border-l-4 border-l-white/80 dark:border-l-gray-300/80' : ''
         } transition-all duration-200 ease-in-out`}
         style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}
-        onClick={config.sortable ? () => handleSort(columnKey as keyof typeof columnConfig) : undefined}
+        onClick={config.sortable && ['date', 'description', 'amount'].includes(columnKey) ? () => handleSort(columnKey as 'date' | 'description' | 'amount') : undefined}
       >
         <div className="flex items-center gap-1" style={{ justifyContent: config.className === 'text-right' ? 'flex-end' : 'flex-start' }}>
           {config.label}

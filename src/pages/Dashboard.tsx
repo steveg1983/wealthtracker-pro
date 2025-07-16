@@ -477,7 +477,7 @@ export default function Dashboard() {
       } else if (incomeExpReportSettings.categoryLevel === 'detail') {
         // Detail level - show full hierarchy
         if (incomeType && !incomeExpReportSettings.excludedCategories.includes(incomeType.id)) {
-          const allIncomeDetailData: Array<{ month: string; income: number; expenditure: number }> = [];
+          const allIncomeDetailData: Array<{ month: string; income: number; expenditure: number; net: number }> = [];
           const incomeSubs = categories.filter(c => 
             c.parentId === incomeType.id && 
             c.level === 'sub' &&
@@ -558,7 +558,7 @@ export default function Dashboard() {
         }
         
         if (expenseType && !incomeExpReportSettings.excludedCategories.includes(expenseType.id)) {
-          const allExpenseDetailData: Array<{ month: string; income: number; expenditure: number }> = [];
+          const allExpenseDetailData: Array<{ month: string; income: number; expenditure: number; net: number }> = [];
           const expenseSubs = categories.filter(c => 
             c.parentId === expenseType.id && 
             c.level === 'sub' &&
@@ -840,12 +840,6 @@ export default function Dashboard() {
                     dataKey="netWorth" 
                     fill="#8B5CF6" 
                     radius={[4, 4, 0, 0]}
-                    style={{ cursor: 'pointer' }}
-                    onClick={(data) => {
-                      if (data && data.month) {
-                        navigate(`/networth/monthly/${data.month}`);
-                      }
-                    }}
                   />
                 </BarChart>
               </ResponsiveContainer>

@@ -88,8 +88,8 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
           type: transaction.type,
           category: split.category,
           accountId: transaction.accountId,
-          originalTransactionId: transaction.id,
-          isSplit: true
+          isSplit: true,
+          notes: `Split from transaction: ${transaction.id}`
         });
       });
     }

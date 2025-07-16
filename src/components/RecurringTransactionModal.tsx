@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useApp } from '../contexts/AppContext';
+import type { RecurringTransaction } from '../contexts/AppContext';
 import { Repeat } from "lucide-react";
 import { Modal, ModalBody } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
@@ -9,24 +10,22 @@ interface RecurringTransactionModalProps {
   onClose: () => void;
 }
 
-interface RecurringTransaction {
-  id?: string;
+interface RecurringTransactionFormData {
   description: string;
   amount: number;
-  type: 'income' | 'expense' | 'transfer';
+  type: 'income' | 'expense';
   category: string;
   accountId: string;
   frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
   startDate: string;
   endDate?: string;
-  lastProcessed?: string;
 }
 
 export default function RecurringTransactionModal({ isOpen, onClose }: RecurringTransactionModalProps) {
   const { accounts, addTransaction, recurringTransactions = [], addRecurringTransaction, deleteRecurringTransaction } = useApp();
   const [showForm, setShowForm] = useState(false);
   
-  const { formData, updateField, handleSubmit, reset } = useModalForm<RecurringTransaction>(
+  const { formData, updateField, handleSubmit, reset } = useModalForm<RecurringTransactionFormData>(
     {
       description: '',
       amount: 0,
@@ -38,7 +37,22 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
     },
     {
       onSubmit: (data) => {
-        addRecurringTransaction(data);
+        const startDate = new Date(data.startDate);
+        const nextDate = new Date(data.startDate);
+        
+        addRecurringTransaction({
+          description: data.description,
+          amount: data.amount,
+          type: data.type,
+          category: data.category,
+          accountId: data.accountId,
+          frequency: data.frequency,
+          interval: 1,
+          startDate,
+          endDate: data.endDate ? new Date(data.endDate) : undefined,
+          nextDate,
+          isActive: true
+        });
         reset();
         setShowForm(false);
       },
@@ -82,8 +96,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
           type: recurring.type,
           category: recurring.category,
           accountId: recurring.accountId,
-          isRecurring: true,
-          recurringId: recurring.id
+          isRecurring: true
         });
       }
       
@@ -124,7 +137,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
             </button>
 
             <div className="space-y-3">
-              {recurringTransactions?.map((recurring: RecurringTransaction) => (
+              {recurringTransactions?.map((recurring) => (
                 <div key={recurring.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
                   <div className="flex justify-between items-start">
                     <div>
