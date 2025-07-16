@@ -83,17 +83,6 @@ export default function NetWorthSummary() {
     }
   };
 
-  const getDescription = () => {
-    switch (type) {
-      case 'assets':
-        return 'All your accounts with positive balances';
-      case 'liabilities':
-        return 'All your accounts with negative balances (debts)';
-      case 'networth':
-      default:
-        return 'Your total assets minus your total liabilities';
-    }
-  };
 
   const getIcon = (accountType: string) => {
     switch (accountType) {

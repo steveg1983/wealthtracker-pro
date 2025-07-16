@@ -8,7 +8,7 @@ export default function MonthlyNetWorth() {
   const { accounts } = useApp();
   const { formatCurrency, convertAndSum, displayCurrency } = useCurrency();
   const navigate = useNavigate();
-  const { month } = useParams<{ month: string }>();
+  // const { month } = useParams<{ month: string }>();
   const [isLoading, setIsLoading] = useState(true);
   interface ConvertedAccount {
     id: string;
