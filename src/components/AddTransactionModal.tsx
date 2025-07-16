@@ -108,7 +108,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               <select
                 value={formData.accountId}
                 onChange={(e) => updateField('accountId', e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 required
               >
                 <option value="">Select account</option>
@@ -128,7 +128,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 type="text"
                 value={formData.description}
                 onChange={(e) => updateField('description', e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 placeholder="e.g., Grocery shopping"
                 required
               />
@@ -146,7 +146,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 step="0.01"
                 value={formData.amount}
                 onChange={(e) => updateField('amount', e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 placeholder="0.00"
                 required
               />
@@ -175,7 +175,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                     updateField('subCategory', e.target.value);
                     updateField('category', ''); // Reset detail category
                   }}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                  className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                   required
                 >
                   <option value="">Select category</option>
@@ -194,7 +194,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                   <select
                     value={formData.category}
                     onChange={(e) => updateField('category', e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                    className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                     required
                   >
                     <option value="">Select sub-category</option>
@@ -214,7 +214,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 type="date"
                 value={formData.date}
                 onChange={(e) => updateField('date', e.target.value)}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 required
               />
             </div>

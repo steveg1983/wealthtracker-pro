@@ -529,7 +529,7 @@ export default function AccountTransactions() {
                   placeholder="Search by description, amount, category..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 text-sm md:text-base bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                  className="w-full pl-10 pr-4 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 />
               </div>
             </div>
@@ -572,7 +572,7 @@ export default function AccountTransactions() {
               {/* Compact View Toggle */}
               <button
                 onClick={() => setCompactView(!compactView)}
-                className="flex items-center gap-2 px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                className="flex items-center gap-2 px-3 py-3 sm:py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-[48px] sm:min-h-[auto]"
                 title={compactView ? "Expand view" : "Compact view"}
               >
                 {compactView ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
@@ -589,7 +589,7 @@ export default function AccountTransactions() {
                 type="date"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="w-36 px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                className="w-36 px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 placeholder="From"
               />
               <span className="text-sm text-gray-500 dark:text-gray-400">to</span>
@@ -597,7 +597,7 @@ export default function AccountTransactions() {
                 type="date"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="w-36 px-3 py-2 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                className="w-36 px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 placeholder="To"
               />
               {(dateFrom || dateTo) && (

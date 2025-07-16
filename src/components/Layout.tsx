@@ -43,7 +43,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
     </>
   );
 
-  const className = `flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+  const className = `flex items-center gap-3 px-4 py-4 md:py-3 rounded-lg transition-colors min-h-[48px] md:min-h-[auto] ${
     isSubItem ? 'ml-6 text-sm' : ''
   } ${
     isCollapsed ? 'sidebar-link-collapsed' : ''
@@ -209,15 +209,15 @@ export default function Layout() {
       {/* Mobile Menu Button */}
       <button
         onClick={toggleMobileMenu}
-        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-[#8EA9DB] dark:bg-gray-800 rounded-xl shadow-2xl hover:shadow-xl transition-shadow"
+        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-[#8EA9DB] dark:bg-gray-800 rounded-xl shadow-2xl hover:shadow-xl transition-shadow min-w-[48px] min-h-[48px] flex items-center justify-center"
       >
-        {isMobileMenuOpen ? <X size={28} className="text-white dark:text-gray-300" /> : <Menu size={28} className="text-white dark:text-gray-300" />}
+        {isMobileMenuOpen ? <X size={32} className="text-white dark:text-gray-200" /> : <Menu size={32} className="text-white dark:text-gray-200" />}
       </button>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
         <div className="md:hidden fixed inset-0 z-40 bg-black bg-opacity-50" onClick={toggleMobileMenu}>
-          <aside className="w-72 h-full bg-[#8EA9DB] dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl" onClick={e => e.stopPropagation()}>
+          <aside className="w-full max-w-sm h-full bg-[#8EA9DB] dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl" onClick={e => e.stopPropagation()}>
             <div className="p-4 pb-6">
               {/* Mobile header with close button */}
               <div className="flex justify-between items-center mb-8">
