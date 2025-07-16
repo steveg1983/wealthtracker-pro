@@ -723,47 +723,47 @@ export default function Dashboard() {
         {/* Fixed Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <div 
-          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 md:p-6 cursor-pointer hover:shadow-xl hover:border-blue-200/50 transition-all"
+          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 md:p-8 cursor-pointer hover:shadow-xl hover:border-blue-200/50 transition-all"
           onClick={() => setShowAccountBreakdown({ isOpen: true, type: 'networth', title: 'Net Worth Breakdown' })}
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Net Worth</p>
-              <p className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white mt-1">
+              <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Net Worth</p>
+              <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-1">
                 {isLoading ? '...' : formatCurrency(netWorth)}
               </p>
             </div>
-            <Banknote className="text-primary ml-2" size={20} />
+            <Banknote className="text-primary ml-2" size={24} />
           </div>
         </div>
 
         <div 
-          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 md:p-6 cursor-pointer hover:shadow-xl hover:border-blue-200/50 transition-all"
+          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 md:p-8 cursor-pointer hover:shadow-xl hover:border-blue-200/50 transition-all"
           onClick={() => setShowAccountBreakdown({ isOpen: true, type: 'assets', title: 'Assets Breakdown' })}
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Total Assets</p>
-              <p className="text-xl md:text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
+              <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Total Assets</p>
+              <p className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400 mt-1">
                 {isLoading ? '...' : formatCurrency(totalAssets)}
               </p>
             </div>
-            <TrendingUp className="text-green-500 ml-2" size={20} />
+            <TrendingUp className="text-green-500 ml-2" size={24} />
           </div>
         </div>
 
         <div 
-          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 md:p-6 cursor-pointer hover:shadow-xl hover:border-blue-200/50 transition-all"
+          className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 md:p-8 cursor-pointer hover:shadow-xl hover:border-blue-200/50 transition-all"
           onClick={() => setShowAccountBreakdown({ isOpen: true, type: 'liabilities', title: 'Liabilities Breakdown' })}
         >
           <div className="flex items-center justify-between">
             <div className="flex-1">
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Total Liabilities</p>
-              <p className="text-xl md:text-2xl font-bold text-red-600 dark:text-red-400 mt-1">
+              <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Total Liabilities</p>
+              <p className="text-2xl md:text-3xl font-bold text-red-600 dark:text-red-400 mt-1">
                 {isLoading ? '...' : formatCurrency(totalLiabilities)}
               </p>
             </div>
-            <TrendingDown className="text-red-500 ml-2" size={20} />
+            <TrendingDown className="text-red-500 ml-2" size={24} />
           </div>
         </div>
         </div>
@@ -780,7 +780,7 @@ export default function Dashboard() {
         {/* Net Worth Chart */}
         <div key="asset-chart">
           <GridItem key="net-worth-chart" title="Net Worth Over Time">
-            <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-2">
+            <p className="text-sm md:text-base text-gray-500 dark:text-gray-400 mb-2">
               Click title for expanded view • Click any bar to see detailed breakdown
             </p>
             <div className="h-full min-h-[200px]">
@@ -833,10 +833,10 @@ export default function Dashboard() {
                   className="flex items-center gap-3 py-1.5 border-b dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors rounded px-2 -mx-2"
                   onClick={() => setEditingTransaction(transaction)}
                 >
-                  <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
+                  <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap w-12">
                     {new Date(transaction.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
                   </span>
-                  <span className="text-xs font-bold text-gray-600 dark:text-gray-400 w-4 text-center">
+                  <span className="text-sm font-bold text-gray-600 dark:text-gray-400 w-4 text-center">
                     {transaction.cleared ? 'R' : 'N'}
                   </span>
                   <p className="text-sm font-medium dark:text-white truncate flex-1">{transaction.description}</p>

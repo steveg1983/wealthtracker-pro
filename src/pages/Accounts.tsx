@@ -232,7 +232,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button
                                   onClick={() => setPortfolioAccountId(account.id)}
-                                  className="p-2 text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-100/50 dark:hover:bg-purple-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-100/50 dark:hover:bg-purple-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="View Portfolio"
                                 >
                                   <PieChart size={16} />
@@ -246,7 +246,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                               <div className="flex items-center gap-1">
                                 <button
                                   onClick={() => setSettingsAccountId(account.id)}
-                                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-600/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-600/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="Account Settings"
                                 >
                                   <Settings size={16} />
@@ -256,7 +256,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 </button>
                                 <button
                                   onClick={() => setReconcileAccountId(account.id)}
-                                  className="p-2 text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="Reconcile Account"
                                 >
                                   <CheckCircle size={16} />
@@ -266,7 +266,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 </button>
                                 <button
                                   onClick={() => handleEdit(account.id, account.balance)}
-                                  className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-600/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-600/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="Edit Balance"
                                 >
                                   <Edit size={16} />
@@ -276,7 +276,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 </button>
                                 <button
                                   onClick={() => handleDelete(account.id)}
-                                  className="p-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="Delete Account"
                                 >
                                   <Trash2 size={16} />

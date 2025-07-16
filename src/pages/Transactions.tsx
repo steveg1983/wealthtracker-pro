@@ -405,7 +405,7 @@ export default function Transactions() {
         onDragOver={(e) => handleDragOver(columnKey, e)}
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(columnKey, e)}
-        className={`px-6 ${compactView ? 'py-2' : 'py-3'} ${config.className} text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider ${
+        className={`px-6 ${compactView ? 'py-2' : 'py-3'} ${config.className} text-sm font-semibold text-white dark:text-gray-200 uppercase tracking-wider ${
           config.sortable ? 'cursor-pointer hover:text-white/80 dark:hover:text-gray-100' : ''
         } ${config.hidden || ''} relative ${
           isDragging ? 'opacity-70 shadow-2xl border-2 border-white/50 dark:border-gray-300/50 bg-white/10 dark:bg-gray-700/50 transform scale-105 z-50' : ''
@@ -441,21 +441,21 @@ export default function Transactions() {
     switch (columnKey) {
       case 'date':
         return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-xs text-gray-900 dark:text-gray-100`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-900 dark:text-gray-100`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
             {new Date(transaction.date).toLocaleDateString()}
           </td>
         );
       case 'reconciled':
         return (
           <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} text-center`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
-            <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
+            <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
               {transaction.cleared ? 'R' : 'N'}
             </span>
           </td>
         );
       case 'account':
         return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-xs text-gray-500 dark:text-gray-400`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-500 dark:text-gray-400`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
             <div className="truncate">
               {account?.name || 'Unknown'}
             </div>
@@ -466,13 +466,13 @@ export default function Transactions() {
           <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
             <div className="flex items-center gap-2">
               {getTypeIcon(transaction.type)}
-              <span className={`${compactView ? 'text-xs' : 'text-xs'} text-gray-900 dark:text-gray-100 truncate`}>{transaction.description}</span>
+              <span className={`${compactView ? 'text-sm' : 'text-sm'} text-gray-900 dark:text-gray-100 truncate`}>{transaction.description}</span>
             </div>
           </td>
         );
       case 'category':
         return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-xs text-gray-500 dark:text-gray-400 ${config.hidden}`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 ${config.hidden}`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
             <div className="truncate">
               {(() => {
                 const category = categories.find(c => c.id === transaction.category);
@@ -489,7 +489,7 @@ export default function Transactions() {
         );
       case 'amount':
         return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-xs text-right font-medium ${
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-right font-medium ${
             transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
           }`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
             {transaction.type === 'income' ? '+' : '-'}
@@ -498,14 +498,14 @@ export default function Transactions() {
         );
       case 'actions':
         return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-right text-xs font-medium`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
+          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-right text-sm font-medium`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   handleEdit(transaction);
                 }}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
               >
                 <Edit2 size={16} />
               </button>
@@ -514,7 +514,7 @@ export default function Transactions() {
                   e.stopPropagation();
                   handleDelete(transaction.id);
                 }}
-                className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
+                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30"
               >
                 <Trash2 size={16} />
               </button>
