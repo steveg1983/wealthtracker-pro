@@ -8,6 +8,7 @@ import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
 import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2, CheckCircle, Home, PieChart, Settings } from 'lucide-react';
 import { useCurrency } from '../hooks/useCurrency';
+import PageWrapper from '../components/PageWrapper';
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
   const { accounts, updateAccount, deleteAccount } = useApp();
@@ -117,20 +118,19 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
 
   return (
-    <div>
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 md:mb-6 gap-3">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">Accounts</h1>
-        </div>
+    <PageWrapper 
+      title="Accounts"
+      rightContent={
         <button 
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-primary text-white px-4 py-2 rounded-2xl hover:bg-primary/90 transition-colors flex items-center gap-2 self-end sm:self-auto"
+          className="bg-primary text-white px-4 py-2 rounded-2xl hover:bg-primary/90 transition-colors flex items-center gap-2 mr-4 md:mr-8"
         >
           <Plus size={20} />
           <span className="hidden sm:inline">Add Account</span>
           <span className="sm:hidden">Add</span>
         </button>
-      </div>
+      }
+    >
 
 
       {/* Accounts by Category */}
@@ -375,6 +375,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           setSettingsAccountId(null);
         }}
       />
-    </div>
+    </PageWrapper>
   );}
   

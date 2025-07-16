@@ -1,5 +1,6 @@
 import { Palette, Database, Tag, Settings2, Hash } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import PageWrapper from '../components/PageWrapper';
 
 export default function Settings() {
   const settingsOptions = [
@@ -34,10 +35,7 @@ export default function Settings() {
   ];
 
   return (
-    <div>
-      <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4 mb-8">
-        <h1 className="text-3xl font-bold text-white">Settings</h1>
-      </div>
+    <PageWrapper title="Settings">
 
       {/* Main About Section */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-8 mb-8">
@@ -117,6 +115,6 @@ export default function Settings() {
           ))}
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 }

@@ -4,6 +4,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { PlusCircle, Edit2, Trash2, TrendingUp, TrendingDown, Banknote } from 'lucide-react';
 import BudgetModal from '../components/BudgetModal';
 import type { Budget } from '../types';
+import PageWrapper from '../components/PageWrapper';
 
 export default function Budget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -94,19 +95,18 @@ export default function Budget() {
   }, [budgetsWithSpent]);
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">Budget</h1>
-        </div>
+    <PageWrapper 
+      title="Budget"
+      rightContent={
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors mr-4 md:mr-8"
         >
           <PlusCircle size={20} />
           Add Budget
         </button>
-      </div>
+      }
+    >
 
       {/* Main content grid with consistent spacing */}
       <div className="grid gap-6">
@@ -250,6 +250,6 @@ export default function Budget() {
         onClose={handleModalClose}
         budget={editingBudget || undefined}
       />
-    </div>
+    </PageWrapper>
   );
 }

@@ -7,6 +7,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { Plus, TrendingUp, TrendingDown, Calendar, Trash2, Minimize2, Maximize2, Edit2, Search, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Expand, Shrink } from 'lucide-react';
 import type { Transaction } from '../types';
+import PageWrapper from '../components/PageWrapper';
 
 export default function Transactions() {
   const { transactions, accounts, deleteTransaction, categories } = useApp();
@@ -530,17 +531,17 @@ export default function Transactions() {
   };
 
   return (
-    <div className={isWideView ? "w-[100vw] relative left-[50%] right-[50%] ml-[-50vw] mr-[-50vw] px-4 md:px-6 lg:px-8" : ""}>
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 md:mb-6 gap-3">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">Transactions</h1>
-          {filteredAccount && (
-            <p className="text-sm text-white/80 mt-1">
-              Showing transactions for: <span className="font-semibold">{filteredAccount.name}</span>
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2 self-end sm:self-auto">
+    <PageWrapper 
+      title="Transactions"
+      headerContent={
+        filteredAccount && (
+          <p className="text-sm text-white/80 mt-1 ml-4">
+            Showing transactions for: <span className="font-semibold">{filteredAccount.name}</span>
+          </p>
+        )
+      }
+      rightContent={
+        <div className="flex items-center gap-2 mr-4 md:mr-8">
           {/* Compact View Toggle */}
           <button
             onClick={() => setCompactView(!compactView)}
@@ -573,10 +574,11 @@ export default function Transactions() {
             <span className="hidden sm:inline">Add Transaction</span>
           </button>
         </div>
-      </div>
-
-      {/* Main content grid with consistent spacing */}
-      <div className="grid gap-6">
+      }
+    >
+      <div className={isWideView ? "w-[100vw] relative left-[50%] right-[50%] ml-[-50vw] mr-[-50vw] px-4 md:px-6 lg:px-8" : ""}>
+        {/* Main content grid with consistent spacing */}
+        <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
@@ -941,7 +943,8 @@ export default function Transactions() {
         onClose={handleCloseModal}
         transaction={editingTransaction}
       />
-    </div>
+      </div>
+    </PageWrapper>
   );
 }
 

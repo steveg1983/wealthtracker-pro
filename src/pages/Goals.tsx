@@ -3,6 +3,7 @@ import { useApp } from "../contexts/AppContext";
 import GoalModal from "../components/GoalModal";
 import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar } from "lucide-react";
 import type { Goal } from "../types";
+import PageWrapper from "../components/PageWrapper";
 
 export default function Goals() {
   const { goals, accounts, deleteGoal } = useApp();
@@ -68,19 +69,18 @@ export default function Goals() {
   const overallProgress = totalTargetAmount > 0 ? (totalCurrentAmount / totalTargetAmount) * 100 : 0;
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">Goals</h1>
-        </div>
+    <PageWrapper 
+      title="Goals"
+      rightContent={
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 mr-4 md:mr-8"
         >
           <Plus className="h-5 w-5" />
           Add Goal
         </button>
-      </div>
+      }
+    >
 
       {/* Main content grid with consistent spacing */}
       <div className="grid gap-6">
@@ -301,6 +301,6 @@ export default function Goals() {
         onClose={handleCloseModal}
         goal={editingGoal}
       />
-    </div>
+    </PageWrapper>
   );
 }
