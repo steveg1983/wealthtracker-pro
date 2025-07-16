@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useApp } from '../contexts/AppContext';
 import type { RecurringTransaction } from '../contexts/AppContext';
-import { Repeat } from "lucide-react";
+import { RepeatIcon } from './icons';
 import { Modal, ModalBody } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
 
@@ -123,7 +123,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
       <ModalBody>
 
         <div className="flex items-center gap-2 mb-4">
-          <Repeat size={20} className="text-gray-600 dark:text-gray-400" />
+          <RepeatIcon size={20} className="text-gray-600 dark:text-gray-400" />
           <span className="text-sm text-gray-600 dark:text-gray-400">Manage your recurring transactions</span>
         </div>
         

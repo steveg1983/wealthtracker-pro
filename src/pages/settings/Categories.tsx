@@ -2,12 +2,15 @@ import { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import CategoryCreationModal from '../../components/CategoryCreationModal';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
-import { Plus, X, Check, ChevronRight, ChevronDown, Trash2, AlertCircle, Settings2, GripVertical } from 'lucide-react';
+import { AlertCircleIcon, Settings2Icon, GripVerticalIcon } from '../../components/icons';
+import { PlusIcon, XIcon, CheckIcon, ChevronRightIcon, ChevronDownIcon, DeleteIcon } from '../../components/icons';
+import { IconButton } from '../../components/icons/IconButton';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragOverlay } from '@dnd-kit/core';
 import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import PageWrapper from '../../components/PageWrapper';
 
 interface Category {
   id: string;
@@ -81,7 +84,7 @@ function SortableCategory({
         <div className="flex items-center gap-2 flex-1">
           {isEditMode && isDraggable && (
             <div {...attributes} {...listeners} className="cursor-move text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300">
-              <GripVertical size={16} />
+              <GripVerticalIcon size={16} />
             </div>
           )}
           {!isEditMode && !isDraggable && <span className="w-4" />}
@@ -127,18 +130,20 @@ function SortableCategory({
         <div className="flex items-center gap-2">
           {isEditing ? (
             <>
-              <button
+              <IconButton
                 onClick={onSave}
-                className="text-green-600 hover:text-green-800 dark:text-green-400 dark:hover:text-green-300"
-              >
-                <Check size={16} />
-              </button>
-              <button
+                icon={<CheckIcon size={16} />}
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-gray-700"
+              />
+              <IconButton
                 onClick={onCancel}
-                className="text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-300"
-              >
-                <X size={16} />
-              </button>
+                icon={<XIcon size={16} />}
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-gray-700"
+              />
             </>
           ) : (
             <>{children}</>
@@ -484,15 +489,16 @@ export default function CategoriesSettings() {
                     >
                       <div className="flex items-center gap-2">
                         {orderedDetailCategories.length > 0 && (
-                          <button
+                          <IconButton
                             onClick={(e) => {
-                              e.stopPropagation();
+                              e?.stopPropagation();
                               toggleCategoryExpanded(subCategory.id);
                             }}
-                            className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                          >
-                            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                          </button>
+                            icon={isExpanded ? <ChevronDownIcon size={16} /> : <ChevronRightIcon size={16} />}
+                            variant="ghost"
+                            size="sm"
+                            className="text-gray-500 hover:text-gray-700"
+                          />
                         )}
                         {!isEditMode && (
                           <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -543,11 +549,9 @@ export default function CategoriesSettings() {
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">Categories</h1>
-        </div>
+    <PageWrapper 
+      title="Categories"
+      rightContent={
         <div className="flex gap-2">
           <button
             onClick={() => {
@@ -555,37 +559,36 @@ export default function CategoriesSettings() {
               if (isDeleteMode) setIsDeleteMode(false);
               setEditingCategoryId(null);
             }}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+            className={`w-8 h-8 flex items-center justify-center transition-colors ${
               isEditMode 
-                ? 'bg-gray-600 text-white hover:bg-gray-700' 
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                ? 'text-white bg-gray-600 hover:bg-gray-700' 
+                : 'text-gray-500 hover:text-gray-700'
             }`}
+            title={isEditMode ? 'Done Editing' : 'Edit Categories'}
           >
-            <Settings2 size={16} />
-            {isEditMode ? 'Done Editing' : 'Edit Categories'}
+            <Settings2Icon size={16} />
           </button>
           {isEditMode && (
-            <button
+            <IconButton
               onClick={() => setIsDeleteMode(!isDeleteMode)}
-              className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                isDeleteMode 
-                  ? 'bg-red-600 text-white hover:bg-red-700' 
-                  : 'bg-red-200 text-red-700 hover:bg-red-300 dark:bg-red-900 dark:text-red-300 dark:hover:bg-red-800'
-              }`}
-            >
-              <Trash2 size={16} />
-              {isDeleteMode ? 'Cancel Delete' : 'Delete Mode'}
-            </button>
+              icon={<DeleteIcon size={16} />}
+              variant={isDeleteMode ? 'danger' : 'ghost'}
+              size="sm"
+              className={isDeleteMode ? '' : 'text-gray-500 hover:text-gray-700'}
+              title={isDeleteMode ? 'Cancel Delete' : 'Delete Categories'}
+            />
           )}
-          <button
+          <IconButton
             onClick={() => setShowCategoryModal(true)}
-            className="px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary flex items-center gap-2"
-          >
-            <Plus size={16} />
-            Add Category
-          </button>
+            icon={<PlusIcon size={16} />}
+            variant="ghost"
+            size="sm"
+            className="text-red-500 hover:text-red-700"
+            title="Add Category"
+          />
         </div>
-      </div>
+      }
+    >
 
       {/* Instructions */}
       {(isEditMode || isDeleteMode) ? (
@@ -693,7 +696,7 @@ export default function CategoriesSettings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
-              <AlertCircle className="text-orange-500" size={24} />
+              <AlertCircleIcon className="text-orange-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete Category</h3>
             </div>
             {(() => {
@@ -811,6 +814,6 @@ export default function CategoriesSettings() {
           categoryName={viewingCategoryName}
         />
       )}
-    </div>
+    </PageWrapper>
   );
 }

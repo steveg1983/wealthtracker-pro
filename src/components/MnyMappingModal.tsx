@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, AlertCircle, CheckCircle } from 'lucide-react';
+import { XIcon } from './icons/XIcon';
+import { AlertCircleIcon } from './icons/AlertCircleIcon';
+import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import type { FieldMapping } from '../utils/mnyParser';
 
 interface MnyMappingModalProps {
@@ -133,14 +135,14 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
-            <X size={24} />
+            <XIcon size={24} />
           </button>
         </div>
 
         <div className="mb-4">
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="flex items-start gap-2">
-              <AlertCircle className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+              <AlertCircleIcon className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
               <div className="text-sm text-blue-800 dark:text-blue-200">
                 <p className="font-semibold mb-1">Help us understand your data</p>
                 <p>We've extracted data from your Money file. Please tell us what each column represents by selecting from the dropdown menus.</p>
@@ -199,7 +201,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
 
         {error && (
           <div className="mb-4 p-3 rounded-lg flex items-center gap-2 bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300">
-            <AlertCircle size={20} />
+            <AlertCircleIcon size={20} />
             <span>{error}</span>
           </div>
         )}
@@ -215,7 +217,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
             onClick={handleSaveMapping}
             className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary flex items-center justify-center gap-2"
           >
-            <CheckCircle size={20} />
+            <CheckCircleIcon size={20} />
             Continue with Import
           </button>
         </div>

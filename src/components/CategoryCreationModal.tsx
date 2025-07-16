@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { Plus } from 'lucide-react';
+import { PlusIcon } from './icons/PlusIcon';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
 
@@ -304,7 +304,7 @@ export default function CategoryCreationModal({
                       (formData.selectedSpecific || (showNewSpecific && formData.newSpecificName.trim())))}
             className="flex-1 px-4 py-2 text-sm sm:text-base bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            <Plus size={16} />
+            <PlusIcon size={16} />
             Create Category
           </button>
         </div>

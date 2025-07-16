@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, ArrowRight, Check, AlertCircle } from 'lucide-react';
+import { XIcon, ArrowRightIcon, CheckIcon, AlertCircleIcon } from './icons';
 import type { Transaction } from '../types';
 
 interface ReconciliationMatch {
@@ -113,7 +113,7 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
-            <X size={24} />
+            <XIcon size={24} />
           </button>
         </div>
 
@@ -154,7 +154,7 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
 
           {/* Arrow */}
           <div className="hidden md:flex items-center justify-center absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2">
-            <ArrowRight className="text-gray-400" size={32} />
+            <ArrowRightIcon className="text-gray-400" size={32} />
           </div>
 
           {/* Target Transaction */}
@@ -199,7 +199,7 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
         {match && (
           <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <div className="flex items-center gap-2">
-              <AlertCircle className="text-blue-600 dark:text-blue-400" size={20} />
+              <AlertCircleIcon className="text-blue-600 dark:text-blue-400" size={20} />
               <p className="text-sm text-blue-800 dark:text-blue-200">
                 This match has a <span className="font-semibold">{match.confidence}%</span> confidence score.
                 {match.matchType === 'exact' && ' The descriptions match exactly.'}
@@ -314,7 +314,7 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
                 : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
             }`}
           >
-            <Check size={20} />
+            <CheckIcon size={20} />
             Reconcile Transactions
           </button>
         </div>

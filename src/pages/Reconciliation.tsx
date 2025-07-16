@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
-import { CheckCircle, Building2, CreditCard, ChevronRight, ChevronLeft, ArrowLeft, Edit, Plus, Trash2, X, CircleDot } from 'lucide-react';
+import { ChevronRightIcon, ChevronLeftIcon, ArrowLeftIcon, EditIcon, PlusIcon, DeleteIcon, XIcon, CheckCircleIcon, Building2Icon, CreditCardIcon, CircleDotIcon } from '../components/icons';
+import { IconButton } from '../components/icons/IconButton';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelect from '../components/CategorySelect';
 import { useCurrency } from '../hooks/useCurrency';
@@ -293,7 +294,7 @@ export default function Reconciliation() {
 
         {accountSummaries.length === 0 ? (
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-12 text-center">
-            <CheckCircle className="mx-auto text-green-500 mb-4" size={48} />
+            <CheckCircleIcon className="mx-auto text-green-500 mb-4" size={48} />
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
               All caught up!
             </h2>
@@ -332,9 +333,9 @@ export default function Reconciliation() {
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
                           {account.type === 'credit' ? (
-                            <CreditCard className="text-gray-400" size={24} />
+                            <CreditCardIcon className="text-gray-400" size={24} />
                           ) : (
-                            <Building2 className="text-gray-400" size={24} />
+                            <Building2Icon className="text-gray-400" size={24} />
                           )}
                           <div>
                             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -360,7 +361,7 @@ export default function Reconciliation() {
                         </div>
                       </div>
 
-                      <ChevronRight className="text-gray-400" size={24} />
+                      <ChevronRightIcon size={24} className="text-gray-400" />
                     </div>
                   </div>
                 </div>
@@ -381,12 +382,13 @@ export default function Reconciliation() {
     <div>
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
-          <button
+          <IconButton
             onClick={handleBackToAccounts}
-            className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
-          >
-            <ArrowLeft size={24} />
-          </button>
+            icon={<ArrowLeftIcon size={24} />}
+            variant="ghost"
+            size="md"
+            className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
+          />
           <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
             <h1 className="text-3xl font-bold text-white">
               Reconcile {selectedAccountData?.name}
@@ -403,7 +405,7 @@ export default function Reconciliation() {
 
       {unclearedTransactions.length === 0 ? (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-12 text-center">
-          <CheckCircle className="mx-auto text-green-500 mb-4" size={48} />
+          <CheckCircleIcon className="mx-auto text-green-500 mb-4" size={48} />
           <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
             Account reconciled!
           </h2>
@@ -454,7 +456,7 @@ export default function Reconciliation() {
                     onClick={handleReconcileSelected}
                     className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center gap-2"
                   >
-                    <CheckCircle size={18} />
+                    <CheckCircleIcon size={18} />
                     Reconcile Selected ({selectedTransactions.size})
                   </button>
                 )}
@@ -548,7 +550,7 @@ export default function Reconciliation() {
                               onClick={() => saveInlineEdits(transaction.id)}
                               className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                             >
-                              <CheckCircle size={18} />
+                              <CheckCircleIcon size={18} />
                             </button>
                             <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs rounded py-1 px-2 bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap z-10">
                               Save changes
@@ -562,7 +564,7 @@ export default function Reconciliation() {
                           <button
                             className={`${transaction.isImported ? 'text-blue-600 dark:text-blue-400' : 'text-gray-300 dark:text-gray-600'} cursor-default`}
                           >
-                            <CircleDot size={18} className={transaction.isImported ? 'fill-current' : ''} />
+                            <CircleDotIcon size={18} className={transaction.isImported ? 'fill-current' : ''} />
                           </button>
                           {transaction.isImported && (
                             <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs rounded py-1 px-2 bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap z-10">
@@ -574,12 +576,13 @@ export default function Reconciliation() {
                           )}
                         </div>
                         <div className="relative group">
-                          <button
+                          <IconButton
                             onClick={() => handleEdit(transaction)}
+                            icon={<EditIcon size={18} />}
+                            variant="ghost"
+                            size="sm"
                             className="text-gray-600 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
-                          >
-                            <Edit size={18} />
-                          </button>
+                          />
                           <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs rounded py-1 px-2 bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap z-10">
                             Advanced edit
                             <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
@@ -592,7 +595,7 @@ export default function Reconciliation() {
                             onClick={() => handleReconcile(transaction.id)}
                             className="text-green-600 hover:text-green-700 dark:text-green-400 dark:hover:text-green-300"
                           >
-                            <CheckCircle size={20} className="font-bold" />
+                            <CheckCircleIcon size={20} className="font-bold" />
                           </button>
                           <div className="absolute invisible group-hover:visible bg-gray-800 text-white text-xs rounded py-1 px-2 bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap z-10">
                             Mark as reconciled
@@ -637,7 +640,7 @@ export default function Reconciliation() {
                     disabled={currentPage === 1}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronLeft size={20} className="text-gray-600 dark:text-gray-400" />
+                    <ChevronLeftIcon size={20} className="text-gray-600 dark:text-gray-400" />
                   </button>
                   <span className="px-3 py-1 text-sm text-gray-700 dark:text-gray-300">
                     Page {currentPage} of {totalPages}
@@ -647,7 +650,7 @@ export default function Reconciliation() {
                     disabled={currentPage === totalPages}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronRight size={20} className="text-gray-600 dark:text-gray-400" />
+                    <ChevronRightIcon size={20} className="text-gray-600 dark:text-gray-400" />
                   </button>
                 </div>
               </div>
@@ -681,7 +684,7 @@ export default function Reconciliation() {
                   }}
                   className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                 >
-                  <X size={24} />
+                  <XIcon size={24} />
                 </button>
               </div>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
@@ -741,7 +744,7 @@ export default function Reconciliation() {
                           className="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
                           disabled={splitItems.length === 1}
                         >
-                          <Trash2 size={16} />
+                          <DeleteIcon size={16} />
                         </button>
                       </td>
                     </tr>
@@ -753,7 +756,7 @@ export default function Reconciliation() {
                 onClick={addSplitItem}
                 className="mt-4 flex items-center gap-2 text-sm text-primary hover:text-secondary"
               >
-                <Plus size={16} />
+                <PlusIcon size={16} />
                 Add line
               </button>
             </div>

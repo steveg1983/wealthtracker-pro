@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
-import { X, Maximize2, Minimize2 } from 'lucide-react';
+import { XIcon } from './icons/XIcon';
+import { MaximizeIcon } from './icons/MaximizeIcon';
+import { MinimizeIcon } from './icons/MinimizeIcon';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
@@ -271,16 +273,16 @@ export default function DashboardModal({
               title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               {isFullscreen ? (
-                <Minimize2 size={20} className="text-gray-500 dark:text-gray-400" />
+                <MinimizeIcon size={20} className="text-gray-500 dark:text-gray-400" />
               ) : (
-                <Maximize2 size={20} className="text-gray-500 dark:text-gray-400" />
+                <MaximizeIcon size={20} className="text-gray-500 dark:text-gray-400" />
               )}
             </button>
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
-              <X size={24} className="text-gray-500 dark:text-gray-400" />
+              <XIcon size={24} className="text-gray-500 dark:text-gray-400" />
             </button>
           </div>
         </div>

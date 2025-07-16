@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { PieChart, TrendingUp, Calendar, Download, Filter } from 'lucide-react';
+import { PieChartIcon, TrendingUpIcon, CalendarIcon, DownloadIcon, FilterIcon } from '../components/icons';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -185,7 +185,7 @@ export default function Reports() {
           onClick={exportToCSV}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors"
         >
-          <Download size={20} />
+          <DownloadIcon size={20} />
           Export CSV
         </button>
       </div>
@@ -194,7 +194,7 @@ export default function Reports() {
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex items-center gap-2">
-            <Calendar className="text-gray-500" size={20} />
+            <CalendarIcon className="text-gray-500" size={20} />
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value as 'month' | 'quarter' | 'year' | 'all')}
@@ -208,7 +208,7 @@ export default function Reports() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Filter className="text-gray-500" size={20} />
+            <FilterIcon className="text-gray-500" size={20} />
             <select
               value={selectedAccount}
               onChange={(e) => setSelectedAccount(e.target.value)}
@@ -266,7 +266,7 @@ export default function Reports() {
         {/* Monthly Trend */}
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-blue-800 dark:text-white">
-            <TrendingUp size={20} />
+            <TrendingUpIcon size={20} />
             Income vs Expenses Trend
           </h2>
           <div className="h-64">
@@ -293,7 +293,7 @@ export default function Reports() {
         {/* Category Breakdown */}
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-blue-800 dark:text-white">
-            <PieChart size={20} />
+            <PieChartIcon size={20} />
             Expense Categories
           </h2>
           <div className="h-64">

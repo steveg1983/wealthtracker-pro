@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, Clock } from 'lucide-react';
+import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, Clock } from './icons';
 import { formatCurrency } from '../utils/currency';
 import { useStockPrices } from '../hooks/useStockPrices';
 // import { useCurrency } from '../hooks/useCurrency'; // Removed unused import

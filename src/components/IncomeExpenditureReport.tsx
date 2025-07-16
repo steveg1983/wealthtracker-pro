@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Settings, Maximize2 } from 'lucide-react';
+import { Settings, Maximize2 } from '../components/icons';
 import { useCurrency } from '../hooks/useCurrency';
 import TransactionDetailsModal from './TransactionDetailsModal';
 import type { Transaction, Account } from '../types';

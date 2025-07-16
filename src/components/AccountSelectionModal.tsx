@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, AlertCircle, FileText } from 'lucide-react';
+import { CheckIcon, AlertCircleIcon, FileTextIcon } from './icons';
 
 interface Account {
   name: string;
@@ -75,7 +75,7 @@ export default function AccountSelectionModal({
 
         <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <div className="flex items-start gap-2">
-            <AlertCircle className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+            <AlertCircleIcon className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
             <div className="text-sm text-blue-800 dark:text-blue-200">
               <p className="font-semibold mb-1">Multiple accounts detected</p>
               <p>We found {accounts.length} account{accounts.length > 1 ? 's' : ''} in this QIF file. 
@@ -167,7 +167,7 @@ export default function AccountSelectionModal({
                       )}
                       {account.transactionCount !== undefined && account.transactionCount > 0 && (
                         <span className="flex items-center gap-1">
-                          <FileText size={14} />
+                          <FileTextIcon size={14} />
                           {account.transactionCount} transactions
                         </span>
                       )}
@@ -204,7 +204,7 @@ export default function AccountSelectionModal({
                 : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
             }`}
           >
-            <Check size={20} />
+            <CheckIcon size={20} />
             Import {selectedAccounts.size} Account{selectedAccounts.size !== 1 ? 's' : ''}
           </button>
         </div>

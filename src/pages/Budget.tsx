@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
-import { PlusCircle, Edit2, Trash2, TrendingUp, TrendingDown, Banknote } from 'lucide-react';
+import { PlusCircleIcon, TrendingUpIcon, TrendingDownIcon, BanknoteIcon } from '../components/icons';
+import { EditIcon, DeleteIcon } from '../components/icons';
+import { IconButton } from '../components/icons/IconButton';
 import BudgetModal from '../components/BudgetModal';
 import type { Budget } from '../types';
 import PageWrapper from '../components/PageWrapper';
@@ -100,10 +102,10 @@ export default function Budget() {
       rightContent={
         <button
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors mr-4 md:mr-8"
+          className="w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-700 transition-colors"
+          title="Add Budget"
         >
-          <PlusCircle size={20} />
-          Add Budget
+          <PlusCircleIcon size={16} />
         </button>
       }
     >
@@ -120,7 +122,7 @@ export default function Budget() {
                 {formatCurrency(totalBudgeted)}
               </p>
             </div>
-            <Banknote className="text-gray-400" size={24} />
+            <BanknoteIcon className="text-gray-400" size={24} />
           </div>
         </div>
 
@@ -132,7 +134,7 @@ export default function Budget() {
                 {formatCurrency(totalSpent)}
               </p>
             </div>
-            <TrendingDown className="text-red-500" size={24} />
+            <TrendingDownIcon className="text-red-500" size={24} />
           </div>
         </div>
 
@@ -146,7 +148,7 @@ export default function Budget() {
                 {formatCurrency(totalRemaining)}
               </p>
             </div>
-            <TrendingUp className={totalRemaining >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+            <TrendingUpIcon className={totalRemaining >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
           </div>
         </div>
         </div>
@@ -182,22 +184,24 @@ export default function Budget() {
                 >
                   {budget.isActive !== false ? 'Active' : 'Inactive'}
                 </button>
-                <button
+                <IconButton
                   onClick={() => handleEdit(budget)}
-                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                >
-                  <Edit2 size={18} />
-                </button>
-                <button
+                  icon={<EditIcon size={18} />}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-gray-700"
+                />
+                <IconButton
                   onClick={() => {
                     if (confirm('Delete this budget?')) {
                       deleteBudget(budget.id);
                     }
                   }}
-                  className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
-                >
-                  <Trash2 size={18} />
-                </button>
+                  icon={<DeleteIcon size={18} />}
+                  variant="ghost"
+                  size="sm"
+                  className="text-gray-500 hover:text-gray-700"
+                />
               </div>
             </div>
 

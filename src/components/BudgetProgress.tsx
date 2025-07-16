@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle, XCircle } from './icons';
 import { useCurrency } from '../hooks/useCurrency';
 
 interface BudgetProgressProps {

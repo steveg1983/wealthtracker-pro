@@ -6,7 +6,10 @@ import AccountReconciliationModal from '../components/AccountReconciliationModal
 import BalanceAdjustmentModal from '../components/BalanceAdjustmentModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
-import { Plus, Wallet, PiggyBank, CreditCard, TrendingDown, TrendingUp, Edit, Trash2, CheckCircle, Home, PieChart, Settings } from 'lucide-react';
+// No longer importing from lucide-react - all icons are now custom
+import { FloatingAddButton } from '../components/ui/UIControls';
+import { PlusIcon, EditIcon, DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon } from '../components/icons';
+import { IconButton } from '../components/icons/IconButton';
 import { useCurrency } from '../hooks/useCurrency';
 import PageWrapper from '../components/PageWrapper';
 
@@ -44,7 +47,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     { 
       type: 'current', 
       title: 'Current Accounts', 
-      icon: Wallet, 
+      icon: WalletIcon, 
       color: 'text-blue-600 dark:text-blue-400',
       bgColor: 'bg-blue-200 dark:bg-blue-900/20',
       borderColor: 'border-blue-200 dark:border-blue-800'
@@ -52,7 +55,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     { 
       type: 'savings', 
       title: 'Savings Accounts', 
-      icon: PiggyBank, 
+      icon: PiggyBankIcon, 
       color: 'text-green-600 dark:text-green-400',
       bgColor: 'bg-green-200 dark:bg-green-900/20',
       borderColor: 'border-green-200 dark:border-green-800'
@@ -60,7 +63,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     { 
       type: 'credit', 
       title: 'Credit Cards', 
-      icon: CreditCard, 
+      icon: CreditCardIcon, 
       color: 'text-orange-600 dark:text-orange-400',
       bgColor: 'bg-orange-200 dark:bg-orange-900/20',
       borderColor: 'border-orange-200 dark:border-orange-800'
@@ -68,7 +71,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     { 
       type: 'loan', 
       title: 'Loans', 
-      icon: TrendingDown, 
+      icon: TrendingDownIcon, 
       color: 'text-red-600 dark:text-red-400',
       bgColor: 'bg-red-200 dark:bg-red-900/20',
       borderColor: 'border-red-200 dark:border-red-800'
@@ -76,7 +79,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     { 
       type: 'investment', 
       title: 'Investments', 
-      icon: TrendingUp, 
+      icon: TrendingUpIcon, 
       color: 'text-purple-600 dark:text-purple-400',
       bgColor: 'bg-purple-200 dark:bg-purple-900/20',
       borderColor: 'border-purple-200 dark:border-purple-800'
@@ -84,7 +87,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     { 
       type: 'assets', 
       title: 'Other Assets', 
-      icon: Home, 
+      icon: HomeIcon, 
       color: 'text-indigo-600 dark:text-indigo-400',
       bgColor: 'bg-indigo-200 dark:bg-indigo-900/20',
       borderColor: 'border-indigo-200 dark:border-indigo-800'
@@ -121,14 +124,14 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     <PageWrapper 
       title="Accounts"
       rightContent={
-        <button 
+        <IconButton
           onClick={() => setIsAddModalOpen(true)}
-          className="bg-primary text-white px-4 py-2 rounded-2xl hover:bg-primary/90 transition-colors flex items-center gap-2 mr-4 md:mr-8"
-        >
-          <Plus size={20} />
-          <span className="hidden sm:inline">Add Account</span>
-          <span className="sm:hidden">Add</span>
-        </button>
+          icon={<PlusIcon size={16} />}
+          variant="ghost"
+          size="sm"
+          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200"
+          title="Add Account"
+        />
       }
     >
 
@@ -235,7 +238,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                   className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-purple-500 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-200 hover:bg-purple-100/50 dark:hover:bg-purple-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="View Portfolio"
                                 >
-                                  <PieChart size={16} />
+                                  <PieChartIcon size={16} />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
                                     View Portfolio
                                   </span>
@@ -244,46 +247,55 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                               </div>
                               {/* Fixed icon positions */}
                               <div className="flex items-center gap-1">
-                                <button
-                                  onClick={() => setSettingsAccountId(account.id)}
-                                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-600/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
-                                  title="Account Settings"
-                                >
-                                  <Settings size={16} />
+                                <div className="relative group">
+                                  <IconButton
+                                    onClick={() => setSettingsAccountId(account.id)}
+                                    icon={<SettingsIcon size={16} />}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                    title="Account Settings"
+                                  />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
                                     Account Settings
                                   </span>
-                                </button>
+                                </div>
                                 <button
                                   onClick={() => setReconcileAccountId(account.id)}
                                   className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="Reconcile Account"
                                 >
-                                  <CheckCircle size={16} />
+                                  <CheckCircleIcon size={16} />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
                                     Reconcile Account
                                   </span>
                                 </button>
-                                <button
-                                  onClick={() => handleEdit(account.id, account.balance)}
-                                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-gray-600/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
-                                  title="Edit Balance"
-                                >
-                                  <Edit size={16} />
+                                <div className="relative group">
+                                  <IconButton
+                                    onClick={() => handleEdit(account.id, account.balance)}
+                                    icon={<EditIcon size={16} />}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                    title="Edit Balance"
+                                  />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
                                     Edit Balance
                                   </span>
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(account.id)}
-                                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
-                                  title="Delete Account"
-                                >
-                                  <Trash2 size={16} />
+                                </div>
+                                <div className="relative group">
+                                  <IconButton
+                                    onClick={() => handleDelete(account.id)}
+                                    icon={<DeleteIcon size={16} />}
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30"
+                                    title="Delete Account"
+                                  />
                                   <span className="absolute bottom-full right-0 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
                                     Delete Account
                                   </span>
-                                </button>
+                                </div>
                               </div>
                               </div>
                             </div>
@@ -375,6 +387,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           setSettingsAccountId(null);
         }}
       />
+      
+      <FloatingAddButton onClick={() => setIsAddModalOpen(true)} />
     </PageWrapper>
   );}
   

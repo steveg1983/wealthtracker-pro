@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../../contexts/AppContext';
-import { Plus, Edit2, Trash2, Hash, X, Check, AlertCircle } from 'lucide-react';
+import { HashIcon, AlertCircleIcon } from '../../components/icons';
+import { PlusIcon, EditIcon, DeleteIcon, XIcon, CheckIcon } from '../../components/icons';
+import { IconButton } from '../../components/icons/IconButton';
 import type { Tag } from '../../contexts/AppContext';
+import PageWrapper from '../../components/PageWrapper';
 
 interface TagFormData {
   name: string;
@@ -124,19 +127,19 @@ export default function Tags() {
   ];
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">Tags</h1>
-        </div>
-        <button
+    <PageWrapper 
+      title="Tags"
+      rightContent={
+        <IconButton
           onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-colors"
-        >
-          <Plus size={20} />
-          Add Tag
-        </button>
-      </div>
+          icon={<PlusIcon size={16} />}
+          variant="ghost"
+          size="sm"
+          className="text-red-500 hover:text-red-700"
+          title="Add Tag"
+        />
+      }
+    >
 
       {/* Add/Edit Form */}
       {showAddForm && (
@@ -209,7 +212,7 @@ export default function Tags() {
                 type="submit"
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-colors"
               >
-                <Check size={16} />
+                <CheckIcon size={16} color="white" />
                 {editingTag ? 'Update Tag' : 'Add Tag'}
               </button>
               <button
@@ -217,7 +220,7 @@ export default function Tags() {
                 onClick={handleCancel}
                 className="flex items-center gap-2 px-4 py-2 bg-gray-500 text-white rounded-2xl hover:bg-gray-600 transition-colors"
               >
-                <X size={16} />
+                <XIcon size={16} color="white" />
                 Cancel
               </button>
             </div>
@@ -235,7 +238,7 @@ export default function Tags() {
 
         {tags.length === 0 ? (
           <div className="p-8 text-center">
-            <Hash className="mx-auto text-gray-400 mb-4" size={48} />
+            <HashIcon className="mx-auto text-gray-400 mb-4" size={48} />
             <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
               No tags yet
             </h3>
@@ -272,18 +275,20 @@ export default function Tags() {
                         {usageCount} transaction{usageCount !== 1 ? 's' : ''}
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
+                        <IconButton
                           onClick={() => handleEdit(tag)}
-                          className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
+                          icon={<EditIcon size={16} />}
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-500 hover:text-gray-700"
+                        />
+                        <IconButton
                           onClick={() => handleDelete(tag.id)}
-                          className="p-1 text-gray-500 hover:text-red-600 dark:text-gray-400 dark:hover:text-red-400"
-                        >
-                          <Trash2 size={16} />
-                        </button>
+                          icon={<DeleteIcon size={16} />}
+                          variant="ghost"
+                          size="sm"
+                          className="text-gray-500 hover:text-gray-700"
+                        />
                       </div>
                     </div>
                   </div>
@@ -298,7 +303,7 @@ export default function Tags() {
       {tags.length > 0 && (
         <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <AlertCircle size={20} />
+            <AlertCircleIcon size={20} />
             Tag Usage Statistics
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -329,6 +334,6 @@ export default function Tags() {
           </div>
         </div>
       )}
-    </div>
+    </PageWrapper>
   );
 }

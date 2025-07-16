@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import ImportDataModal from '../../components/ImportDataModal';
-import { Download, Trash2, AlertCircle, Upload, Database } from 'lucide-react';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon } from '../../components/icons';
 
 export default function DataManagementSettings() {
   const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
@@ -41,7 +41,7 @@ export default function DataManagementSettings() {
 
       {hasTestData && (
         <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-2xl p-4 mb-6 flex items-start gap-3">
-          <AlertCircle className="text-orange-600 dark:text-orange-400 mt-0.5" size={20} />
+          <AlertCircleIcon className="text-orange-600 dark:text-orange-400 mt-0.5" size={20} />
           <div>
             <p className="font-medium text-orange-800 dark:text-orange-200">Test Data Active</p>
             <p className="text-sm text-orange-700 dark:text-orange-300 mt-1">
@@ -57,7 +57,7 @@ export default function DataManagementSettings() {
             onClick={() => setShowImportModal(true)}
             className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
           >
-            <Upload size={20} />
+            <UploadIcon size={20} />
             Import Data (MNY/MBF/QIF/OFX)
           </button>
           
@@ -65,7 +65,7 @@ export default function DataManagementSettings() {
             onClick={handleExportData}
             className="w-full px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
           >
-            <Download size={20} />
+            <DownloadIcon size={20} />
             Export Data to JSON
           </button>
 
@@ -73,7 +73,7 @@ export default function DataManagementSettings() {
             onClick={() => setShowTestDataConfirm(true)}
             className="w-full px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
           >
-            <Database size={20} />
+            <DatabaseIcon size={20} />
             Load Test Data
           </button>
           
@@ -81,7 +81,7 @@ export default function DataManagementSettings() {
             onClick={() => setShowDeleteConfirm(true)}
             className="w-full px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center gap-2"
           >
-            <Trash2 size={20} />
+            <DeleteIcon size={20} />
             Clear All Data
           </button>
         </div>
@@ -92,7 +92,7 @@ export default function DataManagementSettings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
-              <AlertCircle className="text-red-500" size={24} />
+              <AlertCircleIcon className="text-red-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirm Delete All Data</h3>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -129,7 +129,7 @@ export default function DataManagementSettings() {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
-              <Database className="text-purple-500" size={24} />
+              <DatabaseIcon className="text-purple-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Load Test Data</h3>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-4">

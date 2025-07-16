@@ -1,4 +1,4 @@
-import { X } from 'lucide-react';
+import { XIcon } from './icons/XIcon';
 import { useCurrency } from '../hooks/useCurrency';
 import type { Transaction, Account } from '../types';
 
@@ -45,7 +45,7 @@ export default function TransactionDetailsModal({
               onClick={onClose}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors"
             >
-              <X size={20} className="text-gray-500 dark:text-gray-400" />
+              <XIcon size={20} className="text-gray-500 dark:text-gray-400" />
             </button>
           </div>
         </div>

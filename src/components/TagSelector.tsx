@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Plus, Hash } from 'lucide-react';
+import { XIcon } from './icons/XIcon';
+import { PlusIcon } from './icons/PlusIcon';
+import { HashIcon } from './icons/HashIcon';
 
 interface TagSelectorProps {
   selectedTags: string[];
@@ -142,7 +144,7 @@ export default function TagSelector({
                 onClick={() => removeTag(tag)}
                 className="text-white/80 hover:text-white"
               >
-                <X size={14} />
+                <XIcon size={14} />
               </button>
             </span>
           ))}
@@ -206,7 +208,7 @@ export default function TagSelector({
                 onClick={() => createAndSelectTag(inputValue.trim())}
               >
                 <div className="flex items-center gap-2">
-                  <Plus size={14} className="text-green-600 dark:text-green-400" />
+                  <PlusIcon size={14} className="text-green-600 dark:text-green-400" />
                   <span className="font-medium text-gray-900 dark:text-white">
                     Create "{inputValue.trim()}"
                   </span>
@@ -223,7 +225,7 @@ export default function TagSelector({
       {/* Helper Text */}
       {selectedTags.length === 0 && (
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-          <Hash size={12} />
+          <HashIcon size={12} />
           Type to search existing tags or create new ones
         </p>
       )}

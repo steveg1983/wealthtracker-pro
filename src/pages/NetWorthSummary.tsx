@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, Banknote, ChevronRight, Building2, CreditCard, Landmark, PiggyBank } from 'lucide-react';
+import { ArrowLeftIcon, TrendingUpIcon, BanknoteIcon, ChevronRightIcon, Building2Icon, CreditCardIcon, LandmarkIcon, PiggyBankIcon } from '../components/icons';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
 import type { Account } from '../types';
@@ -93,17 +93,17 @@ export default function NetWorthSummary() {
   const getIcon = (accountType: string) => {
     switch (accountType) {
       case 'current':
-        return <Building2 size={20} className="text-gray-600 dark:text-gray-300" />;
+        return <Building2Icon size={20} className="text-gray-600 dark:text-gray-300" />;
       case 'savings':
-        return <PiggyBank size={20} className="text-gray-600 dark:text-gray-300" />;
+        return <PiggyBankIcon size={20} className="text-gray-600 dark:text-gray-300" />;
       case 'credit':
-        return <CreditCard size={20} className="text-gray-600 dark:text-gray-300" />;
+        return <CreditCardIcon size={20} className="text-gray-600 dark:text-gray-300" />;
       case 'loan':
-        return <Landmark size={20} className="text-gray-600 dark:text-gray-300" />;
+        return <LandmarkIcon size={20} className="text-gray-600 dark:text-gray-300" />;
       case 'investment':
-        return <TrendingUp size={20} className="text-gray-600 dark:text-gray-300" />;
+        return <TrendingUpIcon size={20} className="text-gray-600 dark:text-gray-300" />;
       default:
-        return <Banknote size={20} className="text-gray-600 dark:text-gray-300" />;
+        return <BanknoteIcon size={20} className="text-gray-600 dark:text-gray-300" />;
     }
   };
 
@@ -158,7 +158,7 @@ export default function NetWorthSummary() {
           onClick={handleBackNavigation}
           className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
         >
-          <ArrowLeft size={24} />
+          <ArrowLeftIcon size={24} />
         </button>
         <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
           <h1 className="text-3xl font-bold text-white">Net Worth Summary</h1>
@@ -265,7 +265,7 @@ export default function NetWorthSummary() {
                             </p>
                           )}
                         </div>
-                        <ChevronRight size={20} className="text-gray-400" />
+                        <ChevronRightIcon size={20} className="text-gray-400" />
                       </div>
                     </div>
                   </div>

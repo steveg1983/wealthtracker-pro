@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Calendar, Banknote, Calculator } from 'lucide-react';
+import { XIcon, CalendarIcon, BanknoteIcon, CalculatorIcon } from './icons';
 import { formatCurrency, getCurrencySymbol } from '../utils/currency';
 import CategoryCreationModal from './CategoryCreationModal';
 
@@ -97,7 +97,7 @@ export default function AccountReconciliationModal({
               onClick={onClose}
               className="p-1 -m-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
-              <X size={24} />
+              <XIcon size={24} />
             </button>
           </div>
         </div>
@@ -107,7 +107,7 @@ export default function AccountReconciliationModal({
             {/* Reconciliation Date */}
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Calendar size={16} />
+                <CalendarIcon size={16} />
                 Statement Date
               </label>
               <input
@@ -122,7 +122,7 @@ export default function AccountReconciliationModal({
             {/* System Balance */}
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Calculator size={16} />
+                <CalculatorIcon size={16} />
                 System Balance (as of {new Date(reconciliationDate).toLocaleDateString()})
               </label>
               <div className="px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
@@ -135,7 +135,7 @@ export default function AccountReconciliationModal({
             {/* Statement Balance */}
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Banknote size={16} />
+                <BanknoteIcon size={16} />
                 Statement Balance ({getCurrencySymbol(account.currency)})
               </label>
               <input

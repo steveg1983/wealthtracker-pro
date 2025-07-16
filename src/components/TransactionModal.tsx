@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X } from 'lucide-react';
+import { XIcon } from './icons/XIcon';
 import TagSelector from './TagSelector';
 import CategorySelector from './CategorySelector';
 import type { Transaction } from '../types';
@@ -86,7 +86,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
-            <X size={24} />
+            <XIcon size={24} />
           </button>
         </div>
 

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
-import { ArrowLeft, Search, ChevronUp, ChevronDown, Plus, Calendar, Banknote, FileText, Tag as TagIcon, ArrowRightLeft, X, Settings, Minimize2, Maximize2 } from 'lucide-react';
+import { ArrowLeftIcon, SearchIcon, ChevronUpIcon, ChevronDownIcon, PlusIcon, CalendarIcon, BanknoteIcon, FileTextIcon, TagIcon, ArrowRightLeftIcon, XIcon, SettingsIcon, MinimizeIcon, MaximizeIcon } from '../components/icons';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
@@ -398,7 +398,7 @@ export default function AccountTransactions() {
           {config.label}
           {config.sortable && sortField === columnKey && (
             <span className="font-bold text-white dark:text-gray-200">
-              {sortDirection === 'asc' ? <ChevronUp size={18} strokeWidth={3} /> : <ChevronDown size={18} strokeWidth={3} />}
+              {sortDirection === 'asc' ? <ChevronUpIcon size={18} strokeWidth={3} /> : <ChevronDownIcon size={18} strokeWidth={3} />}
             </span>
           )}
         </div>
@@ -432,7 +432,7 @@ export default function AccountTransactions() {
           onClick={() => navigate('/accounts')}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-4"
         >
-          <ArrowLeft size={20} />
+          <ArrowLeftIcon size={20} />
           Back to Accounts
         </button>
         
@@ -452,7 +452,7 @@ export default function AccountTransactions() {
                 className="p-2 text-white/60 hover:text-white transition-colors"
                 title="Account Settings"
               >
-                <Settings size={20} />
+                <SettingsIcon size={20} />
               </button>
             </div>
           </div>
@@ -519,7 +519,7 @@ export default function AccountTransactions() {
             {/* Search Input */}
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
                 <input
                   type="text"
                   placeholder="Search by description, amount, category..."
@@ -571,7 +571,7 @@ export default function AccountTransactions() {
                 className="flex items-center gap-2 px-3 py-3 sm:py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-[48px] sm:min-h-[auto]"
                 title={compactView ? "Expand view" : "Compact view"}
               >
-                {compactView ? <Maximize2 size={18} /> : <Minimize2 size={18} />}
+                {compactView ? <MaximizeIcon size={18} /> : <MinimizeIcon size={18} />}
                 <span className="hidden sm:inline">{compactView ? 'Expand' : 'Compact'}</span>
               </button>
             </div>
@@ -580,7 +580,7 @@ export default function AccountTransactions() {
           {/* Date Range and Additional Filters */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-gray-500 dark:text-gray-400 hidden sm:block" />
+              <CalendarIcon size={18} className="text-gray-500 dark:text-gray-400 hidden sm:block" />
               <input
                 type="date"
                 value={dateFrom}
@@ -605,7 +605,7 @@ export default function AccountTransactions() {
                   className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg"
                   title="Clear date range"
                 >
-                  <X size={18} />
+                  <XIcon size={18} />
                 </button>
               )}
             </div>
@@ -728,7 +728,7 @@ export default function AccountTransactions() {
             {/* Date and Type */}
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Calendar size={16} />
+                <CalendarIcon size={16} />
                 Date
               </label>
               <input
@@ -742,7 +742,7 @@ export default function AccountTransactions() {
             
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <ArrowRightLeft size={16} />
+                <ArrowRightLeftIcon size={16} />
                 Type
               </label>
               <div className="flex gap-4 items-center h-[42px]">
@@ -782,7 +782,7 @@ export default function AccountTransactions() {
           
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              <FileText size={16} />
+              <FileTextIcon size={16} />
               Description
             </label>
             <input
@@ -812,7 +812,7 @@ export default function AccountTransactions() {
             
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Banknote size={16} />
+                <BanknoteIcon size={16} />
                 Amount
               </label>
               <input
@@ -832,7 +832,7 @@ export default function AccountTransactions() {
               type="submit"
               className="px-6 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors flex items-center gap-2"
             >
-              <Plus size={18} />
+              <PlusIcon size={18} />
               Add Transaction
             </button>
           </div>

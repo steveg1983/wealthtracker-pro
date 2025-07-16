@@ -5,7 +5,10 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import { useCurrency } from '../hooks/useCurrency';
 import EditTransactionModal from '../components/EditTransactionModal';
-import { Plus, TrendingUp, TrendingDown, Calendar, Trash2, Minimize2, Maximize2, Edit2, Search, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Expand, Shrink } from 'lucide-react';
+import { TrendingUpIcon, TrendingDownIcon, CalendarIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon } from '../components/icons';
+import { FloatingAddButton } from '../components/ui/UIControls';
+import { PlusIcon, DeleteIcon, MinimizeIcon, MaximizeIcon, EditIcon, ExpandIcon, ShrinkIcon } from '../components/icons';
+import { IconButton } from '../components/icons/IconButton';
 import type { Transaction } from '../types';
 import PageWrapper from '../components/PageWrapper';
 
@@ -308,9 +311,9 @@ export default function Transactions() {
 
   const getTypeIcon = (type: string) => {
     return type === 'income' ? (
-      <TrendingUp className="text-green-500" size={compactView ? 16 : 20} />
+      <TrendingUpIcon className="text-green-500" size={compactView ? 16 : 20} />
     ) : (
-      <TrendingDown className="text-red-500" size={compactView ? 16 : 20} />
+      <TrendingDownIcon className="text-red-500" size={compactView ? 16 : 20} />
     );
   };
 
@@ -423,7 +426,7 @@ export default function Transactions() {
           {config.label}
           {config.sortable && sortField === columnKey && (
             <span className="font-bold text-white dark:text-gray-200">
-              {sortDirection === 'asc' ? <ChevronUp size={18} strokeWidth={3} /> : <ChevronDown size={18} strokeWidth={3} />}
+              {sortDirection === 'asc' ? <ChevronUpIcon size={18} strokeWidth={3} /> : <ChevronDownIcon size={18} strokeWidth={3} />}
             </span>
           )}
         </div>
@@ -504,24 +507,26 @@ export default function Transactions() {
         return (
           <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-right text-sm font-medium`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
             <div className="flex items-center justify-end gap-2">
-              <button
+              <IconButton
                 onClick={(e) => {
-                  e.stopPropagation();
+                  e?.stopPropagation();
                   handleEdit(transaction);
                 }}
-                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-              >
-                <Edit2 size={16} />
-              </button>
-              <button
+                icon={<EditIcon size={16} />}
+                variant="ghost"
+                size="sm"
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
+              />
+              <IconButton
                 onClick={(e) => {
-                  e.stopPropagation();
+                  e?.stopPropagation();
                   handleDelete(transaction.id);
                 }}
-                className="p-2 min-w-[44px] min-h-[44px] flex items-center justify-center text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30"
-              >
-                <Trash2 size={16} />
-              </button>
+                icon={<DeleteIcon size={16} />}
+                variant="ghost"
+                size="sm"
+                className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30"
+              />
             </div>
           </td>
         );
@@ -541,38 +546,35 @@ export default function Transactions() {
         )
       }
       rightContent={
-        <div className="flex items-center gap-2 mr-4 md:mr-8">
+        <div className="flex items-center gap-2">
           {/* Compact View Toggle */}
-          <button
+          <IconButton
             onClick={() => setCompactView(!compactView)}
-            className="flex items-center gap-2 px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            icon={compactView ? <MaximizeIcon size={20} /> : <MinimizeIcon size={20} />}
+            variant="ghost"
+            size="sm"
+            className="text-white/80 hover:text-white hover:bg-white/10"
             title={compactView ? "Switch to normal view" : "Switch to compact view"}
-          >
-            {compactView ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
-            <span className="hidden sm:inline dark:text-white">
-              {compactView ? 'Normal View' : 'Compact View'}
-            </span>
-          </button>
+          />
           
           {/* Wide View Toggle */}
-          <button
+          <IconButton
             onClick={() => setIsWideView(!isWideView)}
-            className="flex items-center gap-2 px-3 py-2 text-sm border-2 border-gray-400 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+            icon={isWideView ? <ShrinkIcon size={20} /> : <ExpandIcon size={20} />}
+            variant="ghost"
+            size="sm"
+            className="text-white/80 hover:text-white hover:bg-white/10"
             title={isWideView ? "Switch to standard width" : "Switch to wide view"}
-          >
-            {isWideView ? <Shrink size={16} /> : <Expand size={16} />}
-            <span className="hidden sm:inline dark:text-white">
-              {isWideView ? 'Standard View' : 'Wide View'}
-            </span>
-          </button>
+          />
           
-          <button 
+          <IconButton
             onClick={() => setIsModalOpen(true)}
-            className="bg-primary text-white px-4 py-2 rounded-2xl hover:bg-secondary transition-colors flex items-center gap-2"
-          >
-            <Plus size={20} />
-            <span className="hidden sm:inline">Add Transaction</span>
-          </button>
+            icon={<PlusIcon size={20} />}
+            variant="ghost"
+            size="sm"
+            className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+            title="Add Transaction"
+          />
         </div>
       }
     >
@@ -587,7 +589,7 @@ export default function Transactions() {
               <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Income</p>
               <p className="text-lg md:text-xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.income, displayCurrency)}</p>
             </div>
-            <TrendingUp className="text-green-500" size={20} />
+            <TrendingUpIcon className="text-green-500" size={20} />
           </div>
         </div>
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
@@ -596,7 +598,7 @@ export default function Transactions() {
               <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Expenses</p>
               <p className="text-lg md:text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totals.expense, displayCurrency)}</p>
             </div>
-            <TrendingDown className="text-red-500" size={20} />
+            <TrendingDownIcon className="text-red-500" size={20} />
           </div>
         </div>
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
@@ -607,7 +609,7 @@ export default function Transactions() {
                 {formatCurrency(totals.income - totals.expense, displayCurrency)}
               </p>
             </div>
-            <Calendar className="text-primary" size={20} />
+            <CalendarIcon className="text-primary" size={20} />
           </div>
         </div>
         </div>
@@ -619,7 +621,7 @@ export default function Transactions() {
           {/* Search Input */}
           <div className="w-full">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 placeholder="Search transactions..."
@@ -662,7 +664,7 @@ export default function Transactions() {
           
           {/* Date Range */}
           <div className="flex flex-wrap items-center gap-2">
-            <Calendar size={18} className="text-gray-500 dark:text-gray-400 hidden sm:block" />
+            <CalendarIcon size={18} className="text-gray-500 dark:text-gray-400 hidden sm:block" />
             <input
               type="date"
               value={dateFrom}
@@ -688,7 +690,7 @@ export default function Transactions() {
                 className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg"
                 title="Clear date range"
               >
-                <X size={18} />
+                <XIcon size={18} />
               </button>
             )}
           </div>
@@ -814,7 +816,7 @@ export default function Transactions() {
                     disabled={currentPage === 1}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronLeft size={20} className="text-gray-600 dark:text-gray-400" />
+                    <ChevronLeftIcon size={20} className="text-gray-600 dark:text-gray-400" />
                   </button>
                   
                   <div className="flex items-center gap-1">
@@ -871,7 +873,7 @@ export default function Transactions() {
                     disabled={currentPage === totalPages}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronRight size={20} className="text-gray-600 dark:text-gray-400" />
+                    <ChevronRightIcon size={20} className="text-gray-600 dark:text-gray-400" />
                   </button>
                 </div>
               </div>
@@ -913,7 +915,7 @@ export default function Transactions() {
                     disabled={currentPage === 1}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronLeft size={18} className="text-gray-600 dark:text-gray-400" />
+                    <ChevronLeftIcon size={18} className="text-gray-600 dark:text-gray-400" />
                   </button>
                   
                   <div className="flex items-center gap-1">
@@ -928,7 +930,7 @@ export default function Transactions() {
                     disabled={currentPage === totalPages}
                     className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ChevronRight size={18} className="text-gray-600 dark:text-gray-400" />
+                    <ChevronRightIcon size={18} className="text-gray-600 dark:text-gray-400" />
                   </button>
                 </div>
               </div>
@@ -943,6 +945,8 @@ export default function Transactions() {
         onClose={handleCloseModal}
         transaction={editingTransaction}
       />
+      
+      <FloatingAddButton onClick={() => setIsModalOpen(true)} />
       </div>
     </PageWrapper>
   );

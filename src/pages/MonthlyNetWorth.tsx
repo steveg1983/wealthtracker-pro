@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, TrendingUp, TrendingDown, Banknote, Building2, CreditCard, Landmark, PiggyBank } from 'lucide-react';
+import { ArrowLeftIcon, TrendingUpIcon, TrendingDownIcon, BanknoteIcon, Building2Icon, CreditCardIcon, LandmarkIcon, PiggyBankIcon } from '../components/icons';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
 
@@ -80,17 +80,17 @@ export default function MonthlyNetWorth() {
   const getIcon = (accountType: string) => {
     switch (accountType) {
       case 'current':
-        return <Building2 size={20} className="text-gray-500" />;
+        return <Building2Icon size={20} className="text-gray-500" />;
       case 'savings':
-        return <PiggyBank size={20} className="text-gray-500" />;
+        return <PiggyBankIcon size={20} className="text-gray-500" />;
       case 'credit':
-        return <CreditCard size={20} className="text-gray-500" />;
+        return <CreditCardIcon size={20} className="text-gray-500" />;
       case 'loan':
-        return <Landmark size={20} className="text-gray-500" />;
+        return <LandmarkIcon size={20} className="text-gray-500" />;
       case 'investment':
-        return <TrendingUp size={20} className="text-gray-500" />;
+        return <TrendingUpIcon size={20} className="text-gray-500" />;
       default:
-        return <Banknote size={20} className="text-gray-500" />;
+        return <BanknoteIcon size={20} className="text-gray-500" />;
     }
   };
 
@@ -133,7 +133,7 @@ export default function MonthlyNetWorth() {
           onClick={() => navigate('/')}
           className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
         >
-          <ArrowLeft size={24} />
+          <ArrowLeftIcon size={24} />
         </button>
         <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
           <h1 className="text-3xl font-bold text-white">
@@ -158,7 +158,7 @@ export default function MonthlyNetWorth() {
                 {isLoading ? '...' : formatCurrency(netWorth)}
               </p>
             </div>
-            <Banknote className="text-primary" size={24} />
+            <BanknoteIcon className="text-primary" size={24} />
           </div>
         </div>
 
@@ -170,7 +170,7 @@ export default function MonthlyNetWorth() {
                 {isLoading ? '...' : formatCurrency(totalAssets)}
               </p>
             </div>
-            <TrendingUp className="text-green-500" size={24} />
+            <TrendingUpIcon className="text-green-500" size={24} />
           </div>
         </div>
 
@@ -182,7 +182,7 @@ export default function MonthlyNetWorth() {
                 {isLoading ? '...' : formatCurrency(totalLiabilities)}
               </p>
             </div>
-            <TrendingDown className="text-red-500" size={24} />
+            <TrendingDownIcon className="text-red-500" size={24} />
           </div>
         </div>
         </div>

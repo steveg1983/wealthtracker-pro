@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Calendar, Tag } from 'lucide-react';
+import { XIcon, CalendarIcon, TagIcon } from './icons';
 import { formatCurrency } from '../utils/currency';
 import CategoryCreationModal from './CategoryCreationModal';
 
@@ -78,7 +78,7 @@ export default function BalanceAdjustmentModal({
               onClick={onClose}
               className="p-1 -m-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
-              <X size={24} />
+              <XIcon size={24} />
             </button>
           </div>
         </div>
@@ -121,7 +121,7 @@ export default function BalanceAdjustmentModal({
             {/* Date */}
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Calendar size={16} />
+                <CalendarIcon size={16} />
                 Date
               </label>
               <input
@@ -152,7 +152,7 @@ export default function BalanceAdjustmentModal({
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    <Tag size={16} />
+                    <TagIcon size={16} />
                     Category
                   </label>
                   <button

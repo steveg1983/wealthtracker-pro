@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { X, Plus, Trash2 } from 'lucide-react';
+import { XIcon } from './icons/XIcon';
+import { PlusIcon } from './icons/PlusIcon';
+import { DeleteIcon } from './icons/DeleteIcon';
 import type { Transaction } from '../types';
 
 interface TransactionWithSplits extends Transaction {
@@ -115,7 +117,7 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
           >
-            <X size={24} />
+            <XIcon size={24} />
           </button>
         </div>
 
@@ -166,7 +168,7 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
                       onClick={() => handleRemoveSplit(index)}
                       className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
                     >
-                      <Trash2 size={18} />
+                      <DeleteIcon size={18} />
                     </button>
                   )}
                 </div>
@@ -179,7 +181,7 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
           onClick={handleAddSplit}
           className="mb-4 px-4 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-gray-700 dark:text-gray-300"
         >
-          <Plus size={20} />
+          <PlusIcon size={20} />
           Add Split
         </button>
 

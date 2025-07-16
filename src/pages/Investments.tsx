@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { TrendingUp, TrendingDown, BarChart3, AlertCircle, ChevronRight, Plus } from 'lucide-react';
+import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, ChevronRightIcon, PlusIcon } from '../components/icons';
 import EnhancedPortfolioView from '../components/EnhancedPortfolioView';
 import AddInvestmentModal from '../components/AddInvestmentModal';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
+import PageWrapper from '../components/PageWrapper';
 
 export default function Investments() {
   const { accounts, transactions } = useApp();
@@ -125,7 +126,7 @@ export default function Investments() {
         </div>
         
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
-          <BarChart3 className="mx-auto text-gray-400 mb-4" size={64} />
+          <BarChart3Icon className="mx-auto text-gray-400 mb-4" size={64} />
           <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-2">
             No Investment Accounts Yet
           </h2>
@@ -141,21 +142,20 @@ export default function Investments() {
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">Investments</h1>
-        </div>
-        {investmentAccounts.length > 0 && (
+    <PageWrapper 
+      title="Investments"
+      rightContent={
+        investmentAccounts.length > 0 && (
           <button
             onClick={() => setShowAddInvestmentModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-colors"
+            className="w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-700 transition-colors"
+            title="Add Investment"
           >
-            <Plus size={20} />
-            Add Investment
+            <PlusIcon size={16} />
           </button>
-        )}
-      </div>
+        )
+      }
+    >
 
       {/* Main content grid with consistent spacing */}
       <div className="grid gap-6">
@@ -169,7 +169,7 @@ export default function Investments() {
                 {formatCurrency(portfolioValue)}
               </p>
             </div>
-            <BarChart3 className="text-primary" size={24} />
+            <BarChart3Icon className="text-primary" size={24} />
           </div>
         </div>
 
@@ -181,7 +181,7 @@ export default function Investments() {
                 {formatCurrency(totalInvested)}
               </p>
             </div>
-            <BarChart3 className="text-blue-500" size={24} />
+            <BarChart3Icon className="text-blue-500" size={24} />
           </div>
         </div>
 
@@ -193,7 +193,7 @@ export default function Investments() {
                 {totalReturn >= 0 ? '+' : ''}{formatCurrency(totalReturn)}
               </p>
             </div>
-            <TrendingUp className={totalReturn >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+            <TrendingUpIcon className={totalReturn >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
           </div>
         </div>
 
@@ -205,7 +205,7 @@ export default function Investments() {
                 {returnPercentage >= 0 ? '+' : ''}{formatPercentage(returnPercentage)}
               </p>
             </div>
-            <TrendingDown className={returnPercentage >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+            <TrendingDownIcon className={returnPercentage >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
           </div>
         </div>
         </div>
@@ -297,7 +297,7 @@ export default function Investments() {
                           <p className="font-semibold text-gray-900 dark:text-white">{formatCurrency(holding.value)}</p>
                         </div>
                         {account.holdings && account.holdings.length > 0 && (
-                          <ChevronRight className="text-gray-400" size={20} />
+                          <ChevronRightIcon className="text-gray-400" size={20} />
                         )}
                       </div>
                     </div>
@@ -381,7 +381,7 @@ export default function Investments() {
         {/* Investment Tips */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
           <div className="flex items-start gap-3">
-            <AlertCircle className="text-blue-600 dark:text-blue-400 mt-1" size={20} />
+            <AlertCircleIcon className="text-blue-600 dark:text-blue-400 mt-1" size={20} />
             <div>
               <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Investment Tips</h3>
               <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
@@ -422,6 +422,6 @@ export default function Investments() {
         isOpen={showAddInvestmentModal}
         onClose={() => setShowAddInvestmentModal(false)}
       />
-    </div>
+    </PageWrapper>
   );
 }

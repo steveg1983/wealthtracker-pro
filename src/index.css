@@ -108,6 +108,27 @@
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
 }
 
+/* Default button styling to prevent square corners */
+button {
+  border-radius: 0.5rem; /* Default to rounded-lg */
+}
+
+/* Override for buttons that need to be less rounded */
+button.rounded-sm {
+  border-radius: 0.125rem;
+}
+
+/* Override for buttons that need to be square */
+button.rounded-none {
+  border-radius: 0;
+}
+
+/* Fix for button shadows respecting border-radius */
+button[style*="borderRadius"] {
+  box-shadow: none !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
 /* Mobile-specific improvements */
 @layer utilities {
   /* Better touch targets for mobile */

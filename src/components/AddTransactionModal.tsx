@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { Plus } from 'lucide-react';
+import { PlusIcon } from '../components/icons';
 import CategoryCreationModal from './CategoryCreationModal';
 import { getCurrencySymbol } from '../utils/currency';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
@@ -165,7 +165,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                     onClick={() => setShowCategoryModal(true)}
                     className="text-sm text-primary hover:text-secondary flex items-center gap-1"
                   >
-                    <Plus size={14} />
+                    <PlusIcon size={14} />
                     Create new category
                   </button>
                 </div>

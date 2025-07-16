@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, CreditCard, Target, Wallet, TrendingUp, Settings, Menu, X, ArrowRightLeft, BarChart3, Goal, ChevronRight, Database, Tag, Settings2, LineChart, Hash } from 'lucide-react';
+import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 
@@ -36,7 +36,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
         <>
           <span className="flex-1">{label}</span>
           {hasSubItems && (
-            <ChevronRight size={16} className="text-gray-400" />
+            <ChevronRightIcon size={16} className="text-gray-400" />
           )}
         </>
       )}
@@ -137,68 +137,68 @@ export default function Layout() {
               onClick={toggleSidebar}
               className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600"
             >
-              <Menu size={20} className="text-white dark:text-gray-400" />
+              <MenuIcon size={20} className="text-white dark:text-gray-400" />
             </button>
           </div>
           <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
-            <SidebarLink to="/" icon={Home} label="Home" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/dashboard" icon={BarChart3} label="Dashboard" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             
             {/* Accounts with Sub-navigation */}
             <div>
               <SidebarLink 
                 to="/accounts" 
-                icon={Wallet} 
+                icon={WalletIcon} 
                 label="Accounts" 
                 isCollapsed={isSidebarCollapsed}
                 hasSubItems={!isSidebarCollapsed}
               />
               {accountsExpanded && !isSidebarCollapsed && (
                 <div className="mt-1 space-y-1">
-                  <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} />
                 </div>
               )}
             </div>
             
-            <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={isSidebarCollapsed} />
             
             {/* Forecasting with Sub-navigation */}
             {(showBudget || showGoals) && (
               <div>
                 <SidebarLink 
                   to="/forecasting" 
-                  icon={LineChart} 
+                  icon={LineChartIcon} 
                   label="Forecasting" 
                   isCollapsed={isSidebarCollapsed}
                   hasSubItems={!isSidebarCollapsed}
                 />
                 {forecastingExpanded && !isSidebarCollapsed && (
                   <div className="mt-1 space-y-1">
-                    {showBudget && <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={false} isSubItem={true} />}
-                    {showGoals && <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} isSubItem={true} />}
+                    {showBudget && <SidebarLink to="/budget" icon={TargetIcon} label="Budget" isCollapsed={false} isSubItem={true} />}
+                    {showGoals && <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} />}
                   </div>
                 )}
               </div>
             )}
             
-            {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={isSidebarCollapsed} />}
+            {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3Icon} label="Analytics" isCollapsed={isSidebarCollapsed} />}
             
             {/* Settings with Sub-navigation */}
             <div>
               <SidebarLink 
                 to="/settings" 
-                icon={Settings} 
+                icon={SettingsIcon} 
                 label="Settings" 
                 isCollapsed={isSidebarCollapsed}
                 hasSubItems={!isSidebarCollapsed}
               />
               {settingsExpanded && !isSidebarCollapsed && (
                 <div className="mt-1 space-y-1">
-                  <SidebarLink to="/settings/app" icon={Settings2} label="App Settings" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/settings/tags" icon={Hash} label="Tags" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/settings/app" icon={Settings2Icon} label="App Settings" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} />
                 </div>
               )}
             </div>
@@ -211,7 +211,7 @@ export default function Layout() {
         onClick={toggleMobileMenu}
         className="md:hidden fixed top-4 left-4 z-50 p-3 bg-[#8EA9DB] dark:bg-gray-800 rounded-xl shadow-2xl hover:shadow-xl transition-shadow min-w-[48px] min-h-[48px] flex items-center justify-center"
       >
-        {isMobileMenuOpen ? <X size={32} className="text-white dark:text-gray-200" /> : <Menu size={32} className="text-white dark:text-gray-200" />}
+        {isMobileMenuOpen ? <XIcon size={32} className="text-white dark:text-gray-200" /> : <MenuIcon size={32} className="text-white dark:text-gray-200" />}
       </button>
 
       {/* Mobile Menu */}
@@ -226,18 +226,18 @@ export default function Layout() {
                   onClick={toggleMobileMenu}
                   className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
                 >
-                  <X size={24} className="text-white dark:text-gray-300" />
+                  <XIcon size={24} className="text-white dark:text-gray-300" />
                 </button>
               </div>
               <nav className="space-y-2">
-                <SidebarLink to="/" icon={Home} label="Home" isCollapsed={false} onNavigate={toggleMobileMenu} />
-                <SidebarLink to="/dashboard" icon={BarChart3} label="Dashboard" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 
                 {/* Accounts with Sub-navigation */}
                 <div>
                   <SidebarLink 
                     to="/accounts" 
-                    icon={Wallet} 
+                    icon={WalletIcon} 
                     label="Accounts" 
                     isCollapsed={false}
                     hasSubItems={true}
@@ -248,20 +248,20 @@ export default function Layout() {
                   />
                   {accountsExpanded && (
                     <div className="mt-1 space-y-1">
-                      <SidebarLink to="/transactions" icon={CreditCard} label="Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/reconciliation" icon={ArrowRightLeft} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>
                 
-                <SidebarLink to="/investments" icon={TrendingUp} label="Investments" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 
                 {/* Forecasting with Sub-navigation */}
                 {(showBudget || showGoals) && (
                   <div>
                     <SidebarLink 
                       to="/forecasting" 
-                      icon={LineChart} 
+                      icon={LineChartIcon} 
                       label="Forecasting" 
                       isCollapsed={false}
                       hasSubItems={true}
@@ -272,30 +272,30 @@ export default function Layout() {
                     />
                     {forecastingExpanded && (
                       <div className="mt-1 space-y-1">
-                        {showBudget && <SidebarLink to="/budget" icon={Target} label="Budget" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
-                        {showGoals && <SidebarLink to="/goals" icon={Goal} label="Goals" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
+                        {showBudget && <SidebarLink to="/budget" icon={TargetIcon} label="Budget" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
+                        {showGoals && <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
                       </div>
                     )}
                   </div>
                 )}
                 
-                {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3} label="Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3Icon} label="Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
                 
                 {/* Settings with Sub-navigation */}
                 <div>
                   <SidebarLink 
                     to="/settings" 
-                    icon={Settings} 
+                    icon={SettingsIcon} 
                     label="Settings" 
                     isCollapsed={false}
                     hasSubItems={true}
                   />
                   {settingsExpanded && (
                     <div className="mt-1 space-y-1">
-                      <SidebarLink to="/settings/app" icon={Settings2} label="App Settings" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/settings/data" icon={Database} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/settings/categories" icon={Tag} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/settings/tags" icon={Hash} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/app" icon={Settings2Icon} label="App Settings" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>

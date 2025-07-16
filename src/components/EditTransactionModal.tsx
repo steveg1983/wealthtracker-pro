@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { Calendar, Tag, FileText, Check, Link, Plus, Hash, Wallet, ArrowRightLeft, Banknote } from 'lucide-react';
+import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon } from '../components/icons';
 import type { Transaction } from '../types';
 import CategoryCreationModal from './CategoryCreationModal';
 import TagSelector from './TagSelector';
@@ -133,7 +133,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             {/* Date */}
             <div className="md:col-span-5">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Calendar size={16} />
+                <CalendarIcon size={16} />
                 Date
               </label>
               <input
@@ -148,7 +148,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             {/* Account */}
             <div className="md:col-span-7">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Wallet size={16} />
+                <WalletIcon size={16} />
                 Account
               </label>
               <select
@@ -169,7 +169,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             {/* Description */}
             <div className="md:col-span-12">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <FileText size={16} />
+                <FileTextIcon size={16} />
                 Description
               </label>
               <input
@@ -184,7 +184,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             {/* Type */}
             <div className="md:col-span-12">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <ArrowRightLeft size={16} />
+                <ArrowRightLeftIcon size={16} />
                 Type
               </label>
               <div className="flex gap-4 items-center h-[42px]">
@@ -224,7 +224,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             {/* Amount */}
             <div className="md:col-span-5">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Banknote size={16} />
+                <BanknoteIcon size={16} />
                 Amount {formData.accountId && (() => {
                   const selectedAccount = accounts.find(a => a.id === formData.accountId);
                   return selectedAccount ? `(${getCurrencySymbol(selectedAccount.currency)})` : '';
@@ -246,7 +246,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                    <Tag size={16} />
+                    <TagIcon size={16} />
                     Category
                   </label>
                   <button
@@ -254,7 +254,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                     onClick={() => setShowCategoryModal(true)}
                     className="text-sm text-primary hover:text-secondary flex items-center gap-1"
                   >
-                    <Plus size={14} />
+                    <PlusIcon size={14} />
                     Create new category
                   </button>
                 </div>
@@ -299,7 +299,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             {/* Tags */}
             <div className="md:col-span-12">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Hash size={16} />
+                <HashIcon size={16} />
                 Tags
               </label>
               <TagSelector
@@ -313,7 +313,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
             {/* Notes */}
             <div className="md:col-span-12">
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <FileText size={16} />
+                <FileTextIcon size={16} />
                 Notes
               </label>
               <textarea
@@ -334,7 +334,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                   onChange={(e) => updateField('cleared', e.target.checked)}
                   className="rounded border-gray-300 dark:border-gray-600"
                 />
-                <Check size={16} className="text-green-600 dark:text-green-400" />
+                <CheckIcon2 size={16} className="text-green-600 dark:text-green-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   Reconciled
                 </span>
@@ -347,7 +347,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                   disabled
                   className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <Link size={16} className="text-blue-600 dark:text-blue-400" />
+                <LinkIcon size={16} className="text-blue-600 dark:text-blue-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   Linked to bank statement
                 </span>
@@ -355,7 +355,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
 
               {transaction?.reconciledWith && transaction.reconciledWith !== 'manual' && (
                 <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
-                  <Link size={16} />
+                  <LinkIcon size={16} />
                   <span>Reconciled with transaction ID: {transaction.reconciledWith}</span>
                 </div>
               )}

@@ -1,6 +1,11 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { Upload, FileText, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
+import { UploadIcon } from './icons/UploadIcon';
+import { FileTextIcon } from './icons/FileTextIcon';
+import { AlertCircleIcon } from './icons/AlertCircleIcon';
+import { CheckCircleIcon } from './icons/CheckCircleIcon';
+import { InfoIcon } from './icons/InfoIcon';
+import { AlertTriangleIcon } from './icons/AlertTriangleIcon';
 import { parseMNY, parseMBF, applyMappingToData, type FieldMapping } from '../utils/mnyParser';
 import { parseQIF as enhancedParseQIF } from '../utils/qifParser';
 import MnyMappingModal from './MnyMappingModal';
@@ -316,7 +321,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
 
             <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
               <div className="flex items-start gap-2">
-                <Info className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+                <InfoIcon className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
                 <div className="text-sm text-blue-800 dark:text-blue-200">
                   <p className="font-semibold mb-1">Money File Import:</p>
                   <p>For Money .mny or .mbf files, we'll show you the data and let you tell us what each column represents.</p>
@@ -332,7 +337,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                 </>
               ) : (
                 <>
-                  <Upload className="mx-auto text-gray-400 mb-4" size={48} />
+                  <UploadIcon className="mx-auto text-gray-400 mb-4" size={48} />
                   <label className="cursor-pointer">
                     <span className="bg-primary text-white px-4 py-2 rounded-lg hover:bg-secondary transition-colors inline-block">
                       Choose File
@@ -355,7 +360,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
 
           {preview && preview.warning && (
             <div className="mb-4 p-3 rounded-lg flex items-start gap-2 bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-300">
-              <AlertTriangle size={20} className="mt-0.5 flex-shrink-0" />
+              <AlertTriangleIcon size={20} className="mt-0.5 flex-shrink-0" />
               <div>
                 <p className="font-semibold mb-1">Import Notice</p>
                 <p className="text-sm">{preview.warning}</p>
@@ -405,9 +410,9 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               status === 'error' ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300' :
               'bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
             }`}>
-              {status === 'success' ? <CheckCircle size={20} /> :
-               status === 'error' ? <AlertCircle size={20} /> :
-               <FileText size={20} />}
+              {status === 'success' ? <CheckCircleIcon size={20} /> :
+               status === 'error' ? <AlertCircleIcon size={20} /> :
+               <FileTextIcon size={20} />}
               <span>{message}</span>
             </div>
           )}
@@ -452,7 +457,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="text-orange-500" size={24} />
+              <AlertTriangleIcon className="text-orange-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Test Data Detected</h3>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-4">

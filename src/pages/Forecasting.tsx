@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Target, Goal, LineChart, TrendingUp, Calculator } from 'lucide-react';
+import { TargetIcon, GoalIcon, LineChartIcon, TrendingUpIcon, CalculatorIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 
 export default function Forecasting() {
@@ -21,7 +21,7 @@ export default function Forecasting() {
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-                <Target className="text-blue-600 dark:text-blue-400" size={32} />
+                <TargetIcon className="text-blue-600 dark:text-blue-400" size={32} />
               </div>
               <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Budget</h2>
             </div>
@@ -30,7 +30,7 @@ export default function Forecasting() {
             </p>
             <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
               <span>Manage budgets</span>
-              <TrendingUp size={16} />
+              <TrendingUpIcon size={16} />
             </div>
           </Link>
         )}
@@ -42,7 +42,7 @@ export default function Forecasting() {
           >
             <div className="flex items-center gap-4 mb-4">
               <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-2xl">
-                <Goal className="text-green-600 dark:text-green-400" size={32} />
+                <GoalIcon className="text-green-600 dark:text-green-400" size={32} />
               </div>
               <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Goals</h2>
             </div>
@@ -51,7 +51,7 @@ export default function Forecasting() {
             </p>
             <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
               <span>View goals</span>
-              <Calculator size={16} />
+              <CalculatorIcon size={16} />
             </div>
           </Link>
         )}
@@ -59,7 +59,7 @@ export default function Forecasting() {
 
       {!showBudget && !showGoals && (
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg p-12 text-center border border-white/20 dark:border-gray-700/50">
-          <LineChart className="mx-auto text-gray-400 mb-4" size={48} />
+          <LineChartIcon className="mx-auto text-gray-400 mb-4" size={48} />
           <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-2">
             No Forecasting Features Enabled
           </h2>

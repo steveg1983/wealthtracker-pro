@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useApp } from "../contexts/AppContext";
 import GoalModal from "../components/GoalModal";
-import { Target, Plus, Pencil, Trash2, TrendingUp, Calendar } from "lucide-react";
+import { TargetIcon, TrendingUpIcon, CalendarIcon } from "../components/icons";
+import { FloatingAddButton } from "../components/ui/UIControls";
+import { PlusIcon, EditIcon, DeleteIcon } from "../components/icons";
+import { IconButton } from "../components/icons/IconButton";
 import type { Goal } from "../types";
 import PageWrapper from "../components/PageWrapper";
 
@@ -72,13 +75,14 @@ export default function Goals() {
     <PageWrapper 
       title="Goals"
       rightContent={
-        <button
+        <IconButton
           onClick={() => setIsModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 mr-4 md:mr-8"
-        >
-          <Plus className="h-5 w-5" />
-          Add Goal
-        </button>
+          icon={<PlusIcon size={16} />}
+          variant="ghost"
+          size="sm"
+          className="text-red-500 hover:text-red-700"
+          title="Add Goal"
+        />
       }
     >
 
@@ -92,7 +96,7 @@ export default function Goals() {
               <p className="text-gray-500 dark:text-gray-400 text-sm">Active Goals</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{activeGoals.length}</p>
             </div>
-            <Target className="h-8 w-8 text-blue-600" />
+            <TargetIcon className="h-8 w-8 text-blue-600" />
           </div>
         </div>
 
@@ -104,7 +108,7 @@ export default function Goals() {
                 £{totalTargetAmount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
-            <TrendingUp className="h-8 w-8 text-green-600" />
+            <TrendingUpIcon className="h-8 w-8 text-green-600" />
           </div>
         </div>
 
@@ -166,18 +170,20 @@ export default function Goals() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button
+                      <IconButton
                         onClick={() => handleEdit(goal)}
-                        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
+                        icon={<EditIcon size={16} />}
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-500 hover:text-gray-700"
+                      />
+                      <IconButton
                         onClick={() => handleDelete(goal.id)}
-                        className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                        icon={<DeleteIcon size={16} />}
+                        variant="ghost"
+                        size="sm"
+                        className="text-gray-500 hover:text-gray-700"
+                      />
                     </div>
                   </div>
 
@@ -218,7 +224,7 @@ export default function Goals() {
 
                     <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-1">
-                        <Calendar className="h-4 w-4 text-gray-400" />
+                        <CalendarIcon className="h-4 w-4 text-gray-400" />
                         <span className={`${daysRemaining < 30 ? "text-red-600" : "text-gray-600 dark:text-gray-400"}`}>
                           {daysRemaining > 0 ? `${daysRemaining} days left` : "Overdue"}
                         </span>
@@ -255,18 +261,20 @@ export default function Goals() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button
+                    <IconButton
                       onClick={() => handleEdit(goal)}
-                      className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
-                    <button
+                      icon={<EditIcon size={16} />}
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-700"
+                    />
+                    <IconButton
                       onClick={() => handleDelete(goal.id)}
-                      className="text-gray-400 hover:text-red-600 dark:hover:text-red-400"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                      icon={<DeleteIcon size={16} />}
+                      variant="ghost"
+                      size="sm"
+                      className="text-gray-500 hover:text-gray-700"
+                    />
                   </div>
                 </div>
               ))}
@@ -278,7 +286,7 @@ export default function Goals() {
           {goals.length === 0 && (
           <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-12">
             <div className="text-center">
-              <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <TargetIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No goals yet</h3>
               <p className="text-gray-500 dark:text-gray-400 mb-4">
                 Start tracking your financial goals and watch your progress grow!
@@ -287,7 +295,7 @@ export default function Goals() {
                 onClick={() => setIsModalOpen(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700"
               >
-                <Plus className="h-5 w-5" />
+                <PlusIcon size={20} color="white" />
                 Create Your First Goal
               </button>
             </div>
@@ -301,6 +309,8 @@ export default function Goals() {
         onClose={handleCloseModal}
         goal={editingGoal}
       />
+      
+      <FloatingAddButton onClick={() => setIsModalOpen(true)} />
     </PageWrapper>
   );
 }

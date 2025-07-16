@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, TrendingDown, Banknote, Settings } from 'lucide-react';
+import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon } from '../components/icons';
+import { SettingsIcon } from '../components/icons';
+import { IconButton } from '../components/icons/IconButton';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -8,28 +10,19 @@ import { useCurrency } from '../hooks/useCurrency';
 import { useReconciliation } from '../hooks/useReconciliation';
 import { useLayoutConfig } from '../hooks/useLayoutConfig';
 import { DraggableGrid } from '../components/layout/DraggableGrid';
-import type { Account } from '../types';
 import { GridItem } from '../components/layout/GridItem';
+import type { Account } from '../types';
 import TestDataWarningModal from '../components/TestDataWarningModal';
 import OnboardingModal from '../components/OnboardingModal';
 import DashboardModal from '../components/DashboardModal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import type { Transaction } from '../types';
 import type { ReportSettings } from '../components/IncomeExpenditureReport';
+import PageWrapper from '../components/PageWrapper';
 
-interface Category {
-  id: string;
-  name: string;
-  type: 'income' | 'expense' | 'both';
-  level: 'type' | 'sub' | 'detail';
-  parentId?: string;
-  color?: string;
-  icon?: string;
-  isSystem?: boolean;
-}
 
 export default function Dashboard() {
-  const { accounts, transactions, categories, hasTestData, clearAllData } = useApp();
+  const { accounts, transactions, hasTestData, clearAllData } = useApp();
   const { firstName, setFirstName, setCurrency } = usePreferences();
   const { formatCurrency, convertAndSum, displayCurrency } = useCurrency();
   const { layouts, updateDashboardLayout, resetDashboardLayout } = useLayoutConfig();
@@ -96,16 +89,6 @@ export default function Dashboard() {
     title: ''
   });
   
-  // Income/Expenditure report settings
-  const [incomeExpReportSettings] = useState({
-    categoryLevel: 'type' as 'type' | 'sub' | 'detail',
-    excludedCategories: [] as string[],
-    timePeriod: '12months' as '1month' | '12months' | '24months' | 'custom',
-    customStartDate: '',
-    customEndDate: '',
-    showSettings: false,
-    showCategoryModal: false
-  });
 
   // Memoize recent transactions
   const recentTransactions = useMemo(() => 
@@ -231,7 +214,8 @@ export default function Dashboard() {
   }), [isDarkMode]);
 
   // Generate income and expenditure data based on settings
-  useMemo(() => {
+  // TODO: This data is not being used - commenting out to fix error
+  /*useMemo(() => {
     try {
       // Generate months based on time period setting
       const months: Array<{
@@ -721,7 +705,7 @@ export default function Dashboard() {
         grandTotalExpenditure: 0
       };
     }
-  }, [transactions, categories, incomeExpReportSettings]);
+  }, [transactions, categories, incomeExpReportSettings]);*/
 
   // Handle onboarding completion
   const handleOnboardingComplete = (name: string, currency: string) => {
@@ -751,21 +735,20 @@ export default function Dashboard() {
   };
 
   return (
-    <div>
-      <div className="flex justify-between items-start mb-4">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">
-            Dashboard
-          </h1>
-        </div>
-        <button
+    <PageWrapper 
+      title="Dashboard"
+      reducedHeaderWidth={true}
+      rightContent={
+        <IconButton
           onClick={() => setShowLayoutControls(!showLayoutControls)}
-          className="p-2 rounded-2xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          icon={<SettingsIcon size={20} color="white" />}
+          variant="primary"
+          size="md"
           title="Customize Layout"
-        >
-          <Settings size={20} />
-        </button>
-      </div>
+          className="bg-[#6B86B3] hover:bg-[#5A729A] border-2 border-[#8FA5C8]"
+        />
+      }
+    >
 
       {showLayoutControls && (
         <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
@@ -796,7 +779,7 @@ export default function Dashboard() {
                 {isLoading ? '...' : formatCurrency(netWorth)}
               </p>
             </div>
-            <Banknote className="text-primary ml-2" size={24} />
+            <BanknoteIcon className="text-primary ml-2" size={24} />
           </div>
         </div>
 
@@ -811,7 +794,7 @@ export default function Dashboard() {
                 {isLoading ? '...' : formatCurrency(totalAssets)}
               </p>
             </div>
-            <TrendingUp className="text-green-500 ml-2" size={24} />
+            <TrendingUpIcon className="text-green-500 ml-2" size={24} />
           </div>
         </div>
 
@@ -826,7 +809,7 @@ export default function Dashboard() {
                 {isLoading ? '...' : formatCurrency(totalLiabilities)}
               </p>
             </div>
-            <TrendingDown className="text-red-500 ml-2" size={24} />
+            <TrendingDownIcon className="text-red-500 ml-2" size={24} />
           </div>
         </div>
         </div>
@@ -951,15 +934,22 @@ export default function Dashboard() {
           </GridItem>
         </div>
           </DraggableGrid>
-        </div>
 
+        </div>
+        
         {/* Layout Controls */}
         {showLayoutControls && (
-          <div className="layout-controls">
-            <button onClick={() => setShowLayoutControls(false)}>
+          <div className="flex gap-2 justify-center mb-4">
+            <button 
+              onClick={() => setShowLayoutControls(false)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
               Done Editing
             </button>
-            <button onClick={resetDashboardLayout} className="secondary">
+            <button 
+              onClick={resetDashboardLayout} 
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
               Reset Layout
             </button>
           </div>

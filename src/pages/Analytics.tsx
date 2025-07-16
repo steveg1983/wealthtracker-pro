@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { BarChart3, TrendingUp, ArrowUpRight, ArrowDownRight, Settings } from 'lucide-react';
+import { BarChart3Icon, TrendingUpIcon, ArrowUpRightIcon, ArrowDownRightIcon } from '../components/icons';
+import { SettingsIcon } from '../components/icons';
+import { IconButton } from '../components/icons/IconButton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
 import { useLayoutConfig } from '../hooks/useLayoutConfig';
 import { DraggableGrid } from '../components/layout/DraggableGrid';
 import { GridItem } from '../components/layout/GridItem';
+import PageWrapper from '../components/PageWrapper';
 
 export default function Analytics() {
   const { transactions, accounts } = useApp();
@@ -131,19 +134,19 @@ export default function Analytics() {
   }), [isDarkMode]);
 
   return (
-    <div>
-      <div className="flex justify-between items-start mb-4">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">Analytics</h1>
-        </div>
-        <button
+    <PageWrapper 
+      title="Analytics"
+      rightContent={
+        <IconButton
           onClick={() => setShowLayoutControls(!showLayoutControls)}
-          className="p-2 rounded-2xl bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          icon={<SettingsIcon size={16} />}
+          variant="ghost"
+          size="sm"
+          className="text-gray-500 hover:text-gray-700"
           title="Customize Layout"
-        >
-          <Settings size={20} />
-        </button>
-      </div>
+        />
+      }
+    >
 
       {showLayoutControls && (
         <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
@@ -171,7 +174,7 @@ export default function Analytics() {
                 {formatCurrency(totalIncome / 12)}
               </p>
             </div>
-            <ArrowUpRight className="text-green-500" size={24} />
+            <ArrowUpRightIcon className="text-green-500" size={24} />
           </div>
         </div>
 
@@ -183,7 +186,7 @@ export default function Analytics() {
                 {formatCurrency(totalExpenses / 12)}
               </p>
             </div>
-            <ArrowDownRight className="text-red-500" size={24} />
+            <ArrowDownRightIcon className="text-red-500" size={24} />
           </div>
         </div>
 
@@ -195,7 +198,7 @@ export default function Analytics() {
                 {savingsRate.toFixed(1)}%
               </p>
             </div>
-            <TrendingUp className="text-blue-500" size={24} />
+            <TrendingUpIcon className="text-blue-500" size={24} />
           </div>
         </div>
 
@@ -207,7 +210,7 @@ export default function Analytics() {
                 {transactions.length}
               </p>
             </div>
-            <BarChart3 className="text-purple-500" size={24} />
+            <BarChart3Icon className="text-purple-500" size={24} />
           </div>
         </div>
         </div>
@@ -368,16 +371,22 @@ export default function Analytics() {
 
         {/* Layout Controls */}
         {showLayoutControls && (
-          <div className="layout-controls">
-            <button onClick={() => setShowLayoutControls(false)}>
+          <div className="flex gap-2 justify-center mb-4">
+            <button 
+              onClick={() => setShowLayoutControls(false)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
               Done Editing
             </button>
-            <button onClick={resetAnalyticsLayout} className="secondary">
+            <button 
+              onClick={resetAnalyticsLayout} 
+              className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+            >
               Reset Layout
             </button>
           </div>
         )}
       </div>
-    </div>
+    </PageWrapper>
   );
 }

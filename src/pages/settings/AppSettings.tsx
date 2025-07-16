@@ -1,6 +1,7 @@
-import { ArrowLeft, Globe, Eye, EyeOff, Moon, Sun, Monitor } from 'lucide-react';
+import { ArrowLeftIcon, GlobeIcon, EyeIcon, EyeOffIcon, MoonIcon, SunIcon, MonitorIcon } from '../../components/icons';
 import { useNavigate } from 'react-router-dom';
 import { usePreferences } from '../../contexts/PreferencesContext';
+import PageWrapper from '../../components/PageWrapper';
 
 export default function AppSettings() {
   const navigate = useNavigate();
@@ -35,9 +36,9 @@ export default function AppSettings() {
   ];
 
   const themeOptions = [
-    { value: 'light', label: 'Light', icon: Sun },
-    { value: 'dark', label: 'Dark', icon: Moon },
-    { value: 'auto', label: 'Auto', icon: Monitor },
+    { value: 'light', label: 'Light', icon: SunIcon },
+    { value: 'dark', label: 'Dark', icon: MoonIcon },
+    { value: 'auto', label: 'Auto', icon: MonitorIcon },
   ];
 
   const accentColors = [
@@ -57,37 +58,37 @@ export default function AppSettings() {
       description: 'Show budget planning and tracking features',
       value: showBudget,
       onChange: setShowBudget,
-      icon: showBudget ? Eye : EyeOff
+      icon: showBudget ? EyeIcon : EyeOffIcon
     },
     {
       title: 'Goals',
       description: 'Show financial goals and milestones',
       value: showGoals,
       onChange: setShowGoals,
-      icon: showGoals ? Eye : EyeOff
+      icon: showGoals ? EyeIcon : EyeOffIcon
     },
     {
       title: 'Analytics',
       description: 'Show detailed analytics and insights',
       value: showAnalytics,
       onChange: setShowAnalytics,
-      icon: showAnalytics ? Eye : EyeOff
+      icon: showAnalytics ? EyeIcon : EyeOffIcon
     }
   ];
 
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-6">
+    <PageWrapper 
+      title="App Settings"
+      rightContent={
         <button
           onClick={() => navigate('/settings')}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+          className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors"
+          title="Back to Settings"
         >
-          <ArrowLeft className="text-gray-600 dark:text-gray-400" size={20} />
+          <ArrowLeftIcon size={16} />
         </button>
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
-          <h1 className="text-3xl font-bold text-white">App Settings</h1>
-        </div>
-      </div>
+      }
+    >
 
       {/* Personal Information */}
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
@@ -112,7 +113,7 @@ export default function AppSettings() {
       {/* Base Currency */}
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
-          <Globe className="text-gray-600 dark:text-gray-400" size={20} />
+          <GlobeIcon className="text-gray-600 dark:text-gray-400" size={20} />
           <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Base Currency</h2>
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -226,6 +227,6 @@ export default function AppSettings() {
           </p>
         </div>
       </div>
-    </div>
+    </PageWrapper>
   );
 }

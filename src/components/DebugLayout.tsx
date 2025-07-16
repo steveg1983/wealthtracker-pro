@@ -1,5 +1,5 @@
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { Home, Wallet, Settings } from 'lucide-react';
+import { Home, Wallet, Settings } from './icons';
 
 export default function DebugLayout() {
   const location = useLocation();

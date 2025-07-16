@@ -1,4 +1,4 @@
-import { Palette, Database, Tag, Settings2, Hash } from 'lucide-react';
+import { Settings2Icon, DatabaseIcon, TagIcon, HashIcon, PaletteIcon } from '../components/icons';
 import { Link } from 'react-router-dom';
 import PageWrapper from '../components/PageWrapper';
 
@@ -7,28 +7,28 @@ export default function Settings() {
     {
       title: 'App Settings',
       description: 'Configure application behavior, personal info and appearance',
-      icon: Settings2,
+      icon: Settings2Icon,
       path: '/settings/app',
       color: 'bg-orange-500'
     },
     {
       title: 'Data Management', 
       description: 'Import, export, and manage your financial data',
-      icon: Database,
+      icon: DatabaseIcon,
       path: '/settings/data',
       color: 'bg-blue-500'
     },
     {
       title: 'Categories',
       description: 'Organize and manage transaction categories',
-      icon: Tag,
+      icon: TagIcon,
       path: '/settings/categories',
       color: 'bg-green-500'
     },
     {
       title: 'Tags',
       description: 'Manage transaction tags and labels',
-      icon: Hash,
+      icon: HashIcon,
       path: '/settings/tags',
       color: 'bg-purple-500'
     }
@@ -73,15 +73,15 @@ export default function Settings() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Technology</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex items-center gap-2">
-                  <Palette size={16} />
+                  <PaletteIcon size={16} />
                   <span>Built with React & TypeScript</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Database size={16} />
+                  <DatabaseIcon size={16} />
                   <span>Tailwind CSS for styling</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Tag size={16} />
+                  <TagIcon size={16} />
                   <span>Recharts for data visualization</span>
                 </div>
               </div>

@@ -1,27 +1,32 @@
-import PageHeader from './PageHeader';
-
 interface PageWrapperProps {
   title: string;
   headerContent?: React.ReactNode;
   children: React.ReactNode;
   rightContent?: React.ReactNode;
+  reducedHeaderWidth?: boolean;
 }
 
-export default function PageWrapper({ title, headerContent, children, rightContent }: PageWrapperProps) {
+export default function PageWrapper({ title, headerContent, children, rightContent, reducedHeaderWidth }: PageWrapperProps) {
   return (
     <>
-      <PageHeader title={title}>
-        {headerContent}
-      </PageHeader>
-      <div className="pt-20 relative">
-        {rightContent && (
-          <div className="absolute right-0 top-4 z-30">
+      <div className="relative mb-6">
+        <div className={`bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4 relative ${reducedHeaderWidth ? 'w-[80%]' : ''}`}>
+          <h1 className="text-3xl font-bold text-white">{title}</h1>
+          {headerContent}
+          {rightContent && !reducedHeaderWidth && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10">
+              {rightContent}
+            </div>
+          )}
+        </div>
+        {rightContent && reducedHeaderWidth && (
+          <div className="absolute right-0 top-1/2 -translate-y-1/2">
             {rightContent}
           </div>
         )}
-        <div className="relative">
-          {children}
-        </div>
+      </div>
+      <div className="relative">
+        {children}
       </div>
     </>
   );

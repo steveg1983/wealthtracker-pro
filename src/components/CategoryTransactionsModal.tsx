@@ -1,5 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { X, Calendar, Search, XCircle } from 'lucide-react';
+import { XIcon } from './icons/XIcon';
+import { CalendarIcon } from './icons/CalendarIcon';
+import { SearchIcon } from './icons/SearchIcon';
+import { XCircleIcon } from './icons/XCircleIcon';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
 
@@ -176,7 +179,7 @@ export default function CategoryTransactionsModal({
               onClick={onClose}
               className="p-1 -m-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
-              <X size={24} />
+              <XIcon size={24} />
             </button>
           </div>
         </div>
@@ -220,7 +223,7 @@ export default function CategoryTransactionsModal({
           <div className="flex flex-col gap-3">
             {/* Date Range */}
             <div className="flex flex-wrap gap-2 items-center">
-              <Calendar className="text-gray-400 hidden sm:block" size={18} />
+              <CalendarIcon className="text-gray-400 hidden sm:block" size={18} />
               <div className="flex flex-wrap gap-2 items-center flex-1">
                 <input
                   type="date"
@@ -240,7 +243,7 @@ export default function CategoryTransactionsModal({
             
             {/* Search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
+              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
                 value={searchQuery}
@@ -254,7 +257,7 @@ export default function CategoryTransactionsModal({
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
                   title="Clear search"
                 >
-                  <XCircle size={18} />
+                  <XCircleIcon size={18} />
                 </button>
               )}
             </div>

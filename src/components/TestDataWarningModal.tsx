@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangleIcon } from './icons/AlertTriangleIcon';
+import { XIcon } from './icons/XIcon';
 
 interface TestDataWarningModalProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export default function TestDataWarningModal({ isOpen, onClose, onClearData }: T
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                <AlertTriangle className="text-yellow-600 dark:text-yellow-400" size={24} />
+                <AlertTriangleIcon className="text-yellow-600 dark:text-yellow-400" size={24} />
               </div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Test Data Active
@@ -45,7 +46,7 @@ export default function TestDataWarningModal({ isOpen, onClose, onClearData }: T
               onClick={handleClose}
               className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
             >
-              <X size={20} />
+              <XIcon size={20} />
             </button>
           </div>
           

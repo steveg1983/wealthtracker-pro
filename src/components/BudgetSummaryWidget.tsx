@@ -1,5 +1,5 @@
 import { useApp } from '../contexts/AppContext';
-import { Target, AlertCircle } from 'lucide-react';
+import { Target, AlertCircle } from './icons';
 import { Link } from 'react-router-dom';
 
 export default function BudgetSummaryWidget() {

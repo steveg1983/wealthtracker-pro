@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { ChevronDown, Plus, Tag } from 'lucide-react';
+import { ChevronDownIcon } from './icons/ChevronDownIcon';
+import { PlusIcon } from './icons/PlusIcon';
+import { TagIcon } from './icons/TagIcon';
 
 interface Category {
   id: string;
@@ -156,7 +158,7 @@ export default function CategorySelector({
                 </span>
               )}
             </div>
-            <ChevronDown 
+            <ChevronDownIcon 
               size={16} 
               className={`text-gray-400 transition-transform ${showDropdown ? 'rotate-180' : ''}`}
             />
@@ -176,7 +178,7 @@ export default function CategorySelector({
                   onClick={() => handleCategorySelect(category.id)}
                 >
                   <div className="flex items-center gap-2">
-                    <Tag size={14} className="text-gray-400" />
+                    <TagIcon size={14} className="text-gray-400" />
                     <div>
                       <div className="font-medium text-gray-900 dark:text-white">
                         {category.name}
@@ -199,7 +201,7 @@ export default function CategorySelector({
               <div className="border-t border-gray-200 dark:border-gray-600">
                 <div className="px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 text-green-600 dark:text-green-400">
                   <div className="flex items-center gap-2">
-                    <Plus size={14} />
+                    <PlusIcon size={14} />
                     <span>Create "{searchTerm}"</span>
                   </div>
                 </div>
