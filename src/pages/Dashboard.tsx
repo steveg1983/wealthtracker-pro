@@ -15,6 +15,7 @@ import OnboardingModal from '../components/OnboardingModal';
 import DashboardModal from '../components/DashboardModal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import type { Transaction } from '../types';
+import type { ReportSettings } from '../components/IncomeExpenditureReport';
 
 interface Category {
   id: string;
@@ -37,11 +38,43 @@ export default function Dashboard() {
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showLayoutControls, setShowLayoutControls] = useState(false);
+  type ModalData = 
+    | Array<{ month: string; netWorth: number }> // NetWorthData[]
+    | Array<{ id: string; name: string; value: number }> // AccountDistributionData[]
+    | Array<{ account: { id: string; name: string }; unreconciledCount: number; totalToReconcile: number }> // ReconciliationData[]
+    | { // IncomeExpenditureData
+        settings: ReportSettings;
+        setSettings: (settings: ReportSettings | ((prev: ReportSettings) => ReportSettings)) => void;
+        categories: Array<{
+          id: string;
+          name: string;
+          type: 'income' | 'expense' | 'both';
+          level: 'type' | 'sub' | 'detail';
+          parentId?: string;
+          color?: string;
+          icon?: string;
+          isSystem?: boolean;
+          isHeader?: boolean;
+        }>;
+        transactions: Array<{
+          id: string;
+          date: Date;
+          amount: number;
+          description: string;
+          category: string;
+          accountId: string;
+          type: 'income' | 'expense' | 'transfer';
+          tags?: string[];
+          notes?: string;
+        }>;
+        accounts: Account[];
+      };
+
   const [modalState, setModalState] = useState<{
     isOpen: boolean;
     type: 'networth-chart' | 'account-distribution' | 'income-expenditure' | 'reconciliation' | null;
     title: string;
-    data?: unknown;
+    data?: ModalData;
   }>({
     isOpen: false,
     type: null,
