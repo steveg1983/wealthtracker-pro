@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, AlertCircle, CheckCircle } from 'lucide-react';
+import type { FieldMapping } from '../utils/mnyParser';
 
 interface MnyMappingModalProps {
   isOpen: boolean;
@@ -8,15 +9,6 @@ interface MnyMappingModalProps {
   onMappingComplete: (mapping: FieldMapping, data: Array<Record<string, unknown>>) => void;
 }
 
-interface FieldMapping {
-  date: number;
-  amount: number;
-  description: number;
-  payee?: number;
-  category?: number;
-  accountName?: number;
-  type?: number;
-}
 
 const FIELD_OPTIONS = [
   { value: 'ignore', label: 'Ignore this column' },

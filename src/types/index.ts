@@ -39,6 +39,8 @@ export interface Transaction {
   notes?: string;
   cleared?: boolean;
   reconciledWith?: string;
+  reconciledDate?: Date;
+  reconciledNotes?: string;
   bankReference?: string;
   isRecurring?: boolean;
   isSplit?: boolean;

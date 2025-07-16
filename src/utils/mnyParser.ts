@@ -25,6 +25,16 @@ export interface ParseResult {
   needsMapping?: boolean;
 }
 
+export interface FieldMapping {
+  date: number;
+  amount: number;
+  description: number;
+  payee?: number;
+  category?: number;
+  accountName?: number;
+  type?: number;
+}
+
 export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const uint8Array = new Uint8Array(arrayBuffer);
   const dataView = new DataView(arrayBuffer);
@@ -137,16 +147,6 @@ function readUTF16String(uint8Array: Uint8Array, offset: number, maxLength: numb
     }
   }
   return str.trim();
-}
-
-interface FieldMapping {
-  date: number;
-  amount: number;
-  description: number;
-  payee?: number;
-  category?: number;
-  accountName?: number;
-  type?: number;
 }
 
 export function applyMappingToData(rawData: Array<Record<string, unknown>>, mapping: FieldMapping): { accounts: ParsedAccount[], transactions: ParsedTransaction[] } {

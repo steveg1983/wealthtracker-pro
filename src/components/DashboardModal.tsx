@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
 import IncomeExpenditureReport from './IncomeExpenditureReport';
+import type { ReportSettings } from './IncomeExpenditureReport';
 import ErrorBoundary from './ErrorBoundary';
 
 interface NetWorthData {
@@ -27,28 +28,37 @@ interface ReconciliationData {
 }
 
 interface IncomeExpenditureData {
-  settings: Record<string, unknown>;
-  setSettings: (settings: Record<string, unknown>) => void;
+  settings: ReportSettings;
+  setSettings: (settings: ReportSettings | ((prev: ReportSettings) => ReportSettings)) => void;
   categories: Array<{
     id: string;
     name: string;
-    type: string;
-    level: string;
+    type: 'income' | 'expense' | 'both';
+    level: 'type' | 'sub' | 'detail';
     parentId?: string;
+    color?: string;
+    icon?: string;
+    isSystem?: boolean;
+    isHeader?: boolean;
   }>;
   transactions: Array<{
     id: string;
     date: Date;
     amount: number;
+    description: string;
     category: string;
     accountId: string;
-    type: string;
+    type: 'income' | 'expense' | 'transfer';
+    tags?: string[];
+    notes?: string;
   }>;
   accounts: Array<{
     id: string;
     name: string;
-    type: string;
+    type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
     balance: number;
+    currency: string;
+    lastUpdated: Date;
   }>;
 }
 
@@ -93,7 +103,7 @@ export default function DashboardModal({
         return (
           <div className={isFullscreen ? "h-[calc(100vh-200px)]" : "h-96"}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data}>
+              <BarChart data={data as NetWorthData[]}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
                 <XAxis 
                   dataKey="month" 
@@ -119,10 +129,10 @@ export default function DashboardModal({
                   fill="#8B5CF6" 
                   radius={[4, 4, 0, 0]}
                   style={{ cursor: 'pointer' }}
-                  onClick={(data) => {
-                    const monthData = data as NetWorthData;
-                    if (monthData && monthData.month) {
-                      navigate(`/networth/monthly/${monthData.month}`);
+                  onClick={(data: unknown) => {
+                    const monthData = data as { payload?: NetWorthData };
+                    if (monthData?.payload?.month) {
+                      navigate(`/networth/monthly/${monthData.payload.month}`);
                       onClose();
                     }
                   }}
@@ -138,7 +148,7 @@ export default function DashboardModal({
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={data}
+                  data={data as AccountDistributionData[]}
                   cx="50%"
                   cy="50%"
                   innerRadius={isFullscreen ? 120 : 80}
@@ -164,22 +174,27 @@ export default function DashboardModal({
           </div>
         );
 
-      case 'income-expenditure':
+      case 'income-expenditure': {
+        const incomeExpData = data as IncomeExpenditureData;
         return (
           <div className={isFullscreen ? "max-h-[calc(100vh-200px)] overflow-auto" : "max-h-96 overflow-auto"}>
             <ErrorBoundary>
               <IncomeExpenditureReport
-                data={data}
-                settings={data.settings}
-                setSettings={data.setSettings}
-                categories={data.categories}
-                transactions={data.transactions}
-                accounts={data.accounts}
+                data={{
+                  months: [],
+                  categories: []
+                }}
+                settings={incomeExpData.settings}
+                setSettings={incomeExpData.setSettings}
+                categories={incomeExpData.categories}
+                transactions={incomeExpData.transactions}
+                accounts={incomeExpData.accounts}
                 isModal={true}
               />
             </ErrorBoundary>
           </div>
         );
+      }
 
       case 'reconciliation':
         return (
@@ -187,7 +202,7 @@ export default function DashboardModal({
             <div className="grid grid-cols-3 gap-4 mb-6">
               <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <p className="text-sm text-blue-600 dark:text-blue-400">Accounts</p>
-                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{data?.length || 0}</p>
+                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{(data as ReconciliationData[])?.length || 0}</p>
               </div>
               <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                 <p className="text-sm text-orange-600 dark:text-orange-400">Unreconciled</p>

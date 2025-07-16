@@ -13,9 +13,11 @@ interface Category {
   color?: string;
   icon?: string;
   isSystem?: boolean;
+  isHeader?: boolean;
 }
 
 interface MonthData {
+  key: string;
   startDate: Date;
   endDate: Date;
   label: string;
@@ -23,18 +25,29 @@ interface MonthData {
 
 interface CategoryData {
   category: Category;
-  [monthKey: string]: {
+  monthlyData?: Array<{
+    month: string;
     income: number;
     expenditure: number;
-  } | Category;
+    net: number;
+  }>;
+  totalIncome?: number;
+  totalExpenditure?: number;
+  totalNet?: number;
+  isIndented?: boolean;
+  isDoubleIndented?: boolean;
+  showSubtotal?: boolean;
 }
 
 interface ReportData {
   months: MonthData[];
   categories: CategoryData[];
+  monthlyTotals?: Array<{ month: string; income: number; expenditure: number }>;
+  grandTotalIncome?: number;
+  grandTotalExpenditure?: number;
 }
 
-interface ReportSettings {
+export interface ReportSettings {
   showSettings: boolean;
   categoryLevel: 'type' | 'sub' | 'detail';
   timePeriod: '1month' | '12months' | '24months' | 'custom';
@@ -354,7 +367,7 @@ export default function IncomeExpenditureReport({
                   ))
                 ) : categoryData.showSubtotal && Array.isArray(categoryData.monthlyData) ? (
                   // Subtotal cells for category headers
-                  categoryData.monthlyData.map((monthData: { month: string; income: number; expenditure: number }) => (
+                  categoryData.monthlyData.map((monthData: { month: string; income: number; expenditure: number; net: number }) => (
                     <td key={monthData.month} className="py-2.5 px-1 text-center bg-gray-100 dark:bg-gray-700/70">
                       {monthData.net !== 0 && (
                         <div className={`text-xs font-bold ${
@@ -370,7 +383,7 @@ export default function IncomeExpenditureReport({
                   ))
                 ) : Array.isArray(categoryData.monthlyData) ? (
                   // Normal data cells
-                  categoryData.monthlyData.map((monthData: { month: string; income: number; expenditure: number }, monthIndex: number) => {
+                  categoryData.monthlyData.map((monthData: { month: string; income: number; expenditure: number; net: number }, monthIndex: number) => {
                     const month = data.months[monthIndex];
                     const hasValue = monthData.income > 0 || monthData.expenditure > 0;
                     const isClickable = hasValue && transactions.length > 0 && !categoryData.category.isHeader;
@@ -418,23 +431,23 @@ export default function IncomeExpenditureReport({
                     <div className="text-xs text-gray-400"></div>
                   ) : categoryData.showSubtotal ? (
                     <div className={`text-sm font-bold ${
-                      categoryData.totalNet >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
+                      (categoryData.totalNet ?? 0) >= 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'
                     }`}>
-                      {formatCurrency(categoryData.totalNet)}
+                      {formatCurrency(categoryData.totalNet ?? 0)}
                     </div>
                   ) : (
                     <>
-                      {categoryData.totalIncome > 0 && (
+                      {(categoryData.totalIncome ?? 0) > 0 && (
                         <div className="text-sm font-semibold text-green-600 dark:text-green-400">
-                          {formatCurrency(categoryData.totalIncome)}
+                          {formatCurrency(categoryData.totalIncome ?? 0)}
                         </div>
                       )}
-                      {categoryData.totalExpenditure > 0 && (
+                      {(categoryData.totalExpenditure ?? 0) > 0 && (
                         <div className="text-sm font-semibold text-red-600 dark:text-red-400">
-                          {formatCurrency(categoryData.totalExpenditure)}
+                          {formatCurrency(categoryData.totalExpenditure ?? 0)}
                         </div>
                       )}
-                      {categoryData.totalIncome === 0 && categoryData.totalExpenditure === 0 && (
+                      {(categoryData.totalIncome ?? 0) === 0 && (categoryData.totalExpenditure ?? 0) === 0 && (
                         <div className="text-xs text-gray-300 dark:text-gray-600">-</div>
                       )}
                     </>
@@ -474,7 +487,7 @@ export default function IncomeExpenditureReport({
               )}
               <td className="py-3 px-2 text-right sticky right-0 bg-gray-100 dark:bg-gray-700/70">
                 {(() => {
-                  const grandNet = data.grandTotalIncome - data.grandTotalExpenditure;
+                  const grandNet = (data.grandTotalIncome ?? 0) - (data.grandTotalExpenditure ?? 0);
                   return grandNet !== 0 ? (
                     <div className={`text-sm font-bold ${
                       grandNet > 0 ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'

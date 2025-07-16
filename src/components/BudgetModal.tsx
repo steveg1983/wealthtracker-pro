@@ -13,7 +13,7 @@ interface BudgetModalProps {
 interface FormData {
   category: string;
   amount: string;
-  period: 'monthly' | 'yearly';
+  period: 'monthly' | 'weekly' | 'yearly';
   isActive: boolean;
 }
 
@@ -23,7 +23,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
     {
       category: budget?.category || '',
-      amount: budget?.amount || '',
+      amount: budget?.amount?.toString() || '',
       period: budget?.period || 'monthly',
       isActive: budget?.isActive !== false
     },
@@ -50,7 +50,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
     if (budget) {
       setFormData({
         category: budget.category || '',
-        amount: budget.amount || '',
+        amount: budget.amount?.toString() || '',
         period: budget.period || 'monthly',
         isActive: budget.isActive !== false
       });

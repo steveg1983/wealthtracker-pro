@@ -41,7 +41,7 @@ export default function Dashboard() {
     isOpen: boolean;
     type: 'networth-chart' | 'account-distribution' | 'income-expenditure' | 'reconciliation' | null;
     title: string;
-    data?: any;
+    data?: unknown;
   }>({
     isOpen: false,
     type: null,

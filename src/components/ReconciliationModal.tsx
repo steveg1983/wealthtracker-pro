@@ -8,6 +8,7 @@ interface ReconciliationMatch {
   inTransaction: Transaction;
   confidence: number;
   reason: string;
+  matchType?: 'exact' | 'fuzzy' | 'amount-only';
 }
 
 interface ReconciliationModalProps {
@@ -35,14 +36,12 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
     if (!transaction && match) {
       // Reconciling a suggested match
       updateTransaction(match.outTransaction.id, {
-        ...match.outTransaction,
         reconciledWith: match.inTransaction.id,
         reconciledDate: new Date(),
         reconciledNotes: notes
       });
       
       updateTransaction(match.inTransaction.id, {
-        ...match.inTransaction,
         reconciledWith: match.outTransaction.id,
         reconciledDate: new Date(),
         reconciledNotes: notes
@@ -50,14 +49,12 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
     } else if (transaction && selectedTransaction) {
       // Manual reconciliation
       updateTransaction(transaction.id, {
-        ...transaction,
         reconciledWith: selectedTransaction.id,
         reconciledDate: new Date(),
         reconciledNotes: notes
       });
       
       updateTransaction(selectedTransaction.id, {
-        ...selectedTransaction,
         reconciledWith: transaction.id,
         reconciledDate: new Date(),
         reconciledNotes: notes

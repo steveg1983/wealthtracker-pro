@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { Upload, FileText, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
-import { parseMNY, parseMBF, applyMappingToData } from '../utils/mnyParser';
+import { parseMNY, parseMBF, applyMappingToData, type FieldMapping } from '../utils/mnyParser';
 import { parseQIF as enhancedParseQIF } from '../utils/qifParser';
 import MnyMappingModal from './MnyMappingModal';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
@@ -186,7 +186,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     }
   };
 
-  const handleMappingComplete = (mapping: Record<string, string>, data: Array<Record<string, unknown>>) => {
+  const handleMappingComplete = (mapping: FieldMapping, data: Array<Record<string, unknown>>) => {
     console.log('Applying mapping to data...');
     const result = applyMappingToData(data, mapping);
     

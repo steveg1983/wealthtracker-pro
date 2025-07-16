@@ -42,6 +42,7 @@ export interface RecurringTransaction {
   startDate: Date;
   endDate?: Date;
   nextDate: Date;
+  lastProcessed?: Date;
   isActive: boolean;
   tags?: string[];
   notes?: string;

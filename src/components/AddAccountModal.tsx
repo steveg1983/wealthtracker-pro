@@ -37,7 +37,6 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
           balance: parseFloat(data.balance) || 0,
           currency: data.currency,
           institution: data.institution,
-          lastUpdated: new Date(),
         });
       },
       onClose
