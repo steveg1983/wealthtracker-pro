@@ -533,7 +533,9 @@ export default function CategoriesSettings() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-blue-900 dark:text-white">Categories</h1>
+        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <h1 className="text-3xl font-bold text-white">Categories</h1>
+        </div>
         <div className="flex gap-2">
           <button
             onClick={() => {
@@ -663,10 +665,9 @@ export default function CategoriesSettings() {
               })}
             </div>
           </div>
-          </div>
           <DragOverlay>
             {activeId ? (
-              <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl p-2 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 opacity-90"
+              <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl p-2 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 opacity-90">
                 {categories.find(c => c.id === activeId)?.name}
               </div>
             ) : null}
