@@ -68,3 +68,11 @@ export interface Goal {
   isActive: boolean;
   createdAt: Date;
 }
+
+export interface Category {
+  id: string;
+  name: string;
+  type: 'income' | 'expense' | 'both';
+  level: 'type' | 'sub' | 'detail';
+  parentId?: string;
+}

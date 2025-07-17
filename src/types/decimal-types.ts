@@ -5,6 +5,8 @@ import type { DecimalInstance } from '../utils/decimal';
  * These will gradually replace the number-based types
  */
 
+export type { DecimalInstance } from '../utils/decimal';
+
 export interface DecimalHolding {
   ticker: string;
   name: string;
