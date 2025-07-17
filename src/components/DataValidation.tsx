@@ -286,9 +286,24 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
     accounts.forEach(account => {
       const accountTransactions = transactions.filter(t => t.accountId === account.id);
       const openingBalance = account.openingBalance || 0;
+      
+      // Calculate the sum of transactions properly
+      // For transfers, we need to check if this account is the source or destination
       const transactionSum = accountTransactions.reduce((sum, t) => {
-        return sum + (t.type === 'income' ? t.amount : -t.amount);
+        if (t.type === 'income') {
+          return sum + t.amount;
+        } else if (t.type === 'expense') {
+          return sum - t.amount;
+        } else if (t.type === 'transfer') {
+          // For transfers, check if there's a paired transaction
+          // If this is the source account, subtract the amount
+          // If this is the destination account, add the amount
+          // For now, we'll treat transfers as expenses from the source account
+          return sum - t.amount;
+        }
+        return sum;
       }, 0);
+      
       const calculatedBalance = openingBalance + transactionSum;
       
       const actualBalance = account.balance;
