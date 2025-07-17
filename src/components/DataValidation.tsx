@@ -304,6 +304,28 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
         return sum;
       }, 0);
       
+      // Debug logging
+      const incomeTotal = accountTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+      const expenseTotal = accountTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+      const transferTotal = accountTransactions.filter(t => t.type === 'transfer').reduce((s, t) => s + t.amount, 0);
+      
+      console.log(`Account: ${account.name}`, {
+        transactionCount: accountTransactions.length,
+        income: incomeTotal,
+        expenses: expenseTotal,
+        transfers: transferTotal,
+        transactionSum,
+        openingBalance,
+        calculatedBalance: openingBalance + transactionSum,
+        actualBalance: account.balance,
+        // Additional debug
+        manualCalc: openingBalance + incomeTotal - expenseTotal - transferTotal,
+        types: accountTransactions.reduce((acc, t) => {
+          acc[t.type] = (acc[t.type] || 0) + 1;
+          return acc;
+        }, {})
+      });
+      
       const calculatedBalance = openingBalance + transactionSum;
       
       const actualBalance = account.balance;
