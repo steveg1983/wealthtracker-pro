@@ -5,12 +5,12 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import { useCurrency } from '../hooks/useCurrency';
 import EditTransactionModal from '../components/EditTransactionModal';
-import { TrendingUpIcon, TrendingDownIcon, CalendarIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon } from '../components/icons';
+import { CalendarIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '../components/icons';
 import { FloatingAddButton } from '../components/ui/UIControls';
-import { PlusIcon, DeleteIcon, MinimizeIcon, MaximizeIcon, EditIcon, ExpandIcon, ShrinkIcon } from '../components/icons';
-import { IconButton } from '../components/icons/IconButton';
 import type { Transaction } from '../types';
 import PageWrapper from '../components/PageWrapper';
+import { TransactionRow } from '../components/TransactionRow';
+import { TransactionCard } from '../components/TransactionCard';
 
 export default function Transactions() {
   const { transactions, accounts, deleteTransaction, categories } = useApp();
@@ -309,13 +309,6 @@ export default function Transactions() {
     resetPagination();
   };
 
-  const getTypeIcon = (type: string) => {
-    return type === 'income' ? (
-      <TrendingUpIcon className="text-green-500" size={compactView ? 16 : 20} />
-    ) : (
-      <TrendingDownIcon className="text-red-500" size={compactView ? 16 : 20} />
-    );
-  };
 
   const handleDelete = (id: string) => {
     if (window.confirm('Are you sure you want to delete this transaction?')) {
@@ -438,102 +431,6 @@ export default function Transactions() {
     );
   };
 
-  // Render table data cell
-  const renderDataCell = (columnKey: string, transaction: Transaction) => {
-    const config = columnConfig[columnKey as keyof typeof columnConfig];
-    if (!config) return null;
-
-    const account = accounts.find(a => a.id === transaction.accountId);
-
-    switch (columnKey) {
-      case 'date':
-        return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-900 dark:text-gray-100`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
-            {new Date(transaction.date).toLocaleDateString()}
-          </td>
-        );
-      case 'reconciled':
-        return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} text-center`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
-            <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
-              {transaction.cleared ? 'R' : 'N'}
-            </span>
-          </td>
-        );
-      case 'account':
-        return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-500 dark:text-gray-400`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
-            <div className="truncate">
-              {account?.name || 'Unknown'}
-            </div>
-          </td>
-        );
-      case 'description':
-        return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
-            <div className="flex items-center gap-2">
-              {getTypeIcon(transaction.type)}
-              <span className={`${compactView ? 'text-sm' : 'text-sm'} text-gray-900 dark:text-gray-100 truncate`}>{transaction.description}</span>
-            </div>
-          </td>
-        );
-      case 'category':
-        return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 ${config.hidden}`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
-            <div className="truncate">
-              {(() => {
-                const category = categories.find(c => c.id === transaction.category);
-                if (!category) return transaction.categoryName || transaction.category;
-                
-                if (category.level === 'detail' && category.parentId) {
-                  const parent = categories.find(c => c.id === category.parentId);
-                  return `${parent?.name} > ${category.name}`;
-                }
-                return category.name;
-              })()}
-            </div>
-          </td>
-        );
-      case 'amount':
-        return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-sm text-right font-medium ${
-            transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-          }`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
-            {transaction.type === 'income' ? '+' : '-'}
-            {formatCurrency(transaction.amount, account?.currency || 'GBP')}
-          </td>
-        );
-      case 'actions':
-        return (
-          <td key={columnKey} className={`${config.cellClassName} ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap text-right text-sm font-medium`} style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}>
-            <div className="flex items-center justify-end gap-2">
-              <IconButton
-                onClick={(e) => {
-                  e?.stopPropagation();
-                  handleEdit(transaction);
-                }}
-                icon={<EditIcon size={16} />}
-                variant="ghost"
-                size="sm"
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
-              />
-              <IconButton
-                onClick={(e) => {
-                  e?.stopPropagation();
-                  handleDelete(transaction.id);
-                }}
-                icon={<DeleteIcon size={16} />}
-                variant="ghost"
-                size="sm"
-                className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30"
-              />
-            </div>
-          </td>
-        );
-      default:
-        return null;
-    }
-  };
 
   return (
     <PageWrapper 
@@ -548,33 +445,135 @@ export default function Transactions() {
       rightContent={
         <div className="flex items-center gap-2">
           {/* Compact View Toggle */}
-          <IconButton
+          <div 
             onClick={() => setCompactView(!compactView)}
-            icon={compactView ? <MaximizeIcon size={20} /> : <MinimizeIcon size={20} />}
-            variant="ghost"
-            size="sm"
-            className="text-white/80 hover:text-white hover:bg-white/10"
+            className="cursor-pointer"
             title={compactView ? "Switch to normal view" : "Switch to compact view"}
-          />
+          >
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 48 48"
+              xmlns="http://www.w3.org/2000/svg"
+              className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
+              style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+            >
+              <circle
+                cx="24"
+                cy="24"
+                r="24"
+                fill="#D9E1F2"
+                className="transition-all duration-200"
+                onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
+                onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+              />
+              {compactView ? (
+                <g transform="translate(12, 12)">
+                  <path 
+                    d="M8 3H5a2 2 0 00-2 2v3m0 0h18M3 8v8a2 2 0 002 2h3m0 0v3m0-3h8m0 3v-3m0 0h3a2 2 0 002-2v-3m0 0V8m0 0V5a2 2 0 00-2-2h-3" 
+                    stroke="#1F2937" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </g>
+              ) : (
+                <g transform="translate(12, 12)">
+                  <path 
+                    d="M3 8V5a2 2 0 012-2h3M3 8h18M3 8v8a2 2 0 002 2h3m13-10v8a2 2 0 01-2 2h-3m0 0v3m0-3H8m8 3v-3m0-10V3m0 0h3a2 2 0 012 2v3M16 3H8" 
+                    stroke="#1F2937" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                </g>
+              )}
+            </svg>
+          </div>
           
           {/* Wide View Toggle */}
-          <IconButton
+          <div 
             onClick={() => setIsWideView(!isWideView)}
-            icon={isWideView ? <ShrinkIcon size={20} /> : <ExpandIcon size={20} />}
-            variant="ghost"
-            size="sm"
-            className="text-white/80 hover:text-white hover:bg-white/10"
+            className="cursor-pointer"
             title={isWideView ? "Switch to standard width" : "Switch to wide view"}
-          />
+          >
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 48 48"
+              xmlns="http://www.w3.org/2000/svg"
+              className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
+              style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+            >
+              <circle
+                cx="24"
+                cy="24"
+                r="24"
+                fill="#D9E1F2"
+                className="transition-all duration-200"
+                onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
+                onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+              />
+              {isWideView ? (
+                <g transform="translate(12, 12)">
+                  <path 
+                    d="M5 12h14m-7-7v14" 
+                    stroke="#1F2937" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  />
+                </g>
+              ) : (
+                <g transform="translate(12, 12)">
+                  <path 
+                    d="M3 12h18m-9-9v18" 
+                    stroke="#1F2937" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                  />
+                </g>
+              )}
+            </svg>
+          </div>
           
-          <IconButton
+          {/* Add Transaction Button */}
+          <div 
             onClick={() => setIsModalOpen(true)}
-            icon={<PlusIcon size={20} />}
-            variant="ghost"
-            size="sm"
-            className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
+            className="cursor-pointer"
             title="Add Transaction"
-          />
+          >
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 48 48"
+              xmlns="http://www.w3.org/2000/svg"
+              className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
+              style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+            >
+              <circle
+                cx="24"
+                cy="24"
+                r="24"
+                fill="#D9E1F2"
+                className="transition-all duration-200"
+                onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
+                onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+              />
+              <g transform="translate(12, 12)">
+                <path 
+                  d="M12 5v14M5 12h14" 
+                  stroke="#1F2937" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                />
+              </g>
+            </svg>
+          </div>
         </div>
       }
     >
@@ -723,37 +722,14 @@ export default function Transactions() {
                 transaction.categoryName || transaction.category;
               
               return (
-                <div 
+                <TransactionCard
                   key={transaction.id}
-                  className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg p-4 cursor-pointer hover:shadow-xl transition-shadow border border-white/20 dark:border-gray-700/50"
+                  transaction={transaction}
+                  account={account}
+                  categoryDisplay={categoryDisplay}
+                  formatCurrency={formatCurrency}
                   onClick={() => handleEdit(transaction)}
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center gap-2">
-                      {getTypeIcon(transaction.type)}
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{transaction.description}</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {new Date(transaction.date).toLocaleDateString()}
-                          </p>
-                          <span className="text-xs font-bold text-gray-600 dark:text-gray-400">
-                            {transaction.cleared ? 'R' : 'N'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <span className={`font-bold ${
-                      transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                    }`}>
-                      {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount, account?.currency || 'GBP')}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">
-                    <span>{categoryDisplay}</span>
-                    <span>{account?.name || 'Unknown'}</span>
-                  </div>
-                </div>
+                />
               );
             })}
           </div>
@@ -768,15 +744,25 @@ export default function Transactions() {
                 </tr>
               </thead>
               <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {paginatedTransactions.map((transaction, index) => (
-                  <tr 
-                    key={transaction.id} 
-                    className={`${index % 2 === 1 ? 'bg-[#D9E1F2]/25' : 'bg-white'} ${index % 2 === 1 ? 'dark:bg-gray-700/30' : 'dark:bg-gray-800'} cursor-pointer hover:shadow-[inset_2px_0_0_3px_rgb(209,213,219),inset_0_2px_0_3px_rgb(209,213,219),inset_0_-2px_0_3px_rgb(209,213,219),inset_-2px_0_0_3px_rgb(209,213,219)] dark:hover:shadow-[inset_2px_0_0_3px_rgb(75,85,99),inset_0_2px_0_3px_rgb(75,85,99),inset_0_-2px_0_3px_rgb(75,85,99),inset_-2px_0_0_3px_rgb(75,85,99)] transition-shadow relative`}
-                    onClick={() => handleEdit(transaction)}
-                  >
-                    {columnOrder.map(columnKey => renderDataCell(columnKey, transaction))}
-                  </tr>
-                ))}
+                {paginatedTransactions.map((transaction) => {
+                  const account = accounts.find(a => a.id === transaction.accountId);
+                  const categoryPath = getCategoryPath(transaction.category);
+                  
+                  return (
+                    <TransactionRow
+                      key={transaction.id}
+                      transaction={transaction}
+                      account={account}
+                      categoryPath={categoryPath}
+                      compactView={compactView}
+                      formatCurrency={formatCurrency}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      columnOrder={columnOrder}
+                      columnWidths={columnWidths}
+                    />
+                  );
+                })}
               </tbody>
             </table>
             </div>

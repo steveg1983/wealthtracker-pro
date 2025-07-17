@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrency } from '../hooks/useCurrency';
-import { PlusCircleIcon, TrendingUpIcon, TrendingDownIcon, BanknoteIcon } from '../components/icons';
+import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon } from '../components/icons';
 import { EditIcon, DeleteIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import BudgetModal from '../components/BudgetModal';
 import type { Budget } from '../types';
 import PageWrapper from '../components/PageWrapper';
+import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations';
 
 export default function Budget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -30,28 +31,32 @@ export default function Budget() {
     return budgets
       .filter(budget => budget !== null && budget !== undefined)
       .map(budget => {
-        // Filter transactions for this budget's category
-        const categoryTransactions = transactions.filter(t => {
-          if (!t || !t.category || !t.date) return false;
-          if (t.category !== budget.category || t.type !== 'expense') return false;
-          
-          try {
-            const transDate = new Date(t.date);
-            if (budget.period === 'monthly') {
-              return transDate.getMonth() === currentMonth && 
-                     transDate.getFullYear() === currentYear;
-            } else {
-              return transDate.getFullYear() === currentYear;
-            }
-          } catch {
-            return false;
-          }
-        });
+        // Calculate date range for budget period
+        let startDate: Date;
+        let endDate: Date;
+        
+        if (budget.period === 'monthly') {
+          startDate = new Date(currentYear, currentMonth, 1);
+          endDate = new Date(currentYear, currentMonth + 1, 0);
+        } else if (budget.period === 'weekly') {
+          // For weekly, use the current week
+          const now = new Date();
+          const dayOfWeek = now.getDay();
+          startDate = new Date(now);
+          startDate.setDate(now.getDate() - dayOfWeek);
+          startDate.setHours(0, 0, 0, 0);
+          endDate = new Date(startDate);
+          endDate.setDate(startDate.getDate() + 6);
+          endDate.setHours(23, 59, 59, 999);
+        } else {
+          // Yearly
+          startDate = new Date(currentYear, 0, 1);
+          endDate = new Date(currentYear, 11, 31);
+        }
 
-        const spent = categoryTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-        const budgetAmount = Number(budget.amount) || 0;
-        const percentage = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;
-        const remaining = budgetAmount - spent;
+        const spent = calculateBudgetSpending(budget, transactions, startDate, endDate);
+        const percentage = calculateBudgetPercentage(budget, spent);
+        const remaining = calculateBudgetRemaining(budget, spent);
 
         return {
           ...budget,
@@ -100,13 +105,34 @@ export default function Budget() {
     <PageWrapper 
       title="Budget"
       rightContent={
-        <button
+        <div 
           onClick={() => setIsModalOpen(true)}
-          className="w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-700 transition-colors"
+          className="cursor-pointer"
           title="Add Budget"
         >
-          <PlusCircleIcon size={16} />
-        </button>
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+            className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
+            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+          >
+            <circle
+              cx="24"
+              cy="24"
+              r="24"
+              fill="#D9E1F2"
+              className="transition-all duration-200"
+              onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
+              onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+            />
+            <g transform="translate(12, 12)">
+              <circle cx="12" cy="12" r="10" stroke="#1F2937" strokeWidth="2" fill="none" />
+              <path d="M12 8v8M8 12h8" stroke="#1F2937" strokeWidth="2" strokeLinecap="round" />
+            </g>
+          </svg>
+        </div>
       }
     >
 

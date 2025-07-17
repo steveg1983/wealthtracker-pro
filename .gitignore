@@ -24,3 +24,6 @@ dist-ssr
 *.sw?
 .env
 *.tar.gz
+
+# Sentry
+.sentryclirc

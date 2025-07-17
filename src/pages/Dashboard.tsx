@@ -1,8 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon } from '../components/icons';
-import { SettingsIcon } from '../components/icons';
-import { IconButton } from '../components/icons/IconButton';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -213,499 +211,7 @@ export default function Dashboard() {
     }
   }), [isDarkMode]);
 
-  // Generate income and expenditure data based on settings
-  // TODO: This data is not being used - commenting out to fix error
-  /*useMemo(() => {
-    try {
-      // Generate months based on time period setting
-      const months: Array<{
-        key: string;
-        label: string;
-        startDate: Date;
-        endDate: Date;
-      }> = [];
-      const currentDate = new Date();
-      
-      let startDate: Date;
-      let endDate: Date;
-      
-      if (incomeExpReportSettings.timePeriod === 'custom' && incomeExpReportSettings.customStartDate && incomeExpReportSettings.customEndDate) {
-        startDate = new Date(incomeExpReportSettings.customStartDate);
-        endDate = new Date(incomeExpReportSettings.customEndDate);
-      } else {
-        endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0); // End of current month
-        if (incomeExpReportSettings.timePeriod === '1month') {
-          startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-        } else if (incomeExpReportSettings.timePeriod === '24months') {
-          startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 23, 1);
-        } else {
-          // Default to 12 months
-          startDate = new Date(currentDate.getFullYear(), currentDate.getMonth() - 11, 1);
-        }
-      }
-      
-      // Generate months between start and end dates
-      const tempDate = new Date(startDate);
-      while (tempDate <= endDate) {
-        months.push({
-          key: `${tempDate.getFullYear()}-${String(tempDate.getMonth() + 1).padStart(2, '0')}`,
-          label: tempDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-          startDate: new Date(tempDate.getFullYear(), tempDate.getMonth(), 1),
-          endDate: new Date(tempDate.getFullYear(), tempDate.getMonth() + 1, 0)
-        });
-        tempDate.setMonth(tempDate.getMonth() + 1);
-      }
-
-      // Helper function to check if a category or any of its ancestors is excluded
-      const isCategoryExcluded = (categoryId: string): boolean => {
-        let currentCat = categories.find(c => c.id === categoryId);
-        while (currentCat) {
-          if (incomeExpReportSettings.excludedCategories.includes(currentCat.id)) {
-            return true;
-          }
-          currentCat = categories.find(c => c.id === currentCat?.parentId);
-        }
-        return false;
-      };
-
-      // Helper function to check if a category is a descendant of another
-      const isDescendant = (childId: string, ancestorId: string): boolean => {
-        if (!childId || !ancestorId) return false;
-        if (childId === ancestorId) return true;
-        const child = categories.find(c => c.id === childId);
-        if (!child || !child.parentId) return false;
-        return isDescendant(child.parentId, ancestorId);
-      };
-
-      // Calculate data for each category and month
-      const calculateCategoryData = (category: Category) => {
-        if (!category || !category.id) {
-          return {
-            category: category || { id: 'unknown', name: 'Unknown' },
-            monthlyData: [],
-            totalIncome: 0,
-            totalExpenditure: 0,
-            totalNet: 0
-          };
-        }
-        
-        const monthlyData = months.map(month => {
-          const monthTransactions = transactions.filter(transaction => {
-            const transactionDate = new Date(transaction.date);
-            const matchesCategory = isDescendant(transaction.category, category.id);
-            return matchesCategory && 
-              transactionDate >= month.startDate && 
-              transactionDate <= month.endDate &&
-              !isCategoryExcluded(transaction.category);
-          });
-
-          const income = monthTransactions
-            .filter(t => t.type === 'income')
-            .reduce((sum, t) => sum + t.amount, 0);
-          
-          const expenditure = monthTransactions
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0);
-
-          return {
-            month: month.key,
-            monthLabel: month.label,
-            income,
-            expenditure,
-            net: income - expenditure
-          };
-        });
-
-        const totalIncome = monthlyData.reduce((sum, m) => sum + m.income, 0);
-        const totalExpenditure = monthlyData.reduce((sum, m) => sum + m.expenditure, 0);
-
-        return {
-          category,
-          monthlyData,
-          totalIncome,
-          totalExpenditure,
-          totalNet: totalIncome - totalExpenditure
-        };
-      };
-
-      // Build report data based on category level
-      const reportData: Array<{
-        category: { 
-          id?: string;
-          name: string; 
-          type?: string;
-          level?: string;
-          isHeader?: boolean;
-        };
-        monthlyData: Array<{ month: string; income: number; expenditure: number; net: number }>;
-        isIndented?: boolean;
-        isDoubleIndented?: boolean;
-        showSubtotal?: boolean;
-        totalIncome?: number;
-        totalExpenditure?: number;
-        totalNet?: number;
-      }> = [];
-      const incomeType = categories.find(c => c.id === 'type-income' || (c.level === 'type' && c.name === 'Income'));
-      const expenseType = categories.find(c => c.id === 'type-expense' || (c.level === 'type' && c.name === 'Expense'));
-      
-      // Early return if essential categories are missing
-      if (!incomeType || !expenseType) {
-        console.error('Missing essential type categories. Income:', incomeType, 'Expense:', expenseType);
-        return {
-          months,
-          categories: [],
-          monthlyTotals: [],
-          grandTotalIncome: 0,
-          grandTotalExpenditure: 0
-        };
-      }
-      
-      if (incomeExpReportSettings.categoryLevel === 'type') {
-        // Type level - just show Income and Expense
-        if (incomeType && !incomeExpReportSettings.excludedCategories.includes(incomeType.id)) {
-          const data = calculateCategoryData(incomeType);
-          if (data.totalIncome > 0 || data.totalExpenditure > 0) {
-            reportData.push(data);
-          }
-        }
-        if (expenseType && !incomeExpReportSettings.excludedCategories.includes(expenseType.id)) {
-          const data = calculateCategoryData(expenseType);
-          if (data.totalIncome > 0 || data.totalExpenditure > 0) {
-            reportData.push(data);
-          }
-        }
-      } else if (incomeExpReportSettings.categoryLevel === 'sub') {
-        // Sub-category level - show Income/Expense headers with their subcategories
-        if (incomeType && !incomeExpReportSettings.excludedCategories.includes(incomeType.id)) {
-          const incomeSubs = categories.filter(c => 
-            c.parentId === incomeType.id && 
-            c.level === 'sub' &&
-            !c.name.toLowerCase().includes('transfer') &&
-            !incomeExpReportSettings.excludedCategories.includes(c.id)
-          );
-
-          if (incomeSubs.length > 0) {
-            const incomeSubData = incomeSubs.map(sub => calculateCategoryData(sub))
-              .filter(data => data.totalIncome > 0 || data.totalExpenditure > 0);
-
-            if (incomeSubData.length > 0) {
-              // Calculate monthly subtotals for income
-              const incomeMonthlySubtotals = months.map(month => {
-                const monthTotal = incomeSubData.reduce((sum, item) => {
-                  if (!item || !item.monthlyData || !Array.isArray(item.monthlyData)) {
-                    console.warn('Invalid item in incomeSubData:', item);
-                    return sum;
-                  }
-                  const monthData = item.monthlyData.find((m) => m.month === month.key);
-                  return sum + (monthData ? monthData.net : 0);
-                }, 0);
-                return {
-                  month: month.key,
-                  monthLabel: month.label,
-                  income: monthTotal > 0 ? monthTotal : 0,
-                  expenditure: monthTotal < 0 ? Math.abs(monthTotal) : 0,
-                  net: monthTotal
-                };
-              });
-              
-              const incomeTotalNet = incomeSubData.reduce((sum, item) => sum + (item?.totalNet || 0), 0);
-              
-              reportData.push({
-                category: { 
-                  id: incomeType.id || 'income-header',
-                  name: incomeType.name || 'Income',
-                  type: incomeType.type || 'income',
-                  level: incomeType.level || 'type',
-                  isHeader: true 
-                },
-                monthlyData: incomeMonthlySubtotals,
-                totalIncome: incomeTotalNet > 0 ? incomeTotalNet : 0,
-                totalExpenditure: incomeTotalNet < 0 ? Math.abs(incomeTotalNet) : 0,
-                totalNet: incomeTotalNet,
-                showSubtotal: true
-              });
-              
-              incomeSubData.forEach(data => {
-                if (data && data.category) {
-                  reportData.push({ ...data, isIndented: true });
-                }
-              });
-            }
-          }
-        }
-        
-        if (expenseType && !incomeExpReportSettings.excludedCategories.includes(expenseType.id)) {
-          const expenseSubs = categories.filter(c => 
-            c.parentId === expenseType.id && 
-            c.level === 'sub' &&
-            !c.name.toLowerCase().includes('transfer') &&
-            !incomeExpReportSettings.excludedCategories.includes(c.id)
-          );
-
-          if (expenseSubs.length > 0) {
-            const expenseSubData = expenseSubs.map(sub => calculateCategoryData(sub))
-              .filter(data => data.totalIncome > 0 || data.totalExpenditure > 0);
-
-            if (expenseSubData.length > 0) {
-              // Calculate monthly subtotals for expenses
-              const expenseMonthlySubtotals = months.map(month => {
-                const monthTotal = expenseSubData.reduce((sum, item) => {
-                  if (!item || !item.monthlyData || !Array.isArray(item.monthlyData)) {
-                    console.warn('Invalid item in expenseSubData:', item);
-                    return sum;
-                  }
-                  const monthData = item.monthlyData.find((m) => m.month === month.key);
-                  return sum + (monthData ? monthData.net : 0);
-                }, 0);
-                return {
-                  month: month.key,
-                  monthLabel: month.label,
-                  income: monthTotal > 0 ? monthTotal : 0,
-                  expenditure: monthTotal < 0 ? Math.abs(monthTotal) : 0,
-                  net: monthTotal
-                };
-              });
-              
-              const expenseTotalNet = expenseSubData.reduce((sum, item) => sum + (item?.totalNet || 0), 0);
-              
-              reportData.push({
-                category: { 
-                  id: expenseType.id || 'expense-header',
-                  name: expenseType.name || 'Expense',
-                  type: expenseType.type || 'expense',
-                  level: expenseType.level || 'type',
-                  isHeader: true 
-                },
-                monthlyData: expenseMonthlySubtotals,
-                totalIncome: expenseTotalNet > 0 ? expenseTotalNet : 0,
-                totalExpenditure: expenseTotalNet < 0 ? Math.abs(expenseTotalNet) : 0,
-                totalNet: expenseTotalNet,
-                showSubtotal: true
-              });
-              
-              expenseSubData.forEach(data => {
-                if (data && data.category) {
-                  reportData.push({ ...data, isIndented: true });
-                }
-              });
-            }
-          }
-        }
-      } else if (incomeExpReportSettings.categoryLevel === 'detail') {
-        // Detail level - show full hierarchy
-        if (incomeType && !incomeExpReportSettings.excludedCategories.includes(incomeType.id)) {
-          const allIncomeDetailData: Array<{ month: string; income: number; expenditure: number; net: number }> = [];
-          const incomeSubs = categories.filter(c => 
-            c.parentId === incomeType.id && 
-            c.level === 'sub' &&
-            !c.name.toLowerCase().includes('transfer') &&
-            !incomeExpReportSettings.excludedCategories.includes(c.id)
-          );
-          
-          // Collect all detail data first
-          incomeSubs.forEach(sub => {
-            const subDetails = categories.filter(c => 
-              c.parentId === sub.id && 
-              !c.name.toLowerCase().includes('transfer') &&
-              !incomeExpReportSettings.excludedCategories.includes(c.id)
-            );
-            subDetails.forEach(detail => {
-              const data = calculateCategoryData(detail);
-              if (data.totalIncome > 0 || data.totalExpenditure > 0) {
-                data.monthlyData.forEach(monthData => {
-                  allIncomeDetailData.push(monthData);
-                });
-              }
-            });
-          });
-          
-          if (allIncomeDetailData.length > 0) {
-            // Calculate income subtotals
-            const incomeMonthlySubtotals = months.map(month => {
-              const monthTotal = allIncomeDetailData
-                .filter(item => item.month === month.key)
-                .reduce((sum, item) => sum + item.net, 0);
-              return {
-                month: month.key,
-                monthLabel: month.label,
-                income: monthTotal > 0 ? monthTotal : 0,
-                expenditure: monthTotal < 0 ? Math.abs(monthTotal) : 0,
-                net: monthTotal
-              };
-            });
-            
-            const incomeTotalNet = allIncomeDetailData.reduce((sum, item) => sum + item.net, 0);
-            
-            reportData.push({
-              category: { ...incomeType, isHeader: true },
-              monthlyData: incomeMonthlySubtotals,
-              totalIncome: incomeTotalNet > 0 ? incomeTotalNet : 0,
-              totalExpenditure: incomeTotalNet < 0 ? Math.abs(incomeTotalNet) : 0,
-              totalNet: incomeTotalNet,
-              showSubtotal: true
-            });
-            
-            // Now add sub-categories with their details
-            incomeSubs.forEach(sub => {
-              const subDetails = categories.filter(c => 
-                c.parentId === sub.id && 
-                !c.name.toLowerCase().includes('transfer') &&
-                !incomeExpReportSettings.excludedCategories.includes(c.id)
-              );
-              
-              const visibleDetails = subDetails.map(detail => calculateCategoryData(detail))
-                .filter(data => data.totalIncome > 0 || data.totalExpenditure > 0);
-              
-              if (visibleDetails.length > 0) {
-                reportData.push({
-                  category: { ...sub, isHeader: true },
-                  monthlyData: [],
-                  totalIncome: 0,
-                  totalExpenditure: 0,
-                  totalNet: 0,
-                  isIndented: true
-                });
-                
-                visibleDetails.forEach(data => {
-                  reportData.push({ ...data, isDoubleIndented: true });
-                });
-              }
-            });
-          }
-        }
-        
-        if (expenseType && !incomeExpReportSettings.excludedCategories.includes(expenseType.id)) {
-          const allExpenseDetailData: Array<{ month: string; income: number; expenditure: number; net: number }> = [];
-          const expenseSubs = categories.filter(c => 
-            c.parentId === expenseType.id && 
-            c.level === 'sub' &&
-            !c.name.toLowerCase().includes('transfer') &&
-            !incomeExpReportSettings.excludedCategories.includes(c.id)
-          );
-          
-          // Collect all detail data first
-          expenseSubs.forEach(sub => {
-            const subDetails = categories.filter(c => 
-              c.parentId === sub.id && 
-              !c.name.toLowerCase().includes('transfer') &&
-              !incomeExpReportSettings.excludedCategories.includes(c.id)
-            );
-            subDetails.forEach(detail => {
-              const data = calculateCategoryData(detail);
-              if (data.totalIncome > 0 || data.totalExpenditure > 0) {
-                data.monthlyData.forEach(monthData => {
-                  allExpenseDetailData.push(monthData);
-                });
-              }
-            });
-          });
-          
-          if (allExpenseDetailData.length > 0) {
-            // Calculate expense subtotals
-            const expenseMonthlySubtotals = months.map(month => {
-              const monthTotal = allExpenseDetailData
-                .filter(item => item.month === month.key)
-                .reduce((sum, item) => sum + item.net, 0);
-              return {
-                month: month.key,
-                monthLabel: month.label,
-                income: monthTotal > 0 ? monthTotal : 0,
-                expenditure: monthTotal < 0 ? Math.abs(monthTotal) : 0,
-                net: monthTotal
-              };
-            });
-            
-            const expenseTotalNet = allExpenseDetailData.reduce((sum, item) => sum + item.net, 0);
-            
-            reportData.push({
-              category: { ...expenseType, isHeader: true },
-              monthlyData: expenseMonthlySubtotals,
-              totalIncome: expenseTotalNet > 0 ? expenseTotalNet : 0,
-              totalExpenditure: expenseTotalNet < 0 ? Math.abs(expenseTotalNet) : 0,
-              totalNet: expenseTotalNet,
-              showSubtotal: true
-            });
-            
-            // Now add sub-categories with their details
-            expenseSubs.forEach(sub => {
-              const subDetails = categories.filter(c => 
-                c.parentId === sub.id && 
-                !c.name.toLowerCase().includes('transfer') &&
-                !incomeExpReportSettings.excludedCategories.includes(c.id)
-              );
-              
-              const visibleDetails = subDetails.map(detail => calculateCategoryData(detail))
-                .filter(data => data.totalIncome > 0 || data.totalExpenditure > 0);
-              
-              if (visibleDetails.length > 0) {
-                reportData.push({
-                  category: { ...sub, isHeader: true },
-                  monthlyData: [],
-                  totalIncome: 0,
-                  totalExpenditure: 0,
-                  totalNet: 0,
-                  isIndented: true
-                });
-                
-                visibleDetails.forEach(data => {
-                  reportData.push({ ...data, isDoubleIndented: true });
-                });
-              }
-            });
-          }
-        }
-      }
-
-      // Calculate monthly totals from actual transactions
-      const monthlyTotals = months.map(month => {
-        const monthTransactions = transactions.filter(transaction => {
-          const transactionDate = new Date(transaction.date);
-          const transactionCategory = categories.find(c => c.id === transaction.category);
-          if (!transactionCategory) return false;
-          
-          return transactionDate >= month.startDate && 
-                 transactionDate <= month.endDate &&
-                 !transactionCategory.name.toLowerCase().includes('transfer') &&
-                 !isCategoryExcluded(transaction.category);
-        });
-        
-        const income = monthTransactions
-          .filter(t => t.type === 'income')
-          .reduce((sum, t) => sum + t.amount, 0);
-        
-        const expenditure = monthTransactions
-          .filter(t => t.type === 'expense')
-          .reduce((sum, t) => sum + t.amount, 0);
-        
-        return {
-          month: month.key,
-          income,
-          expenditure
-        };
-      });
-      
-      // Calculate grand totals from monthly totals
-      const grandTotalIncome = monthlyTotals.reduce((sum, month) => sum + month.income, 0);
-      const grandTotalExpenditure = monthlyTotals.reduce((sum, month) => sum + month.expenditure, 0);
-
-      return {
-        months,
-        categories: reportData,
-        monthlyTotals,
-        grandTotalIncome,
-        grandTotalExpenditure
-      };
-    } catch (error) {
-      console.error('Error generating income/expenditure data:', error);
-      return {
-        months: [],
-        categories: [],
-        monthlyTotals: [],
-        grandTotalIncome: 0,
-        grandTotalExpenditure: 0
-      };
-    }
-  }, [transactions, categories, incomeExpReportSettings]);*/
+  // Income and expenditure data is now calculated within the IncomeExpenditureReport component itself
 
   // Handle onboarding completion
   const handleOnboardingComplete = (name: string, currency: string) => {
@@ -739,14 +245,55 @@ export default function Dashboard() {
       title="Dashboard"
       reducedHeaderWidth={true}
       rightContent={
-        <IconButton
+        <div 
           onClick={() => setShowLayoutControls(!showLayoutControls)}
-          icon={<SettingsIcon size={20} color="white" />}
-          variant="primary"
-          size="md"
-          title="Customize Layout"
-          className="bg-[#6B86B3] hover:bg-[#5A729A] border-2 border-[#8FA5C8]"
-        />
+          className="cursor-pointer"
+          title={showLayoutControls ? "Lock Layout" : "Unlock Layout"}
+        >
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+            className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
+            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+          >
+            <circle
+              cx="24"
+              cy="24"
+              r="24"
+              fill="#D9E1F2"
+              className="transition-all duration-200"
+              onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
+              onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+            />
+            {showLayoutControls ? (
+              <g transform="translate(12, 12)">
+                <path 
+                  d="M7 11V7C7 4.23858 9.23858 2 12 2C14.419 2 16.4367 3.71776 16.9 6M5 11H19C19.5523 11 20 11.4477 20 12V20C20 20.5523 19.5523 21 19 21H5C4.44772 21 4 20.5523 4 20V12C4 11.4477 4.44772 11 5 11Z" 
+                  stroke="#1F2937" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+                <circle cx="12" cy="16" r="1" fill="#1F2937" />
+              </g>
+            ) : (
+              <g transform="translate(12, 12)">
+                <path 
+                  d="M7 11V7C7 4.23858 9.23858 2 12 2C14.7614 2 17 4.23858 17 7V11M5 11H19C19.5523 11 20 11.4477 20 12V20C20 20.5523 19.5523 21 19 21H5C4.44772 21 4 20.5523 4 20V12C4 11.4477 4.44772 11 5 11Z" 
+                  stroke="#1F2937" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                  fill="none"
+                />
+                <circle cx="12" cy="16" r="1" fill="#1F2937" />
+              </g>
+            )}
+          </svg>
+        </div>
       }
     >
 

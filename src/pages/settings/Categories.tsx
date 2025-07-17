@@ -160,6 +160,7 @@ export default function CategoriesSettings() {
     categories,
     updateCategory,
     deleteCategory,
+    updateTransaction,
     getSubCategories,
     getDetailCategories
   } = useApp();
@@ -743,7 +744,13 @@ export default function CategoriesSettings() {
                     <button
                       onClick={() => {
                         if (reassignCategoryId) {
-                          // TODO: Reassign transactions before deleting category
+                          // Reassign all transactions from the deleted category to the new category
+                          const transactionsToReassign = transactions.filter(t => t.category === deletingCategoryId);
+                          transactionsToReassign.forEach(transaction => {
+                            updateTransaction(transaction.id, { category: reassignCategoryId });
+                          });
+                          
+                          // Now delete the category
                           deleteCategory(deletingCategoryId);
                           setDeletingCategoryId(null);
                           setReassignCategoryId('');

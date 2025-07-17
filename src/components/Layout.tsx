@@ -3,6 +3,7 @@ import { Link, useLocation, Outlet } from 'react-router-dom';
 import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
+import OfflineIndicator from './OfflineIndicator';
 
 interface SidebarLinkProps {
   to: string;
@@ -311,6 +312,9 @@ export default function Layout() {
           <Outlet />
         </div>
       </main>
+      
+      {/* Offline Indicator */}
+      <OfflineIndicator />
     </div>
   );
 }

@@ -1,4 +1,7 @@
-// Currency conversion utilities
+import { Decimal, toDecimal } from './decimal';
+import type { DecimalInstance } from './decimal';
+
+// Currency conversion utilities with Decimal.js
 interface ExchangeRates {
   [key: string]: number;
 }
@@ -30,70 +33,21 @@ export function getCurrencySymbol(currency: string): string {
   return currencySymbols[currency] || currency;
 }
 
-// Format amount with currency
-export function formatCurrency(amount: number, currency: string = 'GBP'): string {
+// Format amount with currency (accepts Decimal or number)
+export function formatCurrency(amount: DecimalInstance | number, currency: string = 'GBP'): string {
+  const decimal = toDecimal(amount);
   const symbol = getCurrencySymbol(currency);
   const formatted = new Intl.NumberFormat('en-GB', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(Math.abs(amount));
-  
-  const prefix = amount < 0 ? '-' : '';
+  }).format(decimal.abs().toNumber());
   
   // Special handling for currencies that come after the number
   if (currency === 'CHF') {
-    return `${prefix}${formatted} ${symbol}`;
+    return `${formatted} ${symbol}`;
   }
   
-  return `${prefix}${symbol}${formatted}`;
-}
-
-// Parse currency string to number
-export function parseCurrency(value: string): number {
-  if (!value || typeof value !== 'string') return 0;
-  
-  // Remove currency symbols and commas
-  const cleanValue = value
-    .replace(/[£$€¥₹]/g, '')
-    .replace(/CHF/g, '')
-    .replace(/,/g, '')
-    .trim();
-  
-  const parsed = parseFloat(cleanValue);
-  return isNaN(parsed) ? 0 : parsed;
-}
-
-// Static exchange rates for testing
-const staticRates: ExchangeRates = {
-  GBP: 1,
-  USD: 1.25,
-  EUR: 1.176470588,
-};
-
-// Get exchange rate between two currencies (synchronous for testing)
-export function getExchangeRate(fromCurrency: string, toCurrency: string): number {
-  if (fromCurrency === toCurrency) return 1;
-  
-  // Convert through GBP as base
-  const fromRate = staticRates[fromCurrency] || 1;
-  const toRate = staticRates[toCurrency] || 1;
-  
-  if (fromCurrency === 'GBP') {
-    return toRate;
-  } else if (toCurrency === 'GBP') {
-    return 1 / fromRate;
-  } else {
-    // Cross rate: from -> GBP -> to
-    return toRate / fromRate;
-  }
-}
-
-// Convert currency synchronously (for testing)
-export function convertCurrency(amount: number, fromCurrency: string, toCurrency: string): number {
-  if (fromCurrency === toCurrency) return amount;
-  
-  const rate = getExchangeRate(fromCurrency, toCurrency);
-  return amount * rate;
+  return `${symbol}${formatted}`;
 }
 
 // Fetch exchange rates from a free API
@@ -146,14 +100,16 @@ export async function getExchangeRates(): Promise<ExchangeRates> {
   return rates;
 }
 
-// Convert amount from one currency to another (async version)
-export async function convertCurrencyAsync(
-  amount: number,
+// Convert amount from one currency to another using Decimal
+export async function convertCurrency(
+  amount: DecimalInstance | number,
   fromCurrency: string,
   toCurrency: string
-): Promise<number> {
+): Promise<DecimalInstance> {
+  const decimalAmount = toDecimal(amount);
+  
   if (fromCurrency === toCurrency) {
-    return amount;
+    return decimalAmount;
   }
   
   try {
@@ -162,49 +118,85 @@ export async function convertCurrencyAsync(
     // Check if we have rates for both currencies
     if (!rates[fromCurrency] || !rates[toCurrency]) {
       console.warn(`Missing exchange rate for ${fromCurrency} or ${toCurrency}`);
-      return amount; // Return original amount if conversion fails
+      return decimalAmount; // Return original amount if conversion fails
     }
     
     // Convert to GBP first (base currency), then to target currency
-    const inGBP = fromCurrency === 'GBP' ? amount : amount / rates[fromCurrency];
-    const converted = toCurrency === 'GBP' ? inGBP : inGBP * rates[toCurrency];
+    const fromRate = new Decimal(rates[fromCurrency]);
+    const toRate = new Decimal(rates[toCurrency]);
+    
+    let inGBP: DecimalInstance;
+    if (fromCurrency === 'GBP') {
+      inGBP = decimalAmount;
+    } else {
+      inGBP = decimalAmount.dividedBy(fromRate);
+    }
+    
+    let converted: DecimalInstance;
+    if (toCurrency === 'GBP') {
+      converted = inGBP;
+    } else {
+      converted = inGBP.times(toRate);
+    }
     
     return converted;
   } catch (error) {
     console.error('Currency conversion error:', error);
-    return amount; // Return original amount if conversion fails
+    return decimalAmount; // Return original amount if conversion fails
   }
 }
 
 // Convert multiple amounts with different currencies to a single currency
 export async function convertMultipleCurrencies(
-  amounts: Array<{ amount: number; currency: string }>,
+  amounts: Array<{ amount: DecimalInstance | number; currency: string }>,
   toCurrency: string
-): Promise<number> {
+): Promise<DecimalInstance> {
   try {
     const rates = await getExchangeRates();
     
-    return amounts.reduce((total, { amount, currency }) => {
+    let total = new Decimal(0);
+    
+    for (const { amount, currency } of amounts) {
+      const decimalAmount = toDecimal(amount);
+      
       if (currency === toCurrency) {
-        return total + amount;
+        total = total.plus(decimalAmount);
+        continue;
       }
       
       // Check if we have rates for the currency
       if (!rates[currency] || !rates[toCurrency]) {
         console.warn(`Missing exchange rate for ${currency} or ${toCurrency}`);
-        return total + amount; // Add unconverted amount
+        total = total.plus(decimalAmount); // Add unconverted amount
+        continue;
       }
       
       // Convert to GBP first, then to target currency
-      const inGBP = currency === 'GBP' ? amount : amount / rates[currency];
-      const converted = toCurrency === 'GBP' ? inGBP : inGBP * rates[toCurrency];
+      const fromRate = new Decimal(rates[currency]);
+      const toRate = new Decimal(rates[toCurrency]);
       
-      return total + converted;
-    }, 0);
+      let inGBP: DecimalInstance;
+      if (currency === 'GBP') {
+        inGBP = decimalAmount;
+      } else {
+        inGBP = decimalAmount.dividedBy(fromRate);
+      }
+      
+      let converted: DecimalInstance;
+      if (toCurrency === 'GBP') {
+        converted = inGBP;
+      } else {
+        converted = inGBP.times(toRate);
+      }
+      
+      total = total.plus(converted);
+    }
+    
+    return total;
   } catch (error) {
     console.error('Currency conversion error:', error);
     // Fallback: just sum amounts without conversion
-    return amounts.reduce((sum, { amount }) => sum + amount, 0);
+    return amounts.reduce((sum, { amount }) => sum.plus(toDecimal(amount)), new Decimal(0));
   }
 }
 

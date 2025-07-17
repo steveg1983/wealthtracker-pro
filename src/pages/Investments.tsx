@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, ChevronRightIcon, PlusIcon } from '../components/icons';
+import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, ChevronRightIcon } from '../components/icons';
 import EnhancedPortfolioView from '../components/EnhancedPortfolioView';
 import AddInvestmentModal from '../components/AddInvestmentModal';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
@@ -146,13 +146,39 @@ export default function Investments() {
       title="Investments"
       rightContent={
         investmentAccounts.length > 0 && (
-          <button
+          <div 
             onClick={() => setShowAddInvestmentModal(true)}
-            className="w-8 h-8 flex items-center justify-center text-red-500 hover:text-red-700 transition-colors"
+            className="cursor-pointer"
             title="Add Investment"
           >
-            <PlusIcon size={16} />
-          </button>
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 48 48"
+              xmlns="http://www.w3.org/2000/svg"
+              className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
+              style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+            >
+              <circle
+                cx="24"
+                cy="24"
+                r="24"
+                fill="#D9E1F2"
+                className="transition-all duration-200"
+                onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
+                onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+              />
+              <g transform="translate(12, 12)">
+                <path 
+                  d="M12 5v14M5 12h14" 
+                  stroke="#1F2937" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round"
+                />
+              </g>
+            </svg>
+          </div>
         )
       }
     >

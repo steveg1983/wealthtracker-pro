@@ -9,6 +9,7 @@ interface IconButtonProps {
   className?: string;
   title?: string;
   disabled?: boolean;
+  'data-testid'?: string;
 }
 
 const sizeClasses = {
@@ -32,7 +33,8 @@ export const IconButton: React.FC<IconButtonProps> = ({
   rounded = true,
   className = '',
   title,
-  disabled = false
+  disabled = false,
+  'data-testid': dataTestId
 }) => {
   return (
     <button
@@ -49,6 +51,7 @@ export const IconButton: React.FC<IconButtonProps> = ({
       `}
       title={title}
       type="button"
+      data-testid={dataTestId}
     >
       {icon}
     </button>

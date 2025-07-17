@@ -8,10 +8,11 @@ import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
 import { FloatingAddButton } from '../components/ui/UIControls';
-import { PlusIcon, EditIcon, DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon } from '../components/icons';
+import { EditIcon, DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrency } from '../hooks/useCurrency';
 import PageWrapper from '../components/PageWrapper';
+import { calculateTotalBalance } from '../utils/calculations';
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
   const { accounts, updateAccount, deleteAccount } = useApp();
@@ -124,14 +125,39 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     <PageWrapper 
       title="Accounts"
       rightContent={
-        <IconButton
+        <div 
           onClick={() => setIsAddModalOpen(true)}
-          icon={<PlusIcon size={16} />}
-          variant="ghost"
-          size="sm"
-          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200"
+          className="cursor-pointer"
           title="Add Account"
-        />
+        >
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+            className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
+            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+          >
+            <circle
+              cx="24"
+              cy="24"
+              r="24"
+              fill="#D9E1F2"
+              className="transition-all duration-200"
+              onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
+              onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+            />
+            <g transform="translate(12, 12)">
+              <path 
+                d="M12 5v14M5 12h14" 
+                stroke="#1F2937" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              />
+            </g>
+          </svg>
+        </div>
       }
     >
 
@@ -142,7 +168,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           const typeAccounts = accountsByType[type] || [];
           if (typeAccounts.length === 0) return null;
 
-          const typeTotal = typeAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+          const typeTotal = calculateTotalBalance(typeAccounts);
 
           return (
             <div key={type} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 overflow-hidden">

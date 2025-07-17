@@ -124,9 +124,46 @@ button.rounded-none {
 }
 
 /* Fix for button shadows respecting border-radius */
-button[style*="borderRadius"] {
+button[style*="borderRadius"], button.rounded-full {
   box-shadow: none !important;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* Completely remove all borders and outlines from circular buttons */
+button.rounded-full,
+.no-border-button {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-clip: padding-box !important;
+}
+
+button.rounded-full:focus,
+button.rounded-full:active,
+button.rounded-full:hover,
+button.rounded-full:focus-visible,
+.no-border-button:focus,
+.no-border-button:active,
+.no-border-button:hover,
+.no-border-button:focus-visible {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Specific fix for the lock button */
+.lock-button {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background-clip: padding-box !important;
+  -webkit-tap-highlight-color: transparent !important;
 }
 
 /* Mobile-specific improvements */

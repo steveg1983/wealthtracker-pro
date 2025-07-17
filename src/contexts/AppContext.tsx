@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-// Restore working AppContext with test data
+// AppContext with internal Decimal support for precise financial calculations
 import { createContext, useContext, type ReactNode, useState, useEffect } from 'react';
 import { 
   getDefaultTestAccounts, 
@@ -9,6 +9,13 @@ import {
 } from '../data/defaultTestData';
 import { getDefaultCategories, getMinimalSystemCategories } from '../data/defaultCategories';
 import type { Account, Transaction, Budget, Goal } from '../types';
+import type { DecimalAccount, DecimalTransaction, DecimalBudget, DecimalGoal } from '../types/decimal-types';
+import { 
+  toDecimalAccount, toDecimalTransaction, toDecimalBudget, toDecimalGoal,
+  fromDecimalAccount, fromDecimalTransaction, fromDecimalBudget, fromDecimalGoal
+} from '../utils/decimal-converters';
+import { toDecimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
 
 export interface Tag {
   id: string;
@@ -46,6 +53,11 @@ export interface RecurringTransaction {
   isActive: boolean;
   tags?: string[];
   notes?: string;
+}
+
+// Internal Decimal version of RecurringTransaction
+interface DecimalRecurringTransaction extends Omit<RecurringTransaction, 'amount'> {
+  amount: DecimalInstance;
 }
 
 interface AppContextType {
@@ -88,35 +100,54 @@ interface AppContextType {
   getSubCategories: (parentId: string) => Category[];
   getDetailCategories: (parentId: string) => Category[];
   createTransferTransaction: (from: string, to: string, amount: number, date: Date) => void;
+  // New Decimal-aware methods
+  getDecimalAccounts: () => DecimalAccount[];
+  getDecimalTransactions: () => DecimalTransaction[];
+  getDecimalBudgets: () => DecimalBudget[];
+  getDecimalGoals: () => DecimalGoal[];
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
+// Helper to convert recurring transaction to/from decimal
+function toDecimalRecurring(recurring: RecurringTransaction): DecimalRecurringTransaction {
+  return {
+    ...recurring,
+    amount: toDecimal(recurring.amount)
+  };
+}
+
+function fromDecimalRecurring(recurring: DecimalRecurringTransaction): RecurringTransaction {
+  return {
+    ...recurring,
+    amount: recurring.amount.toNumber()
+  };
+}
+
 export function AppProvider({ children }: { children: ReactNode }) {
-  // Initialize with empty data or load from localStorage if exists
-  const [accounts, setAccounts] = useState(() => {
-    // Check for existing localStorage data first
+  // Internal state uses Decimal types for precision
+  const [decimalAccounts, setDecimalAccounts] = useState<DecimalAccount[]>(() => {
     const saved = localStorage.getItem('wealthtracker_accounts');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: Account[] = JSON.parse(saved);
+        return parsed.map(toDecimalAccount);
       } catch (e) {
         console.error('Error parsing saved accounts:', e);
       }
     }
-    // Check if data was explicitly cleared
     if (localStorage.getItem('wealthtracker_data_cleared') === 'true') {
       return [];
     }
-    // Otherwise load test data
-    return getDefaultTestAccounts();
+    return getDefaultTestAccounts().map(toDecimalAccount);
   });
   
-  const [transactions, setTransactions] = useState(() => {
+  const [decimalTransactions, setDecimalTransactions] = useState<DecimalTransaction[]>(() => {
     const saved = localStorage.getItem('wealthtracker_transactions');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: Transaction[] = JSON.parse(saved);
+        return parsed.map(toDecimalTransaction);
       } catch (e) {
         console.error('Error parsing saved transactions:', e);
       }
@@ -124,14 +155,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (localStorage.getItem('wealthtracker_data_cleared') === 'true') {
       return [];
     }
-    return getDefaultTestTransactions();
+    return getDefaultTestTransactions().map(toDecimalTransaction);
   });
   
-  const [budgets, setBudgets] = useState(() => {
+  const [decimalBudgets, setDecimalBudgets] = useState<DecimalBudget[]>(() => {
     const saved = localStorage.getItem('wealthtracker_budgets');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: Budget[] = JSON.parse(saved);
+        return parsed.map(toDecimalBudget);
       } catch (e) {
         console.error('Error parsing saved budgets:', e);
       }
@@ -139,14 +171,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (localStorage.getItem('wealthtracker_data_cleared') === 'true') {
       return [];
     }
-    return getDefaultTestBudgets();
+    return getDefaultTestBudgets().map(toDecimalBudget);
   });
   
-  const [goals, setGoals] = useState(() => {
+  const [decimalGoals, setDecimalGoals] = useState<DecimalGoal[]>(() => {
     const saved = localStorage.getItem('wealthtracker_goals');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: Goal[] = JSON.parse(saved);
+        return parsed.map(toDecimalGoal);
       } catch (e) {
         console.error('Error parsing saved goals:', e);
       }
@@ -154,7 +187,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (localStorage.getItem('wealthtracker_data_cleared') === 'true') {
       return [];
     }
-    return getDefaultTestGoals();
+    return getDefaultTestGoals().map(toDecimalGoal);
   });
   
   const [categories, setCategories] = useState(() => getDefaultCategories());
@@ -171,11 +204,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return [];
   });
   
-  const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>(() => {
+  const [decimalRecurringTransactions, setDecimalRecurringTransactions] = useState<DecimalRecurringTransaction[]>(() => {
     const saved = localStorage.getItem('wealthtracker_recurring');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed: RecurringTransaction[] = JSON.parse(saved);
+        return parsed.map(toDecimalRecurring);
       } catch (e) {
         console.error('Error parsing saved recurring transactions:', e);
       }
@@ -183,15 +217,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return [];
   });
   
+  // Convert Decimal state to number-based for backward compatibility
+  const accounts = decimalAccounts.map(fromDecimalAccount);
+  const transactions = decimalTransactions.map(fromDecimalTransaction);
+  const budgets = decimalBudgets.map(fromDecimalBudget);
+  const goals = decimalGoals.map(fromDecimalGoal);
+  const recurringTransactions = decimalRecurringTransactions.map(fromDecimalRecurring);
+  
   // Determine if we have test data based on actual data presence
-  const [hasTestData, setHasTestData] = useState(() => {
-    // Check if we have the default test data loaded
-    return accounts.length > 0 && accounts.some((acc: Account) => 
-      acc.name === 'Main Checking' || acc.name === 'Savings Account'
-    );
-  });
+  const hasTestData = decimalAccounts.length > 0 && decimalAccounts.some((acc) => 
+    acc.name === 'Main Checking' || acc.name === 'Savings Account'
+  );
 
-  // Save to localStorage whenever data changes
+  // Save to localStorage whenever data changes (convert to number format for storage)
   useEffect(() => {
     localStorage.setItem('wealthtracker_accounts', JSON.stringify(accounts));
   }, [accounts]);
@@ -216,6 +254,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem('wealthtracker_recurring', JSON.stringify(recurringTransactions));
   }, [recurringTransactions]);
 
+  const getTagUsageCount = (tagName: string): number => {
+    return decimalTransactions.filter(t => t.tags?.includes(tagName)).length;
+  };
+
+  const getAllUsedTags = (): string[] => {
+    const tagSet = new Set<string>();
+    decimalTransactions.forEach(t => {
+      t.tags?.forEach(tag => tagSet.add(tag));
+    });
+    return Array.from(tagSet);
+  };
+
+  const getSubCategories = (parentId: string): Category[] => {
+    return categories.filter(c => c.parentId === parentId && c.level === 'sub');
+  };
+
+  const getDetailCategories = (parentId: string): Category[] => {
+    return categories.filter(c => c.parentId === parentId && c.level === 'detail');
+  };
+
   const value: AppContextType = {
     accounts,
     transactions,
@@ -224,16 +282,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
     goals,
     tags,
     hasTestData,
+    recurringTransactions,
     clearAllData: () => {
       // Clear all state
-      setAccounts([]);
-      setTransactions([]);
-      setBudgets([]);
-      setGoals([]);
+      setDecimalAccounts([]);
+      setDecimalTransactions([]);
+      setDecimalBudgets([]);
+      setDecimalGoals([]);
       setTags([]);
-      setRecurringTransactions([]);
-      setCategories(getMinimalSystemCategories()); // Keep only minimal system categories
-      setHasTestData(false);
+      setDecimalRecurringTransactions([]);
+      setCategories(getMinimalSystemCategories());
       
       // Clear all localStorage keys
       localStorage.removeItem('wealthtracker_accounts');
@@ -274,89 +332,186 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return JSON.stringify(data, null, 2);
     },
     loadTestData: () => {
-      const testAccounts = getDefaultTestAccounts();
-      const testTransactions = getDefaultTestTransactions();
-      const testBudgets = getDefaultTestBudgets();
-      const testGoals = getDefaultTestGoals();
+      const testAccounts = getDefaultTestAccounts().map(toDecimalAccount);
+      const testTransactions = getDefaultTestTransactions().map(toDecimalTransaction);
+      const testBudgets = getDefaultTestBudgets().map(toDecimalBudget);
+      const testGoals = getDefaultTestGoals().map(toDecimalGoal);
       
-      setAccounts(testAccounts);
-      setTransactions(testTransactions);
-      setBudgets(testBudgets);
-      setGoals(testGoals);
-      setHasTestData(true);
+      setDecimalAccounts(testAccounts);
+      setDecimalTransactions(testTransactions);
+      setDecimalBudgets(testBudgets);
+      setDecimalGoals(testGoals);
       
       // Remove the cleared flag since we're loading data
       localStorage.removeItem('wealthtracker_data_cleared');
     },
-    addAccount: (account) => setAccounts((prev: Account[]) => [...prev, { ...account, id: Date.now().toString(), lastUpdated: new Date() }]),
-    updateAccount: (id, updates) => setAccounts((prev: Account[]) => prev.map((a: Account) => a.id === id ? { ...a, ...updates, lastUpdated: new Date() } : a)),
-    deleteAccount: (id) => setAccounts((prev: Account[]) => prev.filter((a: Account) => a.id !== id)),
-    addTransaction: (transaction) => setTransactions((prev: Transaction[]) => [...prev, { ...transaction, id: Date.now().toString() }]),
-    updateTransaction: (id, updates) => setTransactions((prev: Transaction[]) => prev.map((t: Transaction) => t.id === id ? { ...t, ...updates } : t)),
-    deleteTransaction: (id) => setTransactions((prev: Transaction[]) => prev.filter((t: Transaction) => t.id !== id)),
-    addBudget: (budget) => setBudgets((prev: Budget[]) => [...prev, { ...budget, id: Date.now().toString(), createdAt: new Date() }]),
-    updateBudget: (id, updates) => setBudgets((prev: Budget[]) => prev.map((b: Budget) => b.id === id ? { ...b, ...updates } : b)),
-    deleteBudget: (id) => setBudgets((prev: Budget[]) => prev.filter((b: Budget) => b.id !== id)),
+    addAccount: (account) => {
+      const decimalAccount = toDecimalAccount({
+        ...account,
+        id: Date.now().toString(),
+        lastUpdated: new Date()
+      });
+      setDecimalAccounts(prev => [...prev, decimalAccount]);
+    },
+    updateAccount: (id, updates) => {
+      setDecimalAccounts(prev => prev.map(a => {
+        if (a.id === id) {
+          const numberAccount = fromDecimalAccount(a);
+          const updatedNumberAccount = { ...numberAccount, ...updates, lastUpdated: new Date() };
+          return toDecimalAccount(updatedNumberAccount);
+        }
+        return a;
+      }));
+    },
+    deleteAccount: (id) => setDecimalAccounts(prev => prev.filter(a => a.id !== id)),
+    addTransaction: (transaction) => {
+      const decimalTransaction = toDecimalTransaction({
+        ...transaction,
+        id: Date.now().toString()
+      });
+      setDecimalTransactions(prev => [...prev, decimalTransaction]);
+    },
+    updateTransaction: (id, updates) => {
+      setDecimalTransactions(prev => prev.map(t => {
+        if (t.id === id) {
+          const numberTransaction = fromDecimalTransaction(t);
+          const updatedNumberTransaction = { ...numberTransaction, ...updates };
+          return toDecimalTransaction(updatedNumberTransaction);
+        }
+        return t;
+      }));
+    },
+    deleteTransaction: (id) => setDecimalTransactions(prev => prev.filter(t => t.id !== id)),
+    addBudget: (budget) => {
+      const decimalBudget = toDecimalBudget({
+        ...budget,
+        id: Date.now().toString(),
+        createdAt: new Date()
+      });
+      setDecimalBudgets(prev => [...prev, decimalBudget]);
+    },
+    updateBudget: (id, updates) => {
+      setDecimalBudgets(prev => prev.map(b => {
+        if (b.id === id) {
+          const numberBudget = fromDecimalBudget(b);
+          const updatedNumberBudget = { ...numberBudget, ...updates };
+          return toDecimalBudget(updatedNumberBudget);
+        }
+        return b;
+      }));
+    },
+    deleteBudget: (id) => setDecimalBudgets(prev => prev.filter(b => b.id !== id)),
     addCategory: (category) => setCategories(prev => [...prev, { ...category, id: Date.now().toString() }]),
     updateCategory: (id, updates) => setCategories(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c)),
     deleteCategory: (id) => setCategories(prev => prev.filter(c => c.id !== id)),
-    addGoal: (goal) => setGoals((prev: Goal[]) => [...prev, { ...goal, id: Date.now().toString(), createdAt: new Date() }]),
-    updateGoal: (id, updates) => setGoals((prev: Goal[]) => prev.map((g: Goal) => g.id === id ? { ...g, ...updates } : g)),
-    deleteGoal: (id) => setGoals((prev: Goal[]) => prev.filter((g: Goal) => g.id !== id)),
-    addTag: (tag: Omit<Tag, 'id' | 'createdAt' | 'updatedAt'>) => {
-      const newTag: Tag = {
-        ...tag,
+    addGoal: (goal) => {
+      const decimalGoal = toDecimalGoal({
+        ...goal,
         id: Date.now().toString(),
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      setTags((prev: Tag[]) => [...prev, newTag]);
-    },
-    updateTag: (id, updates) => {
-      setTags(prev => prev.map(t => 
-        t.id === id ? { ...t, ...updates, updatedAt: new Date() } : t
-      ));
-    },
-    deleteTag: (id) => setTags(prev => prev.filter(t => t.id !== id)),
-    getTagUsageCount: (tagName) => {
-      return transactions.filter((t: Transaction) => t.tags?.includes(tagName)).length;
-    },
-    getAllUsedTags: () => {
-      const allTags = new Set<string>();
-      transactions.forEach((t: Transaction) => {
-        if (t.tags) {
-          t.tags.forEach((tag: string) => allTags.add(tag));
-        }
+        createdAt: new Date()
       });
-      return Array.from(allTags);
+      setDecimalGoals(prev => [...prev, decimalGoal]);
     },
-    recurringTransactions,
-    addRecurringTransaction: (transaction) => setRecurringTransactions(prev => [...prev, { ...transaction, id: Date.now().toString() }]),
-    updateRecurringTransaction: (id, updates) => setRecurringTransactions(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t)),
-    deleteRecurringTransaction: (id) => setRecurringTransactions(prev => prev.filter(t => t.id !== id)),
-    importTransactions: (newTransactions) => setTransactions((prev: Transaction[]) => [...prev, ...newTransactions.map(t => ({ ...t, id: Date.now().toString() + Math.random() }))]),
-    getSubCategories: (parentId) => categories.filter(c => c.parentId === parentId && c.level === 'sub'),
-    getDetailCategories: (parentId) => categories.filter(c => c.parentId === parentId && c.level === 'detail'),
-    createTransferTransaction: (from, to, amount, date) => {
-      // Create transfer transactions
-      setTransactions((prev: Transaction[]) => [...prev,
-        { id: Date.now().toString(), date, description: 'Transfer Out', amount, type: 'expense', category: 'transfer-out', accountId: from, cleared: false },
-        { id: (Date.now() + 1).toString(), date, description: 'Transfer In', amount, type: 'income', category: 'transfer-in', accountId: to, cleared: false }
-      ]);
-    }
+    updateGoal: (id, updates) => {
+      setDecimalGoals(prev => prev.map(g => {
+        if (g.id === id) {
+          const numberGoal = fromDecimalGoal(g);
+          const updatedNumberGoal = { ...numberGoal, ...updates };
+          return toDecimalGoal(updatedNumberGoal);
+        }
+        return g;
+      }));
+    },
+    deleteGoal: (id) => setDecimalGoals(prev => prev.filter(g => g.id !== id)),
+    addTag: (tag) => setTags(prev => [...prev, { 
+      ...tag, 
+      id: Date.now().toString(), 
+      createdAt: new Date(), 
+      updatedAt: new Date() 
+    }]),
+    updateTag: (id, updates) => setTags(prev => prev.map(t => 
+      t.id === id ? { ...t, ...updates, updatedAt: new Date() } : t
+    )),
+    deleteTag: (id) => setTags(prev => prev.filter(t => t.id !== id)),
+    getTagUsageCount,
+    getAllUsedTags,
+    addRecurringTransaction: (transaction) => {
+      const decimalRecurring = toDecimalRecurring({
+        ...transaction,
+        id: Date.now().toString()
+      });
+      setDecimalRecurringTransactions(prev => [...prev, decimalRecurring]);
+    },
+    updateRecurringTransaction: (id, updates) => {
+      setDecimalRecurringTransactions(prev => prev.map(r => {
+        if (r.id === id) {
+          const numberRecurring = fromDecimalRecurring(r);
+          const updatedNumberRecurring = { ...numberRecurring, ...updates };
+          return toDecimalRecurring(updatedNumberRecurring);
+        }
+        return r;
+      }));
+    },
+    deleteRecurringTransaction: (id) => setDecimalRecurringTransactions(prev => prev.filter(r => r.id !== id)),
+    importTransactions: (newTransactions) => {
+      const decimalTransactions = newTransactions.map(t => toDecimalTransaction({
+        ...t,
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 9)
+      }));
+      setDecimalTransactions(prev => [...prev, ...decimalTransactions]);
+    },
+    getSubCategories,
+    getDetailCategories,
+    createTransferTransaction: (from: string, to: string, amount: number, date: Date) => {
+      const timestamp = Date.now();
+      
+      // Create expense transaction (from account)
+      const expenseTransaction = toDecimalTransaction({
+        id: `${timestamp}-out`,
+        date,
+        amount,
+        description: `Transfer to ${accounts.find(a => a.id === to)?.name || 'Unknown Account'}`,
+        category: 'transfer',
+        accountId: from,
+        type: 'expense',
+        tags: ['transfer'],
+        notes: `Transfer to account ${to}`,
+        cleared: true
+      });
+      
+      // Create income transaction (to account)
+      const incomeTransaction = toDecimalTransaction({
+        id: `${timestamp}-in`,
+        date,
+        amount,
+        description: `Transfer from ${accounts.find(a => a.id === from)?.name || 'Unknown Account'}`,
+        category: 'transfer',
+        accountId: to,
+        type: 'income',
+        tags: ['transfer'],
+        notes: `Transfer from account ${from}`,
+        cleared: true
+      });
+      
+      setDecimalTransactions(prev => [...prev, expenseTransaction, incomeTransaction]);
+    },
+    // New Decimal-aware methods
+    getDecimalAccounts: () => decimalAccounts,
+    getDecimalTransactions: () => decimalTransactions,
+    getDecimalBudgets: () => decimalBudgets,
+    getDecimalGoals: () => decimalGoals
   };
 
-  return (
-    <AppContext.Provider value={value}>
-      {children}
-    </AppContext.Provider>
-  );
+  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }
 
-export function useApp() {
+export function useAppContext() {
   const context = useContext(AppContext);
-  if (!context) {
-    throw new Error('useApp must be used within AppProvider');
+  if (context === undefined) {
+    throw new Error('useAppContext must be used within an AppProvider');
   }
   return context;
 }
+
+// Alias for backward compatibility
+export const useApp = useAppContext;

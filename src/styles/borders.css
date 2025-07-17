@@ -86,32 +86,68 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
-/* Modal and dropdown shadows */
-.fixed.inset-0 + div,
-.absolute {
+/* Modal and dropdown shadows - only for specific components */
+.fixed.inset-0 + div {
   box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2), 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
-.dark .fixed.inset-0 + div,
-.dark .absolute {
+/* Specific shadows for dropdowns and tooltips that need them */
+.dropdown-shadow,
+.tooltip-shadow,
+.modal-shadow {
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.2), 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.dark .fixed.inset-0 + div {
   box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3);
 }
 
-/* Button shadows */
-button {
+.dark .dropdown-shadow,
+.dark .tooltip-shadow,
+.dark .modal-shadow {
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.5), 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+/* Button shadows - excluding rounded-full buttons */
+button:not(.rounded-full) {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-button:hover {
+button:not(.rounded-full):hover {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.15);
 }
 
-.dark button {
+.dark button:not(.rounded-full) {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
-.dark button:hover {
+.dark button:not(.rounded-full):hover {
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Circular button shadows - use drop-shadow to respect border radius */
+button.rounded-full {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  border: none !important;
+  outline: none !important;
+}
+
+button.rounded-full:hover {
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
+  border: none !important;
+  outline: none !important;
+}
+
+.dark button.rounded-full {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  border: none !important;
+  outline: none !important;
+}
+
+.dark button.rounded-full:hover {
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.4));
+  border: none !important;
+  outline: none !important;
 }
 
 /* Input and form field borders */

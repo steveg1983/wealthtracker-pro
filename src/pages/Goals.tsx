@@ -7,6 +7,7 @@ import { PlusIcon, EditIcon, DeleteIcon } from "../components/icons";
 import { IconButton } from "../components/icons/IconButton";
 import type { Goal } from "../types";
 import PageWrapper from "../components/PageWrapper";
+import { calculateGoalProgress } from "../utils/calculations";
 
 export default function Goals() {
   const { goals, accounts, deleteGoal } = useApp();
@@ -30,8 +31,7 @@ export default function Goals() {
   };
 
   const getProgressPercentage = (goal: Goal) => {
-    const progress = (goal.currentAmount / goal.targetAmount) * 100;
-    return Math.min(progress, 100);
+    return calculateGoalProgress(goal);
   };
 
   const getDaysRemaining = (targetDate: Date) => {
@@ -75,14 +75,39 @@ export default function Goals() {
     <PageWrapper 
       title="Goals"
       rightContent={
-        <IconButton
+        <div 
           onClick={() => setIsModalOpen(true)}
-          icon={<PlusIcon size={16} />}
-          variant="ghost"
-          size="sm"
-          className="text-red-500 hover:text-red-700"
+          className="cursor-pointer"
           title="Add Goal"
-        />
+        >
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+            className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
+            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+          >
+            <circle
+              cx="24"
+              cy="24"
+              r="24"
+              fill="#D9E1F2"
+              className="transition-all duration-200"
+              onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
+              onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+            />
+            <g transform="translate(12, 12)">
+              <path 
+                d="M12 5v14M5 12h14" 
+                stroke="#1F2937" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"
+              />
+            </g>
+          </svg>
+        </div>
       }
     >
 

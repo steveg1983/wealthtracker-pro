@@ -1,6 +1,8 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
+import { SentryErrorBoundary } from './lib/sentry';
+import { ErrorFallback } from './components/ErrorFallback';
 import { PreferencesProvider } from './contexts/PreferencesContext';
 import { AppProvider } from './contexts/AppContext';
 import { LayoutProvider } from './contexts/LayoutContext';
@@ -27,11 +29,12 @@ const AccountTransactions = lazy(() => import('./pages/AccountTransactions'));
 function App() {
   return (
     <ErrorBoundary>
-      <PreferencesProvider>
-        <AppProvider>
-          <LayoutProvider>
-            <Router>
-              <Routes>
+      <SentryErrorBoundary fallback={(errorData) => <ErrorFallback error={errorData.error as Error} resetError={errorData.resetError} />} showDialog>
+        <PreferencesProvider>
+          <AppProvider>
+            <LayoutProvider>
+              <Router>
+                <Routes>
                 <Route path="/" element={<Layout />}>
                   <Route index element={
                     <Suspense fallback={<PageLoader />}>
@@ -117,6 +120,7 @@ function App() {
           </LayoutProvider>
         </AppProvider>
       </PreferencesProvider>
+      </SentryErrorBoundary>
     </ErrorBoundary>
   );
 }

@@ -1,14 +1,13 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { BarChart3Icon, TrendingUpIcon, ArrowUpRightIcon, ArrowDownRightIcon } from '../components/icons';
-import { SettingsIcon } from '../components/icons';
-import { IconButton } from '../components/icons/IconButton';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
 import { useCurrency } from '../hooks/useCurrency';
 import { useLayoutConfig } from '../hooks/useLayoutConfig';
 import { DraggableGrid } from '../components/layout/DraggableGrid';
 import { GridItem } from '../components/layout/GridItem';
 import PageWrapper from '../components/PageWrapper';
+import { calculateSpendingByCategory, calculateTotalIncome, calculateTotalExpenses, calculateTotalBalance } from '../utils/calculations';
 
 export default function Analytics() {
   const { transactions, accounts } = useApp();
@@ -16,13 +15,8 @@ export default function Analytics() {
   const { layouts, updateAnalyticsLayout, resetAnalyticsLayout } = useLayoutConfig();
   const [showLayoutControls, setShowLayoutControls] = useState(false);
 
-  // Calculate spending by category
-  const spendingByCategory = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + t.amount;
-      return acc;
-    }, {} as Record<string, number>);
+  // Calculate spending by category using decimal precision
+  const spendingByCategory = calculateSpendingByCategory(transactions);
 
   const categoryData = Object.entries(spendingByCategory)
     .map(([name, value]) => ({ name, value }))
@@ -36,13 +30,8 @@ export default function Analytics() {
       return date.getMonth() === i && date.getFullYear() === 2024;
     });
 
-    const income = monthTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const expenses = monthTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const income = calculateTotalIncome(monthTransactions);
+    const expenses = calculateTotalExpenses(monthTransactions);
 
     return { month, income, expenses };
   });
@@ -51,8 +40,8 @@ export default function Analytics() {
   const calculateAccountTrends = () => {
     const now = new Date();
     
-    // Get current total balance
-    const currentTotalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+    // Get current total balance with decimal precision
+    const currentTotalBalance = calculateTotalBalance(accounts);
     
     // Sort transactions by date
     const sortedTransactions = [...transactions].sort((a, b) => 
@@ -137,14 +126,34 @@ export default function Analytics() {
     <PageWrapper 
       title="Analytics"
       rightContent={
-        <IconButton
+        <div 
           onClick={() => setShowLayoutControls(!showLayoutControls)}
-          icon={<SettingsIcon size={16} />}
-          variant="ghost"
-          size="sm"
-          className="text-gray-500 hover:text-gray-700"
+          className="cursor-pointer"
           title="Customize Layout"
-        />
+        >
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 48 48"
+            xmlns="http://www.w3.org/2000/svg"
+            className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
+            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+          >
+            <circle
+              cx="24"
+              cy="24"
+              r="24"
+              fill="#D9E1F2"
+              className="transition-all duration-200"
+              onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
+              onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+            />
+            <g transform="translate(12, 12)">
+              <circle cx="12" cy="12" r="3" stroke="#1F2937" strokeWidth="2" fill="none" />
+              <path d="M12 1v6m0 6v6m6-12h6M1 12h6m11.66-7.66l-1.42 1.42M7.24 16.76l-1.42 1.42m0-11.84l1.42 1.42M16.76 16.76l1.42 1.42" stroke="#1F2937" strokeWidth="2" strokeLinecap="round" />
+            </g>
+          </svg>
+        </div>
       }
     >
 

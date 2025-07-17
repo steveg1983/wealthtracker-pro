@@ -1,72 +1,5 @@
-// Define types locally to avoid circular dependency
-interface Account {
-  id: string;
-  name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
-  balance: number;
-  currency: string;
-  institution?: string;
-  lastUpdated: Date;
-  holdings?: Array<{
-    ticker: string;
-    name: string;
-    shares: number;
-    value: number;
-    averageCost?: number;
-    currentPrice?: number;
-    marketValue?: number;
-    gain?: number;
-    gainPercent?: number;
-    currency?: string;
-    lastUpdated?: Date;
-  }>;
-  notes?: string;
-  openingBalance?: number;
-  openingBalanceDate?: Date;
-}
-
-interface Transaction {
-  id: string;
-  date: Date;
-  description: string;
-  amount: number;
-  type: 'income' | 'expense' | 'transfer';
-  category: string;
-  categoryName?: string;
-  accountId: string;
-  tags?: string[];
-  notes?: string;
-  cleared?: boolean;
-  isSplit?: boolean;
-  originalTransactionId?: string;
-  isRecurring?: boolean;
-  recurringId?: string;
-  reconciledWith?: string;
-  reconciledDate?: Date;
-  reconciledNotes?: string;
-}
-
-interface Budget {
-  id: string;
-  category: string;
-  amount: number;
-  period: "monthly" | "yearly";
-  isActive?: boolean;
-  spent?: number;
-}
-
-interface Goal {
-  id: string;
-  name: string;
-  type: 'savings' | 'debt-payoff' | 'investment' | 'custom';
-  targetAmount: number;
-  currentAmount: number;
-  targetDate: Date;
-  description?: string;
-  linkedAccountIds?: string[];
-  isActive: boolean;
-  createdAt: Date;
-}
+// Import types from main types file
+import type { Account, Transaction, Budget, Goal } from '../types';
 
 export const getDefaultTestAccounts = (): Account[] => {
   const sixMonthsAgo = new Date();
@@ -652,48 +585,51 @@ export const getDefaultTestTransactions = (): Transaction[] => {
   return transactions;
 };
 
-export const getDefaultTestBudgets = (): Budget[] => [
-  {
-    id: 'b1',
-    category: 'Groceries',
-    amount: 400,
-    period: 'monthly',
-    isActive: true,
-    spent: 157.80
-  },
-  {
-    id: 'b2',
-    category: 'Dining Out',
-    amount: 200,
-    period: 'monthly',
-    isActive: true,
-    spent: 50.95
-  },
-  {
-    id: 'b3',
-    category: 'Entertainment',
-    amount: 150,
-    period: 'monthly',
-    isActive: true,
-    spent: 40.99
-  },
-  {
-    id: 'b4',
-    category: 'Transport',
-    amount: 250,
-    period: 'monthly',
-    isActive: true,
-    spent: 221.30
-  },
-  {
-    id: 'b5',
-    category: 'Shopping',
-    amount: 300,
-    period: 'monthly',
-    isActive: true,
-    spent: 214.99
-  }
-];
+export const getDefaultTestBudgets = (): Budget[] => {
+  const now = new Date();
+  return [
+    {
+      id: 'b1',
+      category: 'Groceries',
+      amount: 400,
+      period: 'monthly',
+      isActive: true,
+      createdAt: now
+    },
+    {
+      id: 'b2',
+      category: 'Dining Out',
+      amount: 200,
+      period: 'monthly',
+      isActive: true,
+      createdAt: now
+    },
+    {
+      id: 'b3',
+      category: 'Entertainment',
+      amount: 150,
+      period: 'monthly',
+      isActive: true,
+      createdAt: now
+    },
+    {
+      id: 'b4',
+      category: 'Transport',
+      amount: 250,
+      period: 'monthly',
+      isActive: true,
+      createdAt: now
+    },
+    {
+      id: 'b5',
+      category: 'Shopping',
+      amount: 300,
+      period: 'monthly',
+      isActive: true,
+      createdAt: now
+    }
+  ];
+};
 
 export const getDefaultTestGoals = (): Goal[] => [
   {

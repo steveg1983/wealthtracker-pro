@@ -2,19 +2,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-
-interface Budget {
-  id: string;
-  category: string;
-  amount: number;
-  period: 'monthly' | 'yearly';
-  isActive?: boolean;
-  spent?: number;
-}
+import type { Budget } from '../types';
 
 interface BudgetContextType {
   budgets: Budget[];
-  addBudget: (budget: Omit<Budget, 'id'>) => void;
+  addBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => void;
   updateBudget: (id: string, updates: Partial<Budget>) => void;
   deleteBudget: (id: string) => void;
   getBudgetByCategory: (category: string) => Budget | undefined;
@@ -46,11 +38,12 @@ export function BudgetProvider({ children, initialBudgets = [] }: BudgetProvider
     localStorage.setItem('money_management_budgets', JSON.stringify(budgets));
   }, [budgets]);
 
-  const addBudget = (budgetData: Omit<Budget, 'id'>) => {
+  const addBudget = (budgetData: Omit<Budget, 'id' | 'createdAt'>) => {
     const newBudget: Budget = {
       ...budgetData,
       id: uuidv4(),
-      isActive: budgetData.isActive !== false
+      isActive: budgetData.isActive !== false,
+      createdAt: new Date()
     };
     setBudgets(prev => [...prev, newBudget]);
   };

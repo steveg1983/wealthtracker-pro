@@ -9,6 +9,7 @@ export interface IconProps {
   title?: string;
   style?: React.CSSProperties;
   strokeWidth?: number;
+  'data-testid'?: string;
 }
 
 interface IconBaseProps extends IconProps {
@@ -27,6 +28,7 @@ export const IconBase: React.FC<IconBaseProps> = ({
   viewBox = '0 0 24 24',
   style,
   strokeWidth,
+  'data-testid': dataTestId,
 }) => {
   const [isHovered, setIsHovered] = React.useState(false);
   
@@ -48,6 +50,7 @@ export const IconBase: React.FC<IconBaseProps> = ({
       strokeWidth={strokeWidth}
       role={onClick ? 'button' : 'img'}
       aria-label={title}
+      data-testid={dataTestId}
     >
       {title && <title>{title}</title>}
       {children}
