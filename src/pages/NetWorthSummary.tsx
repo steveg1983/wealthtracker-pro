@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeftIcon, TrendingUpIcon, BanknoteIcon, ChevronRightIcon, Building2Icon, CreditCardIcon, LandmarkIcon, PiggyBankIcon } from '../components/icons';
 import { useApp } from '../contexts/AppContext';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Account } from '../types';
 
 type SummaryType = 'networth' | 'assets' | 'liabilities';
@@ -13,7 +13,7 @@ interface ConvertedAccount extends Account {
 
 export default function NetWorthSummary() {
   const { accounts } = useApp();
-  const { formatCurrency, convertAndSum, displayCurrency } = useCurrency();
+  const { formatCurrency, convertAndSum, displayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const { type = 'networth' } = useParams<{ type: SummaryType }>();
   const [isLoading, setIsLoading] = useState(true);

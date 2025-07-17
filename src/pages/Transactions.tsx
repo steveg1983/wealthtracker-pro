@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { CalendarIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '../components/icons';
 import { FloatingAddButton } from '../components/ui/UIControls';
@@ -13,10 +14,10 @@ import { TransactionRow } from '../components/TransactionRow';
 import { TransactionCard } from '../components/TransactionCard';
 
 export default function Transactions() {
-  const { transactions, accounts, deleteTransaction, categories } = useApp();
+  const { transactions, accounts, deleteTransaction, categories, getDecimalTransactions } = useApp();
   const { compactView, setCompactView, currency: displayCurrency } = usePreferences();
   const { isWideView, setIsWideView } = useLayout();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
@@ -326,12 +327,26 @@ export default function Transactions() {
     setEditingTransaction(null);
   };
 
-  // Calculate totals
-  const totals = filteredTransactions.reduce((acc, t) => {
-    if (t.type === 'income') acc.income += t.amount;
-    else if (t.type === 'expense') acc.expense += t.amount;
-    return acc;
-  }, { income: 0, expense: 0 });
+  // Calculate totals using decimal arithmetic
+  const totals = useMemo(() => {
+    const decimalTransactions = getDecimalTransactions();
+    const filteredIds = new Set(filteredTransactions.map(t => t.id));
+    
+    return decimalTransactions
+      .filter(t => filteredIds.has(t.id))
+      .reduce((acc, t) => {
+        if (t.type === 'income') {
+          acc.income = acc.income.plus(t.amount);
+        } else if (t.type === 'expense') {
+          acc.expense = acc.expense.plus(t.amount);
+        }
+        return acc;
+      }, { 
+        income: toDecimal(0), 
+        expense: toDecimal(0),
+        get net() { return this.income.minus(this.expense); }
+      });
+  }, [filteredTransactions, getDecimalTransactions]);
 
   // Get filtered account name for display
   const filteredAccount = filterAccountId ? accounts.find(a => a.id === filterAccountId) : null;
@@ -604,8 +619,8 @@ export default function Transactions() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Net</p>
-              <p className={`text-lg md:text-xl font-bold ${totals.income - totals.expense >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {formatCurrency(totals.income - totals.expense, displayCurrency)}
+              <p className={`text-lg md:text-xl font-bold ${totals.net.greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {formatCurrency(totals.net, displayCurrency)}
               </p>
             </div>
             <CalendarIcon className="text-primary" size={20} />

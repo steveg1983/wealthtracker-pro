@@ -1,13 +1,25 @@
 import { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import ImportDataModal from '../../components/ImportDataModal';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon } from '../../components/icons';
+import CSVImportWizard from '../../components/CSVImportWizard';
+import DuplicateDetection from '../../components/DuplicateDetection';
+import ExcelExport from '../../components/ExcelExport';
+import BulkTransactionEdit from '../../components/BulkTransactionEdit';
+import TransactionReconciliation from '../../components/TransactionReconciliation';
+import DataValidation from '../../components/DataValidation';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon } from '../../components/icons';
 
 export default function DataManagementSettings() {
   const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
+  const [showCSVImportWizard, setShowCSVImportWizard] = useState(false);
+  const [showDuplicateDetection, setShowDuplicateDetection] = useState(false);
+  const [showExcelExport, setShowExcelExport] = useState(false);
+  const [showBulkEdit, setShowBulkEdit] = useState(false);
+  const [showReconciliation, setShowReconciliation] = useState(false);
+  const [showDataValidation, setShowDataValidation] = useState(false);
 
   const handleExportData = () => {
     const dataStr = exportData();
@@ -58,7 +70,15 @@ export default function DataManagementSettings() {
             className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
           >
             <UploadIcon size={20} />
-            Import Data (MNY/MBF/QIF/OFX)
+            Import Data (MNY/MBF/QIF/OFX/CSV)
+          </button>
+
+          <button
+            onClick={() => setShowCSVImportWizard(true)}
+            className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <FileTextIcon size={20} />
+            Bank CSV Import Wizard
           </button>
           
           <button
@@ -67,6 +87,46 @@ export default function DataManagementSettings() {
           >
             <DownloadIcon size={20} />
             Export Data to JSON
+          </button>
+
+          <button
+            onClick={() => setShowExcelExport(true)}
+            className="w-full px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <GridIcon size={20} />
+            Export to Excel (Advanced)
+          </button>
+
+          <button
+            onClick={() => setShowDuplicateDetection(true)}
+            className="w-full px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <SearchIcon size={20} />
+            Find Duplicate Transactions
+          </button>
+
+          <button
+            onClick={() => setShowBulkEdit(true)}
+            className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <EditIcon size={20} />
+            Bulk Edit Transactions
+          </button>
+
+          <button
+            onClick={() => setShowReconciliation(true)}
+            className="w-full px-4 py-2 bg-cyan-500 text-white rounded-lg hover:bg-cyan-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <LinkIcon size={20} />
+            Reconcile Accounts
+          </button>
+
+          <button
+            onClick={() => setShowDataValidation(true)}
+            className="w-full px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <WrenchIcon size={20} />
+            Validate & Clean Data
           </button>
 
           <button
@@ -165,6 +225,42 @@ export default function DataManagementSettings() {
       <ImportDataModal
         isOpen={showImportModal}
         onClose={() => setShowImportModal(false)}
+      />
+
+      {/* CSV Import Wizard */}
+      <CSVImportWizard
+        isOpen={showCSVImportWizard}
+        onClose={() => setShowCSVImportWizard(false)}
+      />
+
+      {/* Duplicate Detection */}
+      <DuplicateDetection
+        isOpen={showDuplicateDetection}
+        onClose={() => setShowDuplicateDetection(false)}
+      />
+
+      {/* Excel Export */}
+      <ExcelExport
+        isOpen={showExcelExport}
+        onClose={() => setShowExcelExport(false)}
+      />
+
+      {/* Bulk Edit */}
+      <BulkTransactionEdit
+        isOpen={showBulkEdit}
+        onClose={() => setShowBulkEdit(false)}
+      />
+
+      {/* Reconciliation */}
+      <TransactionReconciliation
+        isOpen={showReconciliation}
+        onClose={() => setShowReconciliation(false)}
+      />
+
+      {/* Data Validation */}
+      <DataValidation
+        isOpen={showDataValidation}
+        onClose={() => setShowDataValidation(false)}
       />
     </div>
   );

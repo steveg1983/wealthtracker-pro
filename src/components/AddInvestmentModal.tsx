@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { PlusIcon } from './icons/PlusIcon';
 import { useApp } from '../contexts/AppContext';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { getCurrencySymbol } from '../utils/currency';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
@@ -26,7 +26,7 @@ interface FormData {
 
 export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddInvestmentModalProps) {
   const { accounts, addTransaction } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
     {

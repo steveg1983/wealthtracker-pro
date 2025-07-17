@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useApp } from '../contexts/AppContext';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 const IncomeVsExpensesChart = React.memo(function IncomeVsExpensesChart() {
   const { transactions } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   
   // Get last 6 months of data
   const monthlyData = useMemo(() => {

@@ -2,49 +2,71 @@ import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { BarChart3Icon, TrendingUpIcon, ArrowUpRightIcon, ArrowDownRightIcon } from '../components/icons';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useLayoutConfig } from '../hooks/useLayoutConfig';
 import { DraggableGrid } from '../components/layout/DraggableGrid';
 import { GridItem } from '../components/layout/GridItem';
 import PageWrapper from '../components/PageWrapper';
-import { calculateSpendingByCategory, calculateTotalIncome, calculateTotalExpenses, calculateTotalBalance } from '../utils/calculations';
+import { calculateCategorySpending, calculateTotalIncome, calculateTotalExpenses, calculateTotalBalance } from '../utils/calculations-decimal';
+import { toDecimal } from '../utils/decimal';
 
 export default function Analytics() {
-  const { transactions, accounts } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { transactions, getDecimalTransactions, getDecimalAccounts, categories } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
   const { layouts, updateAnalyticsLayout, resetAnalyticsLayout } = useLayoutConfig();
   const [showLayoutControls, setShowLayoutControls] = useState(false);
 
   // Calculate spending by category using decimal precision
-  const spendingByCategory = calculateSpendingByCategory(transactions);
-
-  const categoryData = Object.entries(spendingByCategory)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => (b.value as number) - (a.value as number));
+  const categoryData = useMemo(() => {
+    const decimalTransactions = getDecimalTransactions();
+    const expenseCategories = categories.filter(cat => cat.type === 'expense' || cat.type === 'both');
+    
+    return expenseCategories
+      .map(category => {
+        const spending = calculateCategorySpending(category.id, decimalTransactions);
+        return {
+          name: category.name,
+          value: spending.toNumber()
+        };
+      })
+      .filter(item => item.value > 0)
+      .sort((a, b) => b.value - a.value);
+  }, [categories, getDecimalTransactions]);
 
   // Calculate monthly trends
-  const monthlyData = Array.from({ length: 12 }, (_, i) => {
-    const month = new Date(2024, i).toLocaleString('default', { month: 'short' });
-    const monthTransactions = transactions.filter(t => {
-      const date = new Date(t.date);
-      return date.getMonth() === i && date.getFullYear() === 2024;
+  const monthlyData = useMemo(() => {
+    const decimalTransactions = getDecimalTransactions();
+    const currentYear = new Date().getFullYear();
+    
+    return Array.from({ length: 12 }, (_, i) => {
+      const month = new Date(currentYear, i).toLocaleString('default', { month: 'short' });
+      const monthTransactions = decimalTransactions.filter(t => {
+        const date = new Date(t.date);
+        return date.getMonth() === i && date.getFullYear() === currentYear;
+      });
+
+      const income = calculateTotalIncome(monthTransactions);
+      const expenses = calculateTotalExpenses(monthTransactions);
+
+      return { 
+        month, 
+        income: income.toNumber(), 
+        expenses: expenses.toNumber() 
+      };
     });
-
-    const income = calculateTotalIncome(monthTransactions);
-    const expenses = calculateTotalExpenses(monthTransactions);
-
-    return { month, income, expenses };
-  });
+  }, [getDecimalTransactions]);
 
   // Calculate account balance trends based on real transactions
-  const calculateAccountTrends = () => {
+  const accountTrends = useMemo(() => {
+    const decimalAccounts = getDecimalAccounts();
+    const decimalTransactions = getDecimalTransactions();
     const now = new Date();
     
     // Get current total balance with decimal precision
-    const currentTotalBalance = calculateTotalBalance(accounts);
+    const currentTotalBalance = calculateTotalBalance(decimalAccounts);
     
     // Sort transactions by date
-    const sortedTransactions = [...transactions].sort((a, b) => 
+    const sortedTransactions = [...decimalTransactions].sort((a, b) => 
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
     
@@ -54,16 +76,6 @@ export default function Analytics() {
     for (let i = 5; i >= 0; i--) {
       const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const monthEnd = new Date(now.getFullYear(), now.getMonth() - i + 1, 0);
-      
-      // Get all transactions up to the end of this month
-      const transactionsUpToMonth = sortedTransactions.filter(t => 
-        new Date(t.date) <= monthEnd
-      );
-      
-      // Calculate net change from transactions
-      transactionsUpToMonth.reduce((net, t) => {
-        return net + (t.type === 'income' ? t.amount : -t.amount);
-      }, 0);
       
       // For current month, use actual balance
       let balance;
@@ -75,21 +87,19 @@ export default function Analytics() {
           new Date(t.date) > monthEnd
         );
         const futureNetChange = futureTransactions.reduce((net, t) => {
-          return net + (t.type === 'income' ? t.amount : -t.amount);
-        }, 0);
-        balance = currentTotalBalance - futureNetChange;
+          return t.type === 'income' ? net.plus(t.amount) : net.minus(t.amount);
+        }, toDecimal(0));
+        balance = currentTotalBalance.minus(futureNetChange);
       }
       
       trendData.push({
         month: monthDate.toLocaleString('default', { month: 'short' }),
-        balance: Math.max(0, balance)
+        balance: Math.max(0, balance.toNumber())
       });
     }
     
     return trendData;
-  };
-  
-  const accountTrends = calculateAccountTrends();
+  }, [getDecimalAccounts, getDecimalTransactions]);
 
   // Calculate top expenses
   const topExpenses = transactions
@@ -98,15 +108,20 @@ export default function Analytics() {
     .slice(0, 5);
 
   // Calculate savings rate
-  const totalIncome = transactions
-    .filter(t => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const totalExpenses = transactions
-    .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
+  const { totalIncome, totalExpenses, savingsRate } = useMemo(() => {
+    const decimalTransactions = getDecimalTransactions();
+    const income = calculateTotalIncome(decimalTransactions);
+    const expenses = calculateTotalExpenses(decimalTransactions);
+    const rate = income.greaterThan(0) 
+      ? income.minus(expenses).dividedBy(income).times(100).toNumber() 
+      : 0;
+    
+    return {
+      totalIncome: income.toNumber(),
+      totalExpenses: expenses.toNumber(),
+      savingsRate: rate
+    };
+  }, [getDecimalTransactions]);
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 

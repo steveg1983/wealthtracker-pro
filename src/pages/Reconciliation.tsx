@@ -5,7 +5,7 @@ import { ChevronRightIcon, ChevronLeftIcon, ArrowLeftIcon, EditIcon, PlusIcon, D
 import { IconButton } from '../components/icons/IconButton';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelect from '../components/CategorySelect';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReconciliation } from '../hooks/useReconciliation';
 import type { Transaction } from '../types';
 
@@ -13,7 +13,7 @@ import type { Transaction } from '../types';
 
 export default function Reconciliation() {
   const { transactions, accounts, updateTransaction, categories } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedAccount, setSelectedAccount] = useState<string | null>(
     searchParams.get('account') || null
@@ -256,7 +256,7 @@ export default function Reconciliation() {
     setSplitItems([]);
   };
 
-  // Currency formatting now handled by useCurrency hook
+  // Currency formatting now handled by useCurrencyDecimal hook
 
   const formatDate = (date: Date | null) => {
     if (!date) return 'N/A';

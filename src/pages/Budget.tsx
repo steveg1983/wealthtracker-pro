@@ -1,21 +1,27 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { useCurrency } from '../hooks/useCurrency';
-import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon } from '../components/icons';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, LayersIcon, RepeatIcon, PiggyBankIcon, ArrowRightIcon, BellIcon } from '../components/icons';
 import { EditIcon, DeleteIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import BudgetModal from '../components/BudgetModal';
+import EnvelopeBudgeting from '../components/EnvelopeBudgeting';
+import RecurringBudgetTemplates from '../components/RecurringBudgetTemplates';
+import BudgetRollover from '../components/BudgetRollover';
+import SpendingAlerts from '../components/SpendingAlerts';
 import type { Budget } from '../types';
 import PageWrapper from '../components/PageWrapper';
-import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations';
+import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations-decimal';
+import { toDecimal } from '../utils/decimal';
 
 export default function Budget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
-  const { formatCurrency } = useCurrency();
+  const [activeTab, setActiveTab] = useState<'traditional' | 'envelope' | 'templates' | 'rollover' | 'alerts'>('traditional');
+  const { formatCurrency } = useCurrencyDecimal();
   
   // Get data from context
-  const { budgets, transactions, updateBudget, deleteBudget } = useApp();
+  const { budgets, updateBudget, deleteBudget, getDecimalBudgets, getDecimalTransactions } = useApp();
 
   // Memoize current date values
   const { currentMonth, currentYear } = useMemo(() => {
@@ -28,9 +34,15 @@ export default function Budget() {
 
   // Calculate spent amounts for each budget with memoization
   const budgetsWithSpent = useMemo(() => {
+    const decimalBudgets = getDecimalBudgets();
+    const decimalTransactions = getDecimalTransactions();
+    
     return budgets
       .filter(budget => budget !== null && budget !== undefined)
-      .map(budget => {
+      .map((budget) => {
+        const decimalBudget = decimalBudgets.find(db => db.id === budget.id);
+        if (!decimalBudget) return { ...budget, spent: 0, percentage: 0, remaining: 0 };
+        
         // Calculate date range for budget period
         let startDate: Date;
         let endDate: Date;
@@ -54,18 +66,18 @@ export default function Budget() {
           endDate = new Date(currentYear, 11, 31);
         }
 
-        const spent = calculateBudgetSpending(budget, transactions, startDate, endDate);
-        const percentage = calculateBudgetPercentage(budget, spent);
-        const remaining = calculateBudgetRemaining(budget, spent);
+        const spent = calculateBudgetSpending(decimalBudget, decimalTransactions, startDate, endDate);
+        const percentage = calculateBudgetPercentage(decimalBudget, spent);
+        const remaining = calculateBudgetRemaining(decimalBudget, spent);
 
         return {
           ...budget,
-          spent,
+          spent: spent.toNumber(),
           percentage,
-          remaining
+          remaining: remaining.toNumber()
         };
       });
-  }, [budgets, transactions, currentMonth, currentYear]);
+  }, [budgets, getDecimalBudgets, getDecimalTransactions, currentMonth, currentYear]);
 
   const handleEdit = (budget: Budget) => {
     setEditingBudget(budget);
@@ -88,16 +100,17 @@ export default function Budget() {
   };
 
   // Calculate totals with memoization
-  const { totalBudgeted, totalSpent, totalRemaining } = useMemo(() => {
+  const { totalBudgeted, totalSpent, totalRemaining, totalRemainingValue } = useMemo(() => {
     const active = budgetsWithSpent.filter(b => b && b.isActive !== false);
-    const budgeted = active.reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
-    const spent = active.reduce((sum, b) => sum + (b.spent || 0), 0);
-    const remaining = budgeted - spent;
+    const budgeted = active.reduce((sum, b) => sum.plus(toDecimal(b.amount || 0)), toDecimal(0));
+    const spent = active.reduce((sum, b) => sum.plus(toDecimal(b.spent || 0)), toDecimal(0));
+    const remaining = budgeted.minus(spent);
     
     return {
-      totalBudgeted: budgeted,
-      totalSpent: spent,
-      totalRemaining: remaining
+      totalBudgeted: formatCurrency(budgeted),
+      totalSpent: formatCurrency(spent),
+      totalRemaining: formatCurrency(remaining),
+      totalRemainingValue: remaining.toNumber()
     };
   }, [budgetsWithSpent]);
 
@@ -136,8 +149,68 @@ export default function Budget() {
       }
     >
 
-      {/* Main content grid with consistent spacing */}
-      <div className="grid gap-6">
+      {/* Navigation Tabs */}
+      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
+        <button
+          onClick={() => setActiveTab('traditional')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'traditional'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <BanknoteIcon size={16} />
+          Traditional
+        </button>
+        <button
+          onClick={() => setActiveTab('envelope')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'envelope'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <PiggyBankIcon size={16} />
+          Envelope
+        </button>
+        <button
+          onClick={() => setActiveTab('templates')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'templates'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <RepeatIcon size={16} />
+          Templates
+        </button>
+        <button
+          onClick={() => setActiveTab('rollover')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'rollover'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <ArrowRightIcon size={16} />
+          Rollover
+        </button>
+        <button
+          onClick={() => setActiveTab('alerts')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'alerts'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <BellIcon size={16} />
+          Alerts
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'traditional' && (
+        <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
@@ -145,7 +218,7 @@ export default function Budget() {
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Budgeted</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {formatCurrency(totalBudgeted)}
+                {totalBudgeted}
               </p>
             </div>
             <BanknoteIcon className="text-gray-400" size={24} />
@@ -157,7 +230,7 @@ export default function Budget() {
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Spent</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {formatCurrency(totalSpent)}
+                {totalSpent}
               </p>
             </div>
             <TrendingDownIcon className="text-red-500" size={24} />
@@ -169,12 +242,12 @@ export default function Budget() {
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Remaining</p>
               <p className={`text-2xl font-bold ${
-                totalRemaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                totalRemainingValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               }`}>
-                {formatCurrency(totalRemaining)}
+                {totalRemaining}
               </p>
             </div>
-            <TrendingUpIcon className={totalRemaining >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+            <TrendingUpIcon className={totalRemainingValue >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
           </div>
         </div>
         </div>
@@ -273,7 +346,28 @@ export default function Budget() {
           </div>
         )}
         </div>
-      </div>
+        </div>
+      )}
+
+      {/* Envelope Budgeting Tab */}
+      {activeTab === 'envelope' && (
+        <EnvelopeBudgeting />
+      )}
+
+      {/* Templates Tab */}
+      {activeTab === 'templates' && (
+        <RecurringBudgetTemplates />
+      )}
+
+      {/* Rollover Tab */}
+      {activeTab === 'rollover' && (
+        <BudgetRollover />
+      )}
+
+      {/* Alerts Tab */}
+      {activeTab === 'alerts' && (
+        <SpendingAlerts />
+      )}
 
       <BudgetModal
         isOpen={isModalOpen}

@@ -1,18 +1,22 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, ChevronRightIcon } from '../components/icons';
+import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, ChevronRightIcon, LineChartIcon, EyeIcon } from '../components/icons';
 import EnhancedPortfolioView from '../components/EnhancedPortfolioView';
 import AddInvestmentModal from '../components/AddInvestmentModal';
+import RealTimePortfolio from '../components/RealTimePortfolio';
+import StockWatchlist from '../components/StockWatchlist';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 import PageWrapper from '../components/PageWrapper';
 
 export default function Investments() {
-  const { accounts, transactions } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { accounts, transactions, getDecimalAccounts, getDecimalTransactions } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1Y');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [showAddInvestmentModal, setShowAddInvestmentModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'portfolio'>('overview');
 
   // Helper function to format percentages
   const formatPercentage = (value: number): string => {
@@ -24,31 +28,41 @@ export default function Investments() {
 
   // Get investment accounts only
   const investmentAccounts = accounts.filter(acc => acc.type === 'investment');
+  const decimalInvestmentAccounts = getDecimalAccounts().filter(acc => acc.type === 'investment');
   
-  // Calculate portfolio value from investment accounts
-  const portfolioValue = investmentAccounts.reduce((sum, acc) => sum + acc.balance, 0);
+  // Calculate portfolio value from investment accounts using Decimal
+  const portfolioValue = decimalInvestmentAccounts.reduce((sum, acc) => sum.plus(acc.balance), toDecimal(0));
   
   // Calculate invested amount from investment-related transactions
+  const decimalTransactions = getDecimalTransactions();
   const investmentTransactions = transactions.filter(t => 
     t.category?.toLowerCase().includes('invest') || 
     investmentAccounts.some(acc => t.accountId === acc.id)
   );
   
-  const totalInvested = investmentTransactions
+  const decimalInvestmentTransactions = decimalTransactions.filter(t => 
+    investmentTransactions.some(it => it.id === t.id)
+  );
+  
+  const totalInvested = decimalInvestmentTransactions
     .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
     
-  const totalReturn = portfolioValue - totalInvested;
-  const returnPercentage = totalInvested > 0 ? ((totalReturn / totalInvested) * 100) : 0;
+  const totalReturn = portfolioValue.minus(totalInvested);
+  const returnPercentage = totalInvested.greaterThan(0) ? totalReturn.dividedBy(totalInvested).times(100).toNumber() : 0;
 
   // Create holdings data from investment accounts
-  const holdings = investmentAccounts.map((acc) => ({
-    name: acc.name,
-    value: acc.balance,
-    allocation: portfolioValue > 0 ? (acc.balance / portfolioValue) * 100 : 0,
-    return: 0, // Would need historical data to calculate actual returns
-    ticker: acc.institution || 'N/A'
-  }));
+  const holdings = investmentAccounts.map((acc) => {
+    const decimalAcc = decimalInvestmentAccounts.find(da => da.id === acc.id);
+    const balance = decimalAcc?.balance || toDecimal(0);
+    return {
+      name: acc.name,
+      value: balance.toNumber(),
+      allocation: portfolioValue.greaterThan(0) ? balance.dividedBy(portfolioValue).times(100).toNumber() : 0,
+      return: 0, // Would need historical data to calculate actual returns
+      ticker: acc.institution || 'N/A'
+    };
+  });
 
   // Create performance data based on transactions
   const generatePerformanceData = () => {
@@ -97,7 +111,7 @@ export default function Investments() {
       
       // For the current month, use actual portfolio value
       if (i === 0) {
-        cumulativeValue = portfolioValue;
+        cumulativeValue = portfolioValue.toNumber();
       } else {
         // Add some simulated growth for historical data (since we don't have actual historical values)
         const monthsFromNow = i;
@@ -183,8 +197,46 @@ export default function Investments() {
       }
     >
 
-      {/* Main content grid with consistent spacing */}
-      <div className="grid gap-6">
+      {/* Navigation Tabs */}
+      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'overview'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <BarChart3Icon size={16} />
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('watchlist')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'watchlist'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <EyeIcon size={16} />
+          Watchlist
+        </button>
+        <button
+          onClick={() => setActiveTab('portfolio')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'portfolio'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <LineChartIcon size={16} />
+          Portfolio
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && (
+        <div className="grid gap-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
@@ -215,11 +267,11 @@ export default function Investments() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Return</p>
-              <p className={`text-2xl font-bold ${totalReturn >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {totalReturn >= 0 ? '+' : ''}{formatCurrency(totalReturn)}
+              <p className={`text-2xl font-bold ${totalReturn.greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {totalReturn.greaterThanOrEqualTo(0) ? '+' : ''}{formatCurrency(totalReturn)}
               </p>
             </div>
-            <TrendingUpIcon className={totalReturn >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
+            <TrendingUpIcon className={totalReturn.greaterThanOrEqualTo(0) ? 'text-green-500' : 'text-red-500'} size={24} />
           </div>
         </div>
 
@@ -288,6 +340,7 @@ export default function Investments() {
               />
             </LineChart>
           </ResponsiveContainer>
+        </div>
         </div>
 
         {/* Holdings */}
@@ -403,6 +456,7 @@ export default function Investments() {
             </>
           )}
         </div>
+        </div>
 
         {/* Investment Tips */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
@@ -420,8 +474,43 @@ export default function Investments() {
           </div>
         </div>
         </div>
-      </div>
-      </div>
+      )}
+
+      {/* Watchlist Tab */}
+      {activeTab === 'watchlist' && (
+        <StockWatchlist />
+      )}
+
+      {/* Portfolio Tab */}
+      {activeTab === 'portfolio' && (
+        <div className="space-y-6">
+          {investmentAccounts.length === 0 ? (
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
+              <BarChart3Icon className="mx-auto text-gray-400 mb-4" size={64} />
+              <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-2">
+                No Investment Accounts Yet
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Add an investment account to start tracking your portfolio performance with real-time data.
+              </p>
+              <p className="text-sm text-gray-500 dark:text-gray-500">
+                Go to Accounts → Add Account → Choose "Investment" as the account type
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-6">
+              {investmentAccounts.map((account) => (
+                <RealTimePortfolio
+                  key={account.id}
+                  accountId={account.id}
+                  accountName={account.name}
+                  currency={account.currency}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       
       {/* Portfolio View Modal */}
       {selectedAccountId && (() => {

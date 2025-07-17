@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, TrendingUpIcon, TrendingDownIcon, BanknoteIcon, Building2Icon, CreditCardIcon, LandmarkIcon, PiggyBankIcon } from '../components/icons';
 import { useApp } from '../contexts/AppContext';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 export default function MonthlyNetWorth() {
   const { accounts } = useApp();
-  const { formatCurrency, convertAndSum, displayCurrency } = useCurrency();
+  const { formatCurrency, convertAndSum, displayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   // const { month } = useParams<{ month: string }>();
   const [isLoading, setIsLoading] = useState(true);

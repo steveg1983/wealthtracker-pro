@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, Clock } from './icons';
 import { formatCurrency } from '../utils/currency';
 import { useStockPrices } from '../hooks/useStockPrices';
-// import { useCurrency } from '../hooks/useCurrency'; // Removed unused import
 import { convertStockPrice } from '../services/stockPriceService';
 import type { Holding } from '../types';
 
@@ -23,7 +22,6 @@ export default function EnhancedPortfolioView({
   onClose 
 }: EnhancedPortfolioViewProps) {
   const navigate = useNavigate();
-  // const { } = useCurrency(); // Removed unused hook
   const { prices, loading, error, refreshPrices } = useStockPrices(holdings);
   const [sortBy, setSortBy] = useState<'value' | 'shares' | 'name' | 'gain'>('value');
   const [enhancedHoldings, setEnhancedHoldings] = useState<Holding[]>([]);

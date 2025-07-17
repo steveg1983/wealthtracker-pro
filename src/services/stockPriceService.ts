@@ -1,18 +1,20 @@
 import { getExchangeRates } from '../utils/currency';
+import { toDecimal } from '../utils/decimal';
+import type { DecimalInstance } from '../types/decimal-types';
 
 interface StockQuote {
   symbol: string;
-  price: number;
+  price: DecimalInstance;
   currency: string;
-  change: number;
-  changePercent: number;
-  previousClose: number;
-  marketCap?: number;
+  change: DecimalInstance;
+  changePercent: DecimalInstance;
+  previousClose: DecimalInstance;
+  marketCap?: DecimalInstance;
   volume?: number;
-  dayHigh?: number;
-  dayLow?: number;
-  fiftyTwoWeekHigh?: number;
-  fiftyTwoWeekLow?: number;
+  dayHigh?: DecimalInstance;
+  dayLow?: DecimalInstance;
+  fiftyTwoWeekHigh?: DecimalInstance;
+  fiftyTwoWeekLow?: DecimalInstance;
   name?: string;
   exchange?: string;
   lastUpdated: Date;
@@ -73,19 +75,24 @@ export async function getStockQuote(symbol: string): Promise<StockQuote | null> 
         const regularMarketPrice = meta.regularMarketPrice;
         const previousClose = meta.chartPreviousClose || meta.previousClose;
         
+        const price = toDecimal(regularMarketPrice);
+        const prevClose = toDecimal(previousClose);
+        const change = price.minus(prevClose);
+        const changePercent = prevClose.greaterThan(0) ? change.dividedBy(prevClose).times(100) : toDecimal(0);
+
         const stockQuote: StockQuote = {
           symbol: cleanedSymbol,
-          price: regularMarketPrice,
+          price: price,
           currency: meta.currency || 'USD',
-          change: regularMarketPrice - previousClose,
-          changePercent: ((regularMarketPrice - previousClose) / previousClose) * 100,
-          previousClose: previousClose,
-          marketCap: meta.marketCap,
+          change: change,
+          changePercent: changePercent,
+          previousClose: prevClose,
+          marketCap: meta.marketCap ? toDecimal(meta.marketCap) : undefined,
           volume: meta.regularMarketVolume,
-          dayHigh: meta.regularMarketDayHigh,
-          dayLow: meta.regularMarketDayLow,
-          fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh,
-          fiftyTwoWeekLow: meta.fiftyTwoWeekLow,
+          dayHigh: meta.regularMarketDayHigh ? toDecimal(meta.regularMarketDayHigh) : undefined,
+          dayLow: meta.regularMarketDayLow ? toDecimal(meta.regularMarketDayLow) : undefined,
+          fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ? toDecimal(meta.fiftyTwoWeekHigh) : undefined,
+          fiftyTwoWeekLow: meta.fiftyTwoWeekLow ? toDecimal(meta.fiftyTwoWeekLow) : undefined,
           name: meta.longName || meta.shortName,
           exchange: meta.exchangeName,
           lastUpdated: new Date()
@@ -139,10 +146,10 @@ export async function getMultipleStockQuotes(symbols: string[]): Promise<Map<str
  * Convert stock price to base currency
  */
 export async function convertStockPrice(
-  price: number,
+  price: DecimalInstance,
   stockCurrency: string,
   baseCurrency: string
-): Promise<number> {
+): Promise<DecimalInstance> {
   if (stockCurrency === baseCurrency) {
     return price;
   }
@@ -153,11 +160,11 @@ export async function convertStockPrice(
     // Convert to GBP first (as base), then to target currency
     const priceInGBP = stockCurrency === 'GBP' 
       ? price 
-      : price / (rates[stockCurrency] || 1);
+      : price.dividedBy(toDecimal(rates[stockCurrency] || 1));
     
     const priceInBaseCurrency = baseCurrency === 'GBP'
       ? priceInGBP
-      : priceInGBP * (rates[baseCurrency] || 1);
+      : priceInGBP.times(toDecimal(rates[baseCurrency] || 1));
 
     return priceInBaseCurrency;
   } catch (error) {
@@ -170,33 +177,33 @@ export async function convertStockPrice(
  * Calculate portfolio metrics with live prices
  */
 export interface PortfolioMetrics {
-  totalValue: number;
-  totalCost: number;
-  totalGain: number;
-  totalGainPercent: number;
+  totalValue: DecimalInstance;
+  totalCost: DecimalInstance;
+  totalGain: DecimalInstance;
+  totalGainPercent: DecimalInstance;
   holdings: Array<{
     symbol: string;
     name: string;
-    shares: number;
-    averageCost: number;
-    currentPrice: number;
-    marketValue: number;
-    gain: number;
-    gainPercent: number;
-    allocation: number;
+    shares: DecimalInstance;
+    averageCost: DecimalInstance;
+    currentPrice: DecimalInstance;
+    marketValue: DecimalInstance;
+    gain: DecimalInstance;
+    gainPercent: DecimalInstance;
+    allocation: DecimalInstance;
     currency: string;
   }>;
 }
 
 export async function calculatePortfolioMetrics(
-  holdings: Array<{ symbol: string; shares: number; averageCost: number }>,
+  holdings: Array<{ symbol: string; shares: DecimalInstance; averageCost: DecimalInstance }>,
   baseCurrency: string
 ): Promise<PortfolioMetrics> {
   const symbols = holdings.map(h => h.symbol);
   const quotes = await getMultipleStockQuotes(symbols);
   
-  let totalValue = 0;
-  let totalCost = 0;
+  let totalValue = toDecimal(0);
+  let totalCost = toDecimal(0);
   
   const enhancedHoldings = await Promise.all(holdings.map(async (holding) => {
     const quote = quotes.get(holding.symbol);
@@ -207,13 +214,13 @@ export async function calculatePortfolioMetrics(
     const convertedPrice = await convertStockPrice(currentPrice, currency, baseCurrency);
     const convertedCost = await convertStockPrice(holding.averageCost, currency, baseCurrency);
     
-    const marketValue = convertedPrice * holding.shares;
-    const costBasis = convertedCost * holding.shares;
-    const gain = marketValue - costBasis;
-    const gainPercent = costBasis > 0 ? (gain / costBasis) * 100 : 0;
+    const marketValue = convertedPrice.times(holding.shares);
+    const costBasis = convertedCost.times(holding.shares);
+    const gain = marketValue.minus(costBasis);
+    const gainPercent = costBasis.greaterThan(0) ? gain.dividedBy(costBasis).times(100) : toDecimal(0);
     
-    totalValue += marketValue;
-    totalCost += costBasis;
+    totalValue = totalValue.plus(marketValue);
+    totalCost = totalCost.plus(costBasis);
     
     return {
       symbol: holding.symbol,
@@ -224,18 +231,18 @@ export async function calculatePortfolioMetrics(
       marketValue: marketValue,
       gain: gain,
       gainPercent: gainPercent,
-      allocation: 0, // Will be calculated after total
+      allocation: toDecimal(0), // Will be calculated after total
       currency: currency
     };
   }));
   
   // Calculate allocations
   enhancedHoldings.forEach(holding => {
-    holding.allocation = totalValue > 0 ? (holding.marketValue / totalValue) * 100 : 0;
+    holding.allocation = totalValue.greaterThan(0) ? holding.marketValue.dividedBy(totalValue).times(100) : toDecimal(0);
   });
   
-  const totalGain = totalValue - totalCost;
-  const totalGainPercent = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
+  const totalGain = totalValue.minus(totalCost);
+  const totalGainPercent = totalCost.greaterThan(0) ? totalGain.dividedBy(totalCost).times(100) : toDecimal(0);
   
   return {
     totalValue,

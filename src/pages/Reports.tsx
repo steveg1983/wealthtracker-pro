@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { PieChartIcon, TrendingUpIcon, CalendarIcon, DownloadIcon, FilterIcon } from '../components/icons';
+import { exportTransactionsToCSV, downloadCSV } from '../utils/csvExport';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -153,26 +154,9 @@ export default function Reports() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Date', 'Description', 'Category', 'Type', 'Amount', 'Account'];
-    const rows = filteredTransactions.map(t => [
-      new Date(t.date).toLocaleDateString(),
-      t.description,
-      t.category,
-      t.type,
-      t.amount.toString(),
-      accounts.find(a => a.id === t.accountId)?.name || 'Unknown'
-    ]);
-
-    const csv = [headers, ...rows]
-      .map(row => row.map(cell => `"${cell}"`).join(','))
-      .join('\n');
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `financial-report-${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
+    const csv = exportTransactionsToCSV(filteredTransactions, accounts);
+    const filename = `financial-report-${new Date().toISOString().split('T')[0]}.csv`;
+    downloadCSV(csv, filename);
   };
 
   return (

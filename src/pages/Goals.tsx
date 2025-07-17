@@ -7,10 +7,13 @@ import { PlusIcon, EditIcon, DeleteIcon } from "../components/icons";
 import { IconButton } from "../components/icons/IconButton";
 import type { Goal } from "../types";
 import PageWrapper from "../components/PageWrapper";
-import { calculateGoalProgress } from "../utils/calculations";
+import { calculateGoalProgress } from "../utils/calculations-decimal";
+import { toDecimal } from "../utils/decimal";
+import { useCurrencyDecimal } from "../hooks/useCurrencyDecimal";
 
 export default function Goals() {
-  const { goals, accounts, deleteGoal } = useApp();
+  const { goals, accounts, deleteGoal, getDecimalGoals, getDecimalAccounts } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | undefined>();
 
@@ -31,7 +34,9 @@ export default function Goals() {
   };
 
   const getProgressPercentage = (goal: Goal) => {
-    return calculateGoalProgress(goal);
+    const decimalGoal = getDecimalGoals().find(g => g.id === goal.id);
+    if (!decimalGoal) return 0;
+    return calculateGoalProgress(decimalGoal);
   };
 
   const getDaysRemaining = (targetDate: Date) => {
@@ -43,12 +48,13 @@ export default function Goals() {
   };
 
   const getLinkedAccountsBalance = (linkedAccountIds?: string[]) => {
-    if (!linkedAccountIds || linkedAccountIds.length === 0) return 0;
+    if (!linkedAccountIds || linkedAccountIds.length === 0) return toDecimal(0);
     
+    const decimalAccounts = getDecimalAccounts();
     return linkedAccountIds.reduce((total, accountId) => {
-      const account = accounts.find(a => a.id === accountId);
-      return total + (account?.balance || 0);
-    }, 0);
+      const account = decimalAccounts.find(a => a.id === accountId);
+      return account ? total.plus(account.balance) : total;
+    }, toDecimal(0));
   };
 
   const getGoalIcon = (type: Goal["type"]) => {
@@ -67,9 +73,15 @@ export default function Goals() {
   const activeGoals = goals.filter(g => g.isActive);
   const completedGoals = goals.filter(g => !g.isActive || getProgressPercentage(g) >= 100);
 
-  const totalTargetAmount = activeGoals.reduce((sum, goal) => sum + goal.targetAmount, 0);
-  const totalCurrentAmount = activeGoals.reduce((sum, goal) => sum + goal.currentAmount, 0);
-  const overallProgress = totalTargetAmount > 0 ? (totalCurrentAmount / totalTargetAmount) * 100 : 0;
+  const decimalGoals = getDecimalGoals();
+  const activeDecimalGoals = decimalGoals.filter(g => {
+    const regularGoal = goals.find(rg => rg.id === g.id);
+    return regularGoal?.isActive;
+  });
+  
+  const totalTargetAmount = activeDecimalGoals.reduce((sum, goal) => sum.plus(goal.targetAmount), toDecimal(0));
+  const totalCurrentAmount = activeDecimalGoals.reduce((sum, goal) => sum.plus(goal.currentAmount), toDecimal(0));
+  const overallProgress = totalTargetAmount.greaterThan(0) ? totalCurrentAmount.dividedBy(totalTargetAmount).times(100).toNumber() : 0;
 
   return (
     <PageWrapper 
@@ -130,7 +142,7 @@ export default function Goals() {
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Total Target</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                £{totalTargetAmount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {formatCurrency(totalTargetAmount)}
               </p>
             </div>
             <TrendingUpIcon className="h-8 w-8 text-green-600" />
@@ -142,7 +154,7 @@ export default function Goals() {
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm">Total Saved</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                £{totalCurrentAmount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {formatCurrency(totalCurrentAmount)}
               </p>
             </div>
             <div className="relative h-8 w-8">
@@ -236,13 +248,13 @@ export default function Goals() {
                       <div>
                         <p className="text-gray-500 dark:text-gray-400">Current</p>
                         <p className="font-semibold text-gray-900 dark:text-white">
-                          £{goal.currentAmount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {formatCurrency(goal.currentAmount)}
                         </p>
                       </div>
                       <div>
                         <p className="text-gray-500 dark:text-gray-400">Target</p>
                         <p className="font-semibold text-gray-900 dark:text-white">
-                          £{goal.targetAmount.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          {formatCurrency(goal.targetAmount)}
                         </p>
                       </div>
                     </div>
@@ -256,7 +268,7 @@ export default function Goals() {
                       </div>
                       {goal.linkedAccountIds && goal.linkedAccountIds.length > 0 && (
                         <div className="text-gray-600 dark:text-gray-400">
-                          Linked: £{linkedBalance.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          Linked: {formatCurrency(linkedBalance)}
                         </div>
                       )}
                     </div>

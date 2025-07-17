@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Settings, Maximize2 } from '../components/icons';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import TransactionDetailsModal from './TransactionDetailsModal';
 import type { Transaction, Account } from '../types';
 
@@ -78,7 +78,7 @@ export default function IncomeExpenditureReport({
   transactions = [],
   accounts = []
 }: IncomeExpenditureReportProps) {
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   const [transactionModalData, setTransactionModalData] = useState<{
     isOpen: boolean;
     transactions: Transaction[];

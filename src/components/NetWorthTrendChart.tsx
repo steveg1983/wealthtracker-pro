@@ -1,16 +1,19 @@
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useApp } from '../contexts/AppContext';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 const NetWorthTrendChart = React.memo(function NetWorthTrendChart() {
-  const { accounts, transactions } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { accounts, transactions, getDecimalAccounts, getDecimalTransactions } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
 
   // Calculate net worth over the last 6 months
   const data = useMemo(() => {
     const result = [];
     const today = new Date();
+    const decimalAccounts = getDecimalAccounts();
+    const decimalTransactions = getDecimalTransactions();
     
     for (let i = 5; i >= 0; i--) {
       const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
@@ -20,29 +23,29 @@ const NetWorthTrendChart = React.memo(function NetWorthTrendChart() {
       const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
       // Get all transactions up to that month
-      const relevantTransactions = transactions.filter(t => 
+      const relevantTransactions = decimalTransactions.filter(t => 
         new Date(t.date) <= monthEnd
       );
       
       // Calculate the balance change from transactions
       const transactionBalance = relevantTransactions.reduce((sum, t) => {
-        if (t.type === 'income') return sum + t.amount;
-        if (t.type === 'expense') return sum - t.amount;
+        if (t.type === 'income') return sum.plus(t.amount);
+        if (t.type === 'expense') return sum.minus(t.amount);
         return sum;
-      }, 0);
+      }, toDecimal(0));
       
       // For simplicity, we'll use current account balances
       // In a real app, you'd track historical balances
-      const totalBalance = accounts.reduce((sum, acc) => sum + acc.balance, 0);
+      const totalBalance = decimalAccounts.reduce((sum, acc) => sum.plus(acc.balance), toDecimal(0));
       
       result.push({
         month: monthName,
-        balance: totalBalance + (transactionBalance * (i / 5))
+        balance: totalBalance.plus(transactionBalance.times(i / 5)).toNumber()
       });
     }
     
     return result;
-  }, [accounts, transactions]);
+  }, [getDecimalAccounts, getDecimalTransactions]);
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">

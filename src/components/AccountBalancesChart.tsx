@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useApp } from '../contexts/AppContext';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 const AccountBalancesChart = React.memo(function AccountBalancesChart() {
-  const { accounts } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { accounts, getDecimalAccounts } = useApp();
+  const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
   
   const data = useMemo(() => 
     accounts.map(account => ({
@@ -26,7 +26,7 @@ const AccountBalancesChart = React.memo(function AccountBalancesChart() {
     return colors[type] || colors.other;
   };
 
-  const formatCurrencyShort = (value: number) => `£${Math.abs(value).toFixed(0)}`;
+  const formatCurrencyShort = (value: number) => `${getCurrencySymbol(displayCurrency)}${Math.abs(value).toFixed(0)}`;
 
   if (data.length === 0) {
     return null;

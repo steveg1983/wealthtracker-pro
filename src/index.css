@@ -229,4 +229,54 @@ button.rounded-full:focus-visible,
   .animate-fadeIn {
     animation: fadeIn 0.2s ease-out;
   }
+  
+  /* Mobile touch improvements */
+  .touch-friendly {
+    @apply min-h-[48px] min-w-[48px] touch-target;
+  }
+  
+  /* Improved mobile form elements */
+  @media screen and (max-width: 768px) {
+    input[type="number"],
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    select,
+    textarea {
+      @apply text-base; /* Prevent zoom on iOS */
+      padding: 12px 16px;
+      border-radius: 8px;
+    }
+    
+    /* Larger buttons on mobile */
+    button {
+      @apply min-h-[48px] touch-target;
+      padding: 12px 24px;
+    }
+    
+    /* Better modal spacing on mobile */
+    .modal-content {
+      @apply p-6 m-4;
+    }
+    
+    /* Improved table responsiveness */
+    .table-responsive {
+      @apply overflow-x-auto;
+    }
+    
+    .table-responsive table {
+      @apply min-w-full;
+    }
+  }
+  
+  /* Focus indicators for accessibility */
+  .focus-visible {
+    @apply outline-2 outline-offset-2 outline-[var(--color-primary)];
+  }
+  
+  /* Skip link for screen readers */
+  .skip-link {
+    @apply absolute -top-10 left-4 z-50 bg-[var(--color-primary)] text-white px-4 py-2 rounded-md;
+    @apply focus:top-4 transition-all duration-200;
+  }
 }

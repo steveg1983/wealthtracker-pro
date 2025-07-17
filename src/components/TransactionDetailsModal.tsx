@@ -1,5 +1,6 @@
 import { XIcon } from './icons/XIcon';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 import type { Transaction, Account } from '../types';
 
 interface TransactionDetailsModalProps {
@@ -17,7 +18,7 @@ export default function TransactionDetailsModal({
   title,
   accounts
 }: TransactionDetailsModalProps) {
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
 
   if (!isOpen) return null;
 
@@ -26,7 +27,7 @@ export default function TransactionDetailsModal({
     return account?.name || 'Unknown Account';
   };
 
-  const total = transactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+  const total = transactions.reduce((sum, t) => sum.plus(toDecimal(Math.abs(t.amount))), toDecimal(0));
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

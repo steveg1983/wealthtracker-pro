@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { AlertCircle, CheckCircle, XCircle } from './icons';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface BudgetProgressProps {
   category: string;
@@ -17,7 +17,7 @@ const BudgetProgress = React.memo(function BudgetProgress({
   onEdit, 
   onDelete 
 }: BudgetProgressProps) {
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   
   const { percentage, remaining } = useMemo(() => {
     const pct = budgetAmount > 0 ? (spent / budgetAmount) * 100 : 0;

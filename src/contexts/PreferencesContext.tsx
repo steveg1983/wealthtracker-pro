@@ -27,53 +27,93 @@ const PreferencesContext = createContext<PreferencesContextType | undefined>(und
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
   const [compactView, setCompactView] = useState(() => {
-    const saved = localStorage.getItem('money_management_compact_view');
-    return saved === 'true';
+    try {
+      const saved = localStorage.getItem('money_management_compact_view');
+      return saved === 'true';
+    } catch (error) {
+      console.error('Error reading compactView from localStorage:', error);
+      return false;
+    }
   });
 
   const [currency, setCurrency] = useState(() => {
-    return localStorage.getItem('money_management_currency') || 'GBP';
+    try {
+      return localStorage.getItem('money_management_currency') || 'GBP';
+    } catch (error) {
+      console.error('Error reading currency from localStorage:', error);
+      return 'GBP';
+    }
   });
 
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto'>(() => {
-    const saved = localStorage.getItem('money_management_theme');
-    if (!saved) {
-      localStorage.setItem('money_management_theme', 'light');
+    try {
+      const saved = localStorage.getItem('money_management_theme');
+      if (!saved) {
+        localStorage.setItem('money_management_theme', 'light');
+        return 'light';
+      }
+      if (!['light', 'dark', 'auto'].includes(saved)) {
+        return 'light';
+      }
+      return saved as 'light' | 'dark' | 'auto';
+    } catch (error) {
+      console.error('Error reading theme from localStorage:', error);
       return 'light';
     }
-    if (!['light', 'dark', 'auto'].includes(saved)) {
-      return 'light';
-    }
-    return saved as 'light' | 'dark' | 'auto';
   });
 
   const [accentColor, setAccentColor] = useState(() => {
-    const saved = localStorage.getItem('money_management_accent_color');
-    if (!saved || saved === 'yellow') {  // Force pink if yellow or not set
-      localStorage.setItem('money_management_accent_color', 'pink');
+    try {
+      const saved = localStorage.getItem('money_management_accent_color');
+      if (!saved || saved === 'yellow') {  // Force pink if yellow or not set
+        localStorage.setItem('money_management_accent_color', 'pink');
+        return 'pink';
+      }
+      return saved;
+    } catch (error) {
+      console.error('Error reading accentColor from localStorage:', error);
       return 'pink';
     }
-    return saved;
   });
 
   const [firstName, setFirstName] = useState(() => {
-    return localStorage.getItem('money_management_first_name') || '';
+    try {
+      return localStorage.getItem('money_management_first_name') || '';
+    } catch (error) {
+      console.error('Error reading firstName from localStorage:', error);
+      return '';
+    }
   });
 
   // Page visibility settings
   const [showBudget, setShowBudget] = useState(() => {
-    const saved = localStorage.getItem('money_management_show_budget');
-    return saved !== 'false'; // Default to true
+    try {
+      const saved = localStorage.getItem('money_management_show_budget');
+      return saved !== 'false'; // Default to true
+    } catch (error) {
+      console.error('Error reading showBudget from localStorage:', error);
+      return true;
+    }
   });
 
   const [showGoals, setShowGoals] = useState(() => {
-    const saved = localStorage.getItem('money_management_show_goals');
-    return saved !== 'false'; // Default to true
+    try {
+      const saved = localStorage.getItem('money_management_show_goals');
+      return saved !== 'false'; // Default to true
+    } catch (error) {
+      console.error('Error reading showGoals from localStorage:', error);
+      return true;
+    }
   });
 
   const [showAnalytics, setShowAnalytics] = useState(() => {
-    const saved = localStorage.getItem('money_management_show_analytics');
-    return saved !== 'false'; // Default to true
+    try {
+      const saved = localStorage.getItem('money_management_show_analytics');
+      return saved !== 'false'; // Default to true
+    } catch (error) {
+      console.error('Error reading showAnalytics from localStorage:', error);
+      return true;
+    }
   });
 
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('dark');

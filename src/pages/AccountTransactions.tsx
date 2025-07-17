@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, ChevronUpIcon, ChevronDownIcon, PlusIcon, CalendarIcon, BanknoteIcon, FileTextIcon, TagIcon, ArrowRightLeftIcon, XIcon, SettingsIcon, MinimizeIcon, MaximizeIcon } from '../components/icons';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelector from '../components/CategorySelector';
@@ -12,7 +12,7 @@ export default function AccountTransactions() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
   const { accounts, transactions, categories, deleteTransaction, addTransaction } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   const { compactView, setCompactView } = usePreferences();
   
   // Find the specific account
@@ -619,6 +619,7 @@ export default function AccountTransactions() {
       {/* Transactions Table - Scrollable */}
       <div 
         className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden flex flex-col border-2 border-[#6B86B3]"
+        style={{ minHeight: '900px' }}
       >
         <div 
           ref={scrollContainerRef}

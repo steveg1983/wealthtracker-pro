@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet } from 'react-router-dom';
-import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import OfflineIndicator from './OfflineIndicator';
+import PWAInstallPrompt from './PWAInstallPrompt';
+import FloatingThemeButton from './FloatingThemeButton';
+import GlobalSearch, { useGlobalSearchDialog } from './GlobalSearch';
+import FloatingActionButton from './FloatingActionButton';
+import KeyboardShortcutsHelp, { useKeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
+import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
 interface SidebarLinkProps {
   to: string;
@@ -62,6 +68,9 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
       className={className}
       title={isCollapsed ? label : undefined}
       onClick={handleLinkClick}
+      role="menuitem"
+      aria-label={`Navigate to ${label}`}
+      aria-current={isActive ? 'page' : undefined}
     >
       {content}
     </Link>
@@ -77,6 +86,11 @@ export default function Layout() {
   const location = useLocation();
   const { showBudget, showGoals, showAnalytics } = usePreferences();
   const { isWideView } = useLayout();
+  const { isOpen: isSearchOpen, openSearch, closeSearch } = useGlobalSearchDialog();
+  const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
+  
+  // Initialize global keyboard shortcuts
+  useGlobalKeyboardShortcuts();
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
@@ -92,6 +106,44 @@ export default function Layout() {
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + K to open global search
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        openSearch();
+      }
+      
+      // ? to open keyboard shortcuts help
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        openHelp();
+      }
+      
+      // Alt + M to toggle mobile menu
+      if (e.altKey && e.key === 'm') {
+        e.preventDefault();
+        toggleMobileMenu();
+      }
+      
+      // Alt + S to toggle sidebar (desktop)
+      if (e.altKey && e.key === 's') {
+        e.preventDefault();
+        toggleSidebar();
+      }
+      
+      // Escape to close mobile menu
+      if (e.key === 'Escape' && isMobileMenuOpen) {
+        e.preventDefault();
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileMenuOpen, openSearch, openHelp]);
 
   // Auto-expand/collapse sections based on current page
   React.useEffect(() => {
@@ -123,25 +175,47 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen bg-[#D9E1F2] dark:bg-gray-900">
+      {/* Skip link for screen readers */}
+      <a 
+        href="#main-content" 
+        className="skip-link"
+        tabIndex={1}
+      >
+        Skip to main content
+      </a>
       {/* Sidebar */}
       <aside
         className={`${
           isSidebarCollapsed ? 'w-16' : 'w-64'
         } bg-[#8EA9DB] dark:bg-gray-800 shadow-2xl rounded-2xl transition-all duration-300 hidden md:block m-4 h-[calc(100vh-2rem)]`}
+        role="navigation"
+        aria-label="Main navigation"
       >
         <div className="p-4 h-full flex flex-col">
           <div className="flex items-center justify-between mb-8">
             {!isSidebarCollapsed && (
               <h1 className="text-xl font-bold text-white dark:text-white">Wealth Tracker</h1>
             )}
-            <button
-              onClick={toggleSidebar}
-              className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600"
-            >
-              <MenuIcon size={20} className="text-white dark:text-gray-400" />
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={openSearch}
+                className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
+                aria-label="Open global search"
+                title="Search (Ctrl+K)"
+              >
+                <SearchIcon size={20} className="text-white dark:text-gray-400" />
+              </button>
+              <button
+                onClick={toggleSidebar}
+                className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
+                aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+                title={isSidebarCollapsed ? 'Expand sidebar (Alt+S)' : 'Collapse sidebar (Alt+S)'}
+              >
+                <MenuIcon size={20} className="text-white dark:text-gray-400" />
+              </button>
+            </div>
           </div>
-          <nav className="space-y-2 flex-1 overflow-y-auto pr-2">
+          <nav className="space-y-2 flex-1 overflow-y-auto pr-2" role="menubar" aria-label="Main navigation menu">
             <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             
@@ -210,27 +284,56 @@ export default function Layout() {
       {/* Mobile Menu Button */}
       <button
         onClick={toggleMobileMenu}
-        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-[#8EA9DB] dark:bg-gray-800 rounded-xl shadow-2xl hover:shadow-xl transition-shadow min-w-[48px] min-h-[48px] flex items-center justify-center"
+        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-[#8EA9DB] dark:bg-gray-800 rounded-xl shadow-2xl hover:shadow-xl transition-shadow min-w-[48px] min-h-[48px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50"
+        aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+        aria-expanded={isMobileMenuOpen}
+        aria-controls="mobile-menu"
+        title={isMobileMenuOpen ? 'Close menu (Escape)' : 'Open menu (Alt+M)'}
       >
         {isMobileMenuOpen ? <XIcon size={32} className="text-white dark:text-gray-200" /> : <MenuIcon size={32} className="text-white dark:text-gray-200" />}
       </button>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-40 bg-black bg-opacity-50" onClick={toggleMobileMenu}>
-          <aside className="w-full max-w-sm h-full bg-[#8EA9DB] dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl" onClick={e => e.stopPropagation()}>
+        <div 
+          className="md:hidden fixed inset-0 z-40 bg-black bg-opacity-50" 
+          onClick={toggleMobileMenu}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mobile-menu-title"
+        >
+          <aside 
+            id="mobile-menu"
+            className="w-full max-w-sm h-full bg-[#8EA9DB] dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl" 
+            onClick={e => e.stopPropagation()}
+            role="navigation"
+            aria-label="Mobile navigation"
+          >
             <div className="p-4 pb-6">
               {/* Mobile header with close button */}
               <div className="flex justify-between items-center mb-8">
-                <h1 className="text-2xl font-bold text-white dark:text-white">Wealth Tracker</h1>
-                <button
-                  onClick={toggleMobileMenu}
-                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600"
-                >
-                  <XIcon size={24} className="text-white dark:text-gray-300" />
-                </button>
+                <h1 id="mobile-menu-title" className="text-2xl font-bold text-white dark:text-white">Wealth Tracker</h1>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      openSearch();
+                      toggleMobileMenu();
+                    }}
+                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
+                    aria-label="Open global search"
+                  >
+                    <SearchIcon size={24} className="text-white dark:text-gray-300" />
+                  </button>
+                  <button
+                    onClick={toggleMobileMenu}
+                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
+                    aria-label="Close navigation menu"
+                  >
+                    <XIcon size={24} className="text-white dark:text-gray-300" />
+                  </button>
+                </div>
               </div>
-              <nav className="space-y-2">
+              <nav className="space-y-2" role="menubar" aria-label="Mobile navigation menu">
                 <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 
@@ -307,7 +410,13 @@ export default function Layout() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto md:pl-0">
+      <main 
+        id="main-content"
+        className="flex-1 overflow-auto md:pl-0" 
+        role="main"
+        aria-label="Main content"
+        tabIndex={-1}
+      >
         <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
           <Outlet />
         </div>
@@ -315,6 +424,21 @@ export default function Layout() {
       
       {/* Offline Indicator */}
       <OfflineIndicator />
+      
+      {/* PWA Install Prompt */}
+      <PWAInstallPrompt />
+      
+      {/* Floating Action Button */}
+      <FloatingActionButton />
+      
+      {/* Floating Theme Button */}
+      <FloatingThemeButton />
+      
+      {/* Global Search */}
+      <GlobalSearch isOpen={isSearchOpen} onClose={closeSearch} />
+      
+      {/* Keyboard Shortcuts Help */}
+      <KeyboardShortcutsHelp isOpen={isHelpOpen} onClose={closeHelp} />
     </div>
   );
 }

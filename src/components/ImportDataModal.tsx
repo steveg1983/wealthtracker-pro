@@ -344,7 +344,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
                     </span>
                     <input
                       type="file"
-                      accept=".mny,.mbf,.qif,.ofx"
+                      accept=".mny,.mbf,.qif,.ofx,.csv"
                       onChange={handleFileChange}
                       className="hidden"
                       disabled={parsing}

@@ -1,3 +1,8 @@
+/**
+ * @deprecated Use useCurrencyDecimal() instead for Decimal.js support
+ * This hook is maintained for backward compatibility with components not yet migrated
+ */
+
 import { useCallback, useMemo } from 'react';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { convertCurrency, convertMultipleCurrencies, formatCurrency as formatCurrencyUtil, getCurrencySymbol } from '../utils/currency';

@@ -10,13 +10,13 @@ import PortfolioView from '../components/PortfolioView';
 import { FloatingAddButton } from '../components/ui/UIControls';
 import { EditIcon, DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import PageWrapper from '../components/PageWrapper';
-import { calculateTotalBalance } from '../utils/calculations';
+import { calculateTotalBalance } from '../utils/calculations-decimal';
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
-  const { accounts, updateAccount, deleteAccount } = useApp();
-  const { formatCurrency: formatDisplayCurrency } = useCurrency();
+  const { accounts, updateAccount, deleteAccount, getDecimalAccounts } = useApp();
+  const { formatCurrency: formatDisplayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -30,6 +30,9 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const [portfolioAccountId, setPortfolioAccountId] = useState<string | null>(null);
   const [settingsAccountId, setSettingsAccountId] = useState<string | null>(null);
 
+  // Get decimal accounts for calculations
+  const decimalAccounts = useMemo(() => getDecimalAccounts(), [getDecimalAccounts]);
+  
   // Group accounts by type (memoized)
   const accountsByType = useMemo(() => 
     accounts.reduce((groups, account) => {
@@ -41,6 +44,19 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       return groups;
     }, {} as Record<string, typeof accounts>),
     [accounts]
+  );
+  
+  // Group decimal accounts by type for calculations
+  const decimalAccountsByType = useMemo(() => 
+    decimalAccounts.reduce((groups, account) => {
+      const type = account.type;
+      if (!groups[type]) {
+        groups[type] = [];
+      }
+      groups[type].push(account);
+      return groups;
+    }, {} as Record<string, typeof decimalAccounts>),
+    [decimalAccounts]
   );
 
   // Define account type metadata
@@ -168,7 +184,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
           const typeAccounts = accountsByType[type] || [];
           if (typeAccounts.length === 0) return null;
 
-          const typeTotal = calculateTotalBalance(typeAccounts);
+          const decimalTypeAccounts = decimalAccountsByType[type] || [];
+          const typeTotal = calculateTotalBalance(decimalTypeAccounts);
 
           return (
             <div key={type} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 overflow-hidden">
@@ -181,8 +198,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                       ({typeAccounts.length} {typeAccounts.length === 1 ? 'account' : 'accounts'})
                     </span>
                   </div>
-                  <p className={`text-base md:text-lg font-semibold ${typeTotal >= 0 ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
-                    {typeTotal < 0 ? '-' : ''}{formatDisplayCurrency(Math.abs(typeTotal))}
+                  <p className={`text-base md:text-lg font-semibold ${typeTotal.greaterThanOrEqualTo(0) ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
+                    {typeTotal.lessThan(0) ? '-' : ''}{formatDisplayCurrency(typeTotal.abs())}
                   </p>
                 </div>
               </div>

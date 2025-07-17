@@ -370,8 +370,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
         id: Date.now().toString()
       });
       setDecimalTransactions(prev => [...prev, decimalTransaction]);
+      
+      // Update account balance
+      setDecimalAccounts(prev => prev.map(account => {
+        if (account.id === transaction.accountId) {
+          const adjustment = transaction.type === 'income' 
+            ? toDecimal(transaction.amount)
+            : toDecimal(transaction.amount).negated();
+          return {
+            ...account,
+            balance: account.balance.plus(adjustment)
+          };
+        }
+        return account;
+      }));
     },
     updateTransaction: (id, updates) => {
+      // First, find the original transaction to calculate balance adjustment
+      const originalTransaction = decimalTransactions.find(t => t.id === id);
+      if (!originalTransaction) return;
+      
       setDecimalTransactions(prev => prev.map(t => {
         if (t.id === id) {
           const numberTransaction = fromDecimalTransaction(t);
@@ -380,8 +398,54 @@ export function AppProvider({ children }: { children: ReactNode }) {
         }
         return t;
       }));
+      
+      // Update account balance if amount or type changed
+      if (updates.amount !== undefined || updates.type !== undefined) {
+        const oldAmount = originalTransaction.type === 'income' 
+          ? originalTransaction.amount 
+          : originalTransaction.amount.negated();
+        
+        const newType = updates.type || fromDecimalTransaction(originalTransaction).type;
+        const newAmount = updates.amount !== undefined 
+          ? toDecimal(updates.amount) 
+          : originalTransaction.amount;
+        
+        const newAdjustedAmount = newType === 'income' ? newAmount : newAmount.negated();
+        const balanceChange = newAdjustedAmount.minus(oldAmount);
+        
+        setDecimalAccounts(prev => prev.map(account => {
+          if (account.id === originalTransaction.accountId) {
+            return {
+              ...account,
+              balance: account.balance.plus(balanceChange)
+            };
+          }
+          return account;
+        }));
+      }
     },
-    deleteTransaction: (id) => setDecimalTransactions(prev => prev.filter(t => t.id !== id)),
+    deleteTransaction: (id) => {
+      // Find the transaction to get its details for balance adjustment
+      const transactionToDelete = decimalTransactions.find(t => t.id === id);
+      if (!transactionToDelete) return;
+      
+      setDecimalTransactions(prev => prev.filter(t => t.id !== id));
+      
+      // Update account balance
+      const adjustment = transactionToDelete.type === 'income' 
+        ? transactionToDelete.amount.negated()
+        : transactionToDelete.amount;
+      
+      setDecimalAccounts(prev => prev.map(account => {
+        if (account.id === transactionToDelete.accountId) {
+          return {
+            ...account,
+            balance: account.balance.plus(adjustment)
+          };
+        }
+        return account;
+      }));
+    },
     addBudget: (budget) => {
       const decimalBudget = toDecimalBudget({
         ...budget,

@@ -1,0 +1,42 @@
+{
+  "name": "WealthTracker - Personal Finance Manager",
+  "short_name": "WealthTracker",
+  "description": "Track your finances, manage budgets, and achieve your financial goals with WealthTracker",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#8EA9DB",
+  "background_color": "#D9E1F2",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "en",
+  "categories": ["finance", "productivity", "business"],
+  "prefer_related_applications": false,
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "shortcuts": [
+    {
+      "name": "Add Transaction",
+      "short_name": "Add Transaction",
+      "description": "Quickly add a new transaction",
+      "url": "/transactions?action=add"
+    },
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "description": "View your financial dashboard",
+      "url": "/dashboard"
+    },
+    {
+      "name": "Budget",
+      "short_name": "Budget",
+      "description": "Check your budget progress",
+      "url": "/budget"
+    }
+  ],
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

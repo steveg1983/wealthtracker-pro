@@ -4,7 +4,7 @@ import { MaximizeIcon } from './icons/MaximizeIcon';
 import { MinimizeIcon } from './icons/MinimizeIcon';
 import { useNavigate } from 'react-router-dom';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import IncomeExpenditureReport from './IncomeExpenditureReport';
 import type { ReportSettings } from './IncomeExpenditureReport';
 import ErrorBoundary from './ErrorBoundary';
@@ -85,7 +85,7 @@ export default function DashboardModal({
   chartStyles 
 }: DashboardModalProps) {
   const navigate = useNavigate();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Reset fullscreen state when modal opens

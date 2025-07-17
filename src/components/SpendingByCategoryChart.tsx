@@ -1,11 +1,11 @@
 import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useApp } from '../contexts/AppContext';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 const SpendingByCategoryChart = React.memo(function SpendingByCategoryChart() {
   const { transactions } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
 
   // Calculate spending by category with memoization
   const data = useMemo(() => {

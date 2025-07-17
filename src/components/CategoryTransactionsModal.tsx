@@ -4,7 +4,7 @@ import { CalendarIcon } from './icons/CalendarIcon';
 import { SearchIcon } from './icons/SearchIcon';
 import { XCircleIcon } from './icons/XCircleIcon';
 import { useApp } from '../contexts/AppContext';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface CategoryTransactionsModalProps {
   isOpen: boolean;
@@ -22,7 +22,7 @@ export default function CategoryTransactionsModal({
   categoryName 
 }: CategoryTransactionsModalProps) {
   const { transactions, accounts } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   
   // Filter states
   const [fromDate, setFromDate] = useState('');

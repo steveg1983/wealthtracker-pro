@@ -60,6 +60,7 @@ export function getDefaultCategories(): Category[] {
     { id: 'sub-savings', name: 'Savings & Investments', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
     { id: 'sub-taxes', name: 'Taxes', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
     { id: 'sub-other-expense', name: 'Other Expenses', type: 'expense', level: 'sub', parentId: 'type-expense', isSystem: true },
+    { id: 'sub-adjustments', name: 'Adjustments', type: 'both', level: 'sub', parentId: 'type-expense', isSystem: true },
     
     // Housing detail categories
     { id: 'rent', name: 'Rent', type: 'expense', level: 'detail', parentId: 'sub-housing' },
@@ -109,6 +110,9 @@ export function getDefaultCategories(): Category[] {
     { id: 'electronics', name: 'Electronics', type: 'expense', level: 'detail', parentId: 'sub-shopping' },
     { id: 'household', name: 'Household Items', type: 'expense', level: 'detail', parentId: 'sub-shopping' },
     { id: 'gifts', name: 'Gifts', type: 'expense', level: 'detail', parentId: 'sub-shopping' },
+    
+    // Adjustment categories
+    { id: 'account-adjustments', name: 'Account Adjustments', type: 'both', level: 'detail', parentId: 'sub-adjustments', isSystem: true },
     
     // Transfer categories
     { id: 'transfer-in', name: 'Transfer In', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },

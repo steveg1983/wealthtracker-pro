@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon } from '../components/icons';
+import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, GridIcon, BarChart3Icon, DatabaseIcon } from '../components/icons';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useReconciliation } from '../hooks/useReconciliation';
 import { useLayoutConfig } from '../hooks/useLayoutConfig';
 import { DraggableGrid } from '../components/layout/DraggableGrid';
@@ -17,14 +17,17 @@ import EditTransactionModal from '../components/EditTransactionModal';
 import type { Transaction } from '../types';
 import type { ReportSettings } from '../components/IncomeExpenditureReport';
 import PageWrapper from '../components/PageWrapper';
+import CustomizableDashboard from '../components/CustomizableDashboard';
+import DataImportExport from '../components/DataImportExport';
 
 
 export default function Dashboard() {
-  const { accounts, transactions, hasTestData, clearAllData } = useApp();
+  const { accounts, transactions, hasTestData, clearAllData, getDecimalAccounts } = useApp();
   const { firstName, setFirstName, setCurrency } = usePreferences();
-  const { formatCurrency, convertAndSum, displayCurrency } = useCurrency();
+  const { formatCurrency, convertAndSum, displayCurrency } = useCurrencyDecimal();
   const { layouts, updateDashboardLayout, resetDashboardLayout } = useLayoutConfig();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'classic' | 'modern' | 'import-export'>('classic');
   const [isLoading, setIsLoading] = useState(true);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -71,10 +74,16 @@ export default function Dashboard() {
     type: null,
     title: ''
   });
-  const [convertedTotals, setConvertedTotals] = useState({
-    assets: 0,
-    liabilities: 0,
-    netWorth: 0
+  const [convertedTotals, setConvertedTotals] = useState<{
+    assets: string;
+    liabilities: string;
+    netWorth: string;
+    netWorthValue: number; // Keep numeric value for comparisons
+  }>({
+    assets: '0',
+    liabilities: '0',
+    netWorth: '0',
+    netWorthValue: 0
   });
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showAccountBreakdown, setShowAccountBreakdown] = useState<{
@@ -102,19 +111,22 @@ export default function Dashboard() {
       setIsLoading(true);
       
       try {
-        const assetAccounts = accounts.filter(acc => acc.balance > 0);
-        const liabilityAccounts = accounts.filter(acc => acc.balance < 0);
+        const decimalAccounts = getDecimalAccounts();
+        const assetAccounts = decimalAccounts.filter(acc => acc.balance.greaterThan(0));
+        const liabilityAccounts = decimalAccounts.filter(acc => acc.balance.lessThan(0));
         
         const [totalAssets, totalLiabilities] = await Promise.all([
           convertAndSum(assetAccounts.map(acc => ({ amount: acc.balance, currency: acc.currency }))),
-          convertAndSum(liabilityAccounts.map(acc => ({ amount: Math.abs(acc.balance), currency: acc.currency })))
+          convertAndSum(liabilityAccounts.map(acc => ({ amount: acc.balance.abs(), currency: acc.currency })))
         ]);
         
         if (!cancelled) {
+          const netWorth = totalAssets.minus(totalLiabilities);
           setConvertedTotals({
-            assets: totalAssets,
-            liabilities: totalLiabilities,
-            netWorth: totalAssets - totalLiabilities
+            assets: formatCurrency(totalAssets, displayCurrency),
+            liabilities: formatCurrency(totalLiabilities, displayCurrency),
+            netWorth: formatCurrency(netWorth, displayCurrency),
+            netWorthValue: netWorth.toNumber()
           });
           setIsLoading(false);
         }
@@ -131,9 +143,9 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [accounts, displayCurrency, convertAndSum]);
+  }, [getDecimalAccounts, displayCurrency, convertAndSum, formatCurrency]);
   
-  const { assets: totalAssets, liabilities: totalLiabilities, netWorth } = convertedTotals;
+  const { assets: totalAssets, liabilities: totalLiabilities, netWorth, netWorthValue } = convertedTotals;
   
   // Check for test data on component mount
   useEffect(() => {
@@ -172,12 +184,12 @@ export default function Dashboard() {
       // In a real app, you'd calculate historical values
       last12Months.push({
         month,
-        netWorth: netWorth * (1 - i * 0.02) // Simulated growth
+        netWorth: netWorthValue * (1 - i * 0.02) // Simulated growth
       });
     }
     
     return last12Months;
-  }, [netWorth]);
+  }, [netWorthValue]);
 
   // Generate pie chart data for account distribution
   const pieData = useMemo(() => {
@@ -245,57 +257,100 @@ export default function Dashboard() {
       title="Dashboard"
       reducedHeaderWidth={true}
       rightContent={
-        <div 
-          onClick={() => setShowLayoutControls(!showLayoutControls)}
-          className="cursor-pointer"
-          title={showLayoutControls ? "Lock Layout" : "Unlock Layout"}
-        >
-          <svg
-            width="48"
-            height="48"
-            viewBox="0 0 48 48"
-            xmlns="http://www.w3.org/2000/svg"
-            className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
-            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+        activeTab === 'classic' ? (
+          <div 
+            onClick={() => setShowLayoutControls(!showLayoutControls)}
+            className="cursor-pointer"
+            title={showLayoutControls ? "Lock Layout" : "Unlock Layout"}
           >
-            <circle
-              cx="24"
-              cy="24"
-              r="24"
-              fill="#D9E1F2"
-              className="transition-all duration-200"
-              onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
-              onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
-            />
-            {showLayoutControls ? (
-              <g transform="translate(12, 12)">
-                <path 
-                  d="M7 11V7C7 4.23858 9.23858 2 12 2C14.419 2 16.4367 3.71776 16.9 6M5 11H19C19.5523 11 20 11.4477 20 12V20C20 20.5523 19.5523 21 19 21H5C4.44772 21 4 20.5523 4 20V12C4 11.4477 4.44772 11 5 11Z" 
-                  stroke="#1F2937" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-                <circle cx="12" cy="16" r="1" fill="#1F2937" />
-              </g>
-            ) : (
-              <g transform="translate(12, 12)">
-                <path 
-                  d="M7 11V7C7 4.23858 9.23858 2 12 2C14.7614 2 17 4.23858 17 7V11M5 11H19C19.5523 11 20 11.4477 20 12V20C20 20.5523 19.5523 21 19 21H5C4.44772 21 4 20.5523 4 20V12C4 11.4477 4.44772 11 5 11Z" 
-                  stroke="#1F2937" 
-                  strokeWidth="2" 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round"
-                  fill="none"
-                />
-                <circle cx="12" cy="16" r="1" fill="#1F2937" />
-              </g>
-            )}
-          </svg>
-        </div>
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 48 48"
+              xmlns="http://www.w3.org/2000/svg"
+              className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
+              style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
+            >
+              <circle
+                cx="24"
+                cy="24"
+                r="24"
+                fill="#D9E1F2"
+                className="transition-all duration-200"
+                onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
+                onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+              />
+              {showLayoutControls ? (
+                <g transform="translate(12, 12)">
+                  <path 
+                    d="M7 11V7C7 4.23858 9.23858 2 12 2C14.419 2 16.4367 3.71776 16.9 6M5 11H19C19.5523 11 20 11.4477 20 12V20C20 20.5523 19.5523 21 19 21H5C4.44772 21 4 20.5523 4 20V12C4 11.4477 4.44772 11 5 11Z" 
+                    stroke="#1F2937" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                  <circle cx="12" cy="16" r="1" fill="#1F2937" />
+                </g>
+              ) : (
+                <g transform="translate(12, 12)">
+                  <path 
+                    d="M7 11V7C7 4.23858 9.23858 2 12 2C14.7614 2 17 4.23858 17 7V11M5 11H19C19.5523 11 20 11.4477 20 12V20C20 20.5523 19.5523 21 19 21H5C4.44772 21 4 20.5523 4 20V12C4 11.4477 4.44772 11 5 11Z" 
+                    stroke="#1F2937" 
+                    strokeWidth="2" 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                  <circle cx="12" cy="16" r="1" fill="#1F2937" />
+                </g>
+              )}
+            </svg>
+          </div>
+        ) : null
       }
     >
+
+      {/* Navigation Tabs */}
+      <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mb-6">
+        <button
+          onClick={() => setActiveTab('classic')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'classic'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <BarChart3Icon size={16} />
+          Classic
+        </button>
+        <button
+          onClick={() => setActiveTab('modern')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'modern'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <GridIcon size={16} />
+          Modern
+        </button>
+        <button
+          onClick={() => setActiveTab('import-export')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'import-export'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <DatabaseIcon size={16} />
+          Import/Export
+        </button>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'classic' && (
+        <div>
 
       {showLayoutControls && (
         <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
@@ -323,7 +378,7 @@ export default function Dashboard() {
             <div className="flex-1">
               <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Net Worth</p>
               <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-1">
-                {isLoading ? '...' : formatCurrency(netWorth)}
+                {isLoading ? '...' : netWorth}
               </p>
             </div>
             <BanknoteIcon className="text-primary ml-2" size={24} />
@@ -338,7 +393,7 @@ export default function Dashboard() {
             <div className="flex-1">
               <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Total Assets</p>
               <p className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400 mt-1">
-                {isLoading ? '...' : formatCurrency(totalAssets)}
+                {isLoading ? '...' : totalAssets}
               </p>
             </div>
             <TrendingUpIcon className="text-green-500 ml-2" size={24} />
@@ -353,7 +408,7 @@ export default function Dashboard() {
             <div className="flex-1">
               <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Total Liabilities</p>
               <p className="text-2xl md:text-3xl font-bold text-red-600 dark:text-red-400 mt-1">
-                {isLoading ? '...' : formatCurrency(totalLiabilities)}
+                {isLoading ? '...' : totalLiabilities}
               </p>
             </div>
             <TrendingDownIcon className="text-red-500 ml-2" size={24} />
@@ -656,7 +711,7 @@ export default function Dashboard() {
                               Total Assets
                             </p>
                             <p className="font-semibold text-green-600 dark:text-green-400">
-                              {formatCurrency(totalAssets)}
+                              {totalAssets}
                             </p>
                           </div>
                           <div className="flex justify-between items-center">
@@ -664,7 +719,7 @@ export default function Dashboard() {
                               Total Liabilities
                             </p>
                             <p className="font-semibold text-red-600 dark:text-red-400">
-                              {formatCurrency(totalLiabilities)}
+                              {totalLiabilities}
                             </p>
                           </div>
                           <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-600">
@@ -672,11 +727,11 @@ export default function Dashboard() {
                               Net Worth
                             </p>
                             <p className={`text-lg font-bold ${
-                              netWorth >= 0 
+                              netWorthValue >= 0 
                                 ? 'text-gray-900 dark:text-white' 
                                 : 'text-red-600 dark:text-red-400'
                             }`}>
-                              {formatCurrency(netWorth)}
+                              {netWorth}
                             </p>
                           </div>
                         </div>
@@ -688,6 +743,18 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+      )}
+        </div>
+      )}
+
+      {/* Modern Dashboard Tab */}
+      {activeTab === 'modern' && (
+        <CustomizableDashboard />
+      )}
+
+      {/* Import/Export Tab */}
+      {activeTab === 'import-export' && (
+        <DataImportExport />
       )}
     </PageWrapper>
   );
