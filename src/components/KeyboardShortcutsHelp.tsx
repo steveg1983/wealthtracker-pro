@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { XIcon, KeyboardIcon } from './icons';
-import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import { getAllShortcuts, type KeyboardShortcut } from '../hooks/useKeyboardShortcuts';
 
 interface KeyboardShortcutsHelpProps {
   isOpen: boolean;
@@ -8,9 +8,14 @@ interface KeyboardShortcutsHelpProps {
 }
 
 export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelpProps) {
-  const shortcuts = useGlobalKeyboardShortcuts();
+  const shortcuts = getAllShortcuts();
 
-  const formatShortcut = (shortcut: any) => {
+  const formatShortcut = (shortcut: KeyboardShortcut) => {
+    // Handle two-key sequences like 'g h'
+    if (shortcut.key.includes(' ')) {
+      return shortcut.key.split(' ').map(k => k.toUpperCase()).join(' → ');
+    }
+    
     const keys = [];
     
     if (shortcut.ctrlKey) keys.push('Ctrl');
@@ -24,7 +29,7 @@ export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShort
     
     keys.push(keyName.toUpperCase());
     
-    return keys.join(' + ');
+    return keys.join('+');
   };
 
   const groupedShortcuts = shortcuts.reduce((acc, shortcut) => {
@@ -72,16 +77,31 @@ export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShort
                       {shortcut.description}
                     </span>
                     <div className="flex items-center space-x-1">
-                      {formatShortcut(shortcut).split(' + ').map((key, keyIndex) => (
-                        <React.Fragment key={keyIndex}>
-                          {keyIndex > 0 && (
-                            <span className="text-gray-400 text-sm">+</span>
-                          )}
-                          <kbd className="px-2 py-1 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">
-                            {key}
-                          </kbd>
-                        </React.Fragment>
-                      ))}
+                      {formatShortcut(shortcut).includes('→') ? (
+                        // Two-key sequence
+                        formatShortcut(shortcut).split(' → ').map((key, keyIndex) => (
+                          <React.Fragment key={keyIndex}>
+                            {keyIndex > 0 && (
+                              <span className="text-gray-400 text-sm mx-1">→</span>
+                            )}
+                            <kbd className="px-2 py-1 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">
+                              {key}
+                            </kbd>
+                          </React.Fragment>
+                        ))
+                      ) : (
+                        // Single key or modifier combo
+                        formatShortcut(shortcut).split('+').map((key, keyIndex) => (
+                          <React.Fragment key={keyIndex}>
+                            {keyIndex > 0 && (
+                              <span className="text-gray-400 text-sm">+</span>
+                            )}
+                            <kbd className="px-2 py-1 text-xs font-semibold text-gray-800 dark:text-gray-200 bg-gray-100 dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded">
+                              {key}
+                            </kbd>
+                          </React.Fragment>
+                        ))
+                      )}
                     </div>
                   </div>
                 ))}
@@ -93,7 +113,7 @@ export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShort
         <div className="p-6 border-t border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              <p className="mb-1">💡 <strong>Tip:</strong> Shortcuts work from anywhere in the app</p>
+              <p className="mb-1"><strong>Tip:</strong> Shortcuts work from anywhere in the app</p>
               <p>Press <kbd className="px-1 py-0.5 text-xs bg-gray-200 dark:bg-gray-600 rounded">?</kbd> to open this help</p>
             </div>
             <button

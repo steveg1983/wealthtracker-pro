@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, ChevronRightIcon, LineChartIcon, EyeIcon } from '../components/icons';
+import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, ChevronRightIcon, LineChartIcon, EyeIcon, PlusIcon } from '../components/icons';
 import EnhancedPortfolioView from '../components/EnhancedPortfolioView';
 import AddInvestmentModal from '../components/AddInvestmentModal';
 import RealTimePortfolio from '../components/RealTimePortfolio';
+import RealTimePortfolioEnhanced from '../components/RealTimePortfolioEnhanced';
+import PortfolioManager from '../components/PortfolioManager';
 import StockWatchlist from '../components/StockWatchlist';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -11,12 +13,13 @@ import { toDecimal } from '../utils/decimal';
 import PageWrapper from '../components/PageWrapper';
 
 export default function Investments() {
-  const { accounts, transactions, getDecimalAccounts, getDecimalTransactions } = useApp();
+  const { accounts, transactions, getDecimalAccounts, getDecimalTransactions, updateAccount } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1Y');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [showAddInvestmentModal, setShowAddInvestmentModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'portfolio'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'portfolio' | 'manage'>('overview');
+  const [managingAccountId, setManagingAccountId] = useState<string | null>(null);
 
   // Helper function to format percentages
   const formatPercentage = (value: number): string => {
@@ -231,6 +234,17 @@ export default function Investments() {
         >
           <LineChartIcon size={16} />
           Portfolio
+        </button>
+        <button
+          onClick={() => setActiveTab('manage')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'manage'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <PlusIcon size={16} />
+          Manage
         </button>
       </div>
 
@@ -498,15 +512,127 @@ export default function Investments() {
               </p>
             </div>
           ) : (
-            <div className="grid gap-6">
-              {investmentAccounts.map((account) => (
-                <RealTimePortfolio
-                  key={account.id}
-                  accountId={account.id}
-                  accountName={account.name}
-                  currency={account.currency}
+            <div className="space-y-6">
+              {/* Combined Portfolio View */}
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Combined Portfolio</h2>
+                <RealTimePortfolioEnhanced
+                  holdings={investmentAccounts.flatMap(acc => 
+                    (acc.holdings || []).map(h => ({
+                      symbol: h.ticker,
+                      shares: toDecimal(h.shares),
+                      averageCost: toDecimal(h.averageCost || h.value / h.shares),
+                      costBasis: toDecimal(h.shares * (h.averageCost || h.value / h.shares))
+                    }))
+                  )}
+                  baseCurrency={investmentAccounts[0]?.currency || 'USD'}
                 />
+              </div>
+              
+              {/* Individual Account Views */}
+              {investmentAccounts.map((account) => (
+                <div key={account.id} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{account.name}</h3>
+                    <button
+                      onClick={() => {
+                        setManagingAccountId(account.id);
+                        setActiveTab('manage');
+                      }}
+                      className="text-sm text-primary hover:text-secondary transition-colors"
+                    >
+                      Manage Holdings →
+                    </button>
+                  </div>
+                  {account.holdings && account.holdings.length > 0 ? (
+                    <RealTimePortfolioEnhanced
+                      holdings={account.holdings.map(h => ({
+                        symbol: h.ticker,
+                        shares: toDecimal(h.shares),
+                        averageCost: toDecimal(h.averageCost || h.value / h.shares),
+                        costBasis: toDecimal(h.shares * (h.averageCost || h.value / h.shares))
+                      }))}
+                      baseCurrency={account.currency}
+                    />
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400 text-center py-4">
+                      No holdings in this account. Click "Manage Holdings" to add stocks.
+                    </p>
+                  )}
+                </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+      
+      {/* Manage Tab */}
+      {activeTab === 'manage' && (
+        <div className="space-y-6">
+          {investmentAccounts.length === 0 ? (
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
+              <BarChart3Icon className="mx-auto text-gray-400 mb-4" size={64} />
+              <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-2">
+                No Investment Accounts Yet
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Add an investment account to start managing your portfolio holdings.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Account Selector */}
+              <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Select Investment Account
+                </label>
+                <select
+                  value={managingAccountId || ''}
+                  onChange={(e) => setManagingAccountId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
+                >
+                  <option value="">Choose an account...</option>
+                  {investmentAccounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              {/* Portfolio Manager */}
+              {managingAccountId && (() => {
+                const account = investmentAccounts.find(a => a.id === managingAccountId);
+                if (!account) return null;
+                
+                return (
+                  <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+                    <PortfolioManager
+                      accountId={account.id}
+                      holdings={(account.holdings || []).map(h => ({
+                        id: `${account.id}-${h.ticker}`,
+                        symbol: h.ticker,
+                        shares: toDecimal(h.shares),
+                        averageCost: toDecimal(h.averageCost || h.value / h.shares),
+                        costBasis: toDecimal(h.shares * (h.averageCost || h.value / h.shares)),
+                        dateAdded: h.lastUpdated || new Date()
+                      }))}
+                      onUpdate={(newHoldings) => {
+                        const updatedAccount = {
+                          ...account,
+                          holdings: newHoldings.map(h => ({
+                            ticker: h.symbol,
+                            name: h.symbol, // Will be updated by real-time service
+                            shares: h.shares.toNumber(),
+                            value: h.costBasis.toNumber(),
+                            averageCost: h.averageCost.toNumber(),
+                            lastUpdated: new Date()
+                          }))
+                        };
+                        updateAccount(updatedAccount);
+                      }}
+                    />
+                  </div>
+                );
+              })()}
             </div>
           )}
         </div>

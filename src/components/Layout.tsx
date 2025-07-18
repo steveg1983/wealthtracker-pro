@@ -8,6 +8,7 @@ import PWAInstallPrompt from './PWAInstallPrompt';
 import GlobalSearch, { useGlobalSearchDialog } from './GlobalSearch';
 import KeyboardShortcutsHelp, { useKeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import MobileBottomNav from './MobileBottomNav';
 import { useSwipeGestures, useSwipeNavigation } from '../hooks/useSwipeGestures';
 
@@ -92,7 +93,7 @@ export default function Layout() {
   const { navigateToPage } = useSwipeNavigation();
   
   // Initialize global keyboard shortcuts
-  useGlobalKeyboardShortcuts();
+  const { activeSequence } = useGlobalKeyboardShortcuts(openHelp);
 
   // Swipe navigation for mobile
   const swipeRef = useSwipeGestures({
@@ -454,6 +455,9 @@ export default function Layout() {
       
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp isOpen={isHelpOpen} onClose={closeHelp} />
+      
+      {/* Keyboard Sequence Indicator */}
+      <KeyboardSequenceIndicator activeSequence={activeSequence} />
       
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />

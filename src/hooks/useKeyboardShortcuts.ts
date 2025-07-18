@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 export interface KeyboardShortcut {
@@ -10,6 +10,7 @@ export interface KeyboardShortcut {
   description: string;
   action: () => void;
   category: string;
+  sequence?: boolean; // For two-key shortcuts like 'g h'
 }
 
 export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]) {
@@ -50,11 +51,71 @@ export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]) {
   }, [shortcuts]);
 }
 
-export function useGlobalKeyboardShortcuts() {
+export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void) {
   const navigate = useNavigate();
+  const sequenceRef = useRef<string | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [activeSequence, setActiveSequence] = useState<string | null>(null);
+
+  // Handle two-key sequences
+  const handleSequence = useCallback((firstKey: string, secondKey: string) => {
+    if (firstKey === 'g') {
+      // Go to shortcuts
+      switch (secondKey) {
+        case 'h': navigate('/'); break;
+        case 'd': navigate('/dashboard'); break;
+        case 'a': navigate('/accounts'); break;
+        case 't': navigate('/transactions'); break;
+        case 'i': navigate('/investments'); break;
+        case 'b': navigate('/budget'); break;
+        case 'g': navigate('/goals'); break;
+        case 'r': navigate('/analytics'); break;
+        case 's': navigate('/settings'); break;
+      }
+    } else if (firstKey === 'n') {
+      // New shortcuts
+      switch (secondKey) {
+        case 't': navigate('/transactions?action=add'); break;
+        case 'a': navigate('/accounts?action=add'); break;
+        case 'g': navigate('/goals?action=add'); break;
+        case 'b': navigate('/budget?action=add'); break;
+      }
+    }
+  }, [navigate]);
 
   const shortcuts: KeyboardShortcut[] = [
-    // Navigation shortcuts
+    // Two-key navigation shortcuts
+    {
+      key: 'g',
+      description: 'Go to... (press another key)',
+      action: () => {
+        sequenceRef.current = 'g';
+        setActiveSequence('g');
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+          sequenceRef.current = null;
+          setActiveSequence(null);
+        }, 2000);
+      },
+      category: 'Navigation',
+      sequence: true,
+    },
+    {
+      key: 'n',
+      description: 'New... (press another key)',
+      action: () => {
+        sequenceRef.current = 'n';
+        setActiveSequence('n');
+        if (timeoutRef.current) clearTimeout(timeoutRef.current);
+        timeoutRef.current = setTimeout(() => {
+          sequenceRef.current = null;
+          setActiveSequence(null);
+        }, 2000);
+      },
+      category: 'Quick Actions',
+      sequence: true,
+    },
+    // Single key shortcuts (keeping existing Alt shortcuts for compatibility)
     {
       key: 'h',
       altKey: true,
@@ -154,7 +215,89 @@ export function useGlobalKeyboardShortcuts() {
     },
   ];
 
+  // Custom handler for sequences
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Don't trigger shortcuts when typing in inputs
+      if (event.target instanceof HTMLInputElement || 
+          event.target instanceof HTMLTextAreaElement || 
+          event.target instanceof HTMLSelectElement) {
+        return;
+      }
+
+      // Handle sequence continuation
+      if (sequenceRef.current) {
+        event.preventDefault();
+        handleSequence(sequenceRef.current, event.key);
+        sequenceRef.current = null;
+        setActiveSequence(null);
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+          timeoutRef.current = null;
+        }
+        return;
+      }
+
+      // Handle '/' for search focus
+      if (event.key === '/' && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        event.preventDefault();
+        const searchInput = document.querySelector('[data-search-input]') as HTMLInputElement;
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }
+      
+      // Handle '?' for help
+      if (event.key === '?' && !event.ctrlKey && !event.altKey && !event.metaKey) {
+        event.preventDefault();
+        if (onHelpOpen) {
+          onHelpOpen();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [handleSequence, onHelpOpen]);
+
   useKeyboardShortcuts(shortcuts);
 
-  return shortcuts;
+  return { shortcuts, activeSequence };
+}
+
+// Export all available shortcuts for help dialog
+export function getAllShortcuts(): KeyboardShortcut[] {
+  return [
+    // Navigation (g + key)
+    { key: 'g h', description: 'Go to Home', category: 'Navigation', action: () => {} },
+    { key: 'g d', description: 'Go to Dashboard', category: 'Navigation', action: () => {} },
+    { key: 'g a', description: 'Go to Accounts', category: 'Navigation', action: () => {} },
+    { key: 'g t', description: 'Go to Transactions', category: 'Navigation', action: () => {} },
+    { key: 'g i', description: 'Go to Investments', category: 'Navigation', action: () => {} },
+    { key: 'g b', description: 'Go to Budget', category: 'Navigation', action: () => {} },
+    { key: 'g g', description: 'Go to Goals', category: 'Navigation', action: () => {} },
+    { key: 'g r', description: 'Go to Analytics', category: 'Navigation', action: () => {} },
+    { key: 'g s', description: 'Go to Settings', category: 'Navigation', action: () => {} },
+    
+    // Quick Actions (n + key)
+    { key: 'n t', description: 'New Transaction', category: 'Quick Actions', action: () => {} },
+    { key: 'n a', description: 'New Account', category: 'Quick Actions', action: () => {} },
+    { key: 'n g', description: 'New Goal', category: 'Quick Actions', action: () => {} },
+    { key: 'n b', description: 'New Budget', category: 'Quick Actions', action: () => {} },
+    
+    // Global shortcuts
+    { key: 'Ctrl+K', description: 'Open global search', category: 'Global', action: () => {}, ctrlKey: true },
+    { key: '/', description: 'Focus search input', category: 'Global', action: () => {} },
+    { key: '?', description: 'Show keyboard shortcuts', category: 'Global', action: () => {} },
+    { key: 'Escape', description: 'Close modal/dialog', category: 'Global', action: () => {} },
+    
+    // Utility
+    { key: 'Ctrl+R', description: 'Refresh data', category: 'Utility', action: () => {}, ctrlKey: true },
+    { key: 'Ctrl+P', description: 'Print', category: 'Utility', action: () => {}, ctrlKey: true },
+  ];
 }

@@ -178,3 +178,5 @@ export { FolderIcon } from './FolderIcon';
 export { FolderIcon as Folder } from './FolderIcon';
 export { UndoIcon } from './UndoIcon';
 export { UndoIcon as Undo } from './UndoIcon';
+export { default as ActivityIcon } from './ActivityIcon';
+export { default as WifiIcon } from './WifiIcon';

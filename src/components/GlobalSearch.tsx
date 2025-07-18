@@ -134,6 +134,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
               placeholder="Search accounts, transactions, budgets, goals..."
               className="w-full pl-10 pr-10 py-3 bg-transparent border-0 focus:ring-0 text-gray-900 dark:text-white placeholder-gray-500 text-lg"
               autoComplete="off"
+              data-search-input
             />
             <button
               onClick={onClose}
