@@ -595,7 +595,7 @@ export default function Dashboard() {
       {showAccountBreakdown.isOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-[#D9E1F2] dark:bg-gray-900 rounded-2xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden border-2 border-blue-300 dark:border-gray-700">
-            <div className="p-6 border-b-2 border-[#5A729A] dark:border-gray-700 bg-[#6B86B3] dark:bg-gray-800">
+            <div className="p-6 border-b-2 border-[#5A729A] dark:border-gray-700 bg-secondary dark:bg-gray-800">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-white dark:text-white">
                   {showAccountBreakdown.title}

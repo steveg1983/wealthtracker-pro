@@ -7,7 +7,6 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import EditTransactionModal from '../components/EditTransactionModal';
 import { CalendarIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '../components/icons';
-import { FloatingAddButton } from '../components/ui/UIControls';
 import type { Transaction } from '../types';
 import PageWrapper from '../components/PageWrapper';
 import { TransactionRow } from '../components/TransactionRow';
@@ -753,7 +752,7 @@ export default function Transactions() {
           <div className={`hidden sm:block bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50 ${isWideView ? 'w-full' : ''}`} style={{ cursor: isResizing ? 'col-resize' : 'default' }}>
             <div className={isWideView ? '' : 'overflow-x-auto'}>
               <table className="w-full" style={{ tableLayout: 'fixed' }}>
-              <thead className="bg-[#6B86B3] dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
+              <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
                 <tr>
                   {columnOrder.map(renderHeaderCell)}
                 </tr>
@@ -947,7 +946,6 @@ export default function Transactions() {
         transaction={editingTransaction}
       />
       
-      <FloatingAddButton onClick={() => setIsModalOpen(true)} />
       </div>
     </PageWrapper>
   );

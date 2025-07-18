@@ -18,11 +18,11 @@ export const TransactionCard = memo(function TransactionCard({
   onClick
 }: TransactionCardProps) {
   const getTypeIcon = (type: string) => {
-    return type === 'income' ? (
-      <TrendingUpIcon className="text-green-500" size={20} />
-    ) : (
-      <TrendingDownIcon className="text-red-500" size={20} />
-    );
+    if (type === 'income' || (type === 'transfer' && transaction.amount > 0)) {
+      return <TrendingUpIcon className="text-green-500" size={20} />;
+    } else {
+      return <TrendingDownIcon className="text-red-500" size={20} />;
+    }
   };
 
   return (
@@ -46,9 +46,12 @@ export const TransactionCard = memo(function TransactionCard({
           </div>
         </div>
         <span className={`font-bold ${
-          transaction.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+          transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0) 
+            ? 'text-green-600 dark:text-green-400' 
+            : 'text-red-600 dark:text-red-400'
         }`}>
-          {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount, account?.currency || 'GBP')}
+          {transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0) ? '+' : '-'}
+          {formatCurrency(Math.abs(transaction.amount), account?.currency || 'GBP')}
         </span>
       </div>
       <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400">

@@ -120,7 +120,7 @@ export default function EnhancedPortfolioView({
   
   return (
     <div>
-      <div className="p-6 border-b-2 border-[#5A729A] dark:border-gray-700 bg-[#6B86B3] dark:bg-gray-800">
+      <div className="p-6 border-b-2 border-[#5A729A] dark:border-gray-700 bg-secondary dark:bg-gray-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -282,7 +282,7 @@ export default function EnhancedPortfolioView({
         <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-[#6B86B3] dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
+              <tr className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
                 <th className="px-6 py-3 text-left text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider">
                   Ticker
                 </th>

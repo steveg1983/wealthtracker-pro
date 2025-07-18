@@ -316,6 +316,17 @@ export const getDefaultTestInvestments = (): Investment[] => {
   ];
 };
 
+// Helper function to generate month-end date
+function getMonthEnd(year: number, month: number): Date {
+  return new Date(year, month + 1, 0); // 0th day of next month = last day of current month
+}
+
+// Helper function to add days to a date
+function addDays(date: Date, days: number): Date {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
 
 export const getDefaultTestTransactions = (): Transaction[] => {
   const transactions: Transaction[] = [];

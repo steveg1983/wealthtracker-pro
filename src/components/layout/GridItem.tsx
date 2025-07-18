@@ -14,7 +14,7 @@ export function GridItem({ title, children }: GridItemProps) {
           <svg className="drag-handle-icon" viewBox="0 0 24 24" fill="currentColor">
             <path d="M9 3h2v2H9V3zm4 0h2v2h-2V3zM9 7h2v2H9V7zm4 0h2v2h-2V7zM9 11h2v2H9v-2zm4 0h2v2h-2v-2zM9 15h2v2H9v-2zm4 0h2v2h-2v-2zM9 19h2v2H9v-2zm4 0h2v2h-2v-2z"/>
           </svg>
-          <span className="text-base font-semibold text-blue-800 dark:text-white">{title}</span>
+          <span className="text-base font-semibold text-theme-heading dark:text-white">{title}</span>
         </div>
       </div>
       <div className="grid-item-content p-4 flex-1">

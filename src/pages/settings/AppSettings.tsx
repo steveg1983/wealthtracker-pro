@@ -12,8 +12,8 @@ export default function AppSettings() {
     setFirstName,
     theme,
     setTheme,
-    accentColor,
-    setAccentColor,
+    colorTheme,
+    setColorTheme,
     showBudget,
     setShowBudget,
     showGoals,
@@ -41,15 +41,31 @@ export default function AppSettings() {
     { value: 'auto', label: 'Auto', icon: MonitorIcon },
   ];
 
-  const accentColors = [
-    { value: 'blue', label: 'Blue', color: 'bg-blue-500' },
-    { value: 'green', label: 'Green', color: 'bg-green-500' },
-    { value: 'purple', label: 'Purple', color: 'bg-purple-500' },
-    { value: 'orange', label: 'Orange', color: 'bg-orange-500' },
-    { value: 'red', label: 'Red', color: 'bg-red-500' },
-    { value: 'pink', label: 'Pink', color: 'bg-pink-500' },
-    { value: 'indigo', label: 'Indigo', color: 'bg-indigo-500' },
-    { value: 'teal', label: 'Teal', color: 'bg-teal-500' },
+  const colorThemes = [
+    { 
+      value: 'blue', 
+      label: 'Ocean Blue', 
+      colors: ['#7ba8d1', '#5a729a', '#b8d4f1'],
+      description: 'Calm and professional'
+    },
+    { 
+      value: 'green', 
+      label: 'Forest Green', 
+      colors: ['#a9d08e', '#7fa86b', '#d4e6c4'],
+      description: 'Natural and growth-focused'
+    },
+    { 
+      value: 'red', 
+      label: 'Sunset Red', 
+      colors: ['#e2a8a8', '#b88585', '#f1d4d4'],
+      description: 'Warm and energetic'
+    },
+    { 
+      value: 'pink', 
+      label: 'Blossom Pink', 
+      colors: ['#e2a8d4', '#b885a5', '#f1d4e8'],
+      description: 'Creative and elegant'
+    },
   ];
 
   const pageToggles = [
@@ -92,7 +108,7 @@ export default function AppSettings() {
 
       {/* Personal Information */}
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
-        <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">Personal Information</h2>
+        <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Personal Information</h2>
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             First Name
@@ -114,7 +130,7 @@ export default function AppSettings() {
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <GlobeIcon className="text-gray-600 dark:text-gray-400" size={20} />
-          <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Base Currency</h2>
+          <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Base Currency</h2>
         </div>
         <p className="text-gray-600 dark:text-gray-400 mb-4">
           Choose your preferred base currency for displaying your net worth and performing currency conversions
@@ -134,7 +150,7 @@ export default function AppSettings() {
 
       {/* Appearance */}
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
-        <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">Appearance</h2>
+        <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Appearance</h2>
         
         {/* Theme Selection */}
         <div className="mb-6">
@@ -159,24 +175,37 @@ export default function AppSettings() {
           </div>
         </div>
 
-        {/* Accent Colour */}
+        {/* Color Theme Palette */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-            Accent Colour
+            Color Theme
           </label>
-          <div className="grid grid-cols-4 gap-3">
-            {accentColors.map(({ value, label, color }) => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {colorThemes.map(({ value, label, colors, description }) => (
               <button
                 key={value}
-                onClick={() => setAccentColor(value)}
-                className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg border-2 transition-colors ${
-                  accentColor === value
-                    ? 'border-gray-900 dark:border-gray-100 text-gray-900 dark:text-white'
+                onClick={() => setColorTheme(value as 'blue' | 'green' | 'red' | 'pink')}
+                className={`flex flex-col items-start gap-3 p-4 rounded-xl border-2 transition-all hover:shadow-md ${
+                  colorTheme === value
+                    ? 'border-gray-900 dark:border-gray-100 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white'
                     : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500 text-gray-700 dark:text-gray-300'
                 }`}
               >
-                <div className={`w-4 h-4 rounded-full ${color}`} />
-                <span className="text-sm">{label}</span>
+                <div className="flex items-center gap-3 w-full">
+                  <div className="flex gap-1">
+                    {colors.map((color, index) => (
+                      <div
+                        key={index}
+                        className="w-6 h-6 rounded-full shadow-sm"
+                        style={{ backgroundColor: color }}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <div className="font-medium text-sm">{label}</div>
+                    <div className="text-xs opacity-70">{description}</div>
+                  </div>
+                </div>
               </button>
             ))}
           </div>
@@ -185,7 +214,7 @@ export default function AppSettings() {
 
       {/* Page Visibility */}
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
-        <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">Page Visibility</h2>
+        <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Page Visibility</h2>
         <p className="text-gray-600 dark:text-gray-400 mb-6">
           Choose which pages appear in the navigation sidebar
         </p>
@@ -221,8 +250,8 @@ export default function AppSettings() {
           ))}
         </div>
 
-        <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-          <p className="text-sm text-blue-800 dark:text-blue-200">
+        <div className="mt-6 p-4 bg-theme-accent dark:bg-gray-800/50 rounded-2xl">
+          <p className="text-sm text-theme-heading dark:text-gray-300">
             <strong>Note:</strong> Hidden pages will not appear in the sidebar navigation but can still be accessed if you have a direct link.
           </p>
         </div>

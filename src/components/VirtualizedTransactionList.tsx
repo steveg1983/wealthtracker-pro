@@ -52,7 +52,7 @@ export const VirtualizedTransactionList = React.memo(function VirtualizedTransac
   return (
     <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50">
       <table className="w-full" style={{ tableLayout: 'fixed' }}>
-        <thead className="bg-[#6B86B3] dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600 sticky top-0 z-10">
+        <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600 sticky top-0 z-10">
           <tr>
             {columnOrder.map(renderHeaderCell)}
           </tr>

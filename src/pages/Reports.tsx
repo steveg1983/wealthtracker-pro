@@ -162,7 +162,7 @@ export default function Reports() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+        <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4">
           <h1 className="text-3xl font-bold text-white">Reports</h1>
         </div>
         <button
@@ -249,7 +249,7 @@ export default function Reports() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Monthly Trend */}
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-blue-800 dark:text-white">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-theme-heading dark:text-white">
             <TrendingUpIcon size={20} />
             Income vs Expenses Trend
           </h2>
@@ -276,7 +276,7 @@ export default function Reports() {
 
         {/* Category Breakdown */}
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
-          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-blue-800 dark:text-white">
+          <h2 className="text-lg font-semibold mb-4 flex items-center gap-2 text-theme-heading dark:text-white">
             <PieChartIcon size={20} />
             Expense Categories
           </h2>
@@ -301,7 +301,7 @@ export default function Reports() {
         {/* Top Transactions */}
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-blue-800 dark:text-white">Top Transactions</h2>
+          <h2 className="text-lg font-semibold text-theme-heading dark:text-white">Top Transactions</h2>
         </div>
         {/* Mobile card view */}
         <div className="block sm:hidden">

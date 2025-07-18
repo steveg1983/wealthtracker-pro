@@ -27,11 +27,11 @@ export const TransactionRow = memo(function TransactionRow({
   columnWidths
 }: TransactionRowProps) {
   const getTypeIcon = (type: string) => {
-    return type === 'income' ? (
-      <TrendingUpIcon className="text-green-500" size={compactView ? 16 : 20} />
-    ) : (
-      <TrendingDownIcon className="text-red-500" size={compactView ? 16 : 20} />
-    );
+    if (type === 'income' || (type === 'transfer' && transaction.amount > 0)) {
+      return <TrendingUpIcon className="text-green-500" size={compactView ? 16 : 20} />;
+    } else {
+      return <TrendingDownIcon className="text-red-500" size={compactView ? 16 : 20} />;
+    }
   };
 
   const renderCell = (column: string) => {
@@ -132,10 +132,12 @@ export const TransactionRow = memo(function TransactionRow({
             style={{ width: columnWidths.amount }}
           >
             <span className={`${
-              transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+              transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0) 
+                ? 'text-green-600' 
+                : 'text-red-600'
             } ${compactView ? 'text-sm' : ''}`}>
-              {transaction.type === 'income' ? '+' : '-'}
-              {formatCurrency(transaction.amount, account?.currency)}
+              {transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0) ? '+' : '-'}
+              {formatCurrency(Math.abs(transaction.amount), account?.currency)}
             </span>
           </td>
         );

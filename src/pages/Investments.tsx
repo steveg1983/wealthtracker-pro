@@ -135,13 +135,13 @@ export default function Investments() {
   if (investmentAccounts.length === 0) {
     return (
       <div>
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4 mb-6">
+        <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4 mb-6">
           <h1 className="text-3xl font-bold text-white">Investments</h1>
         </div>
         
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
           <BarChart3Icon className="mx-auto text-gray-400 mb-4" size={64} />
-          <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-2">
+          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-2">
             No Investment Accounts Yet
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-4">
@@ -291,7 +291,7 @@ export default function Investments() {
         {/* Performance Chart */}
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Portfolio Performance</h2>
+          <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Portfolio Performance</h2>
           <div className="flex gap-2">
             {['1M', '3M', '6M', '1Y', 'ALL'].map((period) => (
               <button
@@ -347,7 +347,7 @@ export default function Investments() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Holdings List */}
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
-          <h2 className="text-xl font-semibold mb-4 text-blue-800 dark:text-white">Holdings</h2>
+          <h2 className="text-xl font-semibold mb-4 text-theme-heading dark:text-white">Holdings</h2>
           {holdings.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No holdings to display
@@ -403,7 +403,7 @@ export default function Investments() {
 
         {/* Allocation Chart */}
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
-          <h2 className="text-xl font-semibold mb-4 text-blue-800 dark:text-white">Asset Allocation</h2>
+          <h2 className="text-xl font-semibold mb-4 text-theme-heading dark:text-white">Asset Allocation</h2>
           {holdings.length === 0 ? (
             <p className="text-gray-500 dark:text-gray-400 text-center py-8">
               No data to display
@@ -487,7 +487,7 @@ export default function Investments() {
           {investmentAccounts.length === 0 ? (
             <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-8 text-center">
               <BarChart3Icon className="mx-auto text-gray-400 mb-4" size={64} />
-              <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-2">
+              <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-2">
                 No Investment Accounts Yet
               </h2>
               <p className="text-gray-600 dark:text-gray-400 mb-4">

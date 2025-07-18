@@ -53,15 +53,6 @@ export const AddButton: React.FC<ControlButtonProps> = ({ onClick, className = '
   </button>
 );
 
-export const FloatingAddButton: React.FC<ControlButtonProps> = ({ onClick, className = '', size = 'lg' }) => (
-  <button
-    onClick={onClick}
-    className={`fixed bottom-6 right-6 ${sizeClasses[size]} rounded-full bg-red-500 hover:bg-red-600 flex items-center justify-center transition-all duration-200 hover:scale-110 shadow-xl z-50 ${className}`}
-    aria-label="Add new item"
-  >
-    <PlusIcon size={iconSizes[size]} className="text-white" />
-  </button>
-);
 
 interface CollapsibleSectionProps {
   title: string;

@@ -5,9 +5,7 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import OfflineIndicator from './OfflineIndicator';
 import PWAInstallPrompt from './PWAInstallPrompt';
-import FloatingThemeButton from './FloatingThemeButton';
 import GlobalSearch, { useGlobalSearchDialog } from './GlobalSearch';
-import FloatingActionButton from './FloatingActionButton';
 import KeyboardShortcutsHelp, { useKeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
@@ -38,28 +36,28 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
 
   const content = (
     <>
-      <Icon size={20} />
+      <Icon size={18} />
       {!isCollapsed && (
         <>
-          <span className="flex-1">{label}</span>
+          <span className="flex-1 text-sm">{label}</span>
           {hasSubItems && (
-            <ChevronRightIcon size={16} className="text-gray-400" />
+            <ChevronRightIcon size={14} className="text-gray-400" />
           )}
         </>
       )}
     </>
   );
 
-  const className = `flex items-center gap-3 px-4 py-4 md:py-3 rounded-lg transition-colors min-h-[48px] md:min-h-[auto] ${
-    isSubItem ? 'ml-6 text-sm' : ''
+  const className = `flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
+    isSubItem ? 'ml-5 text-xs' : ''
   } ${
     isCollapsed ? 'sidebar-link-collapsed' : ''
   } ${
     isActive
       ? isCollapsed
         ? 'text-black dark:text-white'
-        : 'bg-[#B8D4F1] dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-[#4A6FA5] dark:border-gray-600'
-      : 'bg-[#6B86B3] text-white dark:text-gray-300 hover:bg-[#5A729A] dark:hover:bg-gray-800/50'
+        : 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
+      : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
   }`;
 
   return (
@@ -174,7 +172,7 @@ export default function Layout() {
   }, [location.pathname]);
 
   return (
-    <div className="flex h-screen bg-[#D9E1F2] dark:bg-gray-900">
+    <div className="flex h-screen bg-tertiary dark:bg-gray-900">
       {/* Skip link for screen readers */}
       <a 
         href="#main-content" 
@@ -186,15 +184,15 @@ export default function Layout() {
       {/* Sidebar */}
       <aside
         className={`${
-          isSidebarCollapsed ? 'w-16' : 'w-64'
-        } bg-[#8EA9DB] dark:bg-gray-800 shadow-2xl rounded-2xl transition-all duration-300 hidden md:block m-4 h-[calc(100vh-2rem)]`}
+          isSidebarCollapsed ? 'w-14' : 'w-52'
+        } bg-sidebar dark:bg-gray-800 shadow-2xl rounded-2xl transition-all duration-300 hidden md:block m-4 h-[calc(100vh-2rem)]`}
         role="navigation"
         aria-label="Main navigation"
       >
-        <div className="p-4 h-full flex flex-col">
-          <div className="flex items-center justify-between mb-8">
+        <div className="p-3 h-full flex flex-col">
+          <div className="flex items-center justify-between mb-6">
             {!isSidebarCollapsed && (
-              <h1 className="text-xl font-bold text-white dark:text-white">Wealth Tracker</h1>
+              <h1 className="text-lg font-bold text-white dark:text-white">Wealth Tracker</h1>
             )}
             <div className="flex items-center space-x-2">
               <button
@@ -203,7 +201,7 @@ export default function Layout() {
                 aria-label="Open global search"
                 title="Search (Ctrl+K)"
               >
-                <SearchIcon size={20} className="text-white dark:text-gray-400" />
+                <SearchIcon size={18} className="text-white dark:text-gray-400" />
               </button>
               <button
                 onClick={toggleSidebar}
@@ -211,11 +209,11 @@ export default function Layout() {
                 aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
                 title={isSidebarCollapsed ? 'Expand sidebar (Alt+S)' : 'Collapse sidebar (Alt+S)'}
               >
-                <MenuIcon size={20} className="text-white dark:text-gray-400" />
+                <MenuIcon size={18} className="text-white dark:text-gray-400" />
               </button>
             </div>
           </div>
-          <nav className="space-y-2 flex-1 overflow-y-auto pr-2" role="menubar" aria-label="Main navigation menu">
+          <nav className="space-y-1.5 flex-1 overflow-y-auto pr-2" role="menubar" aria-label="Main navigation menu">
             <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             
@@ -229,7 +227,7 @@ export default function Layout() {
                 hasSubItems={!isSidebarCollapsed}
               />
               {accountsExpanded && !isSidebarCollapsed && (
-                <div className="mt-1 space-y-1">
+                <div className="mt-1 space-y-0.5">
                   <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} />
                 </div>
@@ -249,7 +247,7 @@ export default function Layout() {
                   hasSubItems={!isSidebarCollapsed}
                 />
                 {forecastingExpanded && !isSidebarCollapsed && (
-                  <div className="mt-1 space-y-1">
+                  <div className="mt-1 space-y-0.5">
                     {showBudget && <SidebarLink to="/budget" icon={TargetIcon} label="Budget" isCollapsed={false} isSubItem={true} />}
                     {showGoals && <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} />}
                   </div>
@@ -269,7 +267,7 @@ export default function Layout() {
                 hasSubItems={!isSidebarCollapsed}
               />
               {settingsExpanded && !isSidebarCollapsed && (
-                <div className="mt-1 space-y-1">
+                <div className="mt-1 space-y-0.5">
                   <SidebarLink to="/settings/app" icon={Settings2Icon} label="App Settings" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} />
@@ -284,7 +282,7 @@ export default function Layout() {
       {/* Mobile Menu Button */}
       <button
         onClick={toggleMobileMenu}
-        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-[#8EA9DB] dark:bg-gray-800 rounded-xl shadow-2xl hover:shadow-xl transition-shadow min-w-[48px] min-h-[48px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50"
+        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-sidebar dark:bg-gray-800 rounded-xl shadow-2xl hover:shadow-xl transition-shadow min-w-[48px] min-h-[48px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50"
         aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
         aria-expanded={isMobileMenuOpen}
         aria-controls="mobile-menu"
@@ -304,7 +302,7 @@ export default function Layout() {
         >
           <aside 
             id="mobile-menu"
-            className="w-full max-w-sm h-full bg-[#8EA9DB] dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl" 
+            className="w-full max-w-sm h-full bg-sidebar dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl" 
             onClick={e => e.stopPropagation()}
             role="navigation"
             aria-label="Mobile navigation"
@@ -428,11 +426,6 @@ export default function Layout() {
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
       
-      {/* Floating Action Button */}
-      <FloatingActionButton />
-      
-      {/* Floating Theme Button */}
-      <FloatingThemeButton />
       
       {/* Global Search */}
       <GlobalSearch isOpen={isSearchOpen} onClose={closeSearch} />

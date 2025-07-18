@@ -7,7 +7,6 @@ import BalanceAdjustmentModal from '../components/BalanceAdjustmentModal';
 import AccountSettingsModal from '../components/AccountSettingsModal';
 import PortfolioView from '../components/PortfolioView';
 // No longer importing from lucide-react - all icons are now custom
-import { FloatingAddButton } from '../components/ui/UIControls';
 import { EditIcon, DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCardIcon, TrendingDownIcon, TrendingUpIcon, CheckCircleIcon, HomeIcon, PieChartIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -193,7 +192,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center gap-2 md:gap-3">
                     <Icon className={color} size={20} />
-                    <h2 className="text-base md:text-lg font-semibold text-blue-800 dark:text-white">{title}</h2>
+                    <h2 className="text-base md:text-lg font-semibold text-theme-heading dark:text-white">{title}</h2>
                     <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                       ({typeAccounts.length} {typeAccounts.length === 1 ? 'account' : 'accounts'})
                     </span>
@@ -431,7 +430,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         }}
       />
       
-      <FloatingAddButton onClick={() => setIsAddModalOpen(true)} />
     </PageWrapper>
   );}
   

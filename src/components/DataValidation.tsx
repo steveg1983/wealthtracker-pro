@@ -295,11 +295,10 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
         } else if (t.type === 'expense') {
           return sum - t.amount;
         } else if (t.type === 'transfer') {
-          // For transfers, check if there's a paired transaction
-          // If this is the source account, subtract the amount
-          // If this is the destination account, add the amount
-          // For now, we'll treat transfers as expenses from the source account
-          return sum - t.amount;
+          // For transfers, the sign of the amount indicates direction:
+          // Negative amount = money leaving this account (transfer out)
+          // Positive amount = money entering this account (transfer in)
+          return sum + t.amount;
         }
         return sum;
       }, 0);

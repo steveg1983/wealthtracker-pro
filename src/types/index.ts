@@ -15,7 +15,7 @@ export interface Holding {
 export interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
+  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'mortgage' | 'assets' | 'other';
   balance: number;
   currency: string;
   institution?: string;
@@ -75,4 +75,17 @@ export interface Category {
   type: 'income' | 'expense' | 'both';
   level: 'type' | 'sub' | 'detail';
   parentId?: string;
+}
+
+export interface Investment {
+  id: string;
+  accountId: string;
+  symbol: string;
+  name: string;
+  quantity: number;
+  purchasePrice: number;
+  purchaseDate: Date;
+  currentPrice?: number;
+  lastUpdated?: Date;
+  notes?: string;
 }

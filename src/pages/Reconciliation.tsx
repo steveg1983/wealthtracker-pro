@@ -284,7 +284,7 @@ export default function Reconciliation() {
     return (
       <div>
         <div className="mb-6">
-          <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4">
             <h1 className="text-3xl font-bold text-white">Reconciliation</h1>
           </div>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
@@ -389,7 +389,7 @@ export default function Reconciliation() {
             size="md"
             className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100"
           />
-          <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4">
             <h1 className="text-3xl font-bold text-white">
               Reconcile {selectedAccountData?.name}
             </h1>

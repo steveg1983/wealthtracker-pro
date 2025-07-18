@@ -8,7 +8,7 @@ export default function Forecasting() {
   return (
     <div>
       <div className="mb-6">
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+        <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4">
           <h1 className="text-3xl font-bold text-white">Forecasting</h1>
         </div>
       </div>
@@ -23,7 +23,7 @@ export default function Forecasting() {
               <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
                 <TargetIcon className="text-blue-600 dark:text-blue-400" size={32} />
               </div>
-              <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Budget</h2>
+              <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Budget</h2>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               Track your spending against monthly or yearly budgets by category
@@ -44,7 +44,7 @@ export default function Forecasting() {
               <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-2xl">
                 <GoalIcon className="text-green-600 dark:text-green-400" size={32} />
               </div>
-              <h2 className="text-xl font-semibold text-blue-800 dark:text-white">Goals</h2>
+              <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Goals</h2>
             </div>
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               Set and track financial goals for savings, debt payoff, and investments
@@ -60,7 +60,7 @@ export default function Forecasting() {
       {!showBudget && !showGoals && (
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg p-12 text-center border border-white/20 dark:border-gray-700/50">
           <LineChartIcon className="mx-auto text-gray-400 mb-4" size={48} />
-          <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-2">
+          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-2">
             No Forecasting Features Enabled
           </h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">

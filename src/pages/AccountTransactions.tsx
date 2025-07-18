@@ -24,7 +24,7 @@ export default function AccountTransactions() {
   const [dateTo, setDateTo] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags'>('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // State for modals and selection
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -44,7 +44,7 @@ export default function AccountTransactions() {
   });
   
   // State for drag and drop columns
-  const [columnOrder, setColumnOrder] = useState(['date', 'reconciled', 'description', 'category', 'tags', 'amount']);
+  const [columnOrder, setColumnOrder] = useState(['date', 'reconciled', 'description', 'category', 'tags', 'amount', 'balance']);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   
@@ -55,7 +55,8 @@ export default function AccountTransactions() {
     description: 300,
     category: 200,
     tags: 200,
-    amount: 150
+    amount: 150,
+    balance: 150
   });
   const [isResizing, setIsResizing] = useState(false);
   const tableRef = useRef<HTMLTableElement>(null);
@@ -91,8 +92,18 @@ export default function AccountTransactions() {
         let bValue: string | number | Date = b[sortField as keyof Transaction] as string | number | Date;
         
         if (sortField === 'date') {
-          aValue = new Date(a.date).getTime();
-          bValue = new Date(b.date).getTime();
+          const dateA = new Date(a.date).getTime();
+          const dateB = new Date(b.date).getTime();
+          
+          // If dates are different, sort by date
+          if (dateA !== dateB) {
+            aValue = dateA;
+            bValue = dateB;
+          } else {
+            // If dates are the same, sort by type (income first, then transfers, then expenses)
+            const typeOrder = { income: 0, transfer: 1, expense: 2 };
+            return typeOrder[a.type] - typeOrder[b.type];
+          }
         }
         
         if (sortDirection === 'asc') {
@@ -107,20 +118,45 @@ export default function AccountTransactions() {
   const transactionsWithBalance = useMemo(() => {
     if (!account) return [];
     
-    let runningBalance = account.balance;
-    const sortedByDate = [...accountTransactions].sort((a, b) => 
-      new Date(b.date).getTime() - new Date(a.date).getTime()
-    );
+    // Sort transactions by date and type for proper balance calculation
+    // Within the same date: income first, then transfers, then expenses
+    const typeOrder = { income: 0, transfer: 1, expense: 2 };
+    const sortedForBalance = [...accountTransactions].sort((a, b) => {
+      const dateA = new Date(a.date).getTime();
+      const dateB = new Date(b.date).getTime();
+      
+      // First sort by date
+      if (dateA !== dateB) {
+        return dateA - dateB;
+      }
+      
+      // If same date, sort by type (income first, then transfers, then expenses)
+      return typeOrder[a.type] - typeOrder[b.type];
+    });
     
-    return sortedByDate.map((transaction) => {
-      const balance = runningBalance;
+    // Start from opening balance or 0
+    let runningBalance = account.openingBalance || 0;
+    
+    // Calculate running balance for each transaction
+    const withBalance = sortedForBalance.map((transaction) => {
       if (transaction.type === 'income') {
-        runningBalance -= transaction.amount;
+        runningBalance += transaction.amount;
       } else if (transaction.type === 'expense') {
+        runningBalance -= transaction.amount;
+      } else if (transaction.type === 'transfer') {
+        // For transfers, the sign of the amount indicates direction
         runningBalance += transaction.amount;
       }
-      return { ...transaction, balance };
-    }).reverse();
+      return { ...transaction, balance: runningBalance };
+    });
+    
+    // Now sort back to the user's requested order, but keep the calculated balances
+    const balanceMap = new Map(withBalance.map(t => [t.id, t.balance]));
+    
+    return accountTransactions.map(t => ({
+      ...t,
+      balance: balanceMap.get(t.id) || 0
+    }));
   }, [account, accountTransactions]);
   
   // Calculate unreconciled total
@@ -154,6 +190,17 @@ export default function AccountTransactions() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTransactionId, transactionsWithBalance]);
   
+  // Auto-scroll to bottom on mount to show latest transactions
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+    if (scrollContainer && transactionsWithBalance.length > 0) {
+      // Scroll to bottom after a brief delay to ensure rendering is complete
+      setTimeout(() => {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }, 100);
+    }
+  }, [transactionsWithBalance.length]);
+
   // Handle scroll isolation
   useEffect(() => {
     const scrollContainer = scrollContainerRef.current;
@@ -248,6 +295,12 @@ export default function AccountTransactions() {
       sortable: true,
       className: 'text-right',
       cellClassName: 'text-right'
+    },
+    balance: {
+      label: 'Balance',
+      sortable: false,
+      className: 'text-right',
+      cellClassName: 'text-right'
     }
   };
   
@@ -314,7 +367,7 @@ export default function AccountTransactions() {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
-      setSortDirection('desc');
+      setSortDirection('asc');
     }
   };
   
@@ -438,7 +491,7 @@ export default function AccountTransactions() {
         
         <div className="flex items-start justify-between">
           {/* Account Name and Details Box */}
-          <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+          <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4">
             <h1 className="text-3xl font-bold text-white">
               {account.name}
             </h1>
@@ -626,7 +679,7 @@ export default function AccountTransactions() {
           className="flex-1 overflow-y-auto overflow-x-hidden"
         >
           <table ref={tableRef} className="w-full">
-            <thead className="bg-[#6B86B3] dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600 sticky top-0 z-10">
+            <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600 sticky top-0 z-10">
               <tr>
                 {columnOrder.map(columnKey => renderHeaderCell(columnKey))}
               </tr>
@@ -701,12 +754,20 @@ export default function AccountTransactions() {
                         return (
                           <td key={columnKey} className={className}>
                             <span className={`font-medium ${
-                              transaction.type === 'income' 
+                              transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0)
                                 ? 'text-green-600 dark:text-green-400' 
                                 : 'text-red-600 dark:text-red-400'
                             }`}>
-                              {transaction.type === 'income' ? '+' : '-'}
-                              {formatCurrency(transaction.amount, account.currency)}
+                              {transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0) ? '+' : '-'}
+                              {formatCurrency(Math.abs(transaction.amount), account.currency)}
+                            </span>
+                          </td>
+                        );
+                      case 'balance':
+                        return (
+                          <td key={columnKey} className={className}>
+                            <span className="font-medium text-gray-900 dark:text-gray-100">
+                              {formatCurrency(transaction.balance, account.currency)}
                             </span>
                           </td>
                         );

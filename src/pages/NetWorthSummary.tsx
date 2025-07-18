@@ -160,7 +160,7 @@ export default function NetWorthSummary() {
         >
           <ArrowLeftIcon size={24} />
         </button>
-        <div className="bg-[#6B86B3] dark:bg-gray-700 rounded-2xl shadow p-4">
+        <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4">
           <h1 className="text-3xl font-bold text-white">Net Worth Summary</h1>
         </div>
       </div>

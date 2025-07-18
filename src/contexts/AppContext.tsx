@@ -16,6 +16,7 @@ import {
 } from '../utils/decimal-converters';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
+import { recalculateAccountBalances } from '../utils/recalculateBalances';
 
 export interface Tag {
   id: string;
@@ -126,22 +127,7 @@ function fromDecimalRecurring(recurring: DecimalRecurringTransaction): Recurring
 
 export function AppProvider({ children }: { children: ReactNode }) {
   // Internal state uses Decimal types for precision
-  const [decimalAccounts, setDecimalAccounts] = useState<DecimalAccount[]>(() => {
-    const saved = localStorage.getItem('wealthtracker_accounts');
-    if (saved) {
-      try {
-        const parsed: Account[] = JSON.parse(saved);
-        return parsed.map(toDecimalAccount);
-      } catch (e) {
-        console.error('Error parsing saved accounts:', e);
-      }
-    }
-    if (localStorage.getItem('wealthtracker_data_cleared') === 'true') {
-      return [];
-    }
-    return getDefaultTestAccounts().map(toDecimalAccount);
-  });
-  
+  // Initialize transactions first as we need them to calculate account balances
   const [decimalTransactions, setDecimalTransactions] = useState<DecimalTransaction[]>(() => {
     const saved = localStorage.getItem('wealthtracker_transactions');
     if (saved) {
@@ -156,6 +142,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return [];
     }
     return getDefaultTestTransactions().map(toDecimalTransaction);
+  });
+
+  const [decimalAccounts, setDecimalAccounts] = useState<DecimalAccount[]>(() => {
+    const saved = localStorage.getItem('wealthtracker_accounts');
+    if (saved) {
+      try {
+        const parsed: Account[] = JSON.parse(saved);
+        return parsed.map(toDecimalAccount);
+      } catch (e) {
+        console.error('Error parsing saved accounts:', e);
+      }
+    }
+    if (localStorage.getItem('wealthtracker_data_cleared') === 'true') {
+      return [];
+    }
+    // Get test accounts and recalculate their balances based on transactions
+    const testAccounts = getDefaultTestAccounts();
+    const testTransactions = getDefaultTestTransactions();
+    const recalculatedAccounts = recalculateAccountBalances(testAccounts, testTransactions);
+    return recalculatedAccounts.map(toDecimalAccount);
   });
   
   const [decimalBudgets, setDecimalBudgets] = useState<DecimalBudget[]>(() => {
@@ -332,13 +338,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       return JSON.stringify(data, null, 2);
     },
     loadTestData: () => {
-      const testAccounts = getDefaultTestAccounts().map(toDecimalAccount);
-      const testTransactions = getDefaultTestTransactions().map(toDecimalTransaction);
+      const testAccounts = getDefaultTestAccounts();
+      const testTransactions = getDefaultTestTransactions();
       const testBudgets = getDefaultTestBudgets().map(toDecimalBudget);
       const testGoals = getDefaultTestGoals().map(toDecimalGoal);
       
-      setDecimalAccounts(testAccounts);
-      setDecimalTransactions(testTransactions);
+      // Recalculate account balances based on transactions
+      const recalculatedAccounts = recalculateAccountBalances(testAccounts, testTransactions);
+      
+      setDecimalAccounts(recalculatedAccounts.map(toDecimalAccount));
+      setDecimalTransactions(testTransactions.map(toDecimalTransaction));
       setDecimalBudgets(testBudgets);
       setDecimalGoals(testGoals);
       
@@ -374,9 +383,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // Update account balance
       setDecimalAccounts(prev => prev.map(account => {
         if (account.id === transaction.accountId) {
-          const adjustment = transaction.type === 'income' 
-            ? toDecimal(transaction.amount)
-            : toDecimal(transaction.amount).negated();
+          let adjustment;
+          if (transaction.type === 'income') {
+            adjustment = toDecimal(transaction.amount);
+          } else if (transaction.type === 'expense') {
+            adjustment = toDecimal(transaction.amount).negated();
+          } else if (transaction.type === 'transfer') {
+            // For transfers, use the amount as-is (negative for out, positive for in)
+            adjustment = toDecimal(transaction.amount);
+          } else {
+            adjustment = toDecimal(0);
+          }
           return {
             ...account,
             balance: account.balance.plus(adjustment)
@@ -401,17 +418,37 @@ export function AppProvider({ children }: { children: ReactNode }) {
       
       // Update account balance if amount or type changed
       if (updates.amount !== undefined || updates.type !== undefined) {
-        const oldAmount = originalTransaction.type === 'income' 
-          ? originalTransaction.amount 
-          : originalTransaction.amount.negated();
+        let oldAdjustment;
+        const originalType = fromDecimalTransaction(originalTransaction).type;
+        if (originalType === 'income') {
+          oldAdjustment = originalTransaction.amount;
+        } else if (originalType === 'expense') {
+          oldAdjustment = originalTransaction.amount.negated();
+        } else if (originalType === 'transfer') {
+          // For transfers, use the amount as-is
+          oldAdjustment = originalTransaction.amount;
+        } else {
+          oldAdjustment = toDecimal(0);
+        }
         
-        const newType = updates.type || fromDecimalTransaction(originalTransaction).type;
+        const newType = updates.type || originalType;
         const newAmount = updates.amount !== undefined 
           ? toDecimal(updates.amount) 
           : originalTransaction.amount;
         
-        const newAdjustedAmount = newType === 'income' ? newAmount : newAmount.negated();
-        const balanceChange = newAdjustedAmount.minus(oldAmount);
+        let newAdjustment;
+        if (newType === 'income') {
+          newAdjustment = newAmount;
+        } else if (newType === 'expense') {
+          newAdjustment = newAmount.negated();
+        } else if (newType === 'transfer') {
+          // For transfers, use the amount as-is
+          newAdjustment = newAmount;
+        } else {
+          newAdjustment = toDecimal(0);
+        }
+        
+        const balanceChange = newAdjustment.minus(oldAdjustment);
         
         setDecimalAccounts(prev => prev.map(account => {
           if (account.id === originalTransaction.accountId) {
@@ -432,9 +469,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       setDecimalTransactions(prev => prev.filter(t => t.id !== id));
       
       // Update account balance
-      const adjustment = transactionToDelete.type === 'income' 
-        ? transactionToDelete.amount.negated()
-        : transactionToDelete.amount;
+      let adjustment;
+      const transactionType = fromDecimalTransaction(transactionToDelete).type;
+      if (transactionType === 'income') {
+        adjustment = transactionToDelete.amount.negated();
+      } else if (transactionType === 'expense') {
+        adjustment = transactionToDelete.amount;
+      } else if (transactionType === 'transfer') {
+        // For transfers, reverse the amount (negate it)
+        adjustment = transactionToDelete.amount.negated();
+      } else {
+        adjustment = toDecimal(0);
+      }
       
       setDecimalAccounts(prev => prev.map(account => {
         if (account.id === transactionToDelete.accountId) {
@@ -528,36 +574,38 @@ export function AppProvider({ children }: { children: ReactNode }) {
     getDetailCategories,
     createTransferTransaction: (from: string, to: string, amount: number, date: Date) => {
       const timestamp = Date.now();
+      const fromAccount = accounts.find(a => a.id === from);
+      const toAccount = accounts.find(a => a.id === to);
       
-      // Create expense transaction (from account)
-      const expenseTransaction = toDecimalTransaction({
+      // Create transfer out transaction (from account) - negative amount
+      const transferOutTransaction = toDecimalTransaction({
         id: `${timestamp}-out`,
         date,
-        amount,
-        description: `Transfer to ${accounts.find(a => a.id === to)?.name || 'Unknown Account'}`,
+        amount: -Math.abs(amount), // Ensure negative for money going out
+        description: `Transfer to ${toAccount?.name || 'Unknown Account'}`,
         category: 'transfer',
         accountId: from,
-        type: 'expense',
+        type: 'transfer',
         tags: ['transfer'],
-        notes: `Transfer to account ${to}`,
+        notes: `Transfer to ${toAccount?.name || 'account'}`,
         cleared: true
       });
       
-      // Create income transaction (to account)
-      const incomeTransaction = toDecimalTransaction({
+      // Create transfer in transaction (to account) - positive amount
+      const transferInTransaction = toDecimalTransaction({
         id: `${timestamp}-in`,
         date,
-        amount,
-        description: `Transfer from ${accounts.find(a => a.id === from)?.name || 'Unknown Account'}`,
+        amount: Math.abs(amount), // Ensure positive for money coming in
+        description: `Transfer from ${fromAccount?.name || 'Unknown Account'}`,
         category: 'transfer',
         accountId: to,
-        type: 'income',
+        type: 'transfer',
         tags: ['transfer'],
-        notes: `Transfer from account ${from}`,
+        notes: `Transfer from ${fromAccount?.name || 'account'}`,
         cleared: true
       });
       
-      setDecimalTransactions(prev => [...prev, expenseTransaction, incomeTransaction]);
+      setDecimalTransactions(prev => [...prev, transferOutTransaction, transferInTransaction]);
     },
     // New Decimal-aware methods
     getDecimalAccounts: () => decimalAccounts,

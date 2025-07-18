@@ -5,65 +5,66 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Default color values */
+/* Default color values - Blue Theme */
 :root {
-  --color-primary: #0078d4;
-  --color-secondary: #005a9e;
+  --color-primary: #7ba8d1;
+  --color-secondary: #5a729a;
+  --color-tertiary: #b8d4f1;
   --color-light-bg: #f8fafc;
   --color-light-card: #ffffff;
   --color-light-border: #e5e7eb;
   --color-light-accent: #f0f9ff;
+  --color-sidebar: #8ea9db;
+  --color-sidebar-active: #b8d4f1;
+  --color-sidebar-border: #4a6fa5;
 }
 
-/* Accent color classes */
-.accent-blue {
-  --color-primary: #0078d4;
-  --color-secondary: #005a9e;
+/* Blue Theme (Default) */
+.theme-blue {
+  --color-primary: #7ba8d1;
+  --color-secondary: #5a729a;
+  --color-tertiary: #b8d4f1;
+  --color-sidebar: #8ea9db;
+  --color-sidebar-active: #b8d4f1;
+  --color-sidebar-border: #4a6fa5;
+  --color-light-accent: #f0f9ff;
+  --color-dark-accent: #1e3a5f;
 }
 
-.accent-green {
-  --color-primary: #34c759;
-  --color-secondary: #248a3d;
+/* Green Theme */
+.theme-green {
+  --color-primary: #a9d08e;
+  --color-secondary: #7fa86b;
+  --color-tertiary: #d4e6c4;
+  --color-sidebar: #bcdba5;
+  --color-sidebar-active: #d4e6c4;
+  --color-sidebar-border: #6b9555;
+  --color-light-accent: #f8fcf4;
+  --color-dark-accent: #2a3d22;
 }
 
-.accent-purple {
-  --color-primary: #af52de;
-  --color-secondary: #8e3cbf;
+/* Red Theme */
+.theme-red {
+  --color-primary: #e2a8a8;
+  --color-secondary: #b88585;
+  --color-tertiary: #f1d4d4;
+  --color-sidebar: #e8b8b8;
+  --color-sidebar-active: #f1d4d4;
+  --color-sidebar-border: #c47a7a;
+  --color-light-accent: #fef8f8;
+  --color-dark-accent: #4a2a2a;
 }
 
-.accent-orange {
-  --color-primary: #ff9500;
-  --color-secondary: #e67e00;
-}
-
-.accent-red {
-  --color-primary: #ff3b30;
-  --color-secondary: #d70015;
-}
-
-.accent-pink {
-  --color-primary: #ff2d55;
-  --color-secondary: #d30036;
-}
-
-.accent-indigo {
-  --color-primary: #5856d6;
-  --color-secondary: #3634a3;
-}
-
-.accent-teal {
-  --color-primary: #5ac8fa;
-  --color-secondary: #32ade6;
-}
-
-.accent-yellow {
-  --color-primary: #ffcc00;
-  --color-secondary: #d6ab00;
-}
-
-.accent-gray {
-  --color-primary: #8e8e93;
-  --color-secondary: #636366;
+/* Pink Theme */
+.theme-pink {
+  --color-primary: #e2a8d4;
+  --color-secondary: #b885a5;
+  --color-tertiary: #f1d4e8;
+  --color-sidebar: #e8b8dc;
+  --color-sidebar-active: #f1d4e8;
+  --color-sidebar-border: #c47aa5;
+  --color-light-accent: #fef8fc;
+  --color-dark-accent: #4a2a3c;
 }
 
 /* Apply primary color to common elements */
@@ -89,6 +90,46 @@
 
 .focus\:ring-primary:focus {
   --tw-ring-color: var(--color-primary) !important;
+}
+
+.bg-secondary {
+  background-color: var(--color-secondary) !important;
+}
+
+.bg-tertiary {
+  background-color: var(--color-tertiary) !important;
+}
+
+.bg-sidebar {
+  background-color: var(--color-sidebar) !important;
+}
+
+.bg-sidebar-active {
+  background-color: var(--color-sidebar-active) !important;
+}
+
+.border-sidebar {
+  border-color: var(--color-sidebar-border) !important;
+}
+
+.text-secondary {
+  color: var(--color-secondary) !important;
+}
+
+.text-tertiary {
+  color: var(--color-tertiary) !important;
+}
+
+.text-theme-heading {
+  color: var(--color-secondary) !important;
+}
+
+.bg-theme-accent {
+  background-color: var(--color-light-accent) !important;
+}
+
+.border-theme-accent {
+  border-color: var(--color-light-accent) !important;
 }
 
 .dark .dark\:text-blue-400 {

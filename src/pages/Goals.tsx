@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useApp } from "../contexts/AppContext";
 import GoalModal from "../components/GoalModal";
 import { TargetIcon, TrendingUpIcon, CalendarIcon } from "../components/icons";
-import { FloatingAddButton } from "../components/ui/UIControls";
 import { PlusIcon, EditIcon, DeleteIcon } from "../components/icons";
 import { IconButton } from "../components/icons/IconButton";
 import type { Goal } from "../types";
@@ -189,7 +188,7 @@ export default function Goals() {
         <div className="pt-4">
           {activeGoals.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">Active Goals</h2>
+          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Active Goals</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {activeGoals.map((goal) => {
               const progress = getProgressPercentage(goal);
@@ -283,7 +282,7 @@ export default function Goals() {
       {/* Completed Goals */}
       {completedGoals.length > 0 && (
         <div>
-          <h2 className="text-xl font-semibold text-blue-800 dark:text-white mb-4">Completed Goals</h2>
+          <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Completed Goals</h2>
           <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
             <div className="divide-y divide-gray-200 dark:divide-gray-700">
               {completedGoals.map((goal) => (
@@ -347,7 +346,6 @@ export default function Goals() {
         goal={editingGoal}
       />
       
-      <FloatingAddButton onClick={() => setIsModalOpen(true)} />
     </PageWrapper>
   );
 }
