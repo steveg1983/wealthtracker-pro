@@ -17,6 +17,7 @@ import {
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { recalculateAccountBalances } from '../utils/recalculateBalances';
+import { smartCategorizationService } from '../services/smartCategorizationService';
 
 export interface Tag {
   id: string;
@@ -459,6 +460,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
           }
           return account;
         }));
+      }
+      
+      // Real-time learning: If category was updated, train the model
+      if (updates.category) {
+        const updatedTransaction = decimalTransactions.find(t => t.id === id);
+        if (updatedTransaction) {
+          const numberTransaction = { ...fromDecimalTransaction(updatedTransaction), ...updates };
+          smartCategorizationService.learnFromCategorization(numberTransaction, updates.category);
+        }
       }
     },
     deleteTransaction: (id) => {

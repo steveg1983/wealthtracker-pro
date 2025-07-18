@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import type { Transaction, Account } from '../types';
 import { TrendingUpIcon, TrendingDownIcon, CheckIcon, EditIcon, DeleteIcon } from './icons';
 import { IconButton } from './icons/IconButton';
+import MerchantLogo from './MerchantLogo';
 
 interface TransactionRowProps {
   transaction: Transaction;
@@ -91,27 +92,33 @@ export const TransactionRow = memo(function TransactionRow({
             className={`${compactView ? 'py-1.5' : 'py-3'} px-6 text-gray-900 dark:text-gray-100 text-left`}
             style={{ width: columnWidths.description }}
           >
-            <div className="flex flex-col">
-              <span className={`${compactView ? 'text-sm' : ''} truncate`}>
-                {transaction.description}
-              </span>
-              {transaction.notes && (
-                <span className={`${compactView ? 'text-xs' : 'text-sm'} text-gray-500 dark:text-gray-400 truncate`}>
-                  {transaction.notes}
+            <div className="flex items-start gap-3">
+              <MerchantLogo 
+                description={transaction.description} 
+                size={compactView ? 'sm' : 'md'}
+              />
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className={`${compactView ? 'text-sm' : ''} truncate`}>
+                  {transaction.description}
                 </span>
-              )}
-              {transaction.tags && transaction.tags.length > 0 && (
-                <div className="flex gap-1 mt-0.5">
-                  {transaction.tags.map(tag => (
-                    <span 
-                      key={tag} 
-                      className={`${compactView ? 'text-xs px-1.5 py-0' : 'text-xs px-2 py-0.5'} bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full`}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
+                {transaction.notes && (
+                  <span className={`${compactView ? 'text-xs' : 'text-sm'} text-gray-500 dark:text-gray-400 truncate`}>
+                    {transaction.notes}
+                  </span>
+                )}
+                {transaction.tags && transaction.tags.length > 0 && (
+                  <div className="flex gap-1 mt-0.5">
+                    {transaction.tags.map(tag => (
+                      <span 
+                        key={tag} 
+                        className={`${compactView ? 'text-xs px-1.5 py-0' : 'text-xs px-2 py-0.5'} bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full`}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </td>
         );

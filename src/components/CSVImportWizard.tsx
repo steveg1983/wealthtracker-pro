@@ -151,7 +151,10 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
           accountMap,
           {
             skipDuplicates: showDuplicates,
-            duplicateThreshold
+            duplicateThreshold,
+            categories,
+            autoCategorize: true,
+            categoryConfidenceThreshold: 0.7
           }
         );
         

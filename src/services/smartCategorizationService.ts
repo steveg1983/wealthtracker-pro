@@ -18,6 +18,7 @@ export class SmartCategorizationService {
   private patterns: Map<string, CategoryPattern> = new Map();
   private merchantCategoryMap: Map<string, { categoryId: string; count: number }[]> = new Map();
   private keywordCategoryMap: Map<string, { categoryId: string; count: number }[]> = new Map();
+  private learningHistory: Map<string, { merchantConfidence: number; keywordConfidence: number }> = new Map();
 
   /**
    * Learn from existing categorized transactions
@@ -315,6 +316,86 @@ export class SmartCategorizationService {
       'for', 'pos', 'gbp', 'ref', 'trans', 'transaction'
     ]);
     return commonWords.has(word);
+  }
+
+  /**
+   * Learn from a single transaction categorization (real-time learning)
+   */
+  learnFromCategorization(transaction: Transaction, categoryId: string) {
+    const merchant = this.extractMerchant(transaction.description);
+    const words = transaction.description.toLowerCase().split(/\s+/).filter(w => w.length > 3);
+    
+    // Update merchant map
+    if (merchant) {
+      const existing = this.merchantCategoryMap.get(merchant) || [];
+      const categoryEntry = existing.find(e => e.categoryId === categoryId);
+      
+      if (categoryEntry) {
+        categoryEntry.count++;
+      } else {
+        existing.push({ categoryId, count: 1 });
+      }
+      
+      this.merchantCategoryMap.set(merchant, existing);
+    }
+    
+    // Update keyword map
+    words.forEach(word => {
+      if (!this.isCommonWord(word)) {
+        const existing = this.keywordCategoryMap.get(word) || [];
+        const categoryEntry = existing.find(e => e.categoryId === categoryId);
+        
+        if (categoryEntry) {
+          categoryEntry.count++;
+        } else {
+          existing.push({ categoryId, count: 1 });
+        }
+        
+        this.keywordCategoryMap.set(word, existing);
+      }
+    });
+    
+    // Update pattern for this category
+    const pattern = this.patterns.get(categoryId);
+    if (pattern) {
+      // Update amount ranges
+      const amount = Math.abs(transaction.amount);
+      if (pattern.amountRanges && pattern.amountRanges.length > 0) {
+        const range = pattern.amountRanges[0];
+        if (range.min && amount < range.min) {
+          range.min = amount * 0.9; // Add 10% buffer
+        }
+        if (range.max && amount > range.max) {
+          range.max = amount * 1.1; // Add 10% buffer
+        }
+      }
+      
+      // Add new merchants and keywords
+      if (merchant && !pattern.merchants.includes(merchant)) {
+        pattern.merchants.push(merchant);
+      }
+      
+      words.forEach(word => {
+        if (!this.isCommonWord(word) && !pattern.keywords.includes(word)) {
+          pattern.keywords.push(word);
+        }
+      });
+      
+      // Increase confidence slightly
+      pattern.confidence = Math.min(0.95, pattern.confidence + 0.01);
+    } else {
+      // Create new pattern for this category
+      this.patterns.set(categoryId, {
+        categoryId,
+        keywords: words.filter(w => !this.isCommonWord(w)),
+        merchants: merchant ? [merchant] : [],
+        amountRanges: [{
+          min: Math.abs(transaction.amount) * 0.8,
+          max: Math.abs(transaction.amount) * 1.2
+        }],
+        confidence: 0.6
+      });
+    }
   }
 
   /**

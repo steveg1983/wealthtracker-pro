@@ -18,7 +18,7 @@ interface QIFImportModalProps {
 }
 
 export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps) {
-  const { accounts, transactions, addTransaction } = useApp();
+  const { accounts, transactions, categories, addTransaction } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [parseResult, setParseResult] = useState<any>(null);
@@ -94,7 +94,11 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
       const result = await qifImportService.importTransactions(
         content,
         selectedAccountId,
-        skipDuplicates ? transactions : []
+        skipDuplicates ? transactions : [],
+        {
+          categories,
+          autoCategorize: true
+        }
       );
       
       // Add transactions

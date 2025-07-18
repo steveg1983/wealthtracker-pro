@@ -1,4 +1,5 @@
-import type { Transaction, Account } from '../types';
+import type { Transaction, Account, Category } from '../types';
+import { smartCategorizationService } from './smartCategorizationService';
 
 interface QIFTransaction {
   date: string;
@@ -142,7 +143,11 @@ export class QIFImportService {
   async importTransactions(
     qifContent: string,
     targetAccountId: string,
-    existingTransactions: Transaction[]
+    existingTransactions: Transaction[],
+    options: {
+      categories?: Category[];
+      autoCategorize?: boolean;
+    } = {}
   ): Promise<{
     transactions: Omit<Transaction, 'id'>[];
     duplicates: number;
@@ -177,7 +182,7 @@ export class QIFImportService {
       }
       description = description || 'QIF Transaction';
       
-      transactions.push({
+      const transaction: Omit<Transaction, 'id'> = {
         date: qifTrx.date,
         description,
         amount,
@@ -186,7 +191,24 @@ export class QIFImportService {
         category: qifTrx.category || '',
         cleared: qifTrx.cleared || false,
         notes: qifTrx.checkNumber ? `Check #: ${qifTrx.checkNumber}` : undefined
-      });
+      };
+      
+      // Auto-categorize if enabled and no category is set
+      if (options.autoCategorize && options.categories && !transaction.category) {
+        // Train the model if we have existing transactions
+        if (existingTransactions.length > 0) {
+          smartCategorizationService.learnFromTransactions(existingTransactions, options.categories);
+        }
+        
+        // Get category suggestions
+        const suggestions = smartCategorizationService.suggestCategories(transaction as Transaction, 1);
+        
+        if (suggestions.length > 0 && suggestions[0].confidence >= 0.7) {
+          transaction.category = suggestions[0].categoryId;
+        }
+      }
+      
+      transactions.push(transaction);
     }
     
     return {

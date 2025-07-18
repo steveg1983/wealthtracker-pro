@@ -1,6 +1,7 @@
 import { toDecimal } from '../utils/decimal';
-import type { Transaction, Account } from '../types';
+import type { Transaction, Account, Category } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
+import { smartCategorizationService } from './smartCategorizationService';
 
 export interface ColumnMapping {
   sourceColumn: string;
@@ -361,6 +362,9 @@ class EnhancedCsvImportService {
     options: {
       skipDuplicates?: boolean;
       duplicateThreshold?: number;
+      categories?: Category[];
+      autoCategorize?: boolean;
+      categoryConfidenceThreshold?: number;
     } = {}
   ): Promise<ImportResult> {
     const { headers, data } = this.parseCSV(csvContent);
@@ -460,6 +464,24 @@ class EnhancedCsvImportService {
           if (duplicateCheck.confidence >= (options.duplicateThreshold || 90)) {
             result.duplicates++;
             continue;
+          }
+        }
+        
+        // Auto-categorize if enabled and no category is set
+        if (options.autoCategorize && options.categories && !transaction.category) {
+          // Train the model if we have existing transactions
+          if (existingTransactions.length > 0) {
+            smartCategorizationService.learnFromTransactions(existingTransactions, options.categories);
+          }
+          
+          // Get category suggestions
+          const suggestions = smartCategorizationService.suggestCategories(transaction as Transaction, 1);
+          
+          if (suggestions.length > 0) {
+            const confidenceThreshold = options.categoryConfidenceThreshold || 0.7;
+            if (suggestions[0].confidence >= confidenceThreshold) {
+              transaction.category = suggestions[0].categoryId;
+            }
           }
         }
         

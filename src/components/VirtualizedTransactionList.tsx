@@ -1,9 +1,12 @@
-import React, { useRef, useMemo, useCallback, useState } from 'react';
+import React, { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { Transaction, Account } from '../types';
+import type { Transaction, Account, Category } from '../types';
 import { TransactionRow } from './TransactionRow';
 import { CheckIcon, SelectAllIcon, DeselectAllIcon } from './icons';
 import { IconButton } from './icons/IconButton';
+import CategorySuggestion from './CategorySuggestion';
+import { smartCategorizationService } from '../services/smartCategorizationService';
+import { useApp } from '../contexts/AppContext';
 
 interface VirtualizedTransactionListProps {
   transactions: Transaction[];
@@ -43,14 +46,57 @@ export const VirtualizedTransactionList = React.memo(function VirtualizedTransac
   height = 600
 }: VirtualizedTransactionListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const { categories, updateTransaction } = useApp();
+  const [suggestions, setSuggestions] = useState<Map<string, any[]>>(new Map());
   
-  // Calculate row height based on compact view
-  const rowHeight = compactView ? 52 : 72;
+  // Generate suggestions for uncategorized transactions
+  useEffect(() => {
+    const newSuggestions = new Map<string, any[]>();
+    
+    // Learn patterns from existing transactions
+    smartCategorizationService.learnFromTransactions(transactions, categories);
+    
+    // Generate suggestions for uncategorized transactions
+    transactions.forEach(transaction => {
+      if (!transaction.category) {
+        const suggestionList = smartCategorizationService.suggestCategories(transaction, 3);
+        if (suggestionList.length > 0) {
+          newSuggestions.set(transaction.id, suggestionList);
+        }
+      }
+    });
+    
+    setSuggestions(newSuggestions);
+  }, [transactions, categories]);
+  
+  // Handle accepting a category suggestion
+  const handleAcceptSuggestion = useCallback((transactionId: string, categoryId: string) => {
+    updateTransaction(transactionId, { category: categoryId });
+    
+    // Remove suggestion after accepting
+    setSuggestions(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(transactionId);
+      return newMap;
+    });
+  }, [updateTransaction]);
+  
+  // Calculate row height based on compact view and whether transaction has suggestions
+  const getRowHeight = useCallback((index: number) => {
+    const transaction = transactions[index];
+    const hasSuggestion = suggestions.has(transaction.id) && !transaction.category;
+    
+    if (compactView) {
+      return hasSuggestion ? 72 : 52;
+    } else {
+      return hasSuggestion ? 96 : 72;
+    }
+  }, [transactions, suggestions, compactView]);
   
   const virtualizer = useVirtualizer({
     count: transactions.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => rowHeight,
+    estimateSize: getRowHeight,
     overscan: 10, // Increased overscan for smoother scrolling
   });
 
@@ -149,6 +195,8 @@ export const VirtualizedTransactionList = React.memo(function VirtualizedTransac
                 const account = accounts.find(a => a.id === transaction.accountId);
                 const categoryPath = getCategoryPath(transaction.category);
                 
+                const transactionSuggestions = suggestions.get(transaction.id) || [];
+                
                 return (
                   <div
                     key={virtualItem.key}
@@ -179,6 +227,15 @@ export const VirtualizedTransactionList = React.memo(function VirtualizedTransac
                         />
                       </tbody>
                     </table>
+                    {transactionSuggestions.length > 0 && !transaction.category && (
+                      <div className="px-4 pb-2">
+                        <CategorySuggestion
+                          transaction={transaction}
+                          suggestions={transactionSuggestions}
+                          onAccept={(categoryId) => handleAcceptSuggestion(transaction.id, categoryId)}
+                        />
+                      </div>
+                    )}
                   </div>
                 );
               })}

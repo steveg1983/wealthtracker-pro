@@ -20,7 +20,7 @@ interface OFXImportModalProps {
 }
 
 export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
-  const { accounts, transactions, addTransaction } = useApp();
+  const { accounts, transactions, categories, addTransaction } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [parseResult, setParseResult] = useState<any>(null);
@@ -70,7 +70,11 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
         content,
         accounts,
         transactions,
-        { skipDuplicates: false }
+        { 
+          skipDuplicates: false,
+          categories,
+          autoCategorize: true
+        }
       );
       
       setParseResult(result);
@@ -101,7 +105,9 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
         transactions,
         {
           accountId: selectedAccountId || undefined,
-          skipDuplicates
+          skipDuplicates,
+          categories,
+          autoCategorize: true
         }
       );
       

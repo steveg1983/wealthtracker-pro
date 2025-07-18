@@ -1,5 +1,6 @@
 import { toDecimal } from '../utils/decimal';
-import type { Transaction, Account } from '../types';
+import type { Transaction, Account, Category } from '../types';
+import { smartCategorizationService } from './smartCategorizationService';
 
 interface OFXTransaction {
   type: string;
@@ -306,6 +307,8 @@ export class OFXImportService {
       accountId?: string;
       skipDuplicates?: boolean;
       duplicateThreshold?: number;
+      categories?: Category[];
+      autoCategorize?: boolean;
     } = {}
   ): Promise<{
     transactions: Omit<Transaction, 'id'>[];
@@ -353,16 +356,33 @@ export class OFXImportService {
         ofxTrx.refNum ? `Ref: ${ofxTrx.refNum}` : null
       ].filter(Boolean).join('\n');
       
-      transactions.push({
+      const transaction: Omit<Transaction, 'id'> = {
         date: ofxTrx.datePosted,
         description,
         amount,
         type,
         accountId: matchedAccount?.id || 'default',
-        category: '', // Will be auto-categorized
+        category: '',
         cleared: true, // OFX transactions are already cleared
         notes
-      });
+      };
+      
+      // Auto-categorize if enabled
+      if (options.autoCategorize && options.categories) {
+        // Train the model if we have existing transactions
+        if (existingTransactions.length > 0) {
+          smartCategorizationService.learnFromTransactions(existingTransactions, options.categories);
+        }
+        
+        // Get category suggestions
+        const suggestions = smartCategorizationService.suggestCategories(transaction as Transaction, 1);
+        
+        if (suggestions.length > 0 && suggestions[0].confidence >= 0.7) {
+          transaction.category = suggestions[0].categoryId;
+        }
+      }
+      
+      transactions.push(transaction);
     }
     
     return {
