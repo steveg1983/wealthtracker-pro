@@ -9,7 +9,8 @@ import ExcelExport from '../../components/ExcelExport';
 import BulkTransactionEdit from '../../components/BulkTransactionEdit';
 import TransactionReconciliation from '../../components/TransactionReconciliation';
 import DataValidation from '../../components/DataValidation';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon } from '../../components/icons';
+import SmartCategorizationSettings from '../../components/SmartCategorizationSettings';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon } from '../../components/icons';
 
 export default function DataManagementSettings() {
   const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
@@ -24,6 +25,7 @@ export default function DataManagementSettings() {
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [showReconciliation, setShowReconciliation] = useState(false);
   const [showDataValidation, setShowDataValidation] = useState(false);
+  const [showSmartCategorization, setShowSmartCategorization] = useState(false);
 
   const handleExportData = () => {
     const dataStr = exportData();
@@ -131,6 +133,14 @@ export default function DataManagementSettings() {
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Advanced System Data Options</h3>
         
         <div className="space-y-3">
+          <button
+            onClick={() => setShowSmartCategorization(true)}
+            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <LightbulbIcon size={20} />
+            Smart Categorization (AI)
+          </button>
+
           <button
             onClick={() => setShowDuplicateDetection(true)}
             className="w-full px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
@@ -309,6 +319,24 @@ export default function DataManagementSettings() {
         isOpen={showDataValidation}
         onClose={() => setShowDataValidation(false)}
       />
+
+      {/* Smart Categorization Modal */}
+      {showSmartCategorization && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Smart Categorization</h2>
+              <button
+                onClick={() => setShowSmartCategorization(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <XCircleIcon size={24} />
+              </button>
+            </div>
+            <SmartCategorizationSettings />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

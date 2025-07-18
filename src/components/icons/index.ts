@@ -180,3 +180,4 @@ export { UndoIcon } from './UndoIcon';
 export { UndoIcon as Undo } from './UndoIcon';
 export { default as ActivityIcon } from './ActivityIcon';
 export { default as WifiIcon } from './WifiIcon';
+export { LightbulbIcon } from './LightbulbIcon';
