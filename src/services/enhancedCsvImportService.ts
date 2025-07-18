@@ -392,21 +392,47 @@ class EnhancedCsvImportService {
         };
         
         // Apply mappings
+        let debitAmount: number | null = null;
+        let creditAmount: number | null = null;
+        
         for (const mapping of mappings) {
           const index = columnIndices.get(mapping.targetField);
           if (index !== undefined && row[index]) {
             const value = row[index];
-            if (mapping.targetField === 'date' && !mapping.transform) {
+            
+            // Special handling for amount fields
+            if (mapping.targetField === 'amount') {
+              const parsedAmount = this.parseAmount(value);
+              
+              // Check if this is a debit or credit column based on the source column name
+              const sourceColumnLower = mapping.sourceColumn.toLowerCase();
+              if (sourceColumnLower.includes('debit') || sourceColumnLower.includes('paid out') || sourceColumnLower.includes('money out')) {
+                debitAmount = Math.abs(parsedAmount);
+              } else if (sourceColumnLower.includes('credit') || sourceColumnLower.includes('paid in') || sourceColumnLower.includes('money in')) {
+                creditAmount = Math.abs(parsedAmount);
+              } else {
+                // Single amount column - use as is
+                transaction.amount = parsedAmount;
+              }
+            } else if (mapping.targetField === 'date' && !mapping.transform) {
               // Apply date parsing for date fields without transform
               transaction.date = this.parseDate(value);
-            } else if (mapping.targetField === 'amount' && !mapping.transform) {
-              // Apply amount parsing for amount fields without transform
-              transaction.amount = this.parseAmount(value);
             } else if (mapping.transform) {
               transaction[mapping.targetField as keyof Transaction] = mapping.transform(value);
             } else {
               transaction[mapping.targetField as keyof Transaction] = value as any;
             }
+          }
+        }
+        
+        // Handle separate debit/credit columns
+        if (debitAmount !== null || creditAmount !== null) {
+          if (debitAmount && debitAmount > 0) {
+            transaction.amount = debitAmount;
+            transaction.type = 'expense';
+          } else if (creditAmount && creditAmount > 0) {
+            transaction.amount = creditAmount;
+            transaction.type = 'income';
           }
         }
         
@@ -506,28 +532,150 @@ class EnhancedCsvImportService {
    */
   getBankMappings(bank: string): ColumnMapping[] {
     const bankMappings: Record<string, ColumnMapping[]> = {
+      // Major UK Banks
       'barclays': [
-        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Date', targetField: 'date' },
         { sourceColumn: 'Description', targetField: 'description' },
         { sourceColumn: 'Amount', targetField: 'amount' },
-        { sourceColumn: 'Category', targetField: 'category' }
+        { sourceColumn: 'Subcategory', targetField: 'category' }
       ],
       'hsbc': [
         { sourceColumn: 'Date', targetField: 'date' },
-        { sourceColumn: 'Details', targetField: 'description' },
-        { sourceColumn: 'Value', targetField: 'amount' }
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' }
       ],
       'lloyds': [
         { sourceColumn: 'Transaction Date', targetField: 'date' },
         { sourceColumn: 'Transaction Description', targetField: 'description' },
         { sourceColumn: 'Debit Amount', targetField: 'amount' },
-        { sourceColumn: 'Credit Amount', targetField: 'amount' }
+        { sourceColumn: 'Credit Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
       ],
       'natwest': [
         { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Type', targetField: 'category' },
         { sourceColumn: 'Description', targetField: 'description' },
         { sourceColumn: 'Value', targetField: 'amount' },
-        { sourceColumn: 'Type', targetField: 'category' }
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'santander': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'halifax': [
+        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Transaction Description', targetField: 'description' },
+        { sourceColumn: 'Debit Amount', targetField: 'amount' },
+        { sourceColumn: 'Credit Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'rbs': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Type', targetField: 'category' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Value', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'tsb': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Transaction Type', targetField: 'category' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Paid In', targetField: 'amount' },
+        { sourceColumn: 'Paid Out', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      
+      // Building Societies
+      'nationwide': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Transaction type', targetField: 'category' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Paid out', targetField: 'amount' },
+        { sourceColumn: 'Paid in', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'yorkshire': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'coventry': [
+        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit Amount', targetField: 'amount' },
+        { sourceColumn: 'Credit Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'skipton': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Transaction Description', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      
+      // Digital/Challenger Banks
+      'monzo': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Category', targetField: 'category' },
+        { sourceColumn: 'Notes', targetField: 'notes' }
+      ],
+      'starling': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Counter Party', targetField: 'description' },
+        { sourceColumn: 'Reference', targetField: 'notes' },
+        { sourceColumn: 'Type', targetField: 'category' },
+        { sourceColumn: 'Amount (GBP)', targetField: 'amount' },
+        { sourceColumn: 'Balance (GBP)', targetField: 'balance' }
+      ],
+      'revolut': [
+        { sourceColumn: 'Started Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Category', targetField: 'category' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'metro': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Transaction', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      
+      // Other Banks
+      'first-direct': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'co-op': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Narrative', targetField: 'description' },
+        { sourceColumn: 'Debit Amount', targetField: 'amount' },
+        { sourceColumn: 'Credit Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'virgin': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debits', targetField: 'amount' },
+        { sourceColumn: 'Credits', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'tesco': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Money Out', targetField: 'amount' },
+        { sourceColumn: 'Money In', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
       ]
     };
     

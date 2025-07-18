@@ -176,7 +176,7 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
 
   // Target fields for mapping
   const targetFields = type === 'transaction' 
-    ? ['date', 'description', 'amount', 'category', 'accountName', 'tags', 'notes']
+    ? ['date', 'description', 'amount', 'category', 'accountName', 'tags', 'notes', 'balance']
     : ['name', 'type', 'balance', 'currency', 'institution'];
 
   return (
@@ -244,23 +244,89 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
               </div>
 
               {/* Bank Templates */}
-              <div className="mt-8 w-full max-w-md">
+              <div className="mt-8 w-full max-w-2xl">
                 <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                   Quick Start with Bank Templates
                 </h4>
-                <div className="grid grid-cols-2 gap-2">
-                  {['Barclays', 'HSBC', 'Lloyds', 'NatWest'].map(bank => (
-                    <button
-                      key={bank}
-                      className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-                      onClick={() => {
-                        const bankMappings = enhancedCsvImportService.getBankMappings(bank);
-                        setMappings(bankMappings);
-                      }}
-                    >
-                      {bank}
-                    </button>
-                  ))}
+                
+                {/* Major UK Banks */}
+                <div className="mb-4">
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Major Banks</h5>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Barclays', 'HSBC', 'Lloyds', 'NatWest', 'Santander', 'Halifax', 'RBS', 'TSB'].map(bank => (
+                      <button
+                        key={bank}
+                        className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        onClick={() => {
+                          const bankMappings = enhancedCsvImportService.getBankMappings(bank);
+                          setMappings(bankMappings);
+                          setCurrentStep('mapping');
+                        }}
+                      >
+                        {bank}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Building Societies */}
+                <div className="mb-4">
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Building Societies</h5>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Nationwide', 'Yorkshire', 'Coventry', 'Skipton'].map(bank => (
+                      <button
+                        key={bank}
+                        className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        onClick={() => {
+                          const bankMappings = enhancedCsvImportService.getBankMappings(bank);
+                          setMappings(bankMappings);
+                          setCurrentStep('mapping');
+                        }}
+                      >
+                        {bank}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Digital Banks */}
+                <div className="mb-4">
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Digital Banks</h5>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['Monzo', 'Starling', 'Revolut', 'Metro'].map(bank => (
+                      <button
+                        key={bank}
+                        className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        onClick={() => {
+                          const bankMappings = enhancedCsvImportService.getBankMappings(bank);
+                          setMappings(bankMappings);
+                          setCurrentStep('mapping');
+                        }}
+                      >
+                        {bank}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Other Banks */}
+                <div>
+                  <h5 className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Other Banks</h5>
+                  <div className="grid grid-cols-3 gap-2">
+                    {['First Direct', 'Co-op', 'Virgin', 'Tesco'].map(bank => (
+                      <button
+                        key={bank}
+                        className="px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                        onClick={() => {
+                          const bankMappings = enhancedCsvImportService.getBankMappings(bank.toLowerCase().replace(' ', '-'));
+                          setMappings(bankMappings);
+                          setCurrentStep('mapping');
+                        }}
+                      >
+                        {bank}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

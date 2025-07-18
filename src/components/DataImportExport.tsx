@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContext';
 import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import CSVImportWizard from './CSVImportWizard';
+import OFXImportModal from './OFXImportModal';
 import { 
   UploadIcon, 
   DownloadIcon, 
@@ -13,7 +14,8 @@ import {
   XCircleIcon,
   ArrowRightIcon,
   SettingsIcon,
-  MagicWandIcon
+  MagicWandIcon,
+  CreditCardIcon
 } from './icons';
 
 interface ImportResult {
@@ -117,6 +119,7 @@ export default function DataImportExport() {
   const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
   const [showCsvWizard, setShowCsvWizard] = useState(false);
   const [csvImportType, setCsvImportType] = useState<'transaction' | 'account'>('transaction');
+  const [showOfxModal, setShowOfxModal] = useState(false);
   
   const [exportOptions, setExportOptions] = useLocalStorage<ExportOptions>('export-options', {
     format: 'csv',
@@ -240,19 +243,19 @@ export default function DataImportExport() {
               Choose what type of data you want to import
             </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Transaction Import */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* CSV Transaction Import */}
               <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-6 hover:border-[var(--color-primary)] transition-colors">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 bg-[var(--color-primary)]/10 rounded-full flex items-center justify-center">
                     <FileTextIcon className="text-[var(--color-primary)]" size={24} />
                   </div>
                   <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Import Transactions
+                    CSV Import
                   </h4>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Import transaction data from your bank statements or financial apps
+                  Import from bank CSV exports with smart column mapping
                 </p>
                 <button
                   onClick={() => handleOpenCsvWizard('transaction')}
@@ -260,6 +263,28 @@ export default function DataImportExport() {
                 >
                   <UploadIcon size={16} />
                   Import CSV
+                </button>
+              </div>
+
+              {/* OFX Import */}
+              <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-6 hover:border-[var(--color-primary)] transition-colors">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-12 h-12 bg-[var(--color-tertiary)]/10 rounded-full flex items-center justify-center">
+                    <CreditCardIcon className="text-[var(--color-tertiary)]" size={24} />
+                  </div>
+                  <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    OFX Import
+                  </h4>
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                  Import OFX files with automatic account matching
+                </p>
+                <button
+                  onClick={() => setShowOfxModal(true)}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--color-tertiary)] text-white rounded-lg hover:bg-[var(--color-tertiary)]/90"
+                >
+                  <UploadIcon size={16} />
+                  Import OFX
                 </button>
               </div>
 
@@ -274,7 +299,7 @@ export default function DataImportExport() {
                   </h4>
                 </div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                  Import account information including names, types, and balances
+                  Import account information from CSV files
                 </p>
                 <button
                   onClick={() => handleOpenCsvWizard('account')}
@@ -293,24 +318,24 @@ export default function DataImportExport() {
               <MagicWandIcon className="text-[var(--color-primary)] mt-1" size={24} />
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  Smart CSV Import Features
+                  Smart Import Features
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400">
                   <div>
-                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Intelligent Mapping</h4>
+                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">CSV: Intelligent Mapping</h4>
                     <p>Automatically detects and maps columns from your CSV files to the appropriate fields</p>
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Duplicate Detection</h4>
-                    <p>Prevents duplicate transactions by comparing dates, amounts, and descriptions</p>
+                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">OFX: Automatic Account Matching</h4>
+                    <p>Matches OFX files to your accounts using account numbers and sort codes</p>
                   </div>
                   <div>
                     <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Bank Templates</h4>
-                    <p>Pre-configured templates for major UK banks like Barclays, HSBC, Lloyds, and NatWest</p>
+                    <p>Pre-configured templates for 20+ UK banks and building societies</p>
                   </div>
                   <div>
-                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Import Profiles</h4>
-                    <p>Save your column mappings as profiles for faster future imports</p>
+                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Duplicate Prevention</h4>
+                    <p>Uses transaction IDs and smart matching to prevent duplicate imports</p>
                   </div>
                 </div>
               </div>
@@ -462,6 +487,12 @@ export default function DataImportExport() {
         isOpen={showCsvWizard}
         onClose={() => setShowCsvWizard(false)}
         type={csvImportType}
+      />
+      
+      {/* OFX Import Modal */}
+      <OFXImportModal
+        isOpen={showOfxModal}
+        onClose={() => setShowOfxModal(false)}
       />
     </div>
   );
