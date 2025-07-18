@@ -4,12 +4,13 @@ import type { Account, Transaction, Budget, Goal } from '../types';
 
 export interface SearchResult {
   id: string;
-  type: 'account' | 'transaction' | 'budget' | 'goal';
+  type: 'account' | 'transaction' | 'budget' | 'goal' | 'category';
   title: string;
   description: string;
-  data: Account | Transaction | Budget | Goal;
+  data: Account | Transaction | Budget | Goal | { id: string; name: string };
   score: number;
   matches: string[];
+  icon?: React.ComponentType<any>;
 }
 
 export function useGlobalSearch(query: string) {

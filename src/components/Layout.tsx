@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
@@ -8,6 +8,8 @@ import PWAInstallPrompt from './PWAInstallPrompt';
 import GlobalSearch, { useGlobalSearchDialog } from './GlobalSearch';
 import KeyboardShortcutsHelp, { useKeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
+import MobileBottomNav from './MobileBottomNav';
+import { useSwipeGestures, useSwipeNavigation } from '../hooks/useSwipeGestures';
 
 interface SidebarLinkProps {
   to: string;
@@ -82,13 +84,32 @@ export default function Layout() {
   const [accountsExpanded, setAccountsExpanded] = useState(false);
   const [forecastingExpanded, setForecastingExpanded] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { showBudget, showGoals, showAnalytics } = usePreferences();
   const { isWideView } = useLayout();
   const { isOpen: isSearchOpen, openSearch, closeSearch } = useGlobalSearchDialog();
   const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
+  const { navigateToPage } = useSwipeNavigation();
   
   // Initialize global keyboard shortcuts
   useGlobalKeyboardShortcuts();
+
+  // Swipe navigation for mobile
+  const swipeRef = useSwipeGestures({
+    onSwipeLeft: () => {
+      if (window.innerWidth <= 768) { // Only on mobile
+        const nextPage = navigateToPage('next', location.pathname);
+        if (nextPage) navigate(nextPage);
+      }
+    },
+    onSwipeRight: () => {
+      if (window.innerWidth <= 768) { // Only on mobile
+        const prevPage = navigateToPage('prev', location.pathname);
+        if (prevPage) navigate(prevPage);
+      }
+    },
+    threshold: 100
+  });
 
   const toggleSidebar = () => {
     setIsSidebarCollapsed(!isSidebarCollapsed);
@@ -409,13 +430,14 @@ export default function Layout() {
 
       {/* Main Content */}
       <main 
+        ref={swipeRef as React.RefObject<HTMLElement>}
         id="main-content"
         className="flex-1 overflow-auto md:pl-0" 
         role="main"
         aria-label="Main content"
         tabIndex={-1}
       >
-        <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto">
+        <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto pb-20 md:pb-8">
           <Outlet />
         </div>
       </main>
@@ -432,6 +454,9 @@ export default function Layout() {
       
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp isOpen={isHelpOpen} onClose={closeHelp} />
+      
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   );
 }

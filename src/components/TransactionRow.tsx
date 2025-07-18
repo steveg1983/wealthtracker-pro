@@ -13,6 +13,9 @@ interface TransactionRowProps {
   onDelete: (id: string) => void;
   columnOrder: string[];
   columnWidths: Record<string, number>;
+  isSelected?: boolean;
+  onToggleSelection?: (id: string) => void;
+  enableBulkSelection?: boolean;
 }
 
 export const TransactionRow = memo(function TransactionRow({
@@ -24,7 +27,10 @@ export const TransactionRow = memo(function TransactionRow({
   onEdit,
   onDelete,
   columnOrder,
-  columnWidths
+  columnWidths,
+  isSelected = false,
+  onToggleSelection,
+  enableBulkSelection = false
 }: TransactionRowProps) {
   const getTypeIcon = (type: string) => {
     if (type === 'income' || (type === 'transfer' && transaction.amount > 0)) {
@@ -182,9 +188,25 @@ export const TransactionRow = memo(function TransactionRow({
 
   return (
     <tr 
-      className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+      className={`border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer ${
+        isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+      }`}
       onClick={() => onEdit(transaction)}
     >
+      {enableBulkSelection && (
+        <td className={`${compactView ? 'py-1.5' : 'py-3'} px-4 w-12`}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={(e) => {
+              e.stopPropagation();
+              if (onToggleSelection) onToggleSelection(transaction.id);
+            }}
+            onClick={(e) => e.stopPropagation()}
+            className="rounded text-primary focus:ring-primary"
+          />
+        </td>
+      )}
       {columnOrder.map(column => <React.Fragment key={column}>{renderCell(column)}</React.Fragment>)}
     </tr>
   );
