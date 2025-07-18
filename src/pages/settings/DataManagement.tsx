@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import ImportDataModal from '../../components/ImportDataModal';
 import CSVImportWizard from '../../components/CSVImportWizard';
+import OFXImportModal from '../../components/OFXImportModal';
+import QIFImportModal from '../../components/QIFImportModal';
 import DuplicateDetection from '../../components/DuplicateDetection';
 import ExcelExport from '../../components/ExcelExport';
 import BulkTransactionEdit from '../../components/BulkTransactionEdit';
 import TransactionReconciliation from '../../components/TransactionReconciliation';
 import DataValidation from '../../components/DataValidation';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon } from '../../components/icons';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon } from '../../components/icons';
 
 export default function DataManagementSettings() {
   const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
@@ -15,6 +17,8 @@ export default function DataManagementSettings() {
   const [showImportModal, setShowImportModal] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
   const [showCSVImportWizard, setShowCSVImportWizard] = useState(false);
+  const [showOFXImportModal, setShowOFXImportModal] = useState(false);
+  const [showQIFImportModal, setShowQIFImportModal] = useState(false);
   const [showDuplicateDetection, setShowDuplicateDetection] = useState(false);
   const [showExcelExport, setShowExcelExport] = useState(false);
   const [showBulkEdit, setShowBulkEdit] = useState(false);
@@ -64,22 +68,45 @@ export default function DataManagementSettings() {
       )}
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
-        <div className="space-y-3">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Import Options</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
           <button
-            onClick={() => setShowImportModal(true)}
-            className="w-full px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center gap-2"
+            onClick={() => setShowCSVImportWizard(true)}
+            className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
           >
-            <UploadIcon size={20} />
-            Import Data (MNY/MBF/QIF/OFX/CSV)
+            <FileTextIcon size={20} />
+            CSV Import (Bank Statements)
           </button>
 
           <button
-            onClick={() => setShowCSVImportWizard(true)}
-            className="w-full px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
+            onClick={() => setShowOFXImportModal(true)}
+            className="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
           >
-            <FileTextIcon size={20} />
-            Bank CSV Import Wizard
+            <CreditCardIcon size={20} />
+            OFX Import (Auto Match)
           </button>
+
+          <button
+            onClick={() => setShowQIFImportModal(true)}
+            className="px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <DatabaseIcon size={20} />
+            QIF Import (Quicken)
+          </button>
+
+          <button
+            onClick={() => setShowImportModal(true)}
+            className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <UploadIcon size={20} />
+            Legacy Import (MNY/MBF)
+          </button>
+        </div>
+
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 mt-6">Export Options</h3>
+        
+        <div className="space-y-3">
           
           <button
             onClick={handleExportData}
@@ -231,6 +258,19 @@ export default function DataManagementSettings() {
       <CSVImportWizard
         isOpen={showCSVImportWizard}
         onClose={() => setShowCSVImportWizard(false)}
+        type="transaction"
+      />
+
+      {/* OFX Import Modal */}
+      <OFXImportModal
+        isOpen={showOFXImportModal}
+        onClose={() => setShowOFXImportModal(false)}
+      />
+
+      {/* QIF Import Modal */}
+      <QIFImportModal
+        isOpen={showQIFImportModal}
+        onClose={() => setShowQIFImportModal(false)}
       />
 
       {/* Duplicate Detection */}
