@@ -67,10 +67,10 @@ export default function DataManagementSettings() {
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Import Options</h3>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={() => setShowCSVImportWizard(true)}
             className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
@@ -103,14 +103,15 @@ export default function DataManagementSettings() {
             Legacy Import (MNY/MBF)
           </button>
         </div>
+      </div>
 
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 mt-6">Export Options</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
         
-        <div className="space-y-3">
-          
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={handleExportData}
-            className="w-full px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
           >
             <DownloadIcon size={20} />
             Export Data to JSON
@@ -118,12 +119,18 @@ export default function DataManagementSettings() {
 
           <button
             onClick={() => setShowExcelExport(true)}
-            className="w-full px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
           >
             <GridIcon size={20} />
             Export to Excel (Advanced)
           </button>
+        </div>
+      </div>
 
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Advanced System Data Options</h3>
+        
+        <div className="space-y-3">
           <button
             onClick={() => setShowDuplicateDetection(true)}
             className="w-full px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors flex items-center justify-center gap-2"
