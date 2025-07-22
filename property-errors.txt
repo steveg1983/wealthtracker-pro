@@ -1,0 +1,20 @@
+src/components/AccountBalancesChart.tsx(7,21): error TS2339: Property 'getDecimalAccounts' does not exist on type 'AppContextType'.
+src/components/AdvancedSearch.tsx(175,65): error TS2339: Property 'toLowerCase' does not exist on type 'string | number | boolean | string[]'.
+src/components/AdvancedSearch.tsx(181,28): error TS2339: Property 'length' does not exist on type 'string | number | true | string[]'.
+src/components/AdvancedSearch.tsx(182,56): error TS2339: Property 'includes' does not exist on type 'string | number | boolean | string[]'.
+src/components/AdvancedSearch.tsx(187,28): error TS2339: Property 'length' does not exist on type 'string | number | true | string[]'.
+src/components/AdvancedSearch.tsx(188,56): error TS2339: Property 'includes' does not exist on type 'string | number | boolean | string[]'.
+src/components/AdvancedSearch.tsx(356,41): error TS2339: Property 'includes' does not exist on type 'string | number | boolean | string[]'.
+src/components/AdvancedSearch.tsx(360,38): error TS2339: Property 'filter' does not exist on type 'string | number | boolean | string[]'.
+src/components/AllocationAnalysis.tsx(39,21): error TS2339: Property 'investments' does not exist on type 'AppContextType'.
+src/components/AllocationAnalysis.tsx(39,34): error TS2339: Property 'formatAmount' does not exist on type 'AppContextType'.
+src/components/AllocationAnalysis.tsx(40,11): error TS2339: Property 'symbol' does not exist on type '{ displayCurrency: string; currencySymbol: string; formatCurrency: (amount: number, originalCurrency?: string | undefined) => string; convertAndFormat: (amount: number, fromCurrency: string) => Promise<...>; convert: (amount: number, fromCurrency: string) => Promise<...>; convertAndSum: (amounts: { ...; }[]) => Prom...'.
+src/components/BatchImportModal.tsx(129,52): error TS2339: Property 'generatePreview' does not exist on type 'EnhancedCsvImportService'.
+src/components/BatchImportModal.tsx(167,35): error TS2339: Property 'suggestedAccountId' does not exist on type 'OFXParseResult'.
+src/components/BatchImportModal.tsx(171,38): error TS2339: Property 'date' does not exist on type 'OFXTransaction'.
+src/components/BatchImportModal.tsx(173,45): error TS2339: Property 'description' does not exist on type 'OFXTransaction'.
+src/components/BatchImportModal.tsx(197,45): error TS2339: Property 'description' does not exist on type 'QIFTransaction'.
+src/components/BudgetRollover.tsx(55,23): error TS2339: Property 'getDecimalTransactions' does not exist on type 'AppContextType'.
+src/components/BudgetRollover.tsx(55,47): error TS2339: Property 'getDecimalBudgets' does not exist on type 'AppContextType'.
+src/components/BulkTransactionEdit.tsx(118,75): error TS2339: Property 'toNumber' does not exist on type 'never'.
+src/components/BulkTransactionEdit.tsx(464,81): error TS2339: Property 'toNumber' does not exist on type 'never'.

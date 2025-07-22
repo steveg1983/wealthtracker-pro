@@ -70,7 +70,7 @@ export function useRealTimePrices({
     }, 60000); // Check every minute
 
     // Handle errors
-    const handleError = ({ symbol, error }: { symbol: string; error: any }) => {
+    const handleError = ({ symbol, error }: { symbol: string; error: Error }) => {
       setError(`Failed to fetch price for ${symbol}: ${error.message}`);
       setIsLoading(false);
     };

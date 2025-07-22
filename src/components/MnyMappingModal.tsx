@@ -25,7 +25,7 @@ const FIELD_OPTIONS = [
   { value: 'checkNumber', label: 'Check Number' },
 ];
 
-export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingComplete }: MnyMappingModalProps) {
+export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingComplete }: MnyMappingModalProps): React.JSX.Element | null {
   const [mapping, setMapping] = useState<Record<number, string>>({});
   const [preview, setPreview] = useState<Array<Record<string, unknown>>>([]);
   const [error, setError] = useState('');

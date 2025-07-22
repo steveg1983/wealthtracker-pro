@@ -17,12 +17,12 @@ export default function TransactionDetailsModal({
   transactions,
   title,
   accounts
-}: TransactionDetailsModalProps) {
+}: TransactionDetailsModalProps): React.JSX.Element | null {
   const { formatCurrency } = useCurrencyDecimal();
 
   if (!isOpen) return null;
 
-  const getAccountName = (accountId: string) => {
+  const getAccountName = (accountId: string): string => {
     const account = accounts.find(a => a.id === accountId);
     return account?.name || 'Unknown Account';
   };

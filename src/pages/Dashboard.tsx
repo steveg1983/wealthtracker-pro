@@ -19,10 +19,11 @@ import type { ReportSettings } from '../components/IncomeExpenditureReport';
 import PageWrapper from '../components/PageWrapper';
 import CustomizableDashboard from '../components/CustomizableDashboard';
 import DataImportExport from '../components/DataImportExport';
+import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
 
 
 export default function Dashboard() {
-  const { accounts, transactions, hasTestData, clearAllData, getDecimalAccounts } = useApp();
+  const { accounts, transactions, hasTestData, clearAllData } = useApp();
   const { firstName, setFirstName, setCurrency } = usePreferences();
   const { formatCurrency, convertAndSum, displayCurrency } = useCurrencyDecimal();
   const { layouts, updateDashboardLayout, resetDashboardLayout } = useLayoutConfig();
@@ -111,13 +112,12 @@ export default function Dashboard() {
       setIsLoading(true);
       
       try {
-        const decimalAccounts = getDecimalAccounts();
-        const assetAccounts = decimalAccounts.filter(acc => acc.balance.greaterThan(0));
-        const liabilityAccounts = decimalAccounts.filter(acc => acc.balance.lessThan(0));
+        const assetAccounts = accounts.filter(acc => acc.balance > 0);
+        const liabilityAccounts = accounts.filter(acc => acc.balance < 0);
         
         const [totalAssets, totalLiabilities] = await Promise.all([
           convertAndSum(assetAccounts.map(acc => ({ amount: acc.balance, currency: acc.currency }))),
-          convertAndSum(liabilityAccounts.map(acc => ({ amount: acc.balance.abs(), currency: acc.currency })))
+          convertAndSum(liabilityAccounts.map(acc => ({ amount: Math.abs(acc.balance), currency: acc.currency })))
         ]);
         
         if (!cancelled) {
@@ -143,7 +143,7 @@ export default function Dashboard() {
     return () => {
       cancelled = true;
     };
-  }, [getDecimalAccounts, displayCurrency, convertAndSum, formatCurrency]);
+  }, [accounts, displayCurrency, convertAndSum, formatCurrency]);
   
   const { assets: totalAssets, liabilities: totalLiabilities, netWorth, netWorthValue } = convertedTotals;
   
@@ -378,7 +378,7 @@ export default function Dashboard() {
             <div className="flex-1">
               <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Net Worth</p>
               <p className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white mt-1">
-                {isLoading ? '...' : netWorth}
+                {isLoading ? <SkeletonText className="w-32 h-8" /> : netWorth}
               </p>
             </div>
             <BanknoteIcon className="text-primary ml-2" size={24} />
@@ -393,7 +393,7 @@ export default function Dashboard() {
             <div className="flex-1">
               <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Total Assets</p>
               <p className="text-2xl md:text-3xl font-bold text-green-600 dark:text-green-400 mt-1">
-                {isLoading ? '...' : totalAssets}
+                {isLoading ? <SkeletonText className="w-32 h-8" /> : totalAssets}
               </p>
             </div>
             <TrendingUpIcon className="text-green-500 ml-2" size={24} />
@@ -408,7 +408,7 @@ export default function Dashboard() {
             <div className="flex-1">
               <p className="text-sm md:text-base text-gray-500 dark:text-gray-400">Total Liabilities</p>
               <p className="text-2xl md:text-3xl font-bold text-red-600 dark:text-red-400 mt-1">
-                {isLoading ? '...' : totalLiabilities}
+                {isLoading ? <SkeletonText className="w-32 h-8" /> : totalLiabilities}
               </p>
             </div>
             <TrendingDownIcon className="text-red-500 ml-2" size={24} />
@@ -432,6 +432,9 @@ export default function Dashboard() {
               Click title for expanded view • Click any bar to see detailed breakdown
             </p>
             <div className="h-full min-h-[200px]">
+              {isLoading ? (
+                <SkeletonCard className="h-full w-full" />
+              ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={netWorthData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
@@ -461,6 +464,7 @@ export default function Dashboard() {
                   />
                 </BarChart>
               </ResponsiveContainer>
+              )}
             </div>
           </GridItem>
         </div>
@@ -469,7 +473,15 @@ export default function Dashboard() {
         <div key="recent-transactions">
           <GridItem key="recent-transactions-grid" title="Recent Transactions">
             <div className="space-y-1 overflow-auto" style={{ maxHeight: '300px' }}>
-              {recentTransactions.map(transaction => (
+              {isLoading ? (
+                <>
+                  <SkeletonText className="h-12 mb-2" />
+                  <SkeletonText className="h-12 mb-2" />
+                  <SkeletonText className="h-12 mb-2" />
+                  <SkeletonText className="h-12 mb-2" />
+                  <SkeletonText className="h-12" />
+                </>
+              ) : recentTransactions.map(transaction => (
                 <div 
                   key={transaction.id} 
                   className="flex items-center gap-3 py-1.5 border-b dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors rounded px-2 -mx-2"
@@ -507,6 +519,9 @@ export default function Dashboard() {
               Click to view transactions
             </p>
             <div className="h-full min-h-[200px]">
+              {isLoading ? (
+                <SkeletonCard className="h-full w-full" />
+              ) : (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -532,6 +547,7 @@ export default function Dashboard() {
                   />
                 </PieChart>
               </ResponsiveContainer>
+              )}
             </div>
           </GridItem>
         </div>

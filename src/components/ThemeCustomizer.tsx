@@ -8,7 +8,7 @@ interface ThemeCustomizerProps {
 }
 
 export default function ThemeCustomizer({ isOpen, onClose }: ThemeCustomizerProps) {
-  const { theme, setTheme, accentColor, setAccentColor, actualTheme } = usePreferences();
+  const { theme, setTheme, colorTheme, setColorTheme, actualTheme } = usePreferences();
   const [showColorPicker, setShowColorPicker] = useState(false);
 
   const accentColors = [
@@ -58,7 +58,7 @@ export default function ThemeCustomizer({ isOpen, onClose }: ThemeCustomizerProp
                 return (
                   <button
                     key={option.value}
-                    onClick={() => setTheme(option.value as 'light' | 'dark' | 'auto')}
+                    onClick={() => setTheme(option.value as 'light' | 'dark' | 'auto' | 'scheduled')}
                     className={`p-3 rounded-lg border-2 transition-all ${
                       theme === option.value
                         ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10'
@@ -82,9 +82,9 @@ export default function ThemeCustomizer({ isOpen, onClose }: ThemeCustomizerProp
               {accentColors.map((color) => (
                 <button
                   key={color.value}
-                  onClick={() => setAccentColor(color.value)}
+                  onClick={() => setColorTheme(color.value as 'blue' | 'green' | 'red' | 'pink')}
                   className={`w-full aspect-square rounded-lg border-2 transition-all ${
-                    accentColor === color.value
+                    colorTheme === color.value
                       ? 'border-gray-900 dark:border-white scale-110'
                       : 'border-gray-200 dark:border-gray-600 hover:scale-105'
                   }`}
@@ -92,7 +92,7 @@ export default function ThemeCustomizer({ isOpen, onClose }: ThemeCustomizerProp
                   title={color.name}
                   aria-label={`Set accent color to ${color.name}`}
                 >
-                  {accentColor === color.value && (
+                  {colorTheme === color.value && (
                     <div className="w-full h-full rounded-lg flex items-center justify-center">
                       <div className="w-4 h-4 rounded-full bg-white dark:bg-gray-900 flex items-center justify-center">
                         <div className="w-2 h-2 rounded-full bg-current" />
@@ -124,7 +124,7 @@ export default function ThemeCustomizer({ isOpen, onClose }: ThemeCustomizerProp
             <button
               onClick={() => {
                 setTheme('light');
-                setAccentColor('blue');
+                setColorTheme('blue');
               }}
               className="w-full p-3 text-center bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors text-gray-900 dark:text-white"
             >

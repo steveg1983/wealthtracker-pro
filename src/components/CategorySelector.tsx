@@ -31,7 +31,7 @@ export default function CategorySelector({
   placeholder = "Select category...",
   className = "",
   allowCreate = false
-}: CategorySelectorProps) {
+}: CategorySelectorProps): React.JSX.Element {
   const { categories, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -40,7 +40,7 @@ export default function CategorySelector({
 
 
   // Get sub-categories for the transaction type
-  const getSubCategoriesForType = () => {
+  const getSubCategoriesForType = (): Category[] => {
     const typeCategory = categories.find(cat => 
       cat.level === 'type' && (cat.type === transactionType || cat.type === 'both')
     );
@@ -48,7 +48,7 @@ export default function CategorySelector({
   };
 
   // Get all detail categories for the transaction type
-  const getAllDetailCategories = () => {
+  const getAllDetailCategories = (): Category[] => {
     const subCategories = getSubCategoriesForType();
     const detailCategories: Category[] = [];
     
@@ -61,7 +61,7 @@ export default function CategorySelector({
   };
 
   // Filter categories based on search term
-  const getFilteredOptions = () => {
+  const getFilteredOptions = (): Category[] => {
     const allDetails = getAllDetailCategories();
     
     if (!searchTerm) {
@@ -75,7 +75,7 @@ export default function CategorySelector({
   };
 
   // Get parent category name for display
-  const getParentCategoryName = (categoryId: string) => {
+  const getParentCategoryName = (categoryId: string): string => {
     const category = categories.find(c => c.id === categoryId);
     if (!category?.parentId) return '';
     
@@ -84,7 +84,7 @@ export default function CategorySelector({
   };
 
   // Get full category display name
-  const getCategoryDisplayName = (categoryId: string) => {
+  const getCategoryDisplayName = (categoryId: string): string => {
     const category = categories.find(c => c.id === categoryId);
     if (!category) return '';
     
@@ -93,7 +93,7 @@ export default function CategorySelector({
   };
 
   // Get selected category display name
-  const getSelectedCategoryName = () => {
+  const getSelectedCategoryName = (): string => {
     if (!selectedCategory) return '';
     return getCategoryDisplayName(selectedCategory);
   };
@@ -111,22 +111,22 @@ export default function CategorySelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     setSearchTerm(e.target.value);
     setShowDropdown(true);
   };
 
-  const handleInputFocus = () => {
+  const handleInputFocus = (): void => {
     setShowDropdown(true);
   };
 
-  const handleCategorySelect = (categoryId: string) => {
+  const handleCategorySelect = (categoryId: string): void => {
     onCategoryChange(categoryId);
     setShowDropdown(false);
     setSearchTerm('');
   };
 
-  const handleInputClick = () => {
+  const handleInputClick = (): void => {
     setShowDropdown(!showDropdown);
   };
 

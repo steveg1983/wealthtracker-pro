@@ -20,7 +20,7 @@ interface Holding {
 interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
+  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other' | 'mortgage' | 'checking' | 'asset';
   balance: number;
   currency: string;
   institution?: string;

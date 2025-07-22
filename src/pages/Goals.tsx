@@ -1,20 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "../contexts/AppContext";
 import GoalModal from "../components/GoalModal";
 import { TargetIcon, TrendingUpIcon, CalendarIcon } from "../components/icons";
 import { PlusIcon, EditIcon, DeleteIcon } from "../components/icons";
 import { IconButton } from "../components/icons/IconButton";
 import type { Goal } from "../types";
+import type { DecimalGoal, DecimalAccount, DecimalInstance } from "../types/decimal-types";
 import PageWrapper from "../components/PageWrapper";
 import { calculateGoalProgress } from "../utils/calculations-decimal";
 import { toDecimal } from "../utils/decimal";
 import { useCurrencyDecimal } from "../hooks/useCurrencyDecimal";
+import Confetti from "../components/Confetti";
+import GoalCelebrationModal from "../components/GoalCelebrationModal";
+import { goalAchievementService } from "../services/goalAchievementService";
+import { useNotifications } from "../contexts/NotificationContext";
+import { usePreferences } from "../contexts/PreferencesContext";
+import AchievementHistory from "../components/AchievementHistory";
 
 export default function Goals() {
   const { goals, accounts, deleteGoal, getDecimalGoals, getDecimalAccounts } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
+  const { addNotification, checkGoalProgress } = useNotifications();
+  const { enableGoalCelebrations } = usePreferences();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | undefined>();
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [celebratingGoal, setCelebratingGoal] = useState<Goal | null>(null);
+  const [celebrationMessage, setCelebrationMessage] = useState('');
+  const [showAchievements, setShowAchievements] = useState(false);
+  const [previousGoals, setPreviousGoals] = useState<Goal[]>([]);
+
+  // Track goal progress changes for notifications
+  useEffect(() => {
+    if (goals.length > 0 && previousGoals.length > 0) {
+      checkGoalProgress(goals, previousGoals);
+    }
+    setPreviousGoals([...goals]);
+  }, [goals, checkGoalProgress]);
 
   const handleEdit = (goal: Goal) => {
     setEditingGoal(goal);
@@ -33,7 +55,7 @@ export default function Goals() {
   };
 
   const getProgressPercentage = (goal: Goal) => {
-    const decimalGoal = getDecimalGoals().find(g => g.id === goal.id);
+    const decimalGoal = getDecimalGoals().find((g: DecimalGoal) => g.id === goal.id);
     if (!decimalGoal) return 0;
     return calculateGoalProgress(decimalGoal);
   };
@@ -51,7 +73,7 @@ export default function Goals() {
     
     const decimalAccounts = getDecimalAccounts();
     return linkedAccountIds.reduce((total, accountId) => {
-      const account = decimalAccounts.find(a => a.id === accountId);
+      const account = decimalAccounts.find((a: DecimalAccount) => a.id === accountId);
       return account ? total.plus(account.balance) : total;
     }, toDecimal(0));
   };
@@ -72,14 +94,62 @@ export default function Goals() {
   const activeGoals = goals.filter(g => g.isActive);
   const completedGoals = goals.filter(g => !g.isActive || getProgressPercentage(g) >= 100);
 
+  // Check for newly achieved goals
+  useEffect(() => {
+    if (!enableGoalCelebrations) return;
+    
+    activeGoals.forEach(goal => {
+      const progress = getProgressPercentage(goal);
+      
+      // Check for achievement
+      if (progress >= 100 && !goalAchievementService.hasBeenCelebrated(goal.id)) {
+        // Record achievement
+        goalAchievementService.recordAchievement(goal);
+        goalAchievementService.markAsCelebrated(goal.id);
+        
+        // Get celebration message
+        const message = goalAchievementService.getCelebrationMessage(goal);
+        setCelebrationMessage(message);
+        setCelebratingGoal(goal);
+        
+        // Show confetti
+        setShowConfetti(true);
+        
+        // Add notification
+        addNotification({
+          id: `goal-achieved-${goal.id}`,
+          type: 'success',
+          title: 'Goal Achieved! 🎉',
+          message: `Congratulations! You've achieved your goal: ${goal.name}`,
+          timestamp: new Date(),
+          persistent: true
+        });
+      }
+      
+      // Check for milestones
+      const milestoneMessage = goalAchievementService.getMilestoneMessage(progress);
+      if (milestoneMessage && !sessionStorage.getItem(`milestone-${goal.id}-${Math.floor(progress / 25) * 25}`)) {
+        sessionStorage.setItem(`milestone-${goal.id}-${Math.floor(progress / 25) * 25}`, 'true');
+        
+        addNotification({
+          id: `goal-milestone-${goal.id}-${Date.now()}`,
+          type: 'info',
+          title: 'Goal Progress',
+          message: `${goal.name}: ${milestoneMessage}`,
+          timestamp: new Date()
+        });
+      }
+    });
+  }, [activeGoals, addNotification, enableGoalCelebrations]);
+
   const decimalGoals = getDecimalGoals();
-  const activeDecimalGoals = decimalGoals.filter(g => {
+  const activeDecimalGoals = decimalGoals.filter((g: DecimalGoal) => {
     const regularGoal = goals.find(rg => rg.id === g.id);
     return regularGoal?.isActive;
   });
   
-  const totalTargetAmount = activeDecimalGoals.reduce((sum, goal) => sum.plus(goal.targetAmount), toDecimal(0));
-  const totalCurrentAmount = activeDecimalGoals.reduce((sum, goal) => sum.plus(goal.currentAmount), toDecimal(0));
+  const totalTargetAmount = activeDecimalGoals.reduce((sum: DecimalInstance, goal: DecimalGoal) => sum.plus(goal.targetAmount), toDecimal(0));
+  const totalCurrentAmount = activeDecimalGoals.reduce((sum: DecimalInstance, goal: DecimalGoal) => sum.plus(goal.currentAmount), toDecimal(0));
   const overallProgress = totalTargetAmount.greaterThan(0) ? totalCurrentAmount.dividedBy(totalTargetAmount).times(100).toNumber() : 0;
 
   return (
@@ -337,6 +407,26 @@ export default function Goals() {
             </div>
           </div>
         )}
+        
+        {/* Achievement History Toggle */}
+        {goals.length > 0 && (
+          <div className="mt-6">
+            <button
+              onClick={() => setShowAchievements(!showAchievements)}
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium flex items-center gap-2"
+            >
+              <span>🏆</span>
+              {showAchievements ? 'Hide' : 'View'} Achievement History
+            </button>
+          </div>
+        )}
+        
+        {/* Achievement History */}
+        {showAchievements && (
+          <div className="mt-6">
+            <AchievementHistory />
+          </div>
+        )}
         </div>
       </div>
 
@@ -345,6 +435,23 @@ export default function Goals() {
         onClose={handleCloseModal}
         goal={editingGoal}
       />
+      
+      {/* Confetti Animation */}
+      <Confetti
+        isActive={showConfetti}
+        duration={4000}
+        onComplete={() => setShowConfetti(false)}
+      />
+      
+      {/* Goal Celebration Modal */}
+      {celebratingGoal && (
+        <GoalCelebrationModal
+          isOpen={!!celebratingGoal}
+          onClose={() => setCelebratingGoal(null)}
+          goal={celebratingGoal}
+          message={celebrationMessage}
+        />
+      )}
       
     </PageWrapper>
   );

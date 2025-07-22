@@ -3,7 +3,7 @@ import { Modal } from './common/Modal';
 import { useApp } from '../contexts/AppContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { EditIcon, TrashIcon, CheckIcon, XIcon } from './icons';
-import type { Transaction } from '../types';
+import type { Transaction, Account } from '../types';
 
 interface ValidationTransactionModalProps {
   isOpen: boolean;
@@ -21,7 +21,7 @@ export default function ValidationTransactionModal({
   transactionIds,
   issueType,
   onFixed
-}: ValidationTransactionModalProps) {
+}: ValidationTransactionModalProps): React.JSX.Element {
   const { transactions, accounts, categories, updateTransaction, deleteTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -30,7 +30,7 @@ export default function ValidationTransactionModal({
   const affectedTransactions = transactions.filter(t => transactionIds.includes(t.id));
   const validCategories = categories.map(c => c.name);
 
-  const handleEdit = (transaction: Transaction) => {
+  const handleEdit = (transaction: Transaction): void => {
     setEditingId(transaction.id);
     setEditValues({
       [transaction.id]: {
@@ -41,7 +41,7 @@ export default function ValidationTransactionModal({
     });
   };
 
-  const handleSave = (transactionId: string) => {
+  const handleSave = (transactionId: string): void => {
     const values = editValues[transactionId];
     if (values) {
       updateTransaction(transactionId, {
@@ -54,19 +54,19 @@ export default function ValidationTransactionModal({
     if (onFixed) onFixed();
   };
 
-  const handleCancel = () => {
+  const handleCancel = (): void => {
     setEditingId(null);
     setEditValues({});
   };
 
-  const handleDelete = (transactionId: string) => {
+  const handleDelete = (transactionId: string): void => {
     if (window.confirm('Are you sure you want to delete this transaction?')) {
       deleteTransaction(transactionId);
       if (onFixed) onFixed();
     }
   };
 
-  const getAccount = (accountId: string) => {
+  const getAccount = (accountId: string): Account | undefined => {
     return accounts.find(a => a.id === accountId);
   };
 

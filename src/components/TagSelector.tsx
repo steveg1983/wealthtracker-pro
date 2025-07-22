@@ -18,7 +18,7 @@ export default function TagSelector({
   placeholder = "Add tags...",
   allowNewTags = true,
   className = ""
-}: TagSelectorProps) {
+}: TagSelectorProps): React.JSX.Element {
   const { tags, addTag, getTagUsageCount } = useApp();
   const [inputValue, setInputValue] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -48,20 +48,20 @@ export default function TagSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const value = e.target.value;
     setInputValue(value);
     setShowDropdown(value.length > 0);
     setFocusedIndex(-1);
   };
 
-  const handleInputFocus = () => {
+  const handleInputFocus = (): void => {
     if (inputValue.length > 0) {
       setShowDropdown(true);
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent): void => {
     if (!showDropdown) return;
 
     const totalOptions = filteredTags.length + (allowNewTags && inputValue.trim() && !exactMatch ? 1 : 0);
@@ -96,7 +96,7 @@ export default function TagSelector({
     }
   };
 
-  const selectTag = (tagName: string) => {
+  const selectTag = (tagName: string): void => {
     if (!selectedTags.includes(tagName)) {
       onTagsChange([...selectedTags, tagName]);
     }
@@ -105,7 +105,7 @@ export default function TagSelector({
     setFocusedIndex(-1);
   };
 
-  const createAndSelectTag = (tagName: string) => {
+  const createAndSelectTag = (tagName: string): void => {
     // Create the tag in the centralized system
     addTag({
       name: tagName,
@@ -117,11 +117,11 @@ export default function TagSelector({
     selectTag(tagName);
   };
 
-  const removeTag = (tagToRemove: string) => {
+  const removeTag = (tagToRemove: string): void => {
     onTagsChange(selectedTags.filter(tag => tag !== tagToRemove));
   };
 
-  const getTagColor = (tagName: string) => {
+  const getTagColor = (tagName: string): string => {
     const tag = tags.find(t => t.name === tagName);
     return tag?.color || '#6B7280';
   };

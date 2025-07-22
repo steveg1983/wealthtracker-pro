@@ -18,6 +18,8 @@ import {
   DeselectAllIcon
 } from './icons';
 import type { Transaction } from '../types';
+import type { DecimalInstance } from '../types/decimal-types';
+import { toDecimal } from '../utils/decimal';
 
 interface BulkTransactionEditProps {
   isOpen: boolean;
@@ -40,7 +42,7 @@ interface FilterOptions {
   };
   accounts: string[];
   categories: string[];
-  types: ('income' | 'expense')[];
+  types: ('income' | 'expense' | 'transfer')[];
   searchTerm: string;
   amountRange: {
     min: number | null;
@@ -98,7 +100,7 @@ export default function BulkTransactionEdit({
       }
       
       // Type filter
-      if (filters.types.length > 0 && !filters.types.includes(t.type)) {
+      if (filters.types.length > 0 && !filters.types.includes(t.type as any)) {
         return false;
       }
       
@@ -115,7 +117,7 @@ export default function BulkTransactionEdit({
       
       // Amount filter
       if (filters.amountRange.min !== null || filters.amountRange.max !== null) {
-        const amount = typeof t.amount === 'number' ? t.amount : t.amount.toNumber();
+        const amount = typeof t.amount === 'number' ? t.amount : (t.amount as DecimalInstance).toNumber();
         if (filters.amountRange.min !== null && amount < filters.amountRange.min) return false;
         if (filters.amountRange.max !== null && amount > filters.amountRange.max) return false;
       }
@@ -217,7 +219,7 @@ export default function BulkTransactionEdit({
       isOpen={isOpen}
       onClose={onClose}
       title="Bulk Edit Transactions"
-      className="max-w-6xl"
+      size="full"
     >
       <div className="flex h-[80vh]">
         {/* Left Panel - Transaction List */}
@@ -350,9 +352,9 @@ export default function BulkTransactionEdit({
                           checked={filters.types.includes('income')}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setFilters({ ...filters, types: [...filters.types, 'income'] });
+                              setFilters({ ...filters, types: [...filters.types, 'income'] as any });
                             } else {
-                              setFilters({ ...filters, types: filters.types.filter(t => t !== 'income') });
+                              setFilters({ ...filters, types: filters.types.filter(t => t !== 'income') as any });
                             }
                           }}
                           className="rounded"
@@ -365,14 +367,29 @@ export default function BulkTransactionEdit({
                           checked={filters.types.includes('expense')}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setFilters({ ...filters, types: [...filters.types, 'expense'] });
+                              setFilters({ ...filters, types: [...filters.types, 'expense'] as any });
                             } else {
-                              setFilters({ ...filters, types: filters.types.filter(t => t !== 'expense') });
+                              setFilters({ ...filters, types: filters.types.filter(t => t !== 'expense') as any });
                             }
                           }}
                           className="rounded"
                         />
                         <span className="text-sm">Expense</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={filters.types.includes('transfer' as any)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setFilters({ ...filters, types: [...filters.types, 'transfer' as any] });
+                            } else {
+                              setFilters({ ...filters, types: filters.types.filter(t => t !== 'transfer') as any });
+                            }
+                          }}
+                          className="rounded"
+                        />
+                        <span className="text-sm">Transfer</span>
                       </label>
                     </div>
                   </div>
@@ -461,7 +478,7 @@ export default function BulkTransactionEdit({
                 <div className="text-xs text-gray-500">
                   Total: {formatCurrency(
                     selectedTransactions.reduce((sum, t) => 
-                      sum + (typeof t.amount === 'number' ? t.amount : t.amount.toNumber()), 0
+                      sum + (typeof t.amount === 'number' ? t.amount : (t.amount as DecimalInstance).toNumber()), 0
                     )
                   )}
                 </div>

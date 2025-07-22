@@ -4,6 +4,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useBudgets } from '../contexts/BudgetContext';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
+import type { DecimalTransaction, DecimalBudget } from '../types/decimal-types';
 import { 
   PlusIcon, 
   MinusIcon, 
@@ -39,7 +40,7 @@ interface EnvelopeTransfer {
 
 export default function EnvelopeBudgeting() {
   const { categories, getDecimalTransactions } = useApp();
-  const { budgets, updateBudget } = useBudgets();
+  const { budgets, addBudget, updateBudget } = useBudgets();
   const { formatCurrency } = useCurrencyDecimal();
   
   const [selectedEnvelope, setSelectedEnvelope] = useState<string | null>(null);
@@ -66,14 +67,14 @@ export default function EnvelopeBudgeting() {
     return budgets.map(budget => {
       const budgetedAmount = toDecimal(budget.amount);
       
-      // Calculate spending for this envelope's categories
+      // Calculate spending for this budget's category
       const spentAmount = transactions
-        .filter(t => 
+        .filter((t: DecimalTransaction) => 
           t.type === 'expense' && 
-          t.date.startsWith(currentMonth) &&
-          budget.categoryIds.includes(t.category || '')
+          t.date.toISOString().startsWith(currentMonth) &&
+          t.category === budget.category
         )
-        .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
+        .reduce((sum: DecimalInstance, t: DecimalTransaction) => sum.plus(t.amount), toDecimal(0));
       
       const remainingAmount = budgetedAmount.minus(spentAmount);
       const isOverspent = remainingAmount.lessThan(0);
@@ -81,41 +82,41 @@ export default function EnvelopeBudgeting() {
         ? Math.min(spentAmount.dividedBy(budgetedAmount).times(100).toNumber(), 100)
         : 0;
 
+      // Use category name as envelope name
+      const categoryName = categories.find(c => c.id === budget.category)?.name || budget.category;
+
       return {
         id: budget.id,
-        name: budget.name,
+        name: categoryName,
         budgetedAmount,
         spentAmount,
         remainingAmount,
-        categoryIds: budget.categoryIds,
-        color: budget.color || '#3B82F6',
+        categoryIds: [budget.category],
+        color: '#3B82F6', // Default color
         isOverspent,
         fillPercentage,
-        priority: budget.priority || 'medium'
+        priority: 'medium' as const
       } as Envelope;
     });
-  }, [budgets, transactions, currentMonth]);
+  }, [budgets, transactions, currentMonth, categories]);
 
-  const totalBudgeted = envelopes.reduce((sum, env) => sum.plus(env.budgetedAmount), toDecimal(0));
-  const totalSpent = envelopes.reduce((sum, env) => sum.plus(env.spentAmount), toDecimal(0));
-  const totalRemaining = envelopes.reduce((sum, env) => sum.plus(env.remainingAmount), toDecimal(0));
-  const overbudgetEnvelopes = envelopes.filter(env => env.isOverspent);
+  const totalBudgeted = envelopes.reduce((sum: DecimalInstance, env: Envelope) => sum.plus(env.budgetedAmount), toDecimal(0));
+  const totalSpent = envelopes.reduce((sum: DecimalInstance, env: Envelope) => sum.plus(env.spentAmount), toDecimal(0));
+  const totalRemaining = envelopes.reduce((sum: DecimalInstance, env: Envelope) => sum.plus(env.remainingAmount), toDecimal(0));
+  const overbudgetEnvelopes = envelopes.filter((env: Envelope) => env.isOverspent);
 
   const handleAddEnvelope = () => {
-    if (!newEnvelope.name || !newEnvelope.budgetedAmount) return;
+    if (!newEnvelope.name || !newEnvelope.budgetedAmount || newEnvelope.categoryIds.length === 0) return;
 
+    // Create a budget for the first selected category
     const newBudget = {
-      id: Date.now().toString(),
-      name: newEnvelope.name,
+      category: newEnvelope.categoryIds[0], // Use first category
       amount: parseFloat(newEnvelope.budgetedAmount),
       period: 'monthly' as const,
-      categoryIds: newEnvelope.categoryIds,
-      color: newEnvelope.color,
-      priority: newEnvelope.priority,
       isActive: true
     };
 
-    updateBudget(newBudget);
+    addBudget(newBudget);
     setNewEnvelope({
       name: '',
       budgetedAmount: '',
@@ -138,12 +139,12 @@ export default function EnvelopeBudgeting() {
     if (!fromBudget || !toBudget) return;
 
     // Update budgets
-    updateBudget({
+    updateBudget(fromBudget.id, {
       ...fromBudget,
       amount: fromBudget.amount - amount
     });
     
-    updateBudget({
+    updateBudget(toBudget.id, {
       ...toBudget,
       amount: toBudget.amount + amount
     });
@@ -251,7 +252,7 @@ export default function EnvelopeBudgeting() {
                   className="w-4 h-4 rounded-full"
                   style={{ backgroundColor: envelope.color }}
                 />
-                <h3 className="font-semibold text-gray-900 dark:text-white">{envelope.name}</h3>
+                <h3 className="font-semibold text-gray-900 dark:text-white text-sm">{envelope.name}</h3>
               </div>
               <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getPriorityColor(envelope.priority)}`}>
                 {envelope.priority}

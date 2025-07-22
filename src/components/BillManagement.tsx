@@ -179,7 +179,7 @@ export default function BillManagement() {
     // Add transaction
     const transaction = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-      date: today.toISOString().split('T')[0],
+      date: today,
       description: `Bill Payment: ${bill.name}`,
       amount: bill.amount.plus(payment.lateFee || toDecimal(0)).toNumber(),
       category: bill.category,

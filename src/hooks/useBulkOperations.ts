@@ -1,9 +1,10 @@
 import { useState, useCallback } from 'react';
+import type { IconProps } from '../components/icons';
 
 export interface BulkOperation<T> {
   id: string;
   label: string;
-  icon?: React.ComponentType;
+  icon?: React.ComponentType<IconProps>;
   action: (items: T[]) => Promise<void> | void;
   requiresConfirmation?: boolean;
   confirmationMessage?: string;

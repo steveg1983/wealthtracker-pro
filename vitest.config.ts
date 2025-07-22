@@ -16,7 +16,8 @@ export default defineConfig({
       '**/*.spec.tsx'
     ],
     coverage: {
-      reporter: ['text', 'json', 'html'],
+      provider: 'v8',
+      reporter: ['text', 'json', 'html', 'lcov'],
       exclude: [
         'node_modules/',
         'src/test/',
@@ -24,8 +25,28 @@ export default defineConfig({
         '**/*.config.*',
         '**/mockData.ts',
         'src/main.tsx',
+        '**/*.test.ts',
+        '**/*.test.tsx',
+        '**/test-utils.ts',
+        '**/test-setup.ts',
       ],
+      include: ['src/**/*.{ts,tsx}'],
+      all: true,
+      clean: true,
+      reportsDirectory: './coverage',
+      thresholds: {
+        global: {
+          statements: 80,
+          branches: 80,
+          functions: 80,
+          lines: 80
+        }
+      }
     },
+  },
+  bench: {
+    include: ['**/*.bench.ts'],
+    exclude: ['node_modules'],
   },
   resolve: {
     alias: {

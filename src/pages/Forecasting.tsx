@@ -19,8 +19,6 @@ export default function Forecasting() {
   return (
     <PageWrapper
       title="Financial Forecasting"
-      description="Predict future cash flow and identify spending patterns"
-      icon={<LineChartIcon size={32} />}
     >
       {/* Account Filter */}
       <div className="mb-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">

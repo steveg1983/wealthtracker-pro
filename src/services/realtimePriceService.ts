@@ -1,4 +1,5 @@
 import { getStockQuote, type StockQuote } from './stockPriceService';
+import type { JsonValue } from '../types/common';
 
 export interface PriceUpdate {
   symbol: string;
@@ -23,7 +24,7 @@ class RealTimePriceService {
   }
   
   // Simple event emitter methods
-  private emit(event: string, data: any) {
+  private emit(event: string, data: JsonValue) {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.forEach(listener => {
@@ -156,7 +157,22 @@ class RealTimePriceService {
         };
         
         // Emit event
-        this.emit('priceUpdate', update);
+        this.emit('priceUpdate', {
+          symbol: update.symbol,
+          quote: {
+            ...update.quote,
+            price: update.quote.price.toString(),
+            change: update.quote.change.toString(),
+            changePercent: update.quote.changePercent.toString(),
+            previousClose: update.quote.previousClose.toString(),
+            marketCap: update.quote.marketCap?.toString(),
+            dayHigh: update.quote.dayHigh?.toString(),
+            dayLow: update.quote.dayLow?.toString(),
+            fiftyTwoWeekHigh: update.quote.fiftyTwoWeekHigh?.toString(),
+            fiftyTwoWeekLow: update.quote.fiftyTwoWeekLow?.toString()
+          },
+          timestamp: update.timestamp.toISOString()
+        } as JsonValue);
         
         // Call all callbacks
         const callbacks = this.subscriptions.get(symbol);
@@ -172,7 +188,7 @@ class RealTimePriceService {
       }
     } catch (error) {
       console.error(`Error fetching price for ${symbol}:`, error);
-      this.emit('error', { symbol, error });
+      this.emit('error', { symbol, error: String(error) } as JsonValue);
     }
   }
 

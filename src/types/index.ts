@@ -15,7 +15,7 @@ export interface Holding {
 export interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'mortgage' | 'assets' | 'other';
+  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'mortgage' | 'assets' | 'other' | 'checking';
   balance: number;
   currency: string;
   institution?: string;
@@ -24,6 +24,11 @@ export interface Account {
   openingBalanceDate?: Date;
   holdings?: Holding[];
   notes?: string;
+  isActive?: boolean;
+  plaidConnectionId?: string;
+  plaidAccountId?: string;
+  mask?: string;
+  updatedAt?: Date;
 }
 
 export interface Transaction {
@@ -45,6 +50,18 @@ export interface Transaction {
   isRecurring?: boolean;
   isSplit?: boolean;
   isImported?: boolean;
+  pending?: boolean;
+  plaidTransactionId?: string;
+  merchant?: string;
+  paymentChannel?: string;
+  location?: {
+    city: string | null;
+    region: string | null;
+    country: string | null;
+  };
+  goalId?: string;
+  accountName?: string;
+  recurringTransactionId?: string;
 }
 
 export interface Budget {
@@ -54,6 +71,12 @@ export interface Budget {
   period: 'monthly' | 'weekly' | 'yearly';
   isActive: boolean;
   createdAt: Date;
+  name?: string;
+  color?: string;
+  spent?: number;
+  budgeted?: number;
+  limit?: number;
+  updatedAt?: Date;
 }
 
 export interface Goal {
@@ -67,6 +90,9 @@ export interface Goal {
   linkedAccountIds?: string[];
   isActive: boolean;
   createdAt: Date;
+  achieved?: boolean;
+  progress?: number;
+  updatedAt?: Date;
 }
 
 export interface Category {
@@ -75,6 +101,9 @@ export interface Category {
   type: 'income' | 'expense' | 'both';
   level: 'type' | 'sub' | 'detail';
   parentId?: string;
+  color?: string;
+  icon?: string;
+  isSystem?: boolean;
 }
 
 export interface Investment {
@@ -88,4 +117,31 @@ export interface Investment {
   currentPrice?: number;
   lastUpdated?: Date;
   notes?: string;
+  costBasis?: number;
+  currentValue: number;
+  averageCost: number;
+  createdAt: Date;
 }
+
+export interface RecurringTransaction {
+  id: string;
+  description: string;
+  amount: number;
+  type: 'income' | 'expense';
+  category: string;
+  accountId: string;
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
+  interval: number;
+  startDate: Date;
+  endDate?: Date;
+  nextDate: Date;
+  lastProcessed?: Date;
+  isActive: boolean;
+  tags?: string[];
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Re-export widget types
+export * from './widget-types';

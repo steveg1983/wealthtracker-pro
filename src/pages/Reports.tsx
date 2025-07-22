@@ -1,38 +1,22 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { PieChartIcon, TrendingUpIcon, CalendarIcon, DownloadIcon, FilterIcon } from '../components/icons';
+import { PieChartIcon, TrendingUpIcon, CalendarIcon, DownloadIcon, FilterIcon, PdfIcon } from '../components/icons';
 import { exportTransactionsToCSV, downloadCSV } from '../utils/csvExport';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-} from 'chart.js';
-import { Line, Doughnut } from 'react-chartjs-2';
-
-// Register ChartJS components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-);
+import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';
+import ScheduledReports from '../components/ScheduledReports';
+import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
+import { LazyLineChart, LazyDoughnutChart } from '../components/charts/LazyChart';
 
 export default function Reports() {
   const { transactions, accounts } = useApp();
-  const [dateRange, setDateRange] = useState<'month' | 'quarter' | 'year' | 'all'>('month');
+  const [dateRange, setDateRange] = useState<'month' | 'quarter' | 'year' | 'all' | 'custom'>('month');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
+  const chartRef1 = useRef<HTMLDivElement>(null);
+  const chartRef2 = useRef<HTMLDivElement>(null);
 
   // Filter transactions based on date range and account
   const filteredTransactions = useMemo(() => {
@@ -52,15 +36,28 @@ export default function Reports() {
       case 'all':
         startDate = new Date(0);
         break;
+      case 'custom':
+        if (customStartDate) {
+          startDate = new Date(customStartDate);
+        }
+        break;
     }
 
     return transactions.filter(t => {
       const transDate = new Date(t.date);
-      const dateMatch = transDate >= startDate;
+      let dateMatch = transDate >= startDate;
+      
+      // For custom date range, also check end date
+      if (dateRange === 'custom' && customEndDate) {
+        const endDate = new Date(customEndDate);
+        endDate.setHours(23, 59, 59, 999); // Include the entire end day
+        dateMatch = dateMatch && transDate <= endDate;
+      }
+      
       const accountMatch = selectedAccount === 'all' || t.accountId === selectedAccount;
       return dateMatch && accountMatch;
     });
-  }, [transactions, dateRange, selectedAccount]);
+  }, [transactions, dateRange, selectedAccount, customStartDate, customEndDate]);
 
   // Calculate summary statistics
   const summary = useMemo(() => {
@@ -77,6 +74,13 @@ export default function Reports() {
 
     return { income, expenses, netIncome, savingsRate };
   }, [filteredTransactions]);
+
+  // Set loading to false when data is loaded
+  useEffect(() => {
+    if (transactions !== undefined && accounts !== undefined) {
+      setIsLoading(false);
+    }
+  }, [transactions, accounts]);
 
   // Prepare data for category breakdown
   const categoryData = useMemo(() => {
@@ -159,19 +163,81 @@ export default function Reports() {
     downloadCSV(csv, filename);
   };
 
+  const exportToPDF = async (includeCharts: boolean = true) => {
+    setIsGeneratingPDF(true);
+    try {
+      // Prepare category breakdown data
+      const categoryBreakdown = Object.entries(
+        filteredTransactions
+          .filter(t => t.type === 'expense')
+          .reduce((acc, t) => {
+            acc[t.category] = (acc[t.category] || 0) + t.amount;
+            return acc;
+          }, {} as Record<string, number>)
+      )
+        .sort(([, a], [, b]) => (b as number) - (a as number))
+        .map(([category, amount]) => {
+          const total = filteredTransactions
+            .filter(t => t.type === 'expense')
+            .reduce((sum, t) => sum + t.amount, 0);
+          return {
+            category,
+            amount: amount as number,
+            percentage: ((amount as number) / total) * 100
+          };
+        });
+
+      const reportData = {
+        title: 'Financial Report',
+        dateRange: dateRange === 'month' ? 'Last Month' : 
+                   dateRange === 'quarter' ? 'Last Quarter' : 
+                   dateRange === 'year' ? 'Last Year' : 'All Time',
+        summary,
+        categoryBreakdown,
+        topTransactions: filteredTransactions
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, 10),
+        chartElements: includeCharts && chartRef1.current && chartRef2.current
+          ? [chartRef1.current, chartRef2.current]
+          : undefined
+      };
+
+      if (includeCharts) {
+        await generatePDFReport(reportData, accounts);
+      } else {
+        generateSimplePDFReport(reportData, accounts);
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF report. Please try again.');
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4">
           <h1 className="text-3xl font-bold text-white">Reports</h1>
         </div>
-        <button
-          onClick={exportToCSV}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors"
-        >
-          <DownloadIcon size={20} />
-          Export CSV
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={exportToCSV}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors"
+          >
+            <DownloadIcon size={20} />
+            Export CSV
+          </button>
+          <button
+            onClick={() => exportToPDF(true)}
+            disabled={isGeneratingPDF}
+            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-2xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <PdfIcon size={20} />
+            {isGeneratingPDF ? 'Generating...' : 'Export PDF'}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -181,13 +247,14 @@ export default function Reports() {
             <CalendarIcon className="text-gray-500" size={20} />
             <select
               value={dateRange}
-              onChange={(e) => setDateRange(e.target.value as 'month' | 'quarter' | 'year' | 'all')}
+              onChange={(e) => setDateRange(e.target.value as 'month' | 'quarter' | 'year' | 'all' | 'custom')}
               className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
             >
               <option value="month">Last Month</option>
               <option value="quarter">Last Quarter</option>
               <option value="year">Last Year</option>
               <option value="all">All Time</option>
+              <option value="custom">Custom Range</option>
             </select>
           </div>
 
@@ -204,6 +271,25 @@ export default function Reports() {
               ))}
             </select>
           </div>
+
+          {dateRange === 'custom' && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600 dark:text-gray-400">From:</label>
+              <input
+                type="date"
+                value={customStartDate}
+                onChange={(e) => setCustomStartDate(e.target.value)}
+                className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              />
+              <label className="text-sm text-gray-600 dark:text-gray-400">To:</label>
+              <input
+                type="date"
+                value={customEndDate}
+                onChange={(e) => setCustomEndDate(e.target.value)}
+                className="px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -214,14 +300,14 @@ export default function Reports() {
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Income</p>
           <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-            {formatCurrency(summary.income)}
+            {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.income)}
           </p>
         </div>
 
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Expenses</p>
           <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-            {formatCurrency(summary.expenses)}
+            {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.expenses)}
           </p>
         </div>
 
@@ -230,7 +316,7 @@ export default function Reports() {
           <p className={`text-2xl font-bold ${
             summary.netIncome >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
           }`}>
-            {formatCurrency(summary.netIncome)}
+            {isLoading ? <SkeletonText className="w-32 h-8" /> : formatCurrency(summary.netIncome)}
           </p>
         </div>
 
@@ -239,7 +325,7 @@ export default function Reports() {
           <p className={`text-2xl font-bold ${
             summary.savingsRate >= 20 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
           }`}>
-            {summary.savingsRate.toFixed(1)}%
+            {isLoading ? <SkeletonText className="w-20 h-8" /> : `${summary.savingsRate.toFixed(1)}%`}
           </p>
         </div>
         </div>
@@ -253,8 +339,11 @@ export default function Reports() {
             <TrendingUpIcon size={20} />
             Income vs Expenses Trend
           </h2>
-          <div className="h-64">
-            <Line
+          <div className="h-64" ref={chartRef1}>
+            {isLoading ? (
+              <SkeletonCard className="h-full w-full" />
+            ) : (
+            <LazyLineChart
               data={monthlyTrendData}
               options={{
                 responsive: true,
@@ -271,6 +360,7 @@ export default function Reports() {
                 }
               }}
             />
+            )}
           </div>
         </div>
 
@@ -280,8 +370,11 @@ export default function Reports() {
             <PieChartIcon size={20} />
             Expense Categories
           </h2>
-          <div className="h-64">
-            <Doughnut
+          <div className="h-64" ref={chartRef2}>
+            {isLoading ? (
+              <SkeletonCard className="h-full w-full" />
+            ) : (
+            <LazyDoughnutChart
               data={categoryData}
               options={{
                 responsive: true,
@@ -293,6 +386,7 @@ export default function Reports() {
                 }
               }}
             />
+            )}
           </div>
         </div>
         </div>
@@ -366,6 +460,11 @@ export default function Reports() {
             </tbody>
           </table>
         </div>
+        </div>
+        
+        {/* Scheduled Reports */}
+        <div className="mt-8">
+          <ScheduledReports />
         </div>
       </div>
     </div>

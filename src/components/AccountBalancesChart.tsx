@@ -4,7 +4,7 @@ import { useApp } from '../contexts/AppContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 const AccountBalancesChart = React.memo(function AccountBalancesChart() {
-  const { accounts, getDecimalAccounts } = useApp();
+  const { accounts } = useApp();
   const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
   
   const data = useMemo(() => 

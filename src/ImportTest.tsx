@@ -3,7 +3,7 @@ import { useState } from 'react';
 export default function ImportTest() {
   const [test, setTest] = useState(0);
   
-  const testImport = async (name: string, importFn: () => Promise<any>) => {
+  const testImport = async (name: string, importFn: () => Promise<unknown>) => {
     try {
       console.log(`Testing import: ${name}...`);
       await importFn();

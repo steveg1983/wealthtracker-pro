@@ -22,6 +22,7 @@ import {
   BellIcon
 } from './icons';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar } from 'recharts';
+import { debtCalculationService } from '../services/debtCalculationService';
 
 export interface Debt {
   id: string;
@@ -133,54 +134,63 @@ export default function DebtManagement() {
 
   const calculatePayoffProjections = (strategy: PayoffStrategy): PayoffProjection[] => {
     const activeDebts = debts.filter(d => d.isActive);
+    
+    // Convert debts to service-compatible format
+    const serviceDebts = activeDebts.map(debt => ({
+      id: debt.id,
+      name: debt.name,
+      type: debt.type,
+      balance: debt.balance.toNumber(),
+      interestRate: debt.interestRate.toNumber(),
+      minimumPayment: debt.minimumPayment.toNumber(),
+      dueDate: debt.dueDate,
+      accountId: debt.accountId
+    }));
+    
+    // Calculate total extra payment
+    const totalExtraPayment = strategy.totalExtraPayment.toNumber();
+    
+    // Use service to calculate payoff strategies
+    const strategies = debtCalculationService.calculatePayoffStrategies(
+      serviceDebts,
+      totalExtraPayment
+    );
+    
+    // Get the appropriate strategy result
+    const strategyResult = strategy.type === 'avalanche' 
+      ? strategies.avalanche 
+      : strategies.snowball;
+    
+    // Convert service results to component format
     const projections: PayoffProjection[] = [];
     
-    // Sort debts based on strategy
-    let sortedDebts = [...activeDebts];
-    if (strategy.type === 'snowball') {
-      sortedDebts.sort((a, b) => a.balance.minus(b.balance).toNumber());
-    } else if (strategy.type === 'avalanche') {
-      sortedDebts.sort((a, b) => b.interestRate.minus(a.interestRate).toNumber());
-    }
-    
-    // Calculate projections for each debt
-    sortedDebts.forEach((debt, index) => {
-      const strategyDebt = strategy.debts.find(d => d.debtId === debt.id);
-      const extraPayment = strategyDebt?.extraPayment || toDecimal(0);
-      const monthlyPayment = debt.minimumPayment.plus(extraPayment);
+    activeDebts.forEach(debt => {
+      const debtSchedule = strategyResult.schedule
+        .map(item => item.payments.find(p => p.debtId === debt.id))
+        .filter(Boolean);
       
-      let currentBalance = debt.balance;
-      const monthlyRate = debt.interestRate.dividedBy(100).dividedBy(12);
-      let totalInterest = toDecimal(0);
-      let totalPayments = toDecimal(0);
-      const monthlyProjection: PayoffProjection['monthlyProjection'] = [];
+      const monthlyProjection = debtSchedule.map((payment, index) => ({
+        month: index + 1,
+        balance: toDecimal(payment!.remainingBalance),
+        payment: toDecimal(payment!.payment),
+        principal: toDecimal(payment!.principal),
+        interest: toDecimal(payment!.interest)
+      }));
       
-      let month = 1;
-      while (currentBalance.greaterThan(0) && month <= 360) { // Max 30 years
-        const interestPayment = currentBalance.times(monthlyRate);
-        const principalPayment = monthlyPayment.minus(interestPayment);
-        const actualPrincipal = principalPayment.greaterThan(currentBalance) ? currentBalance : principalPayment;
-        const actualPayment = interestPayment.plus(actualPrincipal);
-        
-        currentBalance = currentBalance.minus(actualPrincipal);
-        totalInterest = totalInterest.plus(interestPayment);
-        totalPayments = totalPayments.plus(actualPayment);
-        
-        monthlyProjection.push({
-          month,
-          balance: currentBalance,
-          payment: actualPayment,
-          principal: actualPrincipal,
-          interest: interestPayment
-        });
-        
-        month++;
-      }
+      const totalPayments = monthlyProjection.reduce(
+        (sum, p) => sum.plus(p.payment), 
+        toDecimal(0)
+      );
+      
+      const totalInterest = monthlyProjection.reduce(
+        (sum, p) => sum.plus(p.interest), 
+        toDecimal(0)
+      );
       
       projections.push({
         debtId: debt.id,
         debtName: debt.name,
-        monthsToPayoff: month - 1,
+        monthsToPayoff: monthlyProjection.length,
         totalInterest,
         totalPayments,
         monthlyProjection
@@ -190,21 +200,32 @@ export default function DebtManagement() {
     return projections;
   };
 
-  const { totalDebt, totalMinimumPayment, totalInterestRate, projections } = useMemo(() => {
+  const { totalDebt, totalMinimumPayment, totalInterestRate, projections, debtSummary } = useMemo(() => {
     const activeDebts = debts.filter(d => d.isActive);
-    const totalDebt = activeDebts.reduce((sum, debt) => sum.plus(debt.balance), toDecimal(0));
-    const totalMinimumPayment = activeDebts.reduce((sum, debt) => sum.plus(debt.minimumPayment), toDecimal(0));
-    const weightedInterestRate = activeDebts.length > 0 
-      ? activeDebts.reduce((sum, debt) => sum.plus(debt.interestRate.times(debt.balance)), toDecimal(0)).dividedBy(totalDebt)
-      : toDecimal(0);
+    
+    // Convert debts to service-compatible format
+    const serviceDebts = activeDebts.map(debt => ({
+      id: debt.id,
+      name: debt.name,
+      type: debt.type,
+      balance: debt.balance.toNumber(),
+      interestRate: debt.interestRate.toNumber(),
+      minimumPayment: debt.minimumPayment.toNumber(),
+      dueDate: debt.dueDate,
+      accountId: debt.accountId
+    }));
+    
+    // Use service to calculate debt summary
+    const summary = debtCalculationService.calculateDebtSummary(serviceDebts);
     
     const projections = calculatePayoffProjections(payoffStrategy);
     
     return {
-      totalDebt,
-      totalMinimumPayment,
-      totalInterestRate: weightedInterestRate,
-      projections
+      totalDebt: toDecimal(summary.totalDebt),
+      totalMinimumPayment: toDecimal(summary.totalMinimumPayment),
+      totalInterestRate: toDecimal(summary.weightedAverageRate),
+      projections,
+      debtSummary: summary
     };
   }, [debts, payoffStrategy]);
 

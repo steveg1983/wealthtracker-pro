@@ -44,7 +44,7 @@ interface RecurringSettings {
 
 export default function RecurringBudgetTemplates() {
   const { categories } = useApp();
-  const { budgets, updateBudget, deleteBudget } = useBudgets();
+  const { budgets, addBudget, updateBudget, deleteBudget } = useBudgets();
   const { formatCurrency } = useCurrencyDecimal();
   
   const [templates, setTemplates] = useLocalStorage<BudgetTemplate[]>('budget-templates', []);
@@ -68,13 +68,18 @@ export default function RecurringBudgetTemplates() {
   const createTemplateFromCurrent = () => {
     if (!newTemplate.name) return;
 
-    const budgetItems = budgets.map(budget => ({
-      name: budget.name,
-      amount: budget.amount,
-      categoryIds: budget.categoryIds,
-      color: budget.color || '#3B82F6',
-      priority: budget.priority || 'medium' as 'medium'
-    }));
+    const budgetItems = budgets.map(budget => {
+      // Find category name for the budget
+      const categoryName = categories.find(c => c.id === budget.category)?.name || budget.category;
+      
+      return {
+        name: categoryName,
+        amount: budget.amount,
+        categoryIds: [budget.category],
+        color: '#3B82F6', // Default color
+        priority: 'medium' as const
+      };
+    });
 
     const totalAmount = budgetItems.reduce((sum, item) => sum + item.amount, 0);
     const nextApplicationDate = calculateNextDate(newTemplate.frequency);
@@ -137,18 +142,17 @@ export default function RecurringBudgetTemplates() {
     }
 
     // Apply template items
-    template.budgetItems.forEach(item => {
-      const budgetId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-      updateBudget({
-        id: budgetId,
-        name: item.name,
-        amount: item.amount,
-        period: 'monthly',
-        categoryIds: item.categoryIds,
-        color: item.color,
-        priority: item.priority,
-        isActive: true
-      });
+    template.budgetItems.forEach((item, index) => {
+      // Create a budget for the first category in the item
+      if (item.categoryIds.length > 0) {
+        const newBudget = {
+          category: item.categoryIds[0],
+          amount: item.amount,
+          period: 'monthly' as const,
+          isActive: true
+        };
+        addBudget(newBudget);
+      }
     });
 
     // Update template

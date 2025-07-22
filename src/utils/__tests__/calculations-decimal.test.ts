@@ -22,6 +22,23 @@ import {
   calculateMonthlyTrends,
   calculateCategoryTrends
 } from '../calculations-decimal';
+import {
+  calculateNetIncome,
+  calculateAccountBalance,
+  calculateBudgetSpending,
+  calculateBudgetRemaining,
+  calculateBudgetPercentage,
+  calculateGoalRemaining,
+  calculateGoalMonthlyTarget,
+  calculateSavingsRateFromAmounts,
+  calculateDebtToIncomeRatio,
+  calculateCategorySpending,
+  calculateSpendingByCategory,
+  calculateAverageTransaction,
+  calculateInvestmentReturn,
+  calculateCompoundInterest,
+  calculateDailyBalance
+} from '../calculations-decimal';
 import { toDecimal } from '../decimal';
 import type { DecimalAccount, DecimalTransaction, DecimalBudget, DecimalGoal } from '../../types/decimal-types';
 
@@ -290,6 +307,325 @@ describe('Decimal Calculation Utilities', () => {
       expect(result[1].income.toString()).toBeDefined();
       expect(result[1].expenses.toString()).toBeDefined();  
       expect(result[1].net.toString()).toBeDefined();
+    });
+  });
+
+  describe('calculateNetIncome', () => {
+    it('calculates net income correctly', () => {
+      const transactions = [
+        createMockDecimalTransaction({ type: 'income', amount: toDecimal(5000) }),
+        createMockDecimalTransaction({ type: 'expense', amount: toDecimal(3000) }),
+        createMockDecimalTransaction({ type: 'income', amount: toDecimal(1000) })
+      ];
+      const result = calculateNetIncome(transactions);
+      expect(result.toString()).toBe('3000');
+    });
+  });
+
+  describe('calculateAccountBalance', () => {
+    it('calculates account balance including transactions', () => {
+      const account = createMockDecimalAccount({ 
+        id: '1', 
+        balance: toDecimal(1000) 
+      });
+      const transactions = [
+        createMockDecimalTransaction({ accountId: '1', type: 'income', amount: toDecimal(500) }),
+        createMockDecimalTransaction({ accountId: '1', type: 'expense', amount: toDecimal(200) }),
+        createMockDecimalTransaction({ accountId: '2', type: 'income', amount: toDecimal(100) }) // Different account
+      ];
+      const result = calculateAccountBalance(account, transactions);
+      expect(result.toString()).toBe('1300');
+    });
+  });
+
+  describe('calculateBudgetSpending', () => {
+    it('calculates budget spending within date range', () => {
+      const budget = createMockDecimalBudget({ category: 'groceries' });
+      const startDate = new Date('2023-01-01');
+      const endDate = new Date('2023-01-31');
+      const transactions = [
+        createMockDecimalTransaction({ 
+          category: 'groceries', 
+          type: 'expense', 
+          amount: toDecimal(100), 
+          date: new Date('2023-01-15') 
+        }),
+        createMockDecimalTransaction({ 
+          category: 'groceries', 
+          type: 'expense', 
+          amount: toDecimal(50), 
+          date: new Date('2023-02-01') // Outside range
+        })
+      ];
+      const result = calculateBudgetSpending(budget, transactions, startDate, endDate);
+      expect(result.toString()).toBe('100');
+    });
+  });
+
+  describe('calculateBudgetRemaining', () => {
+    it('calculates remaining budget correctly', () => {
+      const budget = createMockDecimalBudget({ amount: toDecimal(500) });
+      const result = calculateBudgetRemaining(budget, toDecimal(200));
+      expect(result.toString()).toBe('300');
+    });
+
+    it('returns zero when overspent', () => {
+      const budget = createMockDecimalBudget({ amount: toDecimal(500) });
+      const result = calculateBudgetRemaining(budget, toDecimal(600));
+      expect(result.toString()).toBe('0');
+    });
+  });
+
+  describe('calculateBudgetPercentage', () => {
+    it('calculates budget percentage correctly', () => {
+      const budget = createMockDecimalBudget({ amount: toDecimal(500) });
+      const result = calculateBudgetPercentage(budget, toDecimal(150));
+      expect(result).toBe(30);
+    });
+
+    it('returns zero for zero budget', () => {
+      const budget = createMockDecimalBudget({ amount: toDecimal(0) });
+      const result = calculateBudgetPercentage(budget, toDecimal(150));
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('calculateGoalRemaining', () => {
+    it('calculates remaining amount for goal', () => {
+      const goal = createMockDecimalGoal({ 
+        targetAmount: toDecimal(10000), 
+        currentAmount: toDecimal(3000) 
+      });
+      const result = calculateGoalRemaining(goal);
+      expect(result.toString()).toBe('7000');
+    });
+
+    it('returns zero when goal exceeded', () => {
+      const goal = createMockDecimalGoal({ 
+        targetAmount: toDecimal(10000), 
+        currentAmount: toDecimal(12000) 
+      });
+      const result = calculateGoalRemaining(goal);
+      expect(result.toString()).toBe('0');
+    });
+  });
+
+  describe('calculateGoalMonthlyTarget', () => {
+    it('calculates monthly target amount', () => {
+      const futureDate = new Date();
+      futureDate.setMonth(futureDate.getMonth() + 12);
+      const goal = createMockDecimalGoal({ 
+        targetAmount: toDecimal(12000), 
+        currentAmount: toDecimal(0),
+        targetDate: futureDate
+      });
+      const result = calculateGoalMonthlyTarget(goal);
+      expect(result.toNumber()).toBeCloseTo(1000, 0);
+    });
+
+    it('returns zero for completed goals', () => {
+      const goal = createMockDecimalGoal({ 
+        targetAmount: toDecimal(10000), 
+        currentAmount: toDecimal(12000)
+      });
+      const result = calculateGoalMonthlyTarget(goal);
+      expect(result.toString()).toBe('0');
+    });
+  });
+
+  describe('calculateSavingsRateFromAmounts', () => {
+    it('calculates savings rate correctly', () => {
+      const result = calculateSavingsRateFromAmounts(
+        toDecimal(5000),
+        toDecimal(3000)
+      );
+      expect(result).toBe(40);
+    });
+
+    it('returns zero for zero income', () => {
+      const result = calculateSavingsRateFromAmounts(
+        toDecimal(0),
+        toDecimal(3000)
+      );
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('calculateDebtToIncomeRatio', () => {
+    it('calculates debt to income ratio correctly', () => {
+      const result = calculateDebtToIncomeRatio(
+        toDecimal(1500),
+        toDecimal(5000)
+      );
+      expect(result).toBe(30);
+    });
+
+    it('returns zero for zero income', () => {
+      const result = calculateDebtToIncomeRatio(
+        toDecimal(1500),
+        toDecimal(0)
+      );
+      expect(result).toBe(0);
+    });
+  });
+
+  describe('calculateCategorySpending', () => {
+    it('calculates category spending with date range', () => {
+      const startDate = new Date('2023-01-01');
+      const endDate = new Date('2023-01-31');
+      const transactions = [
+        createMockDecimalTransaction({ 
+          category: 'groceries', 
+          type: 'expense', 
+          amount: toDecimal(100), 
+          date: new Date('2023-01-15') 
+        }),
+        createMockDecimalTransaction({ 
+          category: 'groceries', 
+          type: 'expense', 
+          amount: toDecimal(50), 
+          date: new Date('2023-02-01') // Outside range
+        })
+      ];
+      const result = calculateCategorySpending('groceries', transactions, startDate, endDate);
+      expect(result.toString()).toBe('100');
+    });
+
+    it('calculates category spending without date range', () => {
+      const transactions = [
+        createMockDecimalTransaction({ 
+          category: 'groceries', 
+          type: 'expense', 
+          amount: toDecimal(100)
+        }),
+        createMockDecimalTransaction({ 
+          category: 'groceries', 
+          type: 'expense', 
+          amount: toDecimal(50)
+        })
+      ];
+      const result = calculateCategorySpending('groceries', transactions);
+      expect(result.toString()).toBe('150');
+    });
+  });
+
+  describe('calculateSpendingByCategory', () => {
+    it('calculates spending by category', () => {
+      const transactions = [
+        createMockDecimalTransaction({ category: 'groceries', type: 'expense', amount: toDecimal(100) }),
+        createMockDecimalTransaction({ category: 'utilities', type: 'expense', amount: toDecimal(50) }),
+        createMockDecimalTransaction({ category: 'groceries', type: 'expense', amount: toDecimal(75) })
+      ];
+      const result = calculateSpendingByCategory(transactions);
+      expect(result.groceries.toString()).toBe('175');
+      expect(result.utilities.toString()).toBe('50');
+    });
+  });
+
+  describe('calculateAverageTransaction', () => {
+    it('calculates average transaction amount', () => {
+      const transactions = [
+        createMockDecimalTransaction({ amount: toDecimal(100) }),
+        createMockDecimalTransaction({ amount: toDecimal(200) }),
+        createMockDecimalTransaction({ amount: toDecimal(300) })
+      ];
+      const result = calculateAverageTransaction(transactions);
+      expect(result.toString()).toBe('200');
+    });
+
+    it('returns zero for empty array', () => {
+      const result = calculateAverageTransaction([]);
+      expect(result.toString()).toBe('0');
+    });
+  });
+
+  describe('calculateInvestmentReturn', () => {
+    it('calculates investment returns correctly', () => {
+      const result = calculateInvestmentReturn(
+        toDecimal(11000),
+        toDecimal(10000)
+      );
+      expect(result.amount.toString()).toBe('1000');
+      expect(result.percentage).toBe(10);
+    });
+
+    it('handles zero invested amount', () => {
+      const result = calculateInvestmentReturn(
+        toDecimal(1000),
+        toDecimal(0)
+      );
+      expect(result.amount.toString()).toBe('1000');
+      expect(result.percentage).toBe(0);
+    });
+  });
+
+  describe('calculateCompoundInterest', () => {
+    it('calculates compound interest correctly', () => {
+      const result = calculateCompoundInterest(
+        toDecimal(1000),
+        0.05, // 5% annual rate
+        1,    // 1 year
+        12    // Monthly compounding
+      );
+      expect(result.toNumber()).toBeCloseTo(1051.16, 2);
+    });
+  });
+
+  describe('calculateDailyBalance', () => {
+    it('calculates daily balance history', () => {
+      const startBalance = toDecimal(1000);
+      const transactions = [
+        createMockDecimalTransaction({ 
+          amount: toDecimal(100), 
+          type: 'income', 
+          date: new Date() 
+        })
+      ];
+      const result = calculateDailyBalance(startBalance, transactions, 7);
+      expect(result).toHaveLength(7);
+      expect(result[result.length - 1].balance.gte(toDecimal(1100))).toBe(true);
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('handles empty arrays gracefully', () => {
+      expect(calculateTotalIncome([]).toString()).toBe('0');
+      expect(calculateTotalExpenses([]).toString()).toBe('0');
+      expect(calculateAverageTransactionAmount([]).toString()).toBe('0');
+      expect(getRecentTransactions([], 30)).toHaveLength(0);
+      expect(getTopCategories([], 5)).toHaveLength(0);
+    });
+
+    it('handles zero amounts correctly', () => {
+      const zeroGoal = createMockDecimalGoal({ targetAmount: toDecimal(0) });
+      expect(calculateGoalProgress(zeroGoal)).toBe(0);
+      
+      const zeroBudget = createMockDecimalBudget({ amount: toDecimal(0) });
+      expect(calculateBudgetProgress(zeroBudget, [])).toBe(0);
+    });
+
+    it('handles negative amounts correctly', () => {
+      const account = createMockDecimalAccount({ balance: toDecimal(-100) });
+      const result = calculateTotalBalance([account]);
+      expect(result.toString()).toBe('-100');
+    });
+  });
+
+  describe('Performance Tests', () => {
+    it('handles large datasets efficiently', () => {
+      const largeTransactionSet = Array(1000).fill(null).map((_, i) => 
+        createMockDecimalTransaction({ 
+          amount: toDecimal(Math.random() * 1000),
+          date: new Date(Date.now() - i * 24 * 60 * 60 * 1000) // Past i days
+        })
+      );
+      
+      const startTime = Date.now();
+      const result = calculateTotalIncome(largeTransactionSet);
+      const endTime = Date.now();
+      
+      expect(result).toBeDefined();
+      expect(endTime - startTime).toBeLessThan(100); // Should complete in under 100ms
     });
   });
 });

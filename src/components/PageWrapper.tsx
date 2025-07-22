@@ -6,7 +6,7 @@ interface PageWrapperProps {
   reducedHeaderWidth?: boolean;
 }
 
-export default function PageWrapper({ title, headerContent, children, rightContent, reducedHeaderWidth }: PageWrapperProps) {
+export default function PageWrapper({ title, headerContent, children, rightContent, reducedHeaderWidth }: PageWrapperProps): React.JSX.Element {
   return (
     <>
       <div className="relative mb-6">

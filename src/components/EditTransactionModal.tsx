@@ -1,12 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
-import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon } from '../components/icons';
+import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
+import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon, PaperclipIcon } from '../components/icons';
 import type { Transaction } from '../types';
 import CategoryCreationModal from './CategoryCreationModal';
 import TagSelector from './TagSelector';
 import { getCurrencySymbol } from '../utils/currency';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
+import MarkdownEditor from './MarkdownEditor';
+import DocumentManager from './DocumentManager';
+import { ValidationService } from '../services/validationService';
+import { z } from 'zod';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -28,11 +33,13 @@ interface FormData {
   reconciledWith: string;
 }
 
-export default function EditTransactionModal({ isOpen, onClose, transaction }: EditTransactionModalProps) {
-  const { accounts, categories, addTransaction, updateTransaction, deleteTransaction, getSubCategories, getDetailCategories } = useApp();
+export default function EditTransactionModal({ isOpen, onClose, transaction }: EditTransactionModalProps): React.JSX.Element {
+  const { accounts, categories, updateTransaction, deleteTransaction, getSubCategories, getDetailCategories } = useApp();
+  const { addTransaction } = useTransactionNotifications();
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
     {
@@ -50,26 +57,56 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     },
     {
       onSubmit: (data) => {
-        const transactionData = {
-          date: new Date(data.date),
-          description: data.description,
-          amount: Math.round((parseFloat(data.amount) || 0) * 100) / 100,
-          type: data.type,
-          category: data.category,
-          accountId: data.accountId,
-          tags: data.tags.length > 0 ? data.tags : undefined,
-          notes: data.notes.trim() || undefined,
-          cleared: data.cleared,
-          reconciledWith: data.reconciledWith.trim() || undefined
-        };
+        try {
+          // Clear previous errors
+          setValidationErrors({});
+          
+          // Validate the transaction data
+          const validatedData = ValidationService.validateTransaction({
+            id: transaction?.id,
+            description: data.description,
+            amount: data.amount,
+            type: data.type === 'transfer' ? 'expense' : data.type,
+            category: data.category,
+            accountId: data.accountId,
+            date: data.date,
+            tags: data.tags.length > 0 ? data.tags : undefined,
+            notes: data.notes.trim() || undefined,
+          });
+          
+          const transactionData = {
+            date: new Date(validatedData.date),
+            description: validatedData.description,
+            amount: parseFloat(validatedData.amount),
+            type: data.type,
+            category: validatedData.category,
+            accountId: validatedData.accountId,
+            tags: validatedData.tags,
+            notes: validatedData.notes,
+            cleared: data.cleared,
+            reconciledWith: data.reconciledWith.trim() || undefined
+          };
 
-        if (transaction) {
-          updateTransaction(transaction.id, transactionData);
-        } else {
-          addTransaction(transactionData);
+          if (transaction) {
+            updateTransaction(transaction.id, transactionData);
+          } else {
+            addTransaction(transactionData);
+          }
+          
+          onClose();
+        } catch (error) {
+          if (error instanceof z.ZodError) {
+            setValidationErrors(ValidationService.formatErrors(error));
+          } else {
+            console.error('Failed to update transaction:', error);
+            setValidationErrors({ general: 'Failed to update transaction. Please try again.' });
+          }
         }
       },
-      onClose
+      onClose: () => {
+        setValidationErrors({});
+        onClose();
+      }
     }
   );
 
@@ -316,14 +353,30 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 <FileTextIcon size={16} />
                 Notes
               </label>
-              <textarea
+              <MarkdownEditor
                 value={formData.notes}
-                onChange={(e) => updateField('notes', e.target.value)}
-                rows={3}
-                className="w-full px-3 py-3 sm:py-2 h-12 sm:h-[42px] text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white"
-                placeholder="Add any additional notes..."
+                onChange={(value) => updateField('notes', value)}
+                placeholder="Add notes... You can use **bold**, *italic*, [links](url), `code`, lists, etc."
+                maxHeight="200px"
+                className="w-full"
               />
             </div>
+            
+            {/* Document Attachments */}
+            {transaction && (
+              <div className="md:col-span-12">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <PaperclipIcon size={16} />
+                  Attachments
+                </label>
+                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <DocumentManager
+                    transactionId={transaction.id}
+                    compact
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Status */}
             <div className="md:col-span-12 space-y-3">

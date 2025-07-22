@@ -16,7 +16,7 @@ const LazyAreaChart = lazy(() =>
 );
 
 // Loading placeholder for charts
-function ChartLoader() {
+function ChartLoader(): React.JSX.Element {
   return (
     <div className="flex items-center justify-center h-full min-h-[200px]">
       <div className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded w-full h-full"></div>
@@ -25,7 +25,7 @@ function ChartLoader() {
 }
 
 // Export wrapped chart components
-export function LineChart(props: ComponentProps<typeof LazyLineChart>) {
+export function LineChart(props: ComponentProps<typeof LazyLineChart>): React.JSX.Element {
   return (
     <Suspense fallback={<ChartLoader />}>
       <LazyLineChart {...props} />
@@ -33,7 +33,7 @@ export function LineChart(props: ComponentProps<typeof LazyLineChart>) {
   );
 }
 
-export function BarChart(props: ComponentProps<typeof LazyBarChart>) {
+export function BarChart(props: ComponentProps<typeof LazyBarChart>): React.JSX.Element {
   return (
     <Suspense fallback={<ChartLoader />}>
       <LazyBarChart {...props} />
@@ -41,7 +41,7 @@ export function BarChart(props: ComponentProps<typeof LazyBarChart>) {
   );
 }
 
-export function PieChart(props: ComponentProps<typeof LazyPieChart>) {
+export function PieChart(props: ComponentProps<typeof LazyPieChart>): React.JSX.Element {
   return (
     <Suspense fallback={<ChartLoader />}>
       <LazyPieChart {...props} />
@@ -49,7 +49,7 @@ export function PieChart(props: ComponentProps<typeof LazyPieChart>) {
   );
 }
 
-export function AreaChart(props: ComponentProps<typeof LazyAreaChart>) {
+export function AreaChart(props: ComponentProps<typeof LazyAreaChart>): React.JSX.Element {
   return (
     <Suspense fallback={<ChartLoader />}>
       <LazyAreaChart {...props} />

@@ -19,7 +19,7 @@ interface OFXImportModalProps {
   onClose: () => void;
 }
 
-export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps) {
+export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps): React.JSX.Element {
   const { accounts, transactions, categories, addTransaction } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -113,10 +113,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
       
       // Add transactions
       for (const transaction of result.transactions) {
-        addTransaction({
-          ...transaction,
-          id: `ofx-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        });
+        addTransaction(transaction);
       }
       
       setImportResult({

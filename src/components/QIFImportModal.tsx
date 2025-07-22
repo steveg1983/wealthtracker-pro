@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { qifImportService } from '../services/qifImportService';
+import type { Account } from '../types';
 import { Modal } from './common/Modal';
 import {
   UploadIcon,
@@ -17,12 +18,12 @@ interface QIFImportModalProps {
   onClose: () => void;
 }
 
-export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps) {
+export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps): React.JSX.Element {
   const { accounts, transactions, categories, addTransaction } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [parseResult, setParseResult] = useState<any>(null);
-  const [importResult, setImportResult] = useState<any>(null);
+  const [parseResult, setParseResult] = useState<{ transactions: Array<{ date: string; amount: number; payee?: string; memo?: string; category?: string; checkNumber?: string; cleared?: boolean }>; accountType?: string } | null>(null);
+  const [importResult, setImportResult] = useState<{ success: boolean; imported?: number; duplicates?: number; account?: Account; error?: string } | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   
@@ -103,10 +104,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
       
       // Add transactions
       for (const transaction of result.transactions) {
-        addTransaction({
-          ...transaction,
-          id: `qif-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-        });
+        addTransaction(transaction);
       }
       
       setImportResult({
@@ -253,7 +251,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
                 Preview (First 5 transactions)
               </h4>
               <div className="space-y-2 text-sm">
-                {parseResult.transactions.slice(0, 5).map((trx: any, index: number) => (
+                {parseResult.transactions.slice(0, 5).map((trx, index) => (
                   <div key={index} className="flex justify-between text-gray-600 dark:text-gray-400">
                     <span>{trx.date} - {trx.payee || trx.memo || 'No description'}</span>
                     <span className={trx.amount < 0 ? 'text-red-600' : 'text-green-600'}>
@@ -305,7 +303,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
                   Imported {importResult.imported} transactions to {importResult.account?.name}
                 </p>
                 
-                {importResult.duplicates > 0 && (
+                {(importResult.duplicates ?? 0) > 0 && (
                   <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-6">
                     Skipped {importResult.duplicates} potential duplicate transactions
                   </p>

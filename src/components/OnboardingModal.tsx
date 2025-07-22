@@ -6,11 +6,11 @@ interface OnboardingModalProps {
   onComplete: (name: string, currency: string) => void;
 }
 
-export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps) {
+export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps): React.JSX.Element | null {
   const [firstName, setFirstName] = useState('');
   const [baseCurrency, setBaseCurrency] = useState('GBP');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault();
     if (firstName.trim()) {
       onComplete(firstName.trim(), baseCurrency);

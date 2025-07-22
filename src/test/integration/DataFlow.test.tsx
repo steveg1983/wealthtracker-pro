@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import React from 'react';
-import { AppProvider, useAppContext } from '../../contexts/AppContext';
+import { AppProvider, useApp } from '../../contexts/AppContext';
 import { createMockAccount, createMockTransaction, createMockBudget, createMockGoal } from '../factories';
 
 // Test component to access context directly
-const TestComponent = ({ onContextChange }: { onContextChange?: (context: any) => void }) => {
-  const context = useAppContext();
+const TestComponent = ({ onContextChange }: { onContextChange?: (context: ReturnType<typeof useApp>) => void }) => {
+  const context = useApp();
   
   React.useEffect(() => {
     if (onContextChange) {
@@ -187,8 +187,8 @@ describe('Data Flow Integration Tests', () => {
       
       vi.mocked(localStorage.getItem).mockImplementation(key => storage.get(key) || null);
 
-      let contextData: any;
-      const handleContextChange = (context: any) => {
+      let contextData: ReturnType<typeof useApp>;
+      const handleContextChange = (context: ReturnType<typeof useApp>) => {
         contextData = context;
       };
 
@@ -233,8 +233,8 @@ describe('Data Flow Integration Tests', () => {
       
       vi.mocked(localStorage.getItem).mockImplementation(key => storage.get(key) || null);
 
-      let contextData: any;
-      const handleContextChange = (context: any) => {
+      let contextData: ReturnType<typeof useApp>;
+      const handleContextChange = (context: ReturnType<typeof useApp>) => {
         contextData = context;
       };
 
@@ -273,15 +273,15 @@ describe('Data Flow Integration Tests', () => {
       // Verify all operations were persisted
       expect(localStorage.setItem).toHaveBeenCalledWith(
         'wealthtracker_accounts',
-        expect.any(String)
+        expect.stringContaining('[{') // JSON array with object
       );
       expect(localStorage.setItem).toHaveBeenCalledWith(
         'wealthtracker_transactions',
-        expect.any(String)
+        expect.stringContaining('[{') // JSON array with object
       );
       expect(localStorage.setItem).toHaveBeenCalledWith(
         'wealthtracker_budgets',
-        expect.any(String)
+        expect.stringContaining('[{') // JSON array with object
       );
     });
   });
@@ -352,8 +352,8 @@ describe('Data Flow Integration Tests', () => {
 
   describe('Data Validation', () => {
     it('validates data integrity during operations', async () => {
-      let contextData: any;
-      const handleContextChange = (context: any) => {
+      let contextData: ReturnType<typeof useApp>;
+      const handleContextChange = (context: ReturnType<typeof useApp>) => {
         contextData = context;
       };
 

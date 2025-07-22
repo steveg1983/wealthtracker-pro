@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -6,6 +6,7 @@ import { ArrowLeftIcon, SearchIcon, ChevronUpIcon, ChevronDownIcon, PlusIcon, Ca
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelector from '../components/CategorySelector';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { VirtualizedTable, Column } from '../components/VirtualizedTable';
 import type { Transaction } from '../types';
 
 export default function AccountTransactions() {
@@ -43,23 +44,6 @@ export default function AccountTransactions() {
     notes: ''
   });
   
-  // State for drag and drop columns
-  const [columnOrder, setColumnOrder] = useState(['date', 'reconciled', 'description', 'category', 'tags', 'amount', 'balance']);
-  const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
-  const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
-  
-  // State for column resizing
-  const [columnWidths, setColumnWidths] = useState({
-    date: 120,
-    reconciled: 40,
-    description: 300,
-    category: 200,
-    tags: 200,
-    amount: 150,
-    balance: 150
-  });
-  const [isResizing, setIsResizing] = useState(false);
-  const tableRef = useRef<HTMLTableElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Get account-specific transactions
@@ -258,118 +242,6 @@ export default function AccountTransactions() {
     setIsEditModalOpen(true);
   };
   
-  // Column configuration
-  const columnConfig = {
-    date: {
-      label: 'Date',
-      sortable: true,
-      className: 'text-left',
-      cellClassName: 'text-left'
-    },
-    reconciled: {
-      label: '✓',
-      sortable: false,
-      className: 'text-center',
-      cellClassName: 'text-center'
-    },
-    description: {
-      label: 'Description',
-      sortable: true,
-      className: 'text-left',
-      cellClassName: 'text-left'
-    },
-    category: {
-      label: 'Category',
-      sortable: false,
-      className: 'text-left',
-      cellClassName: 'text-left'
-    },
-    tags: {
-      label: 'Tags',
-      sortable: false,
-      className: 'text-left',
-      cellClassName: 'text-left'
-    },
-    amount: {
-      label: 'Amount',
-      sortable: true,
-      className: 'text-right',
-      cellClassName: 'text-right'
-    },
-    balance: {
-      label: 'Balance',
-      sortable: false,
-      className: 'text-right',
-      cellClassName: 'text-right'
-    }
-  };
-  
-  // Handle column drag and drop
-  const handleDragStart = (columnKey: string, e: React.DragEvent) => {
-    setDraggedColumn(columnKey);
-    e.dataTransfer.effectAllowed = 'move';
-  };
-  
-  const handleDragOver = (columnKey: string, e: React.DragEvent) => {
-    e.preventDefault();
-    if (draggedColumn && draggedColumn !== columnKey) {
-      setDragOverColumn(columnKey);
-    }
-  };
-  
-  const handleDragLeave = () => {
-    setDragOverColumn(null);
-  };
-  
-  const handleDrop = (columnKey: string, e: React.DragEvent) => {
-    e.preventDefault();
-    if (!draggedColumn || draggedColumn === columnKey) return;
-    
-    const newOrder = [...columnOrder];
-    const draggedIndex = newOrder.indexOf(draggedColumn);
-    const dropIndex = newOrder.indexOf(columnKey);
-    
-    newOrder.splice(draggedIndex, 1);
-    newOrder.splice(dropIndex, 0, draggedColumn);
-    
-    setColumnOrder(newOrder);
-    setDraggedColumn(null);
-    setDragOverColumn(null);
-  };
-  
-  // Handle column resizing
-  const handleMouseDown = (column: string, e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsResizing(true);
-    
-    const startX = e.clientX;
-    const startWidth = columnWidths[column as keyof typeof columnWidths];
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      const diff = e.clientX - startX;
-      const newWidth = Math.max(50, startWidth + diff);
-      setColumnWidths(prev => ({ ...prev, [column]: newWidth }));
-    };
-    
-    const handleMouseUp = () => {
-      setIsResizing(false);
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-  
-  // Handle sort
-  const handleSort = (field: typeof sortField) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
   
   // Handle quick add
   const handleQuickAdd = async (e: React.FormEvent) => {
@@ -420,48 +292,101 @@ export default function AccountTransactions() {
     
     return category.name;
   };
-  
-  // Render table header cell
-  const renderHeaderCell = (columnKey: string) => {
-    const config = columnConfig[columnKey as keyof typeof columnConfig];
-    if (!config) return null;
-    
-    const isDragging = draggedColumn === columnKey;
-    const isDragOver = dragOverColumn === columnKey;
-    
-    return (
-      <th
-        key={columnKey}
-        draggable={!isResizing}
-        onDragStart={(e) => handleDragStart(columnKey, e)}
-        onDragOver={(e) => handleDragOver(columnKey, e)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(columnKey, e)}
-        className={`px-6 ${compactView ? 'py-2' : 'py-3'} ${config.className} text-xs font-semibold text-white dark:text-gray-200 uppercase tracking-wider ${
-          config.sortable ? 'cursor-pointer hover:text-white/80 dark:hover:text-gray-100' : ''
-        } relative ${
-          isDragging ? 'opacity-70 shadow-2xl border-2 border-white/50 dark:border-gray-300/50 bg-white/10 dark:bg-gray-700/50 transform scale-105 z-50' : ''
-        } ${
-          isDragOver ? 'bg-white/20 border-l-4 border-l-white/80 dark:border-l-gray-300/80' : ''
-        } transition-all duration-200 ease-in-out`}
-        style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}
-        onClick={config.sortable && ['date', 'description', 'amount'].includes(columnKey) ? () => handleSort(columnKey as 'date' | 'description' | 'amount') : undefined}
-      >
-        <div className="flex items-center gap-1" style={{ justifyContent: config.className === 'text-right' ? 'flex-end' : 'flex-start' }}>
-          {config.label}
-          {config.sortable && sortField === columnKey && (
-            <span className="font-bold text-white dark:text-gray-200">
-              {sortDirection === 'asc' ? <ChevronUpIcon size={18} strokeWidth={3} /> : <ChevronDownIcon size={18} strokeWidth={3} />}
+
+  // Define table columns for VirtualizedTable
+  const columns: Column<Transaction & { balance: number }>[] = useMemo(() => [
+    {
+      key: 'date',
+      header: 'Date',
+      width: '120px',
+      accessor: (transaction) => (
+        <span className="text-gray-900 dark:text-white">
+          {new Date(transaction.date).toLocaleDateString('en-GB')}
+        </span>
+      ),
+      sortable: true
+    },
+    {
+      key: 'reconciled',
+      header: '✓',
+      width: '40px',
+      accessor: (transaction) => (
+        transaction.cleared ? (
+          <span className="text-green-600 dark:text-green-400">✓</span>
+        ) : null
+      ),
+      className: 'text-center',
+      headerClassName: 'text-center'
+    },
+    {
+      key: 'description',
+      header: 'Description',
+      width: '300px',
+      accessor: (transaction) => (
+        <span className="text-gray-900 dark:text-white">
+          {transaction.description}
+        </span>
+      ),
+      sortable: true
+    },
+    {
+      key: 'category',
+      header: 'Category',
+      width: '200px',
+      accessor: (transaction) => (
+        <span className="text-gray-600 dark:text-gray-400">
+          {getCategoryName(transaction.category)}
+        </span>
+      )
+    },
+    {
+      key: 'tags',
+      header: 'Tags',
+      width: '200px',
+      accessor: (transaction) => (
+        <div className="flex flex-wrap gap-1">
+          {transaction.tags?.map((tag: string, idx: number) => (
+            <span
+              key={idx}
+              className={`inline-flex items-center px-2 ${compactView ? 'py-0' : 'py-0.5'} rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300`}
+            >
+              {tag}
             </span>
-          )}
+          ))}
         </div>
-        <div 
-          className="absolute right-0 top-0 bottom-0 w-px cursor-col-resize bg-[#5A729A] dark:bg-gray-600"
-          onMouseDown={(e) => handleMouseDown(columnKey, e)}
-        />
-      </th>
-    );
-  };
+      )
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      width: '150px',
+      accessor: (transaction) => (
+        <span className={`font-medium ${
+          transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0)
+            ? 'text-green-600 dark:text-green-400' 
+            : 'text-red-600 dark:text-red-400'
+        }`}>
+          {transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0) ? '+' : '-'}
+          {formatCurrency(Math.abs(transaction.amount), account?.currency)}
+        </span>
+      ),
+      className: 'text-right',
+      headerClassName: 'text-right',
+      sortable: true
+    },
+    {
+      key: 'balance',
+      header: 'Balance',
+      width: '150px',
+      accessor: (transaction) => (
+        <span className="font-medium text-gray-900 dark:text-gray-100">
+          {formatCurrency(transaction.balance, account?.currency)}
+        </span>
+      ),
+      className: 'text-right',
+      headerClassName: 'text-right'
+    }
+  ], [compactView, formatCurrency, account?.currency, getCategoryName]);
   
   if (!account) {
     return (
@@ -671,115 +596,36 @@ export default function AccountTransactions() {
       
       {/* Transactions Table - Scrollable */}
       <div 
-        className="flex-1 min-h-0 bg-white dark:bg-gray-800 rounded-2xl shadow-lg overflow-hidden flex flex-col border-2 border-[#6B86B3]"
-        style={{ minHeight: '900px' }}
+        className="flex-1 min-h-0"
+        style={{ minHeight: '600px' }}
       >
-        <div 
-          ref={scrollContainerRef}
-          className="flex-1 overflow-y-auto overflow-x-hidden"
-        >
-          <table ref={tableRef} className="w-full">
-            <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600 sticky top-0 z-10">
-              <tr>
-                {columnOrder.map(columnKey => renderHeaderCell(columnKey))}
-              </tr>
-            </thead>
-            <tbody>
-              {transactionsWithBalance.map((transaction, index) => (
-                <tr
-                  key={transaction.id}
-                  onClick={() => handleTransactionClick(transaction)}
-                  onDoubleClick={() => handleTransactionDoubleClick(transaction)}
-                  className={`${
-                    index % 2 === 1 ? 'bg-[#D9E1F2]/25' : 'bg-white'
-                  } dark:${
-                    index % 2 === 1 ? 'bg-gray-800/50' : 'bg-gray-800'
-                  } cursor-pointer ${
-                    selectedTransactionId === transaction.id 
-                      ? 'shadow-[inset_2px_0_0_3px_rgb(209,213,219),inset_0_2px_0_3px_rgb(209,213,219),inset_0_-2px_0_3px_rgb(209,213,219),inset_-2px_0_0_3px_rgb(209,213,219)] dark:shadow-[inset_2px_0_0_3px_rgb(75,85,99),inset_0_2px_0_3px_rgb(75,85,99),inset_0_-2px_0_3px_rgb(75,85,99),inset_-2px_0_0_3px_rgb(75,85,99)]'
-                      : 'hover:shadow-[inset_2px_0_0_3px_rgb(209,213,219),inset_0_2px_0_3px_rgb(209,213,219),inset_0_-2px_0_3px_rgb(209,213,219),inset_-2px_0_0_3px_rgb(209,213,219)] dark:hover:shadow-[inset_2px_0_0_3px_rgb(75,85,99),inset_0_2px_0_3px_rgb(75,85,99),inset_0_-2px_0_3px_rgb(75,85,99),inset_-2px_0_0_3px_rgb(75,85,99)]'
-                  } transition-shadow relative`}
-                >
-                  {columnOrder.map(columnKey => {
-                    const config = columnConfig[columnKey as keyof typeof columnConfig];
-                    const className = `px-6 ${compactView ? 'py-2' : 'py-4'} whitespace-nowrap ${compactView ? 'text-xs' : 'text-sm'} ${config?.cellClassName || ''}`;
-                    
-                    switch (columnKey) {
-                      case 'date':
-                        return (
-                          <td key={columnKey} className={className}>
-                            {new Date(transaction.date).toLocaleDateString('en-GB')}
-                          </td>
-                        );
-                      case 'reconciled':
-                        return (
-                          <td key={columnKey} className={className}>
-                            {transaction.cleared && (
-                              <span className="text-green-600 dark:text-green-400">✓</span>
-                            )}
-                          </td>
-                        );
-                      case 'description':
-                        return (
-                          <td key={columnKey} className={className}>
-                            <span className="text-gray-900 dark:text-white">
-                              {transaction.description}
-                            </span>
-                          </td>
-                        );
-                      case 'category':
-                        return (
-                          <td key={columnKey} className={className}>
-                            <span className="text-gray-600 dark:text-gray-400">
-                              {getCategoryName(transaction.category)}
-                            </span>
-                          </td>
-                        );
-                      case 'tags':
-                        return (
-                          <td key={columnKey} className={className}>
-                            <div className="flex flex-wrap gap-1">
-                              {transaction.tags?.map((tag: string, idx: number) => (
-                                <span
-                                  key={idx}
-                                  className={`inline-flex items-center px-2 ${compactView ? 'py-0' : 'py-0.5'} rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300`}
-                                >
-                                  {tag}
-                                </span>
-                              ))}
-                            </div>
-                          </td>
-                        );
-                      case 'amount':
-                        return (
-                          <td key={columnKey} className={className}>
-                            <span className={`font-medium ${
-                              transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0)
-                                ? 'text-green-600 dark:text-green-400' 
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0) ? '+' : '-'}
-                              {formatCurrency(Math.abs(transaction.amount), account.currency)}
-                            </span>
-                          </td>
-                        );
-                      case 'balance':
-                        return (
-                          <td key={columnKey} className={className}>
-                            <span className="font-medium text-gray-900 dark:text-gray-100">
-                              {formatCurrency(transaction.balance, account.currency)}
-                            </span>
-                          </td>
-                        );
-                      default:
-                        return null;
-                    }
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <VirtualizedTable
+          items={transactionsWithBalance}
+          columns={columns}
+          getItemKey={(transaction) => transaction.id}
+          onRowClick={handleTransactionDoubleClick}
+          rowHeight={compactView ? 48 : 64}
+          selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : undefined}
+          onSort={(column, direction) => {
+            if (column === 'date' || column === 'description' || column === 'amount') {
+              setSortField(column);
+              setSortDirection(direction);
+            }
+          }}
+          sortColumn={sortField}
+          sortDirection={sortDirection}
+          emptyMessage="No transactions found"
+          threshold={50}
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3]"
+          headerClassName="bg-secondary dark:bg-gray-700 text-white"
+          rowClassName={(transaction, index) => {
+            const base = index % 2 === 1 ? 'bg-[#D9E1F2]/25 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-800';
+            const selected = selectedTransactionId === transaction.id 
+              ? 'shadow-[inset_2px_0_0_3px_rgb(209,213,219),inset_0_2px_0_3px_rgb(209,213,219),inset_0_-2px_0_3px_rgb(209,213,219),inset_-2px_0_0_3px_rgb(209,213,219)] dark:shadow-[inset_2px_0_0_3px_rgb(75,85,99),inset_0_2px_0_3px_rgb(75,85,99),inset_0_-2px_0_3px_rgb(75,85,99),inset_-2px_0_0_3px_rgb(75,85,99)]'
+              : '';
+            return `${base} ${selected}`;
+          }}
+        />
       </div>
       
       {/* Quick Add Transaction Form */}

@@ -80,10 +80,10 @@ describe('TransactionCard', () => {
 
     render(<TransactionCard {...defaultProps} transaction={transaction} />);
 
-    // Transfer type still shows as expense in the current implementation
-    const amountElement = screen.getByText('-£500.00');
+    // Transfer with positive amount shows as income (green)
+    const amountElement = screen.getByText('+£500.00');
     expect(amountElement).toBeInTheDocument();
-    expect(amountElement).toHaveClass('text-red-600');
+    expect(amountElement).toHaveClass('text-green-600');
   });
 
   it('shows cleared indicator when transaction is cleared', () => {

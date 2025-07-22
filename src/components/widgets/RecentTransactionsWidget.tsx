@@ -8,7 +8,7 @@ interface RecentTransactionsWidgetProps {
   settings: Record<string, any>;
 }
 
-export default function RecentTransactionsWidget({ size, settings }: RecentTransactionsWidgetProps) {
+export default function RecentTransactionsWidget({ size, settings }: RecentTransactionsWidgetProps): React.JSX.Element {
   const { transactions, accounts, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   

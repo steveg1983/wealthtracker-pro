@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
-import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import OfflineIndicator from './OfflineIndicator';
+import { OfflineStatus } from './OfflineStatus';
+import { SyncConflictResolver } from './SyncConflictResolver';
 import PWAInstallPrompt from './PWAInstallPrompt';
 import GlobalSearch, { useGlobalSearchDialog } from './GlobalSearch';
 import KeyboardShortcutsHelp, { useKeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
+import NotificationBell from './NotificationBell';
+import { ThemeSwitcher } from './ThemeSwitcher';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import MobileBottomNav from './MobileBottomNav';
@@ -22,7 +26,7 @@ interface SidebarLinkProps {
   onNavigate?: () => void;
 }
 
-function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onNavigate }: SidebarLinkProps) {
+function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubItem, onNavigate }: SidebarLinkProps): React.JSX.Element {
   const location = useLocation();
   const { isWideView } = useLayout();
   const isActive = !isWideView && (location.pathname === to || 
@@ -78,7 +82,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
   );
 }
 
-export default function Layout() {
+export default function Layout(): React.JSX.Element {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
@@ -86,7 +90,20 @@ export default function Layout() {
   const [forecastingExpanded, setForecastingExpanded] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { showBudget, showGoals, showAnalytics } = usePreferences();
+  const { 
+    showBudget, 
+    showGoals, 
+    showAnalytics,
+    showInvestments,
+    showEnhancedInvestments,
+    showAIAnalytics,
+    showTaxPlanning,
+    showHousehold,
+    showBusinessFeatures,
+    showFinancialPlanning,
+    showDataIntelligence,
+    showSummaries
+  } = usePreferences();
   const { isWideView } = useLayout();
   const { isOpen: isSearchOpen, openSearch, closeSearch } = useGlobalSearchDialog();
   const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
@@ -256,7 +273,8 @@ export default function Layout() {
               )}
             </div>
             
-            <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={isSidebarCollapsed} />
+            {showInvestments && <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={isSidebarCollapsed} />}
+            {showEnhancedInvestments && <SidebarLink to="/enhanced-investments" icon={BarChart3Icon} label="Investment Analytics" isCollapsed={isSidebarCollapsed} />}
             
             {/* Forecasting with Sub-navigation */}
             {(showBudget || showGoals) && (
@@ -278,6 +296,13 @@ export default function Layout() {
             )}
             
             {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3Icon} label="Analytics" isCollapsed={isSidebarCollapsed} />}
+            {showAIAnalytics && <SidebarLink to="/ai-analytics" icon={MagicWandIcon} label="AI Analytics" isCollapsed={isSidebarCollapsed} />}
+            {showTaxPlanning && <SidebarLink to="/tax-planning" icon={CalculatorIcon} label="Tax Planning" isCollapsed={isSidebarCollapsed} />}
+            {showHousehold && <SidebarLink to="/household" icon={UsersIcon} label="Household" isCollapsed={isSidebarCollapsed} />}
+            {showBusinessFeatures && <SidebarLink to="/business-features" icon={BriefcaseIcon} label="Business Features" isCollapsed={isSidebarCollapsed} />}
+            {showFinancialPlanning && <SidebarLink to="/financial-planning" icon={CalculatorIcon} label="Financial Planning" isCollapsed={isSidebarCollapsed} />}
+            {showDataIntelligence && <SidebarLink to="/data-intelligence" icon={DatabaseIcon} label="Data Intelligence" isCollapsed={isSidebarCollapsed} />}
+            {showSummaries && <SidebarLink to="/summaries" icon={PieChartIcon} label="Summaries" isCollapsed={isSidebarCollapsed} />}
             
             {/* Settings with Sub-navigation */}
             <div>
@@ -294,6 +319,11 @@ export default function Layout() {
                   <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/settings/security" icon={ShieldIcon} label="Security" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Enhanced Import" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/export-manager" icon={DownloadIcon} label="Export Manager" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/documents" icon={FolderIcon} label="Documents" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/open-banking" icon={BankIcon} label="Open Banking" isCollapsed={false} isSubItem={true} />
                 </div>
               )}
             </div>
@@ -301,17 +331,41 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Mobile Menu Button */}
-      <button
-        onClick={toggleMobileMenu}
-        className="md:hidden fixed top-4 left-4 z-50 p-3 bg-sidebar dark:bg-gray-800 rounded-xl shadow-2xl hover:shadow-xl transition-shadow min-w-[48px] min-h-[48px] flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-white/50"
-        aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
-        aria-expanded={isMobileMenuOpen}
-        aria-controls="mobile-menu"
-        title={isMobileMenuOpen ? 'Close menu (Escape)' : 'Open menu (Alt+M)'}
-      >
-        {isMobileMenuOpen ? <XIcon size={32} className="text-white dark:text-gray-200" /> : <MenuIcon size={32} className="text-white dark:text-gray-200" />}
-      </button>
+      {/* Mobile Header */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 shadow-md">
+        <div className="flex items-center justify-between p-4">
+          <button
+            onClick={toggleMobileMenu}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            aria-label={isMobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="mobile-menu"
+            title={isMobileMenuOpen ? 'Close menu (Escape)' : 'Open menu (Alt+M)'}
+          >
+            {isMobileMenuOpen ? <XIcon size={24} className="text-gray-700 dark:text-gray-200" /> : <MenuIcon size={24} className="text-gray-700 dark:text-gray-200" />}
+          </button>
+          
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Wealth Tracker</h1>
+          
+          <div className="flex items-center gap-2">
+            <ThemeSwitcher />
+            <NotificationBell />
+            <button
+              onClick={openSearch}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              aria-label="Search"
+            >
+              <SearchIcon size={20} className="text-gray-700 dark:text-gray-200" />
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      {/* Desktop Notification Bell and Theme Switcher */}
+      <div className="hidden md:flex items-center gap-2 fixed top-4 right-4 z-30">
+        <ThemeSwitcher />
+        <NotificationBell />
+      </div>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
@@ -378,7 +432,8 @@ export default function Layout() {
                   )}
                 </div>
                 
-                <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                {showInvestments && <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showEnhancedInvestments && <SidebarLink to="/enhanced-investments" icon={BarChart3Icon} label="Investment Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
                 
                 {/* Forecasting with Sub-navigation */}
                 {(showBudget || showGoals) && (
@@ -404,6 +459,13 @@ export default function Layout() {
                 )}
                 
                 {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3Icon} label="Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showAIAnalytics && <SidebarLink to="/ai-analytics" icon={MagicWandIcon} label="AI Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showTaxPlanning && <SidebarLink to="/tax-planning" icon={CalculatorIcon} label="Tax Planning" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showHousehold && <SidebarLink to="/household" icon={UsersIcon} label="Household" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showBusinessFeatures && <SidebarLink to="/business-features" icon={BriefcaseIcon} label="Business Features" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showFinancialPlanning && <SidebarLink to="/financial-planning" icon={CalculatorIcon} label="Financial Planning" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showDataIntelligence && <SidebarLink to="/data-intelligence" icon={DatabaseIcon} label="Data Intelligence" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                {showSummaries && <SidebarLink to="/summaries" icon={PieChartIcon} label="Summaries" isCollapsed={false} onNavigate={toggleMobileMenu} />}
                 
                 {/* Settings with Sub-navigation */}
                 <div>
@@ -420,6 +482,11 @@ export default function Layout() {
                       <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/security" icon={ShieldIcon} label="Security" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Enhanced Import" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/export-manager" icon={DownloadIcon} label="Export Manager" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/documents" icon={FolderIcon} label="Documents" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/open-banking" icon={BankIcon} label="Open Banking" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                     </div>
                   )}
                 </div>
@@ -433,7 +500,7 @@ export default function Layout() {
       <main 
         ref={swipeRef as React.RefObject<HTMLElement>}
         id="main-content"
-        className="flex-1 overflow-auto md:pl-0" 
+        className="flex-1 overflow-auto md:pl-0 mt-16 md:mt-0" 
         role="main"
         aria-label="Main content"
         tabIndex={-1}
@@ -445,6 +512,8 @@ export default function Layout() {
       
       {/* Offline Indicator */}
       <OfflineIndicator />
+      <OfflineStatus />
+      <SyncConflictResolver />
       
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />

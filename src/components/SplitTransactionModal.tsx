@@ -21,7 +21,7 @@ interface SplitItem {
   description: string;
 }
 
-export default function SplitTransactionModal({ isOpen, onClose, transaction }: SplitTransactionModalProps) {
+export default function SplitTransactionModal({ isOpen, onClose, transaction }: SplitTransactionModalProps): React.JSX.Element | null {
   const { updateTransaction, addTransaction, deleteTransaction } = useApp();
   const [splits, setSplits] = useState<SplitItem[]>([
     { category: '', amount: 0, description: '' }
@@ -51,21 +51,21 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
     }
   }, [splits, transaction]);
 
-  const handleAddSplit = () => {
+  const handleAddSplit = (): void => {
     setSplits([...splits, { category: '', amount: remainingAmount > 0 ? remainingAmount : 0, description: '' }]);
   };
 
-  const handleRemoveSplit = (index: number) => {
+  const handleRemoveSplit = (index: number): void => {
     setSplits(splits.filter((_, i) => i !== index));
   };
 
-  const handleSplitChange = (index: number, field: keyof SplitItem, value: string | number) => {
+  const handleSplitChange = (index: number, field: keyof SplitItem, value: string | number): void => {
     const newSplits = [...splits];
     newSplits[index] = { ...newSplits[index], [field]: value };
     setSplits(newSplits);
   };
 
-  const handleSave = () => {
+  const handleSave = (): void => {
     if (Math.abs(remainingAmount) > 0.01) {
       alert('Split amounts must equal the transaction total');
       return;
@@ -101,7 +101,7 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
 
   if (!isOpen || !transaction) return null;
 
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-GB', {
       style: 'currency',
       currency: 'GBP'

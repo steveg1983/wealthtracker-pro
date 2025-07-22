@@ -11,13 +11,17 @@ interface CashFlowWidgetProps {
 }
 
 export default function CashFlowWidget({ size, settings }: CashFlowWidgetProps) {
-  const { getDecimalTransactions } = useApp();
+  const { transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
   const forecastPeriod = settings.forecastPeriod || 6;
 
   const { historicalData, forecastData, currentMonthFlow, projectedFlow } = useMemo(() => {
-    const transactions = getDecimalTransactions();
+    // Convert transactions to decimal for calculations
+    const decimalTransactions = transactions.map(t => ({
+      ...t,
+      amount: toDecimal(t.amount)
+    }));
     const now = new Date();
     
     // Historical data (last 6 months)
@@ -26,7 +30,7 @@ export default function CashFlowWidget({ size, settings }: CashFlowWidgetProps) 
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
-      const monthTransactions = transactions.filter(t => {
+      const monthTransactions = decimalTransactions.filter(t => {
         const tDate = new Date(t.date);
         return tDate >= date && tDate <= endOfMonth;
       });
@@ -82,7 +86,7 @@ export default function CashFlowWidget({ size, settings }: CashFlowWidgetProps) 
     
     // Current month flow
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthTransactions = transactions.filter(t => {
+    const currentMonthTransactions = decimalTransactions.filter(t => {
       const tDate = new Date(t.date);
       return tDate >= currentMonthStart;
     });
@@ -103,7 +107,7 @@ export default function CashFlowWidget({ size, settings }: CashFlowWidgetProps) 
       currentMonthFlow,
       projectedFlow: toDecimal(avgNetFlow)
     };
-  }, [getDecimalTransactions, forecastPeriod]);
+  }, [transactions, forecastPeriod]);
 
   const combinedData = [...historicalData, ...forecastData];
   const isCurrentFlowPositive = currentMonthFlow.greaterThanOrEqualTo(0);
@@ -190,7 +194,7 @@ export default function CashFlowWidget({ size, settings }: CashFlowWidgetProps) 
                 stroke="#10B981" 
                 strokeWidth={2}
                 dot={{ fill: '#10B981', strokeWidth: 2, r: 3 }}
-                strokeDasharray={(point: any) => point?.type === 'forecast' ? '5 5' : ''}
+                strokeDasharray=""
               />
               <Line 
                 type="monotone" 
@@ -198,7 +202,7 @@ export default function CashFlowWidget({ size, settings }: CashFlowWidgetProps) 
                 stroke="#EF4444" 
                 strokeWidth={2}
                 dot={{ fill: '#EF4444', strokeWidth: 2, r: 3 }}
-                strokeDasharray={(point: any) => point?.type === 'forecast' ? '5 5' : ''}
+                strokeDasharray=""
               />
               <Line 
                 type="monotone" 
@@ -206,7 +210,7 @@ export default function CashFlowWidget({ size, settings }: CashFlowWidgetProps) 
                 stroke="#3B82F6" 
                 strokeWidth={2}
                 dot={{ fill: '#3B82F6', strokeWidth: 2, r: 4 }}
-                strokeDasharray={(point: any) => point?.type === 'forecast' ? '5 5' : ''}
+                strokeDasharray=""
               />
             </LineChart>
           </ResponsiveContainer>

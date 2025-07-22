@@ -21,7 +21,7 @@ export function useSwipeGestures({
   onSwipeUp,
   onSwipeDown,
   enabled = true
-}: SwipeGestureOptions) {
+}: SwipeGestureOptions): React.MutableRefObject<HTMLElement | null> {
   const [touchStart, setTouchStart] = useState<TouchPosition | null>(null);
   const [touchEnd, setTouchEnd] = useState<TouchPosition | null>(null);
   const elementRef = useRef<HTMLElement | null>(null);
@@ -91,8 +91,13 @@ export function useSwipeGestures({
   return elementRef;
 }
 
+interface UseSwipeNavigationReturn {
+  navigateToPage: (direction: 'next' | 'prev', currentPath: string) => string | null;
+  getCurrentPageIndex: (pathname: string) => number;
+}
+
 // Hook for swipe-to-navigate between pages
-export function useSwipeNavigation() {
+export function useSwipeNavigation(): UseSwipeNavigationReturn {
   const pages = [
     '/',
     '/accounts',

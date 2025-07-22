@@ -5,7 +5,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { calculateBudgetSpending, calculateBudgetPercentage } from '../utils/calculations-decimal';
-import type { DecimalInstance } from '../types/decimal-types';
+import type { DecimalInstance, DecimalBudget } from '../types/decimal-types';
 import {
   BellIcon,
   AlertCircleIcon,
@@ -127,7 +127,7 @@ export default function SpendingAlerts() {
       budgets.forEach(budget => {
         if (mutedCategories.includes(budget.category)) return;
         
-        const decimalBudget = decimalBudgets.find(db => db.id === budget.id);
+        const decimalBudget = decimalBudgets.find((db: DecimalBudget) => db.id === budget.id);
         if (!decimalBudget || !budget.isActive) return;
         
         const spent = calculateBudgetSpending(decimalBudget, decimalTransactions, startDate, endDate);

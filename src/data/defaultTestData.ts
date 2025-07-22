@@ -197,7 +197,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 0.54,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 0.56,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 20000 * 0.56,
+      averageCost: 0.54,
+      createdAt: ACCOUNT_OPENING_DATE
     },
     {
       id: 'inv2',
@@ -208,7 +211,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 2.10,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 2.15,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 3000 * 2.15,
+      averageCost: 2.10,
+      createdAt: ACCOUNT_OPENING_DATE
     },
     {
       id: 'inv3',
@@ -219,7 +225,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 4.85,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 4.90,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 2000 * 4.90,
+      averageCost: 4.85,
+      createdAt: ACCOUNT_OPENING_DATE
     },
     {
       id: 'inv4',
@@ -230,7 +239,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 16.50,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 16.75,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 800 * 16.75,
+      averageCost: 16.50,
+      createdAt: ACCOUNT_OPENING_DATE
     },
     
     // US Tech Shares (~£60,000)
@@ -243,7 +255,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 154.72,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 158.50,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 100 * 158.50,
+      averageCost: 154.72,
+      createdAt: ACCOUNT_OPENING_DATE
     },
     {
       id: 'inv6',
@@ -254,7 +269,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 355.90,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 365.00,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 50 * 365.00,
+      averageCost: 355.90,
+      createdAt: ACCOUNT_OPENING_DATE
     },
     {
       id: 'inv7',
@@ -265,7 +283,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 142.52,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 145.00,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 100 * 145.00,
+      averageCost: 142.52,
+      createdAt: ACCOUNT_OPENING_DATE
     },
     {
       id: 'inv8',
@@ -276,7 +297,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 96.06,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 98.50,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 100 * 98.50,
+      averageCost: 96.06,
+      createdAt: ACCOUNT_OPENING_DATE
     },
     
     // Funds (~£50,000)
@@ -289,7 +313,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 108.50,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 110.00,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 250 * 110.00,
+      averageCost: 108.50,
+      createdAt: ACCOUNT_OPENING_DATE
     },
     {
       id: 'inv10',
@@ -300,7 +327,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 8.45,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 8.60,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 2000 * 8.60,
+      averageCost: 8.45,
+      createdAt: ACCOUNT_OPENING_DATE
     },
     {
       id: 'inv11',
@@ -311,7 +341,10 @@ export const getDefaultTestInvestments = (): Investment[] => {
       purchasePrice: 4.25,
       purchaseDate: ACCOUNT_OPENING_DATE,
       currentPrice: 4.30,
-      lastUpdated: new Date()
+      lastUpdated: new Date(),
+      currentValue: 1500 * 4.30,
+      averageCost: 4.25,
+      createdAt: ACCOUNT_OPENING_DATE
     }
   ];
 };
@@ -505,7 +538,7 @@ export const getDefaultTestBudgets = (): Budget[] => {
       category: 'Groceries',
       amount: 600,
       period: 'monthly',
-      startDate: ACCOUNT_OPENING_DATE,
+      isActive: true,
       createdAt: ACCOUNT_OPENING_DATE
     },
     {
@@ -513,7 +546,7 @@ export const getDefaultTestBudgets = (): Budget[] => {
       category: 'Transport',
       amount: 300,
       period: 'monthly',
-      startDate: ACCOUNT_OPENING_DATE,
+      isActive: true,
       createdAt: ACCOUNT_OPENING_DATE
     },
     {
@@ -521,7 +554,7 @@ export const getDefaultTestBudgets = (): Budget[] => {
       category: 'Utilities',
       amount: 200,
       period: 'monthly',
-      startDate: ACCOUNT_OPENING_DATE,
+      isActive: true,
       createdAt: ACCOUNT_OPENING_DATE
     },
     {
@@ -529,7 +562,7 @@ export const getDefaultTestBudgets = (): Budget[] => {
       category: 'Entertainment',
       amount: 400,
       period: 'monthly',
-      startDate: ACCOUNT_OPENING_DATE,
+      isActive: true,
       createdAt: ACCOUNT_OPENING_DATE
     }
   ];
@@ -543,8 +576,9 @@ export const getDefaultTestGoals = (): Goal[] => {
       targetAmount: 20000,
       currentAmount: 10000,
       targetDate: new Date('2025-12-31'),
-      category: 'savings',
-      createdAt: ACCOUNT_OPENING_DATE
+      type: 'savings',
+      createdAt: ACCOUNT_OPENING_DATE,
+      isActive: true
     },
     {
       id: '2',
@@ -552,8 +586,9 @@ export const getDefaultTestGoals = (): Goal[] => {
       targetAmount: 5000,
       currentAmount: 2000,
       targetDate: new Date('2025-08-01'),
-      category: 'savings',
-      createdAt: ACCOUNT_OPENING_DATE
+      type: 'savings',
+      createdAt: ACCOUNT_OPENING_DATE,
+      isActive: true
     }
   ];
 };

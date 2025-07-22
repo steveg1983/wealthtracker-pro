@@ -1,8 +1,9 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { SearchIcon, FilterIcon, XIcon, CalendarIcon, TagIcon, CreditCardIcon, TargetIcon } from './icons';
+import { SearchIcon, FilterIcon, XIcon } from './icons';
 import { IconButton } from './icons/IconButton';
 import { Modal } from './common/Modal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { useDebounce } from '../hooks/useDebounce';
 import type { Transaction, Account } from '../types';
 
 interface SearchFilter {
@@ -10,7 +11,7 @@ interface SearchFilter {
   label: string;
   type: 'text' | 'date' | 'amount' | 'select' | 'multiselect';
   field: string;
-  value: any;
+  value: string | string[] | number | boolean | null;
   options?: { value: string; label: string }[];
 }
 
@@ -35,10 +36,11 @@ export default function AdvancedSearch({
   categories,
   onResults,
   className = ''
-}: AdvancedSearchProps) {
+}: AdvancedSearchProps): React.JSX.Element {
   const { formatCurrency } = useCurrencyDecimal();
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 300);
   const [showSavedSearches, setShowSavedSearches] = useState(false);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
   const [searchName, setSearchName] = useState('');
@@ -128,7 +130,12 @@ export default function AdvancedSearch({
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        setSavedSearches(parsed);
+        // Convert date strings back to Date objects
+        const searches = parsed.map((search: any) => ({
+          ...search,
+          createdAt: new Date(search.createdAt)
+        }));
+        setSavedSearches(searches);
       } catch (error) {
         console.error('Error loading saved searches:', error);
       }
@@ -141,7 +148,7 @@ export default function AdvancedSearch({
   }, []);
 
   // Update filter value
-  const updateFilter = useCallback((filterId: string, value: any) => {
+  const updateFilter = useCallback((filterId: string, value: string | string[] | number | boolean | null) => {
     setFilters(prev => prev.map(filter => 
       filter.id === filterId ? { ...filter, value } : filter
     ));
@@ -152,8 +159,8 @@ export default function AdvancedSearch({
     let results = transactions;
 
     // Apply search term
-    if (searchTerm.trim()) {
-      const term = searchTerm.toLowerCase();
+    if (debouncedSearchTerm.trim()) {
+      const term = debouncedSearchTerm.toLowerCase();
       results = results.filter(transaction => 
         transaction.description.toLowerCase().includes(term) ||
         transaction.category.toLowerCase().includes(term) ||
@@ -170,48 +177,48 @@ export default function AdvancedSearch({
 
       switch (filter.id) {
         case 'description':
-          if (filter.value) {
+          if (filter.value && typeof filter.value === 'string') {
             results = results.filter(t => 
-              t.description.toLowerCase().includes(filter.value.toLowerCase())
+              t.description.toLowerCase().includes((filter.value as string).toLowerCase())
             );
           }
           break;
 
         case 'category':
-          if (filter.value.length > 0) {
-            results = results.filter(t => filter.value.includes(t.category));
+          if (Array.isArray(filter.value) && filter.value.length > 0) {
+            results = results.filter(t => (filter.value as string[]).includes(t.category));
           }
           break;
 
         case 'account':
-          if (filter.value.length > 0) {
-            results = results.filter(t => filter.value.includes(t.accountId));
+          if (Array.isArray(filter.value) && filter.value.length > 0) {
+            results = results.filter(t => (filter.value as string[]).includes(t.accountId));
           }
           break;
 
         case 'amount_min':
-          if (filter.value) {
-            const minAmount = parseFloat(filter.value);
+          if (filter.value && (typeof filter.value === 'string' || typeof filter.value === 'number')) {
+            const minAmount = parseFloat(String(filter.value));
             results = results.filter(t => t.amount >= minAmount);
           }
           break;
 
         case 'amount_max':
-          if (filter.value) {
-            const maxAmount = parseFloat(filter.value);
+          if (filter.value && (typeof filter.value === 'string' || typeof filter.value === 'number')) {
+            const maxAmount = parseFloat(String(filter.value));
             results = results.filter(t => t.amount <= maxAmount);
           }
           break;
 
         case 'date_from':
-          if (filter.value) {
+          if (filter.value && (typeof filter.value === 'string' || typeof filter.value === 'number')) {
             const fromDate = new Date(filter.value);
             results = results.filter(t => new Date(t.date) >= fromDate);
           }
           break;
 
         case 'date_to':
-          if (filter.value) {
+          if (filter.value && (typeof filter.value === 'string' || typeof filter.value === 'number')) {
             const toDate = new Date(filter.value);
             toDate.setHours(23, 59, 59, 999); // End of day
             results = results.filter(t => new Date(t.date) <= toDate);
@@ -219,7 +226,7 @@ export default function AdvancedSearch({
           break;
 
         case 'type':
-          if (filter.value) {
+          if (filter.value && typeof filter.value === 'string') {
             results = results.filter(t => t.type === filter.value);
           }
           break;
@@ -234,7 +241,7 @@ export default function AdvancedSearch({
     });
 
     return results;
-  }, [transactions, accounts, searchTerm, filters]);
+  }, [transactions, accounts, debouncedSearchTerm, filters]);
 
   // Update results when filtered transactions change
   useEffect(() => {
@@ -296,13 +303,13 @@ export default function AdvancedSearch({
     );
   }, [searchTerm, filters]);
 
-  const renderFilter = (filter: SearchFilter) => {
+  const renderFilter = (filter: SearchFilter): React.JSX.Element | null => {
     switch (filter.type) {
       case 'text':
         return (
           <input
             type="text"
-            value={filter.value}
+            value={typeof filter.value === 'string' ? filter.value : ''}
             onChange={(e) => updateFilter(filter.id, e.target.value)}
             placeholder={`Enter ${filter.label.toLowerCase()}`}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -313,7 +320,7 @@ export default function AdvancedSearch({
         return (
           <input
             type="date"
-            value={filter.value}
+            value={typeof filter.value === 'string' ? filter.value : ''}
             onChange={(e) => updateFilter(filter.id, e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
@@ -324,7 +331,7 @@ export default function AdvancedSearch({
           <input
             type="number"
             step="0.01"
-            value={filter.value}
+            value={typeof filter.value === 'string' || typeof filter.value === 'number' ? filter.value : ''}
             onChange={(e) => updateFilter(filter.id, e.target.value)}
             placeholder="0.00"
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
@@ -334,7 +341,7 @@ export default function AdvancedSearch({
       case 'select':
         return (
           <select
-            value={filter.value}
+            value={typeof filter.value === 'string' ? filter.value : ''}
             onChange={(e) => updateFilter(filter.id, e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           >
@@ -353,11 +360,12 @@ export default function AdvancedSearch({
               <label key={option.value} className="flex items-center gap-2 text-sm">
                 <input
                   type="checkbox"
-                  checked={filter.value.includes(option.value)}
+                  checked={Array.isArray(filter.value) && filter.value.includes(option.value)}
                   onChange={(e) => {
+                    const currentValue = Array.isArray(filter.value) ? filter.value : [];
                     const newValue = e.target.checked
-                      ? [...filter.value, option.value]
-                      : filter.value.filter((v: string) => v !== option.value);
+                      ? [...currentValue, option.value]
+                      : currentValue.filter((v: string) => v !== option.value);
                     updateFilter(filter.id, newValue);
                   }}
                   className="rounded text-primary focus:ring-primary"

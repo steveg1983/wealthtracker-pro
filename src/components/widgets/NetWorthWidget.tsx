@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useApp } from '../../contexts/AppContext';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
+import { DecimalInstance, DecimalAccount, DecimalTransaction } from '../../types/decimal-types';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { TrendingUpIcon, TrendingDownIcon } from '../icons';
 
@@ -10,7 +11,7 @@ interface NetWorthWidgetProps {
   settings: Record<string, any>;
 }
 
-export default function NetWorthWidget({ size, settings }: NetWorthWidgetProps) {
+export default function NetWorthWidget({ size, settings }: NetWorthWidgetProps): React.JSX.Element {
   const { getDecimalAccounts, getDecimalTransactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
 
@@ -19,7 +20,7 @@ export default function NetWorthWidget({ size, settings }: NetWorthWidgetProps) 
     const transactions = getDecimalTransactions();
     
     // Calculate current net worth
-    const currentNetWorth = accounts.reduce((sum, acc) => sum.plus(acc.balance), toDecimal(0));
+    const currentNetWorth = accounts.reduce((sum: DecimalInstance, acc: DecimalAccount) => sum.plus(acc.balance), toDecimal(0));
     
     // Calculate historical net worth for the last 12 months
     const monthlyData = [];
@@ -30,23 +31,23 @@ export default function NetWorthWidget({ size, settings }: NetWorthWidgetProps) 
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
       // Calculate net worth at end of this month
-      const relevantTransactions = transactions.filter(t => {
+      const relevantTransactions = transactions.filter((t: DecimalTransaction) => {
         const tDate = new Date(t.date);
         return tDate <= endOfMonth;
       });
       
       // Start with initial balances and apply transactions
       let monthNetWorth = toDecimal(0);
-      accounts.forEach(account => {
+      accounts.forEach((account: DecimalAccount) => {
         let balance = account.balance;
         
         // Subtract transactions that happened after this month
-        const futureTransactions = transactions.filter(t => {
+        const futureTransactions = transactions.filter((t: DecimalTransaction) => {
           const tDate = new Date(t.date);
           return tDate > endOfMonth && t.accountId === account.id;
         });
         
-        futureTransactions.forEach(t => {
+        futureTransactions.forEach((t: DecimalTransaction) => {
           if (t.type === 'income') {
             balance = balance.minus(t.amount);
           } else {

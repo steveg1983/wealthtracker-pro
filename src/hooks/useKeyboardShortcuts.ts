@@ -13,7 +13,7 @@ export interface KeyboardShortcut {
   sequence?: boolean; // For two-key shortcuts like 'g h'
 }
 
-export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]) {
+export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]): void {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       // Don't trigger shortcuts when typing in inputs
@@ -51,7 +51,12 @@ export function useKeyboardShortcuts(shortcuts: KeyboardShortcut[]) {
   }, [shortcuts]);
 }
 
-export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void) {
+interface UseGlobalKeyboardShortcutsReturn {
+  shortcuts: KeyboardShortcut[];
+  activeSequence: string | null;
+}
+
+export function useGlobalKeyboardShortcuts(onHelpOpen?: () => void): UseGlobalKeyboardShortcutsReturn {
   const navigate = useNavigate();
   const sequenceRef = useRef<string | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);

@@ -9,16 +9,22 @@ import { GridItem } from '../components/layout/GridItem';
 import PageWrapper from '../components/PageWrapper';
 import { calculateCategorySpending, calculateTotalIncome, calculateTotalExpenses, calculateTotalBalance } from '../utils/calculations-decimal';
 import { toDecimal } from '../utils/decimal';
+import TreemapChart from '../components/charts/TreemapChart';
+import SankeyChart from '../components/charts/SankeyChart';
 
 export default function Analytics() {
-  const { transactions, getDecimalTransactions, getDecimalAccounts, categories } = useApp();
+  const { transactions, accounts, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { layouts, updateAnalyticsLayout, resetAnalyticsLayout } = useLayoutConfig();
   const [showLayoutControls, setShowLayoutControls] = useState(false);
 
   // Calculate spending by category using decimal precision
   const categoryData = useMemo(() => {
-    const decimalTransactions = getDecimalTransactions();
+    // Convert transactions to decimal for calculations
+    const decimalTransactions = transactions.map(t => ({
+      ...t,
+      amount: toDecimal(t.amount)
+    }));
     const expenseCategories = categories.filter(cat => cat.type === 'expense' || cat.type === 'both');
     
     return expenseCategories
@@ -31,11 +37,15 @@ export default function Analytics() {
       })
       .filter(item => item.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [categories, getDecimalTransactions]);
+  }, [categories, transactions]);
 
   // Calculate monthly trends
   const monthlyData = useMemo(() => {
-    const decimalTransactions = getDecimalTransactions();
+    // Convert transactions to decimal for calculations
+    const decimalTransactions = transactions.map(t => ({
+      ...t,
+      amount: toDecimal(t.amount)
+    }));
     const currentYear = new Date().getFullYear();
     
     return Array.from({ length: 12 }, (_, i) => {
@@ -54,12 +64,20 @@ export default function Analytics() {
         expenses: expenses.toNumber() 
       };
     });
-  }, [getDecimalTransactions]);
+  }, [transactions]);
 
   // Calculate account balance trends based on real transactions
   const accountTrends = useMemo(() => {
-    const decimalAccounts = getDecimalAccounts();
-    const decimalTransactions = getDecimalTransactions();
+    // Convert to decimal for calculations
+    const decimalAccounts = accounts.map(a => ({
+      ...a,
+      balance: toDecimal(a.balance),
+      initialBalance: a.openingBalance ? toDecimal(a.openingBalance) : undefined
+    }));
+    const decimalTransactions = transactions.map(t => ({
+      ...t,
+      amount: toDecimal(t.amount)
+    }));
     const now = new Date();
     
     // Get current total balance with decimal precision
@@ -99,7 +117,7 @@ export default function Analytics() {
     }
     
     return trendData;
-  }, [getDecimalAccounts, getDecimalTransactions]);
+  }, [accounts, transactions]);
 
   // Calculate top expenses
   const topExpenses = transactions
@@ -109,7 +127,11 @@ export default function Analytics() {
 
   // Calculate savings rate
   const { totalIncome, totalExpenses, savingsRate } = useMemo(() => {
-    const decimalTransactions = getDecimalTransactions();
+    // Convert transactions to decimal for calculations
+    const decimalTransactions = transactions.map(t => ({
+      ...t,
+      amount: toDecimal(t.amount)
+    }));
     const income = calculateTotalIncome(decimalTransactions);
     const expenses = calculateTotalExpenses(decimalTransactions);
     const rate = income.greaterThan(0) 
@@ -121,7 +143,7 @@ export default function Analytics() {
       totalExpenses: expenses.toNumber(),
       savingsRate: rate
     };
-  }, [getDecimalTransactions]);
+  }, [transactions]);
 
   const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
 
@@ -388,6 +410,20 @@ export default function Analytics() {
                 </p>
               </div>
             </div>
+          </GridItem>
+        </div>
+
+        {/* Treemap Chart */}
+        <div key="treemap">
+          <GridItem key="treemap-grid" title="Expense Breakdown (Treemap)">
+            <TreemapChart transactions={transactions} />
+          </GridItem>
+        </div>
+
+        {/* Sankey Chart */}
+        <div key="sankey">
+          <GridItem key="sankey-grid" title="Cash Flow (Sankey)">
+            <SankeyChart transactions={transactions} accounts={accounts} />
           </GridItem>
         </div>
           </DraggableGrid>

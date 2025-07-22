@@ -9,7 +9,7 @@ interface LayoutContextType {
 
 const LayoutContext = createContext<LayoutContextType | undefined>(undefined);
 
-export function LayoutProvider({ children }: { children: ReactNode }) {
+export function LayoutProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [isWideView, setIsWideView] = useState(false);
 
   return (
@@ -19,7 +19,7 @@ export function LayoutProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useLayout() {
+export function useLayout(): LayoutContextType {
   const context = useContext(LayoutContext);
   if (context === undefined) {
     throw new Error('useLayout must be used within a LayoutProvider');

@@ -6,11 +6,18 @@ import { useLayout } from '../contexts/LayoutContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import EditTransactionModal from '../components/EditTransactionModal';
+import TransactionDetailsView from '../components/TransactionDetailsView';
 import { CalendarIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '../components/icons';
 import type { Transaction } from '../types';
+import type { DecimalTransaction, DecimalInstance } from '../types/decimal-types';
 import PageWrapper from '../components/PageWrapper';
 import { TransactionRow } from '../components/TransactionRow';
 import { TransactionCard } from '../components/TransactionCard';
+import { VirtualizedTransactionList } from '../components/VirtualizedTransactionList';
+import { MobileTransactionList } from '../components/MobileTransactionList';
+import { useTransactionFilters } from '../hooks/useTransactionFilters';
+import { useDebounce } from '../hooks/useDebounce';
+import { SkeletonTableRow, SkeletonList } from '../components/loading/Skeleton';
 
 export default function Transactions() {
   const { transactions, accounts, deleteTransaction, categories, getDecimalTransactions } = useApp();
@@ -20,9 +27,12 @@ export default function Transactions() {
   const [searchParams] = useSearchParams();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [viewingTransaction, setViewingTransaction] = useState<Transaction | null>(null);
+  const [isDetailsViewOpen, setIsDetailsViewOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
   const [filterAccountId, setFilterAccountId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -44,19 +54,29 @@ export default function Transactions() {
   const [columnOrder, setColumnOrder] = useState(['date', 'reconciled', 'account', 'description', 'category', 'amount', 'actions']);
   const [draggedColumn, setDraggedColumn] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Helper function to get category path
-  const getCategoryPath = useCallback((categoryId: string): string => {
-    const category = categories.find(c => c.id === categoryId);
-    if (!category) return categoryId;
-    
-    if (category.level === 'detail' && category.parentId) {
-      const parent = categories.find(c => c.id === category.parentId);
-      return parent ? `${parent.name} > ${category.name}` : category.name;
-    }
-    
-    return category.name;
-  }, [categories]);
+  // Use optimized transaction filters hook
+  const filterOptions = useMemo(() => ({
+    filterType,
+    filterAccountId,
+    searchQuery: debouncedSearchQuery,
+    dateFrom,
+    dateTo
+  }), [filterType, filterAccountId, debouncedSearchQuery, dateFrom, dateTo]);
+
+  const sortOptions = useMemo(() => ({
+    field: sortField,
+    direction: sortDirection
+  }), [sortField, sortDirection]);
+
+  const { transactions: filteredAndSortedTransactions, getCategoryPath } = useTransactionFilters(
+    transactions,
+    accounts,
+    categories,
+    filterOptions,
+    sortOptions
+  );
 
   // Get account ID from URL params
   const accountIdFromUrl = searchParams.get('account');
@@ -68,9 +88,17 @@ export default function Transactions() {
     }
   }, [accountIdFromUrl]);
 
+  // Simulate loading state
+  useEffect(() => {
+    // Set loading to false once we have data
+    if (transactions !== undefined && accounts !== undefined) {
+      setIsLoading(false);
+    }
+  }, [transactions, accounts]);
+
 
   // Sort handler
-  const handleSort = (field: typeof sortField) => {
+  const handleSort = useCallback((field: typeof sortField) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
@@ -78,19 +106,19 @@ export default function Transactions() {
       setSortDirection('asc');
     }
     setCurrentPage(1); // Reset to first page when sorting changes
-  };
+  }, [sortField, sortDirection]);
 
   // Handle column resize
-  const handleMouseDown = (column: string, e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((column: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsResizing(column);
     setStartX(e.clientX);
     setStartWidth(columnWidths[column as keyof typeof columnWidths]);
-  };
+  }, [columnWidths]);
 
   // Handle column drag start
-  const handleDragStart = (column: string, e: React.DragEvent) => {
+  const handleDragStart = useCallback((column: string, e: React.DragEvent) => {
     setDraggedColumn(column);
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', column);
@@ -122,22 +150,22 @@ export default function Transactions() {
     setTimeout(() => {
       document.body.removeChild(dragImage);
     }, 0);
-  };
+  }, []);
 
   // Handle column drag over
-  const handleDragOver = (column: string, e: React.DragEvent) => {
+  const handleDragOver = useCallback((column: string, e: React.DragEvent) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     setDragOverColumn(column);
-  };
+  }, []);
 
   // Handle column drag leave
-  const handleDragLeave = () => {
+  const handleDragLeave = useCallback(() => {
     setDragOverColumn(null);
-  };
+  }, []);
 
   // Handle column drop
-  const handleDrop = (targetColumn: string, e: React.DragEvent) => {
+  const handleDrop = useCallback((targetColumn: string, e: React.DragEvent) => {
     e.preventDefault();
     const draggedColumn = e.dataTransfer.getData('text/plain');
     
@@ -157,7 +185,7 @@ export default function Transactions() {
     
     setDraggedColumn(null);
     setDragOverColumn(null);
-  };
+  }, [columnOrder]);
 
 
   // Add mouse event listeners when resizing
@@ -189,151 +217,60 @@ export default function Transactions() {
     }
   }, [isResizing, startX, startWidth]);
 
-  // Sort transactions based on current sort field and direction
-  const sortedTransactions = useMemo(() => {
-    const sorted = [...transactions].sort((a, b) => {
-      let aValue: string | number;
-      let bValue: string | number;
-
-      switch (sortField) {
-        case 'date':
-          aValue = new Date(a.date).getTime();
-          bValue = new Date(b.date).getTime();
-          break;
-        case 'account': {
-          const accountA = accounts.find(acc => acc.id === a.accountId);
-          const accountB = accounts.find(acc => acc.id === b.accountId);
-          aValue = accountA?.name || '';
-          bValue = accountB?.name || '';
-          break;
-        }
-        case 'description':
-          aValue = a.description.toLowerCase();
-          bValue = b.description.toLowerCase();
-          break;
-        case 'category': {
-          const categoryA = categories.find(c => c.id === a.category);
-          const categoryB = categories.find(c => c.id === b.category);
-          
-          // Get full category path for sorting
-          if (categoryA && categoryA.level === 'detail' && categoryA.parentId) {
-            const parentA = categories.find(c => c.id === categoryA.parentId);
-            aValue = `${parentA?.name || ''} > ${categoryA.name}`;
-          } else {
-            aValue = categoryA?.name || a.categoryName || a.category || '';
-          }
-          
-          if (categoryB && categoryB.level === 'detail' && categoryB.parentId) {
-            const parentB = categories.find(c => c.id === categoryB.parentId);
-            bValue = `${parentB?.name || ''} > ${categoryB.name}`;
-          } else {
-            bValue = categoryB?.name || b.categoryName || b.category || '';
-          }
-          
-          aValue = aValue.toLowerCase();
-          bValue = bValue.toLowerCase();
-          break;
-        }
-        case 'amount':
-          aValue = a.amount;
-          bValue = b.amount;
-          break;
-        default:
-          return 0;
-      }
-
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-
-    return sorted;
-  }, [transactions, sortField, sortDirection, accounts, categories]);
-
-  // Apply filters and search (memoized)
-  const filteredTransactions = useMemo(() => 
-    sortedTransactions.filter(transaction => {
-      // Type filter
-      if (filterType !== 'all' && transaction.type !== filterType) return false;
-      
-      // Account filter
-      if (filterAccountId && transaction.accountId !== filterAccountId) return false;
-      
-      // Date range filter
-      const transactionDate = new Date(transaction.date);
-      if (dateFrom) {
-        const fromDate = new Date(dateFrom);
-        if (transactionDate < fromDate) return false;
-      }
-      if (dateTo) {
-        const toDate = new Date(dateTo);
-        toDate.setHours(23, 59, 59, 999); // Include the entire day
-        if (transactionDate > toDate) return false;
-      }
-      
-      // Search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        const matchesDescription = transaction.description.toLowerCase().includes(query);
-        const categoryPath = getCategoryPath(transaction.category);
-        const matchesCategory = categoryPath.toLowerCase().includes(query);
-        const matchesAmount = transaction.amount.toString().includes(query);
-        const account = accounts.find(a => a.id === transaction.accountId);
-        const matchesAccount = account?.name.toLowerCase().includes(query) || false;
-        
-        if (!matchesDescription && !matchesCategory && !matchesAmount && !matchesAccount) {
-          return false;
-        }
-      }
-      
-      return true;
-    }),
-    [sortedTransactions, filterType, filterAccountId, dateFrom, dateTo, searchQuery, getCategoryPath, accounts]
-  );
 
   // Pagination logic - show all transactions if account is selected
   const showAllTransactions = !!accountIdFromUrl;
-  const totalPages = showAllTransactions ? 1 : Math.ceil(filteredTransactions.length / transactionsPerPage);
+  const totalPages = showAllTransactions ? 1 : Math.ceil(filteredAndSortedTransactions.length / transactionsPerPage);
   const startIndex = showAllTransactions ? 0 : (currentPage - 1) * transactionsPerPage;
-  const endIndex = showAllTransactions ? filteredTransactions.length : startIndex + transactionsPerPage;
-  const paginatedTransactions = filteredTransactions.slice(startIndex, endIndex);
+  const endIndex = showAllTransactions ? filteredAndSortedTransactions.length : startIndex + transactionsPerPage;
+  const paginatedTransactions = filteredAndSortedTransactions.slice(startIndex, endIndex);
 
   // Reset to page 1 when filters change
-  const resetPagination = () => {
+  const resetPagination = useCallback(() => {
     setCurrentPage(1);
-  };
+  }, []);
 
   // Add this to filter change handlers
-  const handleFilterChange = <T,>(filterSetter: React.Dispatch<React.SetStateAction<T>>) => (value: T) => {
+  const handleFilterChange = useCallback(<T,>(filterSetter: React.Dispatch<React.SetStateAction<T>>) => (value: T) => {
     filterSetter(value);
     resetPagination();
-  };
+  }, [resetPagination]);
 
 
-  const handleDelete = (id: string) => {
+  const handleDelete = useCallback((id: string) => {
     if (window.confirm('Are you sure you want to delete this transaction?')) {
       deleteTransaction(id);
     }
-  };
+  }, [deleteTransaction]);
 
-  const handleEdit = (transaction: Transaction) => {
+  const handleEdit = useCallback((transaction: Transaction) => {
     setEditingTransaction(transaction);
     setIsModalOpen(true);
-  };
+  }, []);
 
-  const handleCloseModal = () => {
+  const handleView = useCallback((transaction: Transaction) => {
+    setViewingTransaction(transaction);
+    setIsDetailsViewOpen(true);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
     setIsModalOpen(false);
     setEditingTransaction(null);
-  };
+  }, []);
+
+  const handleCloseDetailsView = useCallback(() => {
+    setIsDetailsViewOpen(false);
+    setViewingTransaction(null);
+  }, []);
 
   // Calculate totals using decimal arithmetic
   const totals = useMemo(() => {
     const decimalTransactions = getDecimalTransactions();
-    const filteredIds = new Set(filteredTransactions.map(t => t.id));
+    const filteredIds = new Set(filteredAndSortedTransactions.map(t => t.id));
     
     return decimalTransactions
-      .filter(t => filteredIds.has(t.id))
-      .reduce((acc, t) => {
+      .filter((t: DecimalTransaction) => filteredIds.has(t.id))
+      .reduce((acc: { income: DecimalInstance, expense: DecimalInstance, net: DecimalInstance }, t: DecimalTransaction) => {
         if (t.type === 'income') {
           acc.income = acc.income.plus(t.amount);
         } else if (t.type === 'expense') {
@@ -345,13 +282,13 @@ export default function Transactions() {
         expense: toDecimal(0),
         get net() { return this.income.minus(this.expense); }
       });
-  }, [filteredTransactions, getDecimalTransactions]);
+  }, [filteredAndSortedTransactions, getDecimalTransactions]);
 
   // Get filtered account name for display
   const filteredAccount = filterAccountId ? accounts.find(a => a.id === filterAccountId) : null;
 
   // Column configuration with display names and properties
-  const columnConfig = {
+  const columnConfig = useMemo(() => ({
     date: {
       label: 'Date',
       sortable: true,
@@ -401,10 +338,10 @@ export default function Transactions() {
       cellClassName: 'pl-6 pr-7',
       hidden: ''
     }
-  };
+  }), []);
 
   // Render table header cell
-  const renderHeaderCell = (columnKey: string) => {
+  const renderHeaderCell = useCallback((columnKey: string) => {
     const config = columnConfig[columnKey as keyof typeof columnConfig];
     if (!config) return null;
 
@@ -428,6 +365,18 @@ export default function Transactions() {
         } transition-all duration-200 ease-in-out`}
         style={{ width: `${columnWidths[columnKey as keyof typeof columnWidths]}px` }}
         onClick={config.sortable && ['date', 'account', 'description', 'category', 'amount'].includes(columnKey) ? () => handleSort(columnKey as 'date' | 'account' | 'description' | 'category' | 'amount') : undefined}
+        role="columnheader"
+        aria-sort={sortField === columnKey ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+        tabIndex={config.sortable ? 0 : -1}
+        onKeyDown={config.sortable ? (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (['date', 'account', 'description', 'category', 'amount'].includes(columnKey)) {
+              handleSort(columnKey as 'date' | 'account' | 'description' | 'category' | 'amount');
+            }
+          }
+        } : undefined}
+        aria-label={`${config.label} column${config.sortable ? ', sortable' : ''}${sortField === columnKey ? `, sorted ${sortDirection === 'asc' ? 'ascending' : 'descending'}` : ''}`}
       >
         <div className="flex items-center gap-1" style={{ justifyContent: config.className === 'text-right' ? 'flex-end' : 'flex-start' }}>
           {config.label}
@@ -443,7 +392,7 @@ export default function Transactions() {
         />
       </th>
     );
-  };
+  }, [columnConfig, draggedColumn, dragOverColumn, isResizing, compactView, columnWidths, sortField, sortDirection, handleDragStart, handleDragOver, handleDragLeave, handleDrop, handleSort, handleMouseDown]);
 
 
   return (
@@ -712,7 +661,7 @@ export default function Transactions() {
         </div>
 
         {/* Transactions List */}
-        {filteredTransactions.length === 0 ? (
+        {filteredAndSortedTransactions.length === 0 ? (
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg p-6 border border-white/20 dark:border-gray-700/50">
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">
             {transactions.length === 0 
@@ -724,78 +673,108 @@ export default function Transactions() {
         </div>
       ) : (
         <>
-          {/* Mobile Card View */}
-          <div className="sm:hidden space-y-3 mb-4">
-            {paginatedTransactions.map((transaction) => {
-              const account = accounts.find(a => a.id === transaction.accountId);
-              const category = categories.find(c => c.id === transaction.category);
-              const categoryDisplay = category ? 
-                (category.level === 'detail' && category.parentId ? 
-                  `${categories.find(c => c.id === category.parentId)?.name} > ${category.name}` : 
-                  category.name) : 
-                transaction.categoryName || transaction.category;
-              
-              return (
-                <TransactionCard
-                  key={transaction.id}
-                  transaction={transaction}
-                  account={account}
-                  categoryDisplay={categoryDisplay}
-                  formatCurrency={formatCurrency}
-                  onClick={() => handleEdit(transaction)}
-                />
-              );
-            })}
+          {/* Mobile Swipeable List View */}
+          <div className="sm:hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden mb-4">
+            {isLoading ? (
+              <SkeletonList items={5} className="p-4" />
+            ) : (
+              <MobileTransactionList
+                transactions={paginatedTransactions}
+                accounts={accounts}
+                formatCurrency={formatCurrency}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onView={handleView}
+                selectedTransactions={selectedTransactions}
+                onSelectionChange={bulkSelectMode ? setSelectedTransactions : undefined}
+              />
+            )}
           </div>
           
           {/* Desktop Table View */}
           <div className={`hidden sm:block bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50 ${isWideView ? 'w-full' : ''}`} style={{ cursor: isResizing ? 'col-resize' : 'default' }}>
-            <div className={isWideView ? '' : 'overflow-x-auto'}>
-              <table className="w-full" style={{ tableLayout: 'fixed' }}>
-              <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
-                <tr>
-                  {columnOrder.map(renderHeaderCell)}
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {paginatedTransactions.map((transaction) => {
-                  const account = accounts.find(a => a.id === transaction.accountId);
-                  const categoryPath = getCategoryPath(transaction.category);
-                  
-                  return (
-                    <TransactionRow
-                      key={transaction.id}
-                      transaction={transaction}
-                      account={account}
-                      categoryPath={categoryPath}
-                      compactView={compactView}
-                      formatCurrency={formatCurrency}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      columnOrder={columnOrder}
-                      columnWidths={columnWidths}
-                    />
-                  );
-                })}
-              </tbody>
-            </table>
+            {isLoading ? (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-white dark:text-gray-200">Date</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-white dark:text-gray-200">Account</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-white dark:text-gray-200">Description</th>
+                      <th className="px-6 py-3 text-left text-sm font-semibold text-white dark:text-gray-200 hidden sm:table-cell">Category</th>
+                      <th className="px-6 py-3 text-right text-sm font-semibold text-white dark:text-gray-200">Amount</th>
+                      <th className="px-6 py-3 text-right text-sm font-semibold text-white dark:text-gray-200">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...Array(10)].map((_, index) => (
+                      <SkeletonTableRow key={index} columns={6} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (transactionsPerPage > 100 || showAllTransactions) && filteredAndSortedTransactions.length > 100 ? (
+              <div className="relative" style={{ height: '600px' }}>
+                <VirtualizedTransactionList
+                  transactions={filteredAndSortedTransactions}
+                  formatCurrency={formatCurrency}
+                  onTransactionClick={handleView}
+                  onTransactionEdit={handleEdit}
+                  onTransactionDelete={handleDelete}
+                />
+              </div>
+            ) : (
+              <div className={isWideView ? '' : 'overflow-x-auto'} role="region" aria-label="Transactions table">
+                <table className="w-full" style={{ tableLayout: 'fixed' }} role="table" aria-label="Financial transactions">
+                <caption className="sr-only">List of financial transactions with sortable columns. Use arrow keys to navigate and Enter to sort.</caption>
+                <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
+                  <tr role="row">
+                    {columnOrder.map(renderHeaderCell)}
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {paginatedTransactions.map((transaction) => {
+                    const account = accounts.find(a => a.id === transaction.accountId);
+                    const categoryPath = getCategoryPath(transaction.category);
+                    
+                    return (
+                      <TransactionRow
+                        key={transaction.id}
+                        transaction={transaction}
+                        account={account}
+                        categoryPath={categoryPath}
+                        compactView={compactView}
+                        formatCurrency={formatCurrency}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                        onView={handleView}
+                        columnOrder={columnOrder}
+                        columnWidths={columnWidths}
+                      />
+                    );
+                  })}
+                </tbody>
+              </table>
+              </div>
+            )}
             </div>
             
             {/* Pagination Controls */}
             {totalPages > 1 && (
-              <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <div>
+              <div className="hidden sm:block px-6 py-4 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-700 dark:text-gray-300">
                     {showAllTransactions 
-                      ? `Showing all ${filteredTransactions.length} transactions`
-                      : `Showing ${startIndex + 1} to ${Math.min(endIndex, filteredTransactions.length)} of ${filteredTransactions.length} transactions`
+                      ? `Showing all ${filteredAndSortedTransactions.length} transactions`
+                      : `Showing ${startIndex + 1} to ${Math.min(endIndex, filteredAndSortedTransactions.length)} of ${filteredAndSortedTransactions.length} transactions`
                     }
                   </span>
                   <select
                     value={transactionsPerPage}
                     onChange={(e) => {
-                      const value = e.target.value === 'all' ? filteredTransactions.length : Number(e.target.value);
+                      const value = e.target.value === 'all' ? filteredAndSortedTransactions.length : Number(e.target.value);
                       setTransactionsPerPage(value);
                       setCurrentPage(1);
                     }}
@@ -878,24 +857,22 @@ export default function Transactions() {
                 </div>
               </div>
             </div>
-            )}
-          </div>
-          
-          {/* Mobile Pagination Controls */}
-          {totalPages > 1 && (
+            
+            {/* Mobile Pagination Controls */}
             <div className="sm:hidden bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg px-4 py-3 border border-white/20 dark:border-gray-700/50">
               <div className="flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-700 dark:text-gray-300">
                     {showAllTransactions 
-                      ? `All ${filteredTransactions.length}`
-                      : `${startIndex + 1}-${Math.min(endIndex, filteredTransactions.length)} of ${filteredTransactions.length}`
+                      ? `All ${filteredAndSortedTransactions.length}`
+                      : `${startIndex + 1}-${Math.min(endIndex, filteredAndSortedTransactions.length)} of ${filteredAndSortedTransactions.length}`
                     }
                   </span>
                   <select
                     value={transactionsPerPage}
                     onChange={(e) => {
-                      setTransactionsPerPage(Number(e.target.value));
+                      const value = e.target.value === 'all' ? filteredAndSortedTransactions.length : Number(e.target.value);
+                      setTransactionsPerPage(value);
                       setCurrentPage(1);
                     }}
                     className="px-2 py-1 text-xs bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
@@ -935,17 +912,26 @@ export default function Transactions() {
                 </div>
               </div>
             </div>
-          )}
-        </>
+            </div>
+            )}
+          </>
         )}
-      </div>
 
       <EditTransactionModal 
         isOpen={isModalOpen} 
         onClose={handleCloseModal}
         transaction={editingTransaction}
       />
+
+      <TransactionDetailsView
+        isOpen={isDetailsViewOpen}
+        onClose={handleCloseDetailsView}
+        transaction={viewingTransaction}
+        accounts={accounts}
+        categories={categories}
+      />
       
+      </div>
       </div>
     </PageWrapper>
   );

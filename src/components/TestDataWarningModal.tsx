@@ -8,21 +8,31 @@ interface TestDataWarningModalProps {
   onClearData?: () => void;
 }
 
-export default function TestDataWarningModal({ isOpen, onClose, onClearData }: TestDataWarningModalProps) {
+export default function TestDataWarningModal({ isOpen, onClose, onClearData }: TestDataWarningModalProps): React.JSX.Element | null {
   const [dontShowAgain, setDontShowAgain] = useState(false);
 
   useEffect(() => {
     // Check if user has previously dismissed the warning
-    const dismissed = localStorage.getItem('testDataWarningDismissed');
-    
-    if (dismissed === 'true' && isOpen) {
-      onClose();
+    try {
+      const dismissed = localStorage.getItem('testDataWarningDismissed');
+      
+      if (dismissed === 'true' && isOpen) {
+        onClose();
+      }
+    } catch (error) {
+      // Handle localStorage access errors gracefully
+      console.warn('Unable to access localStorage:', error);
     }
   }, [isOpen, onClose]);
 
-  const handleClose = () => {
+  const handleClose = (): void => {
     if (dontShowAgain) {
-      localStorage.setItem('testDataWarningDismissed', 'true');
+      try {
+        localStorage.setItem('testDataWarningDismissed', 'true');
+      } catch (error) {
+        // Handle localStorage write errors gracefully
+        console.warn('Unable to save localStorage preference:', error);
+      }
     }
     onClose();
   };

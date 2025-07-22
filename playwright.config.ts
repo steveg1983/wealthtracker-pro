@@ -1,5 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
+
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -36,6 +37,24 @@ export default defineConfig({
 
     /* Video recording */
     video: 'retain-on-failure',
+
+    /* Visual regression testing */
+    ignoreHTTPSErrors: true,
+    
+    /* Viewport for consistent screenshots */
+    viewport: { width: 1280, height: 720 },
+  },
+
+  /* Configure visual regression */
+  expect: {
+    toHaveScreenshot: {
+      /* Threshold for pixel differences */
+      threshold: 0.2,
+      /* Max allowed pixel difference */
+      maxDiffPixels: 100,
+      /* Animations */
+      animations: 'disabled',
+    },
   },
 
   /* Configure projects for major browsers */

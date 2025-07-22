@@ -1,8 +1,9 @@
 import { getExchangeRates } from '../utils/currency';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
+import { errorHandlingService, ErrorCategory, ErrorSeverity, retryWithBackoff } from './errorHandlingService';
 
-interface StockQuote {
+export interface StockQuote {
   symbol: string;
   price: DecimalInstance;
   currency: string;
@@ -46,100 +47,170 @@ function cleanSymbol(symbol: string): string {
  * Get stock quote from Yahoo Finance
  */
 export async function getStockQuote(symbol: string): Promise<StockQuote | null> {
-  const cleanedSymbol = cleanSymbol(symbol);
-  
-  // Check cache first
-  const cached = quoteCache.get(cleanedSymbol);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached;
-  }
-
   try {
-    // Try multiple endpoints for redundancy
-    for (const endpoint of YAHOO_FINANCE_ENDPOINTS) {
-      try {
-        const response = await fetch(`${endpoint}${cleanedSymbol}`, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          }
-        });
-
-        if (!response.ok) continue;
-
-        const data = await response.json();
-        const quote = data.chart?.result?.[0];
-        
-        if (!quote) continue;
-
-        const meta = quote.meta;
-        const regularMarketPrice = meta.regularMarketPrice;
-        const previousClose = meta.chartPreviousClose || meta.previousClose;
-        
-        const price = toDecimal(regularMarketPrice);
-        const prevClose = toDecimal(previousClose);
-        const change = price.minus(prevClose);
-        const changePercent = prevClose.greaterThan(0) ? change.dividedBy(prevClose).times(100) : toDecimal(0);
-
-        const stockQuote: StockQuote = {
-          symbol: cleanedSymbol,
-          price: price,
-          currency: meta.currency || 'USD',
-          change: change,
-          changePercent: changePercent,
-          previousClose: prevClose,
-          marketCap: meta.marketCap ? toDecimal(meta.marketCap) : undefined,
-          volume: meta.regularMarketVolume,
-          dayHigh: meta.regularMarketDayHigh ? toDecimal(meta.regularMarketDayHigh) : undefined,
-          dayLow: meta.regularMarketDayLow ? toDecimal(meta.regularMarketDayLow) : undefined,
-          fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ? toDecimal(meta.fiftyTwoWeekHigh) : undefined,
-          fiftyTwoWeekLow: meta.fiftyTwoWeekLow ? toDecimal(meta.fiftyTwoWeekLow) : undefined,
-          name: meta.longName || meta.shortName,
-          exchange: meta.exchangeName,
-          lastUpdated: new Date()
-        };
-
-        // Cache the result
-        quoteCache.set(cleanedSymbol, {
-          ...stockQuote,
-          timestamp: Date.now()
-        });
-
-        return stockQuote;
-      } catch (error) {
-        console.error(`Error fetching from ${endpoint}:`, error);
-        continue;
-      }
+    const cleanedSymbol = cleanSymbol(symbol);
+    
+    // Validate symbol
+    if (!cleanedSymbol || cleanedSymbol.length > 10) {
+      throw new Error('Invalid stock symbol');
     }
-
-    // If all endpoints fail, return cached data if available (even if expired)
-    if (cached) {
-      console.warn(`Using stale cached data for ${cleanedSymbol}`);
+    
+    // Check cache first
+    const cached = quoteCache.get(cleanedSymbol);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       return cached;
     }
 
-    return null;
+    // Try to fetch with retry logic
+    const quote = await retryWithBackoff(
+      () => fetchQuoteFromEndpoints(cleanedSymbol),
+      {
+        maxRetries: 3,
+        initialDelay: 500,
+        onRetry: (attempt, error) => {
+          console.warn(`Stock quote fetch attempt ${attempt} failed:`, error.message);
+        }
+      }
+    );
+
+    if (quote) {
+      // Cache the result
+      const cachedQuote: CachedQuote = {
+        ...quote,
+        timestamp: Date.now()
+      };
+      quoteCache.set(cleanedSymbol, cachedQuote);
+    }
+
+    return quote;
   } catch (error) {
-    console.error(`Error fetching stock quote for ${cleanedSymbol}:`, error);
+    errorHandlingService.handleError(error as Error, {
+      category: ErrorCategory.NETWORK,
+      severity: ErrorSeverity.LOW,
+      context: { symbol },
+      userMessage: `Unable to fetch quote for ${symbol}. Please try again later.`,
+      retryable: true
+    });
     return null;
   }
 }
 
 /**
- * Get multiple stock quotes in parallel
+ * Fetch quote from available endpoints
+ */
+async function fetchQuoteFromEndpoints(symbol: string): Promise<StockQuote | null> {
+  const errors: Error[] = [];
+  
+  // Try multiple endpoints for redundancy
+  for (const endpoint of YAHOO_FINANCE_ENDPOINTS) {
+    try {
+      const response = await fetch(`${endpoint}${symbol}`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        },
+        signal: AbortSignal.timeout(5000) // 5 second timeout
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const quote = data.chart?.result?.[0];
+      
+      if (!quote || !quote.meta) {
+        throw new Error('Invalid response format');
+      }
+
+      const meta = quote.meta;
+      const regularMarketPrice = meta.regularMarketPrice;
+      const previousClose = meta.chartPreviousClose || meta.previousClose;
+      
+      if (!regularMarketPrice || !previousClose) {
+        throw new Error('Missing price data');
+      }
+      
+      const price = toDecimal(regularMarketPrice);
+      const prevClose = toDecimal(previousClose);
+      const change = price.minus(prevClose);
+      const changePercent = prevClose.greaterThan(0) ? change.dividedBy(prevClose).times(100) : toDecimal(0);
+
+      const stockQuote: StockQuote = {
+        symbol: symbol,
+        price: price,
+        currency: meta.currency || 'USD',
+        change: change,
+        changePercent: changePercent,
+        previousClose: prevClose,
+        marketCap: meta.marketCap ? toDecimal(meta.marketCap) : undefined,
+        volume: meta.regularMarketVolume,
+        dayHigh: meta.regularMarketDayHigh ? toDecimal(meta.regularMarketDayHigh) : undefined,
+        dayLow: meta.regularMarketDayLow ? toDecimal(meta.regularMarketDayLow) : undefined,
+        fiftyTwoWeekHigh: meta.fiftyTwoWeekHigh ? toDecimal(meta.fiftyTwoWeekHigh) : undefined,
+        fiftyTwoWeekLow: meta.fiftyTwoWeekLow ? toDecimal(meta.fiftyTwoWeekLow) : undefined,
+        name: meta.longName || meta.shortName,
+        exchange: meta.exchangeName,
+        lastUpdated: new Date()
+      };
+
+      return stockQuote;
+    } catch (error) {
+      errors.push(error as Error);
+      continue;
+    }
+  }
+
+  // All endpoints failed
+  if (errors.length > 0) {
+    throw new Error(`All endpoints failed: ${errors.map(e => e.message).join(', ')}`);
+  }
+  
+  return null;
+}
+
+
+/**
+ * Get multiple stock quotes in parallel with error handling
  */
 export async function getMultipleStockQuotes(symbols: string[]): Promise<Map<string, StockQuote>> {
-  const quotes = new Map<string, StockQuote>();
-  
-  // Fetch all quotes in parallel
-  const promises = symbols.map(async (symbol) => {
-    const quote = await getStockQuote(symbol);
-    if (quote) {
-      quotes.set(symbol, quote);
+  try {
+    const quotes = new Map<string, StockQuote>();
+    
+    // Validate input
+    if (!symbols || symbols.length === 0) {
+      return quotes;
     }
-  });
-
-  await Promise.all(promises);
-  return quotes;
+    
+    // Limit concurrent requests
+    const MAX_CONCURRENT = 5;
+    const results: Array<{ symbol: string; quote: StockQuote | null }> = [];
+    
+    for (let i = 0; i < symbols.length; i += MAX_CONCURRENT) {
+      const batch = symbols.slice(i, i + MAX_CONCURRENT);
+      const batchPromises = batch.map(async (symbol) => ({
+        symbol,
+        quote: await getStockQuote(symbol)
+      }));
+      
+      const batchResults = await Promise.allSettled(batchPromises);
+      
+      batchResults.forEach((result, index) => {
+        if (result.status === 'fulfilled' && result.value.quote) {
+          quotes.set(result.value.symbol, result.value.quote);
+        }
+      });
+    }
+    
+    return quotes;
+  } catch (error) {
+    errorHandlingService.handleError(error as Error, {
+      category: ErrorCategory.NETWORK,
+      severity: ErrorSeverity.MEDIUM,
+      context: { symbols },
+      userMessage: 'Failed to fetch stock quotes. Please try again later.'
+    });
+    return new Map();
+  }
 }
 
 /**

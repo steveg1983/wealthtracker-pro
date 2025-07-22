@@ -1,7 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, LayersIcon, RepeatIcon, PiggyBankIcon, ArrowRightIcon, BellIcon } from '../components/icons';
+import { useNotifications } from '../contexts/NotificationContext';
+import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, RepeatIcon, PiggyBankIcon, ArrowRightIcon, BellIcon, CalculatorIcon } from '../components/icons';
 import { EditIcon, DeleteIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
 import BudgetModal from '../components/BudgetModal';
@@ -9,19 +10,23 @@ import EnvelopeBudgeting from '../components/EnvelopeBudgeting';
 import RecurringBudgetTemplates from '../components/RecurringBudgetTemplates';
 import BudgetRollover from '../components/BudgetRollover';
 import SpendingAlerts from '../components/SpendingAlerts';
+import ZeroBasedBudgeting from '../components/ZeroBasedBudgeting';
 import type { Budget } from '../types';
 import PageWrapper from '../components/PageWrapper';
 import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations-decimal';
 import { toDecimal } from '../utils/decimal';
+import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
 
 export default function Budget() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
-  const [activeTab, setActiveTab] = useState<'traditional' | 'envelope' | 'templates' | 'rollover' | 'alerts'>('traditional');
+  const [activeTab, setActiveTab] = useState<'traditional' | 'envelope' | 'templates' | 'rollover' | 'alerts' | 'zero-based'>('traditional');
+  const [isLoading, setIsLoading] = useState(true);
   const { formatCurrency } = useCurrencyDecimal();
   
   // Get data from context
-  const { budgets, updateBudget, deleteBudget, getDecimalBudgets, getDecimalTransactions } = useApp();
+  const { budgets, updateBudget, deleteBudget, transactions, categories } = useApp();
+  const { checkEnhancedBudgetAlerts, checkBudgetAlerts, alertThreshold } = useNotifications();
 
   // Memoize current date values
   const { currentMonth, currentYear } = useMemo(() => {
@@ -34,14 +39,21 @@ export default function Budget() {
 
   // Calculate spent amounts for each budget with memoization
   const budgetsWithSpent = useMemo(() => {
-    const decimalBudgets = getDecimalBudgets();
-    const decimalTransactions = getDecimalTransactions();
-    
     return budgets
       .filter(budget => budget !== null && budget !== undefined)
       .map((budget) => {
-        const decimalBudget = decimalBudgets.find(db => db.id === budget.id);
-        if (!decimalBudget) return { ...budget, spent: 0, percentage: 0, remaining: 0 };
+        // Convert to decimal for calculations
+        const decimalBudget = {
+          ...budget,
+          amount: toDecimal(budget.amount),
+          spent: toDecimal(0)
+        };
+        
+        // Convert transactions to decimal for calculations
+        const decimalTransactions = transactions.map(t => ({
+          ...t,
+          amount: toDecimal(t.amount)
+        }));
         
         // Calculate date range for budget period
         let startDate: Date;
@@ -77,7 +89,50 @@ export default function Budget() {
           remaining: remaining.toNumber()
         };
       });
-  }, [budgets, getDecimalBudgets, getDecimalTransactions, currentMonth, currentYear]);
+  }, [budgets, transactions, currentMonth, currentYear]);
+
+  // Set loading to false when data is loaded
+  useEffect(() => {
+    if (budgets !== undefined && transactions !== undefined && categories !== undefined) {
+      setIsLoading(false);
+    }
+  }, [budgets, transactions, categories]);
+
+  // Check for budget alerts
+  useEffect(() => {
+    const alerts = budgetsWithSpent
+      .filter(budget => budget.isActive)
+      .map(budget => {
+        const category = categories.find(c => c.id === budget.category);
+        if (budget.percentage >= 100) {
+          return {
+            budgetId: budget.id,
+            categoryName: category?.name || 'Unknown',
+            percentage: Math.round(budget.percentage),
+            spent: budget.spent,
+            budget: budget.amount,
+            period: budget.period,
+            type: 'danger' as const
+          };
+        } else if (budget.percentage >= alertThreshold) {
+          return {
+            budgetId: budget.id,
+            categoryName: category?.name || 'Unknown',
+            percentage: Math.round(budget.percentage),
+            spent: budget.spent,
+            budget: budget.amount,
+            period: budget.period,
+            type: 'warning' as const
+          };
+        }
+        return null;
+      })
+      .filter(alert => alert !== null);
+
+    if (alerts.length > 0) {
+      checkBudgetAlerts(alerts);
+    }
+  }, [budgetsWithSpent, categories, alertThreshold, checkBudgetAlerts]);
 
   const handleEdit = (budget: Budget) => {
     setEditingBudget(budget);
@@ -113,6 +168,13 @@ export default function Budget() {
       totalRemainingValue: remaining.toNumber()
     };
   }, [budgetsWithSpent]);
+
+  // Check for enhanced budget alerts whenever budgets change
+  useEffect(() => {
+    if (budgets.length > 0 && transactions.length > 0) {
+      checkEnhancedBudgetAlerts(budgets, transactions, categories);
+    }
+  }, [budgets, transactions, categories, checkEnhancedBudgetAlerts]);
 
   return (
     <PageWrapper 
@@ -206,6 +268,17 @@ export default function Budget() {
           <BellIcon size={16} />
           Alerts
         </button>
+        <button
+          onClick={() => setActiveTab('zero-based')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'zero-based'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <CalculatorIcon size={16} />
+          Zero-Based
+        </button>
       </div>
 
       {/* Tab Content */}
@@ -218,7 +291,7 @@ export default function Budget() {
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Budgeted</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {totalBudgeted}
+                {isLoading ? <SkeletonText className="w-32 h-8" /> : totalBudgeted}
               </p>
             </div>
             <BanknoteIcon className="text-gray-400" size={24} />
@@ -230,7 +303,7 @@ export default function Budget() {
             <div>
               <p className="text-gray-600 dark:text-gray-400 text-sm">Total Spent</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {totalSpent}
+                {isLoading ? <SkeletonText className="w-32 h-8" /> : totalSpent}
               </p>
             </div>
             <TrendingDownIcon className="text-red-500" size={24} />
@@ -244,7 +317,7 @@ export default function Budget() {
               <p className={`text-2xl font-bold ${
                 totalRemainingValue >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
               }`}>
-                {totalRemaining}
+                {isLoading ? <SkeletonText className="w-32 h-8" /> : totalRemaining}
               </p>
             </div>
             <TrendingUpIcon className={totalRemainingValue >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
@@ -255,7 +328,14 @@ export default function Budget() {
         {/* Budgets List */}
         <div className="pt-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {budgetsWithSpent.map(budget => budget && (
+        {isLoading ? (
+          <>
+            <SkeletonCard className="h-48" />
+            <SkeletonCard className="h-48" />
+            <SkeletonCard className="h-48" />
+            <SkeletonCard className="h-48" />
+          </>
+        ) : budgetsWithSpent.map(budget => budget && (
           <div
             key={budget.id}
             className={`bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 ${
@@ -367,6 +447,11 @@ export default function Budget() {
       {/* Alerts Tab */}
       {activeTab === 'alerts' && (
         <SpendingAlerts />
+      )}
+
+      {/* Zero-Based Budgeting Tab */}
+      {activeTab === 'zero-based' && (
+        <ZeroBasedBudgeting />
       )}
 
       <BudgetModal

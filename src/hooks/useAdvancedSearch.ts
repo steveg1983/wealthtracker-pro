@@ -14,7 +14,29 @@ interface QuickFilter {
   count?: number;
 }
 
-export function useAdvancedSearch({ transactions, accounts, categories }: UseAdvancedSearchProps) {
+interface UseAdvancedSearchReturn {
+  searchResults: Transaction[];
+  isSearchActive: boolean;
+  handleSearchResults: (results: Transaction[]) => void;
+  resetSearch: () => void;
+  quickFilters: QuickFilter[];
+  applyQuickFilter: (filterId: string) => void;
+  searchStats: {
+    total: number;
+    filtered: number;
+    percentage: number;
+    totalAmount: number;
+    income: number;
+    expenses: number;
+  };
+  globalSearch: (query: string) => {
+    transactions: Transaction[];
+    accounts: Account[];
+    categories: { id: string; name: string }[];
+  };
+}
+
+export function useAdvancedSearch({ transactions, accounts, categories }: UseAdvancedSearchProps): UseAdvancedSearchReturn {
   const [searchResults, setSearchResults] = useState<Transaction[]>(transactions);
   const [isSearchActive, setIsSearchActive] = useState(false);
 
@@ -138,7 +160,7 @@ export function useAdvancedSearch({ transactions, accounts, categories }: UseAdv
     // Search accounts
     const matchingAccounts = accounts.filter(a =>
       a.name.toLowerCase().includes(lowerQuery) ||
-      a.institution.toLowerCase().includes(lowerQuery) ||
+      a.institution?.toLowerCase().includes(lowerQuery) ||
       a.type.toLowerCase().includes(lowerQuery)
     );
 

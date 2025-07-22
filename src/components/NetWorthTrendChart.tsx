@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useApp } from '../contexts/AppContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import type { DecimalInstance, DecimalTransaction, DecimalAccount } from '../types/decimal-types';
 
 const NetWorthTrendChart = React.memo(function NetWorthTrendChart() {
   const { accounts, transactions, getDecimalAccounts, getDecimalTransactions } = useApp();
@@ -23,12 +24,12 @@ const NetWorthTrendChart = React.memo(function NetWorthTrendChart() {
       const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
       // Get all transactions up to that month
-      const relevantTransactions = decimalTransactions.filter(t => 
+      const relevantTransactions = decimalTransactions.filter((t: DecimalTransaction) => 
         new Date(t.date) <= monthEnd
       );
       
       // Calculate the balance change from transactions
-      const transactionBalance = relevantTransactions.reduce((sum, t) => {
+      const transactionBalance = relevantTransactions.reduce((sum: DecimalInstance, t: DecimalTransaction) => {
         if (t.type === 'income') return sum.plus(t.amount);
         if (t.type === 'expense') return sum.minus(t.amount);
         return sum;
@@ -36,7 +37,7 @@ const NetWorthTrendChart = React.memo(function NetWorthTrendChart() {
       
       // For simplicity, we'll use current account balances
       // In a real app, you'd track historical balances
-      const totalBalance = decimalAccounts.reduce((sum, acc) => sum.plus(acc.balance), toDecimal(0));
+      const totalBalance = decimalAccounts.reduce((sum: DecimalInstance, acc: DecimalAccount) => sum.plus(acc.balance), toDecimal(0));
       
       result.push({
         month: monthName,

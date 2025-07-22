@@ -173,7 +173,7 @@ export function generateTestData() {
   const generateTransactionId = () => `txn${transactionId++}`;
 
   // Helper function to generate matching transfer transactions
-  const generateTransfer = (date: Date, fromAccount: string, toAccount: string, amount: number, description: string) => {
+  const generateTransfer = (date: Date, fromAccount: string, toAccount: string, amount: number, description: string): void => {
     const baseId = generateTransactionId();
     
     // From account (money going out)

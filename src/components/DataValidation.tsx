@@ -77,8 +77,8 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
               type: 'transaction',
               itemId: transaction.id,
               field: 'date',
-              oldValue: transaction.date,
-              newValue: now,
+              oldValue: transaction.date.toISOString(),
+              newValue: now.toISOString(),
               description: `Transaction "${transaction.description}" date changed`,
               issueType: 'Future-dated transactions'
             });
@@ -319,7 +319,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
         actualBalance: account.balance,
         // Additional debug
         manualCalc: openingBalance + incomeTotal - expenseTotal - transferTotal,
-        types: accountTransactions.reduce((acc, t) => {
+        types: accountTransactions.reduce((acc: Record<string, number>, t) => {
           acc[t.type] = (acc[t.type] || 0) + 1;
           return acc;
         }, {})

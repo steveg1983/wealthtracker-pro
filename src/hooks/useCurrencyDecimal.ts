@@ -9,7 +9,14 @@ import {
 import type { DecimalInstance } from '../utils/decimal';
 import { toDecimal } from '../utils/decimal';
 
-export function useCurrencyDecimal() {
+export function useCurrencyDecimal(): {
+  formatCurrency: (amount: DecimalInstance | number, originalCurrency?: string) => string;
+  convertAndFormat: (amount: DecimalInstance | number, fromCurrency: string) => Promise<string>;
+  convert: (amount: DecimalInstance | number, fromCurrency: string) => Promise<DecimalInstance>;
+  convertAndSum: (amounts: Array<{ amount: DecimalInstance | number; currency: string }>) => Promise<DecimalInstance>;
+  displayCurrency: string;
+  getCurrencySymbol: (currency: string) => string;
+} {
   const { currency: displayCurrency } = usePreferences();
 
   // Format amount in display currency (accepts Decimal or number)

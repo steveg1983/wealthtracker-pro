@@ -25,13 +25,13 @@ export default function Tags() {
 
   // Get all tags used in transactions that aren't in the centralized list
   const usedTags = getAllUsedTags();
-  const unregisteredTags = usedTags.filter(tagName => 
+  const unregisteredTags = usedTags.filter((tagName: string) => 
     !tags.some(tag => tag.name === tagName)
   );
 
   // Auto-create tags from transactions on component mount
   useEffect(() => {
-    unregisteredTags.forEach(tagName => {
+    unregisteredTags.forEach((tagName: string) => {
       addTag({
         name: tagName,
         color: '#6B7280',

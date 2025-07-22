@@ -24,7 +24,7 @@ export default function CategoryCreationModal({
   onClose, 
   onCategoryCreated,
   initialType = 'expense' 
-}: CategoryCreationModalProps) {
+}: CategoryCreationModalProps): React.JSX.Element {
   const { categories, addCategory, getSubCategories, getDetailCategories } = useApp();
   
   const [showNewCategory, setShowNewCategory] = useState(false);

@@ -14,7 +14,7 @@ export function Skeleton({
   height,
   variant = 'text',
   animation = 'pulse'
-}: SkeletonProps) {
+}: SkeletonProps): React.JSX.Element {
   const baseClasses = 'bg-gray-200 dark:bg-gray-700';
   
   const variantClasses = {
@@ -46,7 +46,7 @@ export function Skeleton({
 }
 
 // Composite skeleton components for common patterns
-export function SkeletonText({ lines = 1, spacing = 'normal', className = '' }: { lines?: number; spacing?: 'tight' | 'normal' | 'loose'; className?: string }) {
+export function SkeletonText({ lines = 1, spacing = 'normal', className = '' }: { lines?: number; spacing?: 'tight' | 'normal' | 'loose'; className?: string }): React.JSX.Element {
   const spacingClasses = {
     tight: 'space-y-1',
     normal: 'space-y-2',
@@ -66,7 +66,7 @@ export function SkeletonText({ lines = 1, spacing = 'normal', className = '' }: 
   );
 }
 
-export function SkeletonCard({ className = '' }: { className?: string }) {
+export function SkeletonCard({ className = '' }: { className?: string }): React.JSX.Element {
   return (
     <div className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${className}`}>
       <div className="flex items-start justify-between mb-4">
@@ -81,7 +81,7 @@ export function SkeletonCard({ className = '' }: { className?: string }) {
   );
 }
 
-export function SkeletonTableRow({ columns = 5 }: { columns?: number }) {
+export function SkeletonTableRow({ columns = 5 }: { columns?: number }): React.JSX.Element {
   return (
     <tr className="border-b border-gray-200 dark:border-gray-700">
       {Array.from({ length: columns }).map((_, i) => (
@@ -93,7 +93,7 @@ export function SkeletonTableRow({ columns = 5 }: { columns?: number }) {
   );
 }
 
-export function SkeletonList({ items = 5, className = '' }: { items?: number; className?: string }) {
+export function SkeletonList({ items = 5, className = '' }: { items?: number; className?: string }): React.JSX.Element {
   return (
     <div className={`space-y-4 ${className}`}>
       {Array.from({ length: items }).map((_, i) => (

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import React from 'react';
-import { AppProvider, useAppContext } from '../../contexts/AppContext';
+import { AppProvider, useApp } from '../../contexts/AppContext';
 import { createMockAccount, createMockTransaction, createMockBudget, createMockGoal } from '../factories';
 import { calculateTotalBalance, calculateBudgetUsage, calculateGoalProgress } from '../../utils/calculations';
 import * as decimalCalcs from '../../utils/calculations-decimal';
@@ -129,8 +129,8 @@ describe('Core Integration Tests', () => {
   });
 
   describe('Context Integration', () => {
-    const TestContextComponent = ({ onData }: { onData: (data: any) => void }) => {
-      const context = useAppContext();
+    const TestContextComponent = ({ onData }: { onData: (data: ReturnType<typeof useApp>) => void }) => {
+      const context = useApp();
       
       React.useEffect(() => {
         onData(context);
@@ -150,8 +150,8 @@ describe('Core Integration Tests', () => {
       
       vi.mocked(localStorage.getItem).mockImplementation(key => storage.get(key) || null);
 
-      let contextData: any;
-      const handleData = (data: any) => {
+      let contextData: ReturnType<typeof useApp>;
+      const handleData = (data: ReturnType<typeof useApp>) => {
         contextData = data;
       };
 
@@ -178,7 +178,7 @@ describe('Core Integration Tests', () => {
 
       // Function should handle invalid data by throwing a predictable error
       expect(() => {
-        calculateTotalBalance([malformedAccount as any]);
+        calculateTotalBalance([malformedAccount as unknown as Account]);
       }).toThrow('Invalid argument');
     });
 
@@ -193,7 +193,7 @@ describe('Core Integration Tests', () => {
       
       // Should handle incomplete data
       expect(() => {
-        calculateBudgetUsage(budget, [incompleteTransaction as any]);
+        calculateBudgetUsage(budget, [incompleteTransaction as unknown as Transaction]);
       }).not.toThrow();
     });
   });

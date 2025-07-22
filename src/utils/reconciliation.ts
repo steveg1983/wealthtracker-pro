@@ -112,7 +112,7 @@ export const mockBankTransactions: BankTransaction[] = [
 import type { Account, Transaction } from '../types';
 
 // Shared reconciliation utility functions
-export const getUnreconciledCount = (accountId: string, transactions: Transaction[]) => {
+export const getUnreconciledCount = (accountId: string, transactions: Transaction[]): number => {
   // Count uncleared transactions for this account
   return transactions.filter(t => 
     t.accountId === accountId && t.cleared !== true

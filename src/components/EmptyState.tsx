@@ -19,7 +19,7 @@ export default function EmptyState({
   description,
   action,
   className = ''
-}: EmptyStateProps) {
+}: EmptyStateProps): React.JSX.Element {
   return (
     <div className={`flex flex-col items-center justify-center py-12 px-6 text-center ${className}`}>
       {icon && (

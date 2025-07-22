@@ -16,10 +16,10 @@ export default function BulkOperationsToolbar<T>({
   onExecuteOperation,
   onDeselectAll,
   isProcessing,
-}: BulkOperationsToolbarProps<T>) {
+}: BulkOperationsToolbarProps<T>): React.JSX.Element | null {
   const [confirmingOperation, setConfirmingOperation] = useState<string | null>(null);
 
-  const handleOperationClick = async (operation: BulkOperation<T>) => {
+  const handleOperationClick = async (operation: BulkOperation<T>): Promise<void> => {
     if (operation.requiresConfirmation) {
       setConfirmingOperation(operation.id);
     } else {
@@ -27,14 +27,14 @@ export default function BulkOperationsToolbar<T>({
     }
   };
 
-  const handleConfirmOperation = async () => {
+  const handleConfirmOperation = async (): Promise<void> => {
     if (confirmingOperation) {
       await onExecuteOperation(confirmingOperation);
       setConfirmingOperation(null);
     }
   };
 
-  const handleCancelConfirmation = () => {
+  const handleCancelConfirmation = (): void => {
     setConfirmingOperation(null);
   };
 

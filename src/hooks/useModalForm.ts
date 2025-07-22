@@ -22,14 +22,15 @@ export function useModalForm<T>(
   const updateField = useCallback(<K extends keyof T>(field: K, value: T[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error for this field when it's updated
-    if (errors[field as string]) {
-      setErrors(prev => {
+    setErrors(prev => {
+      if (prev[field as string]) {
         const newErrors = { ...prev };
         delete newErrors[field as string];
         return newErrors;
-      });
-    }
-  }, [errors]);
+      }
+      return prev;
+    });
+  }, []);
 
   const setFieldError = useCallback((field: keyof T, error: string) => {
     setErrors(prev => ({ ...prev, [field as string]: error }));

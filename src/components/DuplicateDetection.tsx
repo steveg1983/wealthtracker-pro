@@ -306,7 +306,7 @@ export default function DuplicateDetection({
       isOpen={isOpen}
       onClose={onClose}
       title={newTransactions ? "Import Duplicate Check" : "Find Duplicate Transactions"}
-      className="max-w-4xl"
+      size="xl"
     >
       <div className="p-6">
         {/* Settings */}

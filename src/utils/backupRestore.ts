@@ -1,4 +1,5 @@
 import type { Account, Transaction, Budget, Goal, Category } from '../types';
+import type { RecurringTransaction } from '../contexts/AppContext';
 
 export interface BackupData {
   accounts: Account[];
@@ -6,7 +7,8 @@ export interface BackupData {
   budgets: Budget[];
   goals: Goal[];
   categories?: Category[];
-  recurringTransactions?: any[];
+  recurringTransactions?: RecurringTransaction[];
+  tags?: string[];
   exportDate: string;
   version: string;
 }
@@ -14,22 +16,24 @@ export interface BackupData {
 /**
  * Validate backup data structure
  */
-export function validateBackupData(data: any): data is BackupData {
+export function validateBackupData(data: unknown): data is BackupData {
   if (!data || typeof data !== 'object') return false;
   
+  const obj = data as any;
+  
   // Check required fields
-  if (!Array.isArray(data.accounts)) return false;
-  if (!Array.isArray(data.transactions)) return false;
-  if (!Array.isArray(data.budgets)) return false;
-  if (!Array.isArray(data.goals)) return false;
-  if (!data.version || typeof data.version !== 'string') return false;
+  if (!Array.isArray(obj.accounts)) return false;
+  if (!Array.isArray(obj.transactions)) return false;
+  if (!Array.isArray(obj.budgets)) return false;
+  if (!Array.isArray(obj.goals)) return false;
+  if (!obj.version || typeof obj.version !== 'string') return false;
   
   // Basic validation of array contents
-  for (const account of data.accounts) {
+  for (const account of obj.accounts) {
     if (!account.id || !account.name || typeof account.balance !== 'number') return false;
   }
   
-  for (const transaction of data.transactions) {
+  for (const transaction of obj.transactions) {
     if (!transaction.id || !transaction.date || typeof transaction.amount !== 'number') return false;
   }
   

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { cashFlowForecastService, type ForecastResult, type RecurringPattern } from '../services/cashFlowForecastService';
 import type { Account, Transaction } from '../types';
+import type { DecimalInstance } from '../types/decimal-types';
 
 interface UseCashFlowForecastOptions {
   months?: number;
@@ -139,7 +140,7 @@ export function useCashFlowForecast({
 // Hook for seasonal analysis
 export function useSeasonalAnalysis(enabled = true) {
   const { transactions } = useApp();
-  const [seasonalTrends, setSeasonalTrends] = useState<Map<number, { income: any; expenses: any }> | null>(null);
+  const [seasonalTrends, setSeasonalTrends] = useState<Map<number, { income: DecimalInstance; expenses: DecimalInstance }> | null>(null);
 
   useEffect(() => {
     if (!enabled) return;

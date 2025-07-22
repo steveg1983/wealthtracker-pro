@@ -15,7 +15,8 @@ import {
   BarChart3Icon,
   ArrowRightLeftIcon
 } from './icons';
-import * as XLSX from 'xlsx';
+// Dynamic import of XLSX to reduce bundle size
+let XLSX: typeof import('xlsx') | null = null;
 import { toDecimal } from '../utils/decimal';
 import type { Transaction, Account, Budget } from '../types';
 
@@ -45,9 +46,11 @@ interface ExportOptions {
   };
 }
 
-export default function ExcelExport({ isOpen, onClose }: ExcelExportProps) {
+export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): React.JSX.Element {
   const { transactions, accounts, budgets, categories } = useApp();
-  const { formatCurrency, currencySymbol } = useCurrencyDecimal();
+  const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
+  const currencySymbol = getCurrencySymbol(displayCurrency);
+  const [isExporting, setIsExporting] = useState(false);
   
   const [options, setOptions] = useState<ExportOptions>({
     transactions: true,
@@ -128,6 +131,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps) {
   };
 
   const createStyledWorkbook = () => {
+    if (!XLSX) throw new Error('XLSX not loaded');
     const wb = XLSX.utils.book_new();
     
     // Summary Sheet
@@ -152,7 +156,19 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps) {
     // Transactions Sheet
     if (options.transactions) {
       const filtered = filterTransactionsByDate(transactions);
-      let transactionData: any[] = [];
+      interface TransactionRow {
+        Date: string;
+        Description: string;
+        Category: string;
+        Type: string;
+        Amount: number | string;
+        Account: string;
+        Tags?: string;
+        Notes?: string;
+        Cleared?: string;
+      }
+      
+      let transactionData: TransactionRow[] = [];
       
       if (options.groupBy === 'month') {
         // Group by month
@@ -184,7 +200,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps) {
             sum + (t.type === 'expense' ? -toDecimal(t.amount).toNumber() : toDecimal(t.amount).toNumber()), 0
           );
           transactionData.push({ Date: '', Description: 'Subtotal', Category: '', Type: '', Amount: monthTotal, Account: '' });
-          transactionData.push({}); // Empty row
+          transactionData.push({ Date: '', Description: '', Category: '', Type: '', Amount: '', Account: '' }); // Empty row
         });
       } else if (options.groupBy === 'category') {
         // Group by category
@@ -214,7 +230,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps) {
             sum + (t.type === 'expense' ? -toDecimal(t.amount).toNumber() : toDecimal(t.amount).toNumber()), 0
           );
           transactionData.push({ Date: '', Description: 'Subtotal', Category: '', Type: '', Amount: categoryTotal, Account: '' });
-          transactionData.push({}); // Empty row
+          transactionData.push({ Date: '', Description: '', Category: '', Type: '', Amount: '', Account: '' }); // Empty row
         });
       } else {
         // No grouping
@@ -396,11 +412,24 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps) {
     return wb;
   };
 
-  const handleExport = () => {
-    const wb = createStyledWorkbook();
-    const filename = `wealth-tracker-export-${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, filename);
-    onClose();
+  const handleExport = async () => {
+    try {
+      // Load XLSX dynamically only when needed
+      if (!XLSX) {
+        setIsExporting(true);
+        XLSX = await import('xlsx');
+      }
+      
+      const wb = createStyledWorkbook();
+      const filename = `wealth-tracker-export-${new Date().toISOString().split('T')[0]}.xlsx`;
+      XLSX.writeFile(wb, filename);
+      onClose();
+    } catch (error) {
+      console.error('Failed to export Excel file:', error);
+      alert('Failed to export Excel file. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -408,7 +437,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps) {
       isOpen={isOpen}
       onClose={onClose}
       title="Export to Excel"
-      className="max-w-2xl"
+      size="lg"
     >
       <div className="p-6">
         <div className="space-y-6">
@@ -574,12 +603,12 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps) {
           </button>
           <button
             onClick={handleExport}
-            disabled={!Object.values(options).slice(0, 5).some(v => v === true)}
+            disabled={!Object.values(options).slice(0, 5).some(v => v === true) || isExporting}
             className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg
                      hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <DownloadIcon size={20} />
-            Export to Excel
+            {isExporting ? 'Loading...' : 'Export to Excel'}
           </button>
         </div>
       </div>

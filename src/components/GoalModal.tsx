@@ -21,7 +21,7 @@ interface FormData {
   isActive: boolean;
 }
 
-export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
+export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): React.JSX.Element {
   const { addGoal, updateGoal, accounts } = useApp();
   
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
@@ -86,7 +86,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps) {
   }, [goal, isOpen, setFormData]);
 
 
-  const toggleLinkedAccount = (accountId: string) => {
+  const toggleLinkedAccount = (accountId: string): void => {
     updateField('linkedAccountIds', 
       formData.linkedAccountIds.includes(accountId)
         ? formData.linkedAccountIds.filter(id => id !== accountId)

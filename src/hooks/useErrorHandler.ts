@@ -1,7 +1,10 @@
 import { useCallback } from 'react';
 import { captureException } from '../lib/sentry';
 
-export function useErrorHandler() {
+export function useErrorHandler(): {
+  handleError: (error: Error, context?: Record<string, any>) => void;
+  handleAsyncError: <T>(promise: Promise<T>, context?: Record<string, any>) => Promise<T | null>;
+} {
   const handleError = useCallback((error: Error, context?: Record<string, any>) => {
     captureException(error, context);
     console.error('Error handled:', error, context);

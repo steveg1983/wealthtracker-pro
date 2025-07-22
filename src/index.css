@@ -154,6 +154,62 @@ button {
   border-radius: 0.5rem; /* Default to rounded-lg */
 }
 
+/* Touch gesture styles */
+.swipeable-item {
+  position: relative;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.swipeable-item .swipe-action-left,
+.swipeable-item .swipe-action-right {
+  transition: opacity 0.2s ease;
+}
+
+.swipeable-item.swipe-left .swipe-action-left {
+  opacity: 1 !important;
+}
+
+.swipeable-item.swipe-right .swipe-action-right {
+  opacity: 1 !important;
+}
+
+/* Pull to refresh styles */
+.pull-to-refresh {
+  position: relative;
+  overflow: hidden;
+}
+
+.pull-to-refresh-indicator {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.pull-to-refresh-indicator.pulling {
+  transform: translateX(-50%) translateY(calc(var(--pull-distance) * 1px));
+}
+
+.pull-to-refresh-indicator.refreshing {
+  transform: translateX(-50%) translateY(80px);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: translateX(-50%) translateY(80px) rotate(360deg); }
+}
+
 /* Override for buttons that need to be less rounded */
 button.rounded-sm {
   border-radius: 0.125rem;

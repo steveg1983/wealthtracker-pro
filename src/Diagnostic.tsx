@@ -4,7 +4,7 @@ export default function Diagnostic() {
   const [checks, setChecks] = useState<Record<string, boolean | string>>({});
   
   useEffect(() => {
-    const runChecks = () => {
+    const runChecks = (): void => {
       const newChecks: Record<string, boolean | string> = {};
       
       // Check if React is loaded

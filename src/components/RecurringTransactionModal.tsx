@@ -21,7 +21,7 @@ interface RecurringTransactionFormData {
   endDate?: string;
 }
 
-export default function RecurringTransactionModal({ isOpen, onClose }: RecurringTransactionModalProps) {
+export default function RecurringTransactionModal({ isOpen, onClose }: RecurringTransactionModalProps): React.JSX.Element {
   const { accounts, addTransaction, recurringTransactions = [], addRecurringTransaction, deleteRecurringTransaction } = useApp();
   const [showForm, setShowForm] = useState(false);
   
@@ -38,7 +38,6 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
     {
       onSubmit: (data) => {
         const startDate = new Date(data.startDate);
-        const nextDate = new Date(data.startDate);
         
         addRecurringTransaction({
           description: data.description,
@@ -50,7 +49,6 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
           interval: 1,
           startDate,
           endDate: data.endDate ? new Date(data.endDate) : undefined,
-          nextDate,
           isActive: true
         });
         reset();
@@ -64,7 +62,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
   );
 
 
-  const processRecurringTransaction = (recurring: RecurringTransaction) => {
+  const processRecurringTransaction = (recurring: RecurringTransaction): void => {
     const today = new Date();
     const lastProcessed = recurring.lastProcessed ? new Date(recurring.lastProcessed) : new Date(recurring.startDate);
     

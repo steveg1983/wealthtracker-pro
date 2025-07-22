@@ -140,23 +140,27 @@ export default function AccountSettingsModal({
 
           {/* Opening Balance */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="opening-balance" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Opening Balance
             </label>
             <div className="space-y-2">
               <input
+                id="opening-balance"
                 type="number"
                 step="0.01"
                 value={formData.openingBalance}
                 onChange={(e) => updateField('openingBalance', e.target.value)}
                 placeholder="0.00"
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                aria-label="Opening balance amount"
               />
               <input
+                id="opening-balance-date"
                 type="date"
                 value={formData.openingBalanceDate}
                 onChange={(e) => updateField('openingBalanceDate', e.target.value)}
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                aria-label="Opening balance date"
               />
             </div>
           </div>
@@ -165,28 +169,32 @@ export default function AccountSettingsModal({
           {(formData.type === 'current' || formData.type === 'savings') && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="sort-code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Sort Code
                 </label>
                 <input
+                  id="sort-code"
                   type="text"
                   value={formData.sortCode}
                   onChange={handleSortCodeChange}
                   placeholder="XX-XX-XX"
                   maxLength={8}
                   className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                  aria-label="Bank sort code"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <label htmlFor="account-number" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Account Number
                 </label>
                 <input
+                  id="account-number"
                   type="text"
                   value={formData.accountNumber}
                   onChange={(e) => updateField('accountNumber', e.target.value.replace(/\D/g, ''))}
                   placeholder="12345678"
+                  aria-label="Bank account number"
                   maxLength={8}
                   className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 />

@@ -17,7 +17,7 @@ interface AccountFormData {
   institution: string;
 }
 
-export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProps) {
+export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProps): React.JSX.Element {
   const { addAccount } = useApp();
   const { currency: defaultCurrency } = usePreferences();
 

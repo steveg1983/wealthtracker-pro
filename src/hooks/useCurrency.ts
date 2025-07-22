@@ -7,7 +7,14 @@ import { useCallback, useMemo } from 'react';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { convertCurrency, convertMultipleCurrencies, formatCurrency as formatCurrencyUtil, getCurrencySymbol } from '../utils/currency';
 
-export function useCurrency() {
+export function useCurrency(): {
+  displayCurrency: string;
+  currencySymbol: string;
+  formatCurrency: (amount: number, originalCurrency?: string) => string;
+  convertAndFormat: (amount: number, fromCurrency: string) => Promise<string>;
+  convert: (amount: number, fromCurrency: string) => Promise<number>;
+  convertAndSum: (amounts: Array<{ amount: number; currency: string }>) => Promise<number>;
+} {
   const { currency: displayCurrency } = usePreferences();
 
   // Format amount in display currency

@@ -101,7 +101,7 @@ test.describe('Smoke Tests', () => {
     expect(criticalErrors).toHaveLength(0);
   });
 
-  test('API endpoints are accessible', async ({ page, request }) => {
+  test('API endpoints are accessible', async ({ request }) => {
     // If your app has API endpoints, test them
     const baseUrl = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:5173';
     

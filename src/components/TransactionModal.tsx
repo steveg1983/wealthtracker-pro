@@ -11,7 +11,7 @@ interface TransactionModalProps {
   transaction?: Transaction;
 }
 
-export default function TransactionModal({ isOpen, onClose, transaction }: TransactionModalProps) {
+export default function TransactionModal({ isOpen, onClose, transaction }: TransactionModalProps): React.JSX.Element | null {
   const { accounts, addTransaction, updateTransaction } = useApp();
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],

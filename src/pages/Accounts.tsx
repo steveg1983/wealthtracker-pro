@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import AddAccountModal from '../components/AddAccountModal';
@@ -12,9 +12,11 @@ import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import PageWrapper from '../components/PageWrapper';
 import { calculateTotalBalance } from '../utils/calculations-decimal';
+import { toDecimal } from '../utils/decimal';
+import { SkeletonCard } from '../components/loading/Skeleton';
 
 export default function Accounts({ onAccountClick }: { onAccountClick?: (accountId: string) => void }) {
-  const { accounts, updateAccount, deleteAccount, getDecimalAccounts } = useApp();
+  const { accounts, updateAccount, deleteAccount } = useApp();
   const { formatCurrency: formatDisplayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -28,9 +30,14 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   } | null>(null);
   const [portfolioAccountId, setPortfolioAccountId] = useState<string | null>(null);
   const [settingsAccountId, setSettingsAccountId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Get decimal accounts for calculations
-  const decimalAccounts = useMemo(() => getDecimalAccounts(), [getDecimalAccounts]);
+  // Convert accounts to decimal for calculations
+  const decimalAccounts = useMemo(() => accounts.map(a => ({
+    ...a,
+    balance: toDecimal(a.balance),
+    initialBalance: a.openingBalance ? toDecimal(a.openingBalance) : undefined
+  })), [accounts]);
   
   // Group accounts by type (memoized)
   const accountsByType = useMemo(() => 
@@ -44,6 +51,13 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
     }, {} as Record<string, typeof accounts>),
     [accounts]
   );
+
+  // Set loading to false when accounts are loaded
+  useEffect(() => {
+    if (accounts !== undefined) {
+      setIsLoading(false);
+    }
+  }, [accounts]);
   
   // Group decimal accounts by type for calculations
   const decimalAccountsByType = useMemo(() => 
@@ -179,14 +193,22 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
       {/* Accounts by Category */}
       <div className="grid gap-6">
-        {accountTypes.map(({ type, title, icon: Icon, color }) => {
-          const typeAccounts = accountsByType[type] || [];
-          if (typeAccounts.length === 0) return null;
+        {isLoading ? (
+          // Show skeleton cards while loading
+          <>
+            <SkeletonCard className="h-48" />
+            <SkeletonCard className="h-48" />
+            <SkeletonCard className="h-48" />
+          </>
+        ) : (
+          accountTypes.map(({ type, title, icon: Icon, color }) => {
+            const typeAccounts = accountsByType[type] || [];
+            if (typeAccounts.length === 0) return null;
 
-          const decimalTypeAccounts = decimalAccountsByType[type] || [];
-          const typeTotal = calculateTotalBalance(decimalTypeAccounts);
+            const decimalTypeAccounts = decimalAccountsByType[type] || [];
+            const typeTotal = calculateTotalBalance(decimalTypeAccounts);
 
-          return (
+            return (
             <div key={type} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 overflow-hidden">
               <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-gray-800/50 dark:to-gray-700/50 backdrop-blur-sm border-b border-blue-200/50 dark:border-gray-600/50 px-6 py-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
@@ -350,7 +372,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
               </div>
             </div>
           );
-        })}
+        })
+        )}
       </div>
 
       {accounts.length === 0 && (

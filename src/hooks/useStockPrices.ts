@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getStockQuote, getMultipleStockQuotes } from '../services/stockPriceService';
 import type { Holding } from '../types';
+import type { DecimalInstance } from '../utils/decimal';
 
 interface StockPrice {
   symbol: string;
@@ -41,10 +42,10 @@ export function useStockPrices(holdings: Holding[]): UseStockPricesResult {
       quotes.forEach((quote, symbol) => {
         newPrices.set(symbol, {
           symbol: quote.symbol,
-          price: quote.price,
+          price: quote.price.toNumber(),
           currency: quote.currency,
-          change: quote.change,
-          changePercent: quote.changePercent,
+          change: quote.change.toNumber(),
+          changePercent: quote.changePercent.toNumber(),
           lastUpdated: quote.lastUpdated,
           name: quote.name
         });
@@ -102,10 +103,10 @@ export function useStockPrice(symbol: string | undefined) {
         if (quote) {
           setPrice({
             symbol: quote.symbol,
-            price: quote.price,
+            price: quote.price.toNumber(),
             currency: quote.currency,
-            change: quote.change,
-            changePercent: quote.changePercent,
+            change: quote.change.toNumber(),
+            changePercent: quote.changePercent.toNumber(),
             lastUpdated: quote.lastUpdated,
             name: quote.name
           });

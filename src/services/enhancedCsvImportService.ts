@@ -2,11 +2,13 @@ import { toDecimal } from '../utils/decimal';
 import type { Transaction, Account, Category } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
 import { smartCategorizationService } from './smartCategorizationService';
+import { importRulesService } from './importRulesService';
+import type { JsonValue } from '../types/common';
 
 export interface ColumnMapping {
   sourceColumn: string;
   targetField: string;
-  transform?: (value: string) => any;
+  transform?: (value: string) => JsonValue;
 }
 
 export interface ImportProfile {
@@ -33,7 +35,7 @@ export interface ImportResult {
   success: number;
   failed: number;
   duplicates: number;
-  items: any[];
+  items: Array<Partial<Transaction> | Partial<Account>>;
   errors: Array<{
     row: number;
     error: string;
@@ -424,7 +426,7 @@ class EnhancedCsvImportService {
             } else if (mapping.transform) {
               transaction[mapping.targetField as keyof Transaction] = mapping.transform(value);
             } else {
-              transaction[mapping.targetField as keyof Transaction] = value as any;
+              transaction[mapping.targetField as keyof Transaction] = value as JsonValue;
             }
           }
         }
@@ -485,9 +487,17 @@ class EnhancedCsvImportService {
           }
         }
         
+        // Apply import rules
+        const processedTransaction = importRulesService.applyRules(transaction);
+        
+        // Skip transaction if rules indicate to skip
+        if (!processedTransaction) {
+          continue;
+        }
+        
         // Add transaction
-        transaction.id = `import-${Date.now()}-${rowIndex}`;
-        result.items.push(transaction as Transaction);
+        processedTransaction.id = `import-${Date.now()}-${rowIndex}`;
+        result.items.push(processedTransaction as Transaction);
         result.success++;
         
       } catch (error) {
@@ -547,6 +557,71 @@ class EnhancedCsvImportService {
     } catch (error) {
       console.error('Failed to save import profiles:', error);
     }
+  }
+
+  /**
+   * Generate preview of transactions from parsed data
+   */
+  generatePreview(data: string[][], mappings: ColumnMapping[]): { transactions: Partial<Transaction>[] } {
+    const transactions: Partial<Transaction>[] = [];
+    
+    // Create column index map
+    const columnIndices = new Map<string, number>();
+    mappings.forEach(mapping => {
+      const index = data[0]?.findIndex(h => h === mapping.sourceColumn);
+      if (index >= 0) {
+        columnIndices.set(mapping.targetField, index);
+      }
+    });
+    
+    // Process first 10 rows as preview
+    const previewRows = data.slice(0, 10);
+    
+    for (let rowIndex = 0; rowIndex < previewRows.length; rowIndex++) {
+      const row = previewRows[rowIndex];
+      
+      try {
+        const transaction: Partial<Transaction> = {
+          type: 'expense', // Default
+          cleared: false // Default
+        };
+        
+        // Apply mappings
+        for (const mapping of mappings) {
+          const index = columnIndices.get(mapping.targetField);
+          if (index !== undefined && row[index]) {
+            const value = row[index];
+            
+            if (mapping.targetField === 'amount' && !mapping.transform) {
+              transaction.amount = this.parseAmount(value);
+            } else if (mapping.targetField === 'date' && !mapping.transform) {
+              transaction.date = this.parseDate(value);
+            } else if (mapping.transform) {
+              transaction[mapping.targetField as keyof Transaction] = mapping.transform(value);
+            } else {
+              transaction[mapping.targetField as keyof Transaction] = value as JsonValue;
+            }
+          }
+        }
+        
+        // Determine transaction type from amount
+        if (transaction.amount && transaction.amount < 0) {
+          transaction.type = 'expense';
+          transaction.amount = Math.abs(transaction.amount);
+        } else if (transaction.amount && transaction.amount > 0) {
+          transaction.type = 'income';
+        }
+        
+        // Add transaction
+        transaction.id = `preview-${Date.now()}-${rowIndex}`;
+        transactions.push(transaction);
+        
+      } catch (error) {
+        console.warn(`Failed to parse row ${rowIndex}:`, error);
+      }
+    }
+    
+    return { transactions };
   }
 
   /**
@@ -697,6 +772,328 @@ class EnhancedCsvImportService {
         { sourceColumn: 'Description', targetField: 'description' },
         { sourceColumn: 'Money Out', targetField: 'amount' },
         { sourceColumn: 'Money In', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      
+      // International Banks
+      'chase': [
+        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Type', targetField: 'category' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'bank-of-america': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Running Bal.', targetField: 'balance' }
+      ],
+      'wells-fargo': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Deposits', targetField: 'amount' },
+        { sourceColumn: 'Withdrawals', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'citibank': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'td-bank': [
+        { sourceColumn: 'DATE', targetField: 'date' },
+        { sourceColumn: 'DESCRIPTION', targetField: 'description' },
+        { sourceColumn: 'WITHDRAWALS', targetField: 'amount' },
+        { sourceColumn: 'DEPOSITS', targetField: 'amount' },
+        { sourceColumn: 'BALANCE', targetField: 'balance' }
+      ],
+      'anz': [
+        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'commonwealth': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'westpac': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Narrative', targetField: 'description' },
+        { sourceColumn: 'Debit Amount', targetField: 'amount' },
+        { sourceColumn: 'Credit Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'nab': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Transaction Details', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      
+      // European Banks
+      'deutsche-bank': [
+        { sourceColumn: 'Booking date', targetField: 'date' },
+        { sourceColumn: 'Transaction Description', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'bnp-paribas': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Label', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'credit-agricole': [
+        { sourceColumn: 'Date Operation', targetField: 'date' },
+        { sourceColumn: 'Libelle', targetField: 'description' },
+        { sourceColumn: 'Montant', targetField: 'amount' },
+        { sourceColumn: 'Solde', targetField: 'balance' }
+      ],
+      'societe-generale': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Libelle', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Solde', targetField: 'balance' }
+      ],
+      'ing-bank': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'abn-amro': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'rabobank': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'unicredit': [
+        { sourceColumn: 'Data', targetField: 'date' },
+        { sourceColumn: 'Descrizione', targetField: 'description' },
+        { sourceColumn: 'Importo', targetField: 'amount' },
+        { sourceColumn: 'Saldo', targetField: 'balance' }
+      ],
+      'intesa-sanpaolo': [
+        { sourceColumn: 'Data', targetField: 'date' },
+        { sourceColumn: 'Causale', targetField: 'description' },
+        { sourceColumn: 'Dare', targetField: 'amount' },
+        { sourceColumn: 'Avere', targetField: 'amount' },
+        { sourceColumn: 'Saldo', targetField: 'balance' }
+      ],
+      'ing': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance after transaction', targetField: 'balance' }
+      ],
+      
+      // Online Payment Services
+      'paypal': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Name', targetField: 'description' },
+        { sourceColumn: 'Gross', targetField: 'amount' },
+        { sourceColumn: 'Type', targetField: 'category' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'wise': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Currency', targetField: 'currency' },
+        { sourceColumn: 'Running Balance', targetField: 'balance' }
+      ],
+      'stripe': [
+        { sourceColumn: 'Created (UTC)', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Currency', targetField: 'currency' },
+        { sourceColumn: 'Available Balance', targetField: 'balance' }
+      ],
+      
+      // Asian Banks
+      'dbs-bank': [
+        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Transaction Description', targetField: 'description' },
+        { sourceColumn: 'Withdrawal', targetField: 'amount' },
+        { sourceColumn: 'Deposit', targetField: 'amount' },
+        { sourceColumn: 'Available Balance', targetField: 'balance' }
+      ],
+      'ocbc-bank': [
+        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Withdrawal Amount', targetField: 'amount' },
+        { sourceColumn: 'Deposit Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'uob-bank': [
+        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit Amount', targetField: 'amount' },
+        { sourceColumn: 'Credit Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'icbc': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'hsbc-asia': [
+        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Transaction Description', targetField: 'description' },
+        { sourceColumn: 'Debit Amount', targetField: 'amount' },
+        { sourceColumn: 'Credit Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      
+      // Canadian Banks
+      'rbc-royal-bank': [
+        { sourceColumn: 'Account Type', targetField: 'accountType' },
+        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Description 1', targetField: 'description' },
+        { sourceColumn: 'CAD$', targetField: 'amount' },
+        { sourceColumn: 'USD$', targetField: 'amount' }
+      ],
+      'td-canada-trust': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'scotiabank': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Withdrawals', targetField: 'amount' },
+        { sourceColumn: 'Deposits', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'bmo-bank-of-montreal': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Withdrawal', targetField: 'amount' },
+        { sourceColumn: 'Deposit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      
+      // Australian Banks
+      'commonwealth-bank': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit Amount', targetField: 'amount' },
+        { sourceColumn: 'Credit Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'anz-bank': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'nab-bank': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Debit', targetField: 'amount' },
+        { sourceColumn: 'Credit', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      
+      // Cryptocurrency Exchanges
+      'coinbase': [
+        { sourceColumn: 'Timestamp', targetField: 'date' },
+        { sourceColumn: 'Transaction Type', targetField: 'description' },
+        { sourceColumn: 'Asset', targetField: 'category' },
+        { sourceColumn: 'Quantity Transacted', targetField: 'amount' },
+        { sourceColumn: 'Spot Price Currency', targetField: 'currency' }
+      ],
+      'binance': [
+        { sourceColumn: 'Date(UTC)', targetField: 'date' },
+        { sourceColumn: 'Market', targetField: 'description' },
+        { sourceColumn: 'Type', targetField: 'category' },
+        { sourceColumn: 'Price', targetField: 'amount' },
+        { sourceColumn: 'Amount', targetField: 'quantity' }
+      ],
+      'kraken': [
+        { sourceColumn: 'time', targetField: 'date' },
+        { sourceColumn: 'type', targetField: 'description' },
+        { sourceColumn: 'asset', targetField: 'category' },
+        { sourceColumn: 'amount', targetField: 'amount' },
+        { sourceColumn: 'balance', targetField: 'balance' }
+      ],
+      
+      // Investment Platforms
+      'vanguard': [
+        { sourceColumn: 'Trade Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Investment Name', targetField: 'category' },
+        { sourceColumn: 'Share Price', targetField: 'price' },
+        { sourceColumn: 'Shares', targetField: 'quantity' },
+        { sourceColumn: 'Principal Amount', targetField: 'amount' }
+      ],
+      'fidelity': [
+        { sourceColumn: 'Run Date', targetField: 'date' },
+        { sourceColumn: 'Action', targetField: 'description' },
+        { sourceColumn: 'Symbol', targetField: 'category' },
+        { sourceColumn: 'Price', targetField: 'price' },
+        { sourceColumn: 'Quantity', targetField: 'quantity' },
+        { sourceColumn: 'Amount', targetField: 'amount' }
+      ],
+      'charles-schwab': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Action', targetField: 'description' },
+        { sourceColumn: 'Symbol', targetField: 'category' },
+        { sourceColumn: 'Price', targetField: 'price' },
+        { sourceColumn: 'Quantity', targetField: 'quantity' },
+        { sourceColumn: 'Amount', targetField: 'amount' }
+      ],
+      'etrade': [
+        { sourceColumn: 'TransactionDate', targetField: 'date' },
+        { sourceColumn: 'TransactionType', targetField: 'description' },
+        { sourceColumn: 'Symbol', targetField: 'category' },
+        { sourceColumn: 'Quantity', targetField: 'quantity' },
+        { sourceColumn: 'Price', targetField: 'price' },
+        { sourceColumn: 'Amount', targetField: 'amount' }
+      ],
+      
+      // Generic Formats
+      'quickbooks': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Balance', targetField: 'balance' }
+      ],
+      'mint': [
+        { sourceColumn: 'Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Amount', targetField: 'amount' },
+        { sourceColumn: 'Transaction Type', targetField: 'type' },
+        { sourceColumn: 'Category', targetField: 'category' }
+      ],
+      'wave': [
+        { sourceColumn: 'Transaction Date', targetField: 'date' },
+        { sourceColumn: 'Description', targetField: 'description' },
+        { sourceColumn: 'Withdrawal', targetField: 'amount' },
+        { sourceColumn: 'Deposit', targetField: 'amount' },
         { sourceColumn: 'Balance', targetField: 'balance' }
       ]
     };

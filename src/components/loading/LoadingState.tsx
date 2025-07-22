@@ -11,7 +11,7 @@ export function LoadingState({
   message = 'Loading...', 
   size = 'medium',
   className = '' 
-}: LoadingStateProps) {
+}: LoadingStateProps): React.JSX.Element {
   const sizeClasses = {
     small: 'h-32',
     medium: 'h-48',
@@ -45,7 +45,7 @@ export function LoadingOverlay({
   isLoading, 
   message = 'Loading...', 
   fullScreen = false 
-}: LoadingOverlayProps) {
+}: LoadingOverlayProps): React.JSX.Element | null {
   if (!isLoading) return null;
 
   const positionClass = fullScreen ? 'fixed' : 'absolute';
@@ -67,7 +67,7 @@ interface LoadingDotsProps {
   className?: string;
 }
 
-export function LoadingDots({ className = '' }: LoadingDotsProps) {
+export function LoadingDots({ className = '' }: LoadingDotsProps): React.JSX.Element {
   return (
     <span className={`inline-flex space-x-1 ${className}`}>
       <span className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
@@ -93,7 +93,7 @@ export function LoadingButton({
   className = '',
   disabled = false,
   onClick
-}: LoadingButtonProps) {
+}: LoadingButtonProps): React.JSX.Element {
   return (
     <button
       onClick={onClick}

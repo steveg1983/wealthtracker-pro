@@ -104,10 +104,10 @@ export class OFXImportService {
                        'CHECKING';
     
     return {
-      bankId,
+      bankId: bankId || undefined,
       accountId: accountId.trim(),
       accountType,
-      branchId
+      branchId: branchId || undefined
     };
   }
   
@@ -158,8 +158,8 @@ export class OFXImportService {
           fitId: fitId.trim(),
           name: this.cleanString(name),
           memo: memo ? this.cleanString(memo) : undefined,
-          checkNum,
-          refNum
+          checkNum: checkNum || undefined,
+          refNum: refNum || undefined
         });
       }
     }
@@ -364,7 +364,8 @@ export class OFXImportService {
         accountId: matchedAccount?.id || 'default',
         category: '',
         cleared: true, // OFX transactions are already cleared
-        notes
+        notes,
+        recurring: false
       };
       
       // Auto-categorize if enabled

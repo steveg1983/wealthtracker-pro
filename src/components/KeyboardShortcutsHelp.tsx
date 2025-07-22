@@ -7,10 +7,10 @@ interface KeyboardShortcutsHelpProps {
   onClose: () => void;
 }
 
-export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelpProps) {
+export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShortcutsHelpProps): React.JSX.Element | null {
   const shortcuts = getAllShortcuts();
 
-  const formatShortcut = (shortcut: KeyboardShortcut) => {
+  const formatShortcut = (shortcut: KeyboardShortcut): string => {
     // Handle two-key sequences like 'g h'
     if (shortcut.key.includes(' ')) {
       return shortcut.key.split(' ').map(k => k.toUpperCase()).join(' → ');
@@ -130,7 +130,11 @@ export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShort
 }
 
 // Hook to manage keyboard shortcuts help state
-export function useKeyboardShortcutsHelp() {
+export function useKeyboardShortcutsHelp(): {
+  isOpen: boolean;
+  openHelp: () => void;
+  closeHelp: () => void;
+} {
   const [isOpen, setIsOpen] = useState(false);
 
   const openHelp = () => setIsOpen(true);

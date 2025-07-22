@@ -5,21 +5,25 @@ export interface ApiError extends Error {
   statusText?: string;
   url?: string;
   method?: string;
-  responseBody?: any;
+  responseBody?: unknown;
 }
 
 export class ApiErrorHandler {
-  static handle(error: any, url: string, method: string = 'GET'): ApiError {
+  static handle(error: unknown, url: string, method: string = 'GET'): ApiError {
     const apiError: ApiError = error instanceof Error ? error : new Error(String(error));
     
     // Add additional context
     apiError.url = url;
     apiError.method = method;
     
-    if (error.response) {
-      apiError.status = error.response.status;
-      apiError.statusText = error.response.statusText;
-      apiError.responseBody = error.response.data;
+    // Type guard for axios-like errors
+    if (error && typeof error === 'object' && 'response' in error) {
+      const axiosError = error as any; // or create a proper type
+      if (axiosError.response) {
+        apiError.status = axiosError.response.status;
+        apiError.statusText = axiosError.response.statusText;
+        apiError.responseBody = axiosError.response.data;
+      }
     }
     
     // Add breadcrumb for API error

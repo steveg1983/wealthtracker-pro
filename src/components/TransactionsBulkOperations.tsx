@@ -1,7 +1,7 @@
 import React from 'react';
-import { Transaction } from '../types';
+import { Transaction, Category } from '../types';
 import { useBulkOperations } from '../hooks/useBulkOperations';
-import { useAppData } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContext';
 import BulkOperationsToolbar from './BulkOperationsToolbar';
 import BulkCheckbox from './BulkCheckbox';
 import { DeleteIcon, EditIcon, CheckIcon, TagIcon } from './icons';
@@ -23,8 +23,8 @@ interface TransactionsBulkOperationsProps {
 export default function TransactionsBulkOperations({
   transactions,
   children,
-}: TransactionsBulkOperationsProps) {
-  const { deleteTransaction, updateTransaction, categories } = useAppData();
+}: TransactionsBulkOperationsProps): React.JSX.Element {
+  const { deleteTransaction, updateTransaction, categories } = useApp();
 
   const bulkOperations = [
     {
@@ -48,8 +48,7 @@ export default function TransactionsBulkOperations({
       action: async (items: Transaction[]) => {
         // Mark all selected transactions as cleared
         for (const transaction of items) {
-          updateTransaction({
-            ...transaction,
+          updateTransaction(transaction.id, {
             cleared: true,
           });
         }
@@ -62,8 +61,7 @@ export default function TransactionsBulkOperations({
       action: async (items: Transaction[]) => {
         // Mark all selected transactions as uncleared
         for (const transaction of items) {
-          updateTransaction({
-            ...transaction,
+          updateTransaction(transaction.id, {
             cleared: false,
           });
         }
@@ -77,10 +75,9 @@ export default function TransactionsBulkOperations({
         // This would open a category selection dialog
         // For now, we'll just show an alert
         const category = prompt('Enter category ID:', 'groceries');
-        if (category && categories.find(cat => cat.id === category)) {
+        if (category && categories.find((cat: Category) => cat.id === category)) {
           for (const transaction of items) {
-            updateTransaction({
-              ...transaction,
+            updateTransaction(transaction.id, {
               category,
             });
           }
@@ -102,7 +99,7 @@ export default function TransactionsBulkOperations({
     isProcessing,
   } = useBulkOperations(transactions, bulkOperations);
 
-  const renderToolbar = () => (
+  const renderToolbar = (): React.JSX.Element => (
     <BulkOperationsToolbar
       selectedCount={selectedCount}
       availableOperations={availableOperations}
@@ -112,7 +109,7 @@ export default function TransactionsBulkOperations({
     />
   );
 
-  const renderCheckbox = (transaction: Transaction) => (
+  const renderCheckbox = (transaction: Transaction): React.JSX.Element => (
     <BulkCheckbox
       checked={isSelected(transaction.id)}
       onChange={() => toggleItem(transaction.id)}

@@ -56,7 +56,7 @@ export default function Reconciliation() {
   }, [selectedAccount]);
 
   // Handle marking transaction as cleared/reconciled
-  const handleReconcile = (transactionId: string) => {
+  const handleReconcile = (transactionId: string): void => {
     const transaction = transactions.find(t => t.id === transactionId);
     if (!transaction) return;
 
@@ -84,20 +84,20 @@ export default function Reconciliation() {
   };
 
   // Handle marking multiple transactions as reconciled
-  const handleReconcileSelected = () => {
+  const handleReconcileSelected = (): void => {
     selectedTransactions.forEach(transactionId => {
       handleReconcile(transactionId);
     });
   };
 
   // Handle editing transaction
-  const handleEdit = (transaction: Transaction) => {
+  const handleEdit = (transaction: Transaction): void => {
     setEditingTransaction(transaction);
     setShowEditModal(true);
   };
 
   // Toggle transaction selection
-  const toggleTransactionSelection = (transactionId: string) => {
+  const toggleTransactionSelection = (transactionId: string): void => {
     setSelectedTransactions(prev => {
       const newSet = new Set(prev);
       if (newSet.has(transactionId)) {
@@ -110,7 +110,7 @@ export default function Reconciliation() {
   };
 
   // Select/deselect all visible transactions
-  const toggleSelectAll = () => {
+  const toggleSelectAll = (): void => {
     const visibleTransactionIds = paginatedTransactions.map(t => t.id);
     if (visibleTransactionIds.every(id => selectedTransactions.has(id))) {
       // Deselect all visible
@@ -130,7 +130,7 @@ export default function Reconciliation() {
   };
 
   // Handle inline field editing
-  const handleFieldEdit = (transactionId: string, field: keyof Transaction, value: Transaction[keyof Transaction]) => {
+  const handleFieldEdit = (transactionId: string, field: keyof Transaction, value: Transaction[keyof Transaction]): void => {
     setEditingFields(prev => ({
       ...prev,
       [transactionId]: {
@@ -141,7 +141,7 @@ export default function Reconciliation() {
   };
 
   // Save inline edits
-  const saveInlineEdits = (transactionId: string) => {
+  const saveInlineEdits = (transactionId: string): void => {
     const transaction = transactions.find(t => t.id === transactionId);
     const edits = editingFields[transactionId];
     if (!transaction || !edits) return;
@@ -162,7 +162,7 @@ export default function Reconciliation() {
   // getCategoryDisplay function removed - it was unused
 
   // Handle split toggle
-  const handleSplitToggle = (transactionId: string) => {
+  const handleSplitToggle = (transactionId: string): void => {
     const transaction = transactions.find(t => t.id === transactionId);
     if (!transaction) return;
 
@@ -180,7 +180,7 @@ export default function Reconciliation() {
   };
 
   // Add split item
-  const addSplitItem = () => {
+  const addSplitItem = (): void => {
     const newId = (Math.max(...splitItems.map(item => parseInt(item.id))) + 1).toString();
     setSplitItems([...splitItems, {
       id: newId,
@@ -191,28 +191,28 @@ export default function Reconciliation() {
   };
 
   // Update split item
-  const updateSplitItem = (id: string, field: 'description' | 'category' | 'amount', value: string | number) => {
+  const updateSplitItem = (id: string, field: 'description' | 'category' | 'amount', value: string | number): void => {
     setSplitItems(splitItems.map(item => 
       item.id === id ? { ...item, [field]: value } : item
     ));
   };
 
   // Remove split item
-  const removeSplitItem = (id: string) => {
+  const removeSplitItem = (id: string): void => {
     if (splitItems.length > 1) {
       setSplitItems(splitItems.filter(item => item.id !== id));
     }
   };
 
   // Validate split amounts
-  const validateSplitAmounts = () => {
+  const validateSplitAmounts = (): boolean => {
     if (!splittingTransaction) return false;
     const total = splitItems.reduce((sum, item) => sum + parseFloat(item.amount.toString() || '0'), 0);
     return Math.abs(total - splittingTransaction.amount) < 0.01; // Allow for small rounding differences
   };
 
   // Save split transaction
-  const saveSplitTransaction = () => {
+  const saveSplitTransaction = (): void => {
     if (!splittingTransaction) return;
     
     if (!validateSplitAmounts()) {

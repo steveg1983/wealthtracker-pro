@@ -1,6 +1,7 @@
 import React from 'react';
 import { Modal } from './common/Modal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import type { JsonValue } from '../types/common';
 import { 
   CheckCircleIcon, 
   ArrowRightIcon, 
@@ -18,8 +19,8 @@ export type ChangeRecord = {
   type: 'transaction' | 'account';
   itemId: string;
   field: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: JsonValue;
+  newValue: JsonValue;
   description: string;
   issueType: string;
 };
@@ -57,7 +58,7 @@ function FixSummaryModal({
     }
   };
 
-  const formatValue = (value: any, field: string) => {
+  const formatValue = (value: JsonValue, field: string) => {
     if (field === 'date' && value instanceof Date) {
       return value.toLocaleDateString();
     }

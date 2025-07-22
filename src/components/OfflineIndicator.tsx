@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { WifiOffIcon } from './icons';
 
-export default function OfflineIndicator() {
+export default function OfflineIndicator(): React.JSX.Element | null {
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [showBanner, setShowBanner] = useState(false);
 

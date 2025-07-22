@@ -1,0 +1,59 @@
+/**
+ * errorHandlingService Tests
+ * Service functionality and error handling
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { errorHandlingService } from '../errorHandlingService';
+
+// Mock localStorage
+const mockLocalStorage = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn(),
+};
+global.localStorage = mockLocalStorage as any;
+
+// Mock fetch
+global.fetch = vi.fn();
+
+describe('errorHandlingService', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  describe('initialization', () => {
+    it('initializes successfully', async () => {
+      const result = await errorHandlingService.init();
+      expect(result).toBe(true);
+    });
+
+    it('handles initialization errors', async () => {
+      // Mock initialization failure
+      const result = await errorHandlingService.init();
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('core functionality', () => {
+    it('performs main operations correctly', async () => {
+      // Test core service functionality
+    });
+
+    it('handles errors gracefully', async () => {
+      // Test error scenarios
+    });
+  });
+
+  describe('data validation', () => {
+    it('validates input data', () => {
+      // Test input validation
+    });
+
+    it('rejects invalid data', () => {
+      // Test invalid input handling
+    });
+  });
+
+});

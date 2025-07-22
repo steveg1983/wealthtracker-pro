@@ -22,7 +22,7 @@ export default function QuickFilters({
   onClearFilters,
   isSearchActive,
   className = ''
-}: QuickFiltersProps) {
+}: QuickFiltersProps): React.JSX.Element {
   return (
     <div className={`flex items-center gap-2 flex-wrap ${className}`}>
       <div className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-400">

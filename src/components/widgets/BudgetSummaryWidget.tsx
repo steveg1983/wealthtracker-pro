@@ -5,6 +5,7 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { PiggyBankIcon, AlertCircleIcon, CheckCircleIcon } from '../icons';
+import { budgetCalculationService } from '../../services/budgetCalculationService';
 
 interface BudgetSummaryWidgetProps {
   size: 'small' | 'medium' | 'large';
@@ -12,14 +13,13 @@ interface BudgetSummaryWidgetProps {
 }
 
 export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWidgetProps) {
-  const { getDecimalTransactions } = useApp();
+  const { transactions, categories } = useApp();
   const { budgets } = useBudgets();
   const { formatCurrency } = useCurrencyDecimal();
   
   const period = settings.period || 'current';
 
   const { budgetData, totalBudgeted, totalSpent, totalRemaining, overBudgetCount } = useMemo(() => {
-    const transactions = getDecimalTransactions();
     const now = new Date();
     
     // Determine date range based on period
@@ -40,20 +40,30 @@ export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWid
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
     
+    // Convert budgets to service-compatible format
+    const serviceBudgets = budgets.map(budget => ({
+      ...budget,
+      categoryId: budget.category,
+      period: budget.period || 'monthly' as const
+    }));
+    
+    // Use the service to calculate budget spending
+    const summary = budgetCalculationService.calculateAllBudgetSpending(
+      serviceBudgets,
+      transactions,
+      categories
+    );
+    
+    // Transform service data to component format
     const budgetData = budgets.map(budget => {
       const budgetAmount = toDecimal(budget.amount);
       
-      // Calculate spending for this budget's categories
-      const spent = transactions
-        .filter(t => {
-          const tDate = new Date(t.date);
-          return t.type === 'expense' && 
-                 tDate >= startDate && 
-                 tDate <= endDate &&
-                 budget.categoryIds.includes(t.category || '');
-        })
-        .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
+      // Aggregate spending across all categories in this budget
+      const categorySpending = summary.budgetsByCategory
+        .filter(bs => bs.categoryId === budget.category)
+        .reduce((sum, bs) => sum + bs.spentAmount, 0);
       
+      const spent = toDecimal(categorySpending);
       const remaining = budgetAmount.minus(spent);
       const percentage = budgetAmount.greaterThan(0) ? spent.dividedBy(budgetAmount).times(100) : toDecimal(0);
       const isOverBudget = remaining.lessThan(0);
@@ -82,7 +92,7 @@ export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWid
       totalRemaining,
       overBudgetCount
     };
-  }, [budgets, getDecimalTransactions, period]);
+  }, [budgets, transactions, categories, period]);
 
   const pieData = budgetData.map(budget => ({
     name: budget.name,

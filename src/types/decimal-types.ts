@@ -24,7 +24,7 @@ export interface DecimalHolding {
 export interface DecimalAccount {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'assets' | 'other';
+  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'mortgage' | 'assets' | 'other' | 'checking';
   balance: DecimalInstance;
   currency: string;
   institution?: string;
@@ -33,6 +33,11 @@ export interface DecimalAccount {
   openingBalanceDate?: Date;
   holdings?: DecimalHolding[];
   notes?: string;
+  isActive?: boolean;
+  plaidConnectionId?: string;
+  plaidAccountId?: string;
+  mask?: string;
+  initialBalance?: DecimalInstance;
 }
 
 export interface DecimalTransaction {
@@ -54,6 +59,15 @@ export interface DecimalTransaction {
   isRecurring?: boolean;
   isSplit?: boolean;
   isImported?: boolean;
+  pending?: boolean;
+  plaidTransactionId?: string;
+  merchant?: string;
+  paymentChannel?: string;
+  location?: {
+    city: string | null;
+    region: string | null;
+    country: string | null;
+  };
 }
 
 export interface DecimalBudget {

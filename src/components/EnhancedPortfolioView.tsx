@@ -4,6 +4,7 @@ import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, Clock } from './icons';
 import { formatCurrency } from '../utils/currency';
 import { useStockPrices } from '../hooks/useStockPrices';
 import { convertStockPrice } from '../services/stockPriceService';
+import { toDecimal } from '../utils/decimal';
 import type { Holding } from '../types';
 
 interface EnhancedPortfolioViewProps {
@@ -43,19 +44,19 @@ export default function EnhancedPortfolioView({
         if (livePrice) {
           // Convert live price to account currency
           const convertedPrice = await convertStockPrice(
-            livePrice.price,
+            toDecimal(livePrice.price),
             livePrice.currency,
             currency
           );
           
-          const holdingMarketValue = convertedPrice * holding.shares;
+          const holdingMarketValue = convertedPrice.times(holding.shares).toNumber();
           const holdingCost = (holding.averageCost || holding.value / holding.shares) * holding.shares;
           const gain = holdingMarketValue - holdingCost;
           const gainPercent = holdingCost > 0 ? (gain / holdingCost) * 100 : 0;
 
           enhanced.push({
             ...holding,
-            currentPrice: convertedPrice,
+            currentPrice: convertedPrice.toNumber(),
             marketValue: holdingMarketValue,
             gain: gain,
             gainPercent: gainPercent,

@@ -13,7 +13,7 @@ import { toDecimal } from '../utils/decimal';
 import PageWrapper from '../components/PageWrapper';
 
 export default function Investments() {
-  const { accounts, transactions, getDecimalAccounts, getDecimalTransactions, updateAccount } = useApp();
+  const { accounts, transactions, updateAccount } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1Y');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -31,37 +31,29 @@ export default function Investments() {
 
   // Get investment accounts only
   const investmentAccounts = accounts.filter(acc => acc.type === 'investment');
-  const decimalInvestmentAccounts = getDecimalAccounts().filter(acc => acc.type === 'investment');
   
   // Calculate portfolio value from investment accounts using Decimal
-  const portfolioValue = decimalInvestmentAccounts.reduce((sum, acc) => sum.plus(acc.balance), toDecimal(0));
+  const portfolioValue = investmentAccounts.reduce((sum, acc) => sum + acc.balance, 0);
   
   // Calculate invested amount from investment-related transactions
-  const decimalTransactions = getDecimalTransactions();
   const investmentTransactions = transactions.filter(t => 
     t.category?.toLowerCase().includes('invest') || 
     investmentAccounts.some(acc => t.accountId === acc.id)
   );
   
-  const decimalInvestmentTransactions = decimalTransactions.filter(t => 
-    investmentTransactions.some(it => it.id === t.id)
-  );
-  
-  const totalInvested = decimalInvestmentTransactions
+  const totalInvested = investmentTransactions
     .filter(t => t.type === 'expense')
-    .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
+    .reduce((sum, t) => sum + t.amount, 0);
     
-  const totalReturn = portfolioValue.minus(totalInvested);
-  const returnPercentage = totalInvested.greaterThan(0) ? totalReturn.dividedBy(totalInvested).times(100).toNumber() : 0;
+  const totalReturn = portfolioValue - totalInvested;
+  const returnPercentage = totalInvested > 0 ? (totalReturn / totalInvested) * 100 : 0;
 
   // Create holdings data from investment accounts
   const holdings = investmentAccounts.map((acc) => {
-    const decimalAcc = decimalInvestmentAccounts.find(da => da.id === acc.id);
-    const balance = decimalAcc?.balance || toDecimal(0);
     return {
       name: acc.name,
-      value: balance.toNumber(),
-      allocation: portfolioValue.greaterThan(0) ? balance.dividedBy(portfolioValue).times(100).toNumber() : 0,
+      value: acc.balance,
+      allocation: portfolioValue > 0 ? (acc.balance / portfolioValue) * 100 : 0,
       return: 0, // Would need historical data to calculate actual returns
       ticker: acc.institution || 'N/A'
     };
@@ -114,7 +106,7 @@ export default function Investments() {
       
       // For the current month, use actual portfolio value
       if (i === 0) {
-        cumulativeValue = portfolioValue.toNumber();
+        cumulativeValue = portfolioValue;
       } else {
         // Add some simulated growth for historical data (since we don't have actual historical values)
         const monthsFromNow = i;
@@ -281,11 +273,11 @@ export default function Investments() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Total Return</p>
-              <p className={`text-2xl font-bold ${totalReturn.greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                {totalReturn.greaterThanOrEqualTo(0) ? '+' : ''}{formatCurrency(totalReturn)}
+              <p className={`text-2xl font-bold ${totalReturn >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                {totalReturn >= 0 ? '+' : ''}{formatCurrency(totalReturn)}
               </p>
             </div>
-            <TrendingUpIcon className={totalReturn.greaterThanOrEqualTo(0) ? 'text-green-500' : 'text-red-500'} size={24} />
+            <TrendingUpIcon className={totalReturn >= 0 ? 'text-green-500' : 'text-red-500'} size={24} />
           </div>
         </div>
 

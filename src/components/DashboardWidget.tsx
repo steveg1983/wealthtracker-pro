@@ -16,12 +16,16 @@ import {
 
 export interface WidgetConfig {
   id: string;
-  type: 'net-worth' | 'cash-flow' | 'budget-summary' | 'goal-progress' | 'recent-transactions' | 'expense-breakdown' | 'investment-summary' | 'upcoming-bills';
+  type: 'net-worth' | 'cash-flow' | 'budget-summary' | 'goal-progress' | 'recent-transactions' | 
+        'expense-breakdown' | 'investment-summary' | 'upcoming-bills' | 'weekly-summary' | 
+        'monthly-summary' | 'bank-connections' | 'ai-analytics' | 'tax-planning' | 
+        'investment-enhancement' | 'security' | 'collaboration' | 'mobile-app' | 
+        'business' | 'financial-planning' | 'data-intelligence';
   title: string;
   size: 'small' | 'medium' | 'large';
   position: { x: number; y: number };
   isVisible: boolean;
-  settings: Record<string, any>;
+  settings: Record<string, string | number | boolean | null>;
   refreshInterval?: number;
   lastRefresh?: Date;
 }
@@ -43,6 +47,18 @@ const WIDGET_ICONS = {
   'expense-breakdown': BarChart3Icon,
   'investment-summary': TrendingUpIcon,
   'upcoming-bills': CreditCardIcon,
+  'weekly-summary': BarChart3Icon,
+  'monthly-summary': BarChart3Icon,
+  'bank-connections': CreditCardIcon,
+  'ai-analytics': TrendingUpIcon,
+  'tax-planning': CreditCardIcon,
+  'investment-enhancement': TrendingUpIcon,
+  'security': SettingsIcon,
+  'collaboration': SettingsIcon,
+  'mobile-app': SettingsIcon,
+  'business': BarChart3Icon,
+  'financial-planning': TrendingUpIcon,
+  'data-intelligence': BarChart3Icon,
 } as const;
 
 export default function DashboardWidget({ 
@@ -51,14 +67,14 @@ export default function DashboardWidget({
   onRemove, 
   isDragMode = false,
   children 
-}: DashboardWidgetProps) {
+}: DashboardWidgetProps): React.JSX.Element {
   const [showSettings, setShowSettings] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [tempConfig, setTempConfig] = useState(config);
 
   const IconComponent = WIDGET_ICONS[config.type] || BarChart3Icon;
 
-  const handleRefresh = async () => {
+  const handleRefresh = async (): Promise<void> => {
     if (isRefreshing) return;
     
     setIsRefreshing(true);
@@ -73,11 +89,11 @@ export default function DashboardWidget({
     setIsRefreshing(false);
   };
 
-  const handleSizeChange = (size: 'small' | 'medium' | 'large') => {
+  const handleSizeChange = (size: 'small' | 'medium' | 'large'): void => {
     onConfigChange({ ...config, size });
   };
 
-  const handleSettingsChange = (key: string, value: any) => {
+  const handleSettingsChange = (key: string, value: string | number | boolean | null): void => {
     setTempConfig({
       ...tempConfig,
       settings: {
@@ -87,17 +103,17 @@ export default function DashboardWidget({
     });
   };
 
-  const handleSaveSettings = () => {
+  const handleSaveSettings = (): void => {
     onConfigChange(tempConfig);
     setShowSettings(false);
   };
 
-  const handleCancelSettings = () => {
+  const handleCancelSettings = (): void => {
     setTempConfig(config);
     setShowSettings(false);
   };
 
-  const getSizeClasses = () => {
+  const getSizeClasses = (): string => {
     switch (config.size) {
       case 'small': return 'col-span-1 row-span-1';
       case 'medium': return 'col-span-2 row-span-1';
@@ -246,7 +262,7 @@ export default function DashboardWidget({
                     Show Period
                   </label>
                   <select
-                    value={tempConfig.settings.period || 'current'}
+                    value={(tempConfig.settings.period || 'current') as string}
                     onChange={(e) => handleSettingsChange('period', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
@@ -263,7 +279,7 @@ export default function DashboardWidget({
                     Number of Transactions
                   </label>
                   <select
-                    value={tempConfig.settings.count || 5}
+                    value={(tempConfig.settings.count || 5) as number}
                     onChange={(e) => handleSettingsChange('count', parseInt(e.target.value))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
@@ -281,7 +297,7 @@ export default function DashboardWidget({
                     Forecast Period
                   </label>
                   <select
-                    value={tempConfig.settings.forecastPeriod || 6}
+                    value={(tempConfig.settings.forecastPeriod || 6) as number}
                     onChange={(e) => handleSettingsChange('forecastPeriod', parseInt(e.target.value))}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >

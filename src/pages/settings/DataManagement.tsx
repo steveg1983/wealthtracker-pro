@@ -1,16 +1,23 @@
-import { useState } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { useApp } from '../../contexts/AppContext';
-import ImportDataModal from '../../components/ImportDataModal';
-import CSVImportWizard from '../../components/CSVImportWizard';
-import OFXImportModal from '../../components/OFXImportModal';
-import QIFImportModal from '../../components/QIFImportModal';
-import DuplicateDetection from '../../components/DuplicateDetection';
-import ExcelExport from '../../components/ExcelExport';
-import BulkTransactionEdit from '../../components/BulkTransactionEdit';
-import TransactionReconciliation from '../../components/TransactionReconciliation';
-import DataValidation from '../../components/DataValidation';
-import SmartCategorizationSettings from '../../components/SmartCategorizationSettings';
-import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon } from '../../components/icons';
+import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon, Building2Icon, KeyIcon } from '../../components/icons';
+import { LoadingState } from '../../components/loading/LoadingState';
+
+// Lazy load heavy components to reduce initial bundle size
+const ImportDataModal = lazy(() => import('../../components/ImportDataModal'));
+const CSVImportWizard = lazy(() => import('../../components/CSVImportWizard'));
+const OFXImportModal = lazy(() => import('../../components/OFXImportModal'));
+const QIFImportModal = lazy(() => import('../../components/QIFImportModal'));
+const DuplicateDetection = lazy(() => import('../../components/DuplicateDetection'));
+const ExcelExport = lazy(() => import('../../components/ExcelExport'));
+const BulkTransactionEdit = lazy(() => import('../../components/BulkTransactionEdit'));
+const TransactionReconciliation = lazy(() => import('../../components/TransactionReconciliation'));
+const DataValidation = lazy(() => import('../../components/DataValidation'));
+const SmartCategorizationSettings = lazy(() => import('../../components/SmartCategorizationSettings'));
+const BatchImportModal = lazy(() => import('../../components/BatchImportModal'));
+const ImportRulesManager = lazy(() => import('../../components/ImportRulesManager'));
+const BankConnections = lazy(() => import('../../components/BankConnections'));
+const BankAPISettings = lazy(() => import('../../components/BankAPISettings'));
 
 export default function DataManagementSettings() {
   const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
@@ -26,6 +33,10 @@ export default function DataManagementSettings() {
   const [showReconciliation, setShowReconciliation] = useState(false);
   const [showDataValidation, setShowDataValidation] = useState(false);
   const [showSmartCategorization, setShowSmartCategorization] = useState(false);
+  const [showBatchImport, setShowBatchImport] = useState(false);
+  const [showImportRules, setShowImportRules] = useState(false);
+  const [showBankConnections, setShowBankConnections] = useState(false);
+  const [showBankAPISettings, setShowBankAPISettings] = useState(false);
 
   const handleExportData = () => {
     const dataStr = exportData();
@@ -69,10 +80,41 @@ export default function DataManagementSettings() {
         </div>
       )}
 
+      {/* Bank Connections */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Bank Connections</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onClick={() => setShowBankConnections(true)}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <Building2Icon size={20} />
+            Manage Bank Connections
+          </button>
+          
+          <button
+            onClick={() => setShowBankAPISettings(true)}
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <KeyIcon size={20} />
+            Configure API Keys
+          </button>
+        </div>
+      </div>
+
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Import Options</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            onClick={() => setShowBatchImport(true)}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <FolderIcon size={20} />
+            Batch Import Multiple Files
+          </button>
+
           <button
             onClick={() => setShowCSVImportWizard(true)}
             className="px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors flex items-center justify-center gap-2"
@@ -139,6 +181,14 @@ export default function DataManagementSettings() {
           >
             <LightbulbIcon size={20} />
             Smart Categorization (AI)
+          </button>
+
+          <button
+            onClick={() => setShowImportRules(true)}
+            className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <WrenchIcon size={20} />
+            Import Rules & Transformations
           </button>
 
           <button
@@ -266,59 +316,85 @@ export default function DataManagementSettings() {
       )}
 
       {/* Import Modal */}
-      <ImportDataModal
-        isOpen={showImportModal}
-        onClose={() => setShowImportModal(false)}
-      />
+      <Suspense fallback={<LoadingState />}>
+        <ImportDataModal
+          isOpen={showImportModal}
+          onClose={() => setShowImportModal(false)}
+        />
+      </Suspense>
+
+      {/* Batch Import Modal */}
+      <Suspense fallback={<LoadingState />}>
+        <BatchImportModal
+          isOpen={showBatchImport}
+          onClose={() => setShowBatchImport(false)}
+        />
+      </Suspense>
 
       {/* CSV Import Wizard */}
-      <CSVImportWizard
-        isOpen={showCSVImportWizard}
-        onClose={() => setShowCSVImportWizard(false)}
-        type="transaction"
-      />
+      <Suspense fallback={<LoadingState />}>
+        <CSVImportWizard
+          isOpen={showCSVImportWizard}
+          onClose={() => setShowCSVImportWizard(false)}
+          type="transaction"
+        />
+      </Suspense>
 
       {/* OFX Import Modal */}
-      <OFXImportModal
-        isOpen={showOFXImportModal}
-        onClose={() => setShowOFXImportModal(false)}
-      />
+      <Suspense fallback={<LoadingState />}>
+        <OFXImportModal
+          isOpen={showOFXImportModal}
+          onClose={() => setShowOFXImportModal(false)}
+        />
+      </Suspense>
 
       {/* QIF Import Modal */}
-      <QIFImportModal
-        isOpen={showQIFImportModal}
-        onClose={() => setShowQIFImportModal(false)}
-      />
+      <Suspense fallback={<LoadingState />}>
+        <QIFImportModal
+          isOpen={showQIFImportModal}
+          onClose={() => setShowQIFImportModal(false)}
+        />
+      </Suspense>
 
       {/* Duplicate Detection */}
-      <DuplicateDetection
-        isOpen={showDuplicateDetection}
-        onClose={() => setShowDuplicateDetection(false)}
-      />
+      <Suspense fallback={<LoadingState />}>
+        <DuplicateDetection
+          isOpen={showDuplicateDetection}
+          onClose={() => setShowDuplicateDetection(false)}
+        />
+      </Suspense>
 
       {/* Excel Export */}
-      <ExcelExport
-        isOpen={showExcelExport}
-        onClose={() => setShowExcelExport(false)}
-      />
+      <Suspense fallback={<LoadingState />}>
+        <ExcelExport
+          isOpen={showExcelExport}
+          onClose={() => setShowExcelExport(false)}
+        />
+      </Suspense>
 
       {/* Bulk Edit */}
-      <BulkTransactionEdit
-        isOpen={showBulkEdit}
-        onClose={() => setShowBulkEdit(false)}
-      />
+      <Suspense fallback={<LoadingState />}>
+        <BulkTransactionEdit
+          isOpen={showBulkEdit}
+          onClose={() => setShowBulkEdit(false)}
+        />
+      </Suspense>
 
       {/* Reconciliation */}
-      <TransactionReconciliation
-        isOpen={showReconciliation}
-        onClose={() => setShowReconciliation(false)}
-      />
+      <Suspense fallback={<LoadingState />}>
+        <TransactionReconciliation
+          isOpen={showReconciliation}
+          onClose={() => setShowReconciliation(false)}
+        />
+      </Suspense>
 
       {/* Data Validation */}
-      <DataValidation
-        isOpen={showDataValidation}
-        onClose={() => setShowDataValidation(false)}
-      />
+      <Suspense fallback={<LoadingState />}>
+        <DataValidation
+          isOpen={showDataValidation}
+          onClose={() => setShowDataValidation(false)}
+        />
+      </Suspense>
 
       {/* Smart Categorization Modal */}
       {showSmartCategorization && (
@@ -333,7 +409,77 @@ export default function DataManagementSettings() {
                 <XCircleIcon size={24} />
               </button>
             </div>
-            <SmartCategorizationSettings />
+            <Suspense fallback={<LoadingState />}>
+              <SmartCategorizationSettings />
+            </Suspense>
+          </div>
+        </div>
+      )}
+
+      {/* Import Rules Modal */}
+      {showImportRules && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Import Rules & Transformations</h2>
+              <button
+                onClick={() => setShowImportRules(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <XCircleIcon size={24} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
+              <Suspense fallback={<LoadingState />}>
+                <ImportRulesManager />
+              </Suspense>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bank Connections Modal */}
+      {showBankConnections && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Connections</h2>
+              <button
+                onClick={() => setShowBankConnections(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <XCircleIcon size={24} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
+              <Suspense fallback={<LoadingState />}>
+                <BankConnections onAccountsLinked={() => {
+                  // Refresh accounts/transactions if needed
+                }} />
+              </Suspense>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bank API Settings Modal */}
+      {showBankAPISettings && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+            <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bank API Configuration</h2>
+              <button
+                onClick={() => setShowBankAPISettings(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <XCircleIcon size={24} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 100px)' }}>
+              <Suspense fallback={<LoadingState />}>
+                <BankAPISettings />
+              </Suspense>
+            </div>
           </div>
         </div>
       )}

@@ -1,4 +1,4 @@
-import { Component, ReactNode } from 'react';
+import { Component, ReactNode, ErrorInfo } from 'react';
 import App from './App';
 
 interface ErrorBoundaryState {
@@ -17,12 +17,12 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryS
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: Error, errorInfo: any) {
+  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
     console.error('Error details:', error);
     console.error('Error info:', errorInfo);
   }
 
-  render() {
+  render(): ReactNode {
     if (this.state.hasError) {
       return (
         <div style={{ padding: '20px', backgroundColor: '#fee', color: '#c00' }}>
@@ -37,7 +37,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryS
   }
 }
 
-export default function AppWrapper() {
+export default function AppWrapper(): React.JSX.Element {
   console.log('AppWrapper rendering...');
   
   return (

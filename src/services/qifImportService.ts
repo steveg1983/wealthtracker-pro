@@ -160,7 +160,8 @@ export class QIFImportService {
     for (const qifTrx of parseResult.transactions) {
       // Basic duplicate check by date, amount, and payee
       const isDuplicate = existingTransactions.some(existing => {
-        const sameDate = existing.date === qifTrx.date;
+        const existingDateStr = typeof existing.date === 'string' ? existing.date : existing.date.toISOString().split('T')[0];
+        const sameDate = existingDateStr === qifTrx.date;
         const sameAmount = Math.abs(existing.amount - Math.abs(qifTrx.amount)) < 0.01;
         const samePayee = qifTrx.payee && existing.description.includes(qifTrx.payee);
         
@@ -190,7 +191,8 @@ export class QIFImportService {
         accountId: targetAccountId,
         category: qifTrx.category || '',
         cleared: qifTrx.cleared || false,
-        notes: qifTrx.checkNumber ? `Check #: ${qifTrx.checkNumber}` : undefined
+        notes: qifTrx.checkNumber ? `Check #: ${qifTrx.checkNumber}` : undefined,
+        recurring: false
       };
       
       // Auto-categorize if enabled and no category is set

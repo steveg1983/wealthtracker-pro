@@ -8,7 +8,11 @@ interface BeforeInstallPromptEvent extends Event {
   }>;
 }
 
-export function usePWAInstall() {
+export function usePWAInstall(): {
+  isInstallable: boolean;
+  isInstalled: boolean;
+  installApp: () => Promise<boolean>;
+} {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [isInstallable, setIsInstallable] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);

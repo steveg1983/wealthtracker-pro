@@ -1,17 +1,20 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { SearchIcon, XIcon, WalletIcon, CreditCardIcon, TargetIcon, GoalIcon } from './icons';
 import { useGlobalSearch, type SearchResult } from '../hooks/useGlobalSearch';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface GlobalSearchProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
+export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps): React.JSX.Element | null {
   const [query, setQuery] = useState('');
+  const debouncedQuery = useDebounce(query, 300);
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const { results, hasResults, resultCount } = useGlobalSearch(query);
+  const { results, hasResults, resultCount } = useGlobalSearch(debouncedQuery);
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -66,7 +69,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
     setSelectedIndex(0);
   }, [results]);
 
-  const getResultIcon = (type: SearchResult['type']) => {
+  const getResultIcon = (type: SearchResult['type']): React.ElementType => {
     switch (type) {
       case 'account':
         return WalletIcon;
@@ -81,7 +84,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
     }
   };
 
-  const getResultRoute = (result: SearchResult) => {
+  const getResultRoute = (result: SearchResult): string => {
     switch (result.type) {
       case 'account':
         return `/accounts`;
@@ -96,22 +99,32 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
     }
   };
 
-  const handleResultClick = (result: SearchResult) => {
+  const handleResultClick = (result: SearchResult): void => {
     const route = getResultRoute(result);
     navigate(route);
     onClose();
   };
 
-  const highlightText = (text: string, matches: string[]) => {
-    if (!matches.length) return text;
+  const highlightText = (text: string, matches: string[]): React.JSX.Element => {
+    if (!matches.length) return <>{text}</>;
+    
+    // Escape special regex characters in matches
+    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
     let highlightedText = text;
     matches.forEach(match => {
-      const regex = new RegExp(`(${match})`, 'gi');
+      const escapedMatch = escapeRegex(match);
+      const regex = new RegExp(`(${escapedMatch})`, 'gi');
       highlightedText = highlightedText.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">$1</mark>');
     });
     
-    return <span dangerouslySetInnerHTML={{ __html: highlightedText }} />;
+    // Sanitize the HTML to prevent XSS
+    const sanitized = DOMPurify.sanitize(highlightedText, {
+      ALLOWED_TAGS: ['mark'],
+      ALLOWED_ATTR: ['class']
+    });
+    
+    return <span dangerouslySetInnerHTML={{ __html: sanitized }} />;
   };
 
   if (!isOpen) return null;
@@ -224,7 +237,11 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps) {
 }
 
 // Hook to manage global search state
-export function useGlobalSearchDialog() {
+export function useGlobalSearchDialog(): {
+  isOpen: boolean;
+  openSearch: () => void;
+  closeSearch: () => void;
+} {
   const [isOpen, setIsOpen] = useState(false);
 
   const openSearch = () => setIsOpen(true);

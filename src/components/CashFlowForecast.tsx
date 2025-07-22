@@ -17,6 +17,7 @@ import {
 import { LoadingState } from './loading/LoadingState';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart, ReferenceLine } from 'recharts';
 import type { RecurringPattern } from '../services/cashFlowForecastService';
+import type { DecimalInstance } from '../types/decimal-types';
 import { toDecimal } from '../utils/decimal';
 
 interface CashFlowForecastProps {
@@ -309,7 +310,7 @@ function PatternCard({
   onRemove 
 }: { 
   pattern: RecurringPattern; 
-  formatCurrency: (value: any) => string;
+  formatCurrency: (value: DecimalInstance | number) => string;
   onEdit: () => void;
   onRemove: () => void;
 }) {

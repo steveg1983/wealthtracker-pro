@@ -10,6 +10,7 @@ interface IconButtonProps {
   title?: string;
   disabled?: boolean;
   'data-testid'?: string;
+  'aria-label'?: string;
 }
 
 const sizeClasses = {
@@ -34,7 +35,8 @@ export const IconButton: React.FC<IconButtonProps> = ({
   className = '',
   title,
   disabled = false,
-  'data-testid': dataTestId
+  'data-testid': dataTestId,
+  'aria-label': ariaLabel
 }) => {
   return (
     <button
@@ -52,6 +54,7 @@ export const IconButton: React.FC<IconButtonProps> = ({
       title={title}
       type="button"
       data-testid={dataTestId}
+      aria-label={ariaLabel || title}
     >
       {icon}
     </button>

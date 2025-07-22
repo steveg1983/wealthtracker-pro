@@ -17,6 +17,7 @@ import {
 } from './icons';
 import { toDecimal } from '../utils/decimal';
 import type { Transaction } from '../types';
+import type { DecimalInstance } from '../types/decimal-types';
 
 interface TransactionReconciliationProps {
   isOpen: boolean;
@@ -70,7 +71,7 @@ export default function TransactionReconciliation({
   // Calculate current balance based on transactions
   const calculatedBalance = useMemo(() => {
     return accountTransactions.reduce((sum, t) => {
-      const amount = typeof t.amount === 'number' ? t.amount : t.amount.toNumber();
+      const amount = typeof t.amount === 'number' ? t.amount : (t.amount as DecimalInstance).toNumber();
       return sum + (t.type === 'income' ? amount : -amount);
     }, 0);
   }, [accountTransactions]);
@@ -88,7 +89,7 @@ export default function TransactionReconciliation({
   // Calculate cleared balance
   const clearedBalance = useMemo(() => {
     return clearedTransactions.reduce((sum, t) => {
-      const amount = typeof t.amount === 'number' ? t.amount : t.amount.toNumber();
+      const amount = typeof t.amount === 'number' ? t.amount : (t.amount as DecimalInstance).toNumber();
       return sum + (t.type === 'income' ? amount : -amount);
     }, 0);
   }, [clearedTransactions]);
@@ -97,7 +98,7 @@ export default function TransactionReconciliation({
   const findMatchingCandidates = (uncleared: Transaction): MatchCandidate[] => {
     const candidates: MatchCandidate[] = [];
     const unclearedDate = uncleared.date instanceof Date ? uncleared.date : new Date(uncleared.date);
-    const unclearedAmount = typeof uncleared.amount === 'number' ? uncleared.amount : uncleared.amount.toNumber();
+    const unclearedAmount = typeof uncleared.amount === 'number' ? uncleared.amount : (uncleared.amount as DecimalInstance).toNumber();
     
     // Look for similar transactions in history
     const historicalTransactions = transactions.filter(t => {
@@ -110,7 +111,7 @@ export default function TransactionReconciliation({
     
     historicalTransactions.forEach(historical => {
       const historicalDate = historical.date instanceof Date ? historical.date : new Date(historical.date);
-      const historicalAmount = typeof historical.amount === 'number' ? historical.amount : historical.amount.toNumber();
+      const historicalAmount = typeof historical.amount === 'number' ? historical.amount : (historical.amount as DecimalInstance).toNumber();
       
       let score = 0;
       const reasons: string[] = [];
@@ -229,7 +230,7 @@ export default function TransactionReconciliation({
       isOpen={isOpen}
       onClose={onClose}
       title="Transaction Reconciliation"
-      className="max-w-5xl"
+      size="xl"
     >
       <div className="p-6">
         {/* Setup Section */}

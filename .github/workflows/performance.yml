@@ -1,0 +1,184 @@
+name: Performance CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Build application
+        run: npm run build
+        
+      - name: Run Lighthouse CI
+        run: |
+          npm install -g @lhci/cli
+          lhci autorun
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+          
+      - name: Upload Lighthouse results
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-results
+          path: .lighthouseci/
+          
+  bundle-size:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build and analyze bundle
+        run: |
+          npm run build
+          npx vite-bundle-visualizer
+          
+      - name: Check bundle size
+        run: |
+          echo "Checking bundle sizes..."
+          find dist/assets -name "*.js" -exec ls -lh {} \; | awk '{print $5, $9}'
+          
+          # Get total size
+          TOTAL_SIZE=$(find dist/assets -name "*.js" -exec ls -l {} \; | awk '{sum += $5} END {print sum}')
+          echo "Total JS bundle size: $((TOTAL_SIZE / 1024))KB"
+          
+          # Fail if bundle is too large (>1MB)
+          if [ $TOTAL_SIZE -gt 1048576 ]; then
+            echo "ERROR: Bundle size exceeds 1MB limit!"
+            exit 1
+          fi
+          
+      - name: Upload bundle stats
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-stats
+          path: dist/stats.html
+          
+  web-vitals:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build application
+        run: npm run build
+        
+      - name: Start preview server
+        run: |
+          npm run preview &
+          sleep 10
+          
+      - name: Measure Web Vitals
+        run: |
+          npx web-vitals-cli http://localhost:4173 \
+            --json > web-vitals-results.json
+            
+      - name: Check Web Vitals thresholds
+        run: |
+          node -e "
+            const results = require('./web-vitals-results.json');
+            const thresholds = {
+              LCP: 2500,
+              FID: 100,
+              CLS: 0.1,
+              FCP: 1800,
+              TTFB: 800
+            };
+            
+            let failed = false;
+            Object.entries(thresholds).forEach(([metric, threshold]) => {
+              const value = results[metric]?.value || 0;
+              if (value > threshold) {
+                console.error(\`\${metric} failed: \${value}ms > \${threshold}ms\`);
+                failed = true;
+              } else {
+                console.log(\`\${metric} passed: \${value}ms <= \${threshold}ms\`);
+              }
+            });
+            
+            if (failed) process.exit(1);
+          "
+          
+      - name: Upload Web Vitals results
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-vitals-results
+          path: web-vitals-results.json
+          
+  performance-report:
+    needs: [lighthouse, bundle-size, web-vitals]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        
+      - name: Generate performance report
+        run: |
+          echo "# Performance Report" > performance-report.md
+          echo "" >> performance-report.md
+          echo "## Bundle Size Analysis" >> performance-report.md
+          
+          if [ -d "bundle-stats" ]; then
+            echo "Bundle analysis available in artifacts" >> performance-report.md
+          fi
+          
+          echo "" >> performance-report.md
+          echo "## Web Vitals Results" >> performance-report.md
+          
+          if [ -f "web-vitals-results/web-vitals-results.json" ]; then
+            cat web-vitals-results/web-vitals-results.json | \
+              jq -r 'to_entries | .[] | "- \(.key): \(.value.value)ms"' >> performance-report.md
+          fi
+          
+          echo "" >> performance-report.md
+          echo "## Lighthouse Results" >> performance-report.md
+          echo "See Lighthouse CI results in artifacts" >> performance-report.md
+          
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('performance-report.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: report
+            });

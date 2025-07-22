@@ -17,7 +17,7 @@ interface FormData {
   isActive: boolean;
 }
 
-export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProps) {
+export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProps): React.JSX.Element {
   const { addBudget, updateBudget, categories } = useApp();
   
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(

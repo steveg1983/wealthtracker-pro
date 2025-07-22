@@ -5,7 +5,7 @@ interface ErrorFallbackProps {
   resetError: () => void;
 }
 
-export function ErrorFallback({ error, resetError }: ErrorFallbackProps) {
+export function ErrorFallback({ error, resetError }: ErrorFallbackProps): React.JSX.Element {
   return (
     <div className="min-h-[400px] flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">

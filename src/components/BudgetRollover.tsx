@@ -52,7 +52,7 @@ interface RolloverHistory {
 }
 
 export default function BudgetRollover() {
-  const { categories, getDecimalTransactions, getDecimalBudgets } = useApp();
+  const { categories, transactions, budgets: appBudgets } = useApp();
   const { budgets, updateBudget } = useBudgets();
   const { formatCurrency } = useCurrencyDecimal();
   
@@ -81,19 +81,34 @@ export default function BudgetRollover() {
 
   // Calculate rollover amounts for each budget
   const rolloverData = useMemo(() => {
-    const decimalBudgets = getDecimalBudgets();
-    const decimalTransactions = getDecimalTransactions();
-    
     // Get transactions from previous month
     const startDate = new Date(previousYear, previousMonth, 1);
     const endDate = new Date(previousYear, previousMonth + 1, 0);
     
     return budgets.map(budget => {
-      const decimalBudget = decimalBudgets.find(db => db.id === budget.id);
-      if (!decimalBudget) return null;
+      // Convert budget to decimal for calculations
+      const decimalBudget = {
+        ...budget,
+        amount: toDecimal(budget.amount)
+      };
       
-      const spent = calculateBudgetSpending(decimalBudget, decimalTransactions, startDate, endDate);
-      const remaining = calculateBudgetRemaining(decimalBudget, spent);
+      // Convert transactions to decimal for calculations
+      const decimalTransactions = transactions.map(t => ({
+        ...t,
+        amount: toDecimal(t.amount)
+      }));
+      
+      // Calculate spending for this budget's category
+      const spent = decimalTransactions
+        .filter(t => 
+          t.type === 'expense' && 
+          t.category === budget.category &&
+          t.date >= startDate &&
+          t.date <= endDate
+        )
+        .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
+      
+      const remaining = decimalBudget.amount.minus(spent);
       
       // Calculate rollover amount based on settings
       let rolloverAmount = toDecimal(0);
@@ -130,7 +145,7 @@ export default function BudgetRollover() {
         willRollover: rolloverAmount.abs().greaterThan(0)
       };
     }).filter(Boolean);
-  }, [budgets, getDecimalBudgets, getDecimalTransactions, previousMonth, previousYear, rolloverSettings]);
+  }, [budgets, transactions, previousMonth, previousYear, rolloverSettings]);
 
   const totalRollover = rolloverData.reduce((sum, data) => 
     data ? sum.plus(data.rolloverAmount) : sum, toDecimal(0)

@@ -6,6 +6,22 @@ import NetWorthWidget from './widgets/NetWorthWidget';
 import CashFlowWidget from './widgets/CashFlowWidget';
 import BudgetSummaryWidget from './widgets/BudgetSummaryWidget';
 import RecentTransactionsWidget from './widgets/RecentTransactionsWidget';
+import GoalProgressWidget from './widgets/GoalProgressWidget';
+import ExpenseBreakdownWidget from './widgets/ExpenseBreakdownWidget';
+import InvestmentSummaryWidget from './widgets/InvestmentSummaryWidget';
+import UpcomingBillsWidget from './widgets/UpcomingBillsWidget';
+import WeeklySummaryWidget from './widgets/WeeklySummaryWidget';
+import MonthlySummaryWidget from './widgets/MonthlySummaryWidget';
+import BankConnectionsWidget from './widgets/BankConnectionsWidget';
+import AIAnalyticsWidget from './widgets/AIAnalyticsWidget';
+import TaxPlanningWidget from './widgets/TaxPlanningWidget';
+import InvestmentEnhancementWidget from './widgets/InvestmentEnhancementWidget';
+import SecurityWidget from './widgets/SecurityWidget';
+import CollaborationWidget from './widgets/CollaborationWidget';
+import MobileAppWidget from './widgets/MobileAppWidget';
+import BusinessWidget from './widgets/BusinessWidget';
+import FinancialPlanningWidget from './widgets/FinancialPlanningWidget';
+import DataIntelligenceWidget from './widgets/DataIntelligenceWidget';
 import { 
   PlusIcon, 
   SettingsIcon, 
@@ -62,10 +78,22 @@ const AVAILABLE_WIDGETS = [
   { type: 'goal-progress', title: 'Goal Progress', description: 'Track progress towards financial goals' },
   { type: 'expense-breakdown', title: 'Expense Breakdown', description: 'Categorized expense analysis' },
   { type: 'investment-summary', title: 'Investment Summary', description: 'Portfolio performance overview' },
-  { type: 'upcoming-bills', title: 'Upcoming Bills', description: 'Bills due in the next 30 days' }
+  { type: 'upcoming-bills', title: 'Upcoming Bills', description: 'Bills due in the next 30 days' },
+  { type: 'weekly-summary', title: 'Weekly Summary', description: 'Financial summary for the current week' },
+  { type: 'monthly-summary', title: 'Monthly Summary', description: 'Financial summary for the current month' },
+  { type: 'bank-connections', title: 'Bank Connections', description: 'Connected bank accounts status' },
+  { type: 'ai-analytics', title: 'AI Analytics', description: 'AI-powered insights and recommendations' },
+  { type: 'tax-planning', title: 'Tax Planning', description: 'Tax estimates and deduction tracking' },
+  { type: 'investment-enhancement', title: 'Investment Enhancement', description: 'Portfolio optimization and analysis' },
+  { type: 'security', title: 'Security Status', description: 'Security settings and activity monitoring' },
+  { type: 'collaboration', title: 'Household Collaboration', description: 'Shared expenses and household management' },
+  { type: 'mobile-app', title: 'Mobile App', description: 'Offline support and mobile features' },
+  { type: 'business', title: 'Business Features', description: 'Invoice management, expenses, and mileage tracking' },
+  { type: 'financial-planning', title: 'Financial Planning', description: 'Retirement planning, mortgage calculator, and financial goals' },
+  { type: 'data-intelligence', title: 'Data Intelligence', description: 'Smart insights, subscription management, and spending pattern analysis' }
 ] as const;
 
-export default function CustomizableDashboard() {
+export default function CustomizableDashboard(): React.JSX.Element {
   const [widgets, setWidgets] = useLocalStorage<WidgetConfig[]>('dashboard-widgets', DEFAULT_WIDGETS);
   const [isDragMode, setIsDragMode] = useState(false);
   const [showAddWidget, setShowAddWidget] = useState(false);
@@ -80,7 +108,7 @@ export default function CustomizableDashboard() {
     setWidgets(prev => prev.filter(w => w.id !== widgetId));
   }, [setWidgets]);
 
-  const handleAddWidget = (type: string) => {
+  const handleAddWidget = useCallback((type: string) => {
     const widgetTemplate = AVAILABLE_WIDGETS.find(w => w.type === type);
     if (!widgetTemplate) return;
 
@@ -96,15 +124,15 @@ export default function CustomizableDashboard() {
 
     setWidgets(prev => [...prev, newWidget]);
     setShowAddWidget(false);
-  };
+  }, [setWidgets]);
 
-  const handleToggleWidgetVisibility = (widgetId: string) => {
+  const handleToggleWidgetVisibility = useCallback((widgetId: string) => {
     setWidgets(prev => prev.map(w => 
       w.id === widgetId ? { ...w, isVisible: !w.isVisible } : w
     ));
-  };
+  }, [setWidgets]);
 
-  const handleRefreshAll = async () => {
+  const handleRefreshAll = useCallback(async () => {
     setIsRefreshing(true);
     // Simulate refresh delay
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -112,9 +140,9 @@ export default function CustomizableDashboard() {
     const now = new Date();
     setWidgets(prev => prev.map(w => ({ ...w, lastRefresh: now })));
     setIsRefreshing(false);
-  };
+  }, [setWidgets]);
 
-  const renderWidget = (config: WidgetConfig) => {
+  const renderWidget = useCallback((config: WidgetConfig) => {
     const commonProps = {
       size: config.size,
       settings: config.settings
@@ -129,6 +157,38 @@ export default function CustomizableDashboard() {
         return <BudgetSummaryWidget {...commonProps} />;
       case 'recent-transactions':
         return <RecentTransactionsWidget {...commonProps} />;
+      case 'goal-progress':
+        return <GoalProgressWidget {...commonProps} />;
+      case 'expense-breakdown':
+        return <ExpenseBreakdownWidget {...commonProps} />;
+      case 'investment-summary':
+        return <InvestmentSummaryWidget {...commonProps} />;
+      case 'upcoming-bills':
+        return <UpcomingBillsWidget {...commonProps} />;
+      case 'weekly-summary':
+        return <WeeklySummaryWidget {...commonProps} />;
+      case 'monthly-summary':
+        return <MonthlySummaryWidget {...commonProps} />;
+      case 'bank-connections':
+        return <BankConnectionsWidget {...commonProps} />;
+      case 'ai-analytics':
+        return <AIAnalyticsWidget {...commonProps} />;
+      case 'tax-planning':
+        return <TaxPlanningWidget {...commonProps} />;
+      case 'investment-enhancement':
+        return <InvestmentEnhancementWidget {...commonProps} />;
+      case 'security':
+        return <SecurityWidget {...commonProps} />;
+      case 'collaboration':
+        return <CollaborationWidget {...commonProps} />;
+      case 'mobile-app':
+        return <MobileAppWidget {...commonProps} />;
+      case 'business':
+        return <BusinessWidget {...commonProps} />;
+      case 'financial-planning':
+        return <FinancialPlanningWidget {...commonProps} />;
+      case 'data-intelligence':
+        return <DataIntelligenceWidget {...commonProps} />;
       default:
         return (
           <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
@@ -139,7 +199,7 @@ export default function CustomizableDashboard() {
           </div>
         );
     }
-  };
+  }, []);
 
   const visibleWidgets = widgets.filter(w => w.isVisible);
 

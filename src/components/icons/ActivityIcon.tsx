@@ -1,5 +1,5 @@
 import React from 'react';
-import type { IconProps } from './types';
+import type { IconProps } from './IconBase';
 
 export default function ActivityIcon({ size = 24, className = "", strokeWidth = 2 }: IconProps) {
   return (

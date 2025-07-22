@@ -13,7 +13,11 @@ export interface SearchResult {
   icon?: React.ComponentType<any>;
 }
 
-export function useGlobalSearch(query: string) {
+export function useGlobalSearch(query: string): {
+  results: SearchResult[];
+  hasResults: boolean;
+  resultCount: number;
+} {
   const { accounts, transactions, budgets, goals, categories } = useApp();
 
   const searchResults = useMemo(() => {
@@ -48,7 +52,7 @@ export function useGlobalSearch(query: string) {
     };
 
     // Helper function to get category name
-    const getCategoryName = (categoryId: string | undefined) => {
+    const getCategoryName = (categoryId: string | undefined): string => {
       if (!categoryId) return '';
       const category = categories.find(cat => cat.id === categoryId);
       return category?.name || '';

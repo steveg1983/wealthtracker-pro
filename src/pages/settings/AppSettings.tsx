@@ -1,7 +1,9 @@
-import { ArrowLeftIcon, GlobeIcon, EyeIcon, EyeOffIcon, MoonIcon, SunIcon, MonitorIcon } from '../../components/icons';
+import { ArrowLeftIcon, GlobeIcon, EyeIcon, EyeOffIcon, MoonIcon, SunIcon, MonitorIcon, ClockIcon } from '../../components/icons';
 import { useNavigate } from 'react-router-dom';
 import { usePreferences } from '../../contexts/PreferencesContext';
 import PageWrapper from '../../components/PageWrapper';
+import BudgetAlertSettings from '../../components/BudgetAlertSettings';
+import LargeTransactionAlertSettings from '../../components/LargeTransactionAlertSettings';
 
 export default function AppSettings() {
   const navigate = useNavigate();
@@ -14,12 +16,34 @@ export default function AppSettings() {
     setTheme,
     colorTheme,
     setColorTheme,
+    themeSchedule,
+    setThemeSchedule,
     showBudget,
     setShowBudget,
     showGoals,
     setShowGoals,
     showAnalytics,
-    setShowAnalytics
+    setShowAnalytics,
+    showInvestments,
+    setShowInvestments,
+    showEnhancedInvestments,
+    setShowEnhancedInvestments,
+    showAIAnalytics,
+    setShowAIAnalytics,
+    showTaxPlanning,
+    setShowTaxPlanning,
+    showHousehold,
+    setShowHousehold,
+    showBusinessFeatures,
+    setShowBusinessFeatures,
+    showFinancialPlanning,
+    setShowFinancialPlanning,
+    showDataIntelligence,
+    setShowDataIntelligence,
+    showSummaries,
+    setShowSummaries,
+    enableGoalCelebrations,
+    setEnableGoalCelebrations
   } = usePreferences();
 
   const currencies = [
@@ -39,6 +63,7 @@ export default function AppSettings() {
     { value: 'light', label: 'Light', icon: SunIcon },
     { value: 'dark', label: 'Dark', icon: MoonIcon },
     { value: 'auto', label: 'Auto', icon: MonitorIcon },
+    { value: 'scheduled', label: 'Scheduled', icon: ClockIcon },
   ];
 
   const colorThemes = [
@@ -89,6 +114,69 @@ export default function AppSettings() {
       value: showAnalytics,
       onChange: setShowAnalytics,
       icon: showAnalytics ? EyeIcon : EyeOffIcon
+    },
+    {
+      title: 'Investments',
+      description: 'Show investment portfolio tracking',
+      value: showInvestments,
+      onChange: setShowInvestments,
+      icon: showInvestments ? EyeIcon : EyeOffIcon
+    },
+    {
+      title: 'Investment Analytics',
+      description: 'Show enhanced investment analytics',
+      value: showEnhancedInvestments,
+      onChange: setShowEnhancedInvestments,
+      icon: showEnhancedInvestments ? EyeIcon : EyeOffIcon
+    },
+    {
+      title: 'AI Analytics',
+      description: 'Show AI-powered insights and recommendations',
+      value: showAIAnalytics,
+      onChange: setShowAIAnalytics,
+      icon: showAIAnalytics ? EyeIcon : EyeOffIcon
+    },
+    {
+      title: 'Tax Planning',
+      description: 'Show tax planning and optimization tools',
+      value: showTaxPlanning,
+      onChange: setShowTaxPlanning,
+      icon: showTaxPlanning ? EyeIcon : EyeOffIcon
+    },
+    {
+      title: 'Household',
+      description: 'Show household management features',
+      value: showHousehold,
+      onChange: setShowHousehold,
+      icon: showHousehold ? EyeIcon : EyeOffIcon
+    },
+    {
+      title: 'Business Features',
+      description: 'Show business expense and invoice management',
+      value: showBusinessFeatures,
+      onChange: setShowBusinessFeatures,
+      icon: showBusinessFeatures ? EyeIcon : EyeOffIcon
+    },
+    {
+      title: 'Financial Planning',
+      description: 'Show retirement and financial planning tools',
+      value: showFinancialPlanning,
+      onChange: setShowFinancialPlanning,
+      icon: showFinancialPlanning ? EyeIcon : EyeOffIcon
+    },
+    {
+      title: 'Data Intelligence',
+      description: 'Show advanced data analytics and insights',
+      value: showDataIntelligence,
+      onChange: setShowDataIntelligence,
+      icon: showDataIntelligence ? EyeIcon : EyeOffIcon
+    },
+    {
+      title: 'Summaries',
+      description: 'Show financial summaries and reports',
+      value: showSummaries,
+      onChange: setShowSummaries,
+      icon: showSummaries ? EyeIcon : EyeOffIcon
     }
   ];
 
@@ -161,7 +249,7 @@ export default function AppSettings() {
             {themeOptions.map(({ value, label, icon: Icon }) => (
               <button
                 key={value}
-                onClick={() => setTheme(value as 'light' | 'dark' | 'auto')}
+                onClick={() => setTheme(value as 'light' | 'dark' | 'auto' | 'scheduled')}
                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-colors ${
                   theme === value
                     ? 'border-primary bg-primary/10 text-primary dark:bg-primary/20 dark:text-primary'
@@ -174,6 +262,57 @@ export default function AppSettings() {
             ))}
           </div>
         </div>
+
+        {/* Theme Scheduling */}
+        {theme === 'scheduled' && (
+          <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+            <div className="flex items-center gap-2 mb-3">
+              <ClockIcon size={20} className="text-primary" />
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Schedule Settings
+              </h3>
+            </div>
+            
+            <div className="space-y-3">
+              <label className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={themeSchedule.enabled}
+                  onChange={(e) => setThemeSchedule({ ...themeSchedule, enabled: e.target.checked })}
+                  className="w-4 h-4 text-primary bg-gray-100 border-gray-300 rounded focus:ring-primary focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Enable scheduling</span>
+              </label>
+              
+              {themeSchedule.enabled && (
+                <div className="grid grid-cols-2 gap-4 ml-7">
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      Light theme starts at
+                    </label>
+                    <input
+                      type="time"
+                      value={themeSchedule.lightStartTime}
+                      onChange={(e) => setThemeSchedule({ ...themeSchedule, lightStartTime: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
+                      Dark theme starts at
+                    </label>
+                    <input
+                      type="time"
+                      value={themeSchedule.darkStartTime}
+                      onChange={(e) => setThemeSchedule({ ...themeSchedule, darkStartTime: e.target.value })}
+                      className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white text-sm"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Color Theme Palette */}
         <div className="mb-6">
@@ -254,6 +393,35 @@ export default function AppSettings() {
           <p className="text-sm text-theme-heading dark:text-gray-300">
             <strong>Note:</strong> Hidden pages will not appear in the sidebar navigation but can still be accessed if you have a direct link.
           </p>
+        </div>
+      </div>
+
+      {/* Budget Alerts */}
+      <BudgetAlertSettings />
+
+      {/* Large Transaction Alerts */}
+      <LargeTransactionAlertSettings />
+
+      {/* Goal Celebrations */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Goal Celebrations</h3>
+        
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-medium text-gray-900 dark:text-white">Enable Celebrations</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Show confetti and celebration messages when you achieve your goals
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={enableGoalCelebrations}
+              onChange={(e) => setEnableGoalCelebrations(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 dark:peer-focus:ring-primary/40 rounded-full peer dark:bg-gray-600 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+          </label>
         </div>
       </div>
     </PageWrapper>

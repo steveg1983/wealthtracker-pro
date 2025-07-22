@@ -39,7 +39,7 @@ interface ParsedData {
   needsMapping?: boolean;
 }
 
-export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProps) {
+export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProps): React.JSX.Element {
   const { addAccount, addTransaction, accounts, hasTestData, clearAllData } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);

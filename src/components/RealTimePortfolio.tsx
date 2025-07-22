@@ -28,7 +28,12 @@ export default function RealTimePortfolio({ accountId, accountName, currency }: 
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
   const account = accounts.find(a => a.id === accountId);
-  const holdings: StockHolding[] = account?.holdings || [];
+  const holdings: StockHolding[] = (account?.holdings || []).map(h => ({
+    symbol: h.ticker,
+    shares: h.shares,
+    averageCost: h.averageCost || h.value / h.shares,
+    lastUpdated: h.lastUpdated
+  }));
 
   const fetchPortfolioData = useCallback(async () => {
     if (holdings.length === 0) return;

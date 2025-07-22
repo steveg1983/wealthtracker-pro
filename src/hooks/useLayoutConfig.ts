@@ -23,7 +23,16 @@ const DEFAULT_ANALYTICS_LAYOUT: Layout[] = [
 
 const STORAGE_KEY = 'wealthtracker-layout-config';
 
-export function useLayoutConfig() {
+interface UseLayoutConfigReturn {
+  layouts: LayoutConfig;
+  updateDashboardLayout: (newLayout: Layout[]) => void;
+  updateAnalyticsLayout: (newLayout: Layout[]) => void;
+  resetDashboardLayout: () => void;
+  resetAnalyticsLayout: () => void;
+  resetAllLayouts: () => void;
+}
+
+export function useLayoutConfig(): UseLayoutConfigReturn {
   const [layouts, setLayouts] = useState<LayoutConfig>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
@@ -81,7 +90,7 @@ export function useLayoutConfig() {
   };
 }
 
-export function useResponsiveLayouts(baseLayouts: Layouts) {
+export function useResponsiveLayouts(baseLayouts: Layouts): Layouts {
   return {
     lg: baseLayouts.lg || [],
     md: baseLayouts.md || baseLayouts.lg || [],

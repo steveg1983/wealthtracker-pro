@@ -30,7 +30,7 @@ export default function BalanceReconciliationModal({
   onClose,
   option,
   onConfirm
-}: BalanceReconciliationModalProps) {
+}: BalanceReconciliationModalProps): React.JSX.Element | null {
   const { formatCurrency } = useCurrencyDecimal();
   const [selectedOption, setSelectedOption] = useState<'opening-balance' | 'adjustment-transaction' | null>(null);
 
@@ -61,13 +61,16 @@ export default function BalanceReconciliationModal({
                 The difference is {formatCurrency(adjustmentAmount)}.
               </p>
               {/* Debug info */}
-              {console.log('BalanceReconciliationModal Debug:', {
-                accountName,
-                currentBalance,
-                calculatedBalance,
-                difference,
-                adjustmentAmount
-              })}
+              {(() => {
+                console.log('BalanceReconciliationModal Debug:', {
+                  accountName,
+                  currentBalance,
+                  calculatedBalance,
+                  difference,
+                  adjustmentAmount
+                });
+                return null;
+              })()}
             </div>
           </div>
         </div>
