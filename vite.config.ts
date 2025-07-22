@@ -10,6 +10,12 @@ export default defineConfig({
     strictPort: true,
     open: false
   },
+  preview: {
+    host: true, // Listen on all interfaces for CI
+    port: 4173,
+    strictPort: true,
+    open: false
+  },
   build: {
     // Increase chunk size warning limit slightly since we're now splitting
     chunkSizeWarningLimit: 600,
