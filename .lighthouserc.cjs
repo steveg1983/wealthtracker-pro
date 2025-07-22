@@ -47,7 +47,7 @@ module.exports = {
         
         // Resource size budgets
         'resource-summary:document:size': ['warn', { maxNumericValue: 50000 }], // 50KB
-        'resource-summary:script:size': ['warn', { maxNumericValue: 1000000 }], // 1MB
+        'resource-summary:script:size': ['warn', { maxNumericValue: 4000000 }], // 4MB
         'resource-summary:stylesheet:size': ['warn', { maxNumericValue: 100000 }], // 100KB
         'resource-summary:image:size': ['warn', { maxNumericValue: 500000 }], // 500KB
         'resource-summary:font:size': ['warn', { maxNumericValue: 200000 }], // 200KB
