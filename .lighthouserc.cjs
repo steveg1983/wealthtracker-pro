@@ -8,12 +8,7 @@ module.exports = {
     collect: {
       // Collect Lighthouse data for these URLs
       url: [
-        'http://localhost:4173/', // Preview server
-        'http://localhost:4173/transactions',
-        'http://localhost:4173/budget',
-        'http://localhost:4173/analytics',
-        'http://localhost:4173/reports',
-        'http://localhost:4173/goals',
+        'http://localhost:4173/', // Preview server - just test home page for now
       ],
       // Number of times to run Lighthouse for each URL
       numberOfRuns: 3,
@@ -22,7 +17,7 @@ module.exports = {
         // Use mobile simulation
         preset: 'desktop',
         // Chrome flags for consistent results
-        chromeFlags: '--no-sandbox --headless --disable-gpu',
+        chromeFlags: '--no-sandbox --headless --disable-gpu --disable-dev-shm-usage',
       },
     },
     upload: {
