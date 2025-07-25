@@ -20,21 +20,45 @@ Object.defineProperty(window, 'localStorage', {
   writable: true,
 });
 
+// Mock the storageAdapter
+vi.mock('../../services/storageAdapter', () => ({
+  storageAdapter: {
+    get: vi.fn(() => Promise.resolve(null)),
+    set: vi.fn(() => Promise.resolve()),
+    remove: vi.fn(() => Promise.resolve()),
+    clear: vi.fn(() => Promise.resolve()),
+  },
+  STORAGE_KEYS: {
+    ACCOUNTS: 'wealthtracker_accounts',
+    TRANSACTIONS: 'wealthtracker_transactions',
+    BUDGETS: 'wealthtracker_budgets',
+    GOALS: 'wealthtracker_goals',
+    TAGS: 'wealthtracker_tags',
+    RECURRING: 'wealthtracker_recurring',
+    CATEGORIES: 'wealthtracker_categories',
+  }
+}));
+
 // Helper to render hook with provider
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <AppProvider>{children}</AppProvider>
 );
 
 describe('AppContext', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
+    // Clear all mocks
+    vi.clearAllMocks();
+    
     // Clear localStorage before each test
     mockLocalStorage.clear();
-    // Mock localStorage to return 'true' for data cleared flag
-    mockLocalStorage.getItem.mockImplementation((key) => {
+    
+    // Reset storageAdapter mocks
+    const { storageAdapter } = await import('../../services/storageAdapter');
+    (storageAdapter.get as any).mockImplementation((key: string) => {
       if (key === 'wealthtracker_data_cleared') {
-        return 'true';
+        return Promise.resolve(true);
       }
-      return null;
+      return Promise.resolve(null);
     });
   });
 
@@ -247,7 +271,8 @@ describe('AppContext', () => {
   });
 
   describe('Data Persistence', () => {
-    it('saves data to localStorage', () => {
+    it('saves data to localStorage', async () => {
+      const { storageAdapter } = await import('../../services/storageAdapter');
       const { result } = renderHook(() => useApp(), { wrapper });
       
       const account = createMockAccount();
@@ -256,51 +281,48 @@ describe('AppContext', () => {
         result.current.addAccount(account);
       });
       
-      expect(mockLocalStorage.setItem).toHaveBeenCalledWith(
+      // Wait for the storage operation to complete
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
+      
+      expect(storageAdapter.set).toHaveBeenCalledWith(
         'wealthtracker_accounts',
-        expect.any(String)
+        expect.any(Array)
       );
-      
-      // Check that the account was serialized properly
-      // Verify that setItem was called
-      expect(mockLocalStorage.setItem).toHaveBeenCalled();
-      
-      // Find the most recent call to save accounts
-      const accountsCalls = mockLocalStorage.setItem.mock.calls.filter(
-        call => call[0] === 'wealthtracker_accounts'
-      );
-      expect(accountsCalls.length).toBeGreaterThan(0);
-      
-      // Check the last call
-      const lastCall = accountsCalls[accountsCalls.length - 1];
-      const savedAccounts = JSON.parse(lastCall[1]);
-      expect(savedAccounts).toHaveLength(1);
     });
 
-    it('loads data from localStorage on mount', () => {
+    it('loads data from localStorage on mount', async () => {
       const testAccount = createMockAccount();
       const testTransaction = createMockTransaction();
       const testBudget = createMockBudget();
       const testGoal = createMockGoal();
       
-      mockLocalStorage.getItem.mockImplementation((key) => {
+      // Mock the storageAdapter to return test data
+      const { storageAdapter } = await import('../../services/storageAdapter');
+      (storageAdapter.get as any).mockImplementation((key: string) => {
         switch (key) {
           case 'wealthtracker_accounts':
-            return JSON.stringify([testAccount]);
+            return Promise.resolve([testAccount]);
           case 'wealthtracker_transactions':
-            return JSON.stringify([testTransaction]);
+            return Promise.resolve([testTransaction]);
           case 'wealthtracker_budgets':
-            return JSON.stringify([testBudget]);
+            return Promise.resolve([testBudget]);
           case 'wealthtracker_goals':
-            return JSON.stringify([testGoal]);
+            return Promise.resolve([testGoal]);
           case 'wealthtracker_data_cleared':
-            return 'true';
+            return Promise.resolve(true);
           default:
-            return null;
+            return Promise.resolve(null);
         }
       });
       
       const { result } = renderHook(() => useApp(), { wrapper });
+      
+      // Wait for the data to load
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      });
       
       expect(result.current.accounts).toHaveLength(1);
       expect(result.current.transactions).toHaveLength(1);

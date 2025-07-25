@@ -120,11 +120,12 @@ export default function BalanceAdjustmentModal({
             
             {/* Date */}
             <div>
-              <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="adjustment-date" className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 <CalendarIcon size={16} />
                 Date
               </label>
               <input
+                id="adjustment-date"
                 type="date"
                 value={adjustmentDate}
                 onChange={(e) => setAdjustmentDate(e.target.value)}
@@ -135,10 +136,11 @@ export default function BalanceAdjustmentModal({
             
             {/* Description */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="adjustment-description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Description
               </label>
               <input
+                id="adjustment-description"
                 type="text"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -151,7 +153,7 @@ export default function BalanceAdjustmentModal({
             <div className="space-y-3">
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor="adjustment-category" className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300">
                     <TagIcon size={16} />
                     Category
                   </label>
@@ -164,6 +166,7 @@ export default function BalanceAdjustmentModal({
                   </button>
                 </div>
                 <select
+                  id="adjustment-category"
                   value={subCategory}
                   onChange={(e) => {
                     setSubCategory(e.target.value);
@@ -181,10 +184,11 @@ export default function BalanceAdjustmentModal({
               {/* Detail category */}
               {subCategory && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="adjustment-subcategory" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Sub-category
                   </label>
                   <select
+                    id="adjustment-subcategory"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-700 dark:text-white"
@@ -200,10 +204,11 @@ export default function BalanceAdjustmentModal({
             
             {/* Notes */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="adjustment-notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Notes (optional)
               </label>
               <textarea
+                id="adjustment-notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 rows={3}

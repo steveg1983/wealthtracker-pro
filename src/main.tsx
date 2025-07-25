@@ -5,7 +5,12 @@ import { store } from './store'
 import './index.css'
 import App from './App.tsx'
 import * as serviceWorkerRegistration from './utils/serviceWorkerRegistration'
+import { applyCSPMetaTag, setupCSPReporting } from './security/csp'
 // import { initSentry } from './lib/sentry'
+
+// Initialize security features
+applyCSPMetaTag();
+setupCSPReporting();
 
 // Initialize Sentry error tracking
 // try {

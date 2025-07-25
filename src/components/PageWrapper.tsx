@@ -1,3 +1,5 @@
+import React from 'react';
+
 interface PageWrapperProps {
   title: string;
   headerContent?: React.ReactNode;

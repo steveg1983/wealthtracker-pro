@@ -62,6 +62,7 @@ export interface Transaction {
   goalId?: string;
   accountName?: string;
   recurringTransactionId?: string;
+  addedBy?: string; // Member ID who added this transaction
 }
 
 export interface Budget {

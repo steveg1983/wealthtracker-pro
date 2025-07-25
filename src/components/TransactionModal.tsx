@@ -92,10 +92,11 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Date
             </label>
             <input
+              id="date"
               type="date"
               required
               value={formData.date}
@@ -105,10 +106,11 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Description
             </label>
             <input
+              id="description"
               type="text"
               required
               value={formData.description}
@@ -119,10 +121,11 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Type
               </label>
               <select
+                id="type"
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' | 'transfer' })}
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
@@ -134,10 +137,11 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Amount
               </label>
               <input
+                id="amount"
                 type="number"
                 required
                 step="0.01"
@@ -149,7 +153,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Category
             </label>
             <CategorySelector
@@ -162,10 +166,11 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="account" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Account
             </label>
             <select
+              id="account"
               value={formData.accountId}
               onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
               className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
@@ -177,10 +182,11 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Notes (Optional)
             </label>
             <textarea
+              id="notes"
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={2}
@@ -189,7 +195,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            <label htmlFor="tags" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Tags
             </label>
             <TagSelector

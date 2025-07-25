@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import { viteCSPPlugin } from './src/security/csp'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), viteCSPPlugin()],
   server: {
     host: true, // This will listen on all interfaces
     port: 5173,

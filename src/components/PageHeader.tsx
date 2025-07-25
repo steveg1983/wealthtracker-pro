@@ -1,3 +1,5 @@
+import React from 'react';
+
 interface PageHeaderProps {
   title: string;
   children?: React.ReactNode;

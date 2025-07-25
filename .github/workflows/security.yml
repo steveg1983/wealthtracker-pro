@@ -1,0 +1,177 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run security audit every Monday at midnight UTC
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run npm audit
+        id: npm-audit
+        run: |
+          npm audit --json > npm-audit-report.json || true
+          npm audit || true
+        continue-on-error: true
+        
+      - name: Check for critical vulnerabilities
+        run: |
+          if npm audit --audit-level=critical; then
+            echo "✅ No critical vulnerabilities found"
+          else
+            echo "❌ Critical vulnerabilities detected!"
+            exit 1
+          fi
+          
+      - name: Upload npm audit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-audit-report
+          path: npm-audit-report.json
+          
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'wealth-tracker'
+          path: '.'
+          format: 'ALL'
+          args: >
+            --enableRetired
+            --enableExperimental
+          
+      - name: Upload OWASP dependency check results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-check-report
+          path: reports/
+          
+      - name: Check security headers in production configs
+        run: |
+          echo "Checking security headers..."
+          
+          # Check Netlify headers
+          if [ -f "public/_headers" ]; then
+            echo "✅ Netlify headers found"
+            grep -E "(Content-Security-Policy|X-Frame-Options|X-Content-Type-Options)" public/_headers || echo "⚠️  Missing some security headers in Netlify config"
+          fi
+          
+          # Check Vercel config
+          if [ -f "vercel.json" ]; then
+            echo "✅ Vercel config found"
+            grep -E "(Content-Security-Policy|X-Frame-Options|X-Content-Type-Options)" vercel.json || echo "⚠️  Missing some security headers in Vercel config"
+          fi
+          
+      - name: Run TypeScript security checks
+        run: |
+          echo "Running TypeScript strict checks..."
+          npx tsc --noEmit --strict
+        continue-on-error: true
+        
+      - name: Check for sensitive data patterns
+        run: |
+          echo "Scanning for potential sensitive data..."
+          
+          # Check for hardcoded secrets (basic patterns)
+          if grep -rE "(api[_-]?key|secret[_-]?key|password|token)\s*[:=]\s*['\"][^'\"]{10,}['\"]" --include="*.ts" --include="*.tsx" --include="*.js" --exclude-dir=node_modules --exclude-dir=dist .; then
+            echo "⚠️  Potential hardcoded secrets found!"
+            exit 1
+          else
+            echo "✅ No obvious hardcoded secrets found"
+          fi
+          
+      - name: Create security summary
+        if: always()
+        run: |
+          echo "# Security Audit Summary" > security-summary.md
+          echo "" >> security-summary.md
+          echo "## NPM Audit Results" >> security-summary.md
+          echo '```' >> security-summary.md
+          npm audit --audit-level=moderate || true
+          echo '```' >> security-summary.md
+          
+      - name: Upload security summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-summary
+          path: security-summary.md
+
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: 'javascript'
+          queries: security-extended
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  notify:
+    name: Notify on Security Issues
+    needs: [audit, codeql]
+    runs-on: ubuntu-latest
+    if: failure()
+    
+    steps:
+      - name: Create issue for security vulnerabilities
+        if: github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `Security Audit Failed - ${new Date().toISOString().split('T')[0]}`;
+            const body = `The scheduled security audit has detected vulnerabilities.
+            
+            Please review the security audit artifacts for details.
+            
+            **Action Required:**
+            1. Review the npm audit report
+            2. Check OWASP dependency scan results
+            3. Address any critical vulnerabilities immediately
+            
+            Workflow run: ${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+            
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: title,
+              body: body,
+              labels: ['security', 'high-priority']
+            });

@@ -1,4 +1,13 @@
 import { z } from 'zod';
+import { 
+  sanitizeText, 
+  sanitizeNumber, 
+  sanitizeDecimal, 
+  sanitizeDate,
+  sanitizeFilename,
+  sanitizeQuery,
+  sanitizeMarkdown
+} from '../security/xss-protection';
 import Decimal from 'decimal.js';
 
 type DecimalType = InstanceType<typeof Decimal>;
@@ -23,7 +32,7 @@ export const transactionSchema = z.object({
   description: z.string()
     .min(1, 'Description is required')
     .max(500, 'Description must be less than 500 characters')
-    .transform(val => val.trim()),
+    .transform(val => sanitizeText(val.trim())),
   amount: decimalString.refine(
     (val) => new Decimal(val).abs().gt(0),
     { message: 'Amount must be greater than 0' }
@@ -32,8 +41,11 @@ export const transactionSchema = z.object({
   category: z.string().min(1, 'Category is required'),
   subcategory: z.string().optional(),
   accountId: z.string().uuid('Invalid account ID'),
-  tags: z.array(z.string()).optional(),
-  notes: z.string().max(1000, 'Notes must be less than 1000 characters').optional(),
+  tags: z.array(z.string().transform(tag => sanitizeText(tag))).optional(),
+  notes: z.string()
+    .max(1000, 'Notes must be less than 1000 characters')
+    .transform(val => val ? sanitizeMarkdown(val) : val)
+    .optional(),
   attachments: z.array(z.string()).optional(),
   isRecurring: z.boolean().optional(),
   recurringId: z.string().uuid().optional(),
@@ -56,7 +68,7 @@ export const accountSchema = z.object({
   name: z.string()
     .min(1, 'Account name is required')
     .max(100, 'Account name must be less than 100 characters')
-    .transform(val => val.trim()),
+    .transform(val => sanitizeText(val.trim())),
   type: z.enum(['checking', 'savings', 'credit_card', 'investment', 'loan', 'asset', 'other']),
   balance: decimalString,
   currency: z.string()
@@ -65,9 +77,11 @@ export const accountSchema = z.object({
     .default('USD'),
   institution: z.string()
     .max(200, 'Institution name must be less than 200 characters')
+    .transform(val => val ? sanitizeText(val) : val)
     .optional(),
   accountNumber: z.string()
     .max(50, 'Account number must be less than 50 characters')
+    .transform(val => val ? sanitizeText(val) : val)
     .optional(),
   isActive: z.boolean().default(true),
   color: z.string()
@@ -75,6 +89,7 @@ export const accountSchema = z.object({
     .optional(),
   notes: z.string()
     .max(1000, 'Notes must be less than 1000 characters')
+    .transform(val => val ? sanitizeMarkdown(val) : val)
     .optional(),
   createdAt: z.string().optional(),
   updatedAt: z.string().optional()
@@ -86,7 +101,7 @@ export const budgetSchema = z.object({
   name: z.string()
     .min(1, 'Budget name is required')
     .max(100, 'Budget name must be less than 100 characters')
-    .transform(val => val.trim()),
+    .transform(val => sanitizeText(val.trim())),
   category: z.string().min(1, 'Category is required'),
   amount: decimalString.refine(
     (val) => new Decimal(val).gte(0),
@@ -267,20 +282,16 @@ export class ValidationService {
     return formatted;
   }
 
-  // Sanitize input strings
+  // Sanitize input strings using DOMPurify
   static sanitizeString(input: string, maxLength: number = 1000): string {
-    return input
-      .trim()
-      .replace(/[<>]/g, '') // Remove potential HTML tags
-      .substring(0, maxLength);
+    // Use the robust XSS protection
+    const sanitized = sanitizeText(input);
+    return sanitized.substring(0, maxLength);
   }
 
   // Validate and sanitize file names
   static validateFileName(fileName: string): string {
-    const sanitized = fileName
-      .replace(/[^a-zA-Z0-9.-]/g, '_') // Replace invalid chars with underscore
-      .replace(/\.{2,}/g, '.') // Remove multiple dots
-      .substring(0, 255); // Max file name length
+    const sanitized = sanitizeFilename(fileName);
     
     if (!sanitized || sanitized === '.' || sanitized === '..') {
       throw new Error('Invalid file name');
