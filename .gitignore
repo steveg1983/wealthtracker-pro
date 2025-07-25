@@ -28,3 +28,7 @@ dist-ssr
 # Sentry
 .sentryclirc
 .vercel
+
+# Testing
+coverage/
+*.coverage
