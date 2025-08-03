@@ -124,9 +124,9 @@ export default function AccountTransactions() {
     // Calculate running balance for each transaction
     const withBalance = sortedForBalance.map((transaction) => {
       if (transaction.type === 'income') {
-        runningBalance += transaction.amount;
+        runningBalance += Math.abs(transaction.amount); // Income is always positive
       } else if (transaction.type === 'expense') {
-        runningBalance -= transaction.amount;
+        runningBalance -= Math.abs(transaction.amount); // Expense is always negative
       } else if (transaction.type === 'transfer') {
         // For transfers, the sign of the amount indicates direction
         runningBalance += transaction.amount;
