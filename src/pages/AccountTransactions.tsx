@@ -391,9 +391,8 @@ export default function AccountTransactions() {
   }
   
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full px-4 md:px-6 lg:px-8">
       {/* Version: 2025-08-03-v2 */}
-      <div className="px-4 md:px-6 lg:px-8">
       {/* Header */}
       <div className="flex-shrink-0 mb-4">
         <button
@@ -472,7 +471,7 @@ export default function AccountTransactions() {
         </div>
       </div>
       
-      {/* Main content - all in same container */}
+      {/* Main content */}
       <div className="grid gap-4">
       {/* Search and Filter Bar */}
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
@@ -733,7 +732,6 @@ export default function AccountTransactions() {
             </button>
           </div>
         </form>
-      </div>
       </div>
       </div>
       
