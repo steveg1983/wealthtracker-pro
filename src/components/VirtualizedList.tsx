@@ -146,7 +146,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   
   
   return (
-    <div className={`flex-1 w-full ${className}`} style={{ height: `${fixedHeight}px`, position: 'relative' }}>
+    <div className={`flex-1 w-full overflow-hidden ${className}`} style={{ height: `${fixedHeight}px`, position: 'relative' }}>
       {/* Temporarily bypass AutoSizer */}
       {(
           <InfiniteLoader

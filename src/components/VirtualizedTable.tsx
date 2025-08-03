@@ -176,14 +176,16 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
       ? rowClassName(item, index) 
       : rowClassName || '';
 
-    const baseRowClass = 'flex items-center border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800';
+    const baseRowClass = 'flex items-center border-b border-gray-200 dark:border-gray-700 transition-all duration-200 ease-in-out';
     const selectedClass = isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : '';
     const clickableClass = onRowClick ? 'cursor-pointer' : '';
+    const hoverClass = 'hover:shadow-lg hover:z-10 hover:transform hover:scale-[1.02] hover:bg-gray-50 dark:hover:bg-gray-800';
+    const stripeClass = index % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/30' : 'bg-white dark:bg-gray-900';
 
     return (
       <div
-        style={style}
-        className={`${baseRowClass} ${selectedClass} ${clickableClass} ${computedRowClassName}`}
+        style={{...style, overflow: 'hidden'}}
+        className={`${baseRowClass} ${stripeClass} ${selectedClass} ${clickableClass} ${hoverClass} ${computedRowClassName}`}
         onClick={handleRowClick}
       >
         {showCheckbox && (
@@ -244,7 +246,7 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
   }
 
   return (
-    <div className={`bg-white dark:bg-gray-900 rounded-lg shadow ${className}`}>
+    <div className={`bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden ${className}`}>
       <TableHeader
         columns={columns as Column<unknown>[]}
         headerClassName={headerClassName}
