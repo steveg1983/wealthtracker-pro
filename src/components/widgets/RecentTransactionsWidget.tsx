@@ -49,7 +49,7 @@ export default function RecentTransactionsWidget({ size, settings }: RecentTrans
                 ? 'text-green-600 dark:text-green-400' 
                 : 'text-red-600 dark:text-red-400'
             }`}>
-              {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+              {formatCurrency(transaction.amount)}
             </span>
           </div>
         ))}
@@ -87,7 +87,7 @@ export default function RecentTransactionsWidget({ size, settings }: RecentTrans
                     ? 'text-green-600 dark:text-green-400' 
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {transaction.type === 'income' ? '+' : '-'}{formatCurrency(transaction.amount)}
+                  {formatCurrency(transaction.amount)}
                 </span>
               </div>
               

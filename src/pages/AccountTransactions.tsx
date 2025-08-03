@@ -395,7 +395,7 @@ export default function AccountTransactions() {
   }
   
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
+    <div className="flex flex-col h-full p-6 space-y-6">
       {/* Header */}
       <div className="flex-shrink-0 mb-6">
         <button
@@ -588,8 +588,7 @@ export default function AccountTransactions() {
       
       {/* Transactions Table */}
       <div 
-        className="flex-1 min-h-0 mb-4"
-        style={{ height: 'calc(100% - 240px)' }}
+        className="flex-1 min-h-[400px] max-h-[600px] overflow-hidden"
       >
         <VirtualizedTable
           items={transactionsWithBalance}

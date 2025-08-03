@@ -123,7 +123,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
       setFormData({
         date: transaction.date instanceof Date ? transaction.date.toISOString().split('T')[0] : new Date(transaction.date).toISOString().split('T')[0],
         description: transaction.description,
-        amount: Math.abs(transaction.amount).toFixed(2),
+        amount: transaction.amount.toFixed(2),
         type: transaction.type,
         category: categoryId,
         subCategory: subCategoryId,
