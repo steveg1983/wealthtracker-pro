@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { useTransactionNotifications } from '../hooks/useTransactionNotifications';
 import { CalendarIcon, TagIcon, FileTextIcon, CheckIcon2, LinkIcon, PlusIcon, HashIcon, WalletIcon, ArrowRightLeftIcon, BanknoteIcon, PaperclipIcon } from '../components/icons';
@@ -40,6 +40,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [formattedAmount, setFormattedAmount] = useState('');
+  const amountInputRef = useRef<HTMLInputElement>(null);
   
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
     {
@@ -113,6 +115,22 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
   // Get available sub-categories based on transaction type
   const availableSubCategories = getSubCategories(`type-${formData.type}`);
 
+  // Helper function to format number with commas
+  const formatWithCommas = (value: string | number): string => {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(num)) return '';
+    
+    return new Intl.NumberFormat('en-GB', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Math.abs(num));
+  };
+
+  // Helper function to parse formatted string back to number
+  const parseFormattedAmount = (value: string): string => {
+    return value.replace(/,/g, '');
+  };
+
   // Initialize form when transaction changes
   useEffect(() => {
     if (transaction) {
@@ -120,10 +138,11 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
       const subCategoryId = categoryObj?.parentId || '';
       const categoryId = categoryObj?.parentId ? transaction.category : '';
       
+      const amountValue = Math.abs(transaction.amount).toString();
       setFormData({
         date: transaction.date instanceof Date ? transaction.date.toISOString().split('T')[0] : new Date(transaction.date).toISOString().split('T')[0],
         description: transaction.description,
-        amount: Math.abs(transaction.amount).toString(),
+        amount: amountValue,
         type: transaction.type,
         category: categoryId,
         subCategory: subCategoryId,
@@ -133,6 +152,8 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
         cleared: transaction.cleared || false,
         reconciledWith: transaction.reconciledWith || ''
       });
+      // Set formatted amount for display
+      setFormattedAmount(formatWithCommas(amountValue));
     } else {
       // Reset form for new transaction
       const today = new Date().toISOString().split('T')[0];
@@ -149,6 +170,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
         cleared: false,
         reconciledWith: ''
       });
+      setFormattedAmount('');
     }
     setShowDeleteConfirm(false);
   }, [transaction, accounts, categories, setFormData]);
@@ -268,10 +290,34 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 })()}
               </label>
               <input
-                type="number"
-                step="0.01"
-                value={formData.amount}
-                onChange={(e) => updateField('amount', e.target.value)}
+                ref={amountInputRef}
+                type="text"
+                value={formattedAmount}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Allow only numbers, commas, and decimal point
+                  if (value === '' || /^[0-9,]*\.?[0-9]{0,2}$/.test(value)) {
+                    setFormattedAmount(value);
+                    // Update the underlying numeric value
+                    const numericValue = parseFormattedAmount(value);
+                    if (numericValue === '' || !isNaN(parseFloat(numericValue))) {
+                      updateField('amount', numericValue);
+                    }
+                  }
+                }}
+                onBlur={() => {
+                  // Reformat on blur to ensure proper formatting
+                  if (formData.amount && formData.amount !== '') {
+                    setFormattedAmount(formatWithCommas(formData.amount));
+                  }
+                }}
+                onFocus={() => {
+                  // Select all text on focus for easy editing
+                  if (amountInputRef.current) {
+                    amountInputRef.current.select();
+                  }
+                }}
+                placeholder="0.00"
                 className="w-full px-3 py-2 h-[42px] text-right bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 required
               />
