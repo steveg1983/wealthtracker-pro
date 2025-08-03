@@ -393,9 +393,9 @@ export default function AccountTransactions() {
   return (
     <div className="flex flex-col h-full">
       {/* Version: 2025-08-03-v2 */}
-      {/* Header */}
       <div className="px-4 md:px-6 lg:px-8">
-      <div className="flex-shrink-0 mb-2">
+      {/* Header */}
+      <div className="flex-shrink-0 mb-4">
         <button
           onClick={() => navigate('/accounts')}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-4"
@@ -472,10 +472,8 @@ export default function AccountTransactions() {
         </div>
       </div>
       
-      </div>
-      
-      {/* Main content with consistent horizontal spacing */}
-      <div className="grid gap-4 px-4 md:px-6 lg:px-8">
+      {/* Main content - all in same container */}
+      <div className="grid gap-4">
       {/* Search and Filter Bar */}
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
         <div className="flex flex-col gap-4">
@@ -735,6 +733,7 @@ export default function AccountTransactions() {
             </button>
           </div>
         </form>
+      </div>
       </div>
       </div>
       
