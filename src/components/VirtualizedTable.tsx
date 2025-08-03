@@ -180,7 +180,7 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
     const selectedClass = isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : '';
     const clickableClass = onRowClick ? 'cursor-pointer select-none' : '';
     const hoverClass = onRowClick && !isSelected ? 'hover:shadow-[0_-6px_10px_-2px_rgba(0,0,0,0.15),0_6px_10px_-2px_rgba(0,0,0,0.15)] hover:z-10 hover:transform hover:scale-[1.01] hover:bg-gray-50 dark:hover:bg-gray-800' : '';
-    const stripeClass = index % 2 === 1 ? 'bg-gray-100 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-900';
+    const stripeClass = !isSelected && index % 2 === 1 ? 'bg-gray-100 dark:bg-gray-800/50' : !isSelected ? 'bg-white dark:bg-gray-900' : '';
 
     return (
       <div
