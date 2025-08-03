@@ -60,6 +60,10 @@ try {
   console.error('Error rendering app:', error);
 }
 
+// Service worker temporarily disabled to fix offline issues
+// Uncomment below to re-enable service worker
+
+/*
 // Register service worker for offline support
 let swRegistration: ServiceWorkerRegistration | null = null;
 
@@ -101,3 +105,4 @@ serviceWorkerRegistration.register({
     window.dispatchEvent(new Event('app-online'));
   }
 });
+*/
