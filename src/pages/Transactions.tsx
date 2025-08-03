@@ -39,6 +39,8 @@ export default function Transactions() {
   const [transactionsPerPage, setTransactionsPerPage] = useState(20);
   const [sortField, setSortField] = useState<'date' | 'account' | 'description' | 'category' | 'amount'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedTransactions, setSelectedTransactions] = useState<Set<string>>(new Set());
   const [columnWidths, setColumnWidths] = useState({
     date: 120,
     reconciled: 40,
