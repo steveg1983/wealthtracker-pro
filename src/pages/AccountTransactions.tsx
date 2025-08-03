@@ -607,7 +607,7 @@ export default function AccountTransactions() {
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
           rowClassName={(transaction, index) => {
             const isSelected = selectedTransactionId === transaction.id;
-            return isSelected ? 'ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '';
+            return isSelected ? 'shadow-lg relative z-20 ring-2 ring-[#6B86B3] dark:ring-[#6B86B3] bg-blue-50 dark:bg-blue-900/30 font-semibold transform scale-[1.01]' : '';
           }}
         />
       </div>
