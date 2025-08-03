@@ -176,7 +176,7 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
       ? rowClassName(item, index) 
       : rowClassName || '';
 
-    const baseRowClass = 'flex items-center border-b border-gray-200 dark:border-gray-700 transition-all duration-150';
+    const baseRowClass = 'flex items-center border-b border-gray-200 dark:border-gray-700 transition-colors duration-150';
     const clickableClass = onRowClick ? 'cursor-pointer select-none' : '';
     // Only apply hover effects if not selected
     const hoverClass = onRowClick && !isSelected ? 'hover:shadow-[0_-6px_10px_-2px_rgba(0,0,0,0.15),0_6px_10px_-2px_rgba(0,0,0,0.15)] hover:z-10 hover:transform hover:scale-[1.01] hover:bg-gray-50 dark:hover:bg-gray-800' : '';
