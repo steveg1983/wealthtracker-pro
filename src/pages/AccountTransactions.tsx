@@ -425,7 +425,7 @@ export default function AccountTransactions() {
         {/* Right side boxes - positioned absolutely over the header */}
         <div className="absolute right-4 top-1/2 -translate-y-1/2 grid grid-cols-2 gap-2">
           {/* Account Balance Box - Top Left */}
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-3 py-2 flex items-center justify-between min-w-[180px] gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
             <span className="text-xs text-gray-600 dark:text-gray-400">Account Balance</span>
             <span className={`text-sm font-bold ${
               account.balance >= 0 
@@ -437,7 +437,7 @@ export default function AccountTransactions() {
           </div>
           
           {/* Imported Bank Balance Box - Top Right */}
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-3 py-2 flex items-center justify-between min-w-[180px] gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
             <span className="text-xs text-gray-600 dark:text-gray-400">Bank Balance</span>
             <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
               {formatCurrency(0, account.currency)}
@@ -445,7 +445,7 @@ export default function AccountTransactions() {
           </div>
           
           {/* Unreconciled Box - Bottom Left */}
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-3 py-2 flex items-center justify-between min-w-[180px] gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
             <span className="text-xs text-gray-600 dark:text-gray-400">Unreconciled</span>
             <span className="text-sm font-bold text-gray-900 dark:text-white">
               {formatCurrency(unreconciledTotal, account.currency)}
@@ -453,7 +453,7 @@ export default function AccountTransactions() {
           </div>
           
           {/* Difference Box - Bottom Right */}
-          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-3 py-2 flex items-center justify-between min-w-[180px] gap-3">
+          <div className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-4 py-2 flex items-center justify-between min-w-[220px] gap-4">
             <span className="text-xs text-gray-600 dark:text-gray-400">Difference</span>
             <span className={`text-sm font-bold ${
               account.balance === 0 
