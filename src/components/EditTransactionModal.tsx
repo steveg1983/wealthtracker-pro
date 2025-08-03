@@ -120,10 +120,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     const num = typeof value === 'string' ? parseFloat(value) : value;
     if (isNaN(num)) return '';
     
-    return new Intl.NumberFormat('en-GB', {
+    const isNegative = num < 0;
+    const formatted = new Intl.NumberFormat('en-GB', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(Math.abs(num));
+    
+    return isNegative ? `-${formatted}` : formatted;
   };
 
   // Helper function to parse formatted string back to number
@@ -138,7 +141,12 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
       const subCategoryId = categoryObj?.parentId || '';
       const categoryId = categoryObj?.parentId ? transaction.category : '';
       
-      const amountValue = Math.abs(transaction.amount).toString();
+      // For transfers, preserve the sign to show transfer direction
+      // For income/expense, always use absolute value since type determines sign
+      const amountValue = transaction.type === 'transfer' 
+        ? transaction.amount.toString()
+        : Math.abs(transaction.amount).toString();
+        
       setFormData({
         date: transaction.date instanceof Date ? transaction.date.toISOString().split('T')[0] : new Date(transaction.date).toISOString().split('T')[0],
         description: transaction.description,
@@ -295,12 +303,12 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 value={formattedAmount}
                 onChange={(e) => {
                   const value = e.target.value;
-                  // Allow only numbers, commas, and decimal point
-                  if (value === '' || /^[0-9,]*\.?[0-9]{0,2}$/.test(value)) {
+                  // Allow numbers, commas, decimal point, and minus sign
+                  if (value === '' || value === '-' || /^-?[0-9,]*\.?[0-9]{0,2}$/.test(value)) {
                     setFormattedAmount(value);
                     // Update the underlying numeric value
                     const numericValue = parseFormattedAmount(value);
-                    if (numericValue === '' || !isNaN(parseFloat(numericValue))) {
+                    if (numericValue === '' || numericValue === '-' || !isNaN(parseFloat(numericValue))) {
                       updateField('amount', numericValue);
                     }
                   }
@@ -318,7 +326,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                   }
                 }}
                 placeholder="0.00"
-                className="w-full px-3 py-2 h-[42px] text-right bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                className={`w-full px-3 py-2 h-[42px] text-right bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent ${
+                  formData.amount && parseFloat(formData.amount) < 0
+                    ? 'text-red-600 dark:text-red-400'
+                    : formData.amount && parseFloat(formData.amount) > 0
+                    ? 'text-green-600 dark:text-green-400'
+                    : 'text-gray-900 dark:text-white'
+                }`}
                 required
               />
             </div>
