@@ -37,17 +37,21 @@ export function getCurrencySymbol(currency: string): string {
 export function formatCurrency(amount: DecimalInstance | number, currency: string = 'GBP'): string {
   const decimal = toDecimal(amount);
   const symbol = getCurrencySymbol(currency);
+  const isNegative = decimal.isNegative();
+  const absValue = decimal.abs().toNumber();
+  
   const formatted = new Intl.NumberFormat('en-GB', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(decimal.abs().toNumber());
+  }).format(absValue);
   
   // Special handling for currencies that come after the number
   if (currency === 'CHF') {
-    return `${formatted} ${symbol}`;
+    return isNegative ? `-${formatted} ${symbol}` : `${formatted} ${symbol}`;
   }
   
-  return `${symbol}${formatted}`;
+  // For negative amounts, put the minus sign before the currency symbol
+  return isNegative ? `-${symbol}${formatted}` : `${symbol}${formatted}`;
 }
 
 // Fetch exchange rates from a free API

@@ -370,17 +370,11 @@ export default function AccountTransactions() {
       key: 'balance',
       header: 'Balance',
       width: '150px',
-      accessor: (transaction) => {
-        // Debug log
-        if (transaction.description?.includes('LLOY')) {
-          console.log('Balance accessor:', transaction.description, 'Balance value:', transaction.balance, 'Formatted:', formatCurrency(transaction.balance, account?.currency));
-        }
-        return (
-          <span className="font-medium text-gray-900 dark:text-gray-100">
-            {formatCurrency(transaction.balance, account?.currency)}
-          </span>
-        );
-      },
+      accessor: (transaction) => (
+        <span className="font-medium text-gray-900 dark:text-gray-100">
+          {formatCurrency(transaction.balance, account?.currency)}
+        </span>
+      ),
       className: 'text-right',
       headerClassName: 'text-right'
     }
