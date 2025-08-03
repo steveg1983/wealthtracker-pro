@@ -179,13 +179,13 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
     const baseRowClass = 'flex items-center border-b border-gray-200 dark:border-gray-700 transition-all duration-150';
     const selectedClass = isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : '';
     const clickableClass = onRowClick ? 'cursor-pointer select-none' : '';
-    const hoverClass = onRowClick ? 'hover:shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1),0_4px_6px_-1px_rgba(0,0,0,0.1)] hover:z-10 hover:transform hover:scale-[1.005] hover:bg-gray-50 dark:hover:bg-gray-800' : '';
+    const hoverClass = onRowClick && !isSelected ? 'hover:shadow-[0_-6px_10px_-2px_rgba(0,0,0,0.15),0_6px_10px_-2px_rgba(0,0,0,0.15)] hover:z-10 hover:transform hover:scale-[1.01] hover:bg-gray-50 dark:hover:bg-gray-800' : '';
     const stripeClass = index % 2 === 1 ? 'bg-gray-100 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-900';
 
     return (
       <div
         style={{...style, overflow: 'visible'}}
-        className={`${baseRowClass} ${stripeClass} ${hoverClass} ${selectedClass} ${clickableClass} ${computedRowClassName}`}
+        className={`${baseRowClass} ${stripeClass} ${selectedClass} ${clickableClass} ${!isSelected ? hoverClass : ''} ${computedRowClassName}`}
         onClick={handleRowClick}
       >
         {showCheckbox && (
