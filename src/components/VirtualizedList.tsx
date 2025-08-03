@@ -143,7 +143,11 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   return (
     <div className={`flex-1 w-full ${className}`}>
       <AutoSizer>
-        {({ height, width }) => (
+        {({ height, width }) => {
+          console.log('AutoSizer dimensions:', { height, width });
+          // Fallback if AutoSizer returns 0 height
+          const actualHeight = height || 500;
+          return (
           <InfiniteLoader
             isItemLoaded={isItemLoaded}
             itemCount={itemCount}
@@ -163,7 +167,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                       }
                     }
                   }}
-                  height={height}
+                  height={actualHeight}
                   itemCount={itemCount}
                   itemSize={getItemSize}
                   itemData={itemData}
@@ -194,7 +198,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                       }
                     }
                   }}
-                  height={height}
+                  height={actualHeight}
                   itemCount={itemCount}
                   itemSize={itemHeight as number}
                   itemData={itemData}
@@ -214,7 +218,8 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
               );
             }}
           </InfiniteLoader>
-        )}
+          );
+        }}
       </AutoSizer>
     </div>
   );
