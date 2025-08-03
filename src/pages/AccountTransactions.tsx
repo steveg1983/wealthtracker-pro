@@ -391,10 +391,7 @@ export default function AccountTransactions() {
   }
   
   return (
-    <div className="flex flex-col h-full">
-      {/* Version: 2025-08-03-v2 */}
-      {/* Full width wrapper to break out of max-width constraint */}
-      <div className="w-[100vw] relative left-[50%] right-[50%] ml-[-50vw] mr-[-50vw] px-4 md:px-6 lg:px-8">
+    <div className="flex flex-col h-full -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8">
       {/* Header */}
       <div className="flex-shrink-0 mb-4">
         <button
@@ -734,7 +731,6 @@ export default function AccountTransactions() {
             </button>
           </div>
         </form>
-      </div>
       </div>
       </div>
       
