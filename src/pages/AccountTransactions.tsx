@@ -50,9 +50,6 @@ export default function AccountTransactions() {
   const accountTransactions = useMemo(() => {
     if (!account) return [];
     
-    console.log('Account:', account.id, account.name);
-    console.log('All transactions:', transactions.length);
-    console.log('Transactions for this account:', transactions.filter(t => t.accountId === account.id).length);
     
     return transactions
       .filter(t => t.accountId === account.id)
@@ -106,7 +103,6 @@ export default function AccountTransactions() {
   const transactionsWithBalance = useMemo(() => {
     if (!account) return [];
     
-    console.log('accountTransactions length:', accountTransactions.length);
     
     // Sort transactions by date and type for proper balance calculation
     // Within the same date: income first, then transfers, then expenses
@@ -148,7 +144,6 @@ export default function AccountTransactions() {
       balance: balanceMap.get(t.id) || 0
     }));
     
-    console.log('transactionsWithBalance length:', result.length);
     return result;
   }, [account, accountTransactions]);
   
@@ -628,11 +623,10 @@ export default function AccountTransactions() {
           className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3]"
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
           rowClassName={(transaction, index) => {
-            const base = index % 2 === 1 ? 'bg-[#D9E1F2]/25 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-800';
             const selected = selectedTransactionId === transaction.id 
               ? 'shadow-[inset_2px_0_0_3px_rgb(209,213,219),inset_0_2px_0_3px_rgb(209,213,219),inset_0_-2px_0_3px_rgb(209,213,219),inset_-2px_0_0_3px_rgb(209,213,219)] dark:shadow-[inset_2px_0_0_3px_rgb(75,85,99),inset_0_2px_0_3px_rgb(75,85,99),inset_0_-2px_0_3px_rgb(75,85,99),inset_-2px_0_0_3px_rgb(75,85,99)]'
               : '';
-            return `${base} ${selected}`;
+            return selected;
           }}
         />
       </div>

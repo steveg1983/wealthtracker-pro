@@ -144,7 +144,6 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   const fixedHeight = 500;
   const fixedWidth = typeof window !== 'undefined' ? window.innerWidth - 100 : 800;
   
-  console.log('VirtualizedList - Using fixed dimensions:', { height: fixedHeight, width: fixedWidth, items: items.length });
   
   return (
     <div className={`flex-1 w-full ${className}`} style={{ height: `${fixedHeight}px`, position: 'relative' }}>

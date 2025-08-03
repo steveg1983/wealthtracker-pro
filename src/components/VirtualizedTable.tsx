@@ -219,8 +219,6 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
     showCheckbox
   ]);
 
-  // Debug log
-  console.log('VirtualizedTable items:', items.length);
   
   // Empty state
   if (items.length === 0 && !isLoading) {
