@@ -391,9 +391,10 @@ export default function AccountTransactions() {
   }
   
   return (
-    <div className="flex flex-col h-full p-6">
+    <div className="flex flex-col h-full">
       {/* Version: 2025-08-03-v2 */}
       {/* Header */}
+      <div className="px-4 md:px-6 lg:px-8">
       <div className="flex-shrink-0 mb-2">
         <button
           onClick={() => navigate('/accounts')}
@@ -471,8 +472,12 @@ export default function AccountTransactions() {
         </div>
       </div>
       
+      </div>
+      
+      {/* Main content with consistent horizontal spacing */}
+      <div className="grid gap-4 px-4 md:px-6 lg:px-8">
       {/* Search and Filter Bar */}
-      <div className="flex-shrink-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mt-1 mb-4">
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search Input */}
@@ -585,7 +590,7 @@ export default function AccountTransactions() {
       
       {/* Transactions Table - Updated Layout */}
       <div 
-        className="flex-1 overflow-hidden my-4"
+        className="flex-1 overflow-hidden"
       >
         <VirtualizedTable
           items={transactionsWithBalance}
@@ -614,7 +619,7 @@ export default function AccountTransactions() {
       </div>
       
       {/* Quick Add Transaction Form - Compact - Bottom Aligned */}
-      <div className="flex-shrink-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mt-auto">
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Quick Add Transaction</h3>
         <form onSubmit={handleQuickAdd} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -730,6 +735,7 @@ export default function AccountTransactions() {
             </button>
           </div>
         </form>
+      </div>
       </div>
       
       {/* Edit Modal */}
