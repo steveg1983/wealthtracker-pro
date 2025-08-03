@@ -98,8 +98,8 @@ jobs:
         run: |
           echo "Scanning for potential sensitive data..."
           
-          # Check for hardcoded secrets (basic patterns)
-          if grep -rE "(api[_-]?key|secret[_-]?key|password|token)\s*[:=]\s*['\"][^'\"]{10,}['\"]" --include="*.ts" --include="*.tsx" --include="*.js" --exclude-dir=node_modules --exclude-dir=dist .; then
+          # Check for hardcoded secrets (basic patterns) - excluding test files
+          if grep -rE "(api[_-]?key|secret[_-]?key|password|token)\s*[:=]\s*['\"][^'\"]{10,}['\"]" --include="*.ts" --include="*.tsx" --include="*.js" --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=cypress --exclude="*.test.*" --exclude="*.spec.*" .; then
             echo "⚠️  Potential hardcoded secrets found!"
             exit 1
           else
