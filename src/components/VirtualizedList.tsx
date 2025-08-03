@@ -140,14 +140,16 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
     );
   }
   
+  // Temporary fix: use fixed dimensions instead of AutoSizer
+  const fixedHeight = 500;
+  const fixedWidth = typeof window !== 'undefined' ? window.innerWidth - 100 : 800;
+  
+  console.log('VirtualizedList - Using fixed dimensions:', { height: fixedHeight, width: fixedWidth, items: items.length });
+  
   return (
-    <div className={`flex-1 w-full ${className}`}>
-      <AutoSizer>
-        {({ height, width }) => {
-          console.log('AutoSizer dimensions:', { height, width });
-          // Fallback if AutoSizer returns 0 height
-          const actualHeight = height || 500;
-          return (
+    <div className={`flex-1 w-full ${className}`} style={{ height: `${fixedHeight}px`, position: 'relative' }}>
+      {/* Temporarily bypass AutoSizer */}
+      {(
           <InfiniteLoader
             isItemLoaded={isItemLoaded}
             itemCount={itemCount}
@@ -167,7 +169,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                       }
                     }
                   }}
-                  height={actualHeight}
+                  height={fixedHeight}
                   itemCount={itemCount}
                   itemSize={getItemSize}
                   itemData={itemData}
@@ -175,7 +177,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                     onInfiniteItemsRendered(props);
                     onItemsRendered?.(props);
                   }}
-                  width={width}
+                  width={fixedWidth}
                   overscanCount={overscanCount}
                   estimatedItemSize={estimatedItemSize}
                   itemKey={(index, data) => {
@@ -198,7 +200,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                       }
                     }
                   }}
-                  height={actualHeight}
+                  height={fixedHeight}
                   itemCount={itemCount}
                   itemSize={itemHeight as number}
                   itemData={itemData}
@@ -211,16 +213,14 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                     onItemsRendered?.(props);
                   }}
                   overscanCount={overscanCount}
-                  width={width}
+                  width={fixedWidth}
                 >
                   {ItemRenderer}
                 </List>
               );
             }}
           </InfiniteLoader>
-          );
-        }}
-      </AutoSizer>
+      )}
     </div>
   );
 });
