@@ -115,12 +115,20 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       borderColor: 'border-purple-200 dark:border-purple-800'
     },
     { 
-      type: 'assets', 
-      title: 'Other Assets', 
+      type: 'asset', 
+      title: 'Assets', 
       icon: HomeIcon, 
       color: 'text-indigo-600 dark:text-indigo-400',
       bgColor: 'bg-indigo-200 dark:bg-indigo-900/20',
       borderColor: 'border-indigo-200 dark:border-indigo-800'
+    },
+    { 
+      type: 'liability', 
+      title: 'Liabilities', 
+      icon: TrendingDownIcon, 
+      color: 'text-gray-600 dark:text-gray-400',
+      bgColor: 'bg-gray-200 dark:bg-gray-900/20',
+      borderColor: 'border-gray-200 dark:border-gray-800'
     },
   ];
 
