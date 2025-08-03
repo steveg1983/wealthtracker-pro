@@ -214,9 +214,10 @@
   background-color: var(--color-primary) !important;
 }
 
-/* Smooth transitions */
+/* Smooth transitions - excluding font properties */
 * {
   transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  /* Note: font-weight is NOT included to prevent flickering */
 }
 
 /* Default button styling to prevent square corners */
@@ -331,6 +332,33 @@ button.rounded-full:focus-visible,
   box-shadow: none !important;
   background-clip: padding-box !important;
   -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Selected transaction row with high specificity */
+.selected-transaction-row {
+  @apply shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.2),0_8px_15px_-3px_rgba(0,0,0,0.2)] relative z-30 ring-2 ring-[#6B86B3] dark:ring-[#6B86B3] transform scale-[1.02];
+  background-color: #eff6ff !important; /* blue-50 */
+  font-weight: 600 !important;
+  /* Prevent any font weight transitions */
+  transition: box-shadow 0.15s, transform 0.15s, background-color 0.15s !important;
+}
+
+.dark .selected-transaction-row {
+  background-color: rgba(30, 58, 138, 0.3) !important; /* blue-900/30 */
+}
+
+/* Ensure hover states don't affect selected rows */
+.selected-transaction-row:hover {
+  font-weight: 600 !important;
+}
+
+/* Prevent font weight changes on all transaction text */
+.virtualized-table [class*="text-gray"],
+.virtualized-table [class*="text-green"],
+.virtualized-table [class*="text-red"],
+.virtualized-table [class*="font-medium"] {
+  transition: color 0.15s, background-color 0.15s !important;
+  /* Explicitly exclude font-weight from transitions */
 }
 
 /* Loading animations */
