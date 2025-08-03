@@ -603,7 +603,7 @@ export default function AccountTransactions() {
           sortDirection={sortDirection}
           emptyMessage="No transactions found"
           threshold={50}
-          className="virtualized-table bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3]"
+          className="virtualized-table bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
           rowClassName={(transaction, index) => {
             const isSelected = selectedTransactionId === transaction.id;
