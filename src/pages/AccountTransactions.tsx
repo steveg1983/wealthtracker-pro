@@ -605,8 +605,8 @@ export default function AccountTransactions() {
       
       {/* Transactions Table - Scrollable */}
       <div 
-        className="flex-1 min-h-0"
-        style={{ minHeight: '600px' }}
+        className="flex-1 min-h-0 relative"
+        style={{ minHeight: '600px', height: '600px' }}
       >
         <VirtualizedTable
           items={transactionsWithBalance}
