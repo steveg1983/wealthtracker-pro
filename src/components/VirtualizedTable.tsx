@@ -186,7 +186,7 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
     return (
       <div
         style={{...style, overflow: 'visible'}}
-        className={`${baseRowClass} ${stripeClass} ${selectedClass} ${clickableClass} ${!isSelected ? hoverClass : ''} ${computedRowClassName}`}
+        className={`${baseRowClass} ${stripeClass} ${clickableClass} ${!isSelected ? hoverClass : ''} ${computedRowClassName}`}
         onClick={handleRowClick}
       >
         {showCheckbox && (
