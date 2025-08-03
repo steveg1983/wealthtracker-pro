@@ -592,7 +592,7 @@ export default function AccountTransactions() {
       
       {/* Transactions Table */}
       <div 
-        className="flex-1 min-h-[400px] max-h-[600px] overflow-hidden"
+        className="flex-1 min-h-[500px] max-h-[800px] overflow-hidden"
       >
         <VirtualizedTable
           items={transactionsWithBalance}
@@ -620,11 +620,11 @@ export default function AccountTransactions() {
         />
       </div>
       
-      {/* Quick Add Transaction Form */}
-      <div className="flex-shrink-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Add Transaction</h3>
-        <form onSubmit={handleQuickAdd} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Quick Add Transaction Form - Compact */}
+      <div className="flex-shrink-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
+        <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Quick Add Transaction</h3>
+        <form onSubmit={handleQuickAdd} className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Date and Type */}
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -635,7 +635,7 @@ export default function AccountTransactions() {
                 type="date"
                 value={quickAddForm.date}
                 onChange={(e) => setQuickAddForm({ ...quickAddForm, date: e.target.value })}
-                className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                className="w-full px-3 py-1.5 h-[36px] text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
                 required
               />
             </div>
@@ -645,16 +645,16 @@ export default function AccountTransactions() {
                 <ArrowRightLeftIcon size={16} />
                 Type
               </label>
-              <div className="flex gap-4 items-center h-[42px]">
+              <div className="flex gap-2 items-center h-[36px]">
                 <label className="flex items-center">
                   <input
                     type="radio"
                     value="expense"
                     checked={quickAddForm.type === 'expense'}
                     onChange={(e) => setQuickAddForm({ ...quickAddForm, type: e.target.value as 'expense' })}
-                    className="mr-2"
+                    className="mr-1"
                   />
-                  <span className="text-red-600 dark:text-red-400">Expense</span>
+                  <span className="text-red-600 dark:text-red-400 text-sm">Expense</span>
                 </label>
                 <label className="flex items-center">
                   <input
@@ -662,9 +662,9 @@ export default function AccountTransactions() {
                     value="income"
                     checked={quickAddForm.type === 'income'}
                     onChange={(e) => setQuickAddForm({ ...quickAddForm, type: e.target.value as 'income' })}
-                    className="mr-2"
+                    className="mr-1"
                   />
-                  <span className="text-green-600 dark:text-green-400">Income</span>
+                  <span className="text-green-600 dark:text-green-400 text-sm">Income</span>
                 </label>
                 <label className="flex items-center">
                   <input
@@ -672,9 +672,9 @@ export default function AccountTransactions() {
                     value="transfer"
                     checked={quickAddForm.type === 'transfer'}
                     onChange={(e) => setQuickAddForm({ ...quickAddForm, type: e.target.value as 'transfer' })}
-                    className="mr-2"
+                    className="mr-1"
                   />
-                  <span className="text-gray-700 dark:text-gray-300">Transfer</span>
+                  <span className="text-gray-700 dark:text-gray-300 text-sm">Transfer</span>
                 </label>
               </div>
             </div>
@@ -690,7 +690,7 @@ export default function AccountTransactions() {
               placeholder="Enter transaction description"
               value={quickAddForm.description}
               onChange={(e) => setQuickAddForm({ ...quickAddForm, description: e.target.value })}
-              className="w-full px-3 py-2 h-[42px] bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+              className="w-full px-3 py-1.5 h-[36px] text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
               required
             />
           </div>
@@ -721,7 +721,7 @@ export default function AccountTransactions() {
                 placeholder="0.00"
                 value={quickAddForm.amount}
                 onChange={(e) => setQuickAddForm({ ...quickAddForm, amount: e.target.value })}
-                className="w-full px-3 py-2 h-[42px] text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                className="w-full px-3 py-1.5 h-[36px] text-sm text-right bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
                 required
               />
             </div>
@@ -730,9 +730,9 @@ export default function AccountTransactions() {
           <div className="flex justify-end">
             <button
               type="submit"
-              className="px-6 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors flex items-center gap-2"
+              className="px-4 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-secondary transition-colors flex items-center gap-2"
             >
-              <PlusIcon size={18} />
+              <PlusIcon size={16} />
               Add Transaction
             </button>
           </div>
