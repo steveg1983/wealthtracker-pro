@@ -218,8 +218,6 @@ export default function AccountTransactions() {
       // Second click on already selected transaction - open edit modal
       setSelectedTransaction(transaction);
       setIsEditModalOpen(true);
-      // Clear selection after opening modal
-      setSelectedTransactionId(null);
     } else {
       // First click - just select the transaction
       setSelectedTransactionId(transaction.id);
@@ -594,7 +592,7 @@ export default function AccountTransactions() {
           getItemKey={(transaction) => transaction.id}
           onRowClick={handleTransactionClick}
           rowHeight={compactView ? 48 : 64}
-          selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : undefined}
+          selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : new Set()}
           onSort={(column, direction) => {
             if (column === 'date' || column === 'description' || column === 'amount') {
               setSortField(column);
@@ -608,10 +606,8 @@ export default function AccountTransactions() {
           className="virtualized-table bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3]"
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
           rowClassName={(transaction, index) => {
-            const selected = selectedTransactionId === transaction.id 
-              ? 'ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold'
-              : '';
-            return selected;
+            const isSelected = selectedTransactionId === transaction.id;
+            return isSelected ? 'ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold' : '';
           }}
         />
       </div>
@@ -742,6 +738,7 @@ export default function AccountTransactions() {
           onClose={() => {
             setIsEditModalOpen(false);
             setSelectedTransaction(null);
+            setSelectedTransactionId(null);
           }}
           transaction={selectedTransaction}
         />
