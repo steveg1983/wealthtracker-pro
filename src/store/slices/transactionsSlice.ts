@@ -2,6 +2,7 @@ import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import Decimal from 'decimal.js';
 import type { Transaction } from '../../types';
 import { storageAdapter } from '../../services/storageAdapter';
+import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
 
 interface TransactionsState {
   transactions: Transaction[];
@@ -45,7 +46,7 @@ const transactionsSlice = createSlice({
       const newTransaction: Transaction = {
         ...action.payload,
         id: crypto.randomUUID(),
-        date: action.payload.date || new Date(),
+        date: toISOString(action.payload.date) || getCurrentISOString(),
       };
       state.transactions.push(newTransaction);
     },
@@ -69,7 +70,7 @@ const transactionsSlice = createSlice({
       const idsToUpdate = new Set(action.payload.ids);
       state.transactions = state.transactions.map(t => 
         idsToUpdate.has(t.id) 
-          ? { ...t, ...action.payload.updates, updatedAt: new Date() }
+          ? { ...t, ...action.payload.updates, updatedAt: getCurrentISOString() }
           : t
       );
     },
@@ -104,5 +105,7 @@ export const {
   bulkDeleteTransactions,
   bulkUpdateTransactions,
 } = transactionsSlice.actions;
+
+export { transactionsSlice };
 
 export default transactionsSlice.reducer;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { XIcon } from './icons/XIcon';
 import TagSelector from './TagSelector';
@@ -11,8 +11,19 @@ interface TransactionModalProps {
   transaction?: Transaction;
 }
 
+interface FormErrors {
+  date?: string;
+  description?: string;
+  amount?: string;
+  category?: string;
+  account?: string;
+}
+
 export default function TransactionModal({ isOpen, onClose, transaction }: TransactionModalProps): React.JSX.Element | null {
   const { accounts, addTransaction, updateTransaction } = useApp();
+  const modalRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  
   const [formData, setFormData] = useState({
     date: new Date().toISOString().split('T')[0],
     description: '',
@@ -24,6 +35,47 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
     tags: [] as string[],
     cleared: false
   });
+  
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  // Focus management
+  useEffect(() => {
+    if (isOpen && modalRef.current) {
+      const firstInput = modalRef.current.querySelector('input, select, textarea') as HTMLElement;
+      firstInput?.focus();
+    }
+  }, [isOpen]);
+
+  // Trap focus within modal
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+      
+      if (e.key === 'Tab' && modalRef.current) {
+        const focusableElements = modalRef.current.querySelectorAll(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        const firstElement = focusableElements[0] as HTMLElement;
+        const lastElement = focusableElements[focusableElements.length - 1] as HTMLElement;
+
+        if (e.shiftKey && document.activeElement === firstElement) {
+          e.preventDefault();
+          lastElement.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+          e.preventDefault();
+          firstElement.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (transaction) {
@@ -52,10 +104,81 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
         cleared: false
       });
     }
+    // Reset errors and touched state
+    setErrors({});
+    setTouched({});
   }, [transaction, accounts]);
+
+  // Validation functions
+  const validateField = (name: string, value: any): string | undefined => {
+    switch (name) {
+      case 'date':
+        if (!value) return 'Date is required';
+        break;
+      case 'description':
+        if (!value || value.trim() === '') return 'Description is required';
+        if (value.length < 2) return 'Description must be at least 2 characters';
+        break;
+      case 'amount':
+        if (!value) return 'Amount is required';
+        const amount = parseFloat(value);
+        if (isNaN(amount) || amount <= 0) return 'Amount must be a positive number';
+        break;
+      case 'category':
+        if (!value) return 'Category is required';
+        break;
+      case 'account':
+        if (!value) return 'Account is required';
+        break;
+    }
+    return undefined;
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    newErrors.date = validateField('date', formData.date);
+    newErrors.description = validateField('description', formData.description);
+    newErrors.amount = validateField('amount', formData.amount);
+    newErrors.category = validateField('category', formData.category);
+    newErrors.account = validateField('account', formData.accountId);
+    
+    setErrors(newErrors);
+    
+    // Check if there are any errors
+    return !Object.values(newErrors).some(error => error !== undefined);
+  };
+
+  const handleBlur = (fieldName: string) => {
+    setTouched({ ...touched, [fieldName]: true });
+    const error = validateField(fieldName, formData[fieldName as keyof typeof formData]);
+    setErrors({ ...errors, [fieldName]: error });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Mark all fields as touched
+    setTouched({
+      date: true,
+      description: true,
+      amount: true,
+      category: true,
+      account: true
+    });
+    
+    if (!validateForm()) {
+      // Announce error to screen readers
+      const errorMessages = Object.values(errors).filter(Boolean).join('. ');
+      const announcement = document.createElement('div');
+      announcement.setAttribute('role', 'alert');
+      announcement.setAttribute('aria-live', 'assertive');
+      announcement.className = 'sr-only';
+      announcement.textContent = `Form has errors: ${errorMessages}`;
+      document.body.appendChild(announcement);
+      setTimeout(() => announcement.remove(), 1000);
+      return;
+    }
     
     const transactionData = {
       ...formData,
@@ -76,24 +199,35 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md">
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div 
+        ref={modalRef}
+        className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md"
+        role="document"
+      >
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold dark:text-white">
+          <h2 id="modal-title" className="text-xl font-semibold dark:text-white">
             {transaction ? 'Edit Transaction' : 'Add Transaction'}
           </h2>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            aria-label="Close modal"
           >
             <XIcon size={24} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
           <div>
             <label htmlFor="date" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Date
+              Date <span className="text-red-500" aria-label="required">*</span>
             </label>
             <input
               id="date"
@@ -101,13 +235,26 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
               required
               value={formData.date}
               onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              onBlur={() => handleBlur('date')}
+              aria-required="true"
+              aria-invalid={touched.date && !!errors.date}
+              aria-describedby={touched.date && errors.date ? 'date-error' : undefined}
+              className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border ${
+                touched.date && errors.date 
+                  ? 'border-red-500 dark:border-red-500' 
+                  : 'border-gray-300/50 dark:border-gray-600/50'
+              } rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white`}
             />
+            {touched.date && errors.date && (
+              <p id="date-error" className="mt-1 text-sm text-red-500" role="alert">
+                {errors.date}
+              </p>
+            )}
           </div>
 
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Description
+              Description <span className="text-red-500" aria-label="required">*</span>
             </label>
             <input
               id="description"
@@ -115,19 +262,34 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
               required
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              onBlur={() => handleBlur('description')}
+              aria-required="true"
+              aria-invalid={touched.description && !!errors.description}
+              aria-describedby={touched.description && errors.description ? 'description-error' : undefined}
+              className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border ${
+                touched.description && errors.description 
+                  ? 'border-red-500 dark:border-red-500' 
+                  : 'border-gray-300/50 dark:border-gray-600/50'
+              } rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white`}
+              placeholder="e.g., Grocery shopping, Salary payment"
             />
+            {touched.description && errors.description && (
+              <p id="description-error" className="mt-1 text-sm text-red-500" role="alert">
+                {errors.description}
+              </p>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="type" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Type
+                Type <span className="text-red-500" aria-label="required">*</span>
               </label>
               <select
                 id="type"
                 value={formData.type}
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as 'income' | 'expense' | 'transfer' })}
+                aria-required="true"
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               >
                 <option value="expense">Expense</option>
@@ -138,72 +300,129 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
 
             <div>
               <label htmlFor="amount" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Amount
+                Amount <span className="text-red-500" aria-label="required">*</span>
               </label>
               <input
                 id="amount"
                 type="number"
                 required
                 step="0.01"
+                min="0.01"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                onBlur={() => handleBlur('amount')}
+                aria-required="true"
+                aria-invalid={touched.amount && !!errors.amount}
+                aria-describedby={touched.amount && errors.amount ? 'amount-error' : undefined}
+                className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border ${
+                  touched.amount && errors.amount 
+                    ? 'border-red-500 dark:border-red-500' 
+                    : 'border-gray-300/50 dark:border-gray-600/50'
+                } rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white`}
+                placeholder="0.00"
               />
+              {touched.amount && errors.amount && (
+                <p id="amount-error" className="mt-1 text-sm text-red-500" role="alert">
+                  {errors.amount}
+                </p>
+              )}
             </div>
           </div>
 
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Category
+              Category <span className="text-red-500" aria-label="required">*</span>
             </label>
-            <CategorySelector
-              selectedCategory={formData.category}
-              onCategoryChange={(categoryId) => setFormData({ ...formData, category: categoryId })}
-              transactionType={formData.type}
-              placeholder="Select category..."
-              allowCreate={false}
-            />
+            <div 
+              id="category"
+              onBlur={() => handleBlur('category')}
+              aria-required="true"
+              aria-invalid={touched.category && !!errors.category}
+              aria-describedby={touched.category && errors.category ? 'category-error' : undefined}
+            >
+              <CategorySelector
+                selectedCategory={formData.category}
+                onCategoryChange={(categoryId) => {
+                  setFormData({ ...formData, category: categoryId });
+                  setTouched({ ...touched, category: true });
+                  const error = validateField('category', categoryId);
+                  setErrors({ ...errors, category: error });
+                }}
+                transactionType={formData.type}
+                placeholder="Select category..."
+                allowCreate={false}
+              />
+            </div>
+            {touched.category && errors.category && (
+              <p id="category-error" className="mt-1 text-sm text-red-500" role="alert">
+                {errors.category}
+              </p>
+            )}
           </div>
 
           <div>
             <label htmlFor="account" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Account
+              Account <span className="text-red-500" aria-label="required">*</span>
             </label>
             <select
               id="account"
               value={formData.accountId}
               onChange={(e) => setFormData({ ...formData, accountId: e.target.value })}
-              className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              onBlur={() => handleBlur('account')}
+              aria-required="true"
+              aria-invalid={touched.account && !!errors.account}
+              aria-describedby={touched.account && errors.account ? 'account-error' : undefined}
+              className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border ${
+                touched.account && errors.account 
+                  ? 'border-red-500 dark:border-red-500' 
+                  : 'border-gray-300/50 dark:border-gray-600/50'
+              } rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white`}
             >
+              <option value="">Select an account</option>
               {accounts.map(account => (
                 <option key={account.id} value={account.id}>{account.name}</option>
               ))}
             </select>
+            {touched.account && errors.account && (
+              <p id="account-error" className="mt-1 text-sm text-red-500" role="alert">
+                {errors.account}
+              </p>
+            )}
           </div>
 
           <div>
             <label htmlFor="notes" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Notes (Optional)
+              Notes <span className="text-sm text-gray-500">(Optional)</span>
             </label>
             <textarea
               id="notes"
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               rows={2}
+              aria-describedby="notes-hint"
               className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              placeholder="Add any additional details..."
             />
+            <p id="notes-hint" className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              You can add any additional information about this transaction
+            </p>
           </div>
 
           <div>
             <label htmlFor="tags" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Tags
+              Tags <span className="text-sm text-gray-500">(Optional)</span>
             </label>
-            <TagSelector
-              selectedTags={formData.tags}
-              onTagsChange={(tags) => setFormData({ ...formData, tags })}
-              placeholder="Search or create tags..."
-              allowNewTags={true}
-            />
+            <div id="tags" aria-describedby="tags-hint">
+              <TagSelector
+                selectedTags={formData.tags}
+                onTagsChange={(tags) => setFormData({ ...formData, tags })}
+                placeholder="Search or create tags..."
+                allowNewTags={true}
+              />
+            </div>
+            <p id="tags-hint" className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              Add tags to help organize and search your transactions
+            </p>
           </div>
 
           <div className="flex items-center gap-2">
@@ -212,28 +431,45 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
               id="cleared"
               checked={formData.cleared}
               onChange={(e) => setFormData({ ...formData, cleared: e.target.checked })}
-              className="rounded border-gray-300 dark:border-gray-600"
+              className="rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              aria-describedby="cleared-hint"
             />
             <label htmlFor="cleared" className="text-sm text-gray-700 dark:text-gray-300">
               Transaction cleared/reconciled
             </label>
           </div>
+          <p id="cleared-hint" className="text-xs text-gray-500 dark:text-gray-400 ml-6">
+            Check this if the transaction has been verified against your bank statement
+          </p>
 
-          <div className="flex gap-3">
+          {/* Screen reader only announcement region for form errors */}
+          <div className="sr-only" aria-live="polite" aria-atomic="true">
+            {Object.entries(errors).filter(([_, error]) => error).length > 0 && (
+              <p>Form has {Object.entries(errors).filter(([_, error]) => error).length} errors. Please review and correct them.</p>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-describedby="submit-hint"
             >
               {transaction ? 'Save Changes' : 'Add Transaction'}
             </button>
           </div>
+          <p id="submit-hint" className="sr-only">
+            {transaction 
+              ? 'Click to save your changes to this transaction' 
+              : 'Click to add this new transaction to your account'}
+          </p>
         </form>
       </div>
     </div>

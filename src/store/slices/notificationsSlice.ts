@@ -1,11 +1,12 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { getCurrentISOString } from '../../utils/dateHelpers';
 
 export interface Notification {
   id: string;
   title: string;
   message?: string;
   type: 'info' | 'success' | 'warning' | 'error';
-  timestamp: Date;
+  timestamp: string; // Changed from Date to string for serialization
   read: boolean;
   action?: {
     label: string;
@@ -52,7 +53,7 @@ const notificationsSlice = createSlice({
       const newNotification: Notification = {
         ...action.payload,
         id: crypto.randomUUID(),
-        timestamp: new Date(),
+        timestamp: getCurrentISOString(),
         read: false,
       };
       state.notifications.unshift(newNotification);

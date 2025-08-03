@@ -3,9 +3,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import ErrorBoundary from './components/ErrorBoundary';
 import { SentryErrorBoundary } from './lib/sentry';
 import { ErrorFallback } from './components/ErrorFallback';
-import { PreferencesProvider } from './contexts/PreferencesContext';
+import { CombinedProvider } from './contexts/CombinedProvider';
 import { AppProvider } from './contexts/AppContext';
-import { LayoutProvider } from './contexts/LayoutContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './design-system';
 import { ReduxMigrationWrapper } from './components/ReduxMigrationWrapper';
@@ -13,7 +12,12 @@ import Layout from './components/Layout';
 import PageLoader from './components/PageLoader';
 import { merchantLogoService } from './services/merchantLogoService';
 import { performanceService } from './services/performanceService';
+import { automaticBackupService } from './services/automaticBackupService';
+import { indexedDBService } from './services/indexedDBService';
 import { lazyWithPreload, preloadWhenIdle } from './utils/lazyWithPreload';
+import { AccessibilityAuditOverlay } from './hooks/useAccessibilityAudit';
+import { initSafariCompat } from './utils/safariCompat';
+import DiagnosticReport from './DiagnosticReport';
 
 // Lazy load all pages for code splitting with preload support
 const Welcome = lazyWithPreload(() => import('./pages/Welcome'));
@@ -27,6 +31,8 @@ const Budget = lazyWithPreload(() => import('./pages/Budget'));
 const Goals = lazyWithPreload(() => import('./pages/Goals'));
 const Analytics = lazyWithPreload(() => import('./pages/Analytics'));
 const AdvancedAnalytics = lazyWithPreload(() => import('./pages/AdvancedAnalytics'));
+const AIFeatures = lazyWithPreload(() => import('./pages/AIFeatures'));
+const CustomReports = lazyWithPreload(() => import('./pages/CustomReports'));
 const TaxPlanning = lazyWithPreload(() => import('./pages/TaxPlanning'));
 const SettingsPage = lazyWithPreload(() => import('./pages/Settings'));
 const AppSettings = lazyWithPreload(() => import('./pages/settings/AppSettings'));
@@ -35,6 +41,8 @@ const Categories = lazyWithPreload(() => import('./pages/settings/Categories'));
 const Tags = lazyWithPreload(() => import('./pages/settings/Tags'));
 const SecuritySettings = lazyWithPreload(() => import('./pages/settings/SecuritySettings'));
 const AuditLogs = lazyWithPreload(() => import('./pages/settings/AuditLogs'));
+const Notifications = lazyWithPreload(() => import('./pages/settings/Notifications'));
+const AccessibilityDashboard = lazyWithPreload(() => import('./components/AccessibilityDashboard'));
 const AccountTransactions = lazyWithPreload(() => import('./pages/AccountTransactions'));
 const FinancialSummaries = lazyWithPreload(() => import('./pages/FinancialSummaries'));
 const EnhancedInvestments = lazyWithPreload(() => import('./pages/EnhancedInvestments'));
@@ -52,11 +60,37 @@ const Performance = lazyWithPreload(() => import('./pages/Performance'));
 
 function App(): React.JSX.Element {
   useEffect(() => {
+    // Initialize Safari compatibility fixes
+    const initApp = async () => {
+      // Check Safari compatibility first
+      const safariCompat = await initSafariCompat();
+      if (safariCompat.safari) {
+        console.log('Safari compatibility mode:', safariCompat);
+      }
+    };
+    
+    initApp();
+    
+    // Simplified storage check - don't auto-clear
+    console.log('App starting with clean storage');
+    
     // Preload common merchant logos in the background
     merchantLogoService.preloadCommonLogos();
     
     // Initialize performance monitoring
     performanceService.init();
+    
+    // Initialize automatic backups
+    automaticBackupService.initializeBackups();
+    
+    // Handle service worker messages
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data.type === 'perform-backup') {
+          automaticBackupService.performBackup();
+        }
+      });
+    }
     
     // Preload commonly accessed routes when browser is idle
     preloadWhenIdle(Dashboard);
@@ -68,12 +102,11 @@ function App(): React.JSX.Element {
   return (
     <ErrorBoundary>
       <SentryErrorBoundary fallback={(errorData) => <ErrorFallback error={errorData.error as Error} resetError={errorData.resetError} />} showDialog>
-        <PreferencesProvider>
+        <CombinedProvider>
           <ThemeProvider>
             <AppProvider>
               <NotificationProvider>
-                <LayoutProvider>
-                  <ReduxMigrationWrapper>
+                <ReduxMigrationWrapper>
                   <Router>
                     <Routes>
                       <Route path="/" element={<Layout />}>
@@ -140,6 +173,16 @@ function App(): React.JSX.Element {
                   <Route path="ai-analytics" element={
                     <Suspense fallback={<PageLoader />}>
                       <AdvancedAnalytics />
+                    </Suspense>
+                  } />
+                  <Route path="ai-features" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <AIFeatures />
+                    </Suspense>
+                  } />
+                  <Route path="custom-reports" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <CustomReports />
                     </Suspense>
                   } />
                   <Route path="tax-planning" element={
@@ -233,6 +276,11 @@ function App(): React.JSX.Element {
                         <Tags />
                       </Suspense>
                     } />
+                    <Route path="notifications" element={
+                      <Suspense fallback={<PageLoader />}>
+                        <Notifications />
+                      </Suspense>
+                    } />
                     <Route path="security" element={
                       <Suspense fallback={<PageLoader />}>
                         <SecuritySettings />
@@ -243,17 +291,26 @@ function App(): React.JSX.Element {
                         <AuditLogs />
                       </Suspense>
                     } />
+                    <Route path="accessibility" element={
+                      <Suspense fallback={<PageLoader />}>
+                        <AccessibilityDashboard />
+                      </Suspense>
+                    } />
                   </Route>
+                  <Route path="diagnostics" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <DiagnosticReport />
+                    </Suspense>
+                  } />
                         <Route path="forecasting" element={<Navigate to="/budget" replace />} />
                       </Route>
                     </Routes>
                   </Router>
                   </ReduxMigrationWrapper>
-                </LayoutProvider>
           </NotificationProvider>
           </AppProvider>
         </ThemeProvider>
-      </PreferencesProvider>
+      </CombinedProvider>
       </SentryErrorBoundary>
     </ErrorBoundary>
   );

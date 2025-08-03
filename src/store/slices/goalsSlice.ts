@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import type { Goal } from '../../types';
 import { storageAdapter } from '../../services/storageAdapter';
+import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
 
 interface GoalsState {
   goals: Goal[];
@@ -44,8 +45,8 @@ const goalsSlice = createSlice({
       const newGoal: Goal = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: getCurrentISOString(),
+        updatedAt: getCurrentISOString(),
       };
       state.goals.push(newGoal);
     },
@@ -55,7 +56,7 @@ const goalsSlice = createSlice({
         state.goals[index] = {
           ...state.goals[index],
           ...action.payload.updates,
-          updatedAt: new Date(),
+          updatedAt: getCurrentISOString(),
         };
       }
     },
@@ -66,7 +67,7 @@ const goalsSlice = createSlice({
       const goal = state.goals.find(g => g.id === action.payload.id);
       if (goal) {
         goal.currentAmount = action.payload.currentAmount;
-        goal.updatedAt = new Date();
+        goal.updatedAt = getCurrentISOString();
       }
     },
   },
@@ -99,5 +100,7 @@ export const {
   deleteGoal,
   updateGoalProgress,
 } = goalsSlice.actions;
+
+export { goalsSlice };
 
 export default goalsSlice.reducer;

@@ -4,11 +4,15 @@ import { viteCSPPlugin } from './src/security/csp'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), viteCSPPlugin()],
+  plugins: [
+    react()
+    // CSP plugin temporarily disabled for debugging
+    // process.env.NODE_ENV === 'production' && viteCSPPlugin()
+  ].filter(Boolean),
   server: {
-    host: true, // This will listen on all interfaces
-    port: 5173,
-    strictPort: true,
+    host: true, // Allow external connections
+    port: 8080,
+    strictPort: false,
     open: false
   },
   preview: {

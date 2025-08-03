@@ -5,6 +5,76 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Pull to Refresh Styles */
+.pull-to-refresh {
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Touch Target Optimization */
+@media (hover: none) and (pointer: coarse) {
+  /* Ensure all interactive elements have minimum touch target size */
+  .touch-target,
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="link"],
+  [role="menuitem"],
+  [role="tab"] {
+    position: relative;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  /* For inline elements that can't be resized, expand touch area */
+  a:not(.touch-target-expanded),
+  button:not(.touch-target-expanded) {
+    position: relative;
+  }
+  
+  /* Invisible expanded touch area for small elements */
+  .touch-target-small::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    min-width: 100%;
+    min-height: 100%;
+  }
+  
+  /* Ensure proper spacing between touch targets */
+  .touch-target-spacing > * + * {
+    margin-top: 8px;
+  }
+  
+  /* Touch-friendly form elements */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  select,
+  textarea {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+  
+  /* Touch-friendly checkboxes and radio buttons */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 24px;
+    height: 24px;
+    margin: 10px; /* Total 44px with margin */
+  }
+}
+
 /* Default color values - Blue Theme */
 :root {
   --color-primary: #7ba8d1;
@@ -398,5 +468,102 @@ button.rounded-full:focus-visible,
   .skip-link {
     @apply absolute -top-10 left-4 z-50 bg-[var(--color-primary)] text-white px-4 py-2 rounded-md;
     @apply focus:top-4 transition-all duration-200;
+  }
+  
+  /* Slide up animation */
+  @keyframes slide-up {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+}
+
+/* Additional Accessibility Styles */
+@layer utilities {
+  /* Screen Reader Only Content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  
+  /* Focus visible screen reader content */
+  .focus\:not-sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  /* Focus Visible for Better Keyboard Navigation */
+  :focus-visible {
+    outline: 2px solid #4285f4;
+    outline-offset: 2px;
+  }
+
+  /* Remove default focus styles for mouse users */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* High Contrast Mode Support */
+  @media (prefers-contrast: high) {
+    :focus-visible {
+      outline: 3px solid;
+      outline-offset: 3px;
+    }
+    
+    .border {
+      border-width: 2px;
+    }
+  }
+
+  /* Reduced Motion Support */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Minimum touch target size */
+  .touch-target-min {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Visually hidden but accessible */
+  .visually-hidden {
+    position: absolute !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    height: 1px !important;
+    width: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    border: 0 !important;
   }
 }

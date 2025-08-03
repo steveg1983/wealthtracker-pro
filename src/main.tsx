@@ -5,12 +5,22 @@ import { store } from './store'
 import './index.css'
 import App from './App.tsx'
 import * as serviceWorkerRegistration from './utils/serviceWorkerRegistration'
-import { applyCSPMetaTag, setupCSPReporting } from './security/csp'
+import { initializeSecurity } from './security'
+import { pushNotificationService } from './services/pushNotificationService'
 // import { initSentry } from './lib/sentry'
 
-// Initialize security features
-applyCSPMetaTag();
-setupCSPReporting();
+// Initialize all security features
+initializeSecurity();
+
+// Unregister any existing service worker to fix errors
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(registrations => {
+    for (let registration of registrations) {
+      registration.unregister();
+      console.log('[ServiceWorker] Unregistered:', registration.scope);
+    }
+  });
+}
 
 // Initialize Sentry error tracking
 // try {
@@ -51,28 +61,43 @@ try {
 }
 
 // Register service worker for offline support
+let swRegistration: ServiceWorkerRegistration | null = null;
+
 serviceWorkerRegistration.register({
-  onSuccess: () => {
+  onSuccess: async (registration) => {
+    swRegistration = registration;
     console.log('Service Worker registered successfully');
+    
+    // Store registration globally for React components to access
+    (window as any).swRegistration = registration;
+    
+    // Initialize push notifications
+    try {
+      await pushNotificationService.initialize();
+      console.log('Push notifications initialized');
+    } catch (error) {
+      console.error('Failed to initialize push notifications:', error);
+    }
   },
   onUpdate: (registration) => {
+    swRegistration = registration;
     console.log('New app version available');
-    // Show update notification to user
-    const updateBanner = document.createElement('div');
-    updateBanner.className = 'fixed top-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-    updateBanner.innerHTML = `
-      <div class="flex items-center gap-3">
-        <span>A new version is available!</span>
-        <button onclick="window.location.reload()" class="px-3 py-1 bg-white text-blue-600 rounded hover:bg-blue-50 transition-colors">
-          Update Now
-        </button>
-      </div>
-    `;
-    document.body.appendChild(updateBanner);
     
-    // Remove banner after 10 seconds
-    setTimeout(() => {
-      updateBanner.remove();
-    }, 10000);
+    // Store registration globally for React components to access
+    (window as any).swRegistration = registration;
+    
+    // The ServiceWorkerUpdateNotification component will handle the UI
+    // Dispatch a custom event that React components can listen to
+    window.dispatchEvent(new CustomEvent('sw-update-available', { 
+      detail: { registration } 
+    }));
+  },
+  onOffline: () => {
+    // Dispatch offline event for React components
+    window.dispatchEvent(new Event('app-offline'));
+  },
+  onOnline: () => {
+    // Dispatch online event for React components
+    window.dispatchEvent(new Event('app-online'));
   }
 });

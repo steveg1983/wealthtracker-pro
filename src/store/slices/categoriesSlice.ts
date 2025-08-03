@@ -92,4 +92,6 @@ export const {
   deleteCategory,
 } = categoriesSlice.actions;
 
+export { categoriesSlice };
+
 export default categoriesSlice.reducer;

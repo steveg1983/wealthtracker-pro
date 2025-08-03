@@ -2,6 +2,7 @@ import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import Decimal from 'decimal.js';
 import type { Account } from '../../types';
 import { storageAdapter } from '../../services/storageAdapter';
+import { getCurrentISOString } from '../../utils/dateHelpers';
 
 interface AccountsState {
   accounts: Account[];
@@ -45,8 +46,8 @@ const accountsSlice = createSlice({
       const newAccount: Account = {
         ...action.payload,
         id: crypto.randomUUID(),
-        lastUpdated: new Date(),
-        updatedAt: new Date(),
+        lastUpdated: getCurrentISOString(),
+        updatedAt: getCurrentISOString(),
       };
       state.accounts.push(newAccount);
     },
@@ -56,7 +57,7 @@ const accountsSlice = createSlice({
         state.accounts[index] = {
           ...state.accounts[index],
           ...action.payload.updates,
-          updatedAt: new Date(),
+          updatedAt: getCurrentISOString(),
         };
       }
     },
@@ -67,7 +68,7 @@ const accountsSlice = createSlice({
       const account = state.accounts.find(acc => acc.id === action.payload.id);
       if (account) {
         account.balance = action.payload.balance;
-        account.updatedAt = new Date();
+        account.updatedAt = getCurrentISOString();
       }
     },
     recalculateAllBalances: (state, action: PayloadAction<any[]>) => {
@@ -106,4 +107,5 @@ export const {
   recalculateAllBalances,
 } = accountsSlice.actions;
 
+export { accountsSlice };
 export default accountsSlice.reducer;

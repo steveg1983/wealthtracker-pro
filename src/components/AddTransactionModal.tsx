@@ -4,6 +4,7 @@ import { PlusIcon } from '../components/icons';
 import CategoryCreationModal from './CategoryCreationModal';
 import { getCurrencySymbol } from '../utils/currency';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { ResponsiveModal } from './ResponsiveModal';
 import { useModalForm } from '../hooks/useModalForm';
 import MarkdownEditor from './MarkdownEditor';
 import { ValidationService } from '../services/validationService';
@@ -90,9 +91,16 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
 
   return (
     <>
-      <Modal isOpen={isOpen} onClose={onClose} title="Add Transaction" size="md">
+      <ResponsiveModal 
+        isOpen={isOpen} 
+        onClose={onClose} 
+        title="Add Transaction" 
+        size="md"
+        mobileSnapPoints={[0.5, 0.9]}
+        mobileInitialSnapPoint={1}
+      >
         <form onSubmit={handleSubmit}>
-          <ModalBody>
+          <div className="p-4 md:p-6">
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -313,8 +321,8 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               </div>
             )}
           </div>
-          </ModalBody>
-          <ModalFooter>
+          </div>
+          <div className="border-t border-gray-200 dark:border-gray-700 p-4 md:p-6">
             <div className="flex gap-3 w-full">
               <button
                 type="button"
@@ -330,9 +338,9 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 Add Transaction
               </button>
             </div>
-          </ModalFooter>
+          </div>
         </form>
-      </Modal>
+      </ResponsiveModal>
 
         {/* Category Creation Modal */}
         <CategoryCreationModal

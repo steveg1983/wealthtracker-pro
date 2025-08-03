@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Cache - WealthTracker</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .success {
+            color: green;
+            margin-top: 10px;
+        }
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+        .log {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Clear Cache & Service Worker</h1>
+    <p>Use this page to clear all cached data and reset the service worker.</p>
+    
+    <div>
+        <button onclick="clearAll()">Clear Everything</button>
+        <button onclick="unregisterSW()">Unregister Service Worker Only</button>
+        <button onclick="clearCaches()">Clear Caches Only</button>
+    </div>
+    
+    <div id="status"></div>
+    <div id="log" class="log"></div>
+    
+    <script>
+        const status = document.getElementById('status');
+        const log = document.getElementById('log');
+        
+        function addLog(message) {
+            log.textContent += message + '\n';
+            console.log(message);
+        }
+        
+        async function clearAll() {
+            status.innerHTML = '';
+            log.textContent = '';
+            
+            try {
+                addLog('Starting full cleanup...');
+                
+                // Clear localStorage
+                localStorage.clear();
+                addLog('✓ Cleared localStorage');
+                
+                // Clear sessionStorage
+                sessionStorage.clear();
+                addLog('✓ Cleared sessionStorage');
+                
+                // Clear IndexedDB
+                const databases = await indexedDB.databases();
+                for (const db of databases) {
+                    await indexedDB.deleteDatabase(db.name);
+                    addLog(`✓ Deleted IndexedDB: ${db.name}`);
+                }
+                
+                // Unregister service workers
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                        await registration.unregister();
+                        addLog(`✓ Unregistered service worker: ${registration.scope}`);
+                    }
+                }
+                
+                // Clear all caches
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    for (const name of cacheNames) {
+                        await caches.delete(name);
+                        addLog(`✓ Deleted cache: ${name}`);
+                    }
+                }
+                
+                status.innerHTML = '<div class="success">✓ All data cleared successfully! Please refresh the page.</div>';
+                
+                // Reload after a delay
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 2000);
+                
+            } catch (error) {
+                status.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                addLog(`✗ Error: ${error.message}`);
+            }
+        }
+        
+        async function unregisterSW() {
+            status.innerHTML = '';
+            log.textContent = '';
+            
+            try {
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                        await registration.unregister();
+                        addLog(`✓ Unregistered service worker: ${registration.scope}`);
+                    }
+                    status.innerHTML = '<div class="success">✓ Service workers unregistered!</div>';
+                } else {
+                    status.innerHTML = '<div class="error">Service workers not supported</div>';
+                }
+            } catch (error) {
+                status.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                addLog(`✗ Error: ${error.message}`);
+            }
+        }
+        
+        async function clearCaches() {
+            status.innerHTML = '';
+            log.textContent = '';
+            
+            try {
+                if ('caches' in window) {
+                    const cacheNames = await caches.keys();
+                    for (const name of cacheNames) {
+                        await caches.delete(name);
+                        addLog(`✓ Deleted cache: ${name}`);
+                    }
+                    status.innerHTML = '<div class="success">✓ All caches cleared!</div>';
+                } else {
+                    status.innerHTML = '<div class="error">Caches API not supported</div>';
+                }
+            } catch (error) {
+                status.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                addLog(`✗ Error: ${error.message}`);
+            }
+        }
+        
+        // Show current status on load
+        window.addEventListener('load', async () => {
+            addLog('Current status:');
+            
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                addLog(`Service workers registered: ${registrations.length}`);
+                registrations.forEach(reg => {
+                    addLog(`  - ${reg.scope} (${reg.active ? 'active' : 'inactive'})`);
+                });
+            }
+            
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                addLog(`Caches: ${cacheNames.length}`);
+                cacheNames.forEach(name => {
+                    addLog(`  - ${name}`);
+                });
+            }
+        });
+    </script>
+</body>
+</html>

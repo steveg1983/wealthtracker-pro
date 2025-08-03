@@ -63,6 +63,15 @@ export interface Transaction {
   accountName?: string;
   recurringTransactionId?: string;
   addedBy?: string; // Member ID who added this transaction
+  // Investment-specific fields
+  investmentData?: {
+    symbol?: string;
+    quantity?: number;
+    pricePerShare?: number;
+    transactionFee?: number;
+    stampDuty?: number;
+    totalCost?: number;
+  };
 }
 
 export interface Budget {

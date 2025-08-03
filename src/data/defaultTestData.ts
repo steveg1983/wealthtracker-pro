@@ -36,6 +36,23 @@ const PORTFOLIO_PRICES = {
   'CTY': { symbol: 'CTY', name: 'City of London Investment Trust', price: 4.25 }
 };
 
+// Helper function to convert investments to holdings
+const convertInvestmentsToHoldings = (investments: Investment[]): Holding[] => {
+  return investments.map(inv => ({
+    ticker: inv.symbol,
+    name: inv.name,
+    shares: inv.quantity,
+    value: inv.quantity * inv.purchasePrice,
+    averageCost: inv.averageCost || inv.purchasePrice,
+    currentPrice: inv.currentPrice,
+    marketValue: inv.currentValue,
+    gain: inv.currentValue - (inv.quantity * inv.purchasePrice),
+    gainPercent: ((inv.currentValue - (inv.quantity * inv.purchasePrice)) / (inv.quantity * inv.purchasePrice)) * 100,
+    currency: 'GBP',
+    lastUpdated: inv.lastUpdated
+  }));
+};
+
 export const getDefaultTestAccounts = (): Account[] => {
   return [
     // Current Accounts
@@ -144,7 +161,8 @@ export const getDefaultTestAccounts = (): Account[] => {
       institution: 'Hargreaves Lansdown',
       lastUpdated: new Date(),
       openingBalance: 0,
-      openingBalanceDate: ACCOUNT_OPENING_DATE
+      openingBalanceDate: ACCOUNT_OPENING_DATE,
+      holdings: convertInvestmentsToHoldings(getDefaultTestInvestments().filter(inv => inv.accountId === '9'))
     },
     {
       id: '10',
@@ -470,15 +488,29 @@ export const getDefaultTestTransactions = (): Transaction[] => {
   // Investment purchases for SIPP on 01/07/2024
   const investments = getDefaultTestInvestments();
   investments.forEach(inv => {
+    const baseCost = inv.quantity * inv.purchasePrice;
+    // Add typical UK transaction fees and stamp duty (0.5% for UK shares)
+    const transactionFee = 24.95; // Typical broker fee
+    const stampDuty = inv.symbol.endsWith('.L') ? baseCost * 0.005 : 0; // 0.5% stamp duty for UK shares
+    const totalCost = baseCost + transactionFee + stampDuty;
+    
     transactions.push({
       id: `t${transactionId++}`,
       date: setupDate,
       description: `Buy ${inv.quantity} ${inv.symbol}`,
-      amount: inv.quantity * inv.purchasePrice,
+      amount: -totalCost,
       type: 'expense',
       category: 'Investments',
       accountId: inv.accountId,
-      cleared: true
+      cleared: true,
+      investmentData: {
+        symbol: inv.symbol,
+        quantity: inv.quantity,
+        pricePerShare: inv.purchasePrice,
+        transactionFee: transactionFee,
+        stampDuty: stampDuty,
+        totalCost: totalCost
+      }
     });
   });
   

@@ -24,6 +24,14 @@ export function recalculateAccountBalances(
       }
     });
     
+    // For investment accounts, add the value of holdings
+    if (account.type === 'investment' && account.holdings) {
+      const holdingsValue = account.holdings.reduce((total, holding) => {
+        return total + (holding.marketValue || holding.value || 0);
+      }, 0);
+      balance += holdingsValue;
+    }
+    
     return {
       ...account,
       balance: Math.round(balance * 100) / 100, // Round to 2 decimal places

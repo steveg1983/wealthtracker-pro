@@ -22,7 +22,9 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       nonce ? `'nonce-${nonce}'` : '',
       "'strict-dynamic'", // Allow scripts loaded by trusted scripts
       'https:', // For CDNs in production
-      process.env.NODE_ENV === 'development' ? "'unsafe-inline'" : '', // Only for dev
+      // @ts-ignore - Safari compatibility
+      (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'development') ? "'unsafe-inline'" : '', // Only for dev
+      "'unsafe-eval'", // Required for service worker registration in some cases
     ].filter(Boolean),
     
     // Styles: self, inline (for styled components), and trusted CDNs
@@ -66,6 +68,12 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
     
     // Frame ancestors: none (prevent clickjacking)
     'frame-ancestors': ["'none'"],
+    
+    // Worker sources: self and blob for service workers
+    'worker-src': [
+      "'self'",
+      'blob:',
+    ],
     
     // Base URI: self only
     'base-uri': ["'self'"],
@@ -138,6 +146,8 @@ export const getSecurityHeaders = (): Record<string, string> => {
 
 // Apply CSP meta tag to document (for client-side enforcement)
 export const applyCSPMetaTag = (): void => {
+  if (typeof document === 'undefined') return;
+  
   // Remove any existing CSP meta tags
   const existingCSP = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
   if (existingCSP) {
@@ -153,8 +163,8 @@ export const applyCSPMetaTag = (): void => {
 
 // Check for CSP violations and report them
 export const setupCSPReporting = (): void => {
-  if ('SecurityPolicyViolationEvent' in window) {
-    document.addEventListener('securitypolicyviolation', (e) => {
+  if (typeof window !== 'undefined' && 'SecurityPolicyViolationEvent' in window && typeof document !== 'undefined') {
+    document.addEventListener('securitypolicyviolation', (e: SecurityPolicyViolationEvent) => {
       console.error('CSP Violation:', {
         blockedURI: e.blockedURI,
         violatedDirective: e.violatedDirective,
@@ -169,7 +179,9 @@ export const setupCSPReporting = (): void => {
       });
 
       // In production, you might want to send this to a logging service
-      if (process.env.NODE_ENV === 'production') {
+      // @ts-ignore - Safari compatibility
+      const isProduction = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'production';
+      if (isProduction) {
         // Example: Send to logging service
         // logService.logCSPViolation({...});
       }
@@ -182,7 +194,7 @@ export const viteCSPPlugin = () => {
   return {
     name: 'csp-header',
     configureServer(server: any) {
-      server.middlewares.use((req: any, res: any, next: any) => {
+      server.middlewares.use((_req: any, res: any, next: any) => {
         const nonce = generateNonce();
         const cspHeader = getCSPHeader(nonce);
         const securityHeaders = getSecurityHeaders();
@@ -206,7 +218,7 @@ export const viteCSPPlugin = () => {
 };
 
 // Express/Node.js middleware for production
-export const cspMiddleware = (req: any, res: any, next: any) => {
+export const cspMiddleware = (_req: any, res: any, next: any) => {
   const nonce = generateNonce();
   const cspHeader = getCSPHeader(nonce);
   const securityHeaders = getSecurityHeaders();

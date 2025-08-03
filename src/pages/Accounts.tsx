@@ -257,6 +257,25 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                             {account.openingBalanceDate && ` on ${new Date(account.openingBalanceDate).toLocaleDateString()}`}
                           </p>
                         )}
+                        {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
+                          <div className="text-xs text-gray-500 dark:text-gray-300 mt-1 space-y-1">
+                            <p>
+                              Cash Balance: {formatDisplayCurrency(
+                                account.balance - account.holdings.reduce((sum, h) => sum + (h.marketValue || h.value || 0), 0), 
+                                account.currency
+                              )}
+                            </p>
+                            <p>
+                              Holdings Value: {formatDisplayCurrency(
+                                account.holdings.reduce((sum, h) => sum + (h.marketValue || h.value || 0), 0), 
+                                account.currency
+                              )} ({account.holdings.length} positions)
+                            </p>
+                            <p className="font-medium">
+                              Total Value: {formatDisplayCurrency(account.balance, account.currency)}
+                            </p>
+                          </div>
+                        )}
                       </div>
                       
                       <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3">

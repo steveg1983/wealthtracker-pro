@@ -1,4 +1,4 @@
-import { Settings2Icon, DatabaseIcon, TagIcon, HashIcon, PaletteIcon } from '../components/icons';
+import { Settings2Icon, DatabaseIcon, TagIcon, HashIcon, PaletteIcon, BellIcon, EyeIcon } from '../components/icons';
 import { Link } from 'react-router-dom';
 import PageWrapper from '../components/PageWrapper';
 
@@ -31,6 +31,20 @@ export default function Settings() {
       icon: HashIcon,
       path: '/settings/tags',
       color: 'bg-purple-500'
+    },
+    {
+      title: 'Notifications',
+      description: 'Configure push notifications and alerts',
+      icon: BellIcon,
+      path: '/settings/notifications',
+      color: 'bg-indigo-500'
+    },
+    {
+      title: 'Accessibility',
+      description: 'Monitor and improve accessibility compliance',
+      icon: EyeIcon,
+      path: '/settings/accessibility',
+      color: 'bg-pink-500'
     }
   ];
 

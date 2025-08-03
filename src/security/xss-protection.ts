@@ -297,9 +297,11 @@ export const useSanitizedInput = (initialValue: string = '', type: 'text' | 'htm
 // Set up DOMPurify hooks for additional security
 if (typeof window !== 'undefined') {
   // Add a hook to log all sanitization operations in development
-  if (process.env.NODE_ENV === 'development') {
+  // @ts-ignore - Safari compatibility
+  const isDevelopment = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'development';
+  if (isDevelopment) {
     DOMPurify.addHook('beforeSanitizeElements', (node, data, config) => {
-      if (data.tagName && ['script', 'iframe', 'object', 'embed'].includes(data.tagName)) {
+      if (data && data.tagName && ['script', 'iframe', 'object', 'embed'].includes(data.tagName)) {
         console.warn('DOMPurify blocked dangerous element:', data.tagName);
       }
     });

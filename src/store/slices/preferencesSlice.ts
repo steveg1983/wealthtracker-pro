@@ -113,4 +113,6 @@ export const {
   updatePreferences,
 } = preferencesSlice.actions;
 
+export { preferencesSlice };
+
 export default preferencesSlice.reducer;

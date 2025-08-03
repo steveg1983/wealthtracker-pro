@@ -4,8 +4,8 @@ import { useNotifications } from '../contexts/NotificationContext';
 import {
   ShieldIcon,
   ClockIcon,
-  HardDriveIcon,
-  CloudIcon,
+  SaveIcon as HardDriveIcon,
+  DatabaseIcon as CloudIcon,
   DownloadIcon,
   TrashIcon,
   CheckCircleIcon,

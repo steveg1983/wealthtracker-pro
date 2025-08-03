@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import type { Budget } from '../../types';
 import { storageAdapter } from '../../services/storageAdapter';
+import { getCurrentISOString } from '../../utils/dateHelpers';
 
 interface BudgetsState {
   budgets: Budget[];
@@ -44,8 +45,8 @@ const budgetsSlice = createSlice({
       const newBudget: Budget = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: getCurrentISOString(),
+        updatedAt: getCurrentISOString(),
       };
       state.budgets.push(newBudget);
     },
@@ -55,7 +56,7 @@ const budgetsSlice = createSlice({
         state.budgets[index] = {
           ...state.budgets[index],
           ...action.payload.updates,
-          updatedAt: new Date(),
+          updatedAt: getCurrentISOString(),
         };
       }
     },
@@ -66,7 +67,7 @@ const budgetsSlice = createSlice({
       const budget = state.budgets.find(b => b.id === action.payload.id);
       if (budget) {
         budget.spent = action.payload.spent;
-        budget.updatedAt = new Date();
+        budget.updatedAt = getCurrentISOString();
       }
     },
   },
@@ -99,5 +100,7 @@ export const {
   deleteBudget,
   updateBudgetSpent,
 } = budgetsSlice.actions;
+
+export { budgetsSlice };
 
 export default budgetsSlice.reducer;

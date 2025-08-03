@@ -1,4 +1,4 @@
-// Service Worker Registration
+// Service Worker Registration with enhanced update handling
 
 const isLocalhost = Boolean(
   window.location.hostname === 'localhost' ||
@@ -11,19 +11,40 @@ const isLocalhost = Boolean(
 interface Config {
   onSuccess?: (registration: ServiceWorkerRegistration) => void;
   onUpdate?: (registration: ServiceWorkerRegistration) => void;
+  onOffline?: () => void;
+  onOnline?: () => void;
 }
 
+// Store registration for external access
+let swRegistration: ServiceWorkerRegistration | null = null;
+
 export function register(config?: Config): void {
+  // Temporarily disable service worker to fix errors
+  console.log('[ServiceWorker] Registration disabled temporarily');
+  return;
+  
   if ('serviceWorker' in navigator) {
     // The URL constructor is available in all browsers that support SW.
-    const publicUrl = new URL(process.env.PUBLIC_URL || '', window.location.href);
+    // Safari compatibility: use fallback for import.meta.env
+    let baseUrl = '/';
+    try {
+      // @ts-ignore - Safari might not support import.meta.env
+      if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) {
+        baseUrl = import.meta.env.BASE_URL;
+      }
+    } catch (e) {
+      console.warn('Failed to access import.meta.env.BASE_URL, using default');
+    }
+    
+    const publicUrl = new URL(baseUrl, window.location.href);
     if (publicUrl.origin !== window.location.origin) {
       // Our service worker won't work if PUBLIC_URL is on a different origin
       return;
     }
 
     window.addEventListener('load', () => {
-      const swUrl = `${process.env.PUBLIC_URL || ''}/service-worker-enhanced.js`;
+      // Use the new TypeScript service worker
+      const swUrl = `${baseUrl}service-worker.js`;
 
       if (isLocalhost) {
         // This is running on localhost. Check if a service worker still exists or not.
@@ -40,6 +61,14 @@ export function register(config?: Config): void {
         registerValidSW(swUrl, config);
       }
     });
+
+    // Set up online/offline event listeners
+    if (config?.onOffline) {
+      window.addEventListener('offline', config.onOffline);
+    }
+    if (config?.onOnline) {
+      window.addEventListener('online', config.onOnline);
+    }
   }
 }
 
@@ -47,6 +76,13 @@ function registerValidSW(swUrl: string, config?: Config): void {
   navigator.serviceWorker
     .register(swUrl)
     .then((registration) => {
+      swRegistration = registration;
+      
+      // Check for updates periodically
+      setInterval(() => {
+        registration.update();
+      }, 60 * 60 * 1000); // Check every hour
+      
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
         if (installingWorker == null) {
@@ -78,6 +114,23 @@ function registerValidSW(swUrl: string, config?: Config): void {
           }
         };
       };
+      
+      // Handle messages from service worker
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        const { type, data } = event.data;
+        
+        switch (type) {
+          case 'sync-success':
+            console.log('Data synced successfully:', data);
+            break;
+          case 'accounts-updated':
+            console.log('Accounts updated in background:', data);
+            break;
+          case 'sync-status':
+            console.log('Sync status:', data);
+            break;
+        }
+      });
     })
     .catch((error) => {
       console.error('Error during service worker registration:', error);
@@ -121,5 +174,76 @@ export function unregister(): void {
       .catch((error) => {
         console.error(error.message);
       });
+  }
+}
+
+// Get the current service worker registration
+export function getRegistration(): ServiceWorkerRegistration | null {
+  return swRegistration;
+}
+
+// Manually check for updates
+export function checkForUpdates(): Promise<void> {
+  if (swRegistration) {
+    return swRegistration.update();
+  }
+  return Promise.reject(new Error('No service worker registration found'));
+}
+
+// Skip waiting and activate new service worker
+export function skipWaiting(): void {
+  if (swRegistration?.waiting) {
+    swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    
+    // Reload the page when the new service worker is activated
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      window.location.reload();
+    });
+  }
+}
+
+// Clear all caches
+export function clearCaches(): Promise<void> {
+  if ('caches' in window) {
+    return caches.keys().then((names) => {
+      return Promise.all(names.map(name => caches.delete(name)));
+    }).then(() => {
+      console.log('All caches cleared');
+    });
+  }
+  return Promise.resolve();
+}
+
+// Get sync status from service worker
+export function getSyncStatus(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.serviceWorker.controller) {
+      reject(new Error('No active service worker'));
+      return;
+    }
+    
+    const channel = new MessageChannel();
+    channel.port1.onmessage = (event) => {
+      resolve(event.data);
+    };
+    
+    navigator.serviceWorker.controller.postMessage(
+      { type: 'GET_SYNC_STATUS' },
+      [channel.port2]
+    );
+  });
+}
+
+// Force sync of offline data
+export function forceSyncData(): void {
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'FORCE_SYNC' });
+  }
+}
+
+// Enable offline mode (pre-cache essential data)
+export function enableOfflineMode(): void {
+  if (navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage({ type: 'ENABLE_OFFLINE_MODE' });
   }
 }

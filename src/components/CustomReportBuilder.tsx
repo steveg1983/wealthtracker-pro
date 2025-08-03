@@ -7,7 +7,7 @@ import {
   BarChart3Icon,
   PieChartIcon,
   LineChartIcon,
-  TableIcon,
+  GridIcon,
   FileTextIcon,
   TrendingUpIcon,
   DollarSignIcon,
@@ -111,7 +111,7 @@ const COMPONENT_CATALOG: Array<{
     type: 'table',
     name: 'Data Table',
     description: 'Detailed tabular data',
-    icon: TableIcon,
+    icon: GridIcon,
     defaultConfig: {
       dataType: 'top-transactions',
       limit: 20,

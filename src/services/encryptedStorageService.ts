@@ -91,7 +91,7 @@ class EncryptedStorageService {
       storedData.expiry = Date.now() + (expiryDays * 24 * 60 * 60 * 1000);
     }
 
-    await indexedDBService.put(this.storeName, key, storedData);
+    await indexedDBService.put(this.storeName, { key, ...storedData });
   }
 
   // Retrieve data from IndexedDB
@@ -186,6 +186,7 @@ class EncryptedStorageService {
       const data = localStorage.getItem(key);
       if (data) {
         try {
+          // Try to parse as JSON first
           const parsedData = JSON.parse(data);
           migrationItems.push({
             key,
@@ -193,7 +194,14 @@ class EncryptedStorageService {
             options: { encrypted: true }
           });
         } catch (error) {
-          console.error(`Failed to parse localStorage data for key ${key}:`, error);
+          // If parsing fails, it might be a raw string value (like 'light' or 'blue')
+          // Store it as-is
+          migrationItems.push({
+            key,
+            value: data,
+            options: { encrypted: true }
+          });
+          console.warn(`Migrating non-JSON value for key ${key}: "${data}"`);
         }
       }
     }

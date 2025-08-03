@@ -171,9 +171,20 @@ class ErrorHandlingService {
   private getUserMessage(error: Error | string, category?: ErrorCategory): string {
     const baseMessage = error instanceof Error ? error.message : error;
 
+    // Check for specific API connection errors
+    if (baseMessage.toLowerCase().includes('failed to fetch') || 
+        baseMessage.toLowerCase().includes('network') ||
+        baseMessage.toLowerCase().includes('offline')) {
+      return 'The app is running in local-only mode. All data is stored in your browser.';
+    }
+
     switch (category) {
       case ErrorCategory.NETWORK:
-        return 'Network connection error. Please check your internet connection and try again.';
+        // Check if this is a local API connection issue
+        if (baseMessage.includes('localhost') || baseMessage.includes('127.0.0.1')) {
+          return 'No backend server detected. The app is working in local-only mode.';
+        }
+        return 'Network connection error. The app will continue to work offline.';
       case ErrorCategory.VALIDATION:
         return `Invalid data: ${baseMessage}`;
       case ErrorCategory.STORAGE:
@@ -185,7 +196,11 @@ class ErrorHandlingService {
       case ErrorCategory.AUTHORIZATION:
         return 'You don\'t have permission to perform this action.';
       case ErrorCategory.INTEGRATION:
-        return 'External service error. Please try again later.';
+        // Check if this is a banking API issue
+        if (baseMessage.includes('bank') || baseMessage.includes('plaid')) {
+          return 'Bank connection service unavailable. Manual account management is still available.';
+        }
+        return 'External service unavailable. Core features remain functional.';
       default:
         return 'An unexpected error occurred. Please try again.';
     }

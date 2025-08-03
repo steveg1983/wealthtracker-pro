@@ -1,6 +1,6 @@
 import React, { ReactNode } from 'react';
 import { MobileBottomSheet } from './MobileBottomSheet';
-import Modal from './common/Modal';
+import { Modal } from './common/Modal';
 
 interface ResponsiveModalProps {
   isOpen: boolean;

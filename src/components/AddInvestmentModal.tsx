@@ -20,6 +20,7 @@ interface FormData {
   units: string;
   pricePerUnit: string;
   fees: string;
+  stampDuty: string;
   date: string;
   notes: string;
 }
@@ -37,6 +38,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
       units: '',
       pricePerUnit: '',
       fees: '',
+      stampDuty: '',
       date: new Date().toISOString().split('T')[0],
       notes: ''
     },
@@ -50,7 +52,8 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
         const unitsNum = parseFloat(data.units) || 0;
         const priceNum = parseFloat(data.pricePerUnit) || 0;
         const feesNum = parseFloat(data.fees) || 0;
-        const total = unitsNum * priceNum + feesNum;
+        const stampDutyNum = parseFloat(data.stampDuty) || 0;
+        const total = unitsNum * priceNum + feesNum + stampDutyNum;
         const account = accounts.find(a => a.id === data.selectedAccountId);
         
         // Create the investment transaction
@@ -62,18 +65,27 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
           `Stock Code: ${data.stockCode || 'N/A'}`,
           `Units: ${data.units}`,
           `Price per unit: ${data.pricePerUnit}`,
-          `Fees: ${data.fees || '0'}`
+          `Transaction Fee: ${data.fees || '0'}`,
+          `Stamp Duty: ${data.stampDuty || '0'}`
         ].join('\n');
         
         addTransaction({
           date: new Date(data.date),
           description,
-          amount: total,
+          amount: -total,
           type: 'expense',
           category: 'cat-27', // Investment category
           accountId: data.selectedAccountId,
           notes: data.notes ? `${structuredNotes}\n\nAdditional Notes: ${data.notes}` : structuredNotes,
-          tags: ['investment', data.investmentType, data.stockCode].filter(Boolean)
+          tags: ['investment', data.investmentType, data.stockCode].filter(Boolean),
+          investmentData: {
+            symbol: data.stockCode,
+            quantity: unitsNum,
+            pricePerShare: priceNum,
+            transactionFee: feesNum,
+            stampDuty: stampDutyNum,
+            totalCost: total
+          }
         });
       },
       onClose
@@ -94,6 +106,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
         units: '',
         pricePerUnit: '',
         fees: '',
+        stampDuty: '',
         date: new Date().toISOString().split('T')[0],
         notes: ''
       });
@@ -105,7 +118,8 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
     const unitsNum = parseFloat(formData.units) || 0;
     const priceNum = parseFloat(formData.pricePerUnit) || 0;
     const feesNum = parseFloat(formData.fees) || 0;
-    return unitsNum * priceNum + feesNum;
+    const stampDutyNum = parseFloat(formData.stampDuty) || 0;
+    return unitsNum * priceNum + feesNum + stampDutyNum;
   };
   
   
@@ -235,16 +249,31 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
               />
             </div>
             
-            {/* Fees */}
+            {/* Transaction Fee */}
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Other Fees/Costs ({currencySymbol})
+                Transaction Fee ({currencySymbol})
               </label>
               <input
                 type="number"
                 step="0.01"
                 value={formData.fees}
                 onChange={(e) => updateField('fees', e.target.value)}
+                placeholder="0.00"
+                className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+              />
+            </div>
+            
+            {/* Stamp Duty */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Stamp Duty/Levy ({currencySymbol})
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                value={formData.stampDuty}
+                onChange={(e) => updateField('stampDuty', e.target.value)}
                 placeholder="0.00"
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               />
@@ -273,11 +302,24 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                 {formatCurrency(calculateTotal(), selectedAccount?.currency || 'GBP')}
               </span>
             </div>
-            {formData.fees && parseFloat(formData.fees) > 0 && (
-              <div className="flex justify-between items-center mt-1 text-sm">
-                <span className="text-gray-500 dark:text-gray-400">
-                  ({formData.units || '0'} × {currencySymbol}{formData.pricePerUnit || '0'} + {currencySymbol}{formData.fees} fees)
-                </span>
+            {(formData.units && formData.pricePerUnit) && (
+              <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 space-y-1">
+                <div className="flex justify-between">
+                  <span>Shares: {formData.units} × {currencySymbol}{formData.pricePerUnit}</span>
+                  <span>{currencySymbol}{(parseFloat(formData.units) * parseFloat(formData.pricePerUnit)).toFixed(2)}</span>
+                </div>
+                {parseFloat(formData.fees) > 0 && (
+                  <div className="flex justify-between">
+                    <span>Transaction Fee:</span>
+                    <span>{currencySymbol}{formData.fees}</span>
+                  </div>
+                )}
+                {parseFloat(formData.stampDuty) > 0 && (
+                  <div className="flex justify-between">
+                    <span>Stamp Duty:</span>
+                    <span>{currencySymbol}{formData.stampDuty}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>

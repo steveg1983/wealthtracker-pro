@@ -106,16 +106,20 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps): Re
   };
 
   const highlightText = (text: string, matches: string[]): React.JSX.Element => {
-    if (!matches.length) return <>{text}</>;
+    // Handle null/undefined text
+    if (!text) return <></>;
+    if (!matches || !matches.length) return <>{text}</>;
     
     // Escape special regex characters in matches
     const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
     let highlightedText = text;
     matches.forEach(match => {
-      const escapedMatch = escapeRegex(match);
-      const regex = new RegExp(`(${escapedMatch})`, 'gi');
-      highlightedText = highlightedText.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">$1</mark>');
+      if (match) { // Ensure match is not null/undefined
+        const escapedMatch = escapeRegex(match);
+        const regex = new RegExp(`(${escapedMatch})`, 'gi');
+        highlightedText = highlightedText.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800 px-1 rounded">$1</mark>');
+      }
     });
     
     // Sanitize the HTML to prevent XSS

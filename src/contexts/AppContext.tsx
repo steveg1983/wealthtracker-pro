@@ -229,6 +229,15 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
 
       } catch (error) {
         console.error('Error loading data:', error);
+        
+        // Provide minimal working state without marking for clear
+        setCategories(getMinimalSystemCategories());
+        setDecimalAccounts([]);
+        setDecimalTransactions([]);
+        setDecimalBudgets([]);
+        setDecimalGoals([]);
+        setTags([]);
+        setDecimalRecurringTransactions([]);
       } finally {
         setIsLoading(false);
       }

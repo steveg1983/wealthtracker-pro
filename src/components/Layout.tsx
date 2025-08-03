@@ -1,20 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
-import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, LightbulbIcon, FileTextIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import OfflineIndicator from './OfflineIndicator';
 import { OfflineStatus } from './OfflineStatus';
 import { SyncConflictResolver } from './SyncConflictResolver';
 import PWAInstallPrompt from './PWAInstallPrompt';
+import ServiceWorkerUpdateNotification from './ServiceWorkerUpdateNotification';
+import { useServiceWorker } from '../hooks/useServiceWorker';
+import { OfflineIndicator as PWAOfflineIndicator } from './pwa/OfflineIndicator';
+import { MobilePullToRefreshWrapper } from './MobilePullToRefreshWrapper';
+import { QuickAddOfflineButton } from './pwa/QuickAddOfflineButton';
+import { ConflictResolutionModal } from './pwa/ConflictResolutionModal';
 import GlobalSearch, { useGlobalSearchDialog } from './GlobalSearch';
 import KeyboardShortcutsHelp, { useKeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import NotificationBell from './NotificationBell';
-import { ThemeSwitcher } from './ThemeSwitcher';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import MobileBottomNav from './MobileBottomNav';
 import { useSwipeGestures, useSwipeNavigation } from '../hooks/useSwipeGestures';
+import ErrorBoundary from './ErrorBoundary';
 
 interface SidebarLinkProps {
   to: string;
@@ -73,8 +79,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
       className={className}
       title={isCollapsed ? label : undefined}
       onClick={handleLinkClick}
-      role="menuitem"
-      aria-label={`Navigate to ${label}`}
+      aria-label={label}
       aria-current={isActive ? 'page' : undefined}
     >
       {content}
@@ -88,8 +93,11 @@ export default function Layout(): React.JSX.Element {
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [accountsExpanded, setAccountsExpanded] = useState(false);
   const [forecastingExpanded, setForecastingExpanded] = useState(false);
+  const [conflictModalOpen, setConflictModalOpen] = useState(false);
+  const [currentConflict, setCurrentConflict] = useState<any>(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const { registration } = useServiceWorker();
   const { 
     showBudget, 
     showGoals, 
@@ -210,38 +218,58 @@ export default function Layout(): React.JSX.Element {
     }
   }, [location.pathname]);
 
+  // Handle conflict resolution modal
+  useEffect(() => {
+    const handleOpenConflictResolver = (event: Event) => {
+      const conflict = (event as CustomEvent).detail;
+      setCurrentConflict(conflict);
+      setConflictModalOpen(true);
+    };
+
+    window.addEventListener('open-conflict-resolver', handleOpenConflictResolver);
+    return () => window.removeEventListener('open-conflict-resolver', handleOpenConflictResolver);
+  }, []);
+
   return (
     <div className="flex h-screen bg-tertiary dark:bg-gray-900">
-      {/* Skip link for screen readers */}
-      <a 
-        href="#main-content" 
-        className="skip-link"
-        tabIndex={1}
-      >
-        Skip to main content
-      </a>
-      {/* Sidebar */}
+      {/* Skip links for keyboard navigation */}
+      <div className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50">
+        <a 
+          href="#main-content" 
+          className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Skip to main content
+        </a>
+        <a 
+          href="#main-navigation" 
+          className="inline-block px-4 py-2 ml-2 bg-blue-600 text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        >
+          Skip to navigation
+        </a>
+      </div>
+      {/* Desktop Sidebar Navigation */}
       <aside
         className={`${
           isSidebarCollapsed ? 'w-14' : 'w-52'
         } bg-sidebar dark:bg-gray-800 shadow-2xl rounded-2xl transition-all duration-300 hidden md:block m-4 h-[calc(100vh-2rem)]`}
-        role="navigation"
-        aria-label="Main navigation"
+        aria-label="Main navigation sidebar"
       >
         <div className="p-3 h-full flex flex-col">
-          <div className="flex items-center justify-between mb-6">
+          <header className="flex items-center justify-between mb-6" role="banner">
             {!isSidebarCollapsed && (
               <h1 className="text-lg font-bold text-white dark:text-white">Wealth Tracker</h1>
             )}
             <div className="flex items-center space-x-2">
-              <button
-                onClick={openSearch}
-                className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
-                aria-label="Open global search"
-                title="Search (Ctrl+K)"
-              >
-                <SearchIcon size={18} className="text-white dark:text-gray-400" />
-              </button>
+              {!isSidebarCollapsed && (
+                <button
+                  onClick={openSearch}
+                  className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  aria-label="Open global search"
+                  title="Search (Ctrl+K)"
+                >
+                  <SearchIcon size={18} className="text-white dark:text-gray-400" />
+                </button>
+              )}
               <button
                 onClick={toggleSidebar}
                 className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
@@ -251,8 +279,13 @@ export default function Layout(): React.JSX.Element {
                 <MenuIcon size={18} className="text-white dark:text-gray-400" />
               </button>
             </div>
-          </div>
-          <nav className="space-y-1.5 flex-1 overflow-y-auto pr-2" role="menubar" aria-label="Main navigation menu">
+          </header>
+          <nav 
+            id="main-navigation"
+            className="space-y-1.5 flex-1 overflow-y-auto pr-2" 
+            role="navigation" 
+            aria-label="Main navigation menu"
+          >
             <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             
@@ -297,6 +330,8 @@ export default function Layout(): React.JSX.Element {
             
             {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3Icon} label="Analytics" isCollapsed={isSidebarCollapsed} />}
             {showAIAnalytics && <SidebarLink to="/ai-analytics" icon={MagicWandIcon} label="AI Analytics" isCollapsed={isSidebarCollapsed} />}
+            <SidebarLink to="/ai-features" icon={LightbulbIcon} label="AI Features" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/custom-reports" icon={FileTextIcon} label="Custom Reports" isCollapsed={isSidebarCollapsed} />
             {showTaxPlanning && <SidebarLink to="/tax-planning" icon={CalculatorIcon} label="Tax Planning" isCollapsed={isSidebarCollapsed} />}
             {showHousehold && <SidebarLink to="/household" icon={UsersIcon} label="Household" isCollapsed={isSidebarCollapsed} />}
             {showBusinessFeatures && <SidebarLink to="/business-features" icon={BriefcaseIcon} label="Business Features" isCollapsed={isSidebarCollapsed} />}
@@ -332,7 +367,7 @@ export default function Layout(): React.JSX.Element {
       </aside>
 
       {/* Mobile Header */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 shadow-md">
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 shadow-md" role="banner">
         <div className="flex items-center justify-between p-4">
           <button
             onClick={toggleMobileMenu}
@@ -345,10 +380,9 @@ export default function Layout(): React.JSX.Element {
             {isMobileMenuOpen ? <XIcon size={24} className="text-gray-700 dark:text-gray-200" /> : <MenuIcon size={24} className="text-gray-700 dark:text-gray-200" />}
           </button>
           
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white">Wealth Tracker</h1>
+          <h1 className="text-lg font-bold text-gray-900 dark:text-white" id="mobile-app-title">Wealth Tracker</h1>
           
           <div className="flex items-center gap-2">
-            <ThemeSwitcher />
             <NotificationBell />
             <button
               onClick={openSearch}
@@ -359,11 +393,10 @@ export default function Layout(): React.JSX.Element {
             </button>
           </div>
         </div>
-      </div>
+      </header>
       
       {/* Desktop Notification Bell and Theme Switcher */}
-      <div className="hidden md:flex items-center gap-2 fixed top-4 right-4 z-30">
-        <ThemeSwitcher />
+      <div className="hidden md:flex items-center gap-2 fixed top-4 right-4 z-30" role="toolbar" aria-label="User tools">
         <NotificationBell />
       </div>
 
@@ -376,17 +409,17 @@ export default function Layout(): React.JSX.Element {
           aria-modal="true"
           aria-labelledby="mobile-menu-title"
         >
-          <aside 
+          <nav 
             id="mobile-menu"
             className="w-full max-w-sm h-full bg-sidebar dark:bg-gray-800 shadow-2xl overflow-y-auto rounded-r-2xl" 
             onClick={e => e.stopPropagation()}
             role="navigation"
-            aria-label="Mobile navigation"
+            aria-label="Mobile navigation menu"
           >
             <div className="p-4 pb-6">
               {/* Mobile header with close button */}
-              <div className="flex justify-between items-center mb-8">
-                <h1 id="mobile-menu-title" className="text-2xl font-bold text-white dark:text-white">Wealth Tracker</h1>
+              <header className="flex justify-between items-center mb-8" role="banner">
+                <h2 id="mobile-menu-title" className="text-2xl font-bold text-white dark:text-white">Wealth Tracker</h2>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => {
@@ -406,8 +439,8 @@ export default function Layout(): React.JSX.Element {
                     <XIcon size={24} className="text-white dark:text-gray-300" />
                   </button>
                 </div>
-              </div>
-              <nav className="space-y-2" role="menubar" aria-label="Mobile navigation menu">
+              </header>
+              <div className="space-y-2" role="none">
                 <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 
@@ -460,6 +493,7 @@ export default function Layout(): React.JSX.Element {
                 
                 {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3Icon} label="Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
                 {showAIAnalytics && <SidebarLink to="/ai-analytics" icon={MagicWandIcon} label="AI Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
+                <SidebarLink to="/custom-reports" icon={FileTextIcon} label="Custom Reports" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 {showTaxPlanning && <SidebarLink to="/tax-planning" icon={CalculatorIcon} label="Tax Planning" isCollapsed={false} onNavigate={toggleMobileMenu} />}
                 {showHousehold && <SidebarLink to="/household" icon={UsersIcon} label="Household" isCollapsed={false} onNavigate={toggleMobileMenu} />}
                 {showBusinessFeatures && <SidebarLink to="/business-features" icon={BriefcaseIcon} label="Business Features" isCollapsed={false} onNavigate={toggleMobileMenu} />}
@@ -490,9 +524,9 @@ export default function Layout(): React.JSX.Element {
                     </div>
                   )}
                 </div>
-              </nav>
+              </div>
             </div>
-          </aside>
+          </nav>
         </div>
       )}
 
@@ -505,9 +539,11 @@ export default function Layout(): React.JSX.Element {
         aria-label="Main content"
         tabIndex={-1}
       >
-        <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto pb-20 md:pb-8">
-          <Outlet />
-        </div>
+        <MobilePullToRefreshWrapper>
+          <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto pb-20 md:pb-8">
+            <Outlet />
+          </div>
+        </MobilePullToRefreshWrapper>
       </main>
       
       {/* Offline Indicator */}
@@ -515,12 +551,33 @@ export default function Layout(): React.JSX.Element {
       <OfflineStatus />
       <SyncConflictResolver />
       
+      {/* PWA Offline Indicator - Shows sync status */}
+      <PWAOfflineIndicator />
+      
+      {/* Quick Add Offline Button */}
+      <QuickAddOfflineButton />
+      
+      {/* Conflict Resolution Modal */}
+      <ConflictResolutionModal 
+        isOpen={conflictModalOpen}
+        onClose={() => {
+          setConflictModalOpen(false);
+          setCurrentConflict(null);
+        }}
+        conflict={currentConflict}
+      />
+      
+      {/* Service Worker Update Notification */}
+      <ServiceWorkerUpdateNotification registration={registration} />
+      
       {/* PWA Install Prompt */}
       <PWAInstallPrompt />
       
       
       {/* Global Search */}
-      <GlobalSearch isOpen={isSearchOpen} onClose={closeSearch} />
+      <ErrorBoundary>
+        <GlobalSearch isOpen={isSearchOpen} onClose={closeSearch} />
+      </ErrorBoundary>
       
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp isOpen={isHelpOpen} onClose={closeHelp} />

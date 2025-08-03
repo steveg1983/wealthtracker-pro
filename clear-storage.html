@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Wealth Tracker Storage</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .status {
+            background: #f0f0f0;
+            padding: 20px;
+            border-radius: 4px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 14px;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        button {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #c82333;
+        }
+        .success {
+            background: #28a745;
+        }
+        .success:hover {
+            background: #218838;
+        }
+        .info {
+            background: #17a2b8;
+            color: white;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Wealth Tracker Storage Cleaner</h1>
+        
+        <div class="info">
+            This tool will help you clear corrupted storage data that's preventing the app from loading.
+        </div>
+        
+        <div id="status" class="status">
+            Checking storage...
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <button onclick="clearCorruptedData()">Clear Corrupted Data Only</button>
+            <button onclick="clearAllStorage()">Clear ALL Storage (Full Reset)</button>
+            <button class="success" onclick="goToApp()">Go to App</button>
+        </div>
+    </div>
+
+    <script>
+        // Check storage on load
+        window.onload = function() {
+            checkStorage();
+        };
+        
+        function checkStorage() {
+            let status = 'Storage Analysis:\n\n';
+            
+            // Check localStorage
+            status += 'LocalStorage:\n';
+            const localKeys = [];
+            const corruptedKeys = [];
+            
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key) {
+                    localKeys.push(key);
+                    
+                    // Check for corrupted encrypted keys
+                    if (key.startsWith('enc_') || key.includes('encrypted')) {
+                        try {
+                            const value = localStorage.getItem(key);
+                            if (value && value.length > 0) {
+                                // Try to parse as JSON
+                                JSON.parse(value);
+                            }
+                        } catch (e) {
+                            corruptedKeys.push(key);
+                        }
+                    }
+                }
+            }
+            
+            status += `- Total keys: ${localKeys.length}\n`;
+            status += `- Encrypted keys: ${localKeys.filter(k => k.startsWith('enc_')).length}\n`;
+            status += `- Corrupted keys: ${corruptedKeys.length}\n`;
+            
+            if (corruptedKeys.length > 0) {
+                status += '\nCorrupted keys found:\n';
+                corruptedKeys.forEach(key => {
+                    status += `  - ${key}\n`;
+                });
+            }
+            
+            // Check IndexedDB
+            status += '\n\nIndexedDB:\n';
+            if ('indexedDB' in window) {
+                indexedDB.databases().then(dbs => {
+                    status += `- Databases: ${dbs.map(db => db.name).join(', ') || 'None'}\n`;
+                    document.getElementById('status').textContent = status;
+                }).catch(e => {
+                    status += `- Error checking databases: ${e}\n`;
+                    document.getElementById('status').textContent = status;
+                });
+            } else {
+                status += '- IndexedDB not supported\n';
+            }
+            
+            document.getElementById('status').textContent = status;
+        }
+        
+        function clearCorruptedData() {
+            let cleared = 0;
+            const keysToRemove = [];
+            
+            // Find all encrypted and potentially corrupted keys
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (
+                    key.startsWith('enc_') || 
+                    key.startsWith('wealthtracker_') ||
+                    key.includes('encrypted') ||
+                    key.includes('secureData')
+                )) {
+                    keysToRemove.push(key);
+                }
+            }
+            
+            // Clear them
+            keysToRemove.forEach(key => {
+                localStorage.removeItem(key);
+                cleared++;
+            });
+            
+            // Clear session storage flags
+            sessionStorage.clear();
+            
+            // Clear IndexedDB
+            if ('indexedDB' in window) {
+                const dbNames = ['WealthTrackerDB', 'secureStorage'];
+                dbNames.forEach(dbName => {
+                    const deleteReq = indexedDB.deleteDatabase(dbName);
+                    deleteReq.onsuccess = () => console.log(`Deleted ${dbName}`);
+                    deleteReq.onerror = () => console.log(`Error deleting ${dbName}`);
+                });
+            }
+            
+            alert(`Cleared ${cleared} potentially corrupted keys and reset databases.\n\nPlease click "Go to App" to restart the application.`);
+            checkStorage();
+        }
+        
+        function clearAllStorage() {
+            if (!confirm('This will delete ALL application data including accounts, transactions, and settings. Are you sure?')) {
+                return;
+            }
+            
+            // Clear everything
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            // Clear all IndexedDB databases
+            if ('indexedDB' in window) {
+                indexedDB.databases().then(dbs => {
+                    dbs.forEach(db => {
+                        indexedDB.deleteDatabase(db.name);
+                    });
+                });
+            }
+            
+            alert('All storage cleared. The app will start fresh.\n\nPlease click "Go to App" to restart the application.');
+            checkStorage();
+        }
+        
+        function goToApp() {
+            window.location.href = 'http://localhost:8080';
+        }
+    </script>
+</body>
+</html>

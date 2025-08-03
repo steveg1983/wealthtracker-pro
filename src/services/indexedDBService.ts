@@ -22,10 +22,13 @@ class IndexedDBService {
   private dbVersion: number;
   private db: IDBDatabase | null = null;
   private dbConfig: DBConfig;
+  private safariMode = false;
+  private initPromise: Promise<void> | null = null;
 
   constructor() {
     this.dbName = 'WealthTrackerDB';
-    this.dbVersion = 1;
+    this.dbVersion = 2; // Increment version to trigger upgrade
+    this.checkSafari();
     this.dbConfig = {
       name: this.dbName,
       version: this.dbVersion,
@@ -58,23 +61,69 @@ class IndexedDBService {
         {
           name: 'secureData',
           keyPath: 'key'
+        },
+        // Add offline stores
+        {
+          name: 'offline-queue',
+          keyPath: 'id'
+        },
+        {
+          name: 'offline-data',
+          keyPath: 'id'
+        },
+        {
+          name: 'conflicts',
+          keyPath: 'id'
+        },
+        {
+          name: 'sync-meta',
+          keyPath: 'key'
         }
       ]
     };
   }
 
+  private checkSafari(): void {
+    const ua = navigator.userAgent;
+    this.safariMode = ua.includes('Safari') && !ua.includes('Chrome') && !ua.includes('Chromium');
+  }
+
   // Initialize the database
   async init(): Promise<void> {
+    // Prevent multiple simultaneous init calls
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    this.initPromise = this._doInit();
+    return this.initPromise;
+  }
+
+  private async _doInit(): Promise<void> {
     return new Promise((resolve, reject) => {
       if (this.db) {
         resolve();
         return;
       }
 
-      const request = indexedDB.open(this.dbName, this.dbVersion);
+      // Safari compatibility: add error handling for private browsing mode
+      let request: IDBOpenDBRequest;
+      try {
+        request = indexedDB.open(this.dbName, this.dbVersion);
+      } catch (e) {
+        console.error('Failed to open IndexedDB:', e);
+        reject(new Error('IndexedDB not available (possibly private browsing mode)'));
+        return;
+      }
 
-      request.onerror = () => {
-        reject(new Error('Failed to open IndexedDB'));
+      request.onerror = (event) => {
+        const error = (event.target as IDBOpenDBRequest).error;
+        console.error('IndexedDB error:', error);
+        if (this.safariMode) {
+          reject(new Error('IndexedDB failed in Safari. This might be due to private browsing mode or storage restrictions.'));
+        } else {
+          reject(new Error('Failed to open IndexedDB: ' + (error?.message || 'Unknown error')));
+        }
       };
 
       request.onsuccess = (event) => {
@@ -107,7 +156,15 @@ class IndexedDBService {
   // Ensure database is initialized
   private async ensureDB(): Promise<IDBDatabase> {
     if (!this.db) {
-      await this.init();
+      try {
+        await this.init();
+      } catch (e) {
+        console.error('Failed to initialize IndexedDB:', e);
+        if (this.safariMode) {
+          throw new Error('IndexedDB not available in Safari. Please check browser settings or disable private browsing mode.');
+        }
+        throw e;
+      }
     }
     if (!this.db) {
       throw new Error('Database initialization failed');

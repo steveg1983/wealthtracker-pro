@@ -11,6 +11,7 @@ import { setRecurringTransactions } from '../store/slices/recurringTransactionsS
 import { updatePreferences } from '../store/slices/preferencesSlice';
 import { useApp } from '../contexts/AppContext';
 import { usePreferences } from '../contexts/PreferencesContext';
+import { serializeForRedux } from '../utils/serializeForRedux';
 
 /**
  * This component syncs data from existing contexts to Redux store
@@ -35,11 +36,11 @@ export function ReduxMigrationWrapper({ children }: { children: React.ReactNode 
 
   // Sync app context data to Redux
   useEffect(() => {
-    dispatch(setAccounts(accounts));
+    dispatch(setAccounts(serializeForRedux(accounts)));
   }, [dispatch, accounts]);
 
   useEffect(() => {
-    dispatch(setTransactions(transactions));
+    dispatch(setTransactions(serializeForRedux(transactions)));
   }, [dispatch, transactions]);
 
   useEffect(() => {
@@ -51,21 +52,21 @@ export function ReduxMigrationWrapper({ children }: { children: React.ReactNode 
   }, [dispatch, tags]);
 
   useEffect(() => {
-    dispatch(setBudgets(budgets));
+    dispatch(setBudgets(serializeForRedux(budgets)));
   }, [dispatch, budgets]);
 
   useEffect(() => {
-    dispatch(setGoals(goals));
+    dispatch(setGoals(serializeForRedux(goals)));
   }, [dispatch, goals]);
 
   useEffect(() => {
     // Convert AppContext RecurringTransaction to Redux RecurringTransaction
     const convertedRecurringTransactions = recurringTransactions.map(rt => ({
       ...rt,
-      createdAt: new Date(),
-      updatedAt: new Date()
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }));
-    dispatch(setRecurringTransactions(convertedRecurringTransactions));
+    dispatch(setRecurringTransactions(serializeForRedux(convertedRecurringTransactions)));
   }, [dispatch, recurringTransactions]);
 
   // Sync preferences to Redux

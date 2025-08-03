@@ -255,7 +255,6 @@ export default function Dashboard() {
   return (
     <PageWrapper 
       title="Dashboard"
-      reducedHeaderWidth={true}
       rightContent={
         activeTab === 'classic' ? (
           <div 

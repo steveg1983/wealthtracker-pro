@@ -18,6 +18,7 @@ const BatchImportModal = lazy(() => import('../../components/BatchImportModal'))
 const ImportRulesManager = lazy(() => import('../../components/ImportRulesManager'));
 const BankConnections = lazy(() => import('../../components/BankConnections'));
 const BankAPISettings = lazy(() => import('../../components/BankAPISettings'));
+const AutomaticBackupSettings = lazy(() => import('../../components/AutomaticBackupSettings'));
 
 export default function DataManagementSettings() {
   const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
@@ -147,6 +148,13 @@ export default function DataManagementSettings() {
             Legacy Import (MNY/MBF)
           </button>
         </div>
+      </div>
+
+      {/* Automatic Backups Section */}
+      <div className="mb-6">
+        <Suspense fallback={<LoadingState />}>
+          <AutomaticBackupSettings />
+        </Suspense>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">

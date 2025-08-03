@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import type { RecurringTransaction } from '../../types';
 import { storageAdapter } from '../../services/storageAdapter';
+import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
 
 interface RecurringTransactionsState {
   recurringTransactions: RecurringTransaction[];
@@ -44,8 +45,8 @@ const recurringTransactionsSlice = createSlice({
       const newRecurring: RecurringTransaction = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: getCurrentISOString(),
+        updatedAt: getCurrentISOString(),
       };
       state.recurringTransactions.push(newRecurring);
     },
@@ -55,7 +56,7 @@ const recurringTransactionsSlice = createSlice({
         state.recurringTransactions[index] = {
           ...state.recurringTransactions[index],
           ...action.payload.updates,
-          updatedAt: new Date(),
+          updatedAt: getCurrentISOString(),
         };
       }
     },
@@ -65,8 +66,8 @@ const recurringTransactionsSlice = createSlice({
     updateLastProcessed: (state, action: PayloadAction<{ id: string; lastProcessed: Date }>) => {
       const recurring = state.recurringTransactions.find((r: RecurringTransaction) => r.id === action.payload.id);
       if (recurring) {
-        recurring.lastProcessed = action.payload.lastProcessed;
-        recurring.updatedAt = new Date();
+        recurring.lastProcessed = toISOString(action.payload.lastProcessed);
+        recurring.updatedAt = getCurrentISOString();
       }
     },
   },
