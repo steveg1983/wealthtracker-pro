@@ -214,14 +214,14 @@ export default function AccountTransactions() {
   
   // Handle transaction row click
   const handleTransactionClick = useCallback((transaction: Transaction) => {
+    setSelectedTransaction(transaction);
+    
     if (selectedTransactionId === transaction.id) {
       // Second click on already selected transaction - open edit modal
-      setSelectedTransaction(transaction);
       setIsEditModalOpen(true);
     } else {
       // First click - just select the transaction
       setSelectedTransactionId(transaction.id);
-      setSelectedTransaction(transaction);
     }
   }, [selectedTransactionId]);
   
