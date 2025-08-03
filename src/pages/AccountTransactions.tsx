@@ -23,7 +23,7 @@ export default function AccountTransactions() {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense' | 'transfer'>('all');
   const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
@@ -291,7 +291,7 @@ export default function AccountTransactions() {
     },
     {
       key: 'reconciled',
-      header: '✓',
+      header: 'R',
       width: '40px',
       accessor: (transaction) => (
         transaction.cleared ? (
@@ -414,7 +414,7 @@ export default function AccountTransactions() {
                 <span className="ml-4">00000000</span>
               </div>
               <button
-                onClick={() => navigate(`/settings/accounts/${account.id}`)}
+                onClick={() => navigate('/settings')}
                 className="p-2 text-white/60 hover:text-white transition-colors"
                 title="Account Settings"
               >
@@ -529,17 +529,17 @@ export default function AccountTransactions() {
                 >
                   Expense
                 </button>
+                <button
+                  onClick={() => setTypeFilter('transfer')}
+                  className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+                    typeFilter === 'transfer'
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  }`}
+                >
+                  Transfer
+                </button>
               </div>
-              
-              {/* Compact View Toggle */}
-              <button
-                onClick={() => setCompactView(!compactView)}
-                className="flex items-center gap-2 px-3 py-3 sm:py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-[48px] sm:min-h-[auto]"
-                title={compactView ? "Expand view" : "Compact view"}
-              >
-                {compactView ? <MaximizeIcon size={18} /> : <MinimizeIcon size={18} />}
-                <span className="hidden sm:inline">{compactView ? 'Expand' : 'Compact'}</span>
-              </button>
             </div>
           </div>
           
@@ -575,8 +575,16 @@ export default function AccountTransactions() {
                 </button>
               )}
             </div>
-            <div className="flex-1">
-              {/* Space for additional filters */}
+            <div className="flex-1 flex justify-end">
+              {/* Compact View Toggle */}
+              <button
+                onClick={() => setCompactView(!compactView)}
+                className="flex items-center gap-2 px-3 py-3 sm:py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-[48px] sm:min-h-[auto]"
+                title={compactView ? "Expand view" : "Compact view"}
+              >
+                {compactView ? <MaximizeIcon size={18} /> : <MinimizeIcon size={18} />}
+                <span className="hidden sm:inline">{compactView ? 'Expand' : 'Compact'}</span>
+              </button>
             </div>
           </div>
         </div>
