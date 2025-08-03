@@ -143,6 +143,14 @@ export default function AccountTransactions() {
       balance: balanceMap.get(t.id) || 0
     }));
     
+    // Debug: Log first few transactions with their balances
+    console.log('Final transactions with balances:', result.slice(0, 5).map(t => ({
+      date: t.date,
+      description: t.description,
+      amount: t.amount,
+      balance: t.balance
+    })));
+    
     return result;
   }, [account, accountTransactions]);
   

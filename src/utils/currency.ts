@@ -48,6 +48,11 @@ export function formatCurrency(amount: number, currency: string = 'GBP'): string
   return `${prefix}${symbol}${formatted}`;
 }
 
+// Format currency for display with proper sign handling
+export function formatDisplayCurrency(amount: number, currency: string = 'GBP'): string {
+  return formatCurrency(amount, currency);
+}
+
 // Parse currency string to number
 export function parseCurrency(value: string): number {
   if (!value || typeof value !== 'string') return 0;
