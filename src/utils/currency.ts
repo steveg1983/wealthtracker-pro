@@ -47,7 +47,7 @@ export function formatCurrency(amount: number, currency: string = 'GBP'): string
   }
   
   // For negative amounts, put the minus sign AFTER the currency symbol
-  return isNegative ? `-${symbol}${formatted}` : `${symbol}${formatted}`;
+  return isNegative ? `${symbol}-${formatted}` : `${symbol}${formatted}`;
 }
 
 // Format currency for display with proper sign handling
