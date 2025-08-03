@@ -86,7 +86,7 @@ const TableHeader = memo(function TableHeader<T>({
   }, [onSort, sortColumn, sortDirection]);
 
   return (
-    <div className={`flex items-center border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 ${headerClassName || ''}`}>
+    <div className={`flex items-center border-b border-gray-200 dark:border-gray-700 ${headerClassName || 'bg-gray-50 dark:bg-gray-800'}`}>
       {showCheckbox && (
         <div className="px-4 py-3 w-12">
           <input
@@ -101,13 +101,13 @@ const TableHeader = memo(function TableHeader<T>({
       {columns.map((column) => (
         <div
           key={column.key}
-          className={`px-4 py-3 font-medium text-sm text-gray-700 dark:text-gray-300 ${column.headerClassName || ''}`}
+          className={`px-4 py-3 font-medium text-sm ${headerClassName ? '' : 'text-gray-700 dark:text-gray-300'} ${column.headerClassName || ''}`}
           style={{ width: column.width }}
         >
           {column.sortable && onSort ? (
             <button
               onClick={() => handleSort(column.key)}
-              className="flex items-center gap-1 hover:text-gray-900 dark:hover:text-gray-100"
+              className={`flex items-center gap-1 ${headerClassName ? 'hover:text-gray-100' : 'hover:text-gray-900 dark:hover:text-gray-100'}`}
             >
               {column.header}
               {sortColumn === column.key && (
@@ -179,8 +179,8 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
     const baseRowClass = 'flex items-center border-b border-gray-200 dark:border-gray-700 transition-all duration-200 ease-in-out';
     const selectedClass = isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : '';
     const clickableClass = onRowClick ? 'cursor-pointer' : '';
-    const hoverClass = 'hover:shadow-lg hover:z-10 hover:transform hover:scale-[1.02] hover:bg-gray-50 dark:hover:bg-gray-800';
-    const stripeClass = index % 2 === 1 ? 'bg-gray-50/50 dark:bg-gray-800/30' : 'bg-white dark:bg-gray-900';
+    const hoverClass = 'hover:shadow-lg hover:z-10 hover:transform hover:scale-y-[1.05] hover:bg-gray-50 dark:hover:bg-gray-800';
+    const stripeClass = index % 2 === 1 ? 'bg-gray-100 dark:bg-gray-800/50' : 'bg-white dark:bg-gray-900';
 
     return (
       <div
@@ -246,7 +246,7 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
   }
 
   return (
-    <div className={`bg-white dark:bg-gray-900 rounded-lg shadow overflow-hidden ${className}`}>
+    <div className={`bg-white dark:bg-gray-900 rounded-2xl shadow-lg overflow-hidden ${className}`}>
       <TableHeader
         columns={columns as Column<unknown>[]}
         headerClassName={headerClassName}
