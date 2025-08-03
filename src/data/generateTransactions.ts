@@ -119,7 +119,7 @@ export function generateMonthlyTransactions(
       id: `t${transactionId++}`,
       date: monthStart,
       description: bill.description,
-      amount: bill.amount,
+      amount: -bill.amount,
       type: 'expense',
       category: bill.category,
       accountId: '1', // Natwest Current
@@ -160,7 +160,7 @@ export function generateMonthlyTransactions(
           id: `t${transactionId++}`,
           date: currentDate,
           description: merchant,
-          amount: amount,
+          amount: -amount,
           type: 'expense',
           category: CATEGORY_NAMES[category as keyof typeof CATEGORY_NAMES],
           accountId: cardId,

@@ -323,7 +323,7 @@ export function generateTestData() {
           accountId: 'acc1', // Barclays Current Account
           date: billDate,
           description: bill.desc,
-          amount: bill.amount,
+          amount: -bill.amount,
           type: 'expense' as const,
           category: bill.category,
           cleared: false,
@@ -357,7 +357,7 @@ export function generateTestData() {
         accountId: Math.random() > 0.7 ? 'acc5' : 'acc1', // 30% chance on Amex
         date: transactionDate,
         description: store.name,
-        amount: Math.random() * 80 + 20, // £20-100
+        amount: -(Math.random() * 80 + 20), // £20-100
         type: 'expense' as const,
         category: store.category,
         cleared: false,
@@ -385,7 +385,7 @@ export function generateTestData() {
         accountId: Math.random() > 0.5 ? 'acc5' : 'acc1', // 50% chance on Amex
         date: transactionDate,
         description: restaurant.name,
-        amount: Math.random() * (restaurant.amount[1] - restaurant.amount[0]) + restaurant.amount[0],
+        amount: -(Math.random() * (restaurant.amount[1] - restaurant.amount[0]) + restaurant.amount[0]),
         type: 'expense' as const,
         category: restaurant.category,
         cleared: false,
@@ -408,7 +408,7 @@ export function generateTestData() {
         accountId: 'acc1', // Barclays Current Account
         date: transactionDate,
         description: trip.name,
-        amount: Math.random() * (trip.amount[1] - trip.amount[0]) + trip.amount[0],
+        amount: -(Math.random() * (trip.amount[1] - trip.amount[0]) + trip.amount[0]),
         type: 'expense' as const,
         category: trip.category,
         cleared: false,
@@ -432,7 +432,7 @@ export function generateTestData() {
         accountId: Math.random() > 0.6 ? 'acc5' : 'acc6', // Mix of credit cards
         date: transactionDate,
         description: shop.name,
-        amount: Math.random() * (shop.amount[1] - shop.amount[0]) + shop.amount[0],
+        amount: -(Math.random() * (shop.amount[1] - shop.amount[0]) + shop.amount[0]),
         type: 'expense' as const,
         category: shop.category,
         cleared: false,
@@ -455,7 +455,7 @@ export function generateTestData() {
         accountId: 'acc5', // Amex
         date: transactionDate,
         description: event.name,
-        amount: Math.random() * (event.amount[1] - event.amount[0]) + event.amount[0],
+        amount: -(Math.random() * (event.amount[1] - event.amount[0]) + event.amount[0]),
         type: 'expense' as const,
         category: event.category,
         cleared: false,
@@ -477,7 +477,7 @@ export function generateTestData() {
         accountId: 'acc1',
         date: transactionDate,
         description: health.name,
-        amount: Math.random() * (health.amount[1] - health.amount[0]) + health.amount[0],
+        amount: -(Math.random() * (health.amount[1] - health.amount[0]) + health.amount[0]),
         type: 'expense' as const,
         category: health.category,
         cleared: false,

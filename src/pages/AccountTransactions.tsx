@@ -25,7 +25,7 @@ export default function AccountTransactions() {
   const [dateTo, setDateTo] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags'>('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   
   // State for modals and selection
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -165,16 +165,7 @@ export default function AccountTransactions() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedTransactionId, transactionsWithBalance]);
   
-  // Auto-scroll to bottom on mount to show latest transactions
-  useEffect(() => {
-    const scrollContainer = scrollContainerRef.current;
-    if (scrollContainer && transactionsWithBalance.length > 0) {
-      // Scroll to bottom after a brief delay to ensure rendering is complete
-      setTimeout(() => {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }, 100);
-    }
-  }, [transactionsWithBalance.length]);
+  // Remove auto-scroll - we want to start at the top with oldest transactions
 
   // Handle scroll isolation
   useEffect(() => {

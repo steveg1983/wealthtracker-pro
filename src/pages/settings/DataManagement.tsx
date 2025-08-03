@@ -236,7 +236,7 @@ export default function DataManagementSettings() {
             className="w-full px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors flex items-center justify-center gap-2"
           >
             <DatabaseIcon size={20} />
-            Load Test Data
+            {hasTestData ? 'Reload Test Data' : 'Load Test Data'}
           </button>
           
           <button
