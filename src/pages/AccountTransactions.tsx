@@ -25,7 +25,7 @@ export default function AccountTransactions() {
   const [dateTo, setDateTo] = useState('');
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [sortField, setSortField] = useState<'date' | 'description' | 'amount' | 'category' | 'tags'>('date');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   
   // State for modals and selection
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -106,6 +106,8 @@ export default function AccountTransactions() {
   const transactionsWithBalance = useMemo(() => {
     if (!account) return [];
     
+    console.log('accountTransactions length:', accountTransactions.length);
+    
     // Sort transactions by date and type for proper balance calculation
     // Within the same date: income first, then transfers, then expenses
     const typeOrder = { income: 0, transfer: 1, expense: 2 };
@@ -141,10 +143,13 @@ export default function AccountTransactions() {
     // Now sort back to the user's requested order, but keep the calculated balances
     const balanceMap = new Map(withBalance.map(t => [t.id, t.balance]));
     
-    return accountTransactions.map(t => ({
+    const result = accountTransactions.map(t => ({
       ...t,
       balance: balanceMap.get(t.id) || 0
     }));
+    
+    console.log('transactionsWithBalance length:', result.length);
+    return result;
   }, [account, accountTransactions]);
   
   // Calculate unreconciled total
