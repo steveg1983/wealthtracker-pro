@@ -257,7 +257,7 @@ export default function Layout(): React.JSX.Element {
         <div className="p-3 h-full flex flex-col">
           <header className="flex items-center justify-between mb-6" role="banner">
             {!isSidebarCollapsed && (
-              <h1 className="text-lg font-bold text-white dark:text-white">Wealth Tracker</h1>
+              <h1 className="text-lg font-bold text-blue-400 dark:text-blue-300">Wealth Tracker</h1>
             )}
             <div className="flex items-center space-x-2">
               {!isSidebarCollapsed && (
@@ -380,7 +380,7 @@ export default function Layout(): React.JSX.Element {
             {isMobileMenuOpen ? <XIcon size={24} className="text-gray-700 dark:text-gray-200" /> : <MenuIcon size={24} className="text-gray-700 dark:text-gray-200" />}
           </button>
           
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white" id="mobile-app-title">Wealth Tracker</h1>
+          <h1 className="text-lg font-bold text-blue-600 dark:text-blue-400" id="mobile-app-title">Wealth Tracker</h1>
           
           <div className="flex items-center gap-2">
             <NotificationBell />
