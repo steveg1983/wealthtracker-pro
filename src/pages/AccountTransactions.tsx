@@ -391,10 +391,10 @@ export default function AccountTransactions() {
   }
   
   return (
-    <div className="flex flex-col h-full p-6 space-y-6">
+    <div className="flex flex-col h-full p-6">
       {/* Version: 2025-08-03-v2 */}
       {/* Header */}
-      <div className="flex-shrink-0 mb-6">
+      <div className="flex-shrink-0 mb-2">
         <button
           onClick={() => navigate('/accounts')}
           className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-4"
@@ -424,63 +424,55 @@ export default function AccountTransactions() {
             </div>
           </div>
           
-          {/* Right side boxes - 2x2 grid - Compact */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Right side boxes - 2x2 grid - Compact with horizontal layout */}
+          <div className="grid grid-cols-2 gap-2 h-full">
             {/* Account Balance Box - Top Left */}
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 p-2">
-              <div className="flex flex-col items-end">
-                <span className="text-xs text-gray-600 dark:text-gray-400">Account Balance</span>
-                <span className={`text-base font-bold ${
-                  account.balance >= 0 
-                    ? 'text-green-600 dark:text-green-400' 
-                    : 'text-red-600 dark:text-red-400'
-                }`}>
-                  {formatCurrency(account.balance, account.currency)}
-                </span>
-              </div>
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-3 py-2 flex items-center justify-between">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Account Balance</span>
+              <span className={`text-sm font-bold ${
+                account.balance >= 0 
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {formatCurrency(account.balance, account.currency)}
+              </span>
             </div>
             
             {/* Imported Bank Balance Box - Top Right */}
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 p-2">
-              <div className="flex flex-col items-end">
-                <span className="text-xs text-gray-600 dark:text-gray-400">Imported Bank Balance</span>
-                <span className="text-base font-bold text-gray-600 dark:text-gray-400">
-                  {formatCurrency(0, account.currency)}
-                </span>
-              </div>
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-3 py-2 flex items-center justify-between">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Bank Balance</span>
+              <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
+                {formatCurrency(0, account.currency)}
+              </span>
             </div>
             
             {/* Unreconciled Box - Bottom Left */}
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 p-2">
-              <div className="flex flex-col items-end">
-                <span className="text-xs text-gray-600 dark:text-gray-400">Unreconciled</span>
-                <span className="text-base font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(unreconciledTotal, account.currency)}
-                </span>
-              </div>
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-3 py-2 flex items-center justify-between">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Unreconciled</span>
+              <span className="text-sm font-bold text-gray-900 dark:text-white">
+                {formatCurrency(unreconciledTotal, account.currency)}
+              </span>
             </div>
             
             {/* Difference Box - Bottom Right */}
-            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 p-2">
-              <div className="flex flex-col items-end">
-                <span className="text-xs text-gray-600 dark:text-gray-400">Difference</span>
-                <span className={`text-base font-bold ${
-                  account.balance === 0 
-                    ? 'text-gray-900 dark:text-white'
-                    : account.balance > 0
-                    ? 'text-green-600 dark:text-green-400' 
-                    : 'text-red-600 dark:text-red-400'
-                }`}>
-                  {formatCurrency(account.balance - 0, account.currency)}
-                </span>
-              </div>
+            <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-xl shadow-lg border border-white/20 dark:border-gray-700/50 px-3 py-2 flex items-center justify-between">
+              <span className="text-xs text-gray-600 dark:text-gray-400">Difference</span>
+              <span className={`text-sm font-bold ${
+                account.balance === 0 
+                  ? 'text-gray-900 dark:text-white'
+                  : account.balance > 0
+                  ? 'text-green-600 dark:text-green-400' 
+                  : 'text-red-600 dark:text-red-400'
+              }`}>
+                {formatCurrency(account.balance - 0, account.currency)}
+              </span>
             </div>
           </div>
         </div>
       </div>
       
       {/* Search and Filter Bar */}
-      <div className="flex-shrink-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mt-2 mb-4">
+      <div className="flex-shrink-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mt-1 mb-4">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col lg:flex-row gap-4">
             {/* Search Input */}
@@ -593,7 +585,7 @@ export default function AccountTransactions() {
       
       {/* Transactions Table - Updated Layout */}
       <div 
-        className="flex-1 min-h-[850px] max-h-[1300px] overflow-hidden"
+        className="flex-1 overflow-hidden my-4"
       >
         <VirtualizedTable
           items={transactionsWithBalance}
@@ -622,7 +614,7 @@ export default function AccountTransactions() {
       </div>
       
       {/* Quick Add Transaction Form - Compact - Bottom Aligned */}
-      <div className="flex-shrink-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mt-auto mb-4">
+      <div className="flex-shrink-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mt-auto">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Quick Add Transaction</h3>
         <form onSubmit={handleQuickAdd} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
