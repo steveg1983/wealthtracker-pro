@@ -354,12 +354,13 @@ export default function AccountTransactions() {
       width: '150px',
       accessor: (transaction) => (
         <span className={`font-medium ${
-          transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0)
+          transaction.amount > 0
             ? 'text-green-600 dark:text-green-400' 
-            : 'text-red-600 dark:text-red-400'
+            : transaction.amount < 0
+            ? 'text-red-600 dark:text-red-400'
+            : 'text-gray-900 dark:text-gray-100'
         }`}>
-          {transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0) ? '+' : '-'}
-          {formatCurrency(Math.abs(transaction.amount), account?.currency)}
+          {formatCurrency(transaction.amount, account?.currency)}
         </span>
       ),
       className: 'text-right',
@@ -371,7 +372,11 @@ export default function AccountTransactions() {
       header: 'Balance',
       width: '150px',
       accessor: (transaction) => (
-        <span className="font-medium text-gray-900 dark:text-gray-100">
+        <span className={`font-medium ${
+          transaction.balance < 0 
+            ? 'text-red-600 dark:text-red-400' 
+            : 'text-gray-900 dark:text-gray-100'
+        }`}>
           {formatCurrency(transaction.balance, account?.currency)}
         </span>
       ),
