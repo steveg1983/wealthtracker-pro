@@ -124,14 +124,9 @@ export default function AccountTransactions() {
     let runningBalance = account.openingBalance || 0;
     
     // Calculate running balance for each transaction
-    console.log('Starting balance calculation. Opening balance:', runningBalance);
-    const withBalance = sortedForBalance.map((transaction, index) => {
-      const prevBalance = runningBalance;
+    const withBalance = sortedForBalance.map((transaction) => {
       // Since amounts are already signed (negative for expenses), just add them
       runningBalance += transaction.amount;
-      if (index < 5) {
-        console.log(`Transaction ${index}: ${transaction.description}, Amount: ${transaction.amount}, Previous Balance: ${prevBalance}, New Balance: ${runningBalance}`);
-      }
       return { ...transaction, balance: runningBalance };
     });
     
@@ -142,14 +137,6 @@ export default function AccountTransactions() {
       ...t,
       balance: balanceMap.get(t.id) || 0
     }));
-    
-    // Debug: Log first few transactions with their balances
-    console.log('Final transactions with balances:', result.slice(0, 5).map(t => ({
-      date: t.date,
-      description: t.description,
-      amount: t.amount,
-      balance: t.balance
-    })));
     
     return result;
   }, [account, accountTransactions]);
@@ -383,11 +370,17 @@ export default function AccountTransactions() {
       key: 'balance',
       header: 'Balance',
       width: '150px',
-      accessor: (transaction) => (
-        <span className="font-medium text-gray-900 dark:text-gray-100">
-          {formatCurrency(transaction.balance, account?.currency)}
-        </span>
-      ),
+      accessor: (transaction) => {
+        // Debug log
+        if (transaction.description?.includes('LLOY')) {
+          console.log('Balance accessor:', transaction.description, 'Balance value:', transaction.balance, 'Formatted:', formatCurrency(transaction.balance, account?.currency));
+        }
+        return (
+          <span className="font-medium text-gray-900 dark:text-gray-100">
+            {formatCurrency(transaction.balance, account?.currency)}
+          </span>
+        );
+      },
       className: 'text-right',
       headerClassName: 'text-right'
     }

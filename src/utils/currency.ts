@@ -33,19 +33,21 @@ export function getCurrencySymbol(currency: string): string {
 // Format amount with currency
 export function formatCurrency(amount: number, currency: string = 'GBP'): string {
   const symbol = getCurrencySymbol(currency);
+  const isNegative = amount < 0;
+  const absAmount = Math.abs(amount);
+  
   const formatted = new Intl.NumberFormat('en-GB', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(Math.abs(amount));
-  
-  const prefix = amount < 0 ? '-' : '';
+  }).format(absAmount);
   
   // Special handling for currencies that come after the number
   if (currency === 'CHF') {
-    return `${prefix}${formatted} ${symbol}`;
+    return isNegative ? `-${formatted} ${symbol}` : `${formatted} ${symbol}`;
   }
   
-  return `${prefix}${symbol}${formatted}`;
+  // For negative amounts, put the minus sign AFTER the currency symbol
+  return isNegative ? `-${symbol}${formatted}` : `${symbol}${formatted}`;
 }
 
 // Format currency for display with proper sign handling
