@@ -47,17 +47,6 @@ const ItemRenderer = memo(function ItemRenderer<T>({
   if (!item) return null;
   
   return <>{renderItem(item, index, style)}</>;
-}, (prevProps, nextProps) => {
-  // Custom comparison to avoid unnecessary re-renders
-  const prevItem = prevProps.data.items[prevProps.index];
-  const nextItem = nextProps.data.items[nextProps.index];
-  
-  return (
-    prevProps.index === nextProps.index &&
-    prevProps.style === nextProps.style &&
-    prevProps.data.getItemKey(prevItem, prevProps.index) === 
-      nextProps.data.getItemKey(nextItem, nextProps.index)
-  );
 });
 
 export const VirtualizedList = memo(function VirtualizedList<T>({
