@@ -124,9 +124,14 @@ export default function AccountTransactions() {
     let runningBalance = account.openingBalance || 0;
     
     // Calculate running balance for each transaction
-    const withBalance = sortedForBalance.map((transaction) => {
+    console.log('Starting balance calculation. Opening balance:', runningBalance);
+    const withBalance = sortedForBalance.map((transaction, index) => {
+      const prevBalance = runningBalance;
       // Since amounts are already signed (negative for expenses), just add them
       runningBalance += transaction.amount;
+      if (index < 5) {
+        console.log(`Transaction ${index}: ${transaction.description}, Amount: ${transaction.amount}, Previous Balance: ${prevBalance}, New Balance: ${runningBalance}`);
+      }
       return { ...transaction, balance: runningBalance };
     });
     
