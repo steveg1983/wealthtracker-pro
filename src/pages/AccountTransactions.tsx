@@ -235,16 +235,17 @@ export default function AccountTransactions() {
   }, []);
   
   // Handle transaction row click
-  const handleTransactionClick = (transaction: Transaction) => {
-    setSelectedTransactionId(transaction.id);
-    setSelectedTransaction(transaction);
-  };
-  
-  // Handle transaction double click
-  const handleTransactionDoubleClick = (transaction: Transaction) => {
-    setSelectedTransaction(transaction);
-    setIsEditModalOpen(true);
-  };
+  const handleTransactionClick = useCallback((transaction: Transaction) => {
+    if (selectedTransactionId === transaction.id) {
+      // Second click on already selected transaction - open edit modal
+      setSelectedTransaction(transaction);
+      setIsEditModalOpen(true);
+    } else {
+      // First click - just select the transaction
+      setSelectedTransactionId(transaction.id);
+      setSelectedTransaction(transaction);
+    }
+  }, [selectedTransactionId]);
   
   
   // Handle quick add
@@ -607,7 +608,7 @@ export default function AccountTransactions() {
           items={transactionsWithBalance}
           columns={columns}
           getItemKey={(transaction) => transaction.id}
-          onRowClick={handleTransactionDoubleClick}
+          onRowClick={handleTransactionClick}
           rowHeight={compactView ? 48 : 64}
           selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : undefined}
           onSort={(column, direction) => {
@@ -620,11 +621,11 @@ export default function AccountTransactions() {
           sortDirection={sortDirection}
           emptyMessage="No transactions found"
           threshold={50}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3]"
+          className="virtualized-table bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3]"
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
           rowClassName={(transaction, index) => {
             const selected = selectedTransactionId === transaction.id 
-              ? 'shadow-[inset_2px_0_0_3px_rgb(209,213,219),inset_0_2px_0_3px_rgb(209,213,219),inset_0_-2px_0_3px_rgb(209,213,219),inset_-2px_0_0_3px_rgb(209,213,219)] dark:shadow-[inset_2px_0_0_3px_rgb(75,85,99),inset_0_2px_0_3px_rgb(75,85,99),inset_0_-2px_0_3px_rgb(75,85,99),inset_-2px_0_0_3px_rgb(75,85,99)]'
+              ? 'ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-50 dark:bg-blue-900/30 font-semibold'
               : '';
             return selected;
           }}
