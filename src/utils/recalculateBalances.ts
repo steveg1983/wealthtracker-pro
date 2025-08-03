@@ -14,9 +14,9 @@ export function recalculateAccountBalances(
     // Add/subtract each transaction
     accountTransactions.forEach(transaction => {
       if (transaction.type === 'income') {
-        balance += transaction.amount;
+        balance += Math.abs(transaction.amount); // Income is always positive
       } else if (transaction.type === 'expense') {
-        balance -= transaction.amount;
+        balance -= Math.abs(transaction.amount); // Expense is always negative
       } else if (transaction.type === 'transfer') {
         // For transfers, the amount sign indicates direction
         // Positive = money coming IN, Negative = money going OUT
