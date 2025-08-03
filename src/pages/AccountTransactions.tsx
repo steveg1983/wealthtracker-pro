@@ -575,8 +575,8 @@ export default function AccountTransactions() {
                 </button>
               )}
             </div>
-            <div className="flex-1 flex justify-end">
-              {/* Compact View Toggle */}
+            {/* Compact View Toggle - Hidden but kept in code */}
+            {/* <div className="flex-1 flex justify-end">
               <button
                 onClick={() => setCompactView(!compactView)}
                 className="flex items-center gap-2 px-3 py-3 sm:py-2 text-sm border-2 border-gray-400 dark:border-gray-500 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors min-h-[48px] sm:min-h-[auto]"
@@ -585,14 +585,14 @@ export default function AccountTransactions() {
                 {compactView ? <MaximizeIcon size={18} /> : <MinimizeIcon size={18} />}
                 <span className="hidden sm:inline">{compactView ? 'Expand' : 'Compact'}</span>
               </button>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
       
       {/* Transactions Table */}
       <div 
-        className="flex-1 min-h-[500px] max-h-[800px] overflow-hidden"
+        className="flex-1 min-h-[600px] max-h-[900px] overflow-hidden"
       >
         <VirtualizedTable
           items={transactionsWithBalance}

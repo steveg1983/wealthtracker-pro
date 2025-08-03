@@ -57,10 +57,11 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
   const [compactView, setCompactView] = useState((): boolean => {
     try {
       const saved = localStorage.getItem('money_management_compact_view');
-      return saved === 'true';
+      // Default to true (compact view) if no saved preference
+      return saved !== null ? saved === 'true' : true;
     } catch (error) {
       console.error('Error reading compactView from localStorage:', error);
-      return false;
+      return true; // Default to compact view
     }
   });
 

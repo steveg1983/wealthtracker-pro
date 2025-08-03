@@ -39,7 +39,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
   console.log('PreferencesProvider initializing...');
   
   // Use simple defaults without localStorage for testing
-  const [compactView, setCompactView] = useState(false);
+  const [compactView, setCompactView] = useState(true); // Default to compact view
   const [currency, setCurrency] = useState('GBP');
   const [theme, setTheme] = useState<'light' | 'dark' | 'auto' | 'scheduled'>('light');
   const [colorTheme, setColorTheme] = useState<'blue' | 'green' | 'red' | 'pink'>('blue');

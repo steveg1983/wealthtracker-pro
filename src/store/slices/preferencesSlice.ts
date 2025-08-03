@@ -47,7 +47,7 @@ const initialState: PreferencesState = {
   theme: 'auto',
   colorTheme: 'green',
   currency: 'GBP',
-  compactView: false,
+  compactView: true, // Default to compact view
   pageVisibility: {
     showBudget: true,
     showGoals: true,

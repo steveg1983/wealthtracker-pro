@@ -409,8 +409,8 @@ export default function Transactions() {
       }
       rightContent={
         <div className="flex items-center gap-2">
-          {/* Compact View Toggle */}
-          <div 
+          {/* Compact View Toggle - Hidden but kept in code */}
+          {/* <div 
             onClick={() => setCompactView(!compactView)}
             className="cursor-pointer"
             title={compactView ? "Switch to normal view" : "Switch to compact view"}
@@ -456,7 +456,7 @@ export default function Transactions() {
                 </g>
               )}
             </svg>
-          </div>
+          </div> */}
           
           {/* Wide View Toggle */}
           <div 
