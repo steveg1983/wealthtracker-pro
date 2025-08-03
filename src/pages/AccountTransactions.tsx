@@ -218,6 +218,8 @@ export default function AccountTransactions() {
       // Second click on already selected transaction - open edit modal
       setSelectedTransaction(transaction);
       setIsEditModalOpen(true);
+      // Clear selection after opening modal
+      setSelectedTransactionId(null);
     } else {
       // First click - just select the transaction
       setSelectedTransactionId(transaction.id);
