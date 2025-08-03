@@ -125,6 +125,11 @@ export default function AccountTransactions() {
     
     // Calculate running balance for each transaction
     const withBalance = sortedForBalance.map((transaction) => {
+      // Debug log for first few transactions
+      if (sortedForBalance.indexOf(transaction) < 3) {
+        console.log('Transaction:', transaction.description, 'Type:', transaction.type, 'Amount:', transaction.amount, 'Current balance:', runningBalance);
+      }
+      
       if (transaction.type === 'income') {
         runningBalance += Math.abs(transaction.amount); // Income is always positive
       } else if (transaction.type === 'expense') {
@@ -408,7 +413,7 @@ export default function AccountTransactions() {
   }
   
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)]">
+    <div className="flex flex-col h-[calc(100vh-8rem)] overflow-hidden">
       {/* Header */}
       <div className="flex-shrink-0 mb-6">
         <button
@@ -599,12 +604,14 @@ export default function AccountTransactions() {
         </div>
       </div>
       
-      {/* Transactions Table - Scrollable */}
-      <div 
-        className="flex-1 min-h-0 relative"
-        style={{ minHeight: '600px', height: '600px' }}
-      >
-        <VirtualizedTable
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col min-h-0 gap-4">
+        {/* Transactions Table - Scrollable */}
+        <div 
+          className="flex-1 min-h-0 relative"
+          style={{ minHeight: '400px' }}
+        >
+          <VirtualizedTable
           items={transactionsWithBalance}
           columns={columns}
           getItemKey={(transaction) => transaction.id}
@@ -629,11 +636,11 @@ export default function AccountTransactions() {
               : '';
             return selected;
           }}
-        />
-      </div>
-      
-      {/* Quick Add Transaction Form */}
-      <div className="flex-shrink-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mt-4">
+          />
+        </div>
+        
+        {/* Quick Add Transaction Form */}
+        <div className="flex-shrink-0 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Quick Add Transaction</h3>
         <form onSubmit={handleQuickAdd} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -749,6 +756,7 @@ export default function AccountTransactions() {
             </button>
           </div>
         </form>
+        </div>
       </div>
       
       {/* Edit Modal */}
