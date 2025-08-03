@@ -50,6 +50,10 @@ export default function AccountTransactions() {
   const accountTransactions = useMemo(() => {
     if (!account) return [];
     
+    console.log('Account:', account.id, account.name);
+    console.log('All transactions:', transactions.length);
+    console.log('Transactions for this account:', transactions.filter(t => t.accountId === account.id).length);
+    
     return transactions
       .filter(t => t.accountId === account.id)
       .filter(t => {
