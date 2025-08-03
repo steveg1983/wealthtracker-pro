@@ -584,7 +584,7 @@ export default function AccountTransactions() {
       
       {/* Transactions Table - Updated Layout */}
       <div 
-        className="h-[600px] overflow-hidden"
+        className="h-[750px] overflow-hidden"
       >
         <VirtualizedTable
           items={transactionsWithBalance}
