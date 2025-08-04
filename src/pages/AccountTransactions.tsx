@@ -391,7 +391,7 @@ export default function AccountTransactions() {
   }
   
   return (
-    <div className="flex flex-col h-full -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8">
+    <div className="flex flex-col h-screen -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8">
       {/* Back button */}
       <button
         onClick={() => navigate('/accounts')}
@@ -584,7 +584,7 @@ export default function AccountTransactions() {
       
       {/* Transactions Table - Updated Layout */}
       <div 
-        className="h-[750px] overflow-hidden"
+        className="flex-1 min-h-0 overflow-hidden"
       >
         <VirtualizedTable
           items={transactionsWithBalance}
