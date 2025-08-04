@@ -6,15 +6,8 @@
 
 /* Make DraggableGrid extend to full width matching other content */
 .full-width-grid {
-  margin-left: -16px !important;
-  margin-right: -16px !important;
-}
-
-@media (min-width: 768px) {
-  .full-width-grid {
-    margin-left: -16px !important;
-    margin-right: -16px !important;
-  }
+  margin-left: 0 !important;
+  margin-right: 0 !important;
 }
 
 /* Override react-grid-layout default margins */
