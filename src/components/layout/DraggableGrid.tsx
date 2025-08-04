@@ -33,7 +33,7 @@ export function DraggableGrid({
       isDraggable={isDraggable}
       isResizable={isResizable}
       draggableHandle=".drag-handle"
-      margin={[16, 0]}
+      margin={[24, 24]}
       containerPadding={[0, 0]}
     >
       {children}
