@@ -200,7 +200,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
 
       {/* Accounts by Category */}
-      <div className="grid gap-6">
+      <div className="grid gap-4">
         {isLoading ? (
           // Show skeleton cards while loading
           <>

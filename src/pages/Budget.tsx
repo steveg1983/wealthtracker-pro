@@ -283,7 +283,7 @@ export default function Budget() {
 
       {/* Tab Content */}
       {activeTab === 'traditional' && (
-        <div className="grid gap-6">
+        <div className="grid gap-4">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
