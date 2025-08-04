@@ -262,8 +262,7 @@ export default function Analytics() {
         </div>
 
         {/* Draggable Widgets */}
-        <div>
-          <DraggableGrid
+        <DraggableGrid
           layouts={{ lg: layouts.analytics }}
           onLayoutChange={updateAnalyticsLayout}
           isDraggable={showLayoutControls}
@@ -426,8 +425,7 @@ export default function Analytics() {
             <SankeyChart transactions={transactions} accounts={accounts} />
           </GridItem>
         </div>
-          </DraggableGrid>
-        </div>
+        </DraggableGrid>
 
         {/* Layout Controls */}
         {showLayoutControls && (

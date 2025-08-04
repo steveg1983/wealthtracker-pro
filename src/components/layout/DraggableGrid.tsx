@@ -24,7 +24,7 @@ export function DraggableGrid({
 }: DraggableGridProps) {
   return (
     <ResponsiveGridLayout
-      className="layout"
+      className="layout full-width-grid"
       layouts={layouts}
       onLayoutChange={(layout) => onLayoutChange(layout)}
       breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}

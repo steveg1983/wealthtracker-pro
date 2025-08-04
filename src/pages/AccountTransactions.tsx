@@ -391,7 +391,7 @@ export default function AccountTransactions() {
   }
   
   return (
-    <div className="flex flex-col h-full -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8">
+    <div className="flex flex-col h-full">
       {/* Back button */}
       <button
         onClick={() => navigate('/accounts')}

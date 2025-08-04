@@ -416,8 +416,7 @@ export default function Dashboard() {
         </div>
 
         {/* Draggable Widgets */}
-        <div>
-          <DraggableGrid
+        <DraggableGrid
           layouts={{ lg: layouts.dashboard }}
           onLayoutChange={updateDashboardLayout}
           isDraggable={showLayoutControls}
@@ -550,9 +549,7 @@ export default function Dashboard() {
             </div>
           </GridItem>
         </div>
-          </DraggableGrid>
-
-        </div>
+        </DraggableGrid>
         
         {/* Layout Controls */}
         {showLayoutControls && (
