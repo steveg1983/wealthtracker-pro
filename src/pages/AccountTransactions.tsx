@@ -391,7 +391,7 @@ export default function AccountTransactions() {
   }
   
   return (
-    <div className="flex flex-col h-screen -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8">
+    <div className="flex flex-col h-full -m-4 md:-m-6 lg:-m-8 p-4 md:p-6 lg:p-8">
       {/* Back button */}
       <button
         onClick={() => navigate('/accounts')}
@@ -584,7 +584,7 @@ export default function AccountTransactions() {
       
       {/* Transactions Table - Updated Layout */}
       <div 
-        className="flex-1 min-h-0 overflow-hidden"
+        className="h-[850px] overflow-hidden"
       >
         <VirtualizedTable
           items={transactionsWithBalance}
@@ -613,7 +613,7 @@ export default function AccountTransactions() {
       </div>
       
       {/* Quick Add Transaction Form - Compact - Bottom Aligned */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mt-4">
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mt-8">
         <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">Quick Add Transaction</h3>
         <form onSubmit={handleQuickAdd} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
