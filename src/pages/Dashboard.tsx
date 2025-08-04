@@ -366,7 +366,7 @@ export default function Dashboard() {
       )}
 
       {/* Main content grid with consistent spacing */}
-      <div className="grid gap-4">
+      <div className="grid gap-6">
         {/* Fixed Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         <div 

@@ -469,7 +469,7 @@ export default function AccountTransactions() {
       </div>
       
       {/* Main content */}
-      <div className="grid gap-4">
+      <div className="grid gap-6">
       {/* Search and Filter Bar */}
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4">
         <div className="flex flex-col gap-4">
