@@ -33,8 +33,8 @@ export function DraggableGrid({
       isDraggable={isDraggable}
       isResizable={isResizable}
       draggableHandle=".drag-handle"
-      margin={[0, 0]}
-      containerPadding={[0, 0]}
+      margin={[24, 12]}
+      containerPadding={[0, 12]}
     >
       {children}
     </ResponsiveGridLayout>
