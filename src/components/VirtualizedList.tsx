@@ -129,15 +129,10 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
     );
   }
   
-  // Temporary fix: use fixed dimensions instead of AutoSizer
-  const fixedHeight = 500;
-  const fixedWidth = typeof window !== 'undefined' ? window.innerWidth - 100 : 800;
-  
-  
   return (
-    <div className={`flex-1 w-full overflow-hidden ${className}`} style={{ height: `${fixedHeight}px`, position: 'relative' }}>
-      {/* Temporarily bypass AutoSizer */}
-      {(
+    <div className={`flex-1 w-full h-full overflow-hidden ${className}`}>
+      <AutoSizer>
+        {({ height, width }) => (
           <InfiniteLoader
             isItemLoaded={isItemLoaded}
             itemCount={itemCount}
@@ -157,7 +152,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                       }
                     }
                   }}
-                  height={fixedHeight}
+                  height={height}
                   itemCount={itemCount}
                   itemSize={getItemSize}
                   itemData={itemData}
@@ -165,7 +160,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                     onInfiniteItemsRendered(props);
                     onItemsRendered?.(props);
                   }}
-                  width={fixedWidth}
+                  width={width}
                   overscanCount={overscanCount}
                   estimatedItemSize={estimatedItemSize}
                   itemKey={(index, data) => {
@@ -188,7 +183,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                       }
                     }
                   }}
-                  height={fixedHeight}
+                  height={height}
                   itemCount={itemCount}
                   itemSize={itemHeight as number}
                   itemData={itemData}
@@ -201,14 +196,15 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                     onItemsRendered?.(props);
                   }}
                   overscanCount={overscanCount}
-                  width={fixedWidth}
+                  width={width}
                 >
                   {ItemRenderer}
                 </List>
               );
             }}
           </InfiniteLoader>
-      )}
+        )}
+      </AutoSizer>
     </div>
   );
 });
