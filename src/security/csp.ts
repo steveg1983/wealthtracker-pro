@@ -41,6 +41,7 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       'data:',
       'blob:',
       'https:',
+      'https://logo.clearbit.com', // Logo service
     ],
     
     // Fonts: self and Google Fonts
@@ -56,6 +57,12 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       'wss:',
       'https://api.exchangerate-api.com', // Exchange rate API
       'https://cdn.jsdelivr.net', // CDN for libraries
+      'https://*.clerk.accounts.dev', // Clerk authentication
+      'https://clerk.com',
+      'https://*.clerk.com',
+      'https://api.stripe.com', // Stripe payments
+      'https://*.supabase.co', // Supabase backend
+      'https://supabase.co',
     ],
     
     // Media: self and blob (for generated content)
@@ -69,6 +76,13 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
     
     // Frame ancestors: none (prevent clickjacking)
     'frame-ancestors': ["'none'"],
+    
+    // Frame sources: self and Stripe
+    'frame-src': [
+      "'self'",
+      'https://js.stripe.com',
+      'https://hooks.stripe.com',
+    ],
     
     // Worker sources: self and blob for service workers
     'worker-src': [
