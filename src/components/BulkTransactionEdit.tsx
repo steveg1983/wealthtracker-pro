@@ -19,7 +19,7 @@ import {
   ArrowRightIcon,
   RefreshCwIcon,
   UndoIcon,
-  RedoIcon,
+  RepeatIcon,
   EyeIcon
 } from './icons';
 import type { Transaction } from '../types';
@@ -342,7 +342,7 @@ export default function BulkTransactionEdit({
                   className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                   title="Redo (Ctrl+Y)"
                 >
-                  <RedoIcon size={16} />
+                  <RepeatIcon size={16} />
                 </button>
                 <div className="w-px h-6 bg-gray-300 dark:bg-gray-600" />
                 <button
