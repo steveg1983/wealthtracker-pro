@@ -8,12 +8,19 @@ import App from './App.tsx'
 import * as serviceWorkerRegistration from './utils/serviceWorkerRegistration'
 import { initializeSecurity } from './security'
 import { pushNotificationService } from './services/pushNotificationService'
+import { checkEnvironmentVariables } from './utils/env-check'
 // import { initSentry } from './lib/sentry'
+
+// Check environment variables in development
+if (import.meta.env.DEV) {
+  checkEnvironmentVariables();
+}
 
 // Get Clerk publishable key
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
   console.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
+  console.error('Available env vars:', Object.keys(import.meta.env));
 }
 
 // Initialize all security features
