@@ -424,6 +424,41 @@ export default function ComponentName({ prop1, prop2 }: ComponentProps): React.J
 - **Component Testing**: React Testing Library
 - **Always use `--run` flag** to prevent watch mode and zombie processes
 
+## External Testing Integration (ChatGPT UI/UX Testing)
+
+### Overview
+We use ChatGPT's browser agent to conduct comprehensive UI/UX testing, with Claude implementing the fixes. This creates a powerful continuous improvement cycle.
+
+### Demo Mode Access
+**URL**: `https://wealthtracker-web.vercel.app/?demo=true`
+
+This bypasses authentication and loads sample data, allowing external testing tools to access the app without credentials.
+
+### Testing Workflow
+1. **ChatGPT Tests** → Identifies UI/UX issues, bugs, and improvements
+2. **Claude Fixes** → Implements solutions based on feedback
+3. **Verify & Iterate** → Continuous improvement cycle
+
+### When You Receive Testing Feedback
+When the user shares ChatGPT's testing feedback:
+1. **Read carefully** - Understand each issue identified
+2. **Prioritize fixes** - Critical bugs first, then UX improvements
+3. **Implement systematically** - Use TodoWrite to track progress
+4. **Test your changes** - Ensure fixes work in demo mode
+5. **Deploy quickly** - Push fixes so ChatGPT can re-test
+
+### Demo Mode Implementation Details
+- **Files**: `/src/utils/demoData.ts`, `/src/components/DemoModeIndicator.tsx`
+- **Auth Bypass**: Modified in `/src/components/auth/ProtectedRoute.tsx`
+- **Sample Data**: 100+ transactions, multiple accounts, budgets, goals
+- **Visual Indicator**: Yellow banner at top when active
+
+### Important Notes
+- Demo mode only uses sample data - no real user access
+- Changes should work in both demo and production modes
+- Always maintain the demo data generator when adding new features
+- The demo mode helps catch issues that human testers might miss
+
 ## Common Patterns and Top Tier Best Practices
 
 ### 1. Component Testing Pattern
