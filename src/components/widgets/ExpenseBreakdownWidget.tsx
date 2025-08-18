@@ -26,7 +26,7 @@ export default function ExpenseBreakdownWidget({ size, settings }: ExpenseBreakd
 
   const expenseData = useMemo(() => {
     const now = new Date();
-    let startDate = new Date();
+    const startDate = new Date();
 
     switch (period) {
       case 'week':

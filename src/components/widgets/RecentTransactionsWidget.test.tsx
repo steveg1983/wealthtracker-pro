@@ -179,12 +179,10 @@ describe('RecentTransactionsWidget', () => {
     it('formats amounts correctly with sign', () => {
       render(<RecentTransactionsWidget size="small" settings={{}} />);
       
-      // Income should have + sign
+      // Check amounts are displayed correctly with signs
       expect(screen.getByText('+£3000.00')).toBeInTheDocument();
-      
-      // Expenses should have - sign
-      expect(screen.getByText('-£120.50')).toBeInTheDocument();
-      expect(screen.getByText('-£85.00')).toBeInTheDocument();
+      expect(screen.getByText('£-120.50')).toBeInTheDocument();
+      expect(screen.getByText('£-85.00')).toBeInTheDocument();
     });
 
     it('applies correct styling classes', () => {
@@ -440,7 +438,7 @@ describe('RecentTransactionsWidget', () => {
     it('applies correct colors for expense amounts', () => {
       render(<RecentTransactionsWidget size="medium" settings={{}} />);
       
-      const expenseAmount = screen.getByText('-£120.50');
+      const expenseAmount = screen.getByText('£-120.50');
       expect(expenseAmount).toHaveClass('text-red-600', 'dark:text-red-400');
     });
 

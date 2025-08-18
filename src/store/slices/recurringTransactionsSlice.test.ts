@@ -154,8 +154,8 @@ describe('recurringTransactionsSlice', () => {
       expect(state.recurringTransactions[0]).toMatchObject({
         ...newRecurring,
         id: 'test-uuid-123',
-        createdAt: now,
-        updatedAt: now,
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
       });
 
       vi.useRealTimers();
@@ -320,7 +320,7 @@ describe('recurringTransactionsSlice', () => {
         id: 'recurring-1',
         amount: 1200,
         description: 'Updated Rent',
-        updatedAt: now,
+        updatedAt: now.toISOString(),
       });
       expect(state.recurringTransactions[1].amount).toBe(1500); // Unchanged
 
@@ -465,10 +465,10 @@ describe('recurringTransactionsSlice', () => {
       const state = store.getState().recurringTransactions;
       expect(state.recurringTransactions[0]).toMatchObject({
         id: 'recurring-1',
-        lastProcessed: lastProcessedDate,
-        updatedAt: now,
+        lastProcessed: lastProcessedDate.toISOString(),
+        updatedAt: now.toISOString(),
       });
-      expect(state.recurringTransactions[1].lastProcessed).toEqual(new Date('2025-01-01')); // Unchanged
+      expect(state.recurringTransactions[1].lastProcessed).toEqual(mockRecurringTransaction.lastProcessed); // Unchanged
 
       vi.useRealTimers();
     });
@@ -483,7 +483,7 @@ describe('recurringTransactionsSlice', () => {
       }));
 
       const state = store.getState().recurringTransactions;
-      expect(state.recurringTransactions[0].lastProcessed).toEqual(new Date('2025-01-01'));
+      expect(state.recurringTransactions[0].lastProcessed).toEqual(mockRecurringTransaction.lastProcessed);
     });
 
     it('sets lastProcessed for transaction without previous date', () => {
@@ -500,7 +500,7 @@ describe('recurringTransactionsSlice', () => {
       }));
 
       const state = store.getState().recurringTransactions;
-      expect(state.recurringTransactions[0].lastProcessed).toEqual(processedDate);
+      expect(state.recurringTransactions[0].lastProcessed).toEqual(processedDate.toISOString());
     });
 
     it('can update to future date', () => {
@@ -513,7 +513,7 @@ describe('recurringTransactionsSlice', () => {
       }));
 
       const state = store.getState().recurringTransactions;
-      expect(state.recurringTransactions[0].lastProcessed).toEqual(futureDate);
+      expect(state.recurringTransactions[0].lastProcessed).toEqual(futureDate.toISOString());
     });
   });
 
@@ -709,7 +709,7 @@ describe('recurringTransactionsSlice', () => {
       const state = store.getState().recurringTransactions;
       expect(state.recurringTransactions).toHaveLength(2);
       expect(state.recurringTransactions.find(rt => rt.id === 'recurring-1')).toBeUndefined();
-      expect(state.recurringTransactions[0].lastProcessed).toEqual(new Date('2025-01-20'));
+      expect(state.recurringTransactions[0].lastProcessed).toEqual(new Date('2025-01-20').toISOString());
       expect(state.recurringTransactions[1].description).toBe('New Subscription');
     });
 

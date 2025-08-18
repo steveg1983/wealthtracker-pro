@@ -19,6 +19,8 @@ export class SmartCategorizationService {
   private merchantCategoryMap: Map<string, { categoryId: string; count: number }[]> = new Map();
   private keywordCategoryMap: Map<string, { categoryId: string; count: number }[]> = new Map();
   private learningHistory: Map<string, { merchantConfidence: number; keywordConfidence: number }> = new Map();
+  private userCorrections: Map<string, Map<string, number>> = new Map(); // merchant -> categoryId -> count
+  private rejectedSuggestions: Map<string, Set<string>> = new Map(); // transactionDescription -> rejected categoryIds
 
   /**
    * Learn from existing categorized transactions
@@ -260,7 +262,7 @@ export class SmartCategorizationService {
    */
   private extractMerchant(description: string): string | null {
     // Remove common prefixes
-    let cleaned = description
+    const cleaned = description
       .replace(/^(CARD PURCHASE|DIRECT DEBIT|STANDING ORDER|BANK TRANSFER|POS|CONTACTLESS|ONLINE)[\s-]*/i, '')
       .replace(/^(TO|FROM)[\s-]*/i, '')
       .trim();
@@ -411,6 +413,86 @@ export class SmartCategorizationService {
       merchantsKnown: this.merchantCategoryMap.size,
       keywordsIdentified: this.keywordCategoryMap.size
     };
+  }
+
+  /**
+   * Learn from user correction - when user accepts a different category
+   */
+  learnFromCorrection(transaction: Transaction, categoryId: string) {
+    const merchant = this.extractMerchant(transaction.description);
+    
+    if (merchant) {
+      // Update user corrections map
+      if (!this.userCorrections.has(merchant)) {
+        this.userCorrections.set(merchant, new Map());
+      }
+      const merchantCorrections = this.userCorrections.get(merchant)!;
+      const currentCount = merchantCorrections.get(categoryId) || 0;
+      merchantCorrections.set(categoryId, currentCount + 1);
+      
+      // Also update the main merchant map with higher weight
+      const merchantCategories = this.merchantCategoryMap.get(merchant) || [];
+      const existingCategory = merchantCategories.find(mc => mc.categoryId === categoryId);
+      
+      if (existingCategory) {
+        existingCategory.count += 3; // Give more weight to user corrections
+      } else {
+        merchantCategories.push({ categoryId, count: 3 });
+      }
+      
+      this.merchantCategoryMap.set(merchant, merchantCategories);
+    }
+    
+    // Update keyword associations
+    const words = transaction.description.toLowerCase().split(/\s+/);
+    words.forEach(word => {
+      if (word.length > 3) {
+        const keywordCategories = this.keywordCategoryMap.get(word) || [];
+        const existingCategory = keywordCategories.find(kc => kc.categoryId === categoryId);
+        
+        if (existingCategory) {
+          existingCategory.count += 2; // Give more weight to corrections
+        } else {
+          keywordCategories.push({ categoryId, count: 2 });
+        }
+        
+        this.keywordCategoryMap.set(word, keywordCategories);
+      }
+    });
+  }
+
+  /**
+   * Learn from rejection - when user indicates a suggestion is wrong
+   */
+  learnFromRejection(transaction: Transaction, categoryId: string) {
+    const descriptionKey = transaction.description.toLowerCase();
+    
+    // Track rejected suggestions
+    if (!this.rejectedSuggestions.has(descriptionKey)) {
+      this.rejectedSuggestions.set(descriptionKey, new Set());
+    }
+    this.rejectedSuggestions.get(descriptionKey)!.add(categoryId);
+    
+    // Reduce confidence for this merchant-category combination
+    const merchant = this.extractMerchant(transaction.description);
+    if (merchant) {
+      const merchantCategories = this.merchantCategoryMap.get(merchant);
+      if (merchantCategories) {
+        const category = merchantCategories.find(mc => mc.categoryId === categoryId);
+        if (category && category.count > 0) {
+          category.count = Math.max(0, category.count - 1);
+        }
+      }
+    }
+  }
+
+  /**
+   * Check if a suggestion was previously rejected
+   */
+  private wasRejected(transaction: Transaction, categoryId: string): boolean {
+    const descriptionKey = transaction.description.toLowerCase();
+    const rejected = this.rejectedSuggestions.get(descriptionKey);
+    return rejected ? rejected.has(categoryId) : false;
   }
 }
 

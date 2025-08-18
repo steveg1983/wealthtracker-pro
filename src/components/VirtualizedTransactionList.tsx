@@ -73,20 +73,36 @@ const TransactionRow = memo(({ index, style, data }: TransactionRowProps): React
   } = data;
 
   const transaction = transactions[index];
-  if (!transaction) return null;
-
-  const isSelected = selectedTransactions?.has(transaction.id) || false;
+  
+  // All hooks must be called at the top level, before any early returns
+  const isSelected = selectedTransactions?.has(transaction?.id) || false;
   
   // Memoize amount formatting and color
   const { formattedAmount, amountClass } = useMemo(() => {
-    const isExpense = transaction.amount < 0;
+    if (!transaction) {
+      return { formattedAmount: '', amountClass: '' };
+    }
+    // Determine if this is an expense/outgoing transfer or income/incoming transfer
+    const isExpense = transaction.type === 'expense' || (transaction.type === 'transfer' && transaction.amount < 0);
+    const isIncome = transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0);
+    
+    // Format amount with proper sign
+    const displayAmount = isExpense ? -Math.abs(transaction.amount) : Math.abs(transaction.amount);
+    const formatted = formatCurrency(displayAmount);
+    
+    // Add + prefix for income/incoming transfers if not already present
+    const finalFormatted = isIncome && !formatted.startsWith('+') && !formatted.startsWith('-') 
+      ? `+${formatted}` 
+      : formatted;
+    
     return {
-      formattedAmount: formatCurrency(transaction.amount),
+      formattedAmount: finalFormatted,
       amountClass: isExpense ? 'text-red-600' : 'text-green-600'
     };
-  }, [transaction.amount, formatCurrency]);
+  }, [transaction, formatCurrency]);
 
   const handleCheckboxChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!transaction) return;
     e.stopPropagation();
     if (onSelectionChange && selectedTransactions) {
       const newSelected = new Set(selectedTransactions);
@@ -97,15 +113,17 @@ const TransactionRow = memo(({ index, style, data }: TransactionRowProps): React
       }
       onSelectionChange(newSelected);
     }
-  }, [onSelectionChange, selectedTransactions, transaction.id]);
+  }, [onSelectionChange, selectedTransactions, transaction]);
 
   const handleRowClick = useCallback(() => {
+    if (!transaction) return;
     if (onTransactionClick) {
       onTransactionClick(transaction);
     }
   }, [onTransactionClick, transaction]);
 
   const handleEdit = useCallback((e: React.MouseEvent) => {
+    if (!transaction) return;
     e.stopPropagation();
     if (onTransactionEdit) {
       onTransactionEdit(transaction);
@@ -113,16 +131,20 @@ const TransactionRow = memo(({ index, style, data }: TransactionRowProps): React
   }, [onTransactionEdit, transaction]);
 
   const handleDelete = useCallback((e: React.MouseEvent) => {
+    if (!transaction) return;
     e.stopPropagation();
     if (onTransactionDelete && confirm('Are you sure you want to delete this transaction?')) {
       onTransactionDelete(transaction.id);
     }
-  }, [onTransactionDelete, transaction.id]);
+  }, [onTransactionDelete, transaction]);
 
   const rowClassName = useMemo(() => {
     const base = 'flex items-center px-4 py-3 border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer';
     return isSelected ? `${base} bg-blue-50 dark:bg-blue-900/20` : base;
   }, [isSelected]);
+
+  // Early return after all hooks have been called
+  if (!transaction) return null;
 
   return (
     <div

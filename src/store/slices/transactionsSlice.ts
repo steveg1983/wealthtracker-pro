@@ -1,8 +1,13 @@
-import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import Decimal from 'decimal.js';
 import type { Transaction } from '../../types';
-import { storageAdapter } from '../../services/storageAdapter';
 import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
+import {
+  fetchTransactionsFromSupabase,
+  createTransactionInSupabase,
+  updateTransactionInSupabase,
+  deleteTransactionFromSupabase
+} from '../thunks/supabaseThunks';
 
 interface TransactionsState {
   transactions: Transaction[];
@@ -16,23 +21,14 @@ const initialState: TransactionsState = {
   error: null,
 };
 
-// Async thunk for loading transactions from storage
-export const loadTransactions = createAsyncThunk(
-  'transactions/load',
-  async () => {
-    const transactions = await storageAdapter.get<Transaction[]>('transactions') || [];
-    return transactions;
-  }
-);
-
-// Async thunk for saving transactions to storage
-export const saveTransactions = createAsyncThunk(
-  'transactions/save',
-  async (transactions: Transaction[]) => {
-    await storageAdapter.set('transactions', transactions);
-    return transactions;
-  }
-);
+// Re-export Supabase thunks for external use
+export {
+  fetchTransactionsFromSupabase,
+  fetchTransactionsFromSupabase as loadTransactions,
+  createTransactionInSupabase,
+  updateTransactionInSupabase,
+  deleteTransactionFromSupabase
+} from '../thunks/supabaseThunks';
 
 const transactionsSlice = createSlice({
   name: 'transactions',
@@ -77,22 +73,68 @@ const transactionsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Handle loadTransactions
-      .addCase(loadTransactions.pending, (state) => {
+      // Handle fetchTransactionsFromSupabase (loadTransactions)
+      .addCase(fetchTransactionsFromSupabase.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(loadTransactions.fulfilled, (state, action) => {
+      .addCase(fetchTransactionsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
         state.transactions = action.payload;
       })
-      .addCase(loadTransactions.rejected, (state, action) => {
+      .addCase(fetchTransactionsFromSupabase.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to load transactions';
       })
-      // Handle saveTransactions
-      .addCase(saveTransactions.fulfilled, (state, action) => {
-        state.transactions = action.payload;
+      // Handle createTransactionInSupabase
+      .addCase(createTransactionInSupabase.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createTransactionInSupabase.fulfilled, (state, action) => {
+        state.loading = false;
+        // Remove any temporary transaction with the same data
+        state.transactions = state.transactions.filter(txn => 
+          !(txn.id.startsWith('temp-') && 
+            txn.description === action.payload.description &&
+            txn.amount === action.payload.amount &&
+            txn.accountId === action.payload.accountId)
+        );
+        // Add the new transaction from Supabase
+        state.transactions.push(action.payload);
+      })
+      .addCase(createTransactionInSupabase.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to create transaction';
+      })
+      // Handle updateTransactionInSupabase
+      .addCase(updateTransactionInSupabase.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateTransactionInSupabase.fulfilled, (state, action) => {
+        state.loading = false;
+        const index = state.transactions.findIndex(txn => txn.id === action.payload.id);
+        if (index !== -1) {
+          state.transactions[index] = action.payload;
+        }
+      })
+      .addCase(updateTransactionInSupabase.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to update transaction';
+      })
+      // Handle deleteTransactionFromSupabase
+      .addCase(deleteTransactionFromSupabase.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteTransactionFromSupabase.fulfilled, (state, action) => {
+        state.loading = false;
+        state.transactions = state.transactions.filter(txn => txn.id !== action.payload);
+      })
+      .addCase(deleteTransactionFromSupabase.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to delete transaction';
       });
   },
 });

@@ -272,14 +272,43 @@ export class ValidationService {
     }
   }
 
-  // Format Zod errors for display
+  // Format Zod errors for display with user-friendly messages
   static formatErrors(error: z.ZodError): Record<string, string> {
     const formatted: Record<string, string> = {};
     error.issues.forEach((err: z.ZodIssue) => {
       const path = err.path.join('.');
-      formatted[path] = err.message;
+      // Convert technical messages to user-friendly ones
+      const userFriendlyMessage = this.getUserFriendlyValidationMessage(err.message, path);
+      formatted[path] = userFriendlyMessage;
     });
     return formatted;
+  }
+  
+  // Convert technical validation messages to user-friendly ones
+  private static getUserFriendlyValidationMessage(message: string, field: string): string {
+    const messageMap: Record<string, string> = {
+      'Required': `Please enter a ${field}`,
+      'String must contain at least 1 character(s)': `Please enter a ${field}`,
+      'Invalid uuid': 'Please select a valid option',
+      'Invalid decimal number': 'Please enter a valid number (e.g., 10.50)',
+      'Amount must be greater than 0': 'Amount must be greater than zero',
+      'Date must be in YYYY-MM-DD format': 'Please select a valid date',
+    };
+    
+    // Check for exact matches first
+    if (messageMap[message]) {
+      return messageMap[message];
+    }
+    
+    // Check for partial matches
+    for (const [key, value] of Object.entries(messageMap)) {
+      if (message.includes(key)) {
+        return value;
+      }
+    }
+    
+    // Return original message if no mapping found
+    return message;
   }
 
   // Sanitize input strings using DOMPurify

@@ -72,7 +72,7 @@ export function ResponsiveTable<T>({
       {/* Desktop Table View */}
       <div className={`hidden sm:block overflow-x-auto ${className}`}>
         <table className="w-full">
-          <thead className="bg-gray-50 dark:bg-gray-700">
+          <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
             <tr>
               {columns.map(column => (
                 <th

@@ -11,9 +11,22 @@ export function recalculateAccountBalances(
     // Start with opening balance
     let balance = account.openingBalance || 0;
     
-    // Add each transaction (amounts are already signed: negative for expenses, positive for income)
+    // Add each transaction based on type
     accountTransactions.forEach(transaction => {
-      balance += transaction.amount;
+      switch (transaction.type) {
+        case 'income':
+          balance += transaction.amount;
+          break;
+        case 'expense':
+          balance -= transaction.amount;
+          break;
+        case 'transfer':
+          // Transfers can be positive (incoming) or negative (outgoing)
+          // The amount sign indicates the direction
+          balance += transaction.amount;
+          break;
+        // Unknown types are ignored
+      }
     });
     
     // For investment accounts, add the value of holdings

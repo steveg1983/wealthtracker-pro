@@ -1,6 +1,6 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Dashboard from '../../pages/Dashboard';
 import { AppProvider } from '../../contexts/AppContext';
@@ -58,6 +58,11 @@ describe('Dashboard Interactions Integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorageMock.clear();
+  });
+
+  afterEach(() => {
+    cleanup();
+    vi.clearAllTimers();
   });
 
   describe('Widget Clicks → Navigation → Data Updates', () => {

@@ -146,98 +146,186 @@ export default function InvoiceManager({ onDataChange }: InvoiceManagerProps) {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Invoice
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Client
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Due Date
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <FileTextIcon size={16} className="text-gray-400 mr-2" />
-                        <div>
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">
-                            {invoice.invoiceNumber}
-                          </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400">
-                            {formatDate(invoice.issueDate)}
+          <>
+            {/* Mobile card view */}
+            <div className="sm:hidden space-y-3">
+              {invoices.map((invoice) => (
+                <div key={invoice.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-2">
+                      <FileTextIcon size={20} className="text-gray-400" />
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {invoice.invoiceNumber}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {invoice.clientName}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
+                      {getStatusIcon(invoice.status)}
+                      {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mb-3 text-sm">
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400 block text-xs">Amount</span>
+                      <span className="text-gray-900 dark:text-white font-medium">
+                        {formatCurrency(invoice.total)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400 block text-xs">Due Date</span>
+                      <span className="text-gray-900 dark:text-white">
+                        {formatDate(invoice.dueDate)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400 block text-xs">Issue Date</span>
+                      <span className="text-gray-900 dark:text-white">
+                        {formatDate(invoice.issueDate)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400 block text-xs">Email</span>
+                      <span className="text-gray-900 dark:text-white text-xs">
+                        {invoice.clientEmail}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => handleViewInvoice(invoice)}
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-blue-600 hover:text-blue-900 dark:text-blue-400"
+                      title="View"
+                    >
+                      <EyeIcon size={20} />
+                    </button>
+                    <button
+                      onClick={() => handleEditInvoice(invoice)}
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-600 hover:text-gray-900 dark:text-gray-400"
+                      title="Edit"
+                    >
+                      <EditIcon size={20} />
+                    </button>
+                    {invoice.status !== 'paid' && (
+                      <button
+                        onClick={() => handleMarkAsPaid(invoice)}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-green-600 hover:text-green-900 dark:text-green-400"
+                        title="Mark as Paid"
+                      >
+                        <CheckCircleIcon size={20} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteInvoice(invoice)}
+                      className="min-w-[44px] min-h-[44px] flex items-center justify-center text-red-600 hover:text-red-900 dark:text-red-400"
+                      title="Delete"
+                    >
+                      <TrashIcon size={20} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table view */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-secondary dark:bg-gray-700">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      Invoice
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      Client
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      Due Date
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {invoices.map((invoice) => (
+                    <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <FileTextIcon size={16} className="text-gray-400 mr-2" />
+                          <div>
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {invoice.invoiceNumber}
+                            </div>
+                            <div className="text-sm text-gray-500 dark:text-gray-400">
+                              {formatDate(invoice.issueDate)}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 dark:text-white">{invoice.clientName}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">{invoice.clientEmail}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {formatCurrency(invoice.total)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
-                        {getStatusIcon(invoice.status)}
-                        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {formatDate(invoice.dueDate)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => handleViewInvoice(invoice)}
-                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
-                        >
-                          <EyeIcon size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleEditInvoice(invoice)}
-                          className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300"
-                        >
-                          <EditIcon size={16} />
-                        </button>
-                        {invoice.status !== 'paid' && (
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">{invoice.clientName}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">{invoice.clientEmail}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {formatCurrency(invoice.total)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
+                          {getStatusIcon(invoice.status)}
+                          {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                        {formatDate(invoice.dueDate)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleMarkAsPaid(invoice)}
-                            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
-                            title="Mark as Paid"
+                            onClick={() => handleViewInvoice(invoice)}
+                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                           >
-                            <CheckCircleIcon size={16} />
+                            <EyeIcon size={16} />
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteInvoice(invoice)}
-                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
-                        >
-                          <TrashIcon size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                          <button
+                            onClick={() => handleEditInvoice(invoice)}
+                            className="text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300"
+                          >
+                            <EditIcon size={16} />
+                          </button>
+                          {invoice.status !== 'paid' && (
+                            <button
+                              onClick={() => handleMarkAsPaid(invoice)}
+                              className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                              title="Mark as Paid"
+                            >
+                              <CheckCircleIcon size={16} />
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeleteInvoice(invoice)}
+                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            <TrashIcon size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

@@ -6,20 +6,21 @@ import {
   deleteTransaction as deleteTransactionThunk,
   loadAllData
 } from '../thunks';
-import { saveTransactions } from '../slices/transactionsSlice';
 import { saveTags } from '../slices/tagsSlice';
 import type { BackupData } from '../../utils/backupRestore';
 import { 
   addAccount as addAccountAction,
   updateAccount as updateAccountAction,
   deleteAccount as deleteAccountAction,
-  saveAccounts
+  createAccountInSupabase,
+  updateAccountInSupabase,
+  deleteAccountFromSupabase
 } from '../slices/accountsSlice';
 import {
   addBudget as addBudgetAction,
   updateBudget as updateBudgetAction,
   deleteBudget as deleteBudgetAction,
-  saveBudgets
+  createBudgetInSupabase
 } from '../slices/budgetsSlice';
 import {
   addCategory as addCategoryAction,
@@ -31,7 +32,7 @@ import {
   addGoal as addGoalAction,
   updateGoal as updateGoalAction,
   deleteGoal as deleteGoalAction,
-  saveGoals
+  createGoalInSupabase
 } from '../slices/goalsSlice';
 import {
   addRecurringTransaction as addRecurringTransactionAction,
@@ -65,24 +66,18 @@ export function useAppRedux() {
     state.recurringTransactions.loading
   );
   
-  // Account methods
+  // Account methods (now using Supabase)
   const addAccount = useCallback(async (account: Omit<Account, 'id' | 'createdAt' | 'updatedAt'>) => {
-    dispatch(addAccountAction(account));
-    const newAccounts = [...accounts, { ...account, id: crypto.randomUUID(), createdAt: new Date(), updatedAt: new Date() }];
-    await dispatch(saveAccounts(newAccounts));
-  }, [dispatch, accounts]);
+    await dispatch(createAccountInSupabase(account));
+  }, [dispatch]);
   
   const updateAccount = useCallback(async (id: string, updates: Partial<Account>) => {
-    dispatch(updateAccountAction({ id, updates }));
-    const updatedAccounts = accounts.map(a => a.id === id ? { ...a, ...updates, updatedAt: new Date() } : a);
-    await dispatch(saveAccounts(updatedAccounts));
-  }, [dispatch, accounts]);
+    await dispatch(updateAccountInSupabase({ id, updates }));
+  }, [dispatch]);
   
   const deleteAccount = useCallback(async (id: string) => {
-    dispatch(deleteAccountAction(id));
-    const filteredAccounts = accounts.filter(a => a.id !== id);
-    await dispatch(saveAccounts(filteredAccounts));
-  }, [dispatch, accounts]);
+    await dispatch(deleteAccountFromSupabase(id));
+  }, [dispatch]);
   
   // Transaction methods (using thunks for side effects)
   const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
@@ -97,24 +92,20 @@ export function useAppRedux() {
     await dispatch(deleteTransactionThunk(id));
   }, [dispatch]);
   
-  // Budget methods
+  // Budget methods (now using Supabase for creation)
   const addBudget = useCallback(async (budget: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>) => {
-    dispatch(addBudgetAction(budget));
-    const newBudgets = [...budgets, { ...budget, id: crypto.randomUUID(), createdAt: new Date(), updatedAt: new Date() }];
-    await dispatch(saveBudgets(newBudgets));
-  }, [dispatch, budgets]);
+    await dispatch(createBudgetInSupabase(budget));
+  }, [dispatch]);
   
   const updateBudget = useCallback(async (id: string, updates: Partial<Budget>) => {
+    // For now, use local action - will implement Supabase update later
     dispatch(updateBudgetAction({ id, updates }));
-    const updatedBudgets = budgets.map(b => b.id === id ? { ...b, ...updates, updatedAt: new Date() } : b);
-    await dispatch(saveBudgets(updatedBudgets));
-  }, [dispatch, budgets]);
+  }, [dispatch]);
   
   const deleteBudget = useCallback(async (id: string) => {
+    // For now, use local action - will implement Supabase delete later
     dispatch(deleteBudgetAction(id));
-    const filteredBudgets = budgets.filter(b => b.id !== id);
-    await dispatch(saveBudgets(filteredBudgets));
-  }, [dispatch, budgets]);
+  }, [dispatch]);
   
   // Category methods
   const addCategory = useCallback(async (category: Omit<Category, 'id'>) => {
@@ -137,24 +128,20 @@ export function useAppRedux() {
     await dispatch(saveCategories(updatedCategories));
   }, [dispatch, categories]);
   
-  // Goal methods
+  // Goal methods (now using Supabase for creation)
   const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>) => {
-    dispatch(addGoalAction(goal));
-    const newGoals = [...goals, { ...goal, id: crypto.randomUUID(), createdAt: new Date(), updatedAt: new Date() }];
-    await dispatch(saveGoals(newGoals));
-  }, [dispatch, goals]);
+    await dispatch(createGoalInSupabase(goal));
+  }, [dispatch]);
   
   const updateGoal = useCallback(async (id: string, updates: Partial<Goal>) => {
+    // For now, use local action - will implement Supabase update later
     dispatch(updateGoalAction({ id, updates }));
-    const updatedGoals = goals.map(g => g.id === id ? { ...g, ...updates, updatedAt: new Date() } : g);
-    await dispatch(saveGoals(updatedGoals));
-  }, [dispatch, goals]);
+  }, [dispatch]);
   
   const deleteGoal = useCallback(async (id: string) => {
+    // For now, use local action - will implement Supabase delete later
     dispatch(deleteGoalAction(id));
-    const filteredGoals = goals.filter(g => g.id !== id);
-    await dispatch(saveGoals(filteredGoals));
-  }, [dispatch, goals]);
+  }, [dispatch]);
   
   // Recurring transaction methods
   const addRecurringTransaction = useCallback(async (recurring: Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt'>) => {

@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { Dashboard } from '../Dashboard';
+import Dashboard from './Dashboard';
 import { renderWithProviders, createMockAccount, createMockTransaction } from '../../test/testUtils';
 
 describe('Dashboard', () => {

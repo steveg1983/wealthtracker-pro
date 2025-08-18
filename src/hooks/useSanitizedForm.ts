@@ -64,32 +64,35 @@ export const useSanitizedForm = <T extends Record<string, any>>(
       case 'html':
         return sanitizeHTML(value);
       
-      case 'url':
+      case 'url': {
         const sanitizedUrl = sanitizeURL(value);
         if (value && !sanitizedUrl) {
           setErrors(prev => ({ ...prev, [fieldName]: 'Invalid URL' }));
         }
         return sanitizedUrl;
+      }
       
       case 'query':
         return sanitizeQuery(value);
       
-      case 'number':
+      case 'number': {
         const num = sanitizeNumber(value);
         if (value && num === 0 && value !== '0' && value !== 0) {
           setErrors(prev => ({ ...prev, [fieldName]: 'Invalid number' }));
         }
         return num;
+      }
       
       case 'decimal':
         return sanitizeDecimal(value, config.decimals);
       
-      case 'date':
+      case 'date': {
         const date = sanitizeDate(value);
         if (value && !date) {
           setErrors(prev => ({ ...prev, [fieldName]: 'Invalid date' }));
         }
         return date;
+      }
       
       case 'filename':
         return sanitizeFilename(value);

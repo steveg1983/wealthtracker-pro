@@ -256,7 +256,7 @@ export default function Goals() {
 
         {/* Active Goals */}
         <div className="pt-4">
-          {activeGoals.length > 0 && (
+          {activeGoals.length > 0 ? (
         <div className="mb-6">
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white mb-4">Active Goals</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -347,6 +347,70 @@ export default function Goals() {
             })}
           </div>
         </div>
+      ) : goals.length === 0 ? (
+        /* Empty state when no goals at all */
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-12" data-testid="empty-state">
+          <div className="text-center">
+            <TargetIcon className="h-24 w-24 mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              No goals yet
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+              Set financial goals to track your progress towards savings targets, debt payoff, or investment milestones.
+            </p>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <PlusIcon size={20} />
+              <span>Create Your First Goal</span>
+            </button>
+            
+            <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
+              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                <div className="text-2xl mb-2">💰</div>
+                <h4 className="font-medium text-gray-900 dark:text-white text-sm">Savings Goal</h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Build your emergency fund or save for a big purchase
+                </p>
+              </div>
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                <div className="text-2xl mb-2">💳</div>
+                <h4 className="font-medium text-gray-900 dark:text-white text-sm">Debt Payoff</h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Track progress on paying down credit cards or loans
+                </p>
+              </div>
+              <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                <div className="text-2xl mb-2">📈</div>
+                <h4 className="font-medium text-gray-900 dark:text-white text-sm">Investment</h4>
+                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                  Monitor your investment portfolio growth targets
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+        /* Empty state when all goals are completed */
+        <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-12" data-testid="empty-state">
+          <div className="text-center">
+            <div className="text-5xl mb-4">🎉</div>
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              All goals completed!
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
+              Congratulations on achieving your goals! Ready to set new financial targets?
+            </p>
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <PlusIcon size={20} />
+              <span>Set a New Goal</span>
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Completed Goals */}
@@ -387,25 +451,6 @@ export default function Goals() {
             </div>
           </div>
         </div>
-        )}
-
-          {goals.length === 0 && (
-          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-12">
-            <div className="text-center">
-              <TargetIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No goals yet</h3>
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
-                Start tracking your financial goals and watch your progress grow!
-              </p>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700"
-              >
-                <PlusIcon size={20} color="white" />
-                Create Your First Goal
-              </button>
-            </div>
-          </div>
         )}
         
         {/* Achievement History Toggle */}

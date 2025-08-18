@@ -1,5 +1,7 @@
 /* Import enhanced borders and shadows */
 @import './styles/borders.css';
+/* Import accessibility color overrides */
+@import './styles/accessibility-colors.css';
 
 @tailwind base;
 @tailwind components;
@@ -84,7 +86,7 @@
   --color-light-card: #ffffff;
   --color-light-border: #e5e7eb;
   --color-light-accent: #f0f9ff;
-  --color-sidebar: #8ea9db;
+  --color-sidebar: #5a729a; /* Changed from #8ea9db to meet contrast requirements */
   --color-sidebar-active: #b8d4f1;
   --color-sidebar-border: #4a6fa5;
 }
@@ -94,7 +96,7 @@
   --color-primary: #7ba8d1;
   --color-secondary: #5a729a;
   --color-tertiary: #b8d4f1;
-  --color-sidebar: #8ea9db;
+  --color-sidebar: #5a729a; /* Changed from #8ea9db to meet contrast requirements */
   --color-sidebar-active: #b8d4f1;
   --color-sidebar-border: #4a6fa5;
   --color-light-accent: #f0f9ff;

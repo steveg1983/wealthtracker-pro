@@ -7,7 +7,8 @@ import RealTimePortfolio from '../components/RealTimePortfolio';
 import RealTimePortfolioEnhanced from '../components/RealTimePortfolioEnhanced';
 import PortfolioManager from '../components/PortfolioManager';
 import StockWatchlist from '../components/StockWatchlist';
-import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+// Use optimized lazy-loaded charts to reduce bundle size
+import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import PageWrapper from '../components/PageWrapper';

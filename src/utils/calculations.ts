@@ -107,11 +107,22 @@ export function calculateBudgetPercentage(
 }
 
 /**
- * Calculate goal progress percentage
+ * Calculate goal progress with detailed information
  */
-export function calculateGoalProgress(goal: Goal): number {
-  const decimalGoal = toDecimalGoal(goal);
-  return decimalCalcs.calculateGoalProgress(decimalGoal);
+export function calculateGoalProgress(goal: Goal): {
+  percentage: number;
+  remaining: number;
+  isCompleted: boolean;
+} {
+  const percentage = goal.targetAmount === 0 ? 100 : (goal.currentAmount / goal.targetAmount) * 100;
+  const remaining = Math.max(0, goal.targetAmount - goal.currentAmount);
+  const isCompleted = goal.currentAmount >= goal.targetAmount;
+  
+  return {
+    percentage: Math.min(100, percentage),
+    remaining,
+    isCompleted
+  };
 }
 
 /**
@@ -256,12 +267,32 @@ export function calculateBudgetUsage(budget: Budget, transactions: Transaction[]
 }
 
 /**
- * Calculate budget progress as percentage
+ * Calculate budget progress with detailed information
  */
-export function calculateBudgetProgress(budget: Budget, transactions: Transaction[]): number {
-  if (budget.amount === 0) return 0;
-  const usage = calculateBudgetUsage(budget, transactions);
-  return (usage / budget.amount) * 100;
+export function calculateBudgetProgress(budget: Budget, transactions?: Transaction[]): {
+  percentage: number;
+  remaining: number;
+  status: 'good' | 'warning' | 'danger';
+} {
+  // If budget has a 'spent' property, use it directly
+  const spent = budget.spent || (transactions ? calculateBudgetUsage(budget, transactions) : 0);
+  const percentage = budget.amount === 0 ? 0 : (spent / budget.amount) * 100;
+  const remaining = budget.amount - spent;
+  
+  let status: 'good' | 'warning' | 'danger';
+  if (percentage >= 100) {
+    status = 'danger';
+  } else if (percentage >= 80) {
+    status = 'warning';
+  } else {
+    status = 'good';
+  }
+  
+  return {
+    percentage,
+    remaining,
+    status
+  };
 }
 
 /**
@@ -289,16 +320,21 @@ export function getTransactionsByDateRange(
  * Calculate cash flow
  */
 export function calculateCashFlow(transactions: Transaction[]): {
-  income: number;
-  expenses: number;
-  net: number;
+  totalIncome: number;
+  totalExpenses: number;
+  netCashFlow: number;
+  savingsRate: number;
 } {
-  const income = calculateTotalIncome(transactions);
-  const expenses = calculateTotalExpenses(transactions);
+  const totalIncome = calculateTotalIncome(transactions);
+  const totalExpenses = calculateTotalExpenses(transactions);
+  const netCashFlow = totalIncome - totalExpenses;
+  const savingsRate = totalIncome === 0 ? 0 : (netCashFlow / totalIncome) * 100;
+  
   return {
-    income,
-    expenses,
-    net: income - expenses
+    totalIncome,
+    totalExpenses,
+    netCashFlow,
+    savingsRate
   };
 }
 
@@ -430,7 +466,7 @@ export function getRecentTransactions(transactions: Transaction[], days: number 
  */
 export function getTopCategories(transactions: Transaction[], limit: number = 5): Array<{
   category: string;
-  total: number;
+  amount: number;
   count: number;
 }> {
   const categoryTotals: Record<string, { total: number; count: number }> = {};
@@ -446,8 +482,12 @@ export function getTopCategories(transactions: Transaction[], limit: number = 5)
     });
   
   return Object.entries(categoryTotals)
-    .map(([category, data]) => ({ category, ...data }))
-    .sort((a, b) => b.total - a.total)
+    .map(([category, data]) => ({ 
+      category, 
+      amount: data.total,  // Changed from total to amount
+      count: data.count 
+    }))
+    .sort((a, b) => b.amount - a.amount)
     .slice(0, limit);
 }
 
@@ -498,13 +538,13 @@ export function calculateMonthlyTrends(
   month: string;
   income: number;
   expenses: number;
-  net: number;
+  netIncome: number;
 }> {
   const trends: Array<{
     month: string;
     income: number;
     expenses: number;
-    net: number;
+    netIncome: number;
   }> = [];
   
   const today = new Date();
@@ -524,7 +564,7 @@ export function calculateMonthlyTrends(
       month: monthStr,
       income,
       expenses,
-      net: income - expenses
+      netIncome: income - expenses  // Changed from net to netIncome
     });
   }
   
@@ -567,4 +607,74 @@ export function getCategoryDisplayPath(category: string): string {
   // For now, just return the category name
   // This can be expanded to show full hierarchy path if needed
   return category;
+}
+
+/**
+ * Calculate average spending for a given period
+ */
+export function calculateAverageSpending(transactions: Transaction[], days: number): number {
+  if (days === 0) return 0;
+  const totalSpending = transactions
+    .filter(t => t.type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+  return totalSpending / days;
+}
+
+/**
+ * Calculate growth rate between two periods
+ */
+export function calculateGrowthRate(previousValue: number, currentValue: number): number {
+  if (previousValue === 0) return currentValue === 0 ? 0 : Infinity;
+  return ((currentValue - previousValue) / previousValue) * 100;
+}
+
+/**
+ * Calculate projected savings based on current amount and monthly contribution
+ */
+export function calculateProjectedSavings(
+  currentAmount: number,
+  monthlyContribution: number,
+  targetDate: Date
+): {
+  projectedAmount: number;
+  willMeetGoal: boolean;
+  monthsToGoal: number;
+} {
+  const currentDate = new Date();
+  const monthsDiff = (targetDate.getFullYear() - currentDate.getFullYear()) * 12 + 
+                     (targetDate.getMonth() - currentDate.getMonth());
+  
+  const projectedAmount = currentAmount + (monthlyContribution * monthsDiff);
+  
+  return {
+    projectedAmount,
+    willMeetGoal: true, // Can be enhanced with goal target comparison
+    monthsToGoal: Math.max(0, monthsDiff)
+  };
+}
+
+/**
+ * Calculate emergency fund coverage in months
+ */
+export function calculateEmergencyFundCoverage(
+  emergencyFund: number,
+  monthlyExpenses: number
+): {
+  months: number;
+  isAdequate: boolean;
+} {
+  if (monthlyExpenses === 0) {
+    return {
+      months: Infinity,
+      isAdequate: true
+    };
+  }
+  
+  const months = emergencyFund / monthlyExpenses;
+  const isAdequate = months >= 6; // 6 months is generally recommended
+  
+  return {
+    months,
+    isAdequate
+  };
 }

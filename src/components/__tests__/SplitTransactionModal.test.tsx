@@ -3,13 +3,70 @@
  * Tests for the SplitTransactionModal component
  */
 
+import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { SplitTransactionModal } from '../SplitTransactionModal';
-import { renderWithProviders, createMockAccount, createMockTransaction } from '../../test/testUtils';
+import SplitTransactionModal from '../SplitTransactionModal';
+import type { Transaction } from '../../types';
+
+// Create mock functions outside the mock
+const mockUpdateTransaction = vi.fn();
+const mockAddTransaction = vi.fn();
+const mockDeleteTransaction = vi.fn();
+
+// Mock dependencies
+vi.mock('../../contexts/AppContext', () => ({
+  useApp: () => ({
+    updateTransaction: mockUpdateTransaction,
+    addTransaction: mockAddTransaction,
+    deleteTransaction: mockDeleteTransaction
+  })
+}));
+
+// Mock icons
+vi.mock('../icons/XIcon', () => ({
+  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>
+}));
+
+vi.mock('../icons/PlusIcon', () => ({
+  PlusIcon: ({ size }: any) => <div data-testid="plus-icon">Plus</div>
+}));
+
+vi.mock('../icons/DeleteIcon', () => ({
+  DeleteIcon: ({ size }: any) => <div data-testid="delete-icon">Delete</div>
+}));
+
+// Mock window.alert
+global.alert = vi.fn();
+
+// Mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
 
 describe('SplitTransactionModal', () => {
+  const mockTransaction: Transaction = {
+    id: 'trans-1',
+    date: new Date('2024-01-15'),
+    description: 'Grocery Shopping',
+    amount: 100,
+    category: 'Groceries',
+    accountId: 'acc-1',
+    type: 'expense',
+    cleared: true
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -19,142 +76,319 @@ describe('SplitTransactionModal', () => {
   });
 
   describe('rendering', () => {
-    it('renders correctly with default props', () => {
-      renderWithProviders(<SplitTransactionModal />);
+    it('renders correctly when open', () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
       
-      // Add specific assertions based on component
-      expect(screen.getByTestId('splittransactionmodal')).toBeInTheDocument();
+      expect(screen.getByText('Split Transaction')).toBeInTheDocument();
+      expect(screen.getByText(/Original Amount:/)).toBeInTheDocument();
+      expect(screen.getByText('£100.00')).toBeInTheDocument();
     });
 
-    it('renders loading state when data is loading', () => {
-      renderWithProviders(<SplitTransactionModal isLoading={true} />);
+    it('does not render when closed', () => {
+      render(<SplitTransactionModal isOpen={false} onClose={vi.fn()} transaction={mockTransaction} />);
       
-      expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
+      expect(screen.queryByText('Split Transaction')).not.toBeInTheDocument();
     });
 
-    it('renders error state when error occurs', () => {
-      renderWithProviders(<SplitTransactionModal error="Test error" />);
+    it('does not render without transaction', () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={null as any} />);
       
-      expect(screen.getByText('Test error')).toBeInTheDocument();
+      expect(screen.queryByText('Split Transaction')).not.toBeInTheDocument();
     });
 
-    it('renders empty state when no data', () => {
-      renderWithProviders(<SplitTransactionModal data={[]} />);
+    it('initializes with transaction data', () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
       
-      expect(screen.getByText(/no data/i)).toBeInTheDocument();
+      const categoryInput = screen.getByPlaceholderText('Category') as HTMLInputElement;
+      const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement;
+      const descriptionInput = screen.getByPlaceholderText('Description') as HTMLInputElement;
+      
+      expect(categoryInput.value).toBe('Groceries');
+      expect(amountInput.value).toBe('100');
+      expect(descriptionInput.value).toBe('Grocery Shopping');
+    });
+
+    it('loads existing splits if available', () => {
+      const transactionWithSplits = {
+        ...mockTransaction,
+        splits: [
+          { category: 'Food', amount: 60, description: 'Food items' },
+          { category: 'Household', amount: 40, description: 'Cleaning supplies' }
+        ]
+      };
+      
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={transactionWithSplits} />);
+      
+      const categoryInputs = screen.getAllByPlaceholderText('Category') as HTMLInputElement[];
+      expect(categoryInputs).toHaveLength(2);
+      expect(categoryInputs[0].value).toBe('Food');
+      expect(categoryInputs[1].value).toBe('Household');
+    });
+  });
+
+  describe('split management', () => {
+    it('adds a new split', async () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
+      
+      const addButton = screen.getByText('Add Split');
+      await userEvent.click(addButton);
+      
+      const categoryInputs = screen.getAllByPlaceholderText('Category');
+      expect(categoryInputs).toHaveLength(2);
+    });
+
+    it('removes a split when multiple exist', async () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
+      
+      // Add a split first
+      await userEvent.click(screen.getByText('Add Split'));
+      
+      // Should have delete buttons now
+      const deleteButtons = screen.getAllByTestId('delete-icon');
+      expect(deleteButtons).toHaveLength(2);
+      
+      // Remove the first split
+      await userEvent.click(deleteButtons[0].parentElement!);
+      
+      const categoryInputs = screen.getAllByPlaceholderText('Category');
+      expect(categoryInputs).toHaveLength(1);
+    });
+
+    it('does not show delete button when only one split', () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
+      
+      expect(screen.queryByTestId('delete-icon')).not.toBeInTheDocument();
+    });
+
+    it('updates split values', async () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
+      
+      const categoryInput = screen.getByPlaceholderText('Category') as HTMLInputElement;
+      const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement;
+      const descriptionInput = screen.getByPlaceholderText('Description') as HTMLInputElement;
+      
+      await userEvent.clear(categoryInput);
+      await userEvent.type(categoryInput, 'Food');
+      
+      await userEvent.clear(amountInput);
+      await userEvent.type(amountInput, '50');
+      
+      await userEvent.clear(descriptionInput);
+      await userEvent.type(descriptionInput, 'Food items');
+      
+      expect(categoryInput.value).toBe('Food');
+      expect(amountInput.value).toBe('50');
+      expect(descriptionInput.value).toBe('Food items');
+    });
+  });
+
+  describe('amount calculation', () => {
+    it('shows remaining amount', async () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
+      
+      // Initially should show 0 remaining
+      expect(screen.getByText('Remaining:')).toBeInTheDocument();
+      expect(screen.getByText('£0.00')).toBeInTheDocument();
+      
+      // Change amount to 50
+      const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement;
+      await userEvent.clear(amountInput);
+      await userEvent.type(amountInput, '50');
+      
+      // Should show 50 remaining
+      await waitFor(() => {
+        expect(screen.getByText('£50.00')).toBeInTheDocument();
+      });
+    });
+
+    it('shows negative remaining amount in red', async () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
+      
+      // Add another split
+      await userEvent.click(screen.getByText('Add Split'));
+      
+      // Set both splits to 60 (total 120, which is more than 100)
+      const amountInputs = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[];
+      await userEvent.clear(amountInputs[0]);
+      await userEvent.type(amountInputs[0], '60');
+      await userEvent.clear(amountInputs[1]);
+      await userEvent.type(amountInputs[1], '60');
+      
+      // Should show -20 remaining in red
+      await waitFor(() => {
+        const remainingParagraph = screen.getByText('Remaining:').closest('p');
+        expect(remainingParagraph).toHaveClass('text-red-600');
+      });
+    });
+
+    it('disables save button when amounts do not match', async () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
+      
+      // Change amount to make it not match
+      const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement;
+      await userEvent.clear(amountInput);
+      await userEvent.type(amountInput, '50');
+      
+      const saveButton = screen.getByText('Save Split');
+      expect(saveButton).toBeDisabled();
+    });
+  });
+
+  describe('save functionality', () => {
+    it('updates transaction when single split', async () => {
+      mockUpdateTransaction.mockClear();
+      const onClose = vi.fn();
+      render(<SplitTransactionModal isOpen={true} onClose={onClose} transaction={mockTransaction} />);
+      
+      // Change category
+      const categoryInput = screen.getByPlaceholderText('Category');
+      await userEvent.clear(categoryInput);
+      await userEvent.type(categoryInput, 'Food');
+      
+      // Save
+      await userEvent.click(screen.getByText('Save Split'));
+      
+      await waitFor(() => {
+        expect(mockUpdateTransaction).toHaveBeenCalledWith('trans-1', expect.objectContaining({
+          category: 'Food'
+        }));
+        expect(onClose).toHaveBeenCalled();
+      });
+    });
+
+    it('creates multiple transactions when multiple splits', async () => {
+      mockDeleteTransaction.mockClear();
+      mockAddTransaction.mockClear();
+      
+      const onClose = vi.fn();
+      render(<SplitTransactionModal isOpen={true} onClose={onClose} transaction={mockTransaction} />);
+      
+      // Add a split
+      await userEvent.click(screen.getByText('Add Split'));
+      
+      // Set up splits
+      const categoryInputs = screen.getAllByPlaceholderText('Category');
+      const amountInputs = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[];
+      
+      await userEvent.clear(categoryInputs[0]);
+      await userEvent.type(categoryInputs[0], 'Food');
+      await userEvent.clear(amountInputs[0]);
+      await userEvent.type(amountInputs[0], '60');
+      
+      await userEvent.clear(categoryInputs[1]);
+      await userEvent.type(categoryInputs[1], 'Household');
+      await userEvent.clear(amountInputs[1]);
+      await userEvent.type(amountInputs[1], '40');
+      
+      // Save
+      await userEvent.click(screen.getByText('Save Split'));
+      
+      await waitFor(() => {
+        expect(mockDeleteTransaction).toHaveBeenCalledWith('trans-1');
+        expect(mockAddTransaction).toHaveBeenCalledTimes(2);
+        expect(mockAddTransaction).toHaveBeenCalledWith(expect.objectContaining({
+          amount: 60,
+          category: 'Food',
+          description: expect.stringContaining('Split 1/2')
+        }));
+        expect(onClose).toHaveBeenCalled();
+      });
+    });
+
+    it('disables save button when amounts do not match', async () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
+      
+      // Initially button should be enabled (amounts match)
+      expect(screen.getByText('Save Split')).not.toBeDisabled();
+      
+      // Change amount to not match
+      const amountInput = screen.getByPlaceholderText('Amount');
+      await userEvent.clear(amountInput);
+      await userEvent.type(amountInput, '50');
+      
+      // Button should now be disabled
+      await waitFor(() => {
+        expect(screen.getByText('Save Split')).toBeDisabled();
+      });
+      
+      // Button should have disabled styling
+      const saveButton = screen.getByText('Save Split');
+      expect(saveButton.closest('button')).toHaveClass('cursor-not-allowed');
     });
   });
 
   describe('user interactions', () => {
-    it('handles click events correctly', async () => {
-      const mockOnClick = vi.fn();
-      renderWithProviders(<SplitTransactionModal onClick={mockOnClick} />);
+    it('handles close button', async () => {
+      const onClose = vi.fn();
+      render(<SplitTransactionModal isOpen={true} onClose={onClose} transaction={mockTransaction} />);
       
-      const element = screen.getByTestId('clickable-element');
-      await userEvent.click(element);
+      await userEvent.click(screen.getByTestId('x-icon').parentElement!);
       
-      expect(mockOnClick).toHaveBeenCalledTimes(1);
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('handles form submission', async () => {
-      const mockOnSubmit = vi.fn();
-      renderWithProviders(<SplitTransactionModal onSubmit={mockOnSubmit} />);
+    it('handles cancel button', async () => {
+      const onClose = vi.fn();
+      render(<SplitTransactionModal isOpen={true} onClose={onClose} transaction={mockTransaction} />);
       
-      // Fill form fields
-      const input = screen.getByLabelText(/name/i);
-      await userEvent.type(input, 'Test Value');
+      await userEvent.click(screen.getByText('Cancel'));
       
-      // Submit form
-      const submitButton = screen.getByRole('button', { name: /submit/i });
-      await userEvent.click(submitButton);
-      
-      await waitFor(() => {
-        expect(mockOnSubmit).toHaveBeenCalledWith(expect.objectContaining({
-          name: 'Test Value'
-        }));
-      });
+      expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it('validates user input', async () => {
-      renderWithProviders(<SplitTransactionModal />);
+    it('initializes new split with remaining amount', async () => {
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={mockTransaction} />);
       
-      const input = screen.getByLabelText(/amount/i);
-      await userEvent.type(input, '-100');
+      // Change first split to 30
+      const amountInput = screen.getByPlaceholderText('Amount') as HTMLInputElement;
+      await userEvent.clear(amountInput);
+      await userEvent.type(amountInput, '30');
       
-      await waitFor(() => {
-        expect(screen.getByText(/must be positive/i)).toBeInTheDocument();
-      });
-    });
-  });
-
-  describe('accessibility', () => {
-    it('has proper ARIA attributes', () => {
-      renderWithProviders(<SplitTransactionModal />);
+      // Add new split
+      await userEvent.click(screen.getByText('Add Split'));
       
-      const mainElement = screen.getByRole('main');
-      expect(mainElement).toHaveAttribute('aria-label');
-    });
-
-    it('supports keyboard navigation', async () => {
-      renderWithProviders(<SplitTransactionModal />);
-      
-      const firstButton = screen.getAllByRole('button')[0];
-      firstButton.focus();
-      
-      await userEvent.keyboard('{Tab}');
-      
-      const secondButton = screen.getAllByRole('button')[1];
-      expect(secondButton).toHaveFocus();
-    });
-
-    it('announces changes to screen readers', async () => {
-      renderWithProviders(<SplitTransactionModal />);
-      
-      const button = screen.getByRole('button', { name: /update/i });
-      await userEvent.click(button);
-      
-      await waitFor(() => {
-        const liveRegion = screen.getByRole('status');
-        expect(liveRegion).toHaveTextContent(/updated successfully/i);
-      });
+      // New split should have remaining amount (70)
+      const amountInputs = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[];
+      expect(amountInputs[1].value).toBe('70');
     });
   });
 
   describe('edge cases', () => {
-    it('handles large datasets efficiently', () => {
-      const largeData = Array.from({ length: 1000 }, (_, i) => ({
-        id: i,
-        name: `Item ${i}`
-      }));
+    it('handles zero transaction amount', () => {
+      const zeroTransaction = { ...mockTransaction, amount: 0 };
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={zeroTransaction} />);
       
-      renderWithProviders(<SplitTransactionModal data={largeData} />);
-      
-      // Should use virtualization for large lists
-      const visibleItems = screen.getAllByTestId('list-item');
-      expect(visibleItems.length).toBeLessThan(50);
+      // There should be two £0.00 elements - original amount and remaining
+      const zeroAmounts = screen.getAllByText('£0.00');
+      expect(zeroAmounts).toHaveLength(2);
     });
 
-    it('handles network errors gracefully', async () => {
-      const mockFetch = vi.fn().mockRejectedValue(new Error('Network error'));
-      renderWithProviders(<SplitTransactionModal onFetch={mockFetch} />);
+    it('handles very large amounts', () => {
+      const largeTransaction = { ...mockTransaction, amount: 999999.99 };
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={largeTransaction} />);
       
-      await waitFor(() => {
-        expect(screen.getByText(/network error/i)).toBeInTheDocument();
-      });
+      expect(screen.getByText('£999,999.99')).toBeInTheDocument();
     });
 
-    it('prevents double submission', async () => {
-      const mockSubmit = vi.fn().mockImplementation(() => 
-        new Promise(resolve => setTimeout(resolve, 1000))
-      );
+    it('handles decimal precision', async () => {
+      const decimalTransaction = { ...mockTransaction, amount: 33.33 };
+      render(<SplitTransactionModal isOpen={true} onClose={vi.fn()} transaction={decimalTransaction} />);
       
-      renderWithProviders(<SplitTransactionModal onSubmit={mockSubmit} />);
+      // Add two more splits
+      await userEvent.click(screen.getByText('Add Split'));
+      await userEvent.click(screen.getByText('Add Split'));
       
-      const submitButton = screen.getByRole('button', { name: /submit/i });
-      await userEvent.click(submitButton);
-      await userEvent.click(submitButton);
+      // Split into three equal parts
+      const amountInputs = screen.getAllByPlaceholderText('Amount') as HTMLInputElement[];
+      await userEvent.clear(amountInputs[0]);
+      await userEvent.type(amountInputs[0], '11.11');
+      await userEvent.clear(amountInputs[1]);
+      await userEvent.type(amountInputs[1], '11.11');
+      await userEvent.clear(amountInputs[2]);
+      await userEvent.type(amountInputs[2], '11.11');
       
-      expect(mockSubmit).toHaveBeenCalledTimes(1);
+      // Should handle rounding correctly
+      expect(screen.getByText('Save Split')).toBeEnabled();
     });
   });
 });

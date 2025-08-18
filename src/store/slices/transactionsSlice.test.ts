@@ -4,17 +4,27 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { loadTransactions } from '../src/store/slices/transactionsSlice';
+import { configureStore } from '@reduxjs/toolkit';
+import transactionsSlice, { 
+  loadTransactions,
+  addTransaction,
+  updateTransaction,
+  deleteTransaction 
+} from './transactionsSlice';
 
-// Mock crypto
-const mockCrypto = {
-  getRandomValues: vi.fn(),
-  subtle: {
-    encrypt: vi.fn(),
-    decrypt: vi.fn(),
-  },
+// Mock crypto.randomUUID
+global.crypto = {
+  ...global.crypto,
+  randomUUID: vi.fn(() => 'test-uuid-' + Math.random()),
 };
-global.crypto = mockCrypto as any;
+
+// Mock storageAdapter
+vi.mock('../../services/storageAdapter', () => ({
+  storageAdapter: {
+    get: vi.fn().mockResolvedValue([]),
+    set: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 
 describe('transactionsSlice', () => {
   let store: any;
@@ -22,7 +32,7 @@ describe('transactionsSlice', () => {
   beforeEach(() => {
     store = configureStore({
       reducer: {
-        transactions: transactionsSlice.reducer,
+        transactions: transactionsSlice,
       },
     });
   });
@@ -30,22 +40,69 @@ describe('transactionsSlice', () => {
   it('has correct initial state', () => {
     const state = store.getState().transactions;
     expect(state).toBeDefined();
+    expect(state.transactions).toEqual([]);
+    expect(state.loading).toBe(false);
+    expect(state.error).toBe(null);
   });
 
   it('handles add action', () => {
-    const newItem = { id: '1', name: 'Test Item' };
-    store.dispatch(transactionsSlice.actions.addTransactions(newItem));
+    const newTransaction = {
+      description: 'Test Transaction',
+      amount: 100,
+      type: 'expense' as const,
+      category: 'Test',
+      accountId: 'acc-1',
+      date: '2024-01-01',
+    };
+    
+    store.dispatch(addTransaction(newTransaction));
     
     const state = store.getState().transactions;
-    expect(state.items).toContain(newItem);
+    expect(state.transactions).toHaveLength(1);
+    expect(state.transactions[0]).toMatchObject(newTransaction);
+    expect(state.transactions[0].id).toBeDefined();
   });
 
   it('handles update action', () => {
-    // Test update functionality
+    // First add a transaction
+    const transaction = {
+      description: 'Original',
+      amount: 100,
+      type: 'expense' as const,
+      category: 'Test',
+      accountId: 'acc-1',
+      date: '2024-01-01',
+    };
+    
+    store.dispatch(addTransaction(transaction));
+    const id = store.getState().transactions.transactions[0].id;
+    
+    // Update it
+    store.dispatch(updateTransaction({ id, updates: { description: 'Updated' } }));
+    
+    const state = store.getState().transactions;
+    expect(state.transactions[0].description).toBe('Updated');
   });
 
   it('handles remove action', () => {
-    // Test remove functionality
+    // First add a transaction
+    const transaction = {
+      description: 'To be deleted',
+      amount: 100,
+      type: 'expense' as const,
+      category: 'Test',
+      accountId: 'acc-1',
+      date: '2024-01-01',
+    };
+    
+    store.dispatch(addTransaction(transaction));
+    const id = store.getState().transactions.transactions[0].id;
+    
+    // Delete it
+    store.dispatch(deleteTransaction(id));
+    
+    const state = store.getState().transactions;
+    expect(state.transactions).toHaveLength(0);
   });
 
 });

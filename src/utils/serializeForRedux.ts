@@ -4,17 +4,17 @@
 
 export function serializeForRedux<T>(data: T): T {
   if (data instanceof Date) {
-    return data.toISOString() as any;
+    return data.toISOString() as T;
   }
 
   if (Array.isArray(data)) {
-    return data.map(serializeForRedux) as any;
+    return data.map(serializeForRedux) as T;
   }
 
   if (data !== null && typeof data === 'object') {
-    const serialized: any = {};
+    const serialized: Record<string, unknown> = {};
     for (const key in data) {
-      if (data.hasOwnProperty(key)) {
+      if (Object.hasOwn(data, key)) {
         serialized[key] = serializeForRedux(data[key]);
       }
     }
@@ -33,18 +33,18 @@ export function deserializeFromRedux<T>(data: T, dateFields: string[] = []): T {
     // If it's a string and might be a date, try to parse it
     const date = new Date(data);
     if (!isNaN(date.getTime()) && data.includes('T')) {
-      return date as any;
+      return date as T;
     }
   }
 
   if (Array.isArray(data)) {
-    return data.map(item => deserializeFromRedux(item, dateFields)) as any;
+    return data.map(item => deserializeFromRedux(item, dateFields)) as T;
   }
 
   if (data !== null && typeof data === 'object') {
-    const deserialized: any = {};
+    const deserialized: Record<string, unknown> = {};
     for (const key in data) {
-      if (data.hasOwnProperty(key)) {
+      if (Object.hasOwn(data, key)) {
         if (dateFields.includes(key) && typeof data[key] === 'string') {
           deserialized[key] = new Date(data[key]);
         } else {

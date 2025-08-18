@@ -4,8 +4,8 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import AddInvestmentModal from './AddInvestmentModal';
 import type { Account } from '../types';
 
@@ -18,7 +18,12 @@ vi.mock('./icons/PlusIcon', () => ({
 
 // Mock Modal components
 vi.mock('./common/Modal', () => ({
-  Modal: ({ children, isOpen, onClose, title }: any) => {
+  Modal: ({ children, isOpen, onClose, title }: {
+    children: React.ReactNode;
+    isOpen: boolean;
+    onClose: () => void;
+    title: string;
+  }) => {
     if (!isOpen) return null;
     return (
       <div data-testid="modal" role="dialog" aria-labelledby="modal-title">
@@ -28,10 +33,10 @@ vi.mock('./common/Modal', () => ({
       </div>
     );
   },
-  ModalBody: ({ children }: any) => (
+  ModalBody: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="modal-body">{children}</div>
   ),
-  ModalFooter: ({ children }: any) => (
+  ModalFooter: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="modal-footer">{children}</div>
   )
 }));
@@ -54,10 +59,11 @@ let mockFormData = {
   pricePerUnit: '',
   fees: '',
   date: new Date().toISOString().split('T')[0],
-  notes: ''
+  notes: '',
+  stampDuty: ''
 };
 
-const mockUpdateField = vi.fn((field: string, value: any) => {
+const mockUpdateField = vi.fn((field: string, value: unknown) => {
   mockFormData = { ...mockFormData, [field]: value };
 });
 
@@ -69,10 +75,13 @@ const mockHandleSubmit = vi.fn((e: React.FormEvent) => {
   }
 });
 
-let mockModalFormOptions: any = {};
+let mockModalFormOptions: {
+  onSubmit?: (data: unknown) => void;
+  onClose?: () => void;
+} = {};
 
 vi.mock('../hooks/useModalForm', () => ({
-  useModalForm: (initialData: any, options: any) => {
+  useModalForm: (initialData: unknown, options: unknown) => {
     mockModalFormOptions = options;
     return {
       formData: mockFormData,
@@ -222,7 +231,8 @@ describe('AddInvestmentModal', () => {
       expect(screen.getByText('Investment Name*')).toBeInTheDocument();
       expect(screen.getByText(/Number of Units/)).toBeInTheDocument();
       expect(screen.getByText(/Price per Unit/)).toBeInTheDocument();
-      expect(screen.getByText(/Other Fees/)).toBeInTheDocument();
+      expect(screen.getByText(/Transaction Fee/)).toBeInTheDocument();
+      expect(screen.getByText(/Stamp Duty/)).toBeInTheDocument();
       expect(screen.getByText('Purchase Date*')).toBeInTheDocument();
       expect(screen.getByText('Notes')).toBeInTheDocument();
     });
@@ -264,7 +274,7 @@ describe('AddInvestmentModal', () => {
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} />);
       
       expect(screen.getByText(/Price per Unit.*\$/)).toBeInTheDocument();
-      expect(screen.getByText(/Other Fees.*\$/)).toBeInTheDocument();
+      expect(screen.getByText(/Transaction Fee.*\$/)).toBeInTheDocument();
     });
   });
 
@@ -294,7 +304,10 @@ describe('AddInvestmentModal', () => {
       
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
       
-      expect(screen.getByText('(10 × £100 + £5 fees)')).toBeInTheDocument();
+      // Check for the breakdown elements
+      expect(screen.getByText(/Shares: 10 × £100/)).toBeInTheDocument();
+      expect(screen.getByText('Transaction Fee:')).toBeInTheDocument();
+      expect(screen.getByText('£5')).toBeInTheDocument();
     });
 
     it('handles empty values in calculation', () => {
@@ -351,12 +364,20 @@ describe('AddInvestmentModal', () => {
       expect(mockAddTransaction).toHaveBeenCalledWith({
         date: new Date('2024-01-15'),
         description: 'Buy: Apple Inc. (AAPL) - 10 units @ £150.00/unit',
-        amount: 1505,
+        amount: -1505,
         type: 'expense',
         category: 'cat-27',
         accountId: '1',
         notes: expect.stringContaining('Investment Type: share'),
-        tags: ['investment', 'share', 'AAPL']
+        tags: ['investment', 'share', 'AAPL'],
+        investmentData: {
+          symbol: 'AAPL',
+          quantity: 10,
+          pricePerShare: 150,
+          transactionFee: 5,
+          stampDuty: 0,
+          totalCost: 1505
+        }
       });
     });
 
@@ -369,6 +390,7 @@ describe('AddInvestmentModal', () => {
         units: '10',
         pricePerUnit: '150',
         fees: '5',
+        stampDuty: '0',
         date: '2024-01-15',
         notes: 'Long term hold'
       };
@@ -382,7 +404,8 @@ describe('AddInvestmentModal', () => {
         'Stock Code: AAPL',
         'Units: 10',
         'Price per unit: 150',
-        'Fees: 5',
+        'Transaction Fee: 5',
+        'Stamp Duty: 0',
         '',
         'Additional Notes: Long term hold'
       ].join('\n');
@@ -487,7 +510,8 @@ describe('AddInvestmentModal', () => {
         pricePerUnit: '',
         fees: '',
         date: expect.any(String),
-        notes: ''
+        notes: '',
+        stampDuty: ''
       });
     });
 
@@ -564,6 +588,7 @@ describe('AddInvestmentModal', () => {
         units: '10',
         pricePerUnit: '100',
         fees: '0',
+        stampDuty: '0',
         date: '2024-01-15',
         notes: ''
       };
@@ -574,8 +599,8 @@ describe('AddInvestmentModal', () => {
       
       expect(mockAddTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
-          amount: 1000,
-          notes: expect.stringContaining('Fees: 0')
+          amount: -1000,
+          notes: expect.stringContaining('Transaction Fee: 0')
         })
       );
     });
@@ -589,6 +614,7 @@ describe('AddInvestmentModal', () => {
         units: '0.0001',
         pricePerUnit: '500000',
         fees: '0.99',
+        stampDuty: '0',
         date: '2024-01-15',
         notes: ''
       };
@@ -599,7 +625,7 @@ describe('AddInvestmentModal', () => {
       
       expect(mockAddTransaction).toHaveBeenCalledWith(
         expect.objectContaining({
-          amount: 50.99 // 0.0001 * 500000 + 0.99
+          amount: -50.99 // 0.0001 * 500000 + 0.99
         })
       );
     });

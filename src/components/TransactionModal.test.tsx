@@ -95,14 +95,14 @@ describe('TransactionModal', () => {
     it('renders all form fields', () => {
       render(<TransactionModal {...defaultProps} />);
 
-      expect(screen.getByLabelText('Date')).toBeInTheDocument();
-      expect(screen.getByLabelText('Description')).toBeInTheDocument();
-      expect(screen.getByLabelText('Type')).toBeInTheDocument();
-      expect(screen.getByLabelText('Amount')).toBeInTheDocument();
-      expect(screen.getByText('Category')).toBeInTheDocument();
-      expect(screen.getByLabelText('Account')).toBeInTheDocument();
-      expect(screen.getByLabelText('Notes (Optional)')).toBeInTheDocument();
-      expect(screen.getByText('Tags')).toBeInTheDocument();
+      expect(screen.getByLabelText(/Date/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Description/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Type/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Amount/)).toBeInTheDocument();
+      expect(screen.getByText(/Category/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Account/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Notes/)).toBeInTheDocument();
+      expect(screen.getByText(/Tags/)).toBeInTheDocument();
       expect(screen.getByLabelText('Transaction cleared/reconciled')).toBeInTheDocument();
     });
   });
@@ -111,8 +111,8 @@ describe('TransactionModal', () => {
     it('initializes with default values for new transaction', () => {
       render(<TransactionModal {...defaultProps} />);
 
-      const dateInput = screen.getByLabelText('Date') as HTMLInputElement;
-      const typeSelect = screen.getByLabelText('Type') as HTMLSelectElement;
+      const dateInput = screen.getByLabelText(/Date/) as HTMLInputElement;
+      const typeSelect = screen.getByLabelText(/Type/) as HTMLSelectElement;
       const clearedCheckbox = screen.getByLabelText('Transaction cleared/reconciled') as HTMLInputElement;
 
       expect(dateInput.value).toBe(new Date().toISOString().split('T')[0]);
@@ -123,12 +123,12 @@ describe('TransactionModal', () => {
     it('initializes with transaction values when editing', () => {
       render(<TransactionModal {...defaultProps} transaction={mockTransaction} />);
 
-      const dateInput = screen.getByLabelText('Date') as HTMLInputElement;
-      const descriptionInput = screen.getByLabelText('Description') as HTMLInputElement;
-      const amountInput = screen.getByLabelText('Amount') as HTMLInputElement;
-      const typeSelect = screen.getByLabelText('Type') as HTMLSelectElement;
-      const accountSelect = screen.getByLabelText('Account') as HTMLSelectElement;
-      const notesTextarea = screen.getByLabelText('Notes (Optional)') as HTMLTextAreaElement;
+      const dateInput = screen.getByLabelText(/Date/) as HTMLInputElement;
+      const descriptionInput = screen.getByLabelText(/Description/) as HTMLInputElement;
+      const amountInput = screen.getByLabelText(/Amount/) as HTMLInputElement;
+      const typeSelect = screen.getByLabelText(/Type/) as HTMLSelectElement;
+      const accountSelect = screen.getByLabelText(/Account/) as HTMLSelectElement;
+      const notesTextarea = screen.getByLabelText(/Notes/) as HTMLTextAreaElement;
       const clearedCheckbox = screen.getByLabelText('Transaction cleared/reconciled') as HTMLInputElement;
 
       expect(dateInput.value).toBe('2024-01-15');
@@ -145,10 +145,10 @@ describe('TransactionModal', () => {
     it('updates form fields correctly', () => {
       render(<TransactionModal {...defaultProps} />);
 
-      const dateInput = screen.getByLabelText('Date');
-      const descriptionInput = screen.getByLabelText('Description');
-      const amountInput = screen.getByLabelText('Amount');
-      const typeSelect = screen.getByLabelText('Type');
+      const dateInput = screen.getByLabelText(/Date/);
+      const descriptionInput = screen.getByLabelText(/Description/);
+      const amountInput = screen.getByLabelText(/Amount/);
+      const typeSelect = screen.getByLabelText(/Type/);
 
       fireEvent.change(dateInput, { target: { value: '2024-02-01' } });
       fireEvent.change(descriptionInput, { target: { value: 'Coffee' } });
@@ -167,7 +167,7 @@ describe('TransactionModal', () => {
       const categorySelector = screen.getByTestId('category-selector');
       expect(categorySelector).toHaveAttribute('data-transaction-type', 'expense');
 
-      const typeSelect = screen.getByLabelText('Type');
+      const typeSelect = screen.getByLabelText(/Type/);
       fireEvent.change(typeSelect, { target: { value: 'income' } });
 
       expect(categorySelector).toHaveAttribute('data-transaction-type', 'income');
@@ -186,9 +186,9 @@ describe('TransactionModal', () => {
       render(<TransactionModal {...defaultProps} />);
 
       // Fill form
-      fireEvent.change(screen.getByLabelText('Date'), { target: { value: '2024-02-01' } });
-      fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Test Transaction' } });
-      fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '50.00' } });
+      fireEvent.change(screen.getByLabelText(/Date/), { target: { value: '2024-02-01' } });
+      fireEvent.change(screen.getByLabelText(/Description/), { target: { value: 'Test Transaction' } });
+      fireEvent.change(screen.getByLabelText(/Amount/), { target: { value: '50.00' } });
       fireEvent.change(screen.getByTestId('category-selector'), { target: { value: 'food' } });
 
       // Submit form
@@ -220,7 +220,7 @@ describe('TransactionModal', () => {
       render(<TransactionModal {...defaultProps} transaction={mockTransaction} />);
 
       // Update description
-      fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Updated Shopping' } });
+      fireEvent.change(screen.getByLabelText(/Description/), { target: { value: 'Updated Shopping' } });
 
       // Submit form
       fireEvent.click(screen.getByText('Save Changes'));
@@ -237,8 +237,9 @@ describe('TransactionModal', () => {
       render(<TransactionModal {...defaultProps} onClose={onClose} />);
 
       // Fill required fields
-      fireEvent.change(screen.getByLabelText('Description'), { target: { value: 'Test' } });
-      fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '10' } });
+      fireEvent.change(screen.getByLabelText(/Description/), { target: { value: 'Test' } });
+      fireEvent.change(screen.getByLabelText(/Amount/), { target: { value: '10' } });
+      fireEvent.change(screen.getByTestId('category-selector'), { target: { value: 'food' } });
 
       // Submit
       fireEvent.click(screen.getByRole('button', { name: 'Add Transaction' }));
@@ -290,9 +291,10 @@ describe('TransactionModal', () => {
 
       render(<TransactionModal {...defaultProps} />);
 
-      const accountSelect = screen.getByLabelText('Account') as HTMLSelectElement;
+      const accountSelect = screen.getByLabelText(/Account/) as HTMLSelectElement;
       expect(accountSelect.value).toBe('');
-      expect(accountSelect.options.length).toBe(0);
+      expect(accountSelect.options.length).toBe(1); // Just the placeholder option
+      expect(accountSelect.options[0].text).toBe('Select an account');
     });
   });
 
@@ -300,7 +302,7 @@ describe('TransactionModal', () => {
     it('renders all transaction type options', () => {
       render(<TransactionModal {...defaultProps} />);
 
-      const typeSelect = screen.getByLabelText('Type');
+      const typeSelect = screen.getByLabelText(/Type/);
       expect(typeSelect).toContainHTML('<option value="expense">Expense</option>');
       expect(typeSelect).toContainHTML('<option value="income">Income</option>');
       expect(typeSelect).toContainHTML('<option value="transfer">Transfer</option>');

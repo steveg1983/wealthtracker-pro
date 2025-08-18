@@ -11,7 +11,9 @@ import type { RecurringTransaction } from '../contexts/AppContext';
 
 // Mock all dependencies
 const mockAddTransaction = vi.fn();
-const mockAddRecurringTransaction = vi.fn();
+const mockAddRecurringTransaction = vi.fn((data) => {
+  console.log('mockAddRecurringTransaction called with:', data);
+});
 const mockDeleteRecurringTransaction = vi.fn();
 
 vi.mock('../contexts/AppContext', () => ({
@@ -71,39 +73,36 @@ vi.mock('./icons', () => ({
   ),
 }));
 
+// Track form data changes in the mock
+let mockFormData: any = {};
+
 vi.mock('../hooks/useModalForm', () => ({
-  useModalForm: (initialData: any, config: any) => ({
-    formData: {
-      description: '',
-      amount: 0,
-      type: 'expense',
-      category: '',
-      accountId: 'acc-1',
-      frequency: 'monthly',
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: '',
-      ...initialData,
-    },
-    updateField: vi.fn((field, value) => {
-      console.log(`Mock updateField: ${field} = ${value}`);
-    }),
-    handleSubmit: vi.fn((e) => {
-      e?.preventDefault();
-      if (config?.onSubmit) {
-        config.onSubmit({
-          description: 'Test Recurring',
-          amount: 100,
-          type: 'expense',
-          category: 'Test Category',
-          accountId: 'acc-1',
-          frequency: 'monthly',
-          startDate: '2024-01-15',
-          endDate: '',
-        });
-      }
-    }),
-    reset: vi.fn(),
-  }),
+  useModalForm: (initialData: any, config: any) => {
+    // Initialize mock form data
+    if (!mockFormData.description) {
+      mockFormData = { ...initialData };
+    }
+    
+    return {
+      formData: mockFormData,
+      updateField: vi.fn((field, value) => {
+        mockFormData[field] = value;
+      }),
+      handleSubmit: vi.fn((e) => {
+        e?.preventDefault();
+        console.log('handleSubmit called, config:', config);
+        console.log('mockFormData:', mockFormData);
+        if (config?.onSubmit) {
+          // Call onSubmit with the current form data
+          console.log('Calling config.onSubmit');
+          config.onSubmit(mockFormData);
+        }
+      }),
+      reset: vi.fn(() => {
+        mockFormData = { ...initialData };
+      }),
+    };
+  },
 }));
 
 describe('RecurringTransactionModal', () => {
@@ -111,10 +110,13 @@ describe('RecurringTransactionModal', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset the mock form data
+    mockFormData = {};
   });
 
   afterEach(() => {
     vi.clearAllMocks();
+    mockFormData = {};
   });
 
   const renderModal = (isOpen = true) => {
@@ -396,13 +398,37 @@ describe('RecurringTransactionModal', () => {
       const addButton = screen.getByRole('button', { name: /add recurring transaction/i });
       await user.click(addButton);
       
-      // Find the submit button (should be in form, not the original add button)
-      const textboxes = screen.getAllByRole('textbox');
-      const form = textboxes[0].closest('form');
-      const submitButton = form?.querySelector('button[type="submit"]');
-      await user.click(submitButton as Element);
+      // Fill in required fields
+      // Find inputs by their type and position since labels aren't properly associated
+      const textInputs = screen.getAllByRole('textbox');
+      const descriptionInput = textInputs[0]; // First textbox is description
+      await user.type(descriptionInput, 'Test Subscription');
       
-      expect(mockAddRecurringTransaction).toHaveBeenCalled();
+      const amountInput = screen.getByRole('spinbutton'); // Number input
+      await user.type(amountInput, '19.99');
+      
+      const categoryInput = textInputs[1]; // Second textbox is category
+      await user.type(categoryInput, 'Entertainment');
+      
+      // Debug: log all buttons to see what's available
+      const allButtons = screen.getAllByRole('button');
+      console.log('All buttons:', allButtons.map(b => b.textContent));
+      
+      // When form is shown, the original add button is hidden
+      // So there should only be one "Add Recurring Transaction" button (the submit button)
+      const submitButton = screen.getByRole('button', { name: /add recurring transaction/i });
+      
+      // Ensure the form exists
+      const form = submitButton.closest('form');
+      expect(form).toBeTruthy();
+      
+      // Try submitting the form directly
+      fireEvent.submit(form!);
+      
+      // Wait for the mock to be called
+      await waitFor(() => {
+        expect(mockAddRecurringTransaction).toHaveBeenCalled();
+      }, { timeout: 3000 });
     });
 
     it('handles input changes', async () => {
@@ -736,13 +762,37 @@ describe('RecurringTransactionModal', () => {
       const addButton = screen.getByRole('button', { name: /add recurring transaction/i });
       await user.click(addButton);
       
-      // Find the submit button in the form
-      const textboxes = screen.getAllByRole('textbox');
-      const form = textboxes[0].closest('form');
-      const submitButton = form?.querySelector('button[type="submit"]');
-      await user.click(submitButton as Element);
+      // Fill in required fields
+      // Find inputs by their type and position since labels aren't properly associated
+      const textInputs = screen.getAllByRole('textbox');
+      const descriptionInput = textInputs[0]; // First textbox is description
+      await user.type(descriptionInput, 'Internet Bill');
       
-      expect(mockAddRecurringTransaction).toHaveBeenCalled();
+      const amountInput = screen.getByRole('spinbutton'); // Number input
+      await user.type(amountInput, '79.99');
+      
+      const categoryInput = textInputs[1]; // Second textbox is category
+      await user.type(categoryInput, 'Utilities');
+      
+      // Debug: log all buttons to see what's available
+      const allButtons = screen.getAllByRole('button');
+      console.log('All buttons:', allButtons.map(b => b.textContent));
+      
+      // When form is shown, the original add button is hidden
+      // So there should only be one "Add Recurring Transaction" button (the submit button)
+      const submitButton = screen.getByRole('button', { name: /add recurring transaction/i });
+      
+      // Ensure the form exists
+      const form = submitButton.closest('form');
+      expect(form).toBeTruthy();
+      
+      // Try submitting the form directly
+      fireEvent.submit(form!);
+      
+      // Wait for the mock to be called
+      await waitFor(() => {
+        expect(mockAddRecurringTransaction).toHaveBeenCalled();
+      }, { timeout: 3000 });
     });
 
     it('handles viewing and managing existing transactions', () => {

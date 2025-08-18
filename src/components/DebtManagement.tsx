@@ -263,7 +263,7 @@ export default function DebtManagement() {
 
   const handlePayoffStrategyChange = (type: PayoffStrategy['type']) => {
     const activeDebts = debts.filter(d => d.isActive);
-    let sortedDebts = [...activeDebts];
+    const sortedDebts = [...activeDebts];
     
     if (type === 'snowball') {
       sortedDebts.sort((a, b) => a.balance.minus(b.balance).toNumber());

@@ -31,7 +31,7 @@ window.addEventListener = vi.fn((event: string, handler: EventListener) => {
     mockEventListeners[event] = [];
   }
   mockEventListeners[event].push(handler);
-}) as any;
+}) as typeof window.addEventListener;
 
 window.dispatchEvent = vi.fn((event: Event) => {
   const handlers = mockEventListeners[event.type];
@@ -39,7 +39,7 @@ window.dispatchEvent = vi.fn((event: Event) => {
     handlers.forEach(handler => handler(event));
   }
   return true;
-}) as any;
+}) as typeof window.dispatchEvent;
 
 // Mock document visibility
 let mockDocumentHidden = false;

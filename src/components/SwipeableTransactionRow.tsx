@@ -1,6 +1,7 @@
-import React, { memo } from 'react';
-import { useSwipeableListItem } from '../hooks/useTouchGestures';
-import { EditIcon, DeleteIcon, CheckIcon } from './icons';
+import React, { memo, useState, useCallback } from 'react';
+import { useSwipeGestures } from '../hooks/useSwipeGestures';
+import { useHapticFeedback, HapticPattern } from '../hooks/useHapticFeedback';
+import { EditIcon, DeleteIcon, CheckIcon, StarIcon, TagIcon, FolderIcon } from './icons';
 import type { Transaction, Account } from '../types';
 import { useFormattedDate } from '../hooks/useFormattedValues';
 
@@ -11,6 +12,9 @@ interface SwipeableTransactionRowProps {
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: string) => void;
   onView: (transaction: Transaction) => void;
+  onReconcile?: (transaction: Transaction) => void;
+  onCategorize?: (transaction: Transaction) => void;
+  onToggleFavorite?: (transaction: Transaction) => void;
   isSelected?: boolean;
   onToggleSelection?: (id: string) => void;
 }
@@ -22,23 +26,54 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
   onEdit,
   onDelete,
   onView,
+  onReconcile,
+  onCategorize,
+  onToggleFavorite,
   isSelected = false,
   onToggleSelection
 }: SwipeableTransactionRowProps): React.JSX.Element {
   const formattedDate = useFormattedDate(transaction.date);
+  const { trigger: triggerHaptic } = useHapticFeedback();
+  const [offset, setOffset] = useState(0);
+  const [isRevealed, setIsRevealed] = useState<'left' | 'right' | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
   
-  const swipeRef = useSwipeableListItem<HTMLDivElement>({
-    onSwipeLeft: () => {
-      if (confirm('Delete this transaction?')) {
-        onDelete(transaction.id);
-      }
-    },
-    onSwipeRight: () => {
-      onEdit(transaction);
-    },
-    onTap: () => {
+  const handleSwipeLeft = useCallback(async () => {
+    await triggerHaptic(HapticPattern.SELECTION);
+    setIsRevealed('right');
+    setOffset(-100);
+  }, [triggerHaptic]);
+
+  const handleSwipeRight = useCallback(async () => {
+    await triggerHaptic(HapticPattern.SELECTION);
+    setIsRevealed('left');
+    setOffset(100);
+  }, [triggerHaptic]);
+
+  const handleTap = useCallback(async () => {
+    if (isRevealed) {
+      setIsRevealed(null);
+      setOffset(0);
+    } else {
+      await triggerHaptic(HapticPattern.LIGHT);
       onView(transaction);
     }
+  }, [isRevealed, onView, transaction, triggerHaptic]);
+
+  const handleLongPress = useCallback(async () => {
+    await triggerHaptic(HapticPattern.MEDIUM);
+    onEdit(transaction);
+  }, [onEdit, transaction, triggerHaptic]);
+  
+  const { ref } = useSwipeGestures({
+    onSwipeLeft: handleSwipeLeft,
+    onSwipeRight: handleSwipeRight,
+    onTap: handleTap,
+    onLongPress: handleLongPress,
+    onDoubleTap: () => onToggleFavorite?.(transaction)
+  }, {
+    threshold: 50,
+    preventScrollOnSwipe: true
   });
 
   const amountClass = transaction.amount < 0 
@@ -46,13 +81,100 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
     : 'text-green-600 dark:text-green-400';
 
   return (
-    <div
-      ref={swipeRef}
-      className={`swipeable-item bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${
-        isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-      }`}
-    >
-      <div className="flex items-center p-4 gap-3">
+    <div className="relative overflow-hidden">
+      {/* Left swipe actions */}
+      <div className="absolute inset-0 flex items-center">
+        <div className="flex items-center gap-2 px-4">
+          {onReconcile && !transaction.cleared && (
+            <button
+              onClick={async () => {
+                await triggerHaptic(HapticPattern.SUCCESS);
+                onReconcile(transaction);
+                setOffset(0);
+                setIsRevealed(null);
+              }}
+              className="p-3 bg-green-500 text-white rounded-lg"
+              aria-label="Reconcile"
+            >
+              <CheckIcon size={20} />
+            </button>
+          )}
+          {onToggleFavorite && (
+            <button
+              onClick={async () => {
+                await triggerHaptic(HapticPattern.MEDIUM);
+                onToggleFavorite(transaction);
+                setOffset(0);
+                setIsRevealed(null);
+              }}
+              className="p-3 bg-yellow-500 text-white rounded-lg"
+              aria-label="Favorite"
+            >
+              <StarIcon size={20} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Right swipe actions */}
+      <div className="absolute inset-0 flex items-center justify-end">
+        <div className="flex items-center gap-2 px-4">
+          {onCategorize && (
+            <button
+              onClick={async () => {
+                await triggerHaptic(HapticPattern.LIGHT);
+                onCategorize(transaction);
+                setOffset(0);
+                setIsRevealed(null);
+              }}
+              className="p-3 bg-purple-500 text-white rounded-lg"
+              aria-label="Categorize"
+            >
+              <FolderIcon size={20} />
+            </button>
+          )}
+          <button
+            onClick={async () => {
+              await triggerHaptic(HapticPattern.MEDIUM);
+              onEdit(transaction);
+              setOffset(0);
+              setIsRevealed(null);
+            }}
+            className="p-3 bg-blue-500 text-white rounded-lg"
+            aria-label="Edit"
+          >
+            <EditIcon size={20} />
+          </button>
+          <button
+            onClick={async () => {
+              await triggerHaptic(HapticPattern.WARNING);
+              if (confirm('Delete this transaction?')) {
+                await triggerHaptic(HapticPattern.ERROR);
+                onDelete(transaction.id);
+              }
+              setOffset(0);
+              setIsRevealed(null);
+            }}
+            className="p-3 bg-red-500 text-white rounded-lg"
+            aria-label="Delete"
+          >
+            <DeleteIcon size={20} />
+          </button>
+        </div>
+      </div>
+
+      {/* Main content */}
+      <div
+        ref={ref}
+        className={`relative bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${
+          isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+        }`}
+        style={{
+          transform: `translateX(${offset}px)`,
+          transition: isDragging ? 'none' : 'transform 0.3s ease'
+        }}
+      >
+        <div className="flex items-center p-4 gap-3">
         {/* Selection checkbox */}
         {onToggleSelection && (
           <input
@@ -96,39 +218,32 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
           </div>
         </div>
 
-        {/* Action hints - visible on desktop, hidden on mobile */}
-        <div className="hidden md:flex items-center gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onEdit(transaction);
-            }}
-            className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-            aria-label="Edit transaction"
-          >
-            <EditIcon size={16} />
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (confirm('Delete this transaction?')) {
-                onDelete(transaction.id);
-              }
-            }}
-            className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
-            aria-label="Delete transaction"
-          >
-            <DeleteIcon size={16} />
-          </button>
+          {/* Action hints - visible on desktop, hidden on mobile */}
+          <div className="hidden md:flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(transaction);
+              }}
+              className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              aria-label="Edit transaction"
+            >
+              <EditIcon size={16} />
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (confirm('Delete this transaction?')) {
+                  onDelete(transaction.id);
+                }
+              }}
+              className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded"
+              aria-label="Delete transaction"
+            >
+              <DeleteIcon size={16} />
+            </button>
+          </div>
         </div>
-      </div>
-
-      {/* Swipe action indicators */}
-      <div className="absolute inset-y-0 left-0 w-20 bg-green-500 dark:bg-green-600 flex items-center justify-center opacity-0 swipe-action-right">
-        <EditIcon size={24} className="text-white" />
-      </div>
-      <div className="absolute inset-y-0 right-0 w-20 bg-red-500 dark:bg-red-600 flex items-center justify-center opacity-0 swipe-action-left">
-        <DeleteIcon size={24} className="text-white" />
       </div>
     </div>
   );

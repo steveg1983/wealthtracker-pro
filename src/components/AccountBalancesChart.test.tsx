@@ -5,7 +5,8 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { Mock } from 'vitest';
 import AccountBalancesChart from './AccountBalancesChart';
 import { useApp } from '../contexts/AppContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -17,34 +18,56 @@ vi.mock('../hooks/useCurrencyDecimal');
 
 // Mock Recharts components
 vi.mock('recharts', () => ({
-  BarChart: ({ children, data, layout }: any) => (
+  BarChart: ({ children, data, layout }: {
+    children: React.ReactNode;
+    data: unknown;
+    layout: string;
+  }) => (
     <div data-testid="bar-chart" data-chart-data={JSON.stringify(data)} data-layout={layout}>
       {children}
     </div>
   ),
-  Bar: ({ dataKey, children }: any) => (
+  Bar: ({ dataKey, children }: {
+    dataKey: string;
+    children: React.ReactNode;
+  }) => (
     <div data-testid={`bar-${dataKey}`}>
       {children}
     </div>
   ),
-  XAxis: ({ type, tickFormatter }: any) => (
+  XAxis: ({ type, tickFormatter }: {
+    type: string;
+    tickFormatter?: (value: unknown) => string;
+  }) => (
     <div data-testid="x-axis" data-type={type} data-formatter={tickFormatter ? 'has-formatter' : 'no-formatter'} />
   ),
-  YAxis: ({ dataKey, type, width }: any) => (
+  YAxis: ({ dataKey, type, width }: {
+    dataKey: string;
+    type: string;
+    width: number;
+  }) => (
     <div data-testid="y-axis" data-key={dataKey} data-type={type} data-width={width} />
   ),
-  CartesianGrid: ({ strokeDasharray }: any) => (
+  CartesianGrid: ({ strokeDasharray }: {
+    strokeDasharray: string;
+  }) => (
     <div data-testid="cartesian-grid" data-stroke-dasharray={strokeDasharray} />
   ),
-  Tooltip: ({ formatter }: any) => (
+  Tooltip: ({ formatter }: {
+    formatter?: (value: unknown) => string;
+  }) => (
     <div data-testid="tooltip" data-formatter={formatter ? 'has-formatter' : 'no-formatter'} />
   ),
-  ResponsiveContainer: ({ children, width, height }: any) => (
+  ResponsiveContainer: ({ children, width, height }: {
+    children: React.ReactNode;
+    width: string | number;
+    height: string | number;
+  }) => (
     <div data-testid="responsive-container" data-width={width} data-height={height}>
       {children}
     </div>
   ),
-  Cell: ({ fill }: any) => (
+  Cell: ({ fill }: { fill: string }) => (
     <div data-testid="cell" data-fill={fill} />
   )
 }));
@@ -54,7 +77,7 @@ const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
 
 describe('AccountBalancesChart', () => {
   const mockFormatCurrency = vi.fn((amount: number) => `£${amount.toFixed(2)}`);
-  const mockGetCurrencySymbol = vi.fn((_currency: string) => '£');
+  const mockGetCurrencySymbol = vi.fn((_: string) => '£');
 
   const mockAccounts: Account[] = [
     {
@@ -454,7 +477,7 @@ describe('AccountBalancesChart', () => {
       {
         id: 'acc-1',
         name: 'Unknown Type Account',
-        type: 'unknown' as any, // Force unknown type
+        type: 'unknown' as Account['type'], // Force unknown type
         balance: 1000,
         currency: 'GBP',
         lastUpdated: new Date('2024-01-20')

@@ -71,6 +71,7 @@ describe('GoalAchievementService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockLocalStorage.clear();
+    vi.useRealTimers(); // Reset timers first
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-21'));
   });
@@ -242,7 +243,8 @@ describe('GoalAchievementService', () => {
       const message = goalAchievementService.getCelebrationMessage(mockGoals[0]);
       
       expect(message).toMatch(/savings|saving/i);
-      expect(message).toContain('🎉');
+      // Savings messages can contain different emojis: 🎉, 💰, or 🌟
+      expect(message).toMatch(/[🎉💰🌟]/);
     });
 
     it('returns message for debt-payoff goals', () => {

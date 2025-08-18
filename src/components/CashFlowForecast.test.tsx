@@ -4,10 +4,11 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type { Mock } from 'vitest';
 import CashFlowForecast from './CashFlowForecast';
-import { format } from 'date-fns';
+// import { format } from 'date-fns'; // Unused import
 import { toDecimal } from '../utils/decimal';
 
 // Mock icons

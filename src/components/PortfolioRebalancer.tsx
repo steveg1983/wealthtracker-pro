@@ -361,42 +361,91 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
             </label>
           </div>
           
-          <div className="overflow-x-auto">
+          {/* Mobile card view */}
+          <div className="sm:hidden space-y-3">
+            {rebalanceActions.map((action, index) => (
+              <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-sm font-bold ${
+                        action.action === 'buy' ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {action.action.toUpperCase()}
+                      </span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {action.symbol}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">{action.name}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      {action.assetClass}
+                    </p>
+                  </div>
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    action.priority <= 2 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
+                    action.priority === 3 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                    'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
+                  }`}>
+                    Priority {action.priority}
+                  </span>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 block text-xs">Shares</span>
+                    <span className="text-gray-900 dark:text-white font-medium">
+                      {action.shares.toFixed(2)}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500 dark:text-gray-400 block text-xs">Amount</span>
+                    <span className="text-gray-900 dark:text-white font-medium">
+                      {formatCurrency(action.amount.toNumber())}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table view */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b dark:border-gray-700">
-                  <th className="text-left py-2">Action</th>
-                  <th className="text-left py-2">Symbol</th>
-                  <th className="text-left py-2">Asset Class</th>
-                  <th className="text-right py-2">Shares</th>
-                  <th className="text-right py-2">Amount</th>
-                  <th className="text-center py-2">Priority</th>
+              <thead className="bg-secondary dark:bg-gray-700">
+                <tr className="border-b border-[#5A729A] dark:border-gray-600">
+                  <th className="text-left py-3 px-4 text-white text-sm font-medium">Action</th>
+                  <th className="text-left py-3 px-4 text-white text-sm font-medium">Symbol</th>
+                  <th className="text-left py-3 px-4 text-white text-sm font-medium">Asset Class</th>
+                  <th className="text-right py-3 px-4 text-white text-sm font-medium">Shares</th>
+                  <th className="text-right py-3 px-4 text-white text-sm font-medium">Amount</th>
+                  <th className="text-center py-3 px-4 text-white text-sm font-medium">Priority</th>
                 </tr>
               </thead>
               <tbody>
                 {rebalanceActions.map((action, index) => (
                   <tr key={index} className="border-b dark:border-gray-700">
-                    <td className="py-2">
+                    <td className="py-3 px-4">
                       <span className={`text-sm font-medium ${
                         action.action === 'buy' ? 'text-green-600' : 'text-red-600'
                       }`}>
                         {action.action.toUpperCase()}
                       </span>
                     </td>
-                    <td className="py-2">
+                    <td className="py-3 px-4">
                       <div>
                         <div className="font-medium">{action.symbol}</div>
                         <div className="text-xs text-gray-500">{action.name}</div>
                       </div>
                     </td>
-                    <td className="py-2 text-sm">{action.assetClass}</td>
-                    <td className="py-2 text-right">
+                    <td className="py-3 px-4 text-sm">{action.assetClass}</td>
+                    <td className="py-3 px-4 text-right">
                       {action.shares.toFixed(2)}
                     </td>
-                    <td className="py-2 text-right">
+                    <td className="py-3 px-4 text-right">
                       {formatCurrency(action.amount.toNumber())}
                     </td>
-                    <td className="py-2 text-center">
+                    <td className="py-3 px-4 text-center">
                       <span className={`text-xs px-2 py-1 rounded ${
                         action.priority <= 2 ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' :
                         action.priority === 3 ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :

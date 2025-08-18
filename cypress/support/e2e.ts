@@ -8,7 +8,7 @@
 import './commands';
 
 // Custom error handling
-Cypress.on('uncaught:exception', (err, runnable) => {
+Cypress.on('uncaught:exception', (err) => {
   // Returning false here prevents Cypress from failing the test
   // You might want to log the error or handle specific errors differently
   console.error('Uncaught exception:', err);

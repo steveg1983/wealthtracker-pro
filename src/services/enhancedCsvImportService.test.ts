@@ -64,7 +64,7 @@ describe('EnhancedCsvImportService', () => {
     it('handles CSV with quotes and commas', () => {
       const csv = `"Date","Description","Amount"
 "2024-01-01","Coffee Shop, Downtown","-5.50"
-"2024-01-02","Transfer from \"Savings\"","100.00"`;
+"2024-01-02","Transfer from "Savings"","100.00"`;
 
       const result = enhancedCsvImportService.parseCSV(csv);
 

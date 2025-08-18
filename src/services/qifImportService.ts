@@ -61,7 +61,7 @@ export class QIFImportService {
           currentTransaction.memo = value;
           break;
         case 'L': // Category
-          currentTransaction.category = value.replace(/[\[\]]/g, ''); // Remove brackets
+          currentTransaction.category = value.replace(/[[\]]/g, ''); // Remove brackets
           break;
         case 'N': // Check number
           currentTransaction.checkNumber = value;

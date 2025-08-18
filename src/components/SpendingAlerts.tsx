@@ -183,7 +183,9 @@ export default function SpendingAlerts() {
               try {
                 const audio = new Audio('/notification.mp3');
                 audio.play().catch(() => {});
-              } catch (e) {}
+              } catch (e) {
+                // Ignore audio play errors - notification sound is optional
+              }
             }
             
             // Vibrate if enabled

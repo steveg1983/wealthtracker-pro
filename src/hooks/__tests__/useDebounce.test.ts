@@ -9,6 +9,7 @@ import { useDebounce } from '../useDebounce';
 
 describe('useDebounce', () => {
   beforeEach(() => {
+    vi.useRealTimers(); // Reset timers first
     vi.useFakeTimers();
   });
 

@@ -1,161 +1,226 @@
 /**
- * useGlobalSearch Tests
+ * useGlobalSearch Tests  
  * Tests for the useGlobalSearch hook
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { renderHook } from '@testing-library/react';
 import { useGlobalSearch } from '../useGlobalSearch';
 import { AllProviders } from '../../test/testUtils';
+import type { Account, Transaction, Budget, Goal, Category } from '../../types';
+
+// Mock the useApp hook
+const mockAccounts: Account[] = [
+  {
+    id: 'acc1',
+    name: 'Test Checking Account',
+    type: 'current',
+    balance: 1000,
+    currency: 'GBP',
+    institution: 'Test Bank',
+    lastUpdated: new Date()
+  }
+];
+
+const mockTransactions: Transaction[] = [
+  {
+    id: 'tx1',
+    description: 'Test Transaction',
+    amount: 50,
+    type: 'expense',
+    category: 'cat1',
+    accountId: 'acc1',
+    date: new Date(),
+    cleared: true
+  }
+];
+
+const mockBudgets: Budget[] = [
+  {
+    id: 'budget1',
+    category: 'cat1',
+    amount: 500,
+    period: 'monthly'
+  }
+];
+
+const mockGoals: Goal[] = [
+  {
+    id: 'goal1',
+    name: 'Test Goal',
+    type: 'savings',
+    targetAmount: 10000,
+    currentAmount: 2000,
+    targetDate: new Date('2025-12-31')
+  }
+];
+
+const mockCategories: Category[] = [
+  {
+    id: 'cat1',
+    name: 'Test Category',
+    icon: '🛒'
+  }
+];
+
+vi.mock('../../contexts/AppContext', async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useApp: () => ({
+      accounts: mockAccounts,
+      transactions: mockTransactions,
+      budgets: mockBudgets,
+      goals: mockGoals,
+      categories: mockCategories
+    })
+  };
+});
 
 describe('useGlobalSearch', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    vi.resetAllMocks();
-  });
-
   describe('initialization', () => {
     it('returns initial state correctly', () => {
-      const { result } = renderHook(() => useGlobalSearch(), {
+      const { result } = renderHook(() => useGlobalSearch(''), {
         wrapper: AllProviders
       });
 
       expect(result.current).toMatchObject({
-        // Add expected initial state
-        data: null,
-        loading: false,
-        error: null
+        results: [],
+        hasResults: false,
+        resultCount: 0
       });
     });
 
-    it('loads data on mount when autoLoad is true', async () => {
-      const { result } = renderHook(() => useGlobalSearch({ autoLoad: true }), {
+    it('returns empty results for short queries', () => {
+      const { result } = renderHook(() => useGlobalSearch('a'), {
         wrapper: AllProviders
       });
 
-      expect(result.current.loading).toBe(true);
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-        expect(result.current.data).toBeDefined();
-      });
+      expect(result.current.results).toEqual([]);
+      expect(result.current.hasResults).toBe(false);
+      expect(result.current.resultCount).toBe(0);
     });
   });
 
-  describe('actions', () => {
-    it('performs search correctly', async () => {
-      const { result } = renderHook(() => useGlobalSearch(), {
+  describe('search functionality', () => {
+    it('performs search correctly', () => {
+      const { result } = renderHook(() => useGlobalSearch('test'), {
         wrapper: AllProviders
       });
 
-      act(() => {
-        result.current.search('test query');
-      });
-
-      await waitFor(() => {
-        expect(result.current.results).toHaveLength(3);
-        expect(result.current.results[0]).toMatchObject({
-          title: expect.stringContaining('test')
-        });
+      expect(result.current.hasResults).toBe(true);
+      expect(result.current.resultCount).toBeGreaterThan(0);
+      expect(result.current.results[0]).toMatchObject({
+        title: expect.any(String),
+        description: expect.any(String),
+        type: expect.stringMatching(/account|transaction|budget|goal|category/),
+        score: expect.any(Number)
       });
     });
 
-    it('handles errors gracefully', async () => {
-      const mockFetch = vi.fn().mockRejectedValue(new Error('API Error'));
-      
-      const { result } = renderHook(() => useGlobalSearch({ fetcher: mockFetch }), {
+    it('searches accounts', () => {
+      const { result } = renderHook(() => useGlobalSearch('checking'), {
         wrapper: AllProviders
       });
 
-      act(() => {
-        result.current.load();
-      });
-
-      await waitFor(() => {
-        expect(result.current.error).toBe('API Error');
-        expect(result.current.loading).toBe(false);
-      });
+      expect(result.current.hasResults).toBe(true);
+      const accountResult = result.current.results.find(r => r.type === 'account');
+      expect(accountResult).toBeDefined();
+      expect(accountResult?.title).toContain('Checking');
     });
 
-    it('cancels pending requests on unmount', async () => {
-      const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
-      
-      const { result, unmount } = renderHook(() => useGlobalSearch(), {
+    it('searches transactions', () => {
+      const { result } = renderHook(() => useGlobalSearch('transaction'), {
         wrapper: AllProviders
       });
 
-      act(() => {
-        result.current.load();
+      expect(result.current.hasResults).toBe(true);
+      const transactionResult = result.current.results.find(r => r.type === 'transaction');
+      expect(transactionResult).toBeDefined();
+    });
+
+    it('searches budgets', () => {
+      const { result } = renderHook(() => useGlobalSearch('category'), {
+        wrapper: AllProviders
       });
 
-      unmount();
+      expect(result.current.hasResults).toBe(true);
+      const budgetResult = result.current.results.find(r => r.type === 'budget');
+      expect(budgetResult).toBeDefined();
+    });
 
-      expect(abortSpy).toHaveBeenCalled();
+    it('searches goals', () => {
+      const { result } = renderHook(() => useGlobalSearch('goal'), {
+        wrapper: AllProviders
+      });
+
+      expect(result.current.hasResults).toBe(true);
+      const goalResult = result.current.results.find(r => r.type === 'goal');
+      expect(goalResult).toBeDefined();
+      expect(goalResult?.title).toContain('Goal');
     });
   });
 
-  describe('memoization', () => {
-    it('memoizes expensive calculations', () => {
-      const expensiveCalculation = vi.fn();
-      
-      const { result, rerender } = renderHook(
-        ({ value }) => useGlobalSearch({ value, calculate: expensiveCalculation }),
-        {
-          wrapper: AllProviders,
-          initialProps: { value: 10 }
+  describe('scoring and sorting', () => {
+    it('sorts results by score', () => {
+      const { result } = renderHook(() => useGlobalSearch('test'), {
+        wrapper: AllProviders
+      });
+
+      if (result.current.results.length > 1) {
+        // Check that results are sorted by score descending
+        for (let i = 0; i < result.current.results.length - 1; i++) {
+          expect(result.current.results[i].score).toBeGreaterThanOrEqual(
+            result.current.results[i + 1].score
+          );
         }
-      );
+      }
+    });
 
-      expect(expensiveCalculation).toHaveBeenCalledTimes(1);
+    it('includes match information', () => {
+      const { result } = renderHook(() => useGlobalSearch('test'), {
+        wrapper: AllProviders
+      });
 
-      // Same props, should not recalculate
-      rerender({ value: 10 });
-      expect(expensiveCalculation).toHaveBeenCalledTimes(1);
-
-      // Different props, should recalculate
-      rerender({ value: 20 });
-      expect(expensiveCalculation).toHaveBeenCalledTimes(2);
+      if (result.current.hasResults) {
+        expect(result.current.results[0]).toHaveProperty('matches');
+        expect(Array.isArray(result.current.results[0].matches)).toBe(true);
+      }
     });
   });
 
   describe('edge cases', () => {
-    it('handles rapid updates correctly', async () => {
-      const { result } = renderHook(() => useGlobalSearch(), {
+    it('handles empty query', () => {
+      const { result } = renderHook(() => useGlobalSearch(''), {
         wrapper: AllProviders
       });
 
-      // Rapid fire multiple updates
-      act(() => {
-        result.current.update('value1');
-        result.current.update('value2');
-        result.current.update('value3');
-      });
-
-      await waitFor(() => {
-        // Should only process the latest update
-        expect(result.current.value).toBe('value3');
-      });
+      expect(result.current.results).toEqual([]);
+      expect(result.current.hasResults).toBe(false);
+      expect(result.current.resultCount).toBe(0);
     });
 
-    it('handles concurrent operations', async () => {
-      const { result } = renderHook(() => useGlobalSearch(), {
+    it('handles query with only spaces', () => {
+      const { result } = renderHook(() => useGlobalSearch('   '), {
         wrapper: AllProviders
       });
 
-      // Start multiple operations
-      const promises = [
-        act(() => result.current.operation1()),
-        act(() => result.current.operation2()),
-        act(() => result.current.operation3())
-      ];
+      expect(result.current.results).toEqual([]);
+      expect(result.current.hasResults).toBe(false);
+    });
 
-      await Promise.all(promises);
+    it('handles query with no matches', () => {
+      const { result } = renderHook(() => useGlobalSearch('nonexistentquery12345'), {
+        wrapper: AllProviders
+      });
 
-      // All operations should complete successfully
-      expect(result.current.status).toBe('completed');
+      expect(result.current.results).toEqual([]);
+      expect(result.current.hasResults).toBe(false);
+      expect(result.current.resultCount).toBe(0);
     });
   });
 });

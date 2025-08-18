@@ -3,12 +3,14 @@ import { useApp } from '../contexts/AppContext';
 import { PlusIcon } from '../components/icons';
 import CategoryCreationModal from './CategoryCreationModal';
 import { getCurrencySymbol } from '../utils/currency';
-import { Modal, ModalBody, ModalFooter } from './common/Modal';
+// Import { Modal, ModalBody, ModalFooter } from './common/Modal'; // Unused imports
 import { ResponsiveModal } from './ResponsiveModal';
 import { useModalForm } from '../hooks/useModalForm';
 import MarkdownEditor from './MarkdownEditor';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
+import { LoadingButton } from './loading/LoadingState';
+import { useToast } from '../contexts/ToastContext';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -31,8 +33,9 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
   const { accounts, addTransaction, categories, getSubCategories, getDetailCategories } = useApp();
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const { showSuccess, showError } = useToast();
   
-  const { formData, updateField, handleSubmit } = useModalForm<FormData>(
+  const { formData, updateField, handleSubmit, isSubmitting } = useModalForm<FormData>(
     {
       description: '',
       amount: '',
@@ -71,13 +74,21 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
             notes: validatedData.notes,
           });
           
+          // Show success message
+          showSuccess('Transaction added successfully');
           onClose();
         } catch (error) {
           if (error instanceof z.ZodError) {
+            // Show validation errors in the form
             setValidationErrors(ValidationService.formatErrors(error));
+            // Also show a toast for the first error
+            const firstError = error.issues[0];
+            showError(firstError.message);
           } else {
+            // Show user-friendly error toast
+            showError(error);
             console.error('Failed to add transaction:', error);
-            setValidationErrors({ general: 'Failed to add transaction. Please try again.' });
+            setValidationErrors({ general: 'Unable to save transaction. Please try again.' });
           }
         }
       },
@@ -110,7 +121,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 <button
                   type="button"
                   onClick={() => updateField('type', 'income')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  className={`px-4 py-2 min-h-[44px] rounded-lg font-medium transition-colors ${
                     formData.type === 'income'
                       ? 'bg-green-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -123,7 +134,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 <button
                   type="button"
                   onClick={() => updateField('type', 'expense')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  className={`px-4 py-2 min-h-[44px] rounded-lg font-medium transition-colors ${
                     formData.type === 'expense'
                       ? 'bg-red-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -136,7 +147,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 <button
                   type="button"
                   onClick={() => updateField('type', 'transfer')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  className={`px-4 py-2 min-h-[44px] rounded-lg font-medium transition-colors ${
                     formData.type === 'transfer'
                       ? 'bg-blue-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
@@ -231,19 +242,20 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               {/* Sub-category */}
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  <label htmlFor="category-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                     Category
                   </label>
                   <button
                     type="button"
                     onClick={() => setShowCategoryModal(true)}
-                    className="text-sm text-primary hover:text-secondary flex items-center gap-1"
+                    className="text-sm text-primary hover:text-secondary flex items-center gap-1 p-2 min-h-[44px]"
                   >
                     <PlusIcon size={14} />
                     Create new category
                   </button>
                 </div>
                 <select
+                  id="category-select"
                   value={formData.subCategory}
                   onChange={(e) => {
                     updateField('subCategory', e.target.value);
@@ -251,6 +263,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                   }}
                   className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                   required
+                  aria-label="Select transaction category"
                 >
                   <option value="">Select category</option>
                   {getSubCategories(`type-${formData.type}`).map(cat => (
@@ -262,14 +275,16 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               {/* Detail category */}
               {formData.subCategory && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="subcategory-select" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Sub-category
                   </label>
                   <select
+                    id="subcategory-select"
                     value={formData.category}
                     onChange={(e) => updateField('category', e.target.value)}
                     className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                     required
+                    aria-label="Select transaction sub-category"
                   >
                     <option value="">Select sub-category</option>
                     {getDetailCategories(formData.subCategory).map(cat => (
@@ -281,15 +296,17 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              <label htmlFor="date-input" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Date
               </label>
               <input
+                id="date-input"
                 type="date"
                 value={formData.date}
                 onChange={(e) => updateField('date', e.target.value)}
                 className="w-full px-3 py-3 sm:py-2 text-base sm:text-sm bg-white dark:bg-gray-700 border-2 border-gray-300 dark:border-gray-500 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:focus:ring-blue-400 focus:border-transparent dark:text-white min-h-[48px] sm:min-h-[auto]"
                 required
+                aria-label="Transaction date"
               />
             </div>
 
@@ -327,16 +344,18 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-2 text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+                disabled={isSubmitting}
+                className="flex-1 px-4 py-2 min-h-[44px] text-sm sm:text-base border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
-              <button
-                type="submit"
-                className="flex-1 px-4 py-2 text-sm sm:text-base bg-primary text-white rounded-lg hover:bg-secondary"
+              <LoadingButton
+                isLoading={isSubmitting}
+                loadingText="Adding..."
+                className="flex-1 px-4 py-2 min-h-[44px] text-sm sm:text-base bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50"
               >
                 Add Transaction
-              </button>
+              </LoadingButton>
             </div>
           </div>
         </form>

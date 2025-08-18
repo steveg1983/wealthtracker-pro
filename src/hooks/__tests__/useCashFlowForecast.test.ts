@@ -1,161 +1,342 @@
 /**
  * useCashFlowForecast Tests
- * Tests for the useCashFlowForecast hook
+ * Tests for the cash flow forecast hook
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
-import { useCashFlowForecast } from '../useCashFlowForecast';
+import { useCashFlowForecast, useSeasonalAnalysis } from '../useCashFlowForecast';
 import { AllProviders } from '../../test/testUtils';
+import { Decimal } from 'decimal.js';
+import type { Transaction, Account } from '../../types';
+import type { ForecastResult, RecurringPattern } from '../../services/cashFlowForecastService';
+
+// Mock the AppContext
+vi.mock('../../contexts/AppContext', () => ({
+  useApp: vi.fn(),
+  AppProvider: ({ children }: { children: React.ReactNode }) => children,
+}));
+
+// Mock the cashFlowForecastService
+vi.mock('../../services/cashFlowForecastService', () => ({
+  cashFlowForecastService: {
+    forecast: vi.fn(),
+    analyzeSeasonalTrends: vi.fn(),
+    generateProjections: vi.fn(),
+  },
+}));
+
+import { useApp } from '../../contexts/AppContext';
+import { cashFlowForecastService } from '../../services/cashFlowForecastService';
+
+// Mock data
+const mockAccounts: Account[] = [
+  {
+    id: 'acc-1',
+    name: 'Checking',
+    type: 'current',
+    balance: 5000,
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2025-01-20'),
+  },
+  {
+    id: 'acc-2',
+    name: 'Savings',
+    type: 'savings',
+    balance: 10000,
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2025-01-20'),
+  },
+];
+
+const mockTransactions: Transaction[] = [
+  {
+    id: 'tx-1',
+    accountId: 'acc-1',
+    amount: 3000,
+    type: 'income',
+    category: 'salary',
+    description: 'Monthly salary',
+    date: new Date('2025-01-15'),
+    pending: false,
+    isReconciled: false,
+  },
+  {
+    id: 'tx-2',
+    accountId: 'acc-1',
+    amount: 1200,
+    type: 'expense',
+    category: 'rent',
+    description: 'Monthly rent',
+    date: new Date('2025-01-01'),
+    pending: false,
+    isReconciled: false,
+  },
+];
+
+const mockForecastResult: ForecastResult = {
+  projections: [
+    {
+      date: new Date('2025-02-01'),
+      startingBalance: new Decimal(15000),
+      endingBalance: new Decimal(16800),
+      totalIncome: new Decimal(3000),
+      totalExpenses: new Decimal(1200),
+      netCashFlow: new Decimal(1800),
+      transactions: [],
+    },
+  ],
+  recurringPatterns: [
+    {
+      id: 'pattern-1',
+      description: 'Monthly salary',
+      amount: new Decimal(3000),
+      type: 'income',
+      category: 'salary',
+      frequency: 'monthly',
+      confidence: 0.95,
+      nextOccurrence: new Date('2025-02-15'),
+    },
+  ],
+  currentBalance: new Decimal(15000),
+  projectedBalance: new Decimal(25000),
+  totalProjectedIncome: new Decimal(18000),
+  totalProjectedExpenses: new Decimal(7200),
+  monthlyAverageIncome: new Decimal(3000),
+  monthlyAverageExpenses: new Decimal(1200),
+};
 
 describe('useCashFlowForecast', () => {
+  const mockUseApp = useApp as ReturnType<typeof vi.fn>;
+  const mockForecast = cashFlowForecastService.forecast as ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseApp.mockReturnValue({
+      accounts: mockAccounts,
+      transactions: mockTransactions,
+    } as any);
+    mockForecast.mockReturnValue(mockForecastResult);
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
-  describe('initialization', () => {
+  describe('basic functionality', () => {
     it('returns initial state correctly', () => {
-      const { result } = renderHook(() => useCashFlowForecast(), {
-        wrapper: AllProviders
+      const { result } = renderHook(() => useCashFlowForecast({ enabled: false }), {
+        wrapper: AllProviders,
       });
 
-      expect(result.current).toMatchObject({
-        // Add expected initial state
-        data: null,
-        loading: false,
-        error: null
-      });
+      expect(result.current.forecast).toBeNull();
+      expect(result.current.isLoading).toBe(false);
+      expect(result.current.error).toBeNull();
+      expect(typeof result.current.refresh).toBe('function');
+      expect(typeof result.current.updatePattern).toBe('function');
+      expect(typeof result.current.removePattern).toBe('function');
+      expect(typeof result.current.addCustomPattern).toBe('function');
     });
 
-    it('loads data on mount when autoLoad is true', async () => {
-      const { result } = renderHook(() => useCashFlowForecast({ autoLoad: true }), {
-        wrapper: AllProviders
-      });
-
-      expect(result.current.loading).toBe(true);
-
-      await waitFor(() => {
-        expect(result.current.loading).toBe(false);
-        expect(result.current.data).toBeDefined();
-      });
-    });
-  });
-
-  describe('actions', () => {
-    it('performs search correctly', async () => {
-      const { result } = renderHook(() => useCashFlowForecast(), {
-        wrapper: AllProviders
-      });
-
-      act(() => {
-        result.current.search('test query');
+    it('generates forecast on mount when enabled', async () => {
+      const { result } = renderHook(() => useCashFlowForecast({ enabled: true }), {
+        wrapper: AllProviders,
       });
 
       await waitFor(() => {
-        expect(result.current.results).toHaveLength(3);
-        expect(result.current.results[0]).toMatchObject({
-          title: expect.stringContaining('test')
-        });
+        expect(result.current.forecast).toEqual(mockForecastResult);
       });
+
+      expect(mockForecast).toHaveBeenCalledWith(mockAccounts, mockTransactions, 6);
     });
 
-    it('handles errors gracefully', async () => {
-      const mockFetch = vi.fn().mockRejectedValue(new Error('API Error'));
-      
-      const { result } = renderHook(() => useCashFlowForecast({ fetcher: mockFetch }), {
-        wrapper: AllProviders
+    it('does not generate forecast when disabled', () => {
+      renderHook(() => useCashFlowForecast({ enabled: false }), {
+        wrapper: AllProviders,
       });
 
-      act(() => {
-        result.current.load();
-      });
-
-      await waitFor(() => {
-        expect(result.current.error).toBe('API Error');
-        expect(result.current.loading).toBe(false);
-      });
+      expect(mockForecast).not.toHaveBeenCalled();
     });
 
-    it('cancels pending requests on unmount', async () => {
-      const abortSpy = vi.spyOn(AbortController.prototype, 'abort');
-      
-      const { result, unmount } = renderHook(() => useCashFlowForecast(), {
-        wrapper: AllProviders
-      });
-
-      act(() => {
-        result.current.load();
-      });
-
-      unmount();
-
-      expect(abortSpy).toHaveBeenCalled();
-    });
-  });
-
-  describe('memoization', () => {
-    it('memoizes expensive calculations', () => {
-      const expensiveCalculation = vi.fn();
-      
-      const { result, rerender } = renderHook(
-        ({ value }) => useCashFlowForecast({ value, calculate: expensiveCalculation }),
+    it('filters accounts and transactions based on accountIds', async () => {
+      const { result } = renderHook(
+        () => useCashFlowForecast({ accountIds: ['acc-1'] }),
         {
           wrapper: AllProviders,
-          initialProps: { value: 10 }
         }
       );
 
-      expect(expensiveCalculation).toHaveBeenCalledTimes(1);
-
-      // Same props, should not recalculate
-      rerender({ value: 10 });
-      expect(expensiveCalculation).toHaveBeenCalledTimes(1);
-
-      // Different props, should recalculate
-      rerender({ value: 20 });
-      expect(expensiveCalculation).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('edge cases', () => {
-    it('handles rapid updates correctly', async () => {
-      const { result } = renderHook(() => useCashFlowForecast(), {
-        wrapper: AllProviders
+      await waitFor(() => {
+        expect(result.current.forecast).toBeDefined();
       });
 
-      // Rapid fire multiple updates
-      act(() => {
-        result.current.update('value1');
-        result.current.update('value2');
-        result.current.update('value3');
+      expect(mockForecast).toHaveBeenCalledWith(
+        [mockAccounts[0]], // Only acc-1
+        mockTransactions, // Both transactions are from acc-1
+        6
+      );
+    });
+
+    it('allows customizing forecast period', async () => {
+      const { result } = renderHook(() => useCashFlowForecast({ months: 12 }), {
+        wrapper: AllProviders,
       });
 
       await waitFor(() => {
-        // Should only process the latest update
-        expect(result.current.value).toBe('value3');
+        expect(result.current.forecast).toBeDefined();
       });
-    });
 
-    it('handles concurrent operations', async () => {
+      expect(mockForecast).toHaveBeenCalledWith(mockAccounts, mockTransactions, 12);
+    });
+  });
+
+  describe('error handling', () => {
+    it('handles forecast generation errors', async () => {
+      const errorMessage = 'Failed to generate forecast';
+      mockForecast.mockImplementation(() => {
+        throw new Error(errorMessage);
+      });
+
       const { result } = renderHook(() => useCashFlowForecast(), {
-        wrapper: AllProviders
+        wrapper: AllProviders,
       });
 
-      // Start multiple operations
-      const promises = [
-        act(() => result.current.operation1()),
-        act(() => result.current.operation2()),
-        act(() => result.current.operation3())
-      ];
+      await waitFor(() => {
+        expect(result.current.error).toBe(errorMessage);
+      });
 
-      await Promise.all(promises);
-
-      // All operations should complete successfully
-      expect(result.current.status).toBe('completed');
+      expect(result.current.forecast).toBeNull();
+      expect(result.current.isLoading).toBe(false);
     });
+  });
+
+  describe('refresh functionality', () => {
+    it('refreshes forecast on demand', async () => {
+      const { result } = renderHook(() => useCashFlowForecast(), {
+        wrapper: AllProviders,
+      });
+
+      await waitFor(() => {
+        expect(result.current.forecast).toBeDefined();
+      });
+
+      expect(mockForecast).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        result.current.refresh();
+      });
+
+      await waitFor(() => {
+        expect(mockForecast).toHaveBeenCalledTimes(2);
+      });
+    });
+  });
+
+  describe('pattern management', () => {
+    it('adds custom pattern', async () => {
+      const { result } = renderHook(() => useCashFlowForecast(), {
+        wrapper: AllProviders,
+      });
+
+      await waitFor(() => {
+        expect(result.current.forecast).toBeDefined();
+      });
+
+      const customPattern = {
+        description: 'Custom expense',
+        amount: new Decimal(500),
+        type: 'expense' as const,
+        category: 'custom',
+        frequency: 'monthly' as const,
+        confidence: 1,
+        nextOccurrence: new Date('2025-02-01'),
+      };
+
+      act(() => {
+        result.current.addCustomPattern(customPattern);
+      });
+
+      // The hook should regenerate forecast with custom pattern
+      await waitFor(() => {
+        expect(mockForecast).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('updates existing pattern', async () => {
+      const { result } = renderHook(() => useCashFlowForecast(), {
+        wrapper: AllProviders,
+      });
+
+      await waitFor(() => {
+        expect(result.current.forecast).toBeDefined();
+      });
+
+      act(() => {
+        result.current.updatePattern('pattern-1', { amount: new Decimal(3500) });
+      });
+
+      // Should trigger forecast regeneration
+      await waitFor(() => {
+        expect(mockForecast).toHaveBeenCalledTimes(2);
+      });
+    });
+
+    it('removes pattern', async () => {
+      const { result } = renderHook(() => useCashFlowForecast(), {
+        wrapper: AllProviders,
+      });
+
+      await waitFor(() => {
+        expect(result.current.forecast).toBeDefined();
+      });
+
+      act(() => {
+        result.current.removePattern('pattern-1');
+      });
+
+      // Should trigger forecast regeneration
+      await waitFor(() => {
+        expect(mockForecast).toHaveBeenCalledTimes(2);
+      });
+    });
+  });
+});
+
+describe('useSeasonalAnalysis', () => {
+  const mockUseApp = useApp as ReturnType<typeof vi.fn>;
+  const mockAnalyzeSeasonalTrends = cashFlowForecastService.analyzeSeasonalTrends as ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseApp.mockReturnValue({
+      transactions: mockTransactions,
+    } as any);
+    
+    const mockTrends = new Map([
+      [1, { income: new Decimal(3000), expenses: new Decimal(1200) }],
+      [2, { income: new Decimal(3000), expenses: new Decimal(1200) }],
+    ]);
+    mockAnalyzeSeasonalTrends.mockReturnValue(mockTrends);
+  });
+
+  it('analyzes seasonal trends when enabled', async () => {
+    const { result } = renderHook(() => useSeasonalAnalysis(true), {
+      wrapper: AllProviders,
+    });
+
+    await waitFor(() => {
+      expect(result.current).toBeDefined();
+      expect(result.current).toBeInstanceOf(Map);
+    });
+
+    expect(mockAnalyzeSeasonalTrends).toHaveBeenCalledWith(mockTransactions);
+  });
+
+  it('does not analyze when disabled', () => {
+    renderHook(() => useSeasonalAnalysis(false), {
+      wrapper: AllProviders,
+    });
+
+    expect(mockAnalyzeSeasonalTrends).not.toHaveBeenCalled();
   });
 });

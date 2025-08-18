@@ -120,7 +120,7 @@ test.describe('Reports - Export Functionality', () => {
     const pdfButton = page.getByRole('button', { name: /Export PDF/i });
     
     // Set up download handler
-    const downloadPromise = page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
+    page.waitForEvent('download', { timeout: 5000 }).catch(() => null);
     
     // Click PDF export
     await pdfButton.click();

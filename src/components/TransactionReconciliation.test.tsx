@@ -244,21 +244,21 @@ describe('TransactionReconciliation', () => {
     it('enables reconcile button when account is selected', () => {
       renderComponent({ accountId: 'acc1' });
       
-      const reconcileButton = screen.getByRole('button', { name: /auto-reconcile/i });
+      const reconcileButton = screen.getByText(/auto-reconcile transactions/i).closest('button')!;
       expect(reconcileButton).not.toBeDisabled();
     });
 
-    it('disables reconcile button when no account selected', () => {
+    it('does not show reconcile button when no account selected', () => {
       renderComponent();
       
-      const reconcileButton = screen.getByRole('button', { name: /auto-reconcile/i });
-      expect(reconcileButton).toBeDisabled();
+      // The button should not be rendered when no account is selected
+      expect(screen.queryByText(/auto-reconcile transactions/i)).not.toBeInTheDocument();
     });
 
     it('shows processing state during reconciliation', async () => {
       renderComponent({ accountId: 'acc1' });
       
-      const reconcileButton = screen.getByRole('button', { name: /auto-reconcile/i });
+      const reconcileButton = screen.getByText(/auto-reconcile transactions/i).closest('button')!;
       fireEvent.click(reconcileButton);
       
       expect(screen.getByText(/reconciling/i)).toBeInTheDocument();
@@ -267,7 +267,7 @@ describe('TransactionReconciliation', () => {
     it('auto-clears high confidence matches', async () => {
       renderComponent({ accountId: 'acc1' });
       
-      const reconcileButton = screen.getByRole('button', { name: /auto-reconcile/i });
+      const reconcileButton = screen.getByText(/auto-reconcile transactions/i).closest('button')!;
       fireEvent.click(reconcileButton);
       
       await waitFor(() => {
@@ -279,12 +279,12 @@ describe('TransactionReconciliation', () => {
     it('shows reconciliation results', async () => {
       renderComponent({ accountId: 'acc1' });
       
-      const reconcileButton = screen.getByRole('button', { name: /auto-reconcile/i });
+      const reconcileButton = screen.getByText(/auto-reconcile transactions/i).closest('button')!;
       fireEvent.click(reconcileButton);
       
       await waitFor(() => {
         // Just check that some results are shown
-        expect(screen.getByText(/reconciliation complete/i)).toBeInTheDocument();
+        expect(screen.getByText('Reconciliation Results')).toBeInTheDocument();
       });
     });
   });
@@ -295,7 +295,8 @@ describe('TransactionReconciliation', () => {
       
       await waitFor(() => {
         // Should show suggestions for Electric Bill based on historical data
-        expect(screen.getByText(/possible matches/i)).toBeInTheDocument();
+        const possibleMatches = screen.getAllByText(/possible matches/i);
+        expect(possibleMatches.length).toBeGreaterThan(0);
       });
     });
 
@@ -323,9 +324,10 @@ describe('TransactionReconciliation', () => {
       await userEvent.type(statementInput, '2500');
       
       await waitFor(() => {
-        // The difference section will have a red background
-        const differenceSection = screen.getByText('Difference').closest('div');
-        expect(differenceSection).toHaveClass('bg-red-50');
+        // The difference section will have a red background - need to get the parent container
+        const differenceLabel = screen.getByText('Difference');
+        const differenceContainer = differenceLabel.closest('div')?.parentElement;
+        expect(differenceContainer).toHaveClass('bg-red-50', expect.stringContaining(''))
       });
     });
 
@@ -336,9 +338,10 @@ describe('TransactionReconciliation', () => {
       await userEvent.type(statementInput, '3000'); // Matches cleared balance
       
       await waitFor(() => {
-        // The difference section will have a green background
-        const differenceSection = screen.getByText('Difference').closest('div');
-        expect(differenceSection).toHaveClass('bg-green-50');
+        // The difference section will have a green background - need to get the parent container
+        const differenceLabel = screen.getByText('Difference');
+        const differenceContainer = differenceLabel.closest('div')?.parentElement;
+        expect(differenceContainer).toHaveClass('bg-green-50', expect.stringContaining(''))
       });
     });
   });
@@ -354,12 +357,12 @@ describe('TransactionReconciliation', () => {
     it('announces reconciliation results', async () => {
       renderComponent({ accountId: 'acc1' });
       
-      const reconcileButton = screen.getByRole('button', { name: /auto-reconcile/i });
+      const reconcileButton = screen.getByText(/auto-reconcile transactions/i).closest('button')!;
       fireEvent.click(reconcileButton);
       
       await waitFor(() => {
         // Just check that reconciliation completes
-        expect(screen.getByText(/reconciliation complete/i)).toBeInTheDocument();
+        expect(screen.getByText('Reconciliation Results')).toBeInTheDocument();
       });
     });
 

@@ -102,14 +102,15 @@ export default function ScheduledReports() {
         // Already set correctly
         break;
       
-      case 'weekly':
+      case 'weekly': {
         const targetDay = report.dayOfWeek || 1; // Default to Monday
         while (nextRun.getDay() !== targetDay) {
           nextRun.setDate(nextRun.getDate() + 1);
         }
         break;
+      }
       
-      case 'monthly':
+      case 'monthly': {
         const targetDate = report.dayOfMonth || 1;
         nextRun.setDate(targetDate);
         // If we've passed this month's date, go to next month
@@ -117,13 +118,15 @@ export default function ScheduledReports() {
           nextRun.setMonth(nextRun.getMonth() + 1);
         }
         break;
+      }
       
-      case 'quarterly':
+      case 'quarterly': {
         // Find next quarter start
         const currentQuarter = Math.floor(nextRun.getMonth() / 3);
         const nextQuarter = currentQuarter + 1;
         nextRun.setMonth(nextQuarter * 3, 1);
         break;
+      }
       
       case 'yearly':
         nextRun.setMonth(0, 1); // January 1st
@@ -151,7 +154,7 @@ export default function ScheduledReports() {
     try {
       // Filter transactions based on report config
       const now = new Date();
-      let startDate = new Date();
+      const startDate = new Date();
       
       switch (report.reportConfig.dateRange) {
         case 'month':

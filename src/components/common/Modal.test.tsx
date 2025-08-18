@@ -319,15 +319,16 @@ describe('Modal', () => {
       expect(modal).toHaveAttribute('aria-describedby', 'description');
     });
 
-    it('has backdrop with aria-hidden', () => {
+    it('has backdrop that is accessible', () => {
       render(
         <Modal isOpen={true} onClose={mockOnClose} title="Test">
           Content
         </Modal>
       );
       
-      const backdrop = screen.getByRole('dialog', { hidden: true }).parentElement;
-      expect(backdrop).toHaveAttribute('aria-hidden', 'true');
+      const backdrop = screen.getByRole('dialog').parentElement;
+      // Backdrop should NOT have aria-hidden since it contains the accessible dialog
+      expect(backdrop).not.toHaveAttribute('aria-hidden', 'true');
     });
   });
 

@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { SearchIcon, FilterIcon, XIcon } from './icons';
 import { IconButton } from './icons/IconButton';
 import { Modal } from './common/Modal';
-import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+// import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal'; // Currently unused
 import { useDebounce } from '../hooks/useDebounce';
 import type { Transaction, Account } from '../types';
 
@@ -37,7 +37,7 @@ export default function AdvancedSearch({
   onResults,
   className = ''
 }: AdvancedSearchProps): React.JSX.Element {
-  const { formatCurrency } = useCurrencyDecimal();
+  // const { formatCurrency } = useCurrencyDecimal(); // Currently unused
   const [isExpanded, setIsExpanded] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 300);
@@ -131,7 +131,7 @@ export default function AdvancedSearch({
       try {
         const parsed = JSON.parse(saved);
         // Convert date strings back to Date objects
-        const searches = parsed.map((search: any) => ({
+        const searches = parsed.map((search: Omit<SavedSearch, 'createdAt'> & { createdAt: string }) => ({
           ...search,
           createdAt: new Date(search.createdAt)
         }));

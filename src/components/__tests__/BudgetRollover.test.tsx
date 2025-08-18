@@ -3,11 +3,194 @@
  * Tests for the BudgetRollover component
  */
 
+import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { BudgetRollover } from '../BudgetRollover';
-import { renderWithProviders, createMockAccount, createMockTransaction } from '../../test/testUtils';
+import BudgetRollover from '../BudgetRollover';
+import type { Budget } from '../../types';
+
+// Mock dependencies
+vi.mock('../../contexts/AppContext', () => ({
+  useApp: () => ({
+    categories: [
+      { id: 'cat-1', name: 'Food', type: 'expense', level: 'detail', parentId: 'sub-food' },
+      { id: 'cat-2', name: 'Transport', type: 'expense', level: 'detail', parentId: 'sub-transport' },
+      { id: 'cat-3', name: 'Entertainment', type: 'expense', level: 'detail', parentId: 'sub-entertainment' },
+      { id: 'cat-4', name: 'Utilities', type: 'expense', level: 'detail', parentId: 'sub-utilities' }
+    ],
+    transactions: [
+      {
+        id: 'trans-1',
+        date: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 15), // Last month
+        amount: 150,
+        category: 'Food',
+        type: 'expense',
+        description: 'Grocery shopping',
+        accountId: 'acc-1',
+        cleared: true
+      },
+      {
+        id: 'trans-2',
+        date: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 20), // Last month
+        amount: 50,
+        category: 'Transport',
+        type: 'expense',
+        description: 'Gas',
+        accountId: 'acc-1',
+        cleared: true
+      }
+    ],
+    budgets: []
+  })
+}));
+
+vi.mock('../../contexts/BudgetContext', () => ({
+  useBudgets: () => ({
+    budgets: [
+      {
+        id: 'budget-1',
+        category: 'Food',
+        amount: 200,
+        period: 'monthly',
+        startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
+        description: 'Food budget'
+      },
+      {
+        id: 'budget-2',
+        category: 'Transport',
+        amount: 100,
+        period: 'monthly',
+        startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
+        description: 'Transport budget'
+      },
+      {
+        id: 'budget-3',
+        category: 'Entertainment',
+        amount: 150,
+        period: 'monthly',
+        startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
+        description: 'Entertainment budget'
+      }
+    ],
+    updateBudget: vi.fn()
+  })
+}));
+
+vi.mock('../../hooks/useLocalStorage', () => ({
+  useLocalStorage: vi.fn((key, defaultValue) => {
+    const [value, setValue] = React.useState(defaultValue);
+    return [value, setValue];
+  })
+}));
+
+vi.mock('../../hooks/useCurrencyDecimal', () => ({
+  useCurrencyDecimal: () => ({
+    formatCurrency: (value: any) => {
+      const numValue = typeof value === 'object' && value.toNumber ? value.toNumber() : value;
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD'
+      }).format(numValue);
+    }
+  })
+}));
+
+// Mock decimal utilities
+vi.mock('../../utils/decimal', () => ({
+  toDecimal: (value: number) => ({
+    plus: function(other: any) { 
+      const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
+      return toDecimal(this.toNumber() + otherVal); 
+    },
+    minus: function(other: any) { 
+      const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
+      return toDecimal(this.toNumber() - otherVal); 
+    },
+    times: function(other: number) { return toDecimal(this.toNumber() * other); },
+    greaterThan: function(other: any) { 
+      const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
+      return this.toNumber() > otherVal; 
+    },
+    lessThan: function(other: any) { 
+      const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
+      return this.toNumber() < otherVal; 
+    },
+    equals: function(other: any) { 
+      const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
+      return this.toNumber() === otherVal; 
+    },
+    abs: function() { return toDecimal(Math.abs(this.toNumber())); },
+    toNumber: function() { return value; },
+    toString: function() { return value.toString(); }
+  })
+}));
+
+const toDecimal = (value: number) => ({
+  plus: function(other: any) { 
+    const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
+    return toDecimal(this.toNumber() + otherVal); 
+  },
+  minus: function(other: any) { 
+    const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
+    return toDecimal(this.toNumber() - otherVal); 
+  },
+  times: function(other: number) { return toDecimal(this.toNumber() * other); },
+  greaterThan: function(other: any) { 
+    const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
+    return this.toNumber() > otherVal; 
+  },
+  lessThan: function(other: any) { 
+    const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
+    return this.toNumber() < otherVal; 
+  },
+  equals: function(other: any) { 
+    const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
+    return this.toNumber() === otherVal; 
+  },
+  abs: function() { return toDecimal(Math.abs(this.toNumber())); },
+  toNumber: function() { return value; },
+  toString: function() { return value.toString(); }
+});
+
+// Mock icons
+vi.mock('../icons', () => ({
+  ArrowRightIcon: ({ size }: any) => <div data-testid="arrow-right-icon">ArrowRight</div>,
+  CalendarIcon: ({ size }: any) => <div data-testid="calendar-icon">Calendar</div>,
+  CheckCircleIcon: ({ size, className }: any) => (
+    <div data-testid="check-circle-icon" className={className}>CheckCircle</div>
+  ),
+  AlertCircleIcon: ({ size, className }: any) => (
+    <div data-testid="alert-circle-icon" className={className}>AlertCircle</div>
+  ),
+  TrendingUpIcon: ({ size, className }: any) => (
+    <div data-testid="trending-up-icon" className={className}>TrendingUp</div>
+  ),
+  TrendingDownIcon: ({ size, className }: any) => (
+    <div data-testid="trending-down-icon" className={className}>TrendingDown</div>
+  ),
+  RepeatIcon: ({ size, className }: any) => (
+    <div data-testid="repeat-icon" className={className}>Repeat</div>
+  ),
+  InfoIcon: ({ size }: any) => <div data-testid="info-icon">Info</div>,
+  SaveIcon: ({ size }: any) => <div data-testid="save-icon">Save</div>,
+  SettingsIcon: ({ size }: any) => <div data-testid="settings-icon">Settings</div>
+}));
+
+// Mock window.matchMedia
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: vi.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+  })),
+});
 
 describe('BudgetRollover', () => {
   beforeEach(() => {
@@ -19,142 +202,311 @@ describe('BudgetRollover', () => {
   });
 
   describe('rendering', () => {
-    it('renders correctly with default props', () => {
-      renderWithProviders(<BudgetRollover />);
+    it('renders the budget rollover header', () => {
+      render(<BudgetRollover />);
       
-      // Add specific assertions based on component
-      expect(screen.getByTestId('budgetrollover')).toBeInTheDocument();
+      expect(screen.getByText('Budget Rollover')).toBeInTheDocument();
+      expect(screen.getByText(/Carry forward unused budget from/)).toBeInTheDocument();
     });
 
-    it('renders loading state when data is loading', () => {
-      renderWithProviders(<BudgetRollover isLoading={true} />);
+    it('shows rollover status', () => {
+      render(<BudgetRollover />);
       
-      expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
+      // Find the status text specifically
+      expect(screen.getByText(/Rollover.*Disabled/)).toBeInTheDocument();
     });
 
-    it('renders error state when error occurs', () => {
-      renderWithProviders(<BudgetRollover error="Test error" />);
+    it('displays settings and preview buttons', () => {
+      render(<BudgetRollover />);
       
-      expect(screen.getByText('Test error')).toBeInTheDocument();
+      // Use getByRole for buttons to be more specific
+      expect(screen.getByRole('button', { name: /Settings/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Preview Rollover/i })).toBeInTheDocument();
     });
 
-    it('renders empty state when no data', () => {
-      renderWithProviders(<BudgetRollover data={[]} />);
+    it('shows budget summary statistics when enabled', async () => {
+      render(<BudgetRollover />);
       
-      expect(screen.getByText(/no data/i)).toBeInTheDocument();
-    });
-  });
-
-  describe('user interactions', () => {
-    it('handles click events correctly', async () => {
-      const mockOnClick = vi.fn();
-      renderWithProviders(<BudgetRollover onClick={mockOnClick} />);
+      // Open settings
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
       
-      const element = screen.getByTestId('clickable-element');
-      await userEvent.click(element);
+      // Enable rollover - first checkbox in settings modal
+      const enableCheckbox = screen.getAllByRole('checkbox')[0];
+      await userEvent.click(enableCheckbox);
       
-      expect(mockOnClick).toHaveBeenCalledTimes(1);
-    });
-
-    it('handles form submission', async () => {
-      const mockOnSubmit = vi.fn();
-      renderWithProviders(<BudgetRollover onSubmit={mockOnSubmit} />);
+      // Close settings
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
-      // Fill form fields
-      const input = screen.getByLabelText(/name/i);
-      await userEvent.type(input, 'Test Value');
-      
-      // Submit form
-      const submitButton = screen.getByRole('button', { name: /submit/i });
-      await userEvent.click(submitButton);
-      
+      // Should show stats
       await waitFor(() => {
-        expect(mockOnSubmit).toHaveBeenCalledWith(expect.objectContaining({
-          name: 'Test Value'
-        }));
+        expect(screen.getByText('Total Rollover')).toBeInTheDocument();
+        expect(screen.getByText('Eligible Budgets')).toBeInTheDocument();
+        expect(screen.getByText('With Surplus')).toBeInTheDocument();
+        expect(screen.getByText('With Deficit')).toBeInTheDocument();
       });
     });
 
-    it('validates user input', async () => {
-      renderWithProviders(<BudgetRollover />);
+    it('shows rollover details for each budget when enabled', async () => {
+      render(<BudgetRollover />);
       
-      const input = screen.getByLabelText(/amount/i);
-      await userEvent.type(input, '-100');
+      // Open settings and enable
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
+      // Should show budget categories
       await waitFor(() => {
-        expect(screen.getByText(/must be positive/i)).toBeInTheDocument();
+        expect(screen.getByText('Food')).toBeInTheDocument();
+        expect(screen.getByText('Transport')).toBeInTheDocument();
+        expect(screen.getByText('Entertainment')).toBeInTheDocument();
       });
     });
   });
 
-  describe('accessibility', () => {
-    it('has proper ARIA attributes', () => {
-      renderWithProviders(<BudgetRollover />);
+  describe('settings modal', () => {
+    it('opens settings modal when clicking settings button', async () => {
+      render(<BudgetRollover />);
       
-      const mainElement = screen.getByRole('main');
-      expect(mainElement).toHaveAttribute('aria-label');
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      
+      expect(screen.getByText('Rollover Settings')).toBeInTheDocument();
+      expect(screen.getAllByRole('checkbox')[0]).toBeInTheDocument();
     });
 
-    it('supports keyboard navigation', async () => {
-      renderWithProviders(<BudgetRollover />);
+    it('allows enabling/disabling rollover', async () => {
+      render(<BudgetRollover />);
       
-      const firstButton = screen.getAllByRole('button')[0];
-      firstButton.focus();
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
       
-      await userEvent.keyboard('{Tab}');
+      const enableCheckbox = screen.getAllByRole('checkbox')[0];
+      expect(enableCheckbox).not.toBeChecked();
       
-      const secondButton = screen.getAllByRole('button')[1];
-      expect(secondButton).toHaveFocus();
+      await userEvent.click(enableCheckbox);
+      expect(enableCheckbox).toBeChecked();
     });
 
-    it('announces changes to screen readers', async () => {
-      renderWithProviders(<BudgetRollover />);
+    it('allows selecting rollover mode', async () => {
+      render(<BudgetRollover />);
       
-      const button = screen.getByRole('button', { name: /update/i });
-      await userEvent.click(button);
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      
+      const modeSelect = screen.getByRole('combobox');
+      expect(modeSelect).toHaveValue('all');
+      
+      await userEvent.selectOptions(modeSelect, 'percentage');
+      expect(modeSelect).toHaveValue('percentage');
+      
+      // Should show percentage input
+      expect(screen.getByDisplayValue('100')).toBeInTheDocument();
+    });
+
+    it('allows setting maximum rollover amount', async () => {
+      render(<BudgetRollover />);
+      
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      
+      const maxAmountInput = screen.getByRole('spinbutton');
+      await userEvent.type(maxAmountInput, '500');
+      
+      expect(maxAmountInput).toHaveValue(500);
+    });
+
+    it('allows excluding categories', async () => {
+      render(<BudgetRollover />);
+      
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      
+      const foodCheckbox = screen.getByRole('checkbox', { name: 'Food' });
+      await userEvent.click(foodCheckbox);
+      
+      expect(foodCheckbox).toBeChecked();
+    });
+
+    it('allows enabling auto-apply', async () => {
+      render(<BudgetRollover />);
+      
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      
+      const autoApplyCheckbox = screen.getAllByRole('checkbox')[1];
+      await userEvent.click(autoApplyCheckbox);
+      
+      expect(autoApplyCheckbox).toBeChecked();
+    });
+
+    it('allows carrying negative balances', async () => {
+      render(<BudgetRollover />);
+      
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      
+      const carryNegativeCheckbox = screen.getAllByRole('checkbox')[2];
+      await userEvent.click(carryNegativeCheckbox);
+      
+      expect(carryNegativeCheckbox).toBeChecked();
+    });
+  });
+
+  describe('preview modal', () => {
+    it('shows preview when clicking preview button', async () => {
+      render(<BudgetRollover />);
+      
+      // Enable rollover first
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
+      
+      // Click preview
+      await waitFor(() => {
+        const previewButton = screen.getByRole('button', { name: /Preview Rollover/i });
+        expect(previewButton).not.toBeDisabled();
+      });
+      
+      await userEvent.click(screen.getByRole('button', { name: /Preview Rollover/i }));
+      
+      expect(screen.getByText('Rollover Preview')).toBeInTheDocument();
+    });
+
+    it('shows rollover amounts in preview', async () => {
+      render(<BudgetRollover />);
+      
+      // Enable rollover
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
+      
+      // Open preview
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Preview Rollover/i })).not.toBeDisabled();
+      });
+      await userEvent.click(screen.getByRole('button', { name: /Preview Rollover/i }));
+      
+      // Should show categories with rollover amounts
+      expect(screen.getByText(/will be added to your/)).toBeInTheDocument();
+    });
+
+    it('allows applying rollover from preview', async () => {
+      render(<BudgetRollover />);
+      
+      // Enable and preview
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
       await waitFor(() => {
-        const liveRegion = screen.getByRole('status');
-        expect(liveRegion).toHaveTextContent(/updated successfully/i);
+        expect(screen.getByRole('button', { name: /Preview Rollover/i })).not.toBeDisabled();
       });
+      await userEvent.click(screen.getByRole('button', { name: /Preview Rollover/i }));
+      
+      // Apply rollover - just verify the button exists and can be clicked
+      const applyButton = screen.getByRole('button', { name: /Apply Rollover/i });
+      expect(applyButton).toBeInTheDocument();
+      await userEvent.click(applyButton);
+      
+      // The modal should close after applying
+      await waitFor(() => {
+        expect(screen.queryByText('Rollover Preview')).not.toBeInTheDocument();
+      });
+    });
+  });
+
+  describe('calculations', () => {
+    it('calculates correct remaining amounts', async () => {
+      render(<BudgetRollover />);
+      
+      // Enable rollover
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
+      
+      // Food budget: $200 - $150 spent = $50 remaining
+      // Transport budget: $100 - $50 spent = $50 remaining
+      // Entertainment budget: $150 - $0 spent = $150 remaining
+      
+      await waitFor(() => {
+        expect(screen.getByText('$250.00')).toBeInTheDocument(); // Total rollover
+      });
+    });
+
+    it('enables preview button when rollover amount is available', async () => {
+      render(<BudgetRollover />);
+      
+      // Enable rollover
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
+      
+      // Preview button should be enabled when there are rollover amounts
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: /Preview Rollover/i })).not.toBeDisabled();
+      });
+      
+      // Verify there's a positive rollover amount displayed
+      expect(screen.getByText('$250.00')).toBeInTheDocument();
+    });
+  });
+
+  describe('rollover history', () => {
+    it('renders without history data', async () => {
+      render(<BudgetRollover />);
+      
+      // Component should render successfully even without history
+      expect(screen.getByText('Budget Rollover')).toBeInTheDocument();
+      
+      // History section should not be visible when no history exists
+      expect(screen.queryByText('Rollover History')).not.toBeInTheDocument();
     });
   });
 
   describe('edge cases', () => {
-    it('handles large datasets efficiently', () => {
-      const largeData = Array.from({ length: 1000 }, (_, i) => ({
-        id: i,
-        name: `Item ${i}`
-      }));
+    it('handles percentage mode correctly', async () => {
+      render(<BudgetRollover />);
       
-      renderWithProviders(<BudgetRollover data={largeData} />);
+      // Enable rollover with percentage mode
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      await userEvent.click(screen.getAllByRole('checkbox')[0]);
       
-      // Should use virtualization for large lists
-      const visibleItems = screen.getAllByTestId('list-item');
-      expect(visibleItems.length).toBeLessThan(50);
-    });
-
-    it('handles network errors gracefully', async () => {
-      const mockFetch = vi.fn().mockRejectedValue(new Error('Network error'));
-      renderWithProviders(<BudgetRollover onFetch={mockFetch} />);
+      const modeSelect = screen.getByRole('combobox');
+      await userEvent.selectOptions(modeSelect, 'percentage');
       
+      const percentageInput = screen.getByDisplayValue('100');
+      await userEvent.clear(percentageInput);
+      await userEvent.type(percentageInput, '50');
+      
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
+      
+      // Should calculate 50% of remaining amounts
       await waitFor(() => {
-        expect(screen.getByText(/network error/i)).toBeInTheDocument();
+        expect(screen.getByText('$125.00')).toBeInTheDocument(); // 50% of $250
       });
     });
 
-    it('prevents double submission', async () => {
-      const mockSubmit = vi.fn().mockImplementation(() => 
-        new Promise(resolve => setTimeout(resolve, 1000))
-      );
+    it('handles excluded categories', async () => {
+      render(<BudgetRollover />);
       
-      renderWithProviders(<BudgetRollover onSubmit={mockSubmit} />);
+      // Enable rollover and exclude Food category
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      await userEvent.click(screen.getAllByRole('checkbox')[0]);
       
-      const submitButton = screen.getByRole('button', { name: /submit/i });
-      await userEvent.click(submitButton);
-      await userEvent.click(submitButton);
+      const foodCheckbox = screen.getByRole('checkbox', { name: 'Food' });
+      await userEvent.click(foodCheckbox);
       
-      expect(mockSubmit).toHaveBeenCalledTimes(1);
+      await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
+      
+      // Total should exclude Food's $50
+      await waitFor(() => {
+        expect(screen.getByText('$200.00')).toBeInTheDocument(); // $250 - $50
+      });
+    });
+
+    it('closes modals when clicking cancel', async () => {
+      render(<BudgetRollover />);
+      
+      // Open settings
+      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      expect(screen.getByText('Rollover Settings')).toBeInTheDocument();
+      
+      // Cancel
+      await userEvent.click(screen.getByRole('button', { name: /Cancel/i }));
+      expect(screen.queryByText('Rollover Settings')).not.toBeInTheDocument();
     });
   });
 });

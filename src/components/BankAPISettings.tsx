@@ -125,6 +125,7 @@ export default function BankAPISettings() {
                   plaidSecret: !showSecrets.plaidSecret
                 })}
                 className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                aria-label={showSecrets.plaidSecret ? "Hide secret key" : "Show secret key"}
               >
                 {showSecrets.plaidSecret ? <EyeOffIcon size={20} /> : <EyeIcon size={20} />}
               </button>

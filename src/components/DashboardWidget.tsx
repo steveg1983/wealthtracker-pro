@@ -142,16 +142,18 @@ export default function DashboardWidget({
             <button
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50"
+              className="min-w-[44px] min-h-[44px] p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-50 rounded-lg"
               title="Refresh"
+              aria-label="Refresh widget"
             >
               <RefreshCwIcon size={16} className={isRefreshing ? 'animate-spin' : ''} />
             </button>
             
             <button
               onClick={() => setShowSettings(true)}
-              className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              className="min-w-[44px] min-h-[44px] p-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
               title="Settings"
+              aria-label="Widget settings"
             >
               <SettingsIcon size={16} />
             </button>
@@ -159,22 +161,28 @@ export default function DashboardWidget({
             <div className="flex">
               <button
                 onClick={() => handleSizeChange('small')}
-                className={`p-1 ${config.size === 'small' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                className={`min-w-[44px] min-h-[44px] p-2.5 rounded-lg ${config.size === 'small' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
                 title="Small"
+                aria-label="Resize to small"
+                aria-pressed={config.size === 'small'}
               >
                 <MinimizeIcon size={16} />
               </button>
               <button
                 onClick={() => handleSizeChange('medium')}
-                className={`p-1 ${config.size === 'medium' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                className={`min-w-[44px] min-h-[44px] p-2.5 rounded-lg ${config.size === 'medium' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
                 title="Medium"
+                aria-label="Resize to medium"
+                aria-pressed={config.size === 'medium'}
               >
                 <BarChart3Icon size={16} />
               </button>
               <button
                 onClick={() => handleSizeChange('large')}
-                className={`p-1 ${config.size === 'large' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
+                className={`min-w-[44px] min-h-[44px] p-2.5 rounded-lg ${config.size === 'large' ? 'text-[var(--color-primary)]' : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'}`}
                 title="Large"
+                aria-label="Resize to large"
+                aria-pressed={config.size === 'large'}
               >
                 <MaximizeIcon size={16} />
               </button>
@@ -182,8 +190,9 @@ export default function DashboardWidget({
             
             <button
               onClick={() => onRemove(config.id)}
-              className="p-1 text-gray-400 hover:text-red-500"
+              className="min-w-[44px] min-h-[44px] p-2.5 text-gray-400 hover:text-red-500 rounded-lg"
               title="Remove"
+              aria-label="Remove widget"
             >
               <XIcon size={16} />
             </button>
@@ -213,7 +222,8 @@ export default function DashboardWidget({
               </h3>
               <button
                 onClick={handleCancelSettings}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                className="min-w-[44px] min-h-[44px] p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
+                aria-label="Close settings"
               >
                 <XIcon size={20} />
               </button>

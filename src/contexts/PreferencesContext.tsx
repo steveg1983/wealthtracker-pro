@@ -267,7 +267,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     }
   });
 
-  const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('dark');
+  const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
 
   // Memoize updateActualTheme to avoid recreating it
   const updateActualTheme = useCallback((): void => {

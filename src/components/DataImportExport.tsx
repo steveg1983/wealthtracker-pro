@@ -160,7 +160,7 @@ export default function DataImportExport() {
         filename = 'wealthtracker-export.json';
         mimeType = 'application/json';
         break;
-      case 'csv':
+      case 'csv': {
         // Export transactions as CSV
         const csvHeaders = ['Date', 'Description', 'Amount', 'Type', 'Category', 'Account'];
         const csvRows = data.transactions.map(t => {
@@ -179,6 +179,7 @@ export default function DataImportExport() {
         filename = 'wealthtracker-transactions.csv';
         mimeType = 'text/csv';
         break;
+      }
       default:
         return;
     }

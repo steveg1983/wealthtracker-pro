@@ -62,9 +62,15 @@ export const TransactionRow = memo(function TransactionRow({
   
   // Memoize formatted amount
   const formattedAmount = useMemo(() => {
+    // For expenses and outgoing transfers, amount should be negative
+    const displayAmount = transaction.type === 'expense' || (transaction.type === 'transfer' && transaction.amount < 0) 
+      ? -Math.abs(transaction.amount) 
+      : Math.abs(transaction.amount);
+    
+    // Add + prefix only for positive amounts (income and incoming transfers)
+    const formatted = formatCurrency(displayAmount, account?.currency);
     const isPositive = transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0);
-    const prefix = isPositive ? '+' : '-';
-    return prefix + formatCurrency(Math.abs(transaction.amount), account?.currency);
+    return isPositive && !formatted.startsWith('-') ? `+${formatted}` : formatted;
   }, [transaction.type, transaction.amount, formatCurrency, account?.currency]);
   
   // Memoize amount color class

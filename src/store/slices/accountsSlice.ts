@@ -1,8 +1,13 @@
-import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import Decimal from 'decimal.js';
 import type { Account } from '../../types';
-import { storageAdapter } from '../../services/storageAdapter';
 import { getCurrentISOString } from '../../utils/dateHelpers';
+import {
+  fetchAccountsFromSupabase,
+  createAccountInSupabase,
+  updateAccountInSupabase,
+  deleteAccountFromSupabase
+} from '../thunks/supabaseThunks';
 
 interface AccountsState {
   accounts: Account[];
@@ -16,23 +21,14 @@ const initialState: AccountsState = {
   error: null,
 };
 
-// Async thunk for loading accounts from storage
-export const loadAccounts = createAsyncThunk(
-  'accounts/load',
-  async () => {
-    const accounts = await storageAdapter.get<Account[]>('accounts') || [];
-    return accounts;
-  }
-);
-
-// Async thunk for saving accounts to storage
-export const saveAccounts = createAsyncThunk(
-  'accounts/save',
-  async (accounts: Account[]) => {
-    await storageAdapter.set('accounts', accounts);
-    return accounts;
-  }
-);
+// Re-export Supabase thunks for external use
+export {
+  fetchAccountsFromSupabase,
+  fetchAccountsFromSupabase as loadAccounts,
+  createAccountInSupabase,
+  updateAccountInSupabase,
+  deleteAccountFromSupabase
+} from '../thunks/supabaseThunks';
 
 const accountsSlice = createSlice({
   name: 'accounts',
@@ -78,22 +74,65 @@ const accountsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Handle loadAccounts
-      .addCase(loadAccounts.pending, (state) => {
+      // Handle fetchAccountsFromSupabase (loadAccounts)
+      .addCase(fetchAccountsFromSupabase.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(loadAccounts.fulfilled, (state, action) => {
+      .addCase(fetchAccountsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
         state.accounts = action.payload;
       })
-      .addCase(loadAccounts.rejected, (state, action) => {
+      .addCase(fetchAccountsFromSupabase.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to load accounts';
       })
-      // Handle saveAccounts
-      .addCase(saveAccounts.fulfilled, (state, action) => {
-        state.accounts = action.payload;
+      // Handle createAccountInSupabase
+      .addCase(createAccountInSupabase.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createAccountInSupabase.fulfilled, (state, action) => {
+        state.loading = false;
+        // Remove any temporary account with the same name
+        state.accounts = state.accounts.filter(acc => 
+          !(acc.id.startsWith('temp-') && acc.name === action.payload.name)
+        );
+        // Add the new account from Supabase
+        state.accounts.push(action.payload);
+      })
+      .addCase(createAccountInSupabase.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to create account';
+      })
+      // Handle updateAccountInSupabase
+      .addCase(updateAccountInSupabase.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(updateAccountInSupabase.fulfilled, (state, action) => {
+        state.loading = false;
+        const index = state.accounts.findIndex(acc => acc.id === action.payload.id);
+        if (index !== -1) {
+          state.accounts[index] = action.payload;
+        }
+      })
+      .addCase(updateAccountInSupabase.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to update account';
+      })
+      // Handle deleteAccountFromSupabase
+      .addCase(deleteAccountFromSupabase.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(deleteAccountFromSupabase.fulfilled, (state, action) => {
+        state.loading = false;
+        state.accounts = state.accounts.filter(acc => acc.id !== action.payload);
+      })
+      .addCase(deleteAccountFromSupabase.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to delete account';
       });
   },
 });

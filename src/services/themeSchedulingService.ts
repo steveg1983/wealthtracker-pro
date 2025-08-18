@@ -406,7 +406,7 @@ class ThemeSchedulingService {
     }
 
     switch (this.currentSchedule.scheduleType) {
-      case 'time-based':
+      case 'time-based': {
         if (!this.currentSchedule.lightModeStart || !this.currentSchedule.darkModeStart) return false;
         
         const lightStart = this.currentSchedule.lightModeStart;
@@ -418,8 +418,9 @@ class ThemeSchedulingService {
         } else {
           return currentTime >= darkStart && currentTime < lightStart;
         }
+      }
 
-      case 'sunrise-sunset':
+      case 'sunrise-sunset': {
         if (!this.currentSchedule.latitude || !this.currentSchedule.longitude) return false;
         
         const { sunrise, sunset } = this.calculateSunriseSunset(
@@ -429,6 +430,7 @@ class ThemeSchedulingService {
         );
         
         return currentTime < sunrise || currentTime >= sunset;
+      }
 
       case 'manual':
       default:

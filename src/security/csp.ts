@@ -20,11 +20,12 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
     'script-src': [
       "'self'",
       nonce ? `'nonce-${nonce}'` : '',
-      "'strict-dynamic'", // Allow scripts loaded by trusted scripts
+      // Remove 'strict-dynamic' as it blocks our lazy-loaded modules
+      // "'strict-dynamic'", // This was blocking dynamic imports
       'https:', // For CDNs in production
       // @ts-ignore - Safari compatibility
       (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'development') ? "'unsafe-inline'" : '', // Only for dev
-      "'unsafe-eval'", // Required for service worker registration in some cases
+      "'unsafe-eval'", // Required for React lazy loading and service worker
     ].filter(Boolean),
     
     // Styles: self, inline (for styled components), and trusted CDNs

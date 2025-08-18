@@ -5,21 +5,26 @@ import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
-import EditTransactionModal from '../components/EditTransactionModal';
-import TransactionDetailsView from '../components/TransactionDetailsView';
+import { lazy, Suspense } from 'react';
+
+// Lazy load heavy modals to improve initial page load
+const EditTransactionModal = lazy(() => import('../components/EditTransactionModal'));
+const TransactionDetailsView = lazy(() => import('../components/TransactionDetailsView'));
 import { CalendarIcon, SearchIcon, XIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, ChevronDownIcon, TrendingUpIcon, TrendingDownIcon } from '../components/icons';
 import type { Transaction } from '../types';
 import type { DecimalTransaction, DecimalInstance } from '../types/decimal-types';
 import PageWrapper from '../components/PageWrapper';
 import { TransactionRow } from '../components/TransactionRow';
 import { TransactionCard } from '../components/TransactionCard';
-import { VirtualizedTransactionList } from '../components/VirtualizedTransactionList';
-import { MobileTransactionList } from '../components/MobileTransactionList';
+// Lazy load list components that are conditionally rendered
+const VirtualizedTransactionList = lazy(() => import('../components/VirtualizedTransactionList').then(m => ({ default: m.VirtualizedTransactionList })));
+const MobileTransactionList = lazy(() => import('../components/MobileTransactionList').then(m => ({ default: m.MobileTransactionList })));
+const InfiniteScrollTransactionList = lazy(() => import('../components/InfiniteScrollTransactionList').then(m => ({ default: m.InfiniteScrollTransactionList })));
 import { useTransactionFilters } from '../hooks/useTransactionFilters';
 import { useDebounce } from '../hooks/useDebounce';
 import { SkeletonTableRow, SkeletonList } from '../components/loading/Skeleton';
 
-export default function Transactions() {
+const Transactions = React.memo(function Transactions() {
   const { transactions, accounts, deleteTransaction, categories, getDecimalTransactions } = useApp();
   const { compactView, setCompactView, currency: displayCurrency } = usePreferences();
   const { isWideView, setIsWideView } = useLayout();
@@ -36,7 +41,7 @@ export default function Transactions() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [transactionsPerPage, setTransactionsPerPage] = useState(20);
+  const [transactionsPerPage, setTransactionsPerPage] = useState(20); // Increased for better UX
   const [sortField, setSortField] = useState<'date' | 'account' | 'description' | 'category' | 'amount'>('date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [bulkSelectMode, setBulkSelectMode] = useState(false);
@@ -600,10 +605,13 @@ export default function Transactions() {
           <div className="flex flex-wrap gap-2">
             {/* Type Filter */}
             <div className="flex-1 min-w-[140px]">
+              <label htmlFor="type-filter" className="sr-only">Transaction type filter</label>
               <select
+                id="type-filter"
                 className="w-full px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 value={filterType}
                 onChange={(e) => handleFilterChange(setFilterType)(e.target.value as 'all' | 'income' | 'expense')}
+                aria-label="Filter transactions by type"
               >
                 <option value="all">All Types</option>
                 <option value="income">Income Only</option>
@@ -613,10 +621,13 @@ export default function Transactions() {
             
             {/* Account Filter */}
             <div className="flex-1 min-w-[140px]">
+              <label htmlFor="account-filter" className="sr-only">Account filter</label>
               <select
+                id="account-filter"
                 className="w-full px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
                 value={filterAccountId}
                 onChange={(e) => handleFilterChange(setFilterAccountId)(e.target.value)}
+                aria-label="Filter transactions by account"
               >
                 <option value="">All Accounts</option>
                 {accounts.map(account => (
@@ -629,20 +640,26 @@ export default function Transactions() {
           {/* Date Range */}
           <div className="flex flex-wrap items-center gap-2">
             <CalendarIcon size={18} className="text-gray-500 dark:text-gray-400 hidden sm:block" />
+            <label htmlFor="date-from" className="sr-only">From date</label>
             <input
+              id="date-from"
               type="date"
               value={dateFrom}
               onChange={(e) => handleFilterChange(setDateFrom)(e.target.value)}
               className="flex-1 min-w-[130px] px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               placeholder="From"
+              aria-label="Filter from date"
             />
             <span className="text-sm text-gray-500 dark:text-gray-400">to</span>
+            <label htmlFor="date-to" className="sr-only">To date</label>
             <input
+              id="date-to"
               type="date"
               value={dateTo}
               onChange={(e) => handleFilterChange(setDateTo)(e.target.value)}
               className="flex-1 min-w-[130px] px-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
               placeholder="To"
+              aria-label="Filter to date"
             />
             {(dateFrom || dateTo) && (
               <button
@@ -675,30 +692,33 @@ export default function Transactions() {
         </div>
       ) : (
         <>
-          {/* Mobile Swipeable List View */}
-          <div className="sm:hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden mb-4">
+          {/* Mobile Swipeable List View with Infinite Scroll */}
+          <div className="lg:hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden mb-4">
             {isLoading ? (
               <SkeletonList items={5} className="p-4" />
             ) : (
-              <MobileTransactionList
-                transactions={paginatedTransactions}
-                accounts={accounts}
-                formatCurrency={formatCurrency}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onView={handleView}
-                selectedTransactions={selectedTransactions}
-                onSelectionChange={bulkSelectMode ? setSelectedTransactions : undefined}
-              />
+              <Suspense fallback={<SkeletonList items={5} className="p-4" />}>
+                <InfiniteScrollTransactionList
+                  transactions={filteredAndSortedTransactions} // Use all filtered transactions, not paginated
+                  accounts={accounts}
+                  formatCurrency={formatCurrency}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onView={handleView}
+                  selectedTransactions={selectedTransactions}
+                  onSelectionChange={bulkSelectMode ? setSelectedTransactions : undefined}
+                  itemsPerBatch={20}
+                />
+              </Suspense>
             )}
           </div>
           
           {/* Desktop Table View */}
-          <div className={`hidden sm:block bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50 ${isWideView ? 'w-full' : ''}`} style={{ cursor: isResizing ? 'col-resize' : 'default' }}>
+          <div className={`hidden lg:block bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg overflow-hidden border border-white/20 dark:border-gray-700/50 ${isWideView ? 'w-full' : ''}`} style={{ cursor: isResizing ? 'col-resize' : 'default' }}>
             {isLoading ? (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
+                  <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600 sticky top-0 z-10">
                     <tr>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-white dark:text-gray-200">Date</th>
                       <th className="px-6 py-3 text-left text-sm font-semibold text-white dark:text-gray-200">Account</th>
@@ -715,21 +735,23 @@ export default function Transactions() {
                   </tbody>
                 </table>
               </div>
-            ) : (transactionsPerPage > 100 || showAllTransactions) && filteredAndSortedTransactions.length > 100 ? (
+            ) : (transactionsPerPage > 20 || showAllTransactions) && filteredAndSortedTransactions.length > 20 ? (
               <div className="relative" style={{ height: '600px' }}>
-                <VirtualizedTransactionList
-                  transactions={filteredAndSortedTransactions}
-                  formatCurrency={formatCurrency}
-                  onTransactionClick={handleView}
-                  onTransactionEdit={handleEdit}
-                  onTransactionDelete={handleDelete}
-                />
+                <Suspense fallback={<div className="p-4">Loading transactions...</div>}>
+                  <VirtualizedTransactionList
+                    transactions={filteredAndSortedTransactions}
+                    formatCurrency={formatCurrency}
+                    onTransactionClick={handleView}
+                    onTransactionEdit={handleEdit}
+                    onTransactionDelete={handleDelete}
+                  />
+                </Suspense>
               </div>
             ) : (
               <div className={isWideView ? '' : 'overflow-x-auto'} role="region" aria-label="Transactions table">
                 <table className="w-full" style={{ tableLayout: 'fixed' }} role="table" aria-label="Financial transactions">
                 <caption className="sr-only">List of financial transactions with sortable columns. Use arrow keys to navigate and Enter to sort.</caption>
-                <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600">
+                <thead className="bg-secondary dark:bg-gray-700 border-b-2 border-[#5A729A] dark:border-gray-600 sticky top-0 z-10">
                   <tr role="row">
                     {columnOrder.map(renderHeaderCell)}
                   </tr>
@@ -761,10 +783,10 @@ export default function Transactions() {
             )}
             </div>
             
-            {/* Pagination Controls */}
+            {/* Pagination Controls - Desktop Only (Mobile uses infinite scroll) */}
             {totalPages > 1 && (
               <div>
-              <div className="hidden sm:block px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <div className="hidden lg:block px-6 py-4 border-t border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -773,7 +795,9 @@ export default function Transactions() {
                       : `Showing ${startIndex + 1} to ${Math.min(endIndex, filteredAndSortedTransactions.length)} of ${filteredAndSortedTransactions.length} transactions`
                     }
                   </span>
+                  <label htmlFor="per-page-desktop" className="sr-only">Items per page</label>
                   <select
+                    id="per-page-desktop"
                     value={transactionsPerPage}
                     onChange={(e) => {
                       const value = e.target.value === 'all' ? filteredAndSortedTransactions.length : Number(e.target.value);
@@ -781,12 +805,13 @@ export default function Transactions() {
                       setCurrentPage(1);
                     }}
                     className="px-2 py-1 text-sm bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                    aria-label="Select number of transactions per page"
                   >
+                    <option value={5}>5 per page</option>
                     <option value={10}>10 per page</option>
                     <option value={20}>20 per page</option>
                     <option value={50}>50 per page</option>
                     <option value={100}>100 per page</option>
-                    <option value={200}>200 per page</option>
                     <option value="all">All transactions</option>
                   </select>
                 </div>
@@ -795,7 +820,8 @@ export default function Transactions() {
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Go to previous page"
                   >
                     <ChevronLeftIcon size={20} className="text-gray-600 dark:text-gray-400" />
                   </button>
@@ -852,7 +878,8 @@ export default function Transactions() {
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Go to next page"
                   >
                     <ChevronRightIcon size={20} className="text-gray-600 dark:text-gray-400" />
                   </button>
@@ -860,8 +887,8 @@ export default function Transactions() {
               </div>
             </div>
             
-            {/* Mobile Pagination Controls */}
-            <div className="sm:hidden bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg px-4 py-3 border border-white/20 dark:border-gray-700/50">
+            {/* Mobile Pagination Controls - Hidden: Using Infinite Scroll Instead */}
+            <div className="hidden lg:hidden bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg px-4 py-3 border border-white/20 dark:border-gray-700/50">
               <div className="flex flex-col space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-700 dark:text-gray-300">
@@ -870,7 +897,9 @@ export default function Transactions() {
                       : `${startIndex + 1}-${Math.min(endIndex, filteredAndSortedTransactions.length)} of ${filteredAndSortedTransactions.length}`
                     }
                   </span>
+                  <label htmlFor="per-page-mobile" className="sr-only">Items per page</label>
                   <select
+                    id="per-page-mobile"
                     value={transactionsPerPage}
                     onChange={(e) => {
                       const value = e.target.value === 'all' ? filteredAndSortedTransactions.length : Number(e.target.value);
@@ -878,12 +907,13 @@ export default function Transactions() {
                       setCurrentPage(1);
                     }}
                     className="px-2 py-1 text-xs bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                    aria-label="Select number of transactions per page"
                   >
+                    <option value={5}>5/page</option>
                     <option value={10}>10/page</option>
                     <option value={20}>20/page</option>
                     <option value={50}>50/page</option>
                     <option value={100}>100/page</option>
-                    <option value={200}>200/page</option>
                     <option value="all">All</option>
                   </select>
                 </div>
@@ -892,7 +922,8 @@ export default function Transactions() {
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Go to previous page"
                   >
                     <ChevronLeftIcon size={18} className="text-gray-600 dark:text-gray-400" />
                   </button>
@@ -907,7 +938,8 @@ export default function Transactions() {
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="min-w-[44px] min-h-[44px] p-2.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    aria-label="Go to next page"
                   >
                     <ChevronRightIcon size={18} className="text-gray-600 dark:text-gray-400" />
                   </button>
@@ -919,23 +951,29 @@ export default function Transactions() {
           </>
         )}
 
-      <EditTransactionModal 
-        isOpen={isModalOpen} 
-        onClose={handleCloseModal}
-        transaction={editingTransaction}
-      />
+      <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center"><div className="text-white">Loading...</div></div>}>
+        <EditTransactionModal 
+          isOpen={isModalOpen} 
+          onClose={handleCloseModal}
+          transaction={editingTransaction}
+        />
+      </Suspense>
 
-      <TransactionDetailsView
-        isOpen={isDetailsViewOpen}
-        onClose={handleCloseDetailsView}
-        transaction={viewingTransaction}
-        accounts={accounts}
-        categories={categories}
-      />
+      <Suspense fallback={<div className="fixed inset-0 bg-black/50 flex items-center justify-center"><div className="text-white">Loading...</div></div>}>
+        <TransactionDetailsView
+          isOpen={isDetailsViewOpen}
+          onClose={handleCloseDetailsView}
+          transaction={viewingTransaction}
+          accounts={accounts}
+          categories={categories}
+        />
+      </Suspense>
       
       </div>
       </div>
     </PageWrapper>
   );
-}
+});
+
+export default Transactions;
 

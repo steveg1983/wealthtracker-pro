@@ -532,7 +532,7 @@ describe('NetWorthWidget', () => {
       const { rerender, container } = render(<NetWorthWidget size="small" settings={{}} />);
       
       // Small size should be centered
-      let textContainer = screen.getByText('£18000.00').parentElement;
+      const textContainer = screen.getByText('£18000.00').parentElement;
       expect(textContainer).toHaveClass('text-center');
       
       rerender(<NetWorthWidget size="medium" settings={{}} />);

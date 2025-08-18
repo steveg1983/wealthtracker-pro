@@ -133,13 +133,13 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
+              className="flex-1 px-4 py-2.5 min-h-[44px] border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+              className="flex-1 px-4 py-2.5 min-h-[44px] bg-primary text-white rounded-lg hover:bg-secondary"
             >
               Add Account
             </button>

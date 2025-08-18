@@ -83,11 +83,29 @@ class RateLimiter {
         }
 
         const key = keyGenerator(context);
-        const result = this.check(context);
+        const now = Date.now();
         
-        if (result.allowed) {
-          const limitMap = this.limits.get(name)!;
-          const entry = limitMap.get(key)!;
+        // Get or create limit map for this operation
+        if (!this.limits.has(name)) {
+          this.limits.set(name, new Map());
+        }
+        
+        const limitMap = this.limits.get(name)!;
+        let entry = limitMap.get(key);
+        
+        // Create new entry if doesn't exist or window has passed
+        if (!entry || now > entry.resetTime) {
+          entry = {
+            count: 0,
+            resetTime: now + windowMs,
+            firstRequest: now
+          };
+          limitMap.set(key, entry);
+        }
+        
+        const allowed = entry.count < maxRequests;
+        
+        if (allowed) {
           entry.count++;
           return true;
         }
@@ -292,10 +310,10 @@ export const initializeRateLimiter = () => {
   window.fetch = async function(...args) {
     const [url, options] = args;
     
-    // Check if this is an API call
+    // Check if this is an API call (but exclude external APIs like Stripe/Supabase/backend)
     const isApiCall = typeof url === 'string' && (
       url.startsWith('/api/') || 
-      url.includes('/api/')
+      (url.includes('/api/') && !url.includes('localhost:3000') && !url.includes('supabase') && !url.includes('stripe'))
     );
     
     if (isApiCall) {

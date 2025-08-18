@@ -233,7 +233,7 @@ class DebtCalculationService extends BaseService {
 
     let month = 0;
     let totalInterestPaid = new Decimal(0);
-    let availableExtra = new Decimal(extraPayment);
+    const availableExtra = new Decimal(extraPayment);
 
     while (Array.from(debtBalances.values()).some(b => b.gt(0)) && month < 600) {
       month++;

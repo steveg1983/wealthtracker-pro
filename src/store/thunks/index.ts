@@ -6,34 +6,55 @@ import {
   addTransaction as addTransactionAction,
   updateTransaction as updateTransactionAction,
   deleteTransaction as deleteTransactionAction,
-  saveTransactions
+  createTransactionInSupabase,
+  updateTransactionInSupabase,
+  deleteTransactionFromSupabase
 } from '../slices/transactionsSlice';
-import { updateAccountBalance, saveAccounts, loadAccounts } from '../slices/accountsSlice';
-import { updateBudgetSpent, saveBudgets, loadBudgets } from '../slices/budgetsSlice';
-import { updateGoalProgress, saveGoals, loadGoals } from '../slices/goalsSlice';
+import { 
+  updateAccountBalance, 
+  fetchAccountsFromSupabase as loadAccounts,
+  updateAccountInSupabase
+} from '../slices/accountsSlice';
+import { 
+  updateBudgetSpent, 
+  fetchBudgetsFromSupabase as loadBudgets
+} from '../slices/budgetsSlice';
+import { 
+  updateGoalProgress, 
+  fetchGoalsFromSupabase as loadGoals
+} from '../slices/goalsSlice';
 import { addMultipleTags, saveTags, loadTags } from '../slices/tagsSlice';
-import { loadTransactions } from '../slices/transactionsSlice';
+import { fetchTransactionsFromSupabase as loadTransactions } from '../slices/transactionsSlice';
 import { loadCategories } from '../slices/categoriesSlice';
 import { loadRecurringTransactions } from '../slices/recurringTransactionsSlice';
+import { syncOfflineData } from './supabaseThunks';
 
-// Load all data from storage
+// Load all data from Supabase (with localStorage fallback)
 export const loadAllData = createAsyncThunk<void, void, { dispatch: AppDispatch }>(
   'app/loadAllData',
   async (_, { dispatch }) => {
-    // Load all data in parallel
-    await Promise.all([
-      dispatch(loadAccounts()),
-      dispatch(loadTransactions()),
-      dispatch(loadCategories()),
-      dispatch(loadBudgets()),
-      dispatch(loadGoals()),
-      dispatch(loadTags()),
-      dispatch(loadRecurringTransactions()),
-    ]);
+    try {
+      // Load all data in parallel from Supabase
+      await Promise.all([
+        dispatch(loadAccounts()),
+        dispatch(loadTransactions(1000)), // Load last 1000 transactions
+        dispatch(loadCategories()),
+        dispatch(loadBudgets()),
+        dispatch(loadGoals()),
+        dispatch(loadTags()),
+        dispatch(loadRecurringTransactions()),
+      ]);
+      
+      // Sync any offline changes
+      dispatch(syncOfflineData());
+    } catch (error) {
+      console.error('Failed to load data from Supabase:', error);
+      // The individual thunks will handle fallback to localStorage
+    }
   }
 );
 
-// Add transaction with side effects
+// Add transaction with side effects (now using Supabase)
 export const addTransaction = createAsyncThunk<
   void,
   Omit<Transaction, 'id'>,
@@ -41,60 +62,57 @@ export const addTransaction = createAsyncThunk<
 >(
   'app/addTransaction',
   async (transactionData, { getState, dispatch }) => {
-    // Add the transaction
-    dispatch(addTransactionAction(transactionData));
+    // Create transaction in Supabase
+    const result = await dispatch(createTransactionInSupabase(transactionData));
     
-    const state = getState();
-    
-    // Update account balance
-    if (transactionData.accountId) {
-      const account = state.accounts.accounts.find(a => a.id === transactionData.accountId);
-      if (account) {
-        const balance = calculateAccountBalance(
-          state.transactions.transactions,
-          transactionData.accountId,
-          account.openingBalance || 0
-        );
-        dispatch(updateAccountBalance({ id: transactionData.accountId, balance }));
-      }
-    }
-    
-    // Update budget spent
-    if (transactionData.type === 'expense' && transactionData.category) {
-      const budgets = state.budgets.budgets.filter(b => 
-        b.category === transactionData.category &&
-        isTransactionInBudgetPeriod(transactionData.date, b)
-      );
+    if (createTransactionInSupabase.fulfilled.match(result)) {
+      const newTransaction = result.payload;
+      const state = getState();
       
-      for (const budget of budgets) {
-        const spent = calculateBudgetSpent(
-          state.transactions.transactions,
-          budget
+      // Update account balance in Supabase
+      if (transactionData.accountId) {
+        const account = state.accounts.accounts.find(a => a.id === transactionData.accountId);
+        if (account) {
+          const balance = calculateAccountBalance(
+            [...state.transactions.transactions, newTransaction],
+            transactionData.accountId,
+            account.openingBalance || 0
+          );
+          dispatch(updateAccountInSupabase({ 
+            id: transactionData.accountId, 
+            updates: { balance }
+          }));
+        }
+      }
+      
+      // Update budget spent
+      if (transactionData.type === 'expense' && transactionData.category) {
+        const budgets = state.budgets.budgets.filter(b => 
+          b.category === transactionData.category &&
+          isTransactionInBudgetPeriod(transactionData.date, b)
         );
-        dispatch(updateBudgetSpent({ id: budget.id, spent }));
+        
+        for (const budget of budgets) {
+          const spent = calculateBudgetSpent(
+            [...state.transactions.transactions, newTransaction],
+            budget
+          );
+          dispatch(updateBudgetSpent({ id: budget.id, spent }));
+        }
+      }
+      
+      // Update goal progress for linked goals
+      updateLinkedGoalProgress(newTransaction, state, dispatch);
+      
+      // Add new tags
+      if (transactionData.tags && transactionData.tags.length > 0) {
+        dispatch(addMultipleTags(transactionData.tags));
       }
     }
-    
-    // Update goal progress for linked goals
-    updateLinkedGoalProgress(transactionData, state, dispatch);
-    
-    // Add new tags
-    if (transactionData.tags && transactionData.tags.length > 0) {
-      dispatch(addMultipleTags(transactionData.tags));
-    }
-    
-    // Save all changes
-    await Promise.all([
-      dispatch(saveTransactions(state.transactions.transactions)),
-      dispatch(saveAccounts(state.accounts.accounts)),
-      dispatch(saveBudgets(state.budgets.budgets)),
-      dispatch(saveGoals(state.goals.goals)),
-      dispatch(saveTags(state.tags.tags)),
-    ]);
   }
 );
 
-// Update transaction with side effects
+// Update transaction with side effects (now using Supabase)
 export const updateTransaction = createAsyncThunk<
   void,
   { id: string; updates: Partial<Transaction> },
@@ -107,50 +125,47 @@ export const updateTransaction = createAsyncThunk<
     
     if (!oldTransaction) return;
     
-    // Update the transaction
-    dispatch(updateTransactionAction({ id, updates }));
+    // Update the transaction in Supabase
+    const result = await dispatch(updateTransactionInSupabase({ id, updates }));
     
-    const stateAfter = getState();
-    
-    // Recalculate affected account balances
-    const affectedAccountIds = new Set([oldTransaction.accountId, updates.accountId].filter(Boolean));
-    
-    for (const accountId of affectedAccountIds) {
-      if (!accountId) continue;
-      const account = stateAfter.accounts.accounts.find(a => a.id === accountId);
-      if (account) {
-        const balance = calculateAccountBalance(
-          stateAfter.transactions.transactions,
-          accountId,
-          account.openingBalance || 0
-        );
-        dispatch(updateAccountBalance({ id: accountId, balance }));
+    if (updateTransactionInSupabase.fulfilled.match(result)) {
+      const updatedTransaction = result.payload;
+      const stateAfter = getState();
+      
+      // Recalculate affected account balances
+      const affectedAccountIds = new Set([oldTransaction.accountId, updates.accountId].filter(Boolean));
+      
+      for (const accountId of affectedAccountIds) {
+        if (!accountId) continue;
+        const account = stateAfter.accounts.accounts.find(a => a.id === accountId);
+        if (account) {
+          const balance = calculateAccountBalance(
+            stateAfter.transactions.transactions,
+            accountId,
+            account.openingBalance || 0
+          );
+          dispatch(updateAccountInSupabase({ 
+            id: accountId, 
+            updates: { balance }
+          }));
+        }
+      }
+      
+      // Recalculate affected budgets
+      recalculateAffectedBudgets(oldTransaction, updatedTransaction, stateAfter, dispatch);
+      
+      // Update linked goals
+      updateLinkedGoalProgress(updatedTransaction, stateAfter, dispatch);
+      
+      // Add new tags
+      if (updates.tags) {
+        dispatch(addMultipleTags(updates.tags));
       }
     }
-    
-    // Recalculate affected budgets
-    recalculateAffectedBudgets(oldTransaction, { ...oldTransaction, ...updates }, stateAfter, dispatch);
-    
-    // Update linked goals
-    updateLinkedGoalProgress({ ...oldTransaction, ...updates }, stateAfter, dispatch);
-    
-    // Add new tags
-    if (updates.tags) {
-      dispatch(addMultipleTags(updates.tags));
-    }
-    
-    // Save all changes
-    await Promise.all([
-      dispatch(saveTransactions(stateAfter.transactions.transactions)),
-      dispatch(saveAccounts(stateAfter.accounts.accounts)),
-      dispatch(saveBudgets(stateAfter.budgets.budgets)),
-      dispatch(saveGoals(stateAfter.goals.goals)),
-      dispatch(saveTags(stateAfter.tags.tags)),
-    ]);
   }
 );
 
-// Delete transaction with side effects
+// Delete transaction with side effects (now using Supabase)
 export const deleteTransaction = createAsyncThunk<
   void,
   string,
@@ -163,50 +178,47 @@ export const deleteTransaction = createAsyncThunk<
     
     if (!transaction) return;
     
-    // Delete the transaction
-    dispatch(deleteTransactionAction(id));
+    // Delete the transaction from Supabase
+    const result = await dispatch(deleteTransactionFromSupabase(id));
     
-    const stateAfter = getState();
-    
-    // Recalculate account balance
-    if (transaction.accountId) {
-      const account = stateAfter.accounts.accounts.find(a => a.id === transaction.accountId);
-      if (account) {
-        const balance = calculateAccountBalance(
-          stateAfter.transactions.transactions,
-          transaction.accountId,
-          account.openingBalance || 0
-        );
-        dispatch(updateAccountBalance({ id: transaction.accountId, balance }));
-      }
-    }
-    
-    // Recalculate affected budgets
-    if (transaction.type === 'expense' && transaction.category) {
-      const budgets = stateAfter.budgets.budgets.filter(b => 
-        b.category === transaction.category &&
-        isTransactionInBudgetPeriod(transaction.date, b)
-      );
+    if (deleteTransactionFromSupabase.fulfilled.match(result)) {
+      const stateAfter = getState();
       
-      for (const budget of budgets) {
-        const spent = calculateBudgetSpent(
-          stateAfter.transactions.transactions,
-          budget
-        );
-        dispatch(updateBudgetSpent({ id: budget.id, spent }));
+      // Recalculate account balance
+      if (transaction.accountId) {
+        const account = stateAfter.accounts.accounts.find(a => a.id === transaction.accountId);
+        if (account) {
+          const balance = calculateAccountBalance(
+            stateAfter.transactions.transactions,
+            transaction.accountId,
+            account.openingBalance || 0
+          );
+          dispatch(updateAccountInSupabase({ 
+            id: transaction.accountId, 
+            updates: { balance }
+          }));
+        }
       }
+      
+      // Recalculate affected budgets
+      if (transaction.type === 'expense' && transaction.category) {
+        const budgets = stateAfter.budgets.budgets.filter(b => 
+          b.category === transaction.category &&
+          isTransactionInBudgetPeriod(transaction.date, b)
+        );
+        
+        for (const budget of budgets) {
+          const spent = calculateBudgetSpent(
+            stateAfter.transactions.transactions,
+            budget
+          );
+          dispatch(updateBudgetSpent({ id: budget.id, spent }));
+        }
+      }
+      
+      // Update linked goals
+      updateLinkedGoalProgress(transaction, stateAfter, dispatch);
     }
-    
-    // Update linked goals
-    updateLinkedGoalProgress(transaction, stateAfter, dispatch);
-    
-    // Save all changes
-    await Promise.all([
-      dispatch(saveTransactions(stateAfter.transactions.transactions)),
-      dispatch(saveAccounts(stateAfter.accounts.accounts)),
-      dispatch(saveBudgets(stateAfter.budgets.budgets)),
-      dispatch(saveGoals(stateAfter.goals.goals)),
-    ]);
   }
 );
 
@@ -262,11 +274,12 @@ function isTransactionInBudgetPeriod(
     case 'monthly':
       return date.getMonth() === now.getMonth() && 
              date.getFullYear() === now.getFullYear();
-    case 'quarterly':
+    case 'quarterly': {
       const quarter = Math.floor(date.getMonth() / 3);
       const currentQuarter = Math.floor(now.getMonth() / 3);
       return quarter === currentQuarter && 
              date.getFullYear() === now.getFullYear();
+    }
     case 'yearly':
       return date.getFullYear() === now.getFullYear();
     default:
@@ -338,11 +351,12 @@ function recalculateAffectedBudgets(
   }
 }
 
-// Re-export the load thunks from slices
-export { loadAccounts } from '../slices/accountsSlice';
-export { loadTransactions } from '../slices/transactionsSlice';
+// Re-export thunks from slices and supabaseThunks
+export { fetchAccountsFromSupabase as loadAccounts } from '../slices/accountsSlice';
+export { fetchTransactionsFromSupabase as loadTransactions } from '../slices/transactionsSlice';
 export { loadCategories } from '../slices/categoriesSlice';
-export { loadBudgets } from '../slices/budgetsSlice';
-export { loadGoals } from '../slices/goalsSlice';
+export { fetchBudgetsFromSupabase as loadBudgets } from '../slices/budgetsSlice';
+export { fetchGoalsFromSupabase as loadGoals } from '../slices/goalsSlice';
 export { loadTags } from '../slices/tagsSlice';
 export { loadRecurringTransactions } from '../slices/recurringTransactionsSlice';
+export { syncOfflineData } from './supabaseThunks';

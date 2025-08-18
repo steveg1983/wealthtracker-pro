@@ -69,7 +69,7 @@ export default function MonthlyNetWorth() {
   
   const totalLiabilities = convertedAccounts
     .filter(acc => acc.balance < 0)
-    .reduce((sum, acc) => sum + Math.abs(acc.convertedBalance), 0);
+    .reduce((sum, acc) => sum + acc.convertedBalance, 0);
   
   const netWorth = totalAssets - totalLiabilities;
 
@@ -310,11 +310,11 @@ export default function MonthlyNetWorth() {
                             </div>
                             <div className="text-right">
                               <p className="font-semibold text-red-600 dark:text-red-400">
-                                {formatCurrency(Math.abs(account.convertedBalance))}
+                                {formatCurrency(account.convertedBalance)}
                               </p>
                               {account.currency !== displayCurrency && (
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                  {account.currency} {Math.abs(account.balance).toLocaleString()}
+                                  {account.currency} {account.balance.toLocaleString()}
                                 </p>
                               )}
                             </div>

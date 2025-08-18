@@ -166,7 +166,8 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
                   {splits.length > 1 && (
                     <button
                       onClick={() => handleRemoveSplit(index)}
-                      className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      className="min-w-[44px] min-h-[44px] p-2.5 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20"
+                      aria-label="Remove split"
                     >
                       <DeleteIcon size={18} />
                     </button>

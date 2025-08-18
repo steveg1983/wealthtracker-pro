@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { advancedAnalyticsService, type SpendingAnomaly, type SpendingPrediction, type SavingsOpportunity, type FinancialInsight } from '../services/advancedAnalyticsService';
 import { 
@@ -6,7 +6,7 @@ import {
   TrendingUpIcon, 
   LightbulbIcon, 
   PiggyBankIcon, 
-  BarChart3Icon,
+  // BarChart3Icon, // Currently unused
   AlertCircleIcon,
   CheckCircleIcon,
   InfoIcon,
@@ -29,11 +29,7 @@ export default function AdvancedAnalytics() {
   const [insights, setInsights] = useState<FinancialInsight[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  useEffect(() => {
-    analyzeData();
-  }, [transactions, accounts, budgets]);
-
-  const analyzeData = async () => {
+  const analyzeData = useCallback(async () => {
     setIsAnalyzing(true);
     
     try {
@@ -57,7 +53,11 @@ export default function AdvancedAnalytics() {
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [transactions, accounts, budgets, categories]);
+
+  useEffect(() => {
+    analyzeData();
+  }, [analyzeData]);
 
   const getSeverityColor = (severity: 'low' | 'medium' | 'high') => {
     switch (severity) {

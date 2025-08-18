@@ -27,7 +27,7 @@ export default function PageWrapper({ title, headerContent, children, rightConte
           </div>
         )}
       </div>
-      <div className="relative">
+      <div className="relative pb-24 lg:pb-0">
         {children}
       </div>
     </>

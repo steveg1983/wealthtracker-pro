@@ -1,7 +1,10 @@
-import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Goal } from '../../types';
-import { storageAdapter } from '../../services/storageAdapter';
 import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
+import {
+  fetchGoalsFromSupabase,
+  createGoalInSupabase
+} from '../thunks/supabaseThunks';
 
 interface GoalsState {
   goals: Goal[];
@@ -15,23 +18,12 @@ const initialState: GoalsState = {
   error: null,
 };
 
-// Async thunk for loading goals from storage
-export const loadGoals = createAsyncThunk(
-  'goals/load',
-  async () => {
-    const goals = await storageAdapter.get<Goal[]>('goals') || [];
-    return goals;
-  }
-);
-
-// Async thunk for saving goals to storage
-export const saveGoals = createAsyncThunk(
-  'goals/save',
-  async (goals: Goal[]) => {
-    await storageAdapter.set('goals', goals);
-    return goals;
-  }
-);
+// Re-export Supabase thunks for external use
+export {
+  fetchGoalsFromSupabase,
+  fetchGoalsFromSupabase as loadGoals,
+  createGoalInSupabase
+} from '../thunks/supabaseThunks';
 
 const goalsSlice = createSlice({
   name: 'goals',
@@ -73,22 +65,36 @@ const goalsSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      // Handle loadGoals
-      .addCase(loadGoals.pending, (state) => {
+      // Handle fetchGoalsFromSupabase (loadGoals)
+      .addCase(fetchGoalsFromSupabase.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(loadGoals.fulfilled, (state, action) => {
+      .addCase(fetchGoalsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
         state.goals = action.payload;
       })
-      .addCase(loadGoals.rejected, (state, action) => {
+      .addCase(fetchGoalsFromSupabase.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to load goals';
       })
-      // Handle saveGoals
-      .addCase(saveGoals.fulfilled, (state, action) => {
-        state.goals = action.payload;
+      // Handle createGoalInSupabase
+      .addCase(createGoalInSupabase.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(createGoalInSupabase.fulfilled, (state, action) => {
+        state.loading = false;
+        // Remove any temporary goal with the same name
+        state.goals = state.goals.filter(goal => 
+          !(goal.id.startsWith('temp-') && goal.name === action.payload.name)
+        );
+        // Add the new goal from Supabase
+        state.goals.push(action.payload);
+      })
+      .addCase(createGoalInSupabase.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to create goal';
       });
   },
 });

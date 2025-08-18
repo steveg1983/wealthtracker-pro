@@ -119,11 +119,12 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
         if (!value || value.trim() === '') return 'Description is required';
         if (value.length < 2) return 'Description must be at least 2 characters';
         break;
-      case 'amount':
+      case 'amount': {
         if (!value) return 'Amount is required';
         const amount = parseFloat(value);
         if (isNaN(amount) || amount <= 0) return 'Amount must be a positive number';
         break;
+      }
       case 'category':
         if (!value) return 'Category is required';
         break;

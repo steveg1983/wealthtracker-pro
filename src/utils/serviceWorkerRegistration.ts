@@ -19,20 +19,16 @@ interface Config {
 let swRegistration: ServiceWorkerRegistration | null = null;
 
 export function register(config?: Config): void {
-  // Temporarily disable service worker to fix errors
-  console.log('[ServiceWorker] Registration disabled temporarily');
-  return;
-  
   if ('serviceWorker' in navigator) {
     // The URL constructor is available in all browsers that support SW.
     // Safari compatibility: use fallback for import.meta.env
     let baseUrl = '/';
     try {
-      // @ts-ignore - Safari might not support import.meta.env
+      // @ts-expect-error - Safari might not support import.meta.env
       if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) {
         baseUrl = import.meta.env.BASE_URL;
       }
-    } catch (e) {
+    } catch {
       console.warn('Failed to access import.meta.env.BASE_URL, using default');
     }
     
@@ -43,8 +39,8 @@ export function register(config?: Config): void {
     }
 
     window.addEventListener('load', () => {
-      // Use the new TypeScript service worker
-      const swUrl = `${baseUrl}service-worker.js`;
+      // Use the new service worker
+      const swUrl = `${baseUrl}sw.js`;
 
       if (isLocalhost) {
         // This is running on localhost. Check if a service worker still exists or not.

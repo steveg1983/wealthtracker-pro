@@ -346,7 +346,7 @@ class DividendService {
       if (recentDividends.length > 0) {
         // Project based on history
         const lastDividend = recentDividends[0];
-        let nextPaymentDate = new Date(lastDividend.paymentDate);
+        const nextPaymentDate = new Date(lastDividend.paymentDate);
         
         // Calculate next payment date based on frequency
         switch (lastDividend.frequency) {

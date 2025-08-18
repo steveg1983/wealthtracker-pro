@@ -8,7 +8,8 @@ async function navigateToAccounts(page: Page) {
   await page.reload();
   
   // Handle mobile/desktop navigation differently
-  const isMobile = await page.viewportSize()?.width! < 768;
+  const viewportSize = await page.viewportSize();
+  const isMobile = viewportSize ? viewportSize.width < 768 : false;
   
   if (isMobile) {
     // On mobile, might need to open menu first
@@ -294,7 +295,7 @@ test.describe('Account Creation - Error Scenarios', () => {
     // Should show loading state or timeout message
     await page.waitForTimeout(3000);
     const loadingIndicator = page.getByText(/loading|saving|processing/i);
-    const hasLoading = await loadingIndicator.isVisible().catch(() => false);
+    await loadingIndicator.isVisible().catch(() => false);
     
     // Clean up
     await page.unroute('**/api/accounts');
@@ -540,7 +541,7 @@ test.describe('Account Creation - Visual Regression', () => {
         fullPage: false,
         maxDiffPixels: 100
       });
-    } catch (e) {
+    } catch {
       // If no baseline exists, this is still a valid test
       // It will create the baseline for future runs
       console.log('Visual regression baseline created/updated');
@@ -556,7 +557,7 @@ test.describe('Account Creation - Visual Regression', () => {
       await expect(page.getByRole('dialog')).toHaveScreenshot('modal-light-theme.png', {
         maxDiffPixels: 100
       });
-    } catch (e) {
+    } catch {
       console.log('Light theme baseline created/updated');
     }
     
@@ -588,7 +589,7 @@ test.describe('Account Creation - Visual Regression', () => {
         await expect(page.getByRole('dialog')).toHaveScreenshot('modal-dark-theme.png', {
           maxDiffPixels: 100
         });
-      } catch (e) {
+      } catch {
         console.log('Dark theme baseline created/updated');
       }
     }
@@ -764,7 +765,7 @@ test.describe('Account Creation - Cross-Browser', () => {
     try {
       await page.keyboard.press('Escape');
       await page.waitForTimeout(500);
-    } catch (e) {
+    } catch {
       // No modal to close
     }
     

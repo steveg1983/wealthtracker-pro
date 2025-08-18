@@ -126,9 +126,10 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
       switch (sortBy) {
         case 'createdAt':
           return b.createdAt.getTime() - a.createdAt.getTime();
-        case 'severity':
+        case 'severity': {
           const severityOrder = { high: 3, medium: 2, low: 1 };
           return severityOrder[b.severity] - severityOrder[a.severity];
+        }
         case 'category':
           return (a.category || '').localeCompare(b.category || '');
         default:

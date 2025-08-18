@@ -7,6 +7,7 @@
 // ***********************************************
 
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Cypress {
     interface Chainable {
       /**
@@ -43,7 +44,7 @@ declare global {
        * Custom command to check accessibility
        * @example cy.checkA11y()
        */
-      checkA11y(context?: any, options?: any): Chainable<void>;
+      checkA11y(context?: unknown, options?: unknown): Chainable<void>;
     }
   }
 }
@@ -130,7 +131,7 @@ Cypress.Commands.add('waitForDataLoad', () => {
 });
 
 // Accessibility check command (requires cypress-axe)
-Cypress.Commands.add('checkA11y', (context, options) => {
+Cypress.Commands.add('checkA11y', () => {
   // This is a placeholder for accessibility testing
   // To use this, you would need to install cypress-axe:
   // npm install --save-dev cypress-axe

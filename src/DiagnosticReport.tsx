@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useApp } from './contexts/AppContext';
 
 export default function DiagnosticReport() {
-  const [diagnostics, setDiagnostics] = useState<any>({});
+  const [diagnostics, setDiagnostics] = useState<Record<string, unknown>>({});
   const appContext = useApp();
   
   useEffect(() => {
@@ -18,8 +18,8 @@ export default function DiagnosticReport() {
       try {
         const dbs = await indexedDB.databases();
         return dbs.map(db => db.name);
-      } catch (e) {
-        return 'IndexedDB check failed: ' + e;
+      } catch (_e) {
+        return 'IndexedDB check failed: ' + _e;
       }
     };
     
@@ -35,7 +35,7 @@ export default function DiagnosticReport() {
               // Try to parse as JSON
               JSON.parse(value);
             }
-          } catch (e) {
+          } catch {
             problematicKeys.push({ key, error: 'Parse error' });
           }
         }

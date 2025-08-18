@@ -610,7 +610,7 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
         if (!rt.isActive || rt.nextDate > today) return rt;
 
         // Create transactions for all due dates
-        let currentDate = new Date(rt.nextDate);
+        const currentDate = new Date(rt.nextDate);
         const transactions: DecimalTransaction[] = [];
 
         while (currentDate <= today) {

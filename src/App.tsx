@@ -8,55 +8,66 @@ import { AppProvider } from './contexts/AppContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './design-system';
 import { ReduxMigrationWrapper } from './components/ReduxMigrationWrapper';
+import { SupabaseDataLoader } from './components/SupabaseDataLoader';
+import { AuthProvider } from './contexts/AuthContext';
+import { RealtimeSyncProvider } from './contexts/RealtimeSyncProvider';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
+import { ToastProvider } from './contexts/ToastContext';
 import Layout from './components/Layout';
 import PageLoader from './components/PageLoader';
 import { merchantLogoService } from './services/merchantLogoService';
 import { performanceService } from './services/performanceService';
 import { automaticBackupService } from './services/automaticBackupService';
-import { indexedDBService } from './services/indexedDBService';
 import { lazyWithPreload, preloadWhenIdle } from './utils/lazyWithPreload';
-import { AccessibilityAuditOverlay } from './hooks/useAccessibilityAudit';
 import { initSafariCompat } from './utils/safariCompat';
 import DiagnosticReport from './DiagnosticReport';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
+import { PublicRoute } from './components/auth/PublicRoute';
+import { ProtectedSuspense } from './components/auth/ProtectedSuspense';
+import RealtimeSyncTest from './components/RealtimeSyncTest';
 
 // Lazy load all pages for code splitting with preload support
-const Welcome = lazyWithPreload(() => import('./pages/Welcome'));
-const Dashboard = lazyWithPreload(() => import('./pages/Dashboard'));
-const Accounts = lazyWithPreload(() => import('./pages/Accounts'));
-const Transactions = lazyWithPreload(() => import('./pages/Transactions'));
-const TransactionsComparison = lazyWithPreload(() => import('./pages/TransactionsComparison'));
-const Reconciliation = lazyWithPreload(() => import('./pages/Reconciliation'));
-const Investments = lazyWithPreload(() => import('./pages/Investments'));
-const Budget = lazyWithPreload(() => import('./pages/Budget'));
-const Goals = lazyWithPreload(() => import('./pages/Goals'));
-const Analytics = lazyWithPreload(() => import('./pages/Analytics'));
-const AdvancedAnalytics = lazyWithPreload(() => import('./pages/AdvancedAnalytics'));
-const AIFeatures = lazyWithPreload(() => import('./pages/AIFeatures'));
-const CustomReports = lazyWithPreload(() => import('./pages/CustomReports'));
-const TaxPlanning = lazyWithPreload(() => import('./pages/TaxPlanning'));
-const SettingsPage = lazyWithPreload(() => import('./pages/Settings'));
-const AppSettings = lazyWithPreload(() => import('./pages/settings/AppSettings'));
-const DataManagement = lazyWithPreload(() => import('./pages/settings/DataManagement'));
-const Categories = lazyWithPreload(() => import('./pages/settings/Categories'));
-const Tags = lazyWithPreload(() => import('./pages/settings/Tags'));
-const SecuritySettings = lazyWithPreload(() => import('./pages/settings/SecuritySettings'));
-const AuditLogs = lazyWithPreload(() => import('./pages/settings/AuditLogs'));
-const Notifications = lazyWithPreload(() => import('./pages/settings/Notifications'));
-const AccessibilityDashboard = lazyWithPreload(() => import('./components/AccessibilityDashboard'));
-const AccountTransactions = lazyWithPreload(() => import('./pages/AccountTransactions'));
-const FinancialSummaries = lazyWithPreload(() => import('./pages/FinancialSummaries'));
-const EnhancedInvestments = lazyWithPreload(() => import('./pages/EnhancedInvestments'));
-const HouseholdManagement = lazyWithPreload(() => import('./pages/HouseholdManagement'));
-const MobileFeatures = lazyWithPreload(() => import('./pages/MobileFeatures'));
-const BusinessFeatures = lazyWithPreload(() => import('./pages/BusinessFeatures'));
-const FinancialPlanning = lazyWithPreload(() => import('./pages/FinancialPlanning'));
-const DataIntelligence = lazyWithPreload(() => import('./pages/DataIntelligence'));
-const ExportManager = lazyWithPreload(() => import('./pages/ExportManager'));
-const EnhancedImport = lazyWithPreload(() => import('./pages/EnhancedImport'));
-const Documents = lazyWithPreload(() => import('./pages/Documents'));
-const OCRTest = lazyWithPreload(() => import('./components/OCRTest'));
-const OpenBanking = lazyWithPreload(() => import('./pages/OpenBanking'));
-const Performance = lazyWithPreload(() => import('./pages/Performance'));
+// Using webpack magic comments for better chunk naming and preloading hints
+const Login = lazyWithPreload(() => import(/* webpackChunkName: "login" */ './pages/Login'));
+const Welcome = lazyWithPreload(() => import(/* webpackChunkName: "welcome" */ './pages/Welcome'));
+const Dashboard = lazyWithPreload(() => import(/* webpackChunkName: "dashboard", webpackPreload: true */ './pages/Dashboard'));
+const Accounts = lazyWithPreload(() => import(/* webpackChunkName: "accounts", webpackPreload: true */ './pages/Accounts'));
+const Transactions = lazyWithPreload(() => import(/* webpackChunkName: "transactions", webpackPreload: true */ './pages/Transactions'));
+const TransactionsComparison = lazyWithPreload(() => import(/* webpackChunkName: "transactions-comparison" */ './pages/TransactionsComparison'));
+const Reconciliation = lazyWithPreload(() => import(/* webpackChunkName: "reconciliation" */ './pages/Reconciliation'));
+const Investments = lazyWithPreload(() => import(/* webpackChunkName: "investments" */ './pages/Investments'));
+const Budget = lazyWithPreload(() => import(/* webpackChunkName: "budget", webpackPreload: true */ './pages/Budget'));
+const Goals = lazyWithPreload(() => import(/* webpackChunkName: "goals" */ './pages/Goals'));
+const Analytics = lazyWithPreload(() => import(/* webpackChunkName: "analytics" */ './pages/Analytics'));
+const AdvancedAnalytics = lazyWithPreload(() => import(/* webpackChunkName: "advanced-analytics" */ './pages/AdvancedAnalytics'));
+const AIFeatures = lazyWithPreload(() => import(/* webpackChunkName: "ai-features" */ './pages/AIFeatures'));
+const CustomReports = lazyWithPreload(() => import(/* webpackChunkName: "custom-reports" */ './pages/CustomReports'));
+const TaxPlanning = lazyWithPreload(() => import(/* webpackChunkName: "tax-planning" */ './pages/TaxPlanning'));
+const SettingsPage = lazyWithPreload(() => import(/* webpackChunkName: "settings" */ './pages/Settings'));
+const AppSettings = lazyWithPreload(() => import(/* webpackChunkName: "app-settings" */ './pages/settings/AppSettings'));
+const DataManagement = lazyWithPreload(() => import(/* webpackChunkName: "data-management" */ './pages/settings/DataManagement'));
+const Categories = lazyWithPreload(() => import(/* webpackChunkName: "categories" */ './pages/settings/Categories'));
+const Tags = lazyWithPreload(() => import(/* webpackChunkName: "tags" */ './pages/settings/Tags'));
+const SecuritySettings = lazyWithPreload(() => import(/* webpackChunkName: "security-settings" */ './pages/settings/SecuritySettings'));
+const AuditLogs = lazyWithPreload(() => import(/* webpackChunkName: "audit-logs" */ './pages/settings/AuditLogs'));
+const Notifications = lazyWithPreload(() => import(/* webpackChunkName: "notifications" */ './pages/settings/Notifications'));
+const AccessibilitySettings = lazyWithPreload(() => import(/* webpackChunkName: "accessibility-settings" */ './pages/settings/AccessibilitySettings'));
+const AccessibilityDashboard = lazyWithPreload(() => import(/* webpackChunkName: "accessibility-dashboard" */ './components/AccessibilityDashboard'));
+const AccountTransactions = lazyWithPreload(() => import(/* webpackChunkName: "account-transactions" */ './pages/AccountTransactions'));
+const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ './pages/FinancialSummaries'));
+const EnhancedInvestments = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-investments" */ './pages/EnhancedInvestments'));
+const HouseholdManagement = lazyWithPreload(() => import(/* webpackChunkName: "household" */ './pages/HouseholdManagement'));
+const MobileFeatures = lazyWithPreload(() => import(/* webpackChunkName: "mobile-features" */ './pages/MobileFeatures'));
+const BusinessFeatures = lazyWithPreload(() => import(/* webpackChunkName: "business-features" */ './pages/BusinessFeatures'));
+const FinancialPlanning = lazyWithPreload(() => import(/* webpackChunkName: "financial-planning" */ './pages/FinancialPlanning'));
+const DataIntelligence = lazyWithPreload(() => import(/* webpackChunkName: "data-intelligence" */ './pages/DataIntelligence'));
+const ExportManager = lazyWithPreload(() => import(/* webpackChunkName: "export-manager" */ './pages/ExportManager'));
+const EnhancedImport = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-import" */ './pages/EnhancedImport'));
+const Documents = lazyWithPreload(() => import(/* webpackChunkName: "documents" */ './pages/Documents'));
+const OCRTest = lazyWithPreload(() => import(/* webpackChunkName: "ocr-test" */ './components/OCRTest'));
+const OpenBanking = lazyWithPreload(() => import(/* webpackChunkName: "open-banking" */ './pages/OpenBanking'));
+const Performance = lazyWithPreload(() => import(/* webpackChunkName: "performance" */ './pages/Performance'));
+const Subscription = lazyWithPreload(() => import(/* webpackChunkName: "subscription" */ './pages/Subscription'));
 
 function App(): React.JSX.Element {
   useEffect(() => {
@@ -105,136 +116,154 @@ function App(): React.JSX.Element {
         <CombinedProvider>
           <ThemeProvider>
             <AppProvider>
-              <NotificationProvider>
-                <ReduxMigrationWrapper>
-                  <Router>
-                    <Routes>
-                      <Route path="/" element={<Layout />}>
-                        <Route index element={
+              <AuthProvider>
+                <SubscriptionProvider>
+                  <ToastProvider>
+                    <NotificationProvider>
+                      <ReduxMigrationWrapper>
+                        <SupabaseDataLoader>
+                          <RealtimeSyncProvider>
+                          <Router>
+                        <Routes>
+                        {/* Login route outside of Layout */}
+                        <Route path="/login" element={
                           <Suspense fallback={<PageLoader />}>
-                            <Welcome />
+                            <Login />
                           </Suspense>
                         } />
-                  <Route path="dashboard" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Dashboard />
-                    </Suspense>
-                  } />
-                  <Route path="accounts" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Accounts />
-                    </Suspense>
-                  } />
-                  <Route path="accounts/:accountId" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <AccountTransactions />
-                    </Suspense>
-                  } />
-                  <Route path="transactions" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Transactions />
-                    </Suspense>
-                  } />
-                  <Route path="transactions-comparison" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <TransactionsComparison />
-                    </Suspense>
-                  } />
-                  <Route path="reconciliation" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Reconciliation />
-                    </Suspense>
-                  } />
-                  <Route path="investments" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Investments />
-                    </Suspense>
-                  } />
-                  <Route path="enhanced-investments" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <EnhancedInvestments />
-                    </Suspense>
-                  } />
-                  <Route path="budget" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Budget />
-                    </Suspense>
-                  } />
-                  <Route path="goals" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Goals />
-                    </Suspense>
-                  } />
-                  <Route path="analytics" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Analytics />
-                    </Suspense>
-                  } />
-                  <Route path="ai-analytics" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <AdvancedAnalytics />
-                    </Suspense>
-                  } />
-                  <Route path="ai-features" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <AIFeatures />
-                    </Suspense>
-                  } />
-                  <Route path="custom-reports" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <CustomReports />
-                    </Suspense>
-                  } />
-                  <Route path="tax-planning" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <TaxPlanning />
-                    </Suspense>
-                  } />
-                  <Route path="summaries" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <FinancialSummaries />
-                    </Suspense>
-                  } />
-                  <Route path="household" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <HouseholdManagement />
-                    </Suspense>
-                  } />
-                  <Route path="mobile-features" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <MobileFeatures />
-                    </Suspense>
-                  } />
-                  <Route path="business-features" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <BusinessFeatures />
-                    </Suspense>
-                  } />
-                  <Route path="financial-planning" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <FinancialPlanning />
-                    </Suspense>
-                  } />
-                  <Route path="data-intelligence" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <DataIntelligence />
-                    </Suspense>
-                  } />
-                  <Route path="export-manager" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <ExportManager />
-                    </Suspense>
-                  } />
-                  <Route path="enhanced-import" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <EnhancedImport />
-                    </Suspense>
-                  } />
-                  <Route path="documents" element={
-                    <Suspense fallback={<PageLoader />}>
-                      <Documents />
-                    </Suspense>
-                  } />
+                        
+                        {/* Main app routes */}
+                        <Route path="/" element={<Layout />}>
+                          {/* Public welcome page */}
+                          <Route index element={
+                            <Suspense fallback={<PageLoader />}>
+                              <Welcome />
+                            </Suspense>
+                          } />
+                          
+                          {/* Protected routes - all financial data pages */}
+                          <Route path="dashboard" element={
+                            <ProtectedSuspense>
+                              <Dashboard />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="accounts" element={
+                            <ProtectedSuspense>
+                              <Accounts />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="accounts/:accountId" element={
+                            <ProtectedSuspense>
+                              <AccountTransactions />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="transactions" element={
+                            <ProtectedSuspense>
+                              <Transactions />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="transactions-comparison" element={
+                            <ProtectedSuspense>
+                              <TransactionsComparison />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="reconciliation" element={
+                            <ProtectedSuspense>
+                              <Reconciliation />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="investments" element={
+                            <ProtectedSuspense>
+                              <Investments />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="enhanced-investments" element={
+                            <ProtectedSuspense requirePremium={true}>
+                              <EnhancedInvestments />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="budget" element={
+                            <ProtectedSuspense>
+                              <Budget />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="goals" element={
+                            <ProtectedSuspense>
+                              <Goals />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="analytics" element={
+                            <ProtectedSuspense>
+                              <Analytics />
+                            </ProtectedSuspense>
+                          } />
+                          
+                          {/* Premium features */}
+                          <Route path="ai-analytics" element={
+                            <ProtectedSuspense requirePremium={true}>
+                              <AdvancedAnalytics />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="ai-features" element={
+                            <ProtectedSuspense requirePremium={true}>
+                              <AIFeatures />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="custom-reports" element={
+                            <ProtectedSuspense requirePremium={true}>
+                              <CustomReports />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="tax-planning" element={
+                            <ProtectedSuspense requirePremium={true}>
+                              <TaxPlanning />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="summaries" element={
+                            <ProtectedSuspense>
+                              <FinancialSummaries />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="household" element={
+                            <ProtectedSuspense requirePremium={true}>
+                              <HouseholdManagement />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="mobile-features" element={
+                            <ProtectedSuspense>
+                              <MobileFeatures />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="business-features" element={
+                            <ProtectedSuspense requirePremium={true}>
+                              <BusinessFeatures />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="financial-planning" element={
+                            <ProtectedSuspense requirePremium={true}>
+                              <FinancialPlanning />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="data-intelligence" element={
+                            <ProtectedSuspense requirePremium={true}>
+                              <DataIntelligence />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="export-manager" element={
+                            <ProtectedSuspense>
+                              <ExportManager />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="enhanced-import" element={
+                            <ProtectedSuspense>
+                              <EnhancedImport />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="documents" element={
+                            <ProtectedSuspense>
+                              <Documents />
+                            </ProtectedSuspense>
+                          } />
                   <Route path="ocr-test" element={
                     <Suspense fallback={<PageLoader />}>
                       <OCRTest />
@@ -248,6 +277,11 @@ function App(): React.JSX.Element {
                   <Route path="performance" element={
                     <Suspense fallback={<PageLoader />}>
                       <Performance />
+                    </Suspense>
+                  } />
+                  <Route path="subscription" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <Subscription />
                     </Suspense>
                   } />
                   <Route path="settings">
@@ -281,9 +315,19 @@ function App(): React.JSX.Element {
                         <Notifications />
                       </Suspense>
                     } />
+                    <Route path="accessibility" element={
+                      <Suspense fallback={<PageLoader />}>
+                        <AccessibilitySettings />
+                      </Suspense>
+                    } />
                     <Route path="security" element={
                       <Suspense fallback={<PageLoader />}>
                         <SecuritySettings />
+                      </Suspense>
+                    } />
+                    <Route path="subscription" element={
+                      <Suspense fallback={<PageLoader />}>
+                        <Subscription />
                       </Suspense>
                     } />
                     <Route path="security/audit-logs" element={
@@ -302,15 +346,25 @@ function App(): React.JSX.Element {
                       <DiagnosticReport />
                     </Suspense>
                   } />
+                  <Route path="realtime-test" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <RealtimeSyncTest />
+                    </Suspense>
+                  } />
                         <Route path="forecasting" element={<Navigate to="/budget" replace />} />
                       </Route>
-                    </Routes>
-                  </Router>
-                  </ReduxMigrationWrapper>
-          </NotificationProvider>
-          </AppProvider>
-        </ThemeProvider>
-      </CombinedProvider>
+                        </Routes>
+                        </Router>
+                          </RealtimeSyncProvider>
+                        </SupabaseDataLoader>
+                      </ReduxMigrationWrapper>
+                    </NotificationProvider>
+                  </ToastProvider>
+                </SubscriptionProvider>
+              </AuthProvider>
+            </AppProvider>
+          </ThemeProvider>
+        </CombinedProvider>
       </SentryErrorBoundary>
     </ErrorBoundary>
   );

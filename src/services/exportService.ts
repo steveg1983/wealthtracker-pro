@@ -1,6 +1,6 @@
 // Dynamic imports for heavy libraries
 let jsPDF: typeof import('jspdf').jsPDF | null = null;
-let html2canvas: typeof import('html2canvas').default | null = null;
+const html2canvas: typeof import('html2canvas').default | null = null;
 import type { Transaction, Account, Category, Investment, Budget } from '../types';
 import type { ExportableData, GroupedData, ChartData, SavedReport, SavedTemplate } from '../types/export';
 import { Decimal } from 'decimal.js';
@@ -482,11 +482,12 @@ class ExportService {
         case 'account':
           key = ('accountId' in item ? item.accountId : 'account' in item ? (item as any).account : undefined) || 'Unknown';
           break;
-        case 'month':
+        case 'month': {
           const dateValue = ('date' in item ? item.date : 'createdAt' in item ? item.createdAt : undefined) || new Date();
           const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
           key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
           break;
+        }
         default:
           key = 'All';
       }

@@ -44,6 +44,10 @@ describe('useBulkOperations', () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe('initialization', () => {
     it('returns initial state correctly', () => {
       const { result } = renderHook(() => 
@@ -279,8 +283,10 @@ describe('useBulkOperations', () => {
         result.current.selectItem('1');
       });
 
-      const operationPromise = act(async () => {
-        return result.current.executeOperation('delete');
+      // Start the operation without awaiting
+      let operationPromise: Promise<void>;
+      act(() => {
+        operationPromise = result.current.executeOperation('delete');
       });
 
       // Should be processing
@@ -288,7 +294,9 @@ describe('useBulkOperations', () => {
 
       // Resolve the operation
       resolveOperation!();
-      await operationPromise;
+      await act(async () => {
+        await operationPromise!;
+      });
 
       // Should no longer be processing
       expect(result.current.isProcessing).toBe(false);
@@ -471,7 +479,7 @@ describe('useBulkOperations', () => {
   });
 
   describe('edge cases', () => {
-    it('handles operations with empty operations array', () => {
+    it('handles operations with empty operations array', async () => {
       const { result } = renderHook(() => 
         useBulkOperations(mockItems, [])
       );
@@ -483,7 +491,7 @@ describe('useBulkOperations', () => {
       });
 
       // Should not throw when executing non-existent operation
-      act(async () => {
+      await act(async () => {
         await result.current.executeOperation('delete');
       });
     });

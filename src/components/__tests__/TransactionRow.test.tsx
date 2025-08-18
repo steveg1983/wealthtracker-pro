@@ -90,7 +90,7 @@ describe('TransactionRow', () => {
     expect(amountElement).toHaveClass('text-red-600');
   });
 
-  it('displays transfer transactions with red color', () => {
+  it('displays transfer transactions with green color for positive amounts', () => {
     const transaction = createMockTransaction({
       type: 'transfer',
       amount: 1000,
@@ -98,10 +98,10 @@ describe('TransactionRow', () => {
 
     renderInTable(<TransactionRow {...defaultProps} transaction={transaction} />);
 
-    // Transfer type still shows as expense in the current implementation
-    const amountElement = screen.getByText('-£1,000.00');
+    // Transfer with positive amount shows as income (green with + sign)
+    const amountElement = screen.getByText('+£1,000.00');
     expect(amountElement).toBeInTheDocument();
-    expect(amountElement).toHaveClass('text-red-600');
+    expect(amountElement).toHaveClass('text-green-600');
   });
 
   it('shows cleared indicator when transaction is cleared', () => {

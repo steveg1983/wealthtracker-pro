@@ -8,11 +8,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../test/testUtils';
-import { GoalModal } from '../GoalModal';
+import GoalModal from '../GoalModal';
 
 describe('GoalModal', () => {
   const defaultProps = {
-    // Add default props based on component interface
+    isOpen: true,
+    onClose: vi.fn()
   };
 
   beforeEach(() => {

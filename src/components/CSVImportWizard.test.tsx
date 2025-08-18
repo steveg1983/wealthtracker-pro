@@ -82,7 +82,13 @@ vi.mock('../services/enhancedCsvImportService', () => ({
 }));
 
 vi.mock('./loading/LoadingState', () => ({
-  LoadingButton: ({ children, isLoading, onClick, className, disabled }: any) => (
+  LoadingButton: ({ children, isLoading, onClick, className, disabled }: {
+    children: React.ReactNode;
+    isLoading?: boolean;
+    onClick?: () => void;
+    className?: string;
+    disabled?: boolean;
+  }) => (
     <button
       onClick={onClick}
       className={className}
@@ -95,7 +101,12 @@ vi.mock('./loading/LoadingState', () => ({
 }));
 
 vi.mock('./common/Modal', () => ({
-  Modal: ({ isOpen, children, title, onClose }: any) => 
+  Modal: ({ isOpen, children, title, onClose }: {
+    isOpen: boolean;
+    children: React.ReactNode;
+    title: string;
+    onClose: () => void;
+  }) => 
     isOpen ? (
       <div data-testid="modal" role="dialog" aria-label={title}>
         <div data-testid="modal-title">{title}</div>
@@ -107,32 +118,32 @@ vi.mock('./common/Modal', () => ({
 
 // Mock all icons
 vi.mock('./icons', () => ({
-  UploadIcon: ({ size, className }: any) => <div data-testid="upload-icon" data-size={size} className={className}>📤</div>,
-  FileTextIcon: ({ size }: any) => <div data-testid="file-text-icon" data-size={size}>📄</div>,
-  CheckIcon: ({ size, className }: any) => <div data-testid="check-icon" data-size={size} className={className}>✓</div>,
-  XIcon: ({ size }: any) => <div data-testid="x-icon" data-size={size}>✕</div>,
-  AlertCircleIcon: ({ size }: any) => <div data-testid="alert-circle-icon" data-size={size}>ⓘ</div>,
-  ChevronRightIcon: ({ size, className }: any) => <div data-testid="chevron-right-icon" data-size={size} className={className}>→</div>,
-  ChevronLeftIcon: ({ size }: any) => <div data-testid="chevron-left-icon" data-size={size}>←</div>,
-  SaveIcon: ({ size, className }: any) => <div data-testid="save-icon" data-size={size} className={className}>💾</div>,
-  DownloadIcon: ({ size }: any) => <div data-testid="download-icon" data-size={size}>⬇️</div>,
-  RefreshCwIcon: ({ size }: any) => <div data-testid="refresh-cw-icon" data-size={size}>🔄</div>,
+  UploadIcon: ({ size, className }: { size?: number; className?: string }) => <div data-testid="upload-icon" data-size={size} className={className}>📤</div>,
+  FileTextIcon: ({ size }: { size?: number }) => <div data-testid="file-text-icon" data-size={size}>📄</div>,
+  CheckIcon: ({ size, className }: { size?: number; className?: string }) => <div data-testid="check-icon" data-size={size} className={className}>✓</div>,
+  XIcon: ({ size }: { size?: number }) => <div data-testid="x-icon" data-size={size}>✕</div>,
+  AlertCircleIcon: ({ size }: { size?: number }) => <div data-testid="alert-circle-icon" data-size={size}>ⓘ</div>,
+  ChevronRightIcon: ({ size, className }: { size?: number; className?: string }) => <div data-testid="chevron-right-icon" data-size={size} className={className}>→</div>,
+  ChevronLeftIcon: ({ size }: { size?: number }) => <div data-testid="chevron-left-icon" data-size={size}>←</div>,
+  SaveIcon: ({ size, className }: { size?: number; className?: string }) => <div data-testid="save-icon" data-size={size} className={className}>💾</div>,
+  DownloadIcon: ({ size }: { size?: number }) => <div data-testid="download-icon" data-size={size}>⬇️</div>,
+  RefreshCwIcon: ({ size }: { size?: number }) => <div data-testid="refresh-cw-icon" data-size={size}>🔄</div>,
 }));
 
 // Mock FileReader
 global.FileReader = class FileReader {
   result: string | null = null;
-  onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => any) | null = null;
+  onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
   
   readAsText(file: File) {
     setTimeout(() => {
       this.result = 'Date,Description,Amount,Account\n2023-01-15,Grocery Store,-85.50,Checking\n2023-01-16,Salary,2000.00,Checking';
       if (this.onload) {
-        this.onload({ target: this } as any);
+        this.onload({ target: this } as ProgressEvent<FileReader>);
       }
     }, 0);
   }
-} as any;
+} as unknown as typeof FileReader;
 
 describe('CSVImportWizard', () => {
   const mockOnClose = vi.fn();

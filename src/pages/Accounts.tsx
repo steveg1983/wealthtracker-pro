@@ -218,26 +218,26 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
             return (
             <div key={type} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 overflow-hidden">
-              <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-gray-800/50 dark:to-gray-700/50 backdrop-blur-sm border-b border-blue-200/50 dark:border-gray-600/50 px-6 py-4">
+              <div className="bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-gray-800/50 dark:to-gray-700/50 backdrop-blur-sm border-b border-blue-200/50 dark:border-gray-600/50 px-4 sm:px-6 py-3 sm:py-4">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center gap-2 md:gap-3">
                     <Icon className={color} size={20} />
-                    <h2 className="text-base md:text-lg font-semibold text-theme-heading dark:text-white">{title}</h2>
+                    <h2 className="text-base md:text-lg font-semibold text-white">{title}</h2>
                     <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                       ({typeAccounts.length} {typeAccounts.length === 1 ? 'account' : 'accounts'})
                     </span>
                   </div>
-                  <p className={`text-base md:text-lg font-semibold ${typeTotal.greaterThanOrEqualTo(0) ? 'text-gray-900 dark:text-white' : 'text-red-600 dark:text-red-400'}`}>
-                    {typeTotal.lessThan(0) ? '-' : ''}{formatDisplayCurrency(typeTotal.abs())}
+                  <p className={`text-base md:text-lg font-semibold ${typeTotal.greaterThanOrEqualTo(0) ? 'text-gray-900 dark:text-white' : 'text-gray-900 dark:text-white'}`}>
+                    {formatDisplayCurrency(typeTotal)}
                   </p>
                 </div>
               </div>
 
-              <div className="p-4 space-y-3">
+              <div className="p-3 sm:p-4 space-y-3">
                 {typeAccounts.map((account) => (
                   <div 
                     key={account.id} 
-                    className="p-4 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 hover:shadow-xl hover:border-blue-200/50 transition-all duration-300 cursor-pointer"
+                    className="p-3 sm:p-4 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 hover:shadow-xl hover:border-blue-200/50 transition-all duration-300 cursor-pointer"
                     onClick={(e) => {
                       // Don't navigate if clicking on buttons or inputs
                       if ((e.target as HTMLElement).closest('button, input')) return;
@@ -316,9 +316,9 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                               <p className={`text-lg md:text-xl font-semibold w-[140px] sm:w-[180px] text-right tabular-nums whitespace-nowrap ${
                                 account.balance >= 0 
                                   ? 'text-gray-900 dark:text-white' 
-                                  : 'text-red-600 dark:text-red-400'
+                                  : 'text-gray-900 dark:text-white'
                               }`}>
-                                {account.balance < 0 ? '-' : ''}{formatDisplayCurrency(Math.abs(account.balance), account.currency)}
+                                {formatDisplayCurrency(account.balance, account.currency)}
                               </p>
                               <div className="flex items-center gap-1 w-[120px] sm:w-[160px] justify-start">
                               {/* Space for future icons */}

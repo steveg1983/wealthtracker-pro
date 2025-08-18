@@ -15,7 +15,12 @@ import {
   AlertCircleIcon,
   SearchIcon,
   SelectAllIcon,
-  DeselectAllIcon
+  DeselectAllIcon,
+  ArrowRightIcon,
+  RefreshCwIcon,
+  UndoIcon,
+  RedoIcon,
+  EyeIcon
 } from './icons';
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
@@ -33,6 +38,13 @@ interface BulkEditChanges {
   cleared?: boolean;
   notes?: string;
   moveToAccount?: string;
+  appendNote?: boolean; // If true, append to existing notes instead of replacing
+}
+
+interface EditHistory {
+  changes: BulkEditChanges;
+  selectedIds: Set<string>;
+  timestamp: number;
 }
 
 interface FilterOptions {
@@ -59,10 +71,13 @@ export default function BulkTransactionEdit({
   const { formatCurrency } = useCurrencyDecimal();
   
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set(preSelectedIds));
-  const [changes, setChanges] = useState<BulkEditChanges>({});
+  const [changes, setChanges] = useState<BulkEditChanges>({ appendNote: false });
   const [showFilters, setShowFilters] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [applying, setApplying] = useState(false);
   const [appliedCount, setAppliedCount] = useState(0);
+  const [editHistory, setEditHistory] = useState<EditHistory[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   
   const [filters, setFilters] = useState<FilterOptions>({
     dateRange: {
@@ -145,8 +160,43 @@ export default function BulkTransactionEdit({
     setSelectedIds(newSelected);
   };
 
+  // Add to history for undo functionality
+  const addToHistory = () => {
+    const newEntry: EditHistory = {
+      changes: { ...changes },
+      selectedIds: new Set(selectedIds),
+      timestamp: Date.now()
+    };
+    
+    // Remove any future history if we're not at the end
+    const newHistory = editHistory.slice(0, historyIndex + 1);
+    newHistory.push(newEntry);
+    setEditHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+  };
+
+  // Undo last change
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const prevState = editHistory[historyIndex - 1];
+      setChanges(prevState.changes);
+      setSelectedIds(prevState.selectedIds);
+      setHistoryIndex(historyIndex - 1);
+    }
+  };
+
+  // Redo last undone change  
+  const handleRedo = () => {
+    if (historyIndex < editHistory.length - 1) {
+      const nextState = editHistory[historyIndex + 1];
+      setChanges(nextState.changes);
+      setSelectedIds(nextState.selectedIds);
+      setHistoryIndex(historyIndex + 1);
+    }
+  };
+
   const handleApplyChanges = async () => {
-    if (selectedIds.size === 0 || Object.keys(changes).length === 0) return;
+    if (selectedIds.size === 0 || Object.keys(changes).filter(k => k !== 'appendNote').length === 0) return;
     
     setApplying(true);
     setAppliedCount(0);
@@ -172,7 +222,11 @@ export default function BulkTransactionEdit({
         }
         
         if (changes.notes !== undefined) {
-          updates.notes = changes.notes;
+          if (changes.appendNote && transaction.notes) {
+            updates.notes = transaction.notes + '\n' + changes.notes;
+          } else {
+            updates.notes = changes.notes;
+          }
         }
         
         if (changes.moveToAccount !== undefined) {
@@ -184,9 +238,12 @@ export default function BulkTransactionEdit({
         setAppliedCount(count);
       }
       
+      // Add to history before resetting
+      addToHistory();
+      
       // Reset after successful update
       setSelectedIds(new Set());
-      setChanges({});
+      setChanges({ appendNote: false });
       onClose();
     } catch (error) {
       console.error('Error applying bulk changes:', error);
@@ -214,6 +271,49 @@ export default function BulkTransactionEdit({
     return Array.from(intersection);
   }, [selectedTransactions]);
 
+  // Get preview of changes
+  const getPreviewChanges = useMemo(() => {
+    const previews: { transaction: Transaction; updates: string[] }[] = [];
+    
+    selectedTransactions.forEach(transaction => {
+      const updates: string[] = [];
+      
+      if (changes.category !== undefined && changes.category !== transaction.category) {
+        updates.push(`Category → ${changes.category || 'Uncategorized'}`);
+      }
+      
+      if (changes.tags !== undefined) {
+        updates.push(`Tags → ${changes.tags.join(', ') || 'None'}`);
+      }
+      
+      if (changes.cleared !== undefined && changes.cleared !== transaction.cleared) {
+        updates.push(`Cleared → ${changes.cleared ? 'Yes' : 'No'}`);
+      }
+      
+      if (changes.notes !== undefined) {
+        if (changes.appendNote) {
+          updates.push(`Note → Append "${changes.notes}"`);
+        } else {
+          updates.push(`Note → "${changes.notes}"`);
+        }
+      }
+      
+      if (changes.moveToAccount !== undefined && changes.moveToAccount !== transaction.accountId) {
+        const account = accounts.find(a => a.id === changes.moveToAccount);
+        updates.push(`Account → ${account?.name || 'Unknown'}`);
+      }
+      
+      if (updates.length > 0) {
+        previews.push({ transaction, updates });
+      }
+    });
+    
+    return previews;
+  }, [selectedTransactions, changes, accounts]);
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < editHistory.length - 1;
+
   return (
     <Modal
       isOpen={isOpen}
@@ -228,6 +328,23 @@ export default function BulkTransactionEdit({
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-medium">Select Transactions</h3>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Undo (Ctrl+Z)"
+                >
+                  <UndoIcon size={16} />
+                </button>
+                <button
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                  className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="Redo (Ctrl+Y)"
+                >
+                  <RedoIcon size={16} />
+                </button>
+                <div className="w-px h-6 bg-gray-300 dark:bg-gray-600" />
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm
@@ -565,6 +682,20 @@ export default function BulkTransactionEdit({
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
                              bg-white dark:bg-gray-800"
                   />
+                  <label className="flex items-center gap-2 mt-2">
+                    <input
+                      type="checkbox"
+                      checked={changes.appendNote || false}
+                      onChange={(e) => setChanges({
+                        ...changes,
+                        appendNote: e.target.checked
+                      })}
+                      className="rounded"
+                    />
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Append to existing notes instead of replacing
+                    </span>
+                  </label>
                 </div>
 
                 {/* Move to Account */}
@@ -592,14 +723,46 @@ export default function BulkTransactionEdit({
                 </div>
               </div>
 
-              {/* Warning */}
-              {Object.keys(changes).length > 0 && (
-                <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <AlertCircleIcon className="text-orange-600 dark:text-orange-400 mt-0.5" size={16} />
-                    <div className="text-sm text-orange-800 dark:text-orange-200">
-                      These changes will be applied to all {selectedIds.size} selected transactions.
-                      This action cannot be undone.
+              {/* Preview Section */}
+              {Object.keys(changes).filter(k => k !== 'appendNote').length > 0 && (
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setShowPreview(!showPreview)}
+                    className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                  >
+                    <EyeIcon size={16} />
+                    {showPreview ? 'Hide' : 'Show'} preview of changes
+                  </button>
+                  
+                  {showPreview && getPreviewChanges.length > 0 && (
+                    <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-3 max-h-48 overflow-y-auto">
+                      <div className="space-y-2 text-xs">
+                        {getPreviewChanges.slice(0, 5).map(({ transaction, updates }) => (
+                          <div key={transaction.id} className="border-b border-gray-200 dark:border-gray-700 last:border-0 pb-2 last:pb-0">
+                            <div className="font-medium text-gray-900 dark:text-white">
+                              {transaction.description}
+                            </div>
+                            <div className="text-gray-600 dark:text-gray-400 mt-1">
+                              {updates.join(' • ')}
+                            </div>
+                          </div>
+                        ))}
+                        {getPreviewChanges.length > 5 && (
+                          <div className="text-gray-500 dark:text-gray-400 italic">
+                            ...and {getPreviewChanges.length - 5} more transactions
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Warning */}
+                  <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3">
+                    <div className="flex items-start gap-2">
+                      <AlertCircleIcon className="text-orange-600 dark:text-orange-400 mt-0.5" size={16} />
+                      <div className="text-sm text-orange-800 dark:text-orange-200">
+                        These changes will be applied to all {selectedIds.size} selected transactions.
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -620,7 +783,7 @@ export default function BulkTransactionEdit({
         </button>
         <button
           onClick={handleApplyChanges}
-          disabled={selectedIds.size === 0 || Object.keys(changes).length === 0 || applying}
+          disabled={selectedIds.size === 0 || Object.keys(changes).filter(k => k !== 'appendNote').length === 0 || applying}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg
                    hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -642,4 +805,3 @@ export default function BulkTransactionEdit({
 }
 
 // Add missing imports
-import { ArrowRightIcon, RefreshCwIcon } from './icons';

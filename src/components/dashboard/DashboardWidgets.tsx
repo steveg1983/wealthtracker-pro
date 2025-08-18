@@ -202,7 +202,7 @@ export const useDashboardCalculations = (accounts: Account[], transactions: Arra
 
     const totalLiabilities = accounts
       .filter(acc => acc.isActive && (acc.type === 'credit' || acc.type === 'loan'))
-      .reduce((sum, acc) => sum + Math.abs(acc.balance), 0);
+      .reduce((sum, acc) => sum + acc.balance, 0);
 
     const netWorth = totalAssets - totalLiabilities;
 

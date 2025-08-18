@@ -5,7 +5,10 @@ import type { Account, Category, Transaction } from '../types';
 
 // Mock child components
 vi.mock('./CategoryCreationModal', () => ({
-  default: ({ isOpen, onClose }: any) => 
+  default: ({ isOpen, onClose }: {
+    isOpen: boolean;
+    onClose: () => void;
+  }) => 
     isOpen ? (
       <div data-testid="category-creation-modal">
         <button onClick={onClose}>Close Category Modal</button>
@@ -15,10 +18,10 @@ vi.mock('./CategoryCreationModal', () => ({
 
 // Mock icons
 vi.mock('./icons', () => ({
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
-  CalendarIcon: ({ size }: any) => <div data-testid="calendar-icon">Cal</div>,
-  BanknoteIcon: ({ size }: any) => <div data-testid="banknote-icon">Bank</div>,
-  CalculatorIcon: ({ size }: any) => <div data-testid="calculator-icon">Calc</div>,
+  XIcon: ({}: { size?: number }) => <div data-testid="x-icon">X</div>,
+  CalendarIcon: ({}: { size?: number }) => <div data-testid="calendar-icon">Cal</div>,
+  BanknoteIcon: ({}: { size?: number }) => <div data-testid="banknote-icon">Bank</div>,
+  CalculatorIcon: ({}: { size?: number }) => <div data-testid="calculator-icon">Calc</div>,
 }));
 
 // Mock utility functions
@@ -96,7 +99,7 @@ describe('AccountReconciliationModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset the mock to default values
-    (useApp as any).mockReturnValue({
+    (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
       accounts: mockAccounts,
       transactions: mockTransactions,
       categories: mockCategories,
@@ -166,7 +169,7 @@ describe('AccountReconciliationModal', () => {
         { ...mockAccounts[0], openingBalance: undefined }
       ];
       
-      (useApp as any).mockReturnValue({
+      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
         accounts: accountsWithoutOpeningBalance,
         transactions: mockTransactions,
         categories: mockCategories,
@@ -297,7 +300,7 @@ describe('AccountReconciliationModal', () => {
   describe('Form submission', () => {
     it('creates adjustment transaction for positive difference', async () => {
       const mockAddTransaction = vi.fn();
-      (useApp as any).mockReturnValue({
+      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
         accounts: mockAccounts,
         transactions: mockTransactions,
         categories: mockCategories,
@@ -330,7 +333,7 @@ describe('AccountReconciliationModal', () => {
 
     it('creates adjustment transaction for negative difference', async () => {
       const mockAddTransaction = vi.fn();
-      (useApp as any).mockReturnValue({
+      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
         accounts: mockAccounts,
         transactions: mockTransactions,
         categories: mockCategories,
@@ -365,7 +368,7 @@ describe('AccountReconciliationModal', () => {
       const mockAddTransaction = vi.fn();
       const onClose = vi.fn();
       
-      (useApp as any).mockReturnValue({
+      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
         accounts: mockAccounts,
         transactions: mockTransactions,
         categories: mockCategories,
@@ -389,7 +392,7 @@ describe('AccountReconciliationModal', () => {
 
     it('uses custom notes when provided', async () => {
       const mockAddTransaction = vi.fn();
-      (useApp as any).mockReturnValue({
+      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
         accounts: mockAccounts,
         transactions: mockTransactions,
         categories: mockCategories,
@@ -462,7 +465,7 @@ describe('AccountReconciliationModal', () => {
         { ...mockAccounts[0], currency: 'EUR' }
       ];
       
-      (useApp as any).mockReturnValue({
+      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
         accounts: euroAccounts,
         transactions: mockTransactions,
         categories: mockCategories,

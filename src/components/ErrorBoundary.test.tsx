@@ -354,7 +354,7 @@ describe('ErrorBoundary', () => {
   describe('Error Types', () => {
     it('handles non-Error objects being thrown', () => {
       const ThrowString = () => {
-        throw 'String error'; // eslint-disable-line no-throw-literal
+        throw 'String error';  
       };
       
       render(

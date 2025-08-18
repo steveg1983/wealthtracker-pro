@@ -15,7 +15,7 @@ class RealTimePriceService {
   private updateFrequency: number = 30000; // 30 seconds default
   private isMarketOpen: boolean = false;
   private marketCheckInterval: NodeJS.Timeout | null = null;
-  private eventListeners: Map<string, Set<Function>> = new Map();
+  private eventListeners: Map<string, Set<(data: JsonValue) => void>> = new Map();
   
   constructor() {
     this.checkMarketStatus();
@@ -37,14 +37,14 @@ class RealTimePriceService {
     }
   }
   
-  on(event: string, listener: Function) {
+  on(event: string, listener: (data: JsonValue) => void) {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, new Set());
     }
     this.eventListeners.get(event)!.add(listener);
   }
   
-  off(event: string, listener: Function) {
+  off(event: string, listener: (data: JsonValue) => void) {
     const listeners = this.eventListeners.get(event);
     if (listeners) {
       listeners.delete(listener);

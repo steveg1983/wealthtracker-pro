@@ -1,983 +1,515 @@
 {
-  "timestamp": "2025-07-23T23:13:38.060Z",
+  "timestamp": "2025-08-05T10:45:49.031Z",
   "files": [
     {
-      "name": "assets/chart-vendor-chunk-BoopLPXq.js.map",
-      "size": 1653086,
-      "sizeFormatted": "1.58 MB",
-      "type": "map"
-    },
-    {
-      "name": "assets/xlsx-xlsx.mjs-BwZswNTU.js.map",
-      "size": 1608307,
-      "sizeFormatted": "1.53 MB",
-      "type": "map"
-    },
-    {
-      "name": "assets/export-vendor-chunk-DZKfWC1J.js.map",
-      "size": 1564515,
-      "sizeFormatted": "1.49 MB",
-      "type": "map"
-    },
-    {
-      "name": "assets/react-vendor-chunk-CfBNfkgn.js.map",
-      "size": 1301936,
-      "sizeFormatted": "1.24 MB",
-      "type": "map"
-    },
-    {
-      "name": "assets/index-sBHeb8_V.js.map",
-      "size": 878919,
-      "sizeFormatted": "858.32 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ui-vendor-chunk-CjYmU6u0.js.map",
-      "size": 741958,
-      "sizeFormatted": "724.57 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/export-vendor-chunk-DZKfWC1J.js",
-      "size": 546614,
-      "sizeFormatted": "533.8 KB",
+      "name": "assets/index-CuN0_npu.js",
+      "size": 734378,
+      "sizeFormatted": "717.17 KB",
       "type": "js"
     },
     {
-      "name": "assets/Dashboard-Dashboard.tsx-D_7Frsbw.js.map",
-      "size": 431477,
-      "sizeFormatted": "421.36 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/xlsx-xlsx.mjs-BwZswNTU.js",
-      "size": 416180,
-      "sizeFormatted": "406.43 KB",
+      "name": "assets/xlsx-BQuIB4U0.js",
+      "size": 499824,
+      "sizeFormatted": "488.11 KB",
       "type": "js"
     },
     {
-      "name": "assets/index.es-index.es.js-DCuciEuN.js.map",
-      "size": 408744,
-      "sizeFormatted": "399.16 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/chart-vendor-chunk-BoopLPXq.js",
-      "size": 351961,
-      "sizeFormatted": "343.71 KB",
+      "name": "assets/jspdf.es.min-DmxIiMw2.js",
+      "size": 357745,
+      "sizeFormatted": "349.36 KB",
       "type": "js"
     },
     {
-      "name": "assets/form-vendor-chunk-Cjaq6-ll.js.map",
-      "size": 347895,
-      "sizeFormatted": "339.74 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Transactions-Transactions.tsx-DB3hWWbe.js.map",
-      "size": 306267,
-      "sizeFormatted": "299.09 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/math-vendor-chunk-jjfTsRwY.js.map",
-      "size": 271803,
-      "sizeFormatted": "265.43 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/index-sBHeb8_V.js",
-      "size": 252221,
-      "sizeFormatted": "246.31 KB",
+      "name": "assets/PieChart-Cg7WhoMe.js",
+      "size": 294133,
+      "sizeFormatted": "287.24 KB",
       "type": "js"
     },
     {
-      "name": "assets/Budget-Budget.tsx-CitSiJCR.js.map",
-      "size": 220446,
-      "sizeFormatted": "215.28 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/react-vendor-chunk-CfBNfkgn.js",
-      "size": 215021,
-      "sizeFormatted": "209.98 KB",
+      "name": "assets/html2canvas.esm-BfxBtG_O.js",
+      "size": 202285,
+      "sizeFormatted": "197.54 KB",
       "type": "js"
     },
     {
-      "name": "assets/EnhancedInvestments-EnhancedInvestments.tsx-ByoED0dC.js.map",
-      "size": 197603,
-      "sizeFormatted": "192.97 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Investments-Investments.tsx-BJ1t6IA8.js.map",
-      "size": 193161,
-      "sizeFormatted": "188.63 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Dashboard-Dashboard.tsx-D_7Frsbw.js",
-      "size": 162265,
-      "sizeFormatted": "158.46 KB",
+      "name": "assets/Dashboard-D9Czwlv3.js",
+      "size": 174896,
+      "sizeFormatted": "170.8 KB",
       "type": "js"
     },
     {
-      "name": "assets/date-vendor-chunk-DBnsdvEE.js.map",
-      "size": 153219,
-      "sizeFormatted": "149.63 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ui-vendor-chunk-CjYmU6u0.js",
-      "size": 151420,
-      "sizeFormatted": "147.87 KB",
+      "name": "assets/index.es-CJwlfrIO.js",
+      "size": 159321,
+      "sizeFormatted": "155.59 KB",
       "type": "js"
     },
     {
-      "name": "assets/Transactions-Transactions.tsx-DB3hWWbe.js",
-      "size": 144274,
-      "sizeFormatted": "140.89 KB",
+      "name": "assets/Transactions-BzjcTRAL.js",
+      "size": 141795,
+      "sizeFormatted": "138.47 KB",
       "type": "js"
     },
     {
-      "name": "assets/BusinessFeatures-BusinessFeatures.tsx-cUgsHPnt.js.map",
-      "size": 140011,
-      "sizeFormatted": "136.73 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/DataIntelligence-DataIntelligence.tsx-DlTgf3iP.js.map",
-      "size": 134867,
-      "sizeFormatted": "131.71 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/index.es-index.es.js-DCuciEuN.js",
-      "size": 111293,
-      "sizeFormatted": "108.68 KB",
-      "type": "js"
-    },
-    {
-      "name": "assets/FinancialPlanning-FinancialPlanning.tsx-CrEB4qDz.js.map",
-      "size": 103000,
-      "sizeFormatted": "100.59 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Accounts-Accounts.tsx-DqWgHpp0.js.map",
-      "size": 102059,
-      "sizeFormatted": "99.67 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/index-DuZQceBs.css",
-      "size": 96652,
-      "sizeFormatted": "94.39 KB",
+      "name": "assets/index-BwXL-evd.css",
+      "size": 105340,
+      "sizeFormatted": "102.87 KB",
       "type": "css"
     },
     {
-      "name": "assets/DataValidation-DataValidation.tsx--xnSUfmk.js.map",
-      "size": 90433,
-      "sizeFormatted": "88.31 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Budget-Budget.tsx-CitSiJCR.js",
-      "size": 83858,
-      "sizeFormatted": "81.89 KB",
+      "name": "assets/GridItem-DVQQ1TqL.js",
+      "size": 84743,
+      "sizeFormatted": "82.76 KB",
       "type": "js"
     },
     {
-      "name": "assets/EnhancedImport-EnhancedImport.tsx-DXCENtnm.js.map",
-      "size": 81736,
-      "sizeFormatted": "79.82 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ImportDataModal-ImportDataModal.tsx-BUSaztjz.js.map",
-      "size": 81515,
-      "sizeFormatted": "79.6 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ExportManager-ExportManager.tsx-Q2fwp2Ve.js.map",
-      "size": 78073,
-      "sizeFormatted": "76.24 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/EditTransactionModal-chunk-DauuVRPr.js.map",
-      "size": 77328,
-      "sizeFormatted": "75.52 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Categories-Categories.tsx-CGB4FFlo.js.map",
-      "size": 72344,
-      "sizeFormatted": "70.65 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ocr-vendor-chunk-DqvsR_gL.js.map",
-      "size": 72055,
-      "sizeFormatted": "70.37 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/EnhancedInvestments-EnhancedInvestments.tsx-ByoED0dC.js",
-      "size": 71178,
-      "sizeFormatted": "69.51 KB",
+      "name": "assets/Budget-B38g9fsR.js",
+      "size": 82905,
+      "sizeFormatted": "80.96 KB",
       "type": "js"
     },
     {
-      "name": "assets/Investments-Investments.tsx-BJ1t6IA8.js",
-      "size": 68607,
-      "sizeFormatted": "67 KB",
+      "name": "assets/EditTransactionModal-3GDMBVE7.js",
+      "size": 75992,
+      "sizeFormatted": "74.21 KB",
       "type": "js"
     },
     {
-      "name": "assets/Goals-Goals.tsx-LfNJuhlH.js.map",
-      "size": 68180,
-      "sizeFormatted": "66.58 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/DocumentManager-chunk-MWM1QFRB.js.map",
-      "size": 66405,
-      "sizeFormatted": "64.85 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/MobileFeatures-MobileFeatures.tsx-CQON8j6J.js.map",
-      "size": 65468,
-      "sizeFormatted": "63.93 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/enhancedCsvImportService-chunk-DLJ9qBsp.js.map",
-      "size": 63503,
-      "sizeFormatted": "62.01 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/BusinessFeatures-BusinessFeatures.tsx-cUgsHPnt.js",
-      "size": 61701,
-      "sizeFormatted": "60.25 KB",
+      "name": "assets/Categories-CszhCzNT.js",
+      "size": 71906,
+      "sizeFormatted": "70.22 KB",
       "type": "js"
     },
     {
-      "name": "assets/AccountTransactions-AccountTransactions.tsx-DhAwVDhr.js.map",
-      "size": 59636,
-      "sizeFormatted": "58.24 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Reconciliation-Reconciliation.tsx-VucaNNvn.js.map",
-      "size": 58618,
-      "sizeFormatted": "57.24 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/DataIntelligence-DataIntelligence.tsx-DlTgf3iP.js",
-      "size": 58154,
-      "sizeFormatted": "56.79 KB",
+      "name": "assets/EnhancedInvestments-AsD7bxLP.js",
+      "size": 71285,
+      "sizeFormatted": "69.61 KB",
       "type": "js"
     },
     {
-      "name": "assets/form-vendor-chunk-Cjaq6-ll.js",
-      "size": 57014,
-      "sizeFormatted": "55.68 KB",
+      "name": "assets/Investments-9_MxNh0Y.js",
+      "size": 69634,
+      "sizeFormatted": "68 KB",
       "type": "js"
     },
     {
-      "name": "assets/CSVImportWizard-CSVImportWizard.tsx-C3HEfnw8.js.map",
-      "size": 50672,
-      "sizeFormatted": "49.48 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Analytics-Analytics.tsx-ylC4uq-J.js.map",
-      "size": 49750,
-      "sizeFormatted": "48.58 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/dataIntelligenceService-chunk-B4DZ_wGj.js.map",
-      "size": 49682,
-      "sizeFormatted": "48.52 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/OpenBanking-OpenBanking.tsx-BlhgHpM9.js.map",
-      "size": 47514,
-      "sizeFormatted": "46.4 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/TransactionsComparison-TransactionsComparison.tsx-CylZArPC.js.map",
-      "size": 46147,
-      "sizeFormatted": "45.07 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/math-vendor-chunk-jjfTsRwY.js",
-      "size": 44765,
-      "sizeFormatted": "43.72 KB",
+      "name": "assets/BusinessFeatures-BaqPnEEp.js",
+      "size": 61356,
+      "sizeFormatted": "59.92 KB",
       "type": "js"
     },
     {
-      "name": "assets/AdvancedAnalytics-AdvancedAnalytics.tsx-CAxF4JaN.js.map",
-      "size": 44182,
-      "sizeFormatted": "43.15 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/AppSettings-AppSettings.tsx-CzKm6T6m.js.map",
-      "size": 43859,
-      "sizeFormatted": "42.83 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/FinancialPlanning-FinancialPlanning.tsx-CrEB4qDz.js",
-      "size": 43497,
-      "sizeFormatted": "42.48 KB",
+      "name": "assets/DataIntelligence-CSo1yjns.js",
+      "size": 58051,
+      "sizeFormatted": "56.69 KB",
       "type": "js"
     },
     {
-      "name": "assets/ImportRulesManager-ImportRulesManager.tsx-BB-dkA5B.js.map",
-      "size": 43046,
-      "sizeFormatted": "42.04 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/financialPlanningService-chunk-mxatpYfo.js.map",
-      "size": 42803,
-      "sizeFormatted": "41.8 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Accounts-Accounts.tsx-DqWgHpp0.js",
-      "size": 42587,
-      "sizeFormatted": "41.59 KB",
+      "name": "assets/HouseholdManagement-DtbTa3fT.js",
+      "size": 52686,
+      "sizeFormatted": "51.45 KB",
       "type": "js"
     },
     {
-      "name": "assets/documentService-chunk-BS9-ClzT.js.map",
-      "size": 41254,
-      "sizeFormatted": "40.29 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/TaxPlanning-TaxPlanning.tsx-eWvfNg7F.js.map",
-      "size": 38760,
-      "sizeFormatted": "37.85 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/BulkTransactionEdit-BulkTransactionEdit.tsx-DdByhhfb.js.map",
-      "size": 38396,
-      "sizeFormatted": "37.5 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/FinancialSummary-chunk-Dpt90a-s.js.map",
-      "size": 36813,
-      "sizeFormatted": "35.95 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ExcelExport-ExcelExport.tsx-BIPks_Pk.js.map",
-      "size": 36383,
-      "sizeFormatted": "35.53 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/HouseholdManagement-HouseholdManagement.tsx-BKdecXHn.js.map",
-      "size": 33221,
-      "sizeFormatted": "32.44 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/EnhancedImport-EnhancedImport.tsx-DXCENtnm.js",
-      "size": 32544,
-      "sizeFormatted": "31.78 KB",
+      "name": "assets/FinancialPlanning-DsKaGCxl.js",
+      "size": 43188,
+      "sizeFormatted": "42.18 KB",
       "type": "js"
     },
     {
-      "name": "assets/Performance-Performance.tsx-LWerFuMT.js.map",
-      "size": 31948,
-      "sizeFormatted": "31.2 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/advancedAnalyticsService-chunk-CjCW8__G.js.map",
-      "size": 31747,
-      "sizeFormatted": "31 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/businessService-chunk-Dx9-GfBD.js.map",
-      "size": 31125,
-      "sizeFormatted": "30.4 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/DataManagement-DataManagement.tsx-CnAM1FL2.js.map",
-      "size": 31043,
-      "sizeFormatted": "30.32 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/DuplicateDetection-DuplicateDetection.tsx-a9tqIoR3.js.map",
-      "size": 30615,
-      "sizeFormatted": "29.9 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/SecuritySettings-SecuritySettings.tsx-CGsEmnD4.js.map",
-      "size": 30425,
-      "sizeFormatted": "29.71 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/DataValidation-DataValidation.tsx--xnSUfmk.js",
-      "size": 30362,
-      "sizeFormatted": "29.65 KB",
+      "name": "assets/Accounts-DdoqQLUN.js",
+      "size": 43097,
+      "sizeFormatted": "42.09 KB",
       "type": "js"
     },
     {
-      "name": "assets/TransactionReconciliation-TransactionReconciliation.tsx-CVcwHoVi.js.map",
-      "size": 30329,
-      "sizeFormatted": "29.62 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/BatchImportModal-BatchImportModal.tsx--fdcokhf.js.map",
-      "size": 29785,
-      "sizeFormatted": "29.09 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ExportManager-ExportManager.tsx-Q2fwp2Ve.js",
-      "size": 28555,
-      "sizeFormatted": "27.89 KB",
+      "name": "assets/CustomReports-_RyQROGp.js",
+      "size": 41978,
+      "sizeFormatted": "40.99 KB",
       "type": "js"
     },
     {
-      "name": "assets/MobileFeatures-MobileFeatures.tsx-CQON8j6J.js",
-      "size": 28069,
-      "sizeFormatted": "27.41 KB",
+      "name": "assets/AIFeatures-DuI0744l.js",
+      "size": 37513,
+      "sizeFormatted": "36.63 KB",
       "type": "js"
     },
     {
-      "name": "assets/EditTransactionModal-chunk-DauuVRPr.js",
-      "size": 28020,
-      "sizeFormatted": "27.36 KB",
+      "name": "assets/EnhancedImport-DismtJRB.js",
+      "size": 32244,
+      "sizeFormatted": "31.49 KB",
       "type": "js"
     },
     {
-      "name": "assets/collaborationService-chunk-Xi3-F0iT.js.map",
-      "size": 27147,
-      "sizeFormatted": "26.51 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Goals-Goals.tsx-LfNJuhlH.js",
-      "size": 26607,
-      "sizeFormatted": "25.98 KB",
+      "name": "assets/DataValidation-BwKaciOv.js",
+      "size": 30827,
+      "sizeFormatted": "30.1 KB",
       "type": "js"
     },
     {
-      "name": "assets/mobileService-chunk-DfSFCJox.js.map",
-      "size": 24950,
-      "sizeFormatted": "24.37 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/DocumentManager-chunk-MWM1QFRB.js",
-      "size": 24784,
-      "sizeFormatted": "24.2 KB",
+      "name": "assets/MobileFeatures-CaFj9aWP.js",
+      "size": 27876,
+      "sizeFormatted": "27.22 KB",
       "type": "js"
     },
     {
-      "name": "assets/taxPlanningService-chunk-aWcxsu9T.js.map",
-      "size": 24463,
-      "sizeFormatted": "23.89 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ImportDataModal-ImportDataModal.tsx-BUSaztjz.js",
-      "size": 24086,
-      "sizeFormatted": "23.52 KB",
+      "name": "assets/Goals-D-g6uV7L.js",
+      "size": 26221,
+      "sizeFormatted": "25.61 KB",
       "type": "js"
     },
     {
-      "name": "assets/securityService-chunk-BuZc6gbg.js.map",
-      "size": 23004,
-      "sizeFormatted": "22.46 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Categories-Categories.tsx-CGB4FFlo.js",
-      "size": 22918,
-      "sizeFormatted": "22.38 KB",
+      "name": "assets/ImportDataModal-LrThv0KB.js",
+      "size": 25633,
+      "sizeFormatted": "25.03 KB",
       "type": "js"
     },
     {
-      "name": "assets/enhancedCsvImportService-chunk-DLJ9qBsp.js",
-      "size": 22583,
-      "sizeFormatted": "22.05 KB",
+      "name": "assets/DocumentManager-BI1HqHC9.js",
+      "size": 24574,
+      "sizeFormatted": "24 KB",
       "type": "js"
     },
     {
-      "name": "assets/OFXImportModal-OFXImportModal.tsx-BWEIVjrt.js.map",
-      "size": 22111,
-      "sizeFormatted": "21.59 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/AccountTransactions-AccountTransactions.tsx-DhAwVDhr.js",
-      "size": 21835,
-      "sizeFormatted": "21.32 KB",
+      "name": "assets/AccessibilityDashboard-Cyk6Y2Iu.js",
+      "size": 22851,
+      "sizeFormatted": "22.32 KB",
       "type": "js"
     },
     {
-      "name": "assets/AppSettings-AppSettings.tsx-CzKm6T6m.js",
-      "size": 21740,
-      "sizeFormatted": "21.23 KB",
+      "name": "assets/AppSettings-BCbg7vk2.js",
+      "size": 22716,
+      "sizeFormatted": "22.18 KB",
       "type": "js"
     },
     {
-      "name": "assets/Reconciliation-Reconciliation.tsx-VucaNNvn.js",
-      "size": 21040,
-      "sizeFormatted": "20.55 KB",
+      "name": "assets/enhancedCsvImportService-DcihErfr.js",
+      "size": 22709,
+      "sizeFormatted": "22.18 KB",
       "type": "js"
     },
     {
-      "name": "assets/date-vendor-chunk-DBnsdvEE.js",
-      "size": 20465,
-      "sizeFormatted": "19.99 KB",
+      "name": "assets/BarChart-DHBiwJo5.js",
+      "size": 22607,
+      "sizeFormatted": "22.08 KB",
       "type": "js"
     },
     {
-      "name": "assets/QIFImportModal-QIFImportModal.tsx-3QePDkL4.js.map",
-      "size": 20267,
-      "sizeFormatted": "19.79 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/VirtualizedTransactionList-chunk-Calrdbfy.js.map",
-      "size": 19867,
-      "sizeFormatted": "19.4 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/BankConnections-BankConnections.tsx-Br30PPzr.js.map",
-      "size": 19407,
-      "sizeFormatted": "18.95 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/AuditLogs-AuditLogs.tsx-CQHP96sN.js.map",
-      "size": 19184,
-      "sizeFormatted": "18.73 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Tags-Tags.tsx-Dmk3GEfc.js.map",
-      "size": 18800,
-      "sizeFormatted": "18.36 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ofxImportService-chunk-CfF26FoZ.js.map",
-      "size": 18785,
-      "sizeFormatted": "18.34 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/CSVImportWizard-CSVImportWizard.tsx-C3HEfnw8.js",
-      "size": 18448,
-      "sizeFormatted": "18.02 KB",
+      "name": "assets/Reconciliation-BShTMb2Z.js",
+      "size": 20491,
+      "sizeFormatted": "20.01 KB",
       "type": "js"
     },
     {
-      "name": "assets/DataManagement-DataManagement.tsx-CnAM1FL2.js",
-      "size": 18376,
-      "sizeFormatted": "17.95 KB",
+      "name": "assets/AccountTransactions-DG9gQlSb.js",
+      "size": 20397,
+      "sizeFormatted": "19.92 KB",
       "type": "js"
     },
     {
-      "name": "assets/TransactionsComparison-TransactionsComparison.tsx-CylZArPC.js",
-      "size": 18188,
-      "sizeFormatted": "17.76 KB",
+      "name": "assets/TransactionsComparison-BC_sBr5q.js",
+      "size": 20042,
+      "sizeFormatted": "19.57 KB",
       "type": "js"
     },
     {
-      "name": "assets/investmentEnhancementService-chunk-CXKnqba6.js.map",
-      "size": 18051,
-      "sizeFormatted": "17.63 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/AdvancedAnalytics-AdvancedAnalytics.tsx-CAxF4JaN.js",
-      "size": 18013,
-      "sizeFormatted": "17.59 KB",
+      "name": "assets/CSVImportWizard-CNrvWbmv.js",
+      "size": 17648,
+      "sizeFormatted": "17.23 KB",
       "type": "js"
     },
     {
-      "name": "assets/CategoryCreationModal-chunk-BPu_N1UI.js.map",
-      "size": 17879,
-      "sizeFormatted": "17.46 KB",
-      "type": "map"
+      "name": "assets/AdvancedAnalytics-BEMLo45b.js",
+      "size": 17582,
+      "sizeFormatted": "17.17 KB",
+      "type": "js"
     },
     {
-      "name": "assets/OpenBanking-OpenBanking.tsx-BlhgHpM9.js",
-      "size": 16692,
+      "name": "assets/ExportManager-BhpTVgBA.js",
+      "size": 17448,
+      "sizeFormatted": "17.04 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/OpenBanking-BE9lvSCq.js",
+      "size": 16815,
+      "sizeFormatted": "16.42 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/DataManagement-2aFytEky.js",
+      "size": 16688,
       "sizeFormatted": "16.3 KB",
       "type": "js"
     },
     {
-      "name": "assets/ImportRulesManager-ImportRulesManager.tsx-BB-dkA5B.js",
-      "size": 16663,
-      "sizeFormatted": "16.27 KB",
+      "name": "assets/ImportRulesManager-BarTRjEr.js",
+      "size": 16291,
+      "sizeFormatted": "15.91 KB",
       "type": "js"
     },
     {
-      "name": "assets/calculations-decimal-chunk-CJVqOMbN.js.map",
-      "size": 16628,
-      "sizeFormatted": "16.24 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/BankAPISettings-BankAPISettings.tsx-Dda1qWoF.js.map",
-      "size": 16203,
-      "sizeFormatted": "15.82 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/TaxPlanning-TaxPlanning.tsx-eWvfNg7F.js",
-      "size": 16153,
-      "sizeFormatted": "15.77 KB",
+      "name": "assets/Analytics-BvZoDreh.js",
+      "size": 15830,
+      "sizeFormatted": "15.46 KB",
       "type": "js"
     },
     {
-      "name": "assets/Analytics-Analytics.tsx-ylC4uq-J.js",
-      "size": 16010,
-      "sizeFormatted": "15.63 KB",
+      "name": "assets/TaxPlanning-EJNBrBjv.js",
+      "size": 15673,
+      "sizeFormatted": "15.31 KB",
       "type": "js"
     },
     {
-      "name": "assets/ocr-vendor-chunk-DqvsR_gL.js",
-      "size": 15397,
-      "sizeFormatted": "15.04 KB",
+      "name": "assets/index-CbvqoY9f.js",
+      "size": 15673,
+      "sizeFormatted": "15.31 KB",
       "type": "js"
     },
     {
-      "name": "assets/dataIntelligenceService-chunk-B4DZ_wGj.js",
-      "size": 15151,
-      "sizeFormatted": "14.8 KB",
+      "name": "assets/dataIntelligenceService-BUVFr2sU.js",
+      "size": 15253,
+      "sizeFormatted": "14.9 KB",
       "type": "js"
     },
     {
-      "name": "assets/SmartCategorizationSettings-SmartCategorizationSettings.tsx-BiRzzJ-0.js.map",
-      "size": 14929,
-      "sizeFormatted": "14.58 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/bankConnectionService-chunk-DED7jjv9.js.map",
-      "size": 14698,
-      "sizeFormatted": "14.35 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/HouseholdManagement-HouseholdManagement.tsx-BKdecXHn.js",
-      "size": 14648,
-      "sizeFormatted": "14.3 KB",
+      "name": "assets/Treemap-IKm96pbK.js",
+      "size": 14775,
+      "sizeFormatted": "14.43 KB",
       "type": "js"
     },
     {
-      "name": "assets/SecuritySettings-SecuritySettings.tsx-CGsEmnD4.js",
-      "size": 14582,
-      "sizeFormatted": "14.24 KB",
+      "name": "assets/SecuritySettings-j3mc6h-v.js",
+      "size": 13797,
+      "sizeFormatted": "13.47 KB",
       "type": "js"
     },
     {
-      "name": "assets/importRulesService-chunk-DerjFMrG.js.map",
-      "size": 14381,
-      "sizeFormatted": "14.04 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/errorHandlingService-chunk-D2zTUBWP.js.map",
-      "size": 13767,
-      "sizeFormatted": "13.44 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/BulkTransactionEdit-BulkTransactionEdit.tsx-DdByhhfb.js",
-      "size": 13760,
-      "sizeFormatted": "13.44 KB",
+      "name": "assets/BulkTransactionEdit-I0dImo69.js",
+      "size": 13260,
+      "sizeFormatted": "12.95 KB",
       "type": "js"
     },
     {
-      "name": "assets/useCurrencyDecimal-chunk-DU3K-Nzf.js.map",
-      "size": 13116,
-      "sizeFormatted": "12.81 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/VirtualizedTable-chunk-C7JJPQ5K.js.map",
-      "size": 12401,
-      "sizeFormatted": "12.11 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ExcelExport-ExcelExport.tsx-BIPks_Pk.js",
-      "size": 12065,
-      "sizeFormatted": "11.78 KB",
+      "name": "assets/FinancialSummary-CC7Vmn6Q.js",
+      "size": 12166,
+      "sizeFormatted": "11.88 KB",
       "type": "js"
     },
     {
-      "name": "assets/FinancialSummary-chunk-Dpt90a-s.js",
-      "size": 11844,
-      "sizeFormatted": "11.57 KB",
+      "name": "assets/AutomaticBackupSettings-OyfYz2aP.js",
+      "size": 12045,
+      "sizeFormatted": "11.76 KB",
       "type": "js"
     },
     {
-      "name": "assets/qifImportService-chunk-BIh-RMeA.js.map",
-      "size": 11024,
-      "sizeFormatted": "10.77 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/FinancialSummaries-FinancialSummaries.tsx-DYZocs5w.js.map",
-      "size": 10951,
-      "sizeFormatted": "10.69 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/documentService-chunk-BS9-ClzT.js",
-      "size": 10906,
-      "sizeFormatted": "10.65 KB",
+      "name": "assets/documentService-DoIqc-wm.js",
+      "size": 11810,
+      "sizeFormatted": "11.53 KB",
       "type": "js"
     },
     {
-      "name": "assets/financialPlanningService-chunk-mxatpYfo.js",
-      "size": 10689,
-      "sizeFormatted": "10.44 KB",
+      "name": "assets/LineChart-B0k3B0hW.js",
+      "size": 11770,
+      "sizeFormatted": "11.49 KB",
       "type": "js"
     },
     {
-      "name": "assets/TransactionReconciliation-TransactionReconciliation.tsx-CVcwHoVi.js",
-      "size": 10552,
-      "sizeFormatted": "10.3 KB",
+      "name": "assets/ExcelExport-Da3Nq-Vd.js",
+      "size": 11634,
+      "sizeFormatted": "11.36 KB",
       "type": "js"
     },
     {
-      "name": "assets/Performance-Performance.tsx-LWerFuMT.js",
-      "size": 10466,
-      "sizeFormatted": "10.22 KB",
+      "name": "assets/Performance-D5YWn67p.js",
+      "size": 11482,
+      "sizeFormatted": "11.21 KB",
       "type": "js"
     },
     {
-      "name": "assets/GridItem-chunk-Cy7oi7Bz.js.map",
-      "size": 10429,
-      "sizeFormatted": "10.18 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/BatchImportModal-BatchImportModal.tsx--fdcokhf.js",
-      "size": 10291,
-      "sizeFormatted": "10.05 KB",
+      "name": "assets/Notifications-C1FID9RO.js",
+      "size": 11389,
+      "sizeFormatted": "11.12 KB",
       "type": "js"
     },
     {
-      "name": "assets/DuplicateDetection-DuplicateDetection.tsx-a9tqIoR3.js",
-      "size": 9960,
-      "sizeFormatted": "9.73 KB",
+      "name": "service-worker.js.disabled",
+      "size": 11178,
+      "sizeFormatted": "10.92 KB",
+      "type": "disabled"
+    },
+    {
+      "name": "assets/financialPlanningService-Qn7CsKXu.js",
+      "size": 10770,
+      "sizeFormatted": "10.52 KB",
       "type": "js"
     },
     {
-      "name": "assets/OFXImportModal-OFXImportModal.tsx-BWEIVjrt.js",
-      "size": 9449,
-      "sizeFormatted": "9.23 KB",
+      "name": "assets/TransactionReconciliation-DEZA9noF.js",
+      "size": 10127,
+      "sizeFormatted": "9.89 KB",
       "type": "js"
     },
     {
-      "name": "assets/currency-chunk-DpFVzuSz.js.map",
-      "size": 9347,
-      "sizeFormatted": "9.13 KB",
-      "type": "map"
+      "name": "assets/BatchImportModal-haXVb1jL.js",
+      "size": 9869,
+      "sizeFormatted": "9.64 KB",
+      "type": "js"
     },
     {
-      "name": "service-worker-enhanced.js",
+      "name": "assets/DuplicateDetection-6YjBQyy5.js",
+      "size": 9692,
+      "sizeFormatted": "9.46 KB",
+      "type": "js"
+    },
+    {
+      "name": "service-worker-enhanced.js.disabled",
       "size": 9267,
       "sizeFormatted": "9.05 KB",
+      "type": "disabled"
+    },
+    {
+      "name": "assets/OFXImportModal-FVHNw9B2.js",
+      "size": 9081,
+      "sizeFormatted": "8.87 KB",
       "type": "js"
     },
     {
-      "name": "assets/OCRTest-OCRTest.tsx-eq-haWHA.js.map",
-      "size": 8892,
-      "sizeFormatted": "8.68 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/advancedAnalyticsService-chunk-CjCW8__G.js",
-      "size": 8687,
-      "sizeFormatted": "8.48 KB",
+      "name": "assets/advancedAnalyticsService-CEaY9Sgk.js",
+      "size": 8669,
+      "sizeFormatted": "8.47 KB",
       "type": "js"
     },
     {
-      "name": "assets/businessService-chunk-Dx9-GfBD.js",
-      "size": 8552,
-      "sizeFormatted": "8.35 KB",
+      "name": "assets/businessService-Bhk2vo2C.js",
+      "size": 8627,
+      "sizeFormatted": "8.42 KB",
       "type": "js"
     },
     {
-      "name": "assets/Settings-Settings.tsx-DRhKF91n.js.map",
-      "size": 8505,
-      "sizeFormatted": "8.31 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/AuditLogs-AuditLogs.tsx-CQHP96sN.js",
-      "size": 8461,
-      "sizeFormatted": "8.26 KB",
+      "name": "assets/AuditLogs-BqPv-OBF.js",
+      "size": 8044,
+      "sizeFormatted": "7.86 KB",
       "type": "js"
     },
     {
-      "name": "assets/QIFImportModal-QIFImportModal.tsx-3QePDkL4.js",
-      "size": 8266,
-      "sizeFormatted": "8.07 KB",
+      "name": "assets/QIFImportModal-CV3iL6rb.js",
+      "size": 7911,
+      "sizeFormatted": "7.73 KB",
       "type": "js"
     },
     {
-      "name": "assets/BankAPISettings-BankAPISettings.tsx-Dda1qWoF.js",
-      "size": 8028,
-      "sizeFormatted": "7.84 KB",
+      "name": "assets/BankAPISettings-DOTzACbE.js",
+      "size": 7647,
+      "sizeFormatted": "7.47 KB",
       "type": "js"
     },
     {
-      "name": "assets/BankConnections-BankConnections.tsx-Br30PPzr.js",
-      "size": 8013,
-      "sizeFormatted": "7.83 KB",
+      "name": "assets/BankConnections-DIOx3_yx.js",
+      "size": 7636,
+      "sizeFormatted": "7.46 KB",
       "type": "js"
     },
     {
-      "name": "assets/Tags-Tags.tsx-Dmk3GEfc.js",
-      "size": 7729,
-      "sizeFormatted": "7.55 KB",
+      "name": "assets/Tags-BN6-miw1.js",
+      "size": 7411,
+      "sizeFormatted": "7.24 KB",
       "type": "js"
     },
     {
-      "name": "assets/collaborationService-chunk-Xi3-F0iT.js",
-      "size": 7567,
-      "sizeFormatted": "7.39 KB",
+      "name": "assets/mobileService-D8UuI0LX.js",
+      "size": 7124,
+      "sizeFormatted": "6.96 KB",
       "type": "js"
     },
     {
-      "name": "assets/SmartCategorizationSettings-SmartCategorizationSettings.tsx-BiRzzJ-0.js",
-      "size": 7248,
-      "sizeFormatted": "7.08 KB",
+      "name": "assets/SmartCategorizationSettings-CxtIDen7.js",
+      "size": 6821,
+      "sizeFormatted": "6.66 KB",
       "type": "js"
     },
     {
-      "name": "assets/Modal-chunk-CMnwM1G1.js.map",
-      "size": 7094,
-      "sizeFormatted": "6.93 KB",
-      "type": "map"
+      "name": "clear-cache.html",
+      "size": 6694,
+      "sizeFormatted": "6.54 KB",
+      "type": "html"
     },
     {
-      "name": "assets/useReconciliation-chunk-BvlczNXJ.js.map",
-      "size": 7064,
-      "sizeFormatted": "6.9 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/mobileService-chunk-DfSFCJox.js",
-      "size": 7025,
-      "sizeFormatted": "6.86 KB",
+      "name": "assets/taxPlanningService-BIVl8viv.js",
+      "size": 6649,
+      "sizeFormatted": "6.49 KB",
       "type": "js"
     },
     {
-      "name": "assets/taxPlanningService-chunk-aWcxsu9T.js",
-      "size": 6549,
-      "sizeFormatted": "6.4 KB",
+      "name": "assets/securityService-CY5vf2ZG.js",
+      "size": 6338,
+      "sizeFormatted": "6.19 KB",
       "type": "js"
     },
     {
-      "name": "assets/CategoryCreationModal-chunk-BPu_N1UI.js",
-      "size": 6227,
-      "sizeFormatted": "6.08 KB",
+      "name": "assets/CategoryCreationModal-BKpAOpGZ.js",
+      "size": 6081,
+      "sizeFormatted": "5.94 KB",
       "type": "js"
     },
     {
-      "name": "assets/securityService-chunk-BuZc6gbg.js",
-      "size": 6145,
-      "sizeFormatted": "6 KB",
+      "name": "assets/GridItem-Dy6PSsQr.css",
+      "size": 5956,
+      "sizeFormatted": "5.82 KB",
+      "type": "css"
+    },
+    {
+      "name": "safari-test.html",
+      "size": 5566,
+      "sizeFormatted": "5.44 KB",
+      "type": "html"
+    },
+    {
+      "name": "clear-sw.html",
+      "size": 5130,
+      "sizeFormatted": "5.01 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/VirtualizedTransactionList-C04OVEzL.js",
+      "size": 4835,
+      "sizeFormatted": "4.72 KB",
       "type": "js"
     },
     {
-      "name": "assets/Skeleton-chunk-mX5nsCiH.js.map",
-      "size": 5553,
-      "sizeFormatted": "5.42 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/FinancialSummaries-FinancialSummaries.tsx-DYZocs5w.js",
-      "size": 5046,
-      "sizeFormatted": "4.93 KB",
+      "name": "assets/FinancialSummaries-cL88WB2b.js",
+      "size": 4633,
+      "sizeFormatted": "4.52 KB",
       "type": "js"
     },
     {
-      "name": "assets/VirtualizedTransactionList-chunk-Calrdbfy.js",
-      "size": 4953,
-      "sizeFormatted": "4.84 KB",
+      "name": "assets/ofxImportService-Cq01m0nD.js",
+      "size": 4474,
+      "sizeFormatted": "4.37 KB",
       "type": "js"
     },
     {
-      "name": "assets/Settings-Settings.tsx-DRhKF91n.js",
-      "size": 4667,
-      "sizeFormatted": "4.56 KB",
+      "name": "assets/pdfExport-CUQk02Z0.js",
+      "size": 4380,
+      "sizeFormatted": "4.28 KB",
       "type": "js"
     },
     {
-      "name": "assets/ofxImportService-chunk-CfF26FoZ.js",
-      "size": 4533,
-      "sizeFormatted": "4.43 KB",
+      "name": "assets/investmentEnhancementService-DEAjWkz6.js",
+      "size": 4331,
+      "sizeFormatted": "4.23 KB",
       "type": "js"
     },
     {
-      "name": "assets/useLocalStorage-chunk-4HvZJy2g.js.map",
-      "size": 4503,
-      "sizeFormatted": "4.4 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/investmentEnhancementService-chunk-CXKnqba6.js",
-      "size": 4356,
-      "sizeFormatted": "4.25 KB",
+      "name": "assets/errorHandlingService-6uBJaU4T.js",
+      "size": 4261,
+      "sizeFormatted": "4.16 KB",
       "type": "js"
     },
     {
-      "name": "service-worker.js",
-      "size": 4298,
-      "sizeFormatted": "4.2 KB",
+      "name": "assets/Settings-oL0aVbED.js",
+      "size": 4063,
+      "sizeFormatted": "3.97 KB",
       "type": "js"
-    },
-    {
-      "name": "assets/useCurrency-chunk-BuIgaN1U.js.map",
-      "size": 4231,
-      "sizeFormatted": "4.13 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/LoadingState-chunk-C70SG2ss.js.map",
-      "size": 4132,
-      "sizeFormatted": "4.04 KB",
-      "type": "map"
     },
     {
       "name": "offline.html",
@@ -986,99 +518,45 @@
       "type": "html"
     },
     {
-      "name": "assets/bankConnectionService-chunk-DED7jjv9.js",
-      "size": 3836,
-      "sizeFormatted": "3.75 KB",
+      "name": "assets/bankConnectionService-CAUJ6FGi.js",
+      "size": 3979,
+      "sizeFormatted": "3.89 KB",
       "type": "js"
     },
     {
-      "name": "assets/GridItem-BVAZb-zn.css",
-      "size": 3774,
-      "sizeFormatted": "3.69 KB",
-      "type": "css"
-    },
-    {
-      "name": "assets/useModalForm-chunk-CjZhaLSg.js.map",
-      "size": 3758,
-      "sizeFormatted": "3.67 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/errorHandlingService-chunk-D2zTUBWP.js",
-      "size": 3747,
-      "sizeFormatted": "3.66 KB",
+      "name": "assets/importRulesService-R8miJJ7U.js",
+      "size": 3640,
+      "sizeFormatted": "3.55 KB",
       "type": "js"
     },
     {
-      "name": "assets/importRulesService-chunk-DerjFMrG.js",
-      "size": 3619,
-      "sizeFormatted": "3.53 KB",
+      "name": "assets/VirtualizedTable-sjjlstuy.js",
+      "size": 3359,
+      "sizeFormatted": "3.28 KB",
       "type": "js"
     },
     {
-      "name": "assets/OCRTest-OCRTest.tsx-eq-haWHA.js",
-      "size": 3534,
-      "sizeFormatted": "3.45 KB",
-      "type": "js"
-    },
-    {
-      "name": "assets/Building2Icon-chunk-Cw0lLQf2.js.map",
-      "size": 3227,
+      "name": "assets/OCRTest-BPHY0-2z.js",
+      "size": 3230,
       "sizeFormatted": "3.15 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/VirtualizedTable-chunk-C7JJPQ5K.js",
-      "size": 3121,
-      "sizeFormatted": "3.05 KB",
       "type": "js"
     },
     {
-      "name": "assets/GridItem-chunk-Cy7oi7Bz.js",
-      "size": 3086,
-      "sizeFormatted": "3.01 KB",
+      "name": "safari-debug.html",
+      "size": 2673,
+      "sizeFormatted": "2.61 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/useCurrencyDecimal-C3q8Ae1K.js",
+      "size": 2390,
+      "sizeFormatted": "2.33 KB",
       "type": "js"
     },
     {
-      "name": "assets/BudgetContext-chunk-AGEsoBMG.js.map",
-      "size": 2916,
-      "sizeFormatted": "2.85 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Modal-chunk-CMnwM1G1.js",
-      "size": 2551,
-      "sizeFormatted": "2.49 KB",
-      "type": "js"
-    },
-    {
-      "name": "assets/MinimizeIcon-chunk-CX5v_K-N.js.map",
-      "size": 2516,
-      "sizeFormatted": "2.46 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/IconButton-chunk-bPjXZNH-.js.map",
-      "size": 2332,
-      "sizeFormatted": "2.28 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ui-vendor-CISbXXKC.css",
-      "size": 2304,
-      "sizeFormatted": "2.25 KB",
-      "type": "css"
-    },
-    {
-      "name": "assets/qifImportService-chunk-BIh-RMeA.js",
-      "size": 2248,
-      "sizeFormatted": "2.2 KB",
-      "type": "js"
-    },
-    {
-      "name": "assets/useCurrencyDecimal-chunk-DU3K-Nzf.js",
-      "size": 2123,
-      "sizeFormatted": "2.07 KB",
+      "name": "assets/qifImportService-C0FUqoi0.js",
+      "size": 2197,
+      "sizeFormatted": "2.15 KB",
       "type": "js"
     },
     {
@@ -1088,52 +566,28 @@
       "type": "html"
     },
     {
-      "name": "assets/Skeleton-chunk-mX5nsCiH.js",
-      "size": 1972,
-      "sizeFormatted": "1.93 KB",
-      "type": "js"
-    },
-    {
-      "name": "assets/FileTextIcon-chunk-BSj231PX.js.map",
-      "size": 1932,
+      "name": "assets/Skeleton-4IC7yCag.js",
+      "size": 1934,
       "sizeFormatted": "1.89 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/PageWrapper-chunk-BiGVyNl0.js.map",
-      "size": 1784,
-      "sizeFormatted": "1.74 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/EyeOffIcon-chunk-CpfhOWft.js.map",
-      "size": 1773,
-      "sizeFormatted": "1.73 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/currency-chunk-DpFVzuSz.js",
-      "size": 1758,
-      "sizeFormatted": "1.72 KB",
       "type": "js"
     },
     {
-      "name": "assets/CameraIcon-chunk-x1gIgl04.js.map",
-      "size": 1660,
-      "sizeFormatted": "1.62 KB",
-      "type": "map"
+      "name": "assets/currency-DhiV2ByB.js",
+      "size": 1895,
+      "sizeFormatted": "1.85 KB",
+      "type": "js"
     },
     {
-      "name": "assets/LinkIcon-chunk-C6krSKDr.js.map",
-      "size": 1604,
+      "name": "unregister-sw.html",
+      "size": 1878,
+      "sizeFormatted": "1.83 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/csp-6IBAHue3.js",
+      "size": 1611,
       "sizeFormatted": "1.57 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/MapPinIcon-chunk-DBac7Mqa.js.map",
-      "size": 1522,
-      "sizeFormatted": "1.49 KB",
-      "type": "map"
+      "type": "js"
     },
     {
       "name": "vite.svg",
@@ -1142,88 +596,16 @@
       "type": "svg"
     },
     {
-      "name": "assets/Welcome-Welcome.tsx-Du-vIotd.js.map",
-      "size": 1482,
-      "sizeFormatted": "1.45 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/CalendarIcon-chunk-ZommLml8.js.map",
-      "size": 1477,
-      "sizeFormatted": "1.44 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/BanknoteIcon-chunk-mQx-x5sY.js.map",
-      "size": 1476,
-      "sizeFormatted": "1.44 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Building2Icon-chunk-Cw0lLQf2.js",
-      "size": 1455,
-      "sizeFormatted": "1.42 KB",
-      "type": "js"
-    },
-    {
-      "name": "assets/PiggyBankIcon-chunk-BYi_jEBB.js.map",
-      "size": 1403,
-      "sizeFormatted": "1.37 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/GridIcon-chunk-l_nc9Blp.js.map",
-      "size": 1377,
-      "sizeFormatted": "1.34 KB",
-      "type": "map"
-    },
-    {
-      "name": "index.html",
-      "size": 1358,
-      "sizeFormatted": "1.33 KB",
+      "name": "debug.html",
+      "size": 1423,
+      "sizeFormatted": "1.39 KB",
       "type": "html"
     },
     {
-      "name": "assets/GripVerticalIcon-chunk-BOZqnS47.js.map",
-      "size": 1332,
-      "sizeFormatted": "1.3 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/PhoneIcon-chunk-ClUHpVZ0.js.map",
-      "size": 1279,
-      "sizeFormatted": "1.25 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/UnlinkIcon-chunk-Chp06Kdq.js.map",
-      "size": 1265,
-      "sizeFormatted": "1.24 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/LightbulbIcon-chunk-BB1ffp2Y.js.map",
-      "size": 1263,
-      "sizeFormatted": "1.23 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/UserIcon-chunk-MlVH2E1G.js.map",
-      "size": 1262,
-      "sizeFormatted": "1.23 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ArrowDownIcon-chunk-CXVn8p0W.js.map",
-      "size": 1249,
-      "sizeFormatted": "1.22 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/GlobeIcon-chunk-C1uyh5Uw.js.map",
-      "size": 1212,
-      "sizeFormatted": "1.18 KB",
-      "type": "map"
+      "name": "assets/Building2Icon-Duuf7ipR.js",
+      "size": 1352,
+      "sizeFormatted": "1.32 KB",
+      "type": "js"
     },
     {
       "name": "manifest.json",
@@ -1232,118 +614,52 @@
       "type": "json"
     },
     {
-      "name": "assets/MinimizeIcon-chunk-CX5v_K-N.js",
-      "size": 1137,
-      "sizeFormatted": "1.11 KB",
-      "type": "js"
-    },
-    {
-      "name": "assets/EyeIcon-chunk-CDAfVEBi.js.map",
-      "size": 1117,
-      "sizeFormatted": "1.09 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/TrendingDownIcon-chunk-DhUkufNG.js.map",
-      "size": 1115,
-      "sizeFormatted": "1.09 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ArrowRightIcon-chunk-DAVnf5vG.js.map",
-      "size": 1092,
-      "sizeFormatted": "1.07 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ClockIcon-chunk-CWMg_B-n.js.map",
-      "size": 1090,
+      "name": "basic.html",
+      "size": 1085,
       "sizeFormatted": "1.06 KB",
-      "type": "map"
+      "type": "html"
     },
     {
-      "name": "assets/ArrowLeftIcon-chunk-zHmnjpVg.js.map",
-      "size": 1087,
-      "sizeFormatted": "1.06 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/ActivityIcon-chunk-DybZNJsd.js.map",
-      "size": 1049,
-      "sizeFormatted": "1.02 KB",
-      "type": "map"
-    },
-    {
-      "name": "assets/Welcome-Welcome.tsx-Du-vIotd.js",
-      "size": 1041,
-      "sizeFormatted": "1.02 KB",
+      "name": "assets/useLocalStorage-EpsGDbMl.js",
+      "size": 959,
+      "sizeFormatted": "959 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/EyeOffIcon-chunk-CpfhOWft.js",
-      "size": 991,
-      "sizeFormatted": "991 Bytes",
+      "name": "_headers",
+      "size": 955,
+      "sizeFormatted": "955 Bytes",
+      "type": "other"
+    },
+    {
+      "name": "assets/EyeOffIcon-DEm6dHol.js",
+      "size": 891,
+      "sizeFormatted": "891 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/LinkIcon-chunk-C6krSKDr.js",
-      "size": 968,
-      "sizeFormatted": "968 Bytes",
+      "name": "assets/LoadingState-6tjfEImv.js",
+      "size": 884,
+      "sizeFormatted": "884 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/LoadingState-chunk-C70SG2ss.js",
-      "size": 962,
-      "sizeFormatted": "962 Bytes",
+      "name": "assets/LinkIcon-C3OOzdrm.js",
+      "size": 870,
+      "sizeFormatted": "870 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/calculations-decimal-chunk-CJVqOMbN.js",
-      "size": 937,
-      "sizeFormatted": "937 Bytes",
+      "name": "assets/IconButton-CxLYbQGO.js",
+      "size": 836,
+      "sizeFormatted": "836 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/useLocalStorage-chunk-4HvZJy2g.js",
-      "size": 934,
-      "sizeFormatted": "934 Bytes",
+      "name": "assets/calculations-decimal-Bj9TsYdJ.js",
+      "size": 834,
+      "sizeFormatted": "834 Bytes",
       "type": "js"
-    },
-    {
-      "name": "assets/FileTextIcon-chunk-BSj231PX.js",
-      "size": 931,
-      "sizeFormatted": "931 Bytes",
-      "type": "js"
-    },
-    {
-      "name": "assets/IconButton-chunk-bPjXZNH-.js",
-      "size": 911,
-      "sizeFormatted": "911 Bytes",
-      "type": "js"
-    },
-    {
-      "name": "assets/useModalForm-chunk-CjZhaLSg.js",
-      "size": 841,
-      "sizeFormatted": "841 Bytes",
-      "type": "js"
-    },
-    {
-      "name": "assets/ChevronLeftIcon-chunk-bd1O9Li8.js.map",
-      "size": 831,
-      "sizeFormatted": "831 Bytes",
-      "type": "map"
-    },
-    {
-      "name": "assets/ChevronDownIcon-chunk-PLKlQ51b.js.map",
-      "size": 830,
-      "sizeFormatted": "830 Bytes",
-      "type": "map"
-    },
-    {
-      "name": "assets/KeyIcon-chunk-CGVye1AA.js.map",
-      "size": 815,
-      "sizeFormatted": "815 Bytes",
-      "type": "map"
     },
     {
       "name": "assets/Dashboard-CCNfw6fC.css",
@@ -1352,199 +668,277 @@
       "type": "css"
     },
     {
-      "name": "assets/CameraIcon-chunk-x1gIgl04.js",
-      "size": 808,
-      "sizeFormatted": "808 Bytes",
+      "name": "assets/useModalForm-CVnuycb1.js",
+      "size": 809,
+      "sizeFormatted": "809 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/useCurrency-chunk-BuIgaN1U.js",
-      "size": 768,
-      "sizeFormatted": "768 Bytes",
+      "name": "assets/useCurrency-BlGkYFq1.js",
+      "size": 799,
+      "sizeFormatted": "799 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/useReconciliation-chunk-BvlczNXJ.js",
-      "size": 759,
-      "sizeFormatted": "759 Bytes",
+      "name": "assets/CameraIcon-Bns9PTqb.js",
+      "size": 741,
+      "sizeFormatted": "741 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/PiggyBankIcon-chunk-BYi_jEBB.js",
-      "size": 754,
-      "sizeFormatted": "754 Bytes",
+      "name": "test-no-sw.html",
+      "size": 736,
+      "sizeFormatted": "736 Bytes",
+      "type": "html"
+    },
+    {
+      "name": "assets/RepeatIcon-BORhGdMJ.js",
+      "size": 717,
+      "sizeFormatted": "717 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/Documents-Documents.tsx-COud2W9W.js",
-      "size": 740,
-      "sizeFormatted": "740 Bytes",
+      "name": "assets/useReconciliation-DyKSrgJV.js",
+      "size": 701,
+      "sizeFormatted": "701 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/PageWrapper-chunk-BiGVyNl0.js",
-      "size": 714,
-      "sizeFormatted": "714 Bytes",
+      "name": "assets/Welcome-DyILuWUn.js",
+      "size": 698,
+      "sizeFormatted": "698 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/WrenchIcon-chunk-DX5PSW5s.js.map",
-      "size": 686,
-      "sizeFormatted": "686 Bytes",
-      "type": "map"
-    },
-    {
-      "name": "assets/MapPinIcon-chunk-DBac7Mqa.js",
-      "size": 670,
-      "sizeFormatted": "670 Bytes",
+      "name": "assets/PaletteIcon-DOkrnMEV.js",
+      "size": 690,
+      "sizeFormatted": "690 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/PhoneIcon-chunk-ClUHpVZ0.js",
-      "size": 634,
-      "sizeFormatted": "634 Bytes",
+      "name": "index.html",
+      "size": 663,
+      "sizeFormatted": "663 Bytes",
+      "type": "html"
+    },
+    {
+      "name": "assets/PiggyBankIcon-2v2p1MGL.js",
+      "size": 651,
+      "sizeFormatted": "651 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/UserIcon-chunk-MlVH2E1G.js",
-      "size": 627,
-      "sizeFormatted": "627 Bytes",
+      "name": "assets/PageWrapper-Bv0R6WTl.js",
+      "size": 646,
+      "sizeFormatted": "646 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/GridIcon-chunk-l_nc9Blp.js",
-      "size": 610,
-      "sizeFormatted": "610 Bytes",
+      "name": "test.html",
+      "size": 641,
+      "sizeFormatted": "641 Bytes",
+      "type": "html"
+    },
+    {
+      "name": "assets/MapPinIcon-CdM78jGf.js",
+      "size": 603,
+      "sizeFormatted": "603 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/UnlinkIcon-chunk-Chp06Kdq.js",
-      "size": 601,
-      "sizeFormatted": "601 Bytes",
+      "name": "assets/PhoneIcon-BtXdzqzF.js",
+      "size": 568,
+      "sizeFormatted": "568 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/Documents-Documents.tsx-COud2W9W.js.map",
-      "size": 572,
-      "sizeFormatted": "572 Bytes",
-      "type": "map"
-    },
-    {
-      "name": "assets/GripVerticalIcon-chunk-BOZqnS47.js",
-      "size": 563,
-      "sizeFormatted": "563 Bytes",
+      "name": "assets/UserIcon-q6g2f7tk.js",
+      "size": 562,
+      "sizeFormatted": "562 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/CalendarIcon-chunk-ZommLml8.js",
-      "size": 554,
-      "sizeFormatted": "554 Bytes",
+      "name": "assets/GridIcon-DYhhccSz.js",
+      "size": 512,
+      "sizeFormatted": "512 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/LightbulbIcon-chunk-BB1ffp2Y.js",
-      "size": 542,
-      "sizeFormatted": "542 Bytes",
+      "name": "assets/ToggleRightIcon-DAZiusWW.js",
+      "size": 509,
+      "sizeFormatted": "509 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/BanknoteIcon-chunk-mQx-x5sY.js",
-      "size": 535,
-      "sizeFormatted": "535 Bytes",
+      "name": "assets/SaveIcon-C9pLzCjN.js",
+      "size": 508,
+      "sizeFormatted": "508 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/ArrowDownIcon-chunk-CXVn8p0W.js",
-      "size": 524,
-      "sizeFormatted": "524 Bytes",
+      "name": "assets/UnlinkIcon-Dqjrwyl-.js",
+      "size": 501,
+      "sizeFormatted": "501 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/GlobeIcon-chunk-C1uyh5Uw.js",
-      "size": 514,
-      "sizeFormatted": "514 Bytes",
+      "name": "assets/differenceInDays-Du0_S0UZ.js",
+      "size": 472,
+      "sizeFormatted": "472 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/TrendingDownIcon-chunk-DhUkufNG.js",
-      "size": 456,
-      "sizeFormatted": "456 Bytes",
+      "name": "assets/GripVerticalIcon-D4tV4A_R.js",
+      "size": 457,
+      "sizeFormatted": "457 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/EyeIcon-chunk-CDAfVEBi.js",
-      "size": 442,
-      "sizeFormatted": "442 Bytes",
+      "name": "assets/LockIcon-CEQeaCY1.js",
+      "size": 452,
+      "sizeFormatted": "452 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/KeyIcon-chunk-CGVye1AA.js",
-      "size": 441,
-      "sizeFormatted": "441 Bytes",
+      "name": "assets/BanknoteIcon-D-RTe9sR.js",
+      "size": 433,
+      "sizeFormatted": "433 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/ArrowRightIcon-chunk-DAVnf5vG.js",
-      "size": 439,
-      "sizeFormatted": "439 Bytes",
+      "name": "assets/ArrowDownIcon-nD5X8m0B.js",
+      "size": 421,
+      "sizeFormatted": "421 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/ArrowLeftIcon-chunk-zHmnjpVg.js",
-      "size": 437,
-      "sizeFormatted": "437 Bytes",
+      "name": "assets/GlobeIcon-FGoZmE3l.js",
+      "size": 415,
+      "sizeFormatted": "415 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/ClockIcon-chunk-CWMg_B-n.js",
-      "size": 410,
-      "sizeFormatted": "410 Bytes",
+      "name": "assets/MailIcon-CNwbD14z.js",
+      "size": 396,
+      "sizeFormatted": "396 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/ActivityIcon-chunk-DybZNJsd.js",
-      "size": 399,
-      "sizeFormatted": "399 Bytes",
+      "name": "assets/TrendingDownIcon-yBqzZfM2.js",
+      "size": 350,
+      "sizeFormatted": "350 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/WrenchIcon-chunk-DX5PSW5s.js",
-      "size": 372,
-      "sizeFormatted": "372 Bytes",
+      "name": "assets/EyeIcon-CWSd4H2W.js",
+      "size": 345,
+      "sizeFormatted": "345 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/ChevronLeftIcon-chunk-bd1O9Li8.js",
-      "size": 324,
-      "sizeFormatted": "324 Bytes",
+      "name": "assets/KeyIcon-Co2byBw9.js",
+      "size": 344,
+      "sizeFormatted": "344 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/ChevronDownIcon-chunk-PLKlQ51b.js",
-      "size": 323,
-      "sizeFormatted": "323 Bytes",
+      "name": "assets/ArrowRightIcon-BB-PRm_F.js",
+      "size": 335,
+      "sizeFormatted": "335 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/BudgetContext-chunk-AGEsoBMG.js",
-      "size": 275,
-      "sizeFormatted": "275 Bytes",
+      "name": "assets/ArrowLeftIcon-BTt0vthV.js",
+      "size": 334,
+      "sizeFormatted": "334 Bytes",
       "type": "js"
     },
     {
-      "name": "assets/utils-chunk-l0sNRNKZ.js.map",
-      "size": 104,
-      "sizeFormatted": "104 Bytes",
-      "type": "map"
+      "name": "assets/subMonths-COZTRLiU.js",
+      "size": 334,
+      "sizeFormatted": "334 Bytes",
+      "type": "js"
     },
     {
-      "name": "assets/utils-chunk-l0sNRNKZ.js",
-      "size": 50,
-      "sizeFormatted": "50 Bytes",
+      "name": "assets/ActivityIcon-BSgoxUV-.js",
+      "size": 330,
+      "sizeFormatted": "330 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ClockIcon-DhKFk0Ix.js",
+      "size": 311,
+      "sizeFormatted": "311 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/Documents-DJOIRwJp.js",
+      "size": 299,
+      "sizeFormatted": "299 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/WrenchIcon-DkzmBDy4.js",
+      "size": 272,
+      "sizeFormatted": "272 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/startOfMonth-Co6VRyVJ.js",
+      "size": 262,
+      "sizeFormatted": "262 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/CopyIcon-Dt6bMv0H.js",
+      "size": 243,
+      "sizeFormatted": "243 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ChevronLeftIcon-kN2h--Qt.js",
+      "size": 219,
+      "sizeFormatted": "219 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ChevronDownIcon-BBgEm-4D.js",
+      "size": 218,
+      "sizeFormatted": "218 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/endOfYear-B6OXrYQt.js",
+      "size": 167,
+      "sizeFormatted": "167 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/index-DyXOrCa2.js",
+      "size": 67,
+      "sizeFormatted": "67 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "test.txt",
+      "size": 58,
+      "sizeFormatted": "58 Bytes",
+      "type": "txt"
+    },
+    {
+      "name": "test-module.js",
+      "size": 48,
+      "sizeFormatted": "48 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "safari-test-module.js",
+      "size": 36,
+      "sizeFormatted": "36 Bytes",
       "type": "js"
     }
   ],
-  "totalSize": 16969093,
+  "totalSize": 4353842,
   "limits": {
     "index.js": 1572864,
     "vendor.js": 2097152,

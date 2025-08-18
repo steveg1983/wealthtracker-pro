@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
+import { UserButton } from '@clerk/clerk-react';
 import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, LightbulbIcon, FileTextIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
+import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
+import { Breadcrumbs, MobileBreadcrumb } from './layout/Breadcrumbs';
+import { EnhancedSkipLinks, FocusIndicator, RouteAnnouncer } from './layout/AccessibilityImprovements';
 import OfflineIndicator from './OfflineIndicator';
 import { OfflineStatus } from './OfflineStatus';
 import { SyncConflictResolver } from './SyncConflictResolver';
@@ -18,9 +22,11 @@ import KeyboardShortcutsHelp, { useKeyboardShortcutsHelp } from './KeyboardShort
 import NotificationBell from './NotificationBell';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
+import { RealtimeStatusDot } from './RealtimeStatusIndicator';
 import MobileBottomNav from './MobileBottomNav';
-import { useSwipeGestures, useSwipeNavigation } from '../hooks/useSwipeGestures';
+import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import ErrorBoundary from './ErrorBoundary';
+import { FloatingActionButton } from './FloatingActionButton';
 
 interface SidebarLinkProps {
   to: string;
@@ -115,22 +121,36 @@ export default function Layout(): React.JSX.Element {
   const { isWideView } = useLayout();
   const { isOpen: isSearchOpen, openSearch, closeSearch } = useGlobalSearchDialog();
   const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
-  const { navigateToPage } = useSwipeNavigation();
+  // Swipe navigation removed - using standard React Router navigation
   
   // Initialize global keyboard shortcuts
   const { activeSequence } = useGlobalKeyboardShortcuts(openHelp);
+
+  // Simple page navigation helper
+  const getNextPrevPage = (direction: 'next' | 'prev', currentPath: string): string | null => {
+    const pages = ['/dashboard', '/accounts', '/transactions', '/investments', '/analytics'];
+    const currentIndex = pages.indexOf(currentPath);
+    
+    if (currentIndex === -1) return null;
+    
+    if (direction === 'next') {
+      return currentIndex < pages.length - 1 ? pages[currentIndex + 1] : null;
+    } else {
+      return currentIndex > 0 ? pages[currentIndex - 1] : null;
+    }
+  };
 
   // Swipe navigation for mobile
   const swipeRef = useSwipeGestures({
     onSwipeLeft: () => {
       if (window.innerWidth <= 768) { // Only on mobile
-        const nextPage = navigateToPage('next', location.pathname);
+        const nextPage = getNextPrevPage('next', location.pathname);
         if (nextPage) navigate(nextPage);
       }
     },
     onSwipeRight: () => {
       if (window.innerWidth <= 768) { // Only on mobile
-        const prevPage = navigateToPage('prev', location.pathname);
+        const prevPage = getNextPrevPage('prev', location.pathname);
         if (prevPage) navigate(prevPage);
       }
     },
@@ -232,6 +252,10 @@ export default function Layout(): React.JSX.Element {
 
   return (
     <div className="flex h-screen bg-tertiary dark:bg-gray-900">
+      <EnhancedSkipLinks />
+      <FocusIndicator />
+      <RouteAnnouncer />
+      
       {/* Skip links for keyboard navigation */}
       <div className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50">
         <a 
@@ -391,13 +415,34 @@ export default function Layout(): React.JSX.Element {
             >
               <SearchIcon size={20} className="text-gray-700 dark:text-gray-200" />
             </button>
+            <UserButton 
+              afterSignOutUrl="/"
+              appearance={{
+                elements: {
+                  avatarBox: "w-8 h-8",
+                  userButtonPopoverCard: "shadow-xl",
+                  userButtonPopoverActions: "mt-2"
+                }
+              }}
+            />
           </div>
         </div>
       </header>
       
-      {/* Desktop Notification Bell and Theme Switcher */}
-      <div className="hidden md:flex items-center gap-2 fixed top-4 right-4 z-30" role="toolbar" aria-label="User tools">
+      {/* Desktop Notification Bell, User Profile and Theme Switcher */}
+      <div className="hidden md:flex items-center gap-3 fixed top-4 right-4 z-30" role="toolbar" aria-label="User tools">
         <NotificationBell />
+        <RealtimeStatusDot />
+        <UserButton 
+          afterSignOutUrl="/"
+          appearance={{
+            elements: {
+              avatarBox: "w-10 h-10",
+              userButtonPopoverCard: "shadow-xl",
+              userButtonPopoverActions: "mt-2"
+            }
+          }}
+        />
       </div>
 
       {/* Mobile Menu */}
@@ -535,13 +580,57 @@ export default function Layout(): React.JSX.Element {
         ref={swipeRef as React.RefObject<HTMLElement>}
         id="main-content"
         className="flex-1 overflow-auto md:pl-0 mt-16 md:mt-0" 
+        style={{ WebkitOverflowScrolling: 'touch' }}
         role="main"
         aria-label="Main content"
         tabIndex={-1}
       >
+        <NavigationProgress />
+        
+        {/* Desktop Search Bar - Always Visible */}
+        <div className="hidden md:block sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex-1 max-w-2xl">
+              <button
+                onClick={openSearch}
+                className="w-full flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg text-left transition-colors group"
+                aria-label="Search transactions, accounts, and more"
+              >
+                <SearchIcon size={20} className="text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                <span className="text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">
+                  Search transactions, accounts, budgets...
+                </span>
+                <span className="ml-auto text-xs text-gray-400 dark:text-gray-500 font-mono">
+                  Ctrl+K
+                </span>
+              </button>
+            </div>
+            <div className="flex items-center gap-4 ml-6">
+              <NotificationBell />
+              <RealtimeStatusDot />
+              <UserButton 
+                afterSignOutUrl="/"
+                appearance={{
+                  elements: {
+                    avatarBox: "w-8 h-8",
+                    userButtonPopoverCard: "shadow-xl",
+                    userButtonPopoverActions: "mt-2"
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </div>
+        
+        <MobileBreadcrumb />
         <MobilePullToRefreshWrapper>
           <div className="p-4 md:p-6 lg:p-8 max-w-7xl mx-auto pb-20 md:pb-8">
-            <Outlet />
+            <div className="hidden sm:block">
+              <Breadcrumbs />
+            </div>
+            <PageTransition>
+              <Outlet />
+            </PageTransition>
           </div>
         </MobilePullToRefreshWrapper>
       </main>
@@ -587,6 +676,9 @@ export default function Layout(): React.JSX.Element {
       
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />
+      
+      {/* Floating Action Button for quick transaction entry */}
+      <FloatingActionButton />
     </div>
   );
 }

@@ -26,11 +26,12 @@ export const SkipLinks: React.FC<SkipLinksProps> = ({ links = defaultLinks }) =>
       className="skip-links"
       aria-label="Skip links"
     >
-      {links.map((link) => (
+      {links.map((link, index) => (
         <a
           key={link.href}
           href={link.href}
           className="skip-link"
+          style={{ marginLeft: index > 0 ? '8px' : '0' }}
         >
           {link.label}
         </a>

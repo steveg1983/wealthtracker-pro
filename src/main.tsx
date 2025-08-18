@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux'
+import { ClerkProvider } from '@clerk/clerk-react'
 import { store } from './store'
 import './index.css'
 import App from './App.tsx'
@@ -9,15 +10,24 @@ import { initializeSecurity } from './security'
 import { pushNotificationService } from './services/pushNotificationService'
 // import { initSentry } from './lib/sentry'
 
+// Get Clerk publishable key
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+if (!PUBLISHABLE_KEY) {
+  console.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
+}
+
 // Initialize all security features
 initializeSecurity();
 
-// Unregister any existing service worker to fix errors
+// Clean up old service workers (for migration)
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.getRegistrations().then(registrations => {
-    for (let registration of registrations) {
-      registration.unregister();
-      console.log('[ServiceWorker] Unregistered:', registration.scope);
+    for (const registration of registrations) {
+      // Only unregister if it's not our current service worker
+      if (!registration.active?.scriptURL.includes('sw.js')) {
+        registration.unregister();
+        console.log('[ServiceWorker] Unregistered old:', registration.scope);
+      }
     }
   });
 }
@@ -49,9 +59,11 @@ try {
     console.log('Starting React app...');
     createRoot(root).render(
       <StrictMode>
-        <Provider store={store}>
-          <App />
-        </Provider>
+        <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
+          <Provider store={store}>
+            <App />
+          </Provider>
+        </ClerkProvider>
       </StrictMode>,
     );
     console.log('React app rendered');
@@ -60,10 +72,6 @@ try {
   console.error('Error rendering app:', error);
 }
 
-// Service worker temporarily disabled to fix offline issues
-// Uncomment below to re-enable service worker
-
-/*
 // Register service worker for offline support
 let swRegistration: ServiceWorkerRegistration | null = null;
 
@@ -105,4 +113,3 @@ serviceWorkerRegistration.register({
     window.dispatchEvent(new Event('app-online'));
   }
 });
-*/

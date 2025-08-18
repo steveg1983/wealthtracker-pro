@@ -23,10 +23,10 @@ export const performanceMetrics = {
   }
 };
 
-export async function measurePerformance(page: any, operation: () => Promise<void>) {
+export async function measurePerformance(page: { evaluate: (fn: () => unknown) => Promise<unknown> }, operation: () => Promise<void>) {
   const startTime = performance.now();
   const startMetrics = await page.evaluate(() => ({
-    memory: (performance as any).memory?.usedJSHeapSize || 0,
+    memory: (performance as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize || 0,
     entries: performance.getEntries().length,
   }));
   
@@ -34,7 +34,7 @@ export async function measurePerformance(page: any, operation: () => Promise<voi
   
   const endTime = performance.now();
   const endMetrics = await page.evaluate(() => ({
-    memory: (performance as any).memory?.usedJSHeapSize || 0,
+    memory: (performance as { memory?: { usedJSHeapSize: number } }).memory?.usedJSHeapSize || 0,
     entries: performance.getEntries().length,
   }));
   

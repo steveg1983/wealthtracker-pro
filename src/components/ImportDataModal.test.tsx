@@ -4,10 +4,13 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
 import '@testing-library/jest-dom';
 import ImportDataModal from './ImportDataModal';
+import { useApp } from '../contexts/AppContext';
+import { parseMNY, parseMBF, applyMappingToData } from '../utils/mnyParser';
+import { parseQIF } from '../utils/qifParser';
 
 // Mock all icon components
 vi.mock('./icons/UploadIcon', () => ({
@@ -90,19 +93,14 @@ vi.mock('./MnyMappingModal', () => ({
 }));
 
 // Mock parsing utilities
-const mockParseMNY = vi.fn();
-const mockParseMBF = vi.fn();
-const mockApplyMappingToData = vi.fn();
-
 vi.mock('../utils/mnyParser', () => ({
-  parseMNY: (buffer: ArrayBuffer) => mockParseMNY(buffer),
-  parseMBF: (buffer: ArrayBuffer) => mockParseMBF(buffer),
-  applyMappingToData: (data: any, mapping: any) => mockApplyMappingToData(data, mapping)
+  parseMNY: vi.fn(),
+  parseMBF: vi.fn(),
+  applyMappingToData: vi.fn()
 }));
 
-const mockParseQIF = vi.fn();
 vi.mock('../utils/qifParser', () => ({
-  parseQIF: (content: string) => mockParseQIF(content)
+  parseQIF: vi.fn()
 }));
 
 // Mock AppContext
@@ -114,13 +112,7 @@ const mockAccounts = [
 ];
 
 vi.mock('../contexts/AppContext', () => ({
-  useApp: () => ({
-    addAccount: mockAddAccount,
-    addTransaction: mockAddTransaction,
-    accounts: mockAccounts,
-    hasTestData: false,
-    clearAllData: mockClearAllData
-  })
+  useApp: vi.fn()
 }));
 
 describe('ImportDataModal', () => {
@@ -129,13 +121,42 @@ describe('ImportDataModal', () => {
   // Helper to create File objects with required methods
   const createFile = (content: string, name: string, type: string = 'text/plain') => {
     const file = new File([content], name, { type });
-    file.text = vi.fn().mockResolvedValue(content);
-    file.arrayBuffer = vi.fn().mockResolvedValue(new ArrayBuffer(content.length));
+    // Mock the text method
+    Object.defineProperty(file, 'text', {
+      value: vi.fn().mockResolvedValue(content),
+      writable: true
+    });
+    // Mock the arrayBuffer method
+    Object.defineProperty(file, 'arrayBuffer', {
+      value: vi.fn().mockResolvedValue(new ArrayBuffer(content.length)),
+      writable: true
+    });
     return file;
   };
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Set default return values for mocks
+    vi.mocked(parseQIF).mockReturnValue({
+      accounts: [],
+      transactions: []
+    });
+    vi.mocked(parseMNY).mockResolvedValue({
+      accounts: [],
+      transactions: []
+    });
+    vi.mocked(parseMBF).mockResolvedValue({
+      accounts: [],
+      transactions: []
+    });
+    // Set default mock for useApp
+    vi.mocked(useApp).mockReturnValue({
+      addAccount: mockAddAccount,
+      addTransaction: mockAddTransaction,
+      accounts: mockAccounts,
+      hasTestData: false,
+      clearAllData: mockClearAllData
+    } as any);
   });
 
   afterEach(() => {
@@ -193,9 +214,9 @@ describe('ImportDataModal', () => {
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
       
       const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
-      mockParseQIF.mockResolvedValue({
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [],
         transactions: []
       });
@@ -216,15 +237,18 @@ describe('ImportDataModal', () => {
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
       
       const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       // Make file.text take time to simulate slow file reading  
-      file.text = vi.fn().mockImplementation(() => new Promise(resolve => setTimeout(() => resolve('content'), 50)));
+      Object.defineProperty(file, 'text', {
+        value: vi.fn().mockImplementation(() => new Promise(resolve => setTimeout(() => resolve('content'), 50))),
+        writable: true
+      });
       
-      mockParseQIF.mockImplementation(() => new Promise(resolve => setTimeout(() => resolve({
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [],
         transactions: []
-      }), 100)));
+      });
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -243,15 +267,16 @@ describe('ImportDataModal', () => {
 
   describe('File Parsing', () => {
     it('parses QIF files', async () => {
-      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = new File(['QIF content'], 'test.qif', { type: 'text/plain' });
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
+      // Set up the parseQIF mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [{ name: 'Test Account', type: 'checking', balance: 1000 }],
         transactions: [{ date: new Date(), amount: 100, description: 'Test', type: 'income', category: 'Other' }]
       });
+      
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      
+      const file = createFile('QIF content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -261,7 +286,7 @@ describe('ImportDataModal', () => {
       fireEvent.change(input);
       
       await waitFor(() => {
-        expect(mockParseQIF).toHaveBeenCalledWith('QIF content');
+        expect(vi.mocked(parseQIF)).toHaveBeenCalledWith('QIF content');
         expect(screen.getByText('Found 1 accounts and 1 transactions')).toBeInTheDocument();
       });
     });
@@ -284,7 +309,7 @@ describe('ImportDataModal', () => {
       `;
       
       const file = createFile(ofxContent, 'test.ofx');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -302,9 +327,9 @@ describe('ImportDataModal', () => {
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
       
       const file = createFile('binary content', 'test.mny', 'application/octet-stream');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
-      mockParseMNY.mockResolvedValue({
+      vi.mocked(parseMNY).mockResolvedValue({
         accounts: [],
         transactions: [],
         needsMapping: true,
@@ -327,9 +352,11 @@ describe('ImportDataModal', () => {
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
       
       const file = createFile('invalid content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
-      mockParseQIF.mockRejectedValue(new Error('Invalid QIF format'));
+      vi.mocked(parseQIF).mockImplementation(() => {
+        throw new Error('Invalid QIF format');
+      });
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -348,7 +375,7 @@ describe('ImportDataModal', () => {
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
       
       const file = createFile('content', 'test.txt');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -365,12 +392,8 @@ describe('ImportDataModal', () => {
 
   describe('Preview Display', () => {
     it('shows account and transaction counts', async () => {
-      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
+      // Set up mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [
           { name: 'Checking', type: 'checking', balance: 1000 },
           { name: 'Savings', type: 'savings', balance: 5000 }
@@ -383,6 +406,11 @@ describe('ImportDataModal', () => {
           category: 'Other' 
         })
       });
+      
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      
+      const file = createFile('content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -399,18 +427,19 @@ describe('ImportDataModal', () => {
     });
 
     it('shows account details in preview', async () => {
-      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
+      // Set up mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [
           { name: 'My Checking', type: 'checking', balance: 1000 },
           { name: 'My Savings', type: 'savings', balance: 5000 }
         ],
         transactions: []
       });
+      
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      
+      const file = createFile('content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -426,12 +455,8 @@ describe('ImportDataModal', () => {
     });
 
     it('truncates long account lists', async () => {
-      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
+      // Set up mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: Array(10).fill(null).map((_, i) => ({ 
           name: `Account ${i}`, 
           type: 'checking', 
@@ -439,6 +464,11 @@ describe('ImportDataModal', () => {
         })),
         transactions: []
       });
+      
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      
+      const file = createFile('content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -454,18 +484,19 @@ describe('ImportDataModal', () => {
     });
 
     it('shows date range for transactions', async () => {
-      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
+      // Set up mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [],
         transactions: [
           { date: new Date('2024-01-01'), amount: 100, description: 'First', type: 'income', category: 'Other' },
           { date: new Date('2024-12-31'), amount: 200, description: 'Last', type: 'expense', category: 'Other' }
         ]
       });
+      
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      
+      const file = createFile('content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -484,15 +515,16 @@ describe('ImportDataModal', () => {
 
   describe('Import Functionality', () => {
     it('enables import button when data is ready', async () => {
-      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
+      // Set up mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [{ name: 'Test', type: 'checking', balance: 1000 }],
         transactions: []
       });
+      
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      
+      const file = createFile('content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -510,23 +542,25 @@ describe('ImportDataModal', () => {
     it('disables import button without data', () => {
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
       
-      const importButton = screen.getByText('Import Data');
+      // The button element is the one containing "Import Data" text
+      const importButton = screen.getByText('Import Data').closest('button');
+      expect(importButton).toBeDisabled();
       expect(importButton).toHaveClass('cursor-not-allowed');
-      expect(importButton.parentElement).toBeDisabled();
     });
 
     it('imports accounts and transactions', async () => {
-      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
+      // Set up mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [{ name: 'New Account', type: 'checking', balance: 1000 }],
         transactions: [
           { date: new Date(), amount: 100, description: 'Test', type: 'income', category: 'Other' }
         ]
       });
+      
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      
+      const file = createFile('content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -555,15 +589,16 @@ describe('ImportDataModal', () => {
     });
 
     it('shows success message after import', async () => {
-      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
+      // Set up mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [{ name: 'Test', type: 'checking', balance: 1000 }],
         transactions: []
       });
+      
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      
+      const file = createFile('content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -572,10 +607,16 @@ describe('ImportDataModal', () => {
       
       fireEvent.change(input);
       
+      // Wait for the import button to be enabled
       await waitFor(() => {
-        fireEvent.click(screen.getByText('Import Data'));
+        const importButton = screen.getByText('Import Data').closest('button');
+        expect(importButton).not.toBeDisabled();
       });
       
+      // Click the import button
+      fireEvent.click(screen.getByText('Import Data'));
+      
+      // Wait for success message
       await waitFor(() => {
         expect(screen.getByText(/Successfully imported/)).toBeInTheDocument();
         expect(screen.getByTestId('check-circle-icon')).toBeInTheDocument();
@@ -583,15 +624,16 @@ describe('ImportDataModal', () => {
     });
 
     it('skips existing accounts', async () => {
-      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
+      // Set up mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [{ name: 'Checking', type: 'checking', balance: 2000 }], // Same name as existing
         transactions: []
       });
+      
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      
+      const file = createFile('content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -612,28 +654,25 @@ describe('ImportDataModal', () => {
 
   describe('Test Data Warning', () => {
     it('shows warning when test data exists', async () => {
-      const { rerender } = render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      // Mock useApp to return hasTestData as true
+      vi.mocked(useApp).mockReturnValue({
+        addAccount: mockAddAccount,
+        addTransaction: mockAddTransaction,
+        accounts: mockAccounts,
+        hasTestData: true,
+        clearAllData: mockClearAllData
+      } as any);
       
-      // Simulate having test data
-      vi.mocked(vi.fn()).mockImplementation(() => ({
-        useApp: () => ({
-          addAccount: mockAddAccount,
-          addTransaction: mockAddTransaction,
-          accounts: mockAccounts,
-          hasTestData: true,
-          clearAllData: mockClearAllData
-        })
-      }));
-      
-      rerender(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
-      
-      const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
+      // Set up mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
         accounts: [{ name: 'Test', type: 'checking', balance: 1000 }],
         transactions: []
       });
+      
+      render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
+      
+      const file = createFile('content', 'test.qif');
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -642,10 +681,16 @@ describe('ImportDataModal', () => {
       
       fireEvent.change(input);
       
+      // Wait for the import button to be enabled
       await waitFor(() => {
-        fireEvent.click(screen.getByText('Import Data'));
+        const importButton = screen.getByText('Import Data').closest('button');
+        expect(importButton).not.toBeDisabled();
       });
       
+      // Click the import button
+      fireEvent.click(screen.getByText('Import Data'));
+      
+      // Wait for test data warning
       await waitFor(() => {
         expect(screen.getByText('Test Data Detected')).toBeInTheDocument();
       });
@@ -657,9 +702,9 @@ describe('ImportDataModal', () => {
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
       
       const file = createFile('binary', 'test.mny', 'application/octet-stream');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
-      mockParseMNY.mockResolvedValue({
+      vi.mocked(parseMNY).mockResolvedValue({
         accounts: [],
         transactions: [],
         needsMapping: true,
@@ -682,16 +727,16 @@ describe('ImportDataModal', () => {
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
       
       const file = createFile('binary', 'test.mny', 'application/octet-stream');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
-      mockParseMNY.mockResolvedValue({
+      vi.mocked(parseMNY).mockResolvedValue({
         accounts: [],
         transactions: [],
         needsMapping: true,
         rawData: [{ col1: 'data' }]
       });
       
-      mockApplyMappingToData.mockReturnValue({
+      vi.mocked(applyMappingToData).mockReturnValue({
         accounts: [{ name: 'Mapped Account', type: 'checking', balance: 1000 }],
         transactions: []
       });
@@ -710,7 +755,7 @@ describe('ImportDataModal', () => {
       fireEvent.click(screen.getByText('Apply Mapping'));
       
       await waitFor(() => {
-        expect(mockApplyMappingToData).toHaveBeenCalled();
+        expect(vi.mocked(applyMappingToData)).toHaveBeenCalled();
         expect(screen.getByText(/Mapped 1 accounts/)).toBeInTheDocument();
       });
     });
@@ -726,17 +771,16 @@ describe('ImportDataModal', () => {
     });
 
     it('closes modal after successful import', async () => {
-      vi.useFakeTimers();
+      // Set up mock before rendering
+      vi.mocked(parseQIF).mockReturnValue({
+        accounts: [{ name: 'Test', type: 'checking', balance: 1000 }],
+        transactions: []
+      });
       
       render(<ImportDataModal isOpen={true} onClose={mockOnClose} />);
       
       const file = createFile('content', 'test.qif');
-      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]')!;
-      
-      mockParseQIF.mockResolvedValue({
-        accounts: [{ name: 'Test', type: 'checking', balance: 1000 }],
-        transactions: []
-      });
+      const input = screen.getByText('Choose File').parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
       
       Object.defineProperty(input, 'files', {
         value: [file],
@@ -745,22 +789,24 @@ describe('ImportDataModal', () => {
       
       fireEvent.change(input);
       
+      // Wait for the import button to be enabled
       await waitFor(() => {
-        fireEvent.click(screen.getByText('Import Data'));
+        const importButton = screen.getByText('Import Data').closest('button');
+        expect(importButton).not.toBeDisabled();
       });
       
+      // Click the import button
+      fireEvent.click(screen.getByText('Import Data'));
+      
+      // Wait for success message which appears after import
       await waitFor(() => {
         expect(screen.getByText(/Successfully imported/)).toBeInTheDocument();
       });
       
-      // Fast-forward the 2000ms setTimeout for closing the modal
-      await act(async () => {
-        vi.advanceTimersByTime(2000);
-      });
-      
-      expect(mockOnClose).toHaveBeenCalled();
-      
-      vi.useRealTimers();
+      // The modal closes after 2 seconds, so wait for that
+      await waitFor(() => {
+        expect(mockOnClose).toHaveBeenCalled();
+      }, { timeout: 3000 });
     });
   });
 

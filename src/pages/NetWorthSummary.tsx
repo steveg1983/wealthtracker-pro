@@ -257,11 +257,11 @@ export default function NetWorthSummary() {
                               ? 'text-green-600 dark:text-green-400' 
                               : 'text-red-600 dark:text-red-400'
                           }`}>
-                            {formatCurrency(Math.abs(account.convertedBalance))}
+                            {formatCurrency(account.convertedBalance)}
                           </p>
                           {account.currency !== displayCurrency && (
                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {account.currency} {Math.abs(account.balance).toLocaleString()}
+                              {account.currency} {account.balance.toLocaleString()}
                             </p>
                           )}
                         </div>

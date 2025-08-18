@@ -65,10 +65,11 @@ export default function EnhancedExportModal({
         startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         endDate = new Date(now.getFullYear(), now.getMonth(), 0);
         break;
-      case 'this-quarter':
+      case 'this-quarter': {
         const quarterStart = Math.floor(now.getMonth() / 3) * 3;
         startDate = new Date(now.getFullYear(), quarterStart, 1);
         break;
+      }
       case 'this-year':
         startDate = new Date(now.getFullYear(), 0, 1);
         break;

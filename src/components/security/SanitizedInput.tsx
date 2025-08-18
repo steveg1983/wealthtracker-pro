@@ -42,34 +42,38 @@ export const SanitizedInput: React.FC<SanitizedInputProps> = ({
       case 'text':
         return sanitizeText(value);
 
-      case 'number':
+      case 'number': {
         const num = sanitizeNumber(value);
         if (value && num === 0 && value !== '0') {
           setError('Please enter a valid number');
         }
         return num;
+      }
 
-      case 'decimal':
+      case 'decimal': {
         const decimal = sanitizeDecimal(value, decimals);
         if (value && parseFloat(decimal) === 0 && value !== '0') {
           setError('Please enter a valid decimal number');
         }
         return decimal;
+      }
 
-      case 'url':
+      case 'url': {
         const url = sanitizeURL(value);
         if (value && !url) {
           setError('Please enter a valid URL');
         }
         return url;
+      }
 
-      case 'email':
+      case 'email': {
         const email = sanitizeText(value);
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (value && !emailRegex.test(email)) {
           setError('Please enter a valid email');
         }
         return email;
+      }
 
       case 'query':
         return sanitizeQuery(value);

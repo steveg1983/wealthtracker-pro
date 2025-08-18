@@ -428,11 +428,7 @@ describe('StockPriceService', () => {
       });
 
       mockRetryWithBackoff.mockImplementation(async (fn) => {
-        try {
-          return await fn();
-        } catch (error) {
-          throw error; // Let invalid symbols fail
-        }
+        return await fn(); // Let invalid symbols fail
       });
 
       const quotes = await getMultipleStockQuotes(symbols);

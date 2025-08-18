@@ -24,7 +24,7 @@ export function SectionCard({
       <div className={`bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-gray-800/50 dark:to-gray-700/50 backdrop-blur-sm border-b border-blue-200/50 dark:border-gray-600/50 px-6 py-4 ${headerClassName}`}>
         <div className="flex items-center gap-3">
           {icon && <div className="text-blue-600 dark:text-blue-400">{icon}</div>}
-          <h2 className={`text-lg font-semibold text-theme-heading dark:text-white ${titleClassName}`}>{title}</h2>
+          <h2 className={`text-lg font-semibold text-white ${titleClassName}`}>{title}</h2>
         </div>
       </div>
       <div className={`p-6 ${contentClassName}`}>

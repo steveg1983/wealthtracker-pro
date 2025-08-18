@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BudgetModal from './BudgetModal';
 import type { Budget } from '../types';
@@ -27,7 +27,12 @@ vi.mock('../contexts/AppContext', () => ({
 }));
 
 vi.mock('./common/Modal', () => ({
-  Modal: ({ isOpen, children, title, onClose }: any) => 
+  Modal: ({ isOpen, children, title, onClose }: {
+    isOpen: boolean;
+    children: React.ReactNode;
+    title: string;
+    onClose: () => void;
+  }) => 
     isOpen ? (
       <div data-testid="modal" role="dialog" aria-label={title}>
         <div data-testid="modal-title">{title}</div>
@@ -35,12 +40,15 @@ vi.mock('./common/Modal', () => ({
         {children}
       </div>
     ) : null,
-  ModalBody: ({ children, className }: any) => <div data-testid="modal-body" className={className}>{children}</div>,
-  ModalFooter: ({ children }: any) => <div data-testid="modal-footer">{children}</div>,
+  ModalBody: ({ children, className }: {
+    children: React.ReactNode;
+    className?: string;
+  }) => <div data-testid="modal-body" className={className}>{children}</div>,
+  ModalFooter: ({ children }: { children: React.ReactNode }) => <div data-testid="modal-footer">{children}</div>,
 }));
 
 vi.mock('../hooks/useModalForm', () => ({
-  useModalForm: (initialData: any, config: any) => ({
+  useModalForm: (initialData: unknown, config: unknown) => ({
     formData: {
       category: '',
       amount: '',

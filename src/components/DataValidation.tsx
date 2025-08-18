@@ -537,7 +537,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
         console.log('Account Adjustments category not found, creating it...');
         
         // First check if the parent category exists
-        let adjustmentParent = categories.find(c => c.id === 'sub-adjustments');
+        const adjustmentParent = categories.find(c => c.id === 'sub-adjustments');
         
         if (!adjustmentParent) {
           // Create the parent category first

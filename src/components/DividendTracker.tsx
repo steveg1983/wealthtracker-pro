@@ -318,60 +318,122 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
         {dividends.length === 0 ? (
           <p className="text-center text-gray-500 py-8">No dividend records found</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b dark:border-gray-700">
-                  <th className="text-left py-2">Date</th>
-                  <th className="text-left py-2">Symbol</th>
-                  <th className="text-right py-2">Amount</th>
-                  <th className="text-right py-2">Per Share</th>
-                  <th className="text-center py-2">Type</th>
-                  <th className="text-center py-2">Frequency</th>
-                  <th className="text-right py-2">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {dividends.map(dividend => (
-                  <tr key={dividend.id} className="border-b dark:border-gray-700">
-                    <td className="py-2">{dividend.paymentDate.toLocaleDateString()}</td>
-                    <td className="py-2 font-medium">{dividend.symbol}</td>
-                    <td className="py-2 text-right">{formatCurrency(dividend.amount)}</td>
-                    <td className="py-2 text-right text-sm text-gray-600 dark:text-gray-400">
-                      {currencySymbol}{dividend.amountPerShare.toFixed(4)}
-                    </td>
-                    <td className="py-2 text-center">
-                      <span className={`text-xs px-2 py-1 rounded ${
-                        dividend.type === 'special' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
-                        'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
-                      }`}>
-                        {dividend.type}
+          <>
+            {/* Mobile card view */}
+            <div className="sm:hidden space-y-3">
+              {dividends.map(dividend => (
+                <div key={dividend.id} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white text-lg">{dividend.symbol}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {dividend.paymentDate.toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setEditingDividend(dividend)}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-blue-600 hover:text-blue-900 dark:text-blue-400"
+                        title="Edit"
+                      >
+                        <EditIcon size={20} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDividend(dividend.id)}
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-red-600 hover:text-red-900 dark:text-red-400"
+                        title="Delete"
+                      >
+                        <DeleteIcon size={20} />
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className={`text-xs px-2 py-1 rounded ${
+                      dividend.type === 'special' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                      'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
+                    }`}>
+                      {dividend.type}
+                    </span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      {dividend.frequency}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400 block text-xs">Amount</span>
+                      <span className="text-gray-900 dark:text-white font-medium">
+                        {formatCurrency(dividend.amount)}
                       </span>
-                    </td>
-                    <td className="py-2 text-center text-sm">{dividend.frequency}</td>
-                    <td className="py-2 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => setEditingDividend(dividend)}
-                          className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded"
-                          title="Edit"
-                        >
-                          <EditIcon size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteDividend(dividend.id)}
-                          className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-gray-700 rounded"
-                          title="Delete"
-                        >
-                          <DeleteIcon size={16} />
-                        </button>
-                      </div>
-                    </td>
+                    </div>
+                    <div>
+                      <span className="text-gray-500 dark:text-gray-400 block text-xs">Per Share</span>
+                      <span className="text-gray-900 dark:text-white">
+                        {currencySymbol}{dividend.amountPerShare.toFixed(4)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table view */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-secondary dark:bg-gray-700">
+                  <tr className="border-b border-[#5A729A] dark:border-gray-600">
+                    <th className="text-left py-3 px-4 text-white text-sm font-medium">Date</th>
+                    <th className="text-left py-3 px-4 text-white text-sm font-medium">Symbol</th>
+                    <th className="text-right py-3 px-4 text-white text-sm font-medium">Amount</th>
+                    <th className="text-right py-3 px-4 text-white text-sm font-medium">Per Share</th>
+                    <th className="text-center py-3 px-4 text-white text-sm font-medium">Type</th>
+                    <th className="text-center py-3 px-4 text-white text-sm font-medium">Frequency</th>
+                    <th className="text-right py-3 px-4 text-white text-sm font-medium">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {dividends.map(dividend => (
+                    <tr key={dividend.id} className="border-b dark:border-gray-700">
+                      <td className="py-3 px-4">{dividend.paymentDate.toLocaleDateString()}</td>
+                      <td className="py-3 px-4 font-medium">{dividend.symbol}</td>
+                      <td className="py-3 px-4 text-right">{formatCurrency(dividend.amount)}</td>
+                      <td className="py-3 px-4 text-right text-sm text-gray-600 dark:text-gray-400">
+                        {currencySymbol}{dividend.amountPerShare.toFixed(4)}
+                      </td>
+                      <td className="py-3 px-4 text-center">
+                        <span className={`text-xs px-2 py-1 rounded ${
+                          dividend.type === 'special' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' :
+                          'bg-gray-100 text-gray-700 dark:bg-gray-600 dark:text-gray-300'
+                        }`}>
+                          {dividend.type}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center text-sm">{dividend.frequency}</td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => setEditingDividend(dividend)}
+                            className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded"
+                            title="Edit"
+                          >
+                            <EditIcon size={16} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteDividend(dividend.id)}
+                            className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-gray-700 rounded"
+                            title="Delete"
+                          >
+                            <DeleteIcon size={16} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
 

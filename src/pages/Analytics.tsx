@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContext';
 import { BarChart3Icon, TrendingUpIcon, ArrowUpRightIcon, ArrowDownRightIcon } from '../components/icons';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, LineChart, Line, Legend } from 'recharts';
+// Use optimized lazy-loaded charts to reduce bundle size
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, LineChart, Line, Legend } from '../components/charts/OptimizedCharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useLayoutConfig } from '../hooks/useLayoutConfig';
 import { DraggableGrid } from '../components/layout/DraggableGrid';

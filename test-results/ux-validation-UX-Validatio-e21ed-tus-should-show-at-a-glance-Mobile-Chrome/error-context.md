@@ -1,0 +1,6 @@
+# Page snapshot
+
+```yaml
+- paragraph: Loading...
+- paragraph: Authenticating...
+```

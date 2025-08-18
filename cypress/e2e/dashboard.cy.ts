@@ -89,7 +89,7 @@ describe('Dashboard User Journey', () => {
 
   it('should update data when refreshing', () => {
     // Get initial value
-    cy.get('[data-testid="net-worth"], .net-worth').first().invoke('text').then((initialValue) => {
+    cy.get('[data-testid="net-worth"], .net-worth').first().invoke('text').then(() => {
       // Refresh the page
       cy.reload();
       cy.waitForDataLoad();

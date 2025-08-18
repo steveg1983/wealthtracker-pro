@@ -28,7 +28,7 @@ export const AccessibilityDashboard: React.FC = () => {
   } = useAccessibilityAudit({ autoAudit: true });
 
   const [activeTab, setActiveTab] = React.useState<'overview' | 'issues' | 'colors' | 'guidelines'>('overview');
-  const [colorContrastResults, setColorContrastResults] = React.useState<any[]>([]);
+  const [colorContrastResults, setColorContrastResults] = React.useState<Array<{ fg: string; bg: string; result: unknown }>>([]);
 
   React.useEffect(() => {
     // Run color contrast audit
@@ -346,7 +346,7 @@ export const AccessibilityDashboard: React.FC = () => {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => setActiveTab(tab.id as 'overview' | 'issues' | 'colors' | 'guidelines')}
                   className={`
                     py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2
                     ${activeTab === tab.id 

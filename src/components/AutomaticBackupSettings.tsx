@@ -12,16 +12,16 @@ import {
   XCircleIcon,
   AlertCircleIcon,
   RefreshCwIcon,
-  LockIcon,
-  CalendarIcon
+  LockIcon
+  // CalendarIcon // Currently unused
 } from './icons';
 
 export default function AutomaticBackupSettings() {
   const { addNotification } = useNotifications();
   const [config, setConfig] = useState<BackupConfig>(automaticBackupService.getBackupConfig());
-  const [backupHistory, setBackupHistory] = useState<any[]>([]);
-  const [storedBackups, setStoredBackups] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [backupHistory, setBackupHistory] = useState<unknown[]>([]);
+  const [storedBackups, setStoredBackups] = useState<unknown[]>([]);
+  // const [loading, setLoading] = useState(false); // Currently unused
   const [testingBackup, setTestingBackup] = useState(false);
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function AutomaticBackupSettings() {
         title: 'Backup Downloaded',
         message: 'The backup file has been downloaded'
       });
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Download Failed',
@@ -107,7 +107,7 @@ export default function AutomaticBackupSettings() {
         title: 'Backup Deleted',
         message: 'The backup has been deleted'
       });
-    } catch (error) {
+    } catch {
       addNotification({
         type: 'error',
         title: 'Delete Failed',
@@ -165,7 +165,7 @@ export default function AutomaticBackupSettings() {
                 </label>
                 <select
                   value={config.frequency}
-                  onChange={(e) => handleConfigChange({ frequency: e.target.value as any })}
+                  onChange={(e) => handleConfigChange({ frequency: e.target.value as 'daily' | 'weekly' | 'monthly' })}
                   className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="daily">Daily</option>
@@ -194,7 +194,7 @@ export default function AutomaticBackupSettings() {
               </label>
               <select
                 value={config.format}
-                onChange={(e) => handleConfigChange({ format: e.target.value as any })}
+                onChange={(e) => handleConfigChange({ format: e.target.value as 'json' | 'csv' | 'all' })}
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="json">JSON (Recommended)</option>

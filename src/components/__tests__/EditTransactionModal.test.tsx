@@ -8,11 +8,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '../../test/testUtils';
-import { EditTransactionModal } from '../EditTransactionModal';
+import EditTransactionModal from '../EditTransactionModal';
 
 describe('EditTransactionModal', () => {
   const defaultProps = {
-    // Add default props based on component interface
+    isOpen: true,
+    onClose: vi.fn(),
+    transaction: null
   };
 
   beforeEach(() => {
