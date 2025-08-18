@@ -10,7 +10,7 @@ test.describe('UX Validation - Critical User Workflows', () => {
   test.beforeEach(async ({ page }) => {
     // Set up test authentication to bypass Clerk
     await setupTestAuth(page);
-    await page.goto('http://localhost:5174');
+    await page.goto('http://localhost:5173');
     await page.waitForLoadState('networkidle');
   });
 
@@ -42,10 +42,15 @@ test.describe('UX Validation - Critical User Workflows', () => {
   test('Account balance should be visible without navigation', async ({ page }) => {
     // From dashboard, all account balances should be visible
     await setupTestAuth(page);
-    await page.goto('http://localhost:5174/dashboard');
+    await page.goto('http://localhost:5173/dashboard?testMode=true');
     
-    // Wait for content to load
-    await page.waitForLoadState('networkidle');
+    // Wait for content to load - longer timeout for authentication
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
+    
+    // Wait for the page to be fully loaded (not showing Loading/Authenticating)
+    await page.waitForSelector('text=/Loading Wealth Tracker.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
+    await page.waitForSelector('text=/Loading.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
+    await page.waitForSelector('text=/Authenticating.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
     
     // Check if account balances are visible - look for our new account balance cards
     const accountBalances = page.locator('[data-testid="account-balance-card"]').or(
@@ -62,10 +67,14 @@ test.describe('UX Validation - Critical User Workflows', () => {
 
   test('Budget status should show at a glance', async ({ page }) => {
     await setupTestAuth(page);
-    await page.goto('http://localhost:5174/dashboard');
+    await page.goto('http://localhost:5173/dashboard');
     
-    // Wait for content to load
-    await page.waitForLoadState('networkidle');
+    // Wait for content to load - longer timeout for authentication
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
+    
+    // Wait for the page to be fully loaded (not showing Loading/Authenticating)
+    await page.waitForSelector('text=/Loading.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
+    await page.waitForSelector('text=/Authenticating.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
     
     // Budget status should be visible on dashboard - look for our new budget status section
     const budgetIndicators = page.locator('[data-testid="budget-status"]').or(
@@ -85,7 +94,7 @@ test.describe('UX Validation - Critical User Workflows', () => {
     // Set mobile viewport
     await page.setViewportSize({ width: 375, height: 667 });
     await setupTestAuth(page);
-    await page.goto('http://localhost:5174/transactions');
+    await page.goto('http://localhost:5173/transactions');
     
     // Check if swipeable indicators exist
     const transactionRows = page.locator('.transaction-row').or(
@@ -113,25 +122,35 @@ test.describe('UX Validation - Critical User Workflows', () => {
     
     for (const path of pages) {
       await setupTestAuth(page);
-      await page.goto(`http://localhost:5174${path}`);
-      await page.waitForLoadState('networkidle');
+      // Add testMode param to URL to ensure test mode is active
+      await page.goto(`http://localhost:5173${path}?testMode=true`);
+      await page.waitForLoadState('networkidle', { timeout: 10000 });
       
-      // Look for search input or search button - updated to match our new search bar
-      const searchInput = page.locator('input[type="search"]').or(
-        page.locator('input[placeholder*="Search"]').or(
-          page.locator('text=/Search transactions/')  // Our new search bar text
-        )
+      // Wait for the page to be fully loaded (not showing Loading/Authenticating)
+      await page.waitForSelector('text=/Loading Wealth Tracker.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
+      await page.waitForSelector('text=/Loading.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
+      await page.waitForSelector('text=/Authenticating.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
+      
+      // Look for search input or search button - check both desktop and mobile
+      // Desktop: button with search text or Ctrl+K hint
+      const desktopSearchButton = page.locator('button:has-text("Search transactions")').or(
+        page.locator('button:has-text("Ctrl+K")')
       );
-      const searchButton = page.locator('button[aria-label*="Search"]').or(
-        page.locator('button:has-text("Search")').or(
-          page.locator('button:has-text("Ctrl+K")')  // Our search shortcut indicator
-        )
+      
+      // Mobile: button with Search aria-label
+      const mobileSearchButton = page.locator('button[aria-label="Search"]');
+      
+      // Also check for any search inputs
+      const searchInput = page.locator('input[type="search"]').or(
+        page.locator('input[placeholder*="Search"]')
       );
       
       // Use first() to avoid strict mode violations when multiple search elements exist
+      const desktopSearchVisible = await desktopSearchButton.first().isVisible().catch(() => false);
+      const mobileSearchVisible = await mobileSearchButton.first().isVisible().catch(() => false);
       const searchInputVisible = await searchInput.first().isVisible().catch(() => false);
-      const searchButtonVisible = await searchButton.first().isVisible().catch(() => false);
-      const searchAccessible = searchInputVisible || searchButtonVisible;
+      
+      const searchAccessible = desktopSearchVisible || mobileSearchVisible || searchInputVisible;
       expect(searchAccessible).toBeTruthy();
     }
   });
@@ -139,7 +158,15 @@ test.describe('UX Validation - Critical User Workflows', () => {
   test('Form validation should provide inline feedback', async ({ page }) => {
     // Navigate to add transaction
     await setupTestAuth(page);
-    await page.goto('http://localhost:5174/transactions');
+    await page.goto('http://localhost:5173/transactions');
+    
+    // Wait for content to load - longer timeout for authentication
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
+    
+    // Wait for the page to be fully loaded (not showing Loading/Authenticating)
+    await page.waitForSelector('text=/Loading.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
+    await page.waitForSelector('text=/Authenticating.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
+    
     const addButton = page.locator('button:has-text("Add")').first();
     
     if (await addButton.isVisible()) {
@@ -163,7 +190,7 @@ test.describe('UX Validation - Critical User Workflows', () => {
 
   test('Loading states should be clear and informative', async ({ page }) => {
     await setupTestAuth(page);
-    await page.goto('http://localhost:5174/transactions');
+    await page.goto('http://localhost:5173/transactions');
     
     // Check for loading indicators
     const loadingIndicators = page.locator('.loading').or(
@@ -184,8 +211,14 @@ test.describe('UX Validation - Critical User Workflows', () => {
   test('Empty states should guide users', async ({ page }) => {
     // Check various empty states
     await setupTestAuth(page);
-    await page.goto('http://localhost:5174/goals');
-    await page.waitForLoadState('networkidle');
+    await page.goto('http://localhost:5173/goals');
+    
+    // Wait for content to load - longer timeout for authentication
+    await page.waitForLoadState('networkidle', { timeout: 10000 });
+    
+    // Wait for the page to be fully loaded (not showing Loading/Authenticating)
+    await page.waitForSelector('text=/Loading.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
+    await page.waitForSelector('text=/Authenticating.../', { state: 'hidden', timeout: 10000 }).catch(() => {});
     
     // Check if we have the empty state with our new data-testid
     const emptyState = page.locator('[data-testid="empty-state"]').or(
@@ -197,7 +230,7 @@ test.describe('UX Validation - Critical User Workflows', () => {
     );
     
     // Either we have goals displayed OR we have an empty state
-    const hasEmptyState = await emptyState.first().isVisible();
+    const hasEmptyState = await emptyState.first().isVisible().catch(() => false);
     // Use first() to avoid strict mode violation with multiple elements
     const hasGoals = await page.locator('text=/Active Goals/').first().isVisible().catch(() => false);
     
@@ -216,7 +249,7 @@ test.describe('UX Validation - Friction Points', () => {
     
     // Measure each task and report
     await setupTestAuth(page);
-    await page.goto('http://localhost:5174');
+    await page.goto('http://localhost:5173');
     
     // Task 1: Add transaction
     let clicks = 0;
@@ -247,7 +280,7 @@ test.describe('UX Validation - Friction Points', () => {
 test.describe('UX Validation - User Preferences', () => {
   test('Should remember last used category', async ({ page }) => {
     await setupTestAuth(page);
-    await page.goto('http://localhost:5174/transactions');
+    await page.goto('http://localhost:5173/transactions');
     
     // Add a transaction with a specific category
     // Then add another and check if category is pre-selected
@@ -258,7 +291,7 @@ test.describe('UX Validation - User Preferences', () => {
   
   test('Should maintain filter state during session', async ({ page }) => {
     await setupTestAuth(page);
-    await page.goto('http://localhost:5174/transactions');
+    await page.goto('http://localhost:5173/transactions');
     
     // Apply a filter
     const filterButton = page.locator('button:has-text("Filter")').first();
@@ -267,8 +300,8 @@ test.describe('UX Validation - User Preferences', () => {
       
       // Select a filter option
       // Navigate away and back
-      await page.goto('http://localhost:5174/dashboard');
-      await page.goto('http://localhost:5174/transactions');
+      await page.goto('http://localhost:5173/dashboard');
+      await page.goto('http://localhost:5173/transactions');
       
       // Filter should still be applied
       // Check if filter indicators are visible

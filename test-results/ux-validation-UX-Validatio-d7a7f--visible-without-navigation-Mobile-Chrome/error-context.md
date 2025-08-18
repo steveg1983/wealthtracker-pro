@@ -1,6 +1,78 @@
 # Page snapshot
 
 ```yaml
-- paragraph: Loading...
-- paragraph: Authenticating...
+- navigation "Skip links":
+  - link "Skip to main content":
+    - /url: "#main-content"
+  - link "Skip to navigation":
+    - /url: "#navigation"
+  - link "Skip to search":
+    - /url: "#search"
+- status
+- link "Skip to main content":
+  - /url: "#main-content"
+- link "Skip to navigation":
+  - /url: "#main-navigation"
+- banner:
+  - button "Open navigation menu":
+    - img
+  - heading "Wealth Tracker" [level=1]
+  - button "Notifications":
+    - img
+  - button "Search":
+    - img
+- main "Main content":
+  - 'heading "The #1 Personal Finance App That Just Works" [level=1]'
+  - paragraph: Apple-level quality meets financial excellence. Track, manage, and grow your wealth with the most intuitive finance app ever created.
+  - button "Start Free Trial"
+  - button "Sign In"
+  - img
+  - text: Bank-level Security
+  - img
+  - text: Works Offline
+  - img
+  - text: Touch ID/Face ID
+  - img
+  - heading "Intelligent Analytics" [level=3]
+  - paragraph: AI-powered insights that actually help you save money and make better financial decisions.
+  - img
+  - heading "Investment Tracking" [level=3]
+  - paragraph: Real-time portfolio monitoring with automated rebalancing suggestions.
+  - img
+  - heading "Multi-User Support" [level=3]
+  - paragraph: Securely manage household finances with role-based access control.
+  - heading "Free to Start, Powerful to Scale" [level=2]
+  - paragraph: Start with our free tier and unlock premium features as you grow
+  - heading "Free" [level=3]
+  - paragraph: Essential features
+  - heading "Pro" [level=3]
+  - paragraph: Advanced analytics
+  - heading "Business" [level=3]
+  - paragraph: Team collaboration
+  - paragraph: © 2024 WealthTracker. Built with excellence.
+- button "Quick actions":
+  - img
+- navigation "Mobile navigation":
+  - link "Home":
+    - /url: /
+    - img
+    - text: Home
+  - link "Accounts":
+    - /url: /accounts
+    - img
+    - text: Accounts
+  - link "Invest":
+    - /url: /investments
+    - img
+    - text: Invest
+  - link "Analytics":
+    - /url: /analytics
+    - img
+    - text: Analytics
+  - link "Settings":
+    - /url: /settings
+    - img
+    - text: Settings
+- button "Add new transaction (Ctrl+N)":
+  - img
 ```
