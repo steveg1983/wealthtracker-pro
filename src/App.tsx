@@ -25,6 +25,7 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { PublicRoute } from './components/auth/PublicRoute';
 import { ProtectedSuspense } from './components/auth/ProtectedSuspense';
 import RealtimeSyncTest from './components/RealtimeSyncTest';
+import { isDemoMode, initializeDemoData } from './utils/demoData';
 
 // Lazy load all pages for code splitting with preload support
 // Using webpack magic comments for better chunk naming and preloading hints
@@ -81,6 +82,12 @@ function App(): React.JSX.Element {
     };
     
     initApp();
+    
+    // Initialize demo mode if requested
+    if (isDemoMode()) {
+      initializeDemoData();
+      console.log('🎭 Demo mode activated - Using sample data for UI/UX testing');
+    }
     
     // Simplified storage check - don't auto-clear
     console.log('App starting with clean storage');

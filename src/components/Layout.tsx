@@ -27,6 +27,7 @@ import MobileBottomNav from './MobileBottomNav';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import ErrorBoundary from './ErrorBoundary';
 import { FloatingActionButton } from './FloatingActionButton';
+import DemoModeIndicator from './DemoModeIndicator';
 
 interface SidebarLinkProps {
   to: string;
@@ -252,6 +253,7 @@ export default function Layout(): React.JSX.Element {
 
   return (
     <div className="flex h-screen bg-tertiary dark:bg-gray-900">
+      <DemoModeIndicator />
       <EnhancedSkipLinks />
       <FocusIndicator />
       <RouteAnnouncer />

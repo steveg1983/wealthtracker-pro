@@ -19,14 +19,18 @@ export function ProtectedRoute({
   const { isLoaded, isSignedIn, userId } = useAuth();
   const location = useLocation();
   
-  // Check if we're in test mode (for Playwright tests)
+  // Check if we're in test mode (for Playwright tests) or demo mode (for UI/UX testing)
   const isTestMode = typeof window !== 'undefined' && (
     window.localStorage.getItem('isTestMode') === 'true' ||
     new URLSearchParams(window.location.search).get('testMode') === 'true'
   );
+  
+  const isDemoMode = typeof window !== 'undefined' && (
+    new URLSearchParams(window.location.search).get('demo') === 'true'
+  );
 
-  // Show loading state while Clerk is initializing (skip in test mode)
-  if (!isLoaded && !isTestMode) {
+  // Show loading state while Clerk is initializing (skip in test mode or demo mode)
+  if (!isLoaded && !isTestMode && !isDemoMode) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -38,8 +42,8 @@ export function ProtectedRoute({
     );
   }
 
-  // Redirect to home if not signed in (unless in test mode)
-  if (!isSignedIn && !isTestMode) {
+  // Redirect to home if not signed in (unless in test mode or demo mode)
+  if (!isSignedIn && !isTestMode && !isDemoMode) {
     // Store the attempted location for redirect after login
     sessionStorage.setItem('redirectAfterLogin', location.pathname);
     return <Navigate to={fallbackPath} replace />;

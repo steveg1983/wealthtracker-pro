@@ -2,6 +2,185 @@
 
 This file tracks potential improvements and updates for the CLAUDE.md developer guide.
 
+## Review Date: 2025-01-18 (PWA Icon Generation Complete)
+
+### PWA Icon Generation Successfully Implemented
+
+#### What We Accomplished
+Successfully generated all proper PNG icons for the PWA, replacing the SVG placeholders:
+
+1. **Icon Generation Script Created** ✅
+   - Created `generate-pwa-icons-node.js` using Node.js Canvas library
+   - Generates all required PWA icon sizes from code
+   - No external dependencies beyond npm package
+   
+2. **Icons Generated** ✅
+   - 8 standard PWA icons (72x72 to 512x512)
+   - Apple Touch Icon (180x180)
+   - Favicon (32x32)
+   - All are proper PNG files with correct dimensions
+   
+3. **Technical Implementation** ✅
+   - Used Canvas API to draw icons programmatically
+   - Included WealthTracker logo design (dollar sign with chart bars)
+   - Text added to larger icons (192px+) for better visibility
+   - Proper rounded corners and brand colors (#8EA9DB)
+
+#### Files Created/Modified
+- `/scripts/generate-pwa-icons-node.js` - Icon generation script
+- `/public/icon-*.png` - All PWA icon sizes
+- `/public/apple-touch-icon.png` - iOS home screen icon
+- `/public/favicon.ico` - Browser favicon (PNG format)
+
+#### Next Steps for Production
+The PWA icons are now ready for deployment. When deployed to production:
+1. Icons will appear correctly on home screens
+2. App will be installable with proper branding
+3. Splash screens will show WealthTracker logo
+4. Browser tabs will display favicon
+
+## Review Date: 2025-01-13 (Multi-User Deployment & Testing Setup Complete)
+
+### MAJOR MILESTONE: Production-Ready Multi-User Testing
+
+#### What We Accomplished
+Successfully deployed a fully functional multi-user SaaS application ready for beta testing:
+
+1. **Vercel Deployment Working** ✅
+   - Fixed JavaScript module MIME type errors
+   - Proper static file serving configuration
+   - Environment variables properly configured
+   - Live at: https://wealthtracker-web.vercel.app
+
+2. **Authentication System (Clerk)** ✅
+   - Multi-user support with isolated data
+   - Email/password authentication
+   - Test mode for Playwright E2E tests
+   - Proper CSP configuration for Clerk domains
+
+3. **Payment Processing (Stripe)** ✅
+   - Test mode configured
+   - Test cards documented (4242 4242 4242 4242)
+   - Subscription tiers ready
+   - CSP configured for Stripe frames
+
+4. **Database (Supabase)** ✅
+   - Cloud database connected
+   - User data isolation configured
+   - Row-level security ready
+   - Migration from v6 UUID investigated
+
+5. **PWA Features** ✅
+   - Service worker for offline support
+   - PWA icons generated
+   - Manifest configured
+   - Background sync ready
+
+6. **Testing Infrastructure** ✅
+   - Playwright E2E tests fixed (port 5173)
+   - Test authentication bypass implemented
+   - Browser-specific tests mostly passing
+   - CI/CD pipeline configured
+
+#### Key Technical Fixes Implemented
+
+1. **Vercel Deployment Issues**
+   - Fixed vercel.json to exclude static files from SPA rewrites
+   - Added proper Content-Type headers
+   - Generated PWA icons (SVG placeholders)
+
+2. **Environment Variable Solution**
+   - Created .env.production with actual keys
+   - Configured Vercel environment variables
+   - Added env-check debugging utility
+
+3. **Content Security Policy**
+   - Added Clerk domains for auth
+   - Added Stripe domains for payments
+   - Added Supabase for backend
+   - Frame-src for Stripe payment forms
+
+4. **Test Infrastructure**
+   - Fixed port mismatch (5174 → 5173)
+   - Implemented setupTestAuth helper
+   - Added testMode URL parameter support
+
+#### Current System Status
+
+**Ready for Production Testing:**
+- ✅ Multi-user authentication working
+- ✅ Payment processing in test mode
+- ✅ Database connectivity established
+- ✅ Offline support functioning
+- ✅ PWA features operational
+
+**Minor Non-Critical Issues:**
+- Clerk telemetry blocked by CSP (doesn't affect functionality)
+- PWA icons are SVG placeholders (works but not ideal)
+- Some browser-specific test failures remain
+
+#### Deployment Strategy Clarified
+
+**Current Setup (Recommended to Keep):**
+- Single Vercel deployment for all testers
+- Automatic preview deployments for branches
+- Simple and sufficient for 2-person testing
+
+**Future Scaling Path:**
+- Development → Staging → Production environments
+- Only needed when real customers/payments begin
+- Vercel preview deployments provide isolation now
+
+#### Testing Instructions Created
+
+Created comprehensive TESTER_INSTRUCTIONS.txt with:
+- Signup process
+- Test credit card details
+- Feature testing checklist
+- Browser compatibility list
+- Issue reporting guidelines
+
+#### Next Steps for Production
+
+1. **Immediate (Testing Phase):**
+   - Monitor user signups in Clerk dashboard
+   - Track any errors in Vercel logs
+   - Gather feedback from second tester
+
+2. **Before Real Users:**
+   - Generate proper PNG icons for PWA
+   - Set up proper domain (wealthtracker.app)
+   - Move sensitive keys to Vercel env vars only
+   - Set up staging environment
+
+3. **For Production Launch:**
+   - Switch Stripe to live mode
+   - Enable email verification in Clerk
+   - Set up proper backup strategy
+   - Implement monitoring (Sentry, etc.)
+
+#### Lessons Learned This Session
+
+1. **Environment Variables in Vercel:**
+   - Must be set in dashboard AND available during build
+   - .env.production helps for build-time access
+   - Publishable keys are safe to commit (not secret keys)
+
+2. **CSP Configuration:**
+   - Each external service needs explicit permission
+   - Frame-src needed for payment forms
+   - Telemetry can be blocked without issues
+
+3. **Testing Strategy:**
+   - Start simple, add complexity when needed
+   - Vercel's preview deployments are powerful
+   - Port configuration must match across all tests
+
+4. **"Slower is Faster" Proven Again:**
+   - Proper diagnosis of issues saves hours
+   - Understanding root causes prevents repetition
+   - Systematic approach beats trial and error
+
 ## Review Date: 2025-08-16 (Project Goals & SaaS Vision Added)
 
 ### Major Strategic Addition: PROJECT GOALS & VISION Section
