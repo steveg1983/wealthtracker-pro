@@ -44,6 +44,55 @@ function cleanSymbol(symbol: string): string {
 }
 
 /**
+ * Generate mock stock data for demo mode
+ */
+function generateMockStockQuote(symbol: string): StockQuote {
+  // Generate realistic but fake stock prices
+  const mockData: Record<string, { price: number; name: string; change: number }> = {
+    'AAPL': { price: 189.50, name: 'Apple Inc.', change: 2.34 },
+    'GOOGL': { price: 142.75, name: 'Alphabet Inc.', change: -1.12 },
+    'MSFT': { price: 378.20, name: 'Microsoft Corporation', change: 4.56 },
+    'AMZN': { price: 156.80, name: 'Amazon.com Inc.', change: 1.89 },
+    'TSLA': { price: 245.30, name: 'Tesla Inc.', change: -5.67 },
+    'META': { price: 512.40, name: 'Meta Platforms Inc.', change: 3.21 },
+    'NVDA': { price: 723.90, name: 'NVIDIA Corporation', change: 12.45 },
+    'BRK.B': { price: 367.50, name: 'Berkshire Hathaway Inc.', change: 0.98 },
+    'JPM': { price: 195.60, name: 'JPMorgan Chase & Co.', change: 2.10 },
+    'V': { price: 276.30, name: 'Visa Inc.', change: 1.45 }
+  };
+
+  const defaultMock = {
+    price: 100 + Math.random() * 400,
+    name: `${symbol} Corp.`,
+    change: (Math.random() - 0.5) * 10
+  };
+
+  const data = mockData[symbol.toUpperCase()] || defaultMock;
+  const price = toDecimal(data.price);
+  const change = toDecimal(data.change);
+  const changePercent = price.greaterThan(0) ? change.dividedBy(price.minus(change)).times(100) : toDecimal(0);
+  const previousClose = price.minus(change);
+
+  return {
+    symbol: symbol.toUpperCase(),
+    price,
+    currency: 'USD',
+    change,
+    changePercent,
+    previousClose,
+    marketCap: price.times(toDecimal(Math.random() * 1000000000 + 100000000)),
+    volume: Math.floor(Math.random() * 50000000 + 1000000),
+    dayHigh: price.times(toDecimal(1 + Math.random() * 0.02)),
+    dayLow: price.times(toDecimal(1 - Math.random() * 0.02)),
+    fiftyTwoWeekHigh: price.times(toDecimal(1.2 + Math.random() * 0.3)),
+    fiftyTwoWeekLow: price.times(toDecimal(0.5 + Math.random() * 0.3)),
+    name: data.name,
+    exchange: 'NASDAQ',
+    lastUpdated: new Date()
+  };
+}
+
+/**
  * Get stock quote from Yahoo Finance
  */
 export async function getStockQuote(symbol: string): Promise<StockQuote | null> {
@@ -53,6 +102,15 @@ export async function getStockQuote(symbol: string): Promise<StockQuote | null> 
     // Validate symbol
     if (!cleanedSymbol || cleanedSymbol.length > 10) {
       throw new Error('Invalid stock symbol');
+    }
+
+    // Check if we're in demo mode
+    const urlParams = new URLSearchParams(window.location.search);
+    const isDemoMode = urlParams.get('demo') === 'true';
+    
+    if (isDemoMode) {
+      // Return mock data for demo mode
+      return generateMockStockQuote(cleanedSymbol);
     }
     
     // Check cache first
