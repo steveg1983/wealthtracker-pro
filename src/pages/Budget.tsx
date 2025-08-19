@@ -355,7 +355,7 @@ export default function Budget() {
                   {budget.isActive === false && ' (Inactive)'}
                 </p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-3">
                 <button
                   onClick={() => handleToggleActive(budget.id, budget.isActive)}
                   className={`px-3 py-1 text-sm rounded ${
@@ -368,10 +368,11 @@ export default function Budget() {
                 </button>
                 <IconButton
                   onClick={() => handleEdit(budget)}
-                  icon={<EditIcon size={18} />}
+                  icon={<EditIcon size={20} />}
                   variant="ghost"
-                  size="sm"
-                  className="text-gray-500 hover:text-gray-700"
+                  size="md"
+                  className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[44px] min-h-[44px]"
+                  title="Edit Budget"
                 />
                 <IconButton
                   onClick={() => {
@@ -379,10 +380,11 @@ export default function Budget() {
                       deleteBudget(budget.id);
                     }
                   }}
-                  icon={<DeleteIcon size={18} />}
+                  icon={<DeleteIcon size={20} />}
                   variant="ghost"
-                  size="sm"
-                  className="text-gray-500 hover:text-gray-700"
+                  size="md"
+                  className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 min-w-[44px] min-h-[44px]"
+                  title="Delete Budget"
                 />
               </div>
             </div>

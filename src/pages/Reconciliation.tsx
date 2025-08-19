@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { ChevronRightIcon, ChevronLeftIcon, ArrowLeftIcon, EditIcon, PlusIcon, DeleteIcon, XIcon, CheckCircleIcon, Building2Icon, CreditCardIcon, CircleDotIcon } from '../components/icons';
+import { preserveDemoParam } from '../utils/navigation';
 import { IconButton } from '../components/icons/IconButton';
 import HelpTooltip from '../components/HelpTooltip';
 import EditTransactionModal from '../components/EditTransactionModal';
@@ -16,6 +17,7 @@ export default function Reconciliation() {
   const { transactions, accounts, updateTransaction, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
   const [selectedAccount, setSelectedAccount] = useState<string | null>(
     searchParams.get('account') || null
   );
@@ -270,12 +272,18 @@ export default function Reconciliation() {
 
   const handleBackToAccounts = () => {
     setSelectedAccount(null);
-    setSearchParams({});
+    // Preserve demo mode when clearing search params
+    const isDemoMode = new URLSearchParams(location.search).get('demo') === 'true';
+    setSearchParams(isDemoMode ? { demo: 'true' } : {});
   };
 
   const handleSelectAccount = (accountId: string) => {
     setSelectedAccount(accountId);
-    setSearchParams({ account: accountId });
+    // Preserve demo mode when setting account
+    const isDemoMode = new URLSearchParams(location.search).get('demo') === 'true';
+    const params: any = { account: accountId };
+    if (isDemoMode) params.demo = 'true';
+    setSearchParams(params);
   };
 
   // totalUnreconciledCount now comes from useReconciliation hook

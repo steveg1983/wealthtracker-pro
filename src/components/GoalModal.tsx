@@ -61,12 +61,23 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
 
   useEffect(() => {
     if (goal) {
+      // Handle targetDate whether it's a Date object or string
+      let targetDateString = "";
+      if (goal.targetDate) {
+        if (goal.targetDate instanceof Date) {
+          targetDateString = goal.targetDate.toISOString().split("T")[0];
+        } else if (typeof goal.targetDate === 'string') {
+          // If it's already a string, ensure it's in YYYY-MM-DD format
+          targetDateString = goal.targetDate.split("T")[0];
+        }
+      }
+      
       setFormData({
         name: goal.name,
         type: goal.type,
         targetAmount: goal.targetAmount.toString(),
         currentAmount: goal.currentAmount.toString(),
-        targetDate: goal.targetDate.toISOString().split("T")[0],
+        targetDate: targetDateString,
         description: goal.description || "",
         linkedAccountIds: goal.linkedAccountIds || [],
         isActive: goal.isActive,

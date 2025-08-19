@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
+import { preserveDemoParam } from '../utils/navigation';
 import AddAccountModal from '../components/AddAccountModal';
 import AccountReconciliationModal from '../components/AccountReconciliationModal';
 import BalanceAdjustmentModal from '../components/BalanceAdjustmentModal';
@@ -19,6 +20,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const { accounts, updateAccount, deleteAccount } = useApp();
   const { formatCurrency: formatDisplayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBalance, setEditBalance] = useState('');
@@ -244,7 +246,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                       if (onAccountClick) {
                         onAccountClick(account.id);
                       } else {
-                        navigate(`/accounts/${account.id}`);
+                        navigate(preserveDemoParam(`/accounts/${account.id}`, location.search));
                       }
                     }}
                   >
@@ -336,15 +338,15 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 </button>
                                 )}
                               </div>
-                              {/* Fixed icon positions */}
-                              <div className="flex items-center gap-1">
+                              {/* Fixed icon positions with better spacing */}
+                              <div className="flex items-center gap-2">
                                 <div className="relative group">
                                   <IconButton
                                     onClick={() => setSettingsAccountId(account.id)}
-                                    icon={<SettingsIcon size={16} />}
+                                    icon={<SettingsIcon size={18} />}
                                     variant="ghost"
-                                    size="sm"
-                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                    size="md"
+                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[44px] min-h-[44px]"
                                     title="Account Settings"
                                   />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
@@ -356,7 +358,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                   className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="Reconcile Account"
                                 >
-                                  <CheckCircleIcon size={16} />
+                                  <CheckCircleIcon size={18} />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
                                     Reconcile Account
                                   </span>
@@ -364,10 +366,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 <div className="relative group">
                                   <IconButton
                                     onClick={() => handleEdit(account.id, account.balance)}
-                                    icon={<EditIcon size={16} />}
+                                    icon={<EditIcon size={18} />}
                                     variant="ghost"
-                                    size="sm"
-                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                    size="md"
+                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[44px] min-h-[44px]"
                                     title="Edit Balance"
                                   />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
@@ -377,10 +379,10 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 <div className="relative group">
                                   <IconButton
                                     onClick={() => handleDelete(account.id)}
-                                    icon={<DeleteIcon size={16} />}
+                                    icon={<DeleteIcon size={18} />}
                                     variant="ghost"
-                                    size="sm"
-                                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30"
+                                    size="md"
+                                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 min-w-[44px] min-h-[44px]"
                                     title="Delete Account"
                                   />
                                   <span className="absolute bottom-full right-0 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
