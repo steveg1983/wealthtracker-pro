@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { HelpCircleIcon, XIcon } from './icons';
+import { InfoIcon, XIcon } from './icons';
 
 interface HelpTooltipProps {
   title: string;
@@ -60,7 +60,7 @@ export default function HelpTooltip({
         onClick={() => !showOnHover && setIsVisible(!isVisible)}
         aria-label={`Help: ${title}`}
       >
-        <HelpCircleIcon size={iconSize} />
+        <InfoIcon size={iconSize} />
       </button>
       
       {isVisible && (
