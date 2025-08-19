@@ -305,28 +305,40 @@ export default function Analytics() {
         <div key="category-breakdown">
           <GridItem key="category-breakdown-grid" title="Spending by Category">
             <div className="h-full min-h-[200px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <RePieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
-                  >
-                    {categoryData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value: number) => formatCurrency(value)}
-                    contentStyle={chartStyles.tooltip}
-                  />
-                </RePieChart>
-              </ResponsiveContainer>
+              {categoryData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <RePieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                    >
+                      {categoryData.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => formatCurrency(value)}
+                      contentStyle={chartStyles.tooltip}
+                    />
+                  </RePieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <BarChart3Icon className="mx-auto text-gray-400 mb-3" size={48} />
+                    <p className="text-gray-600 dark:text-gray-400">No spending data available</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                      Add transactions to see your spending breakdown
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </GridItem>
         </div>
@@ -401,12 +413,18 @@ export default function Analytics() {
         <div key="forecast">
           <GridItem key="forecast-grid" title="Financial Forecast">
             <div className="h-full min-h-[200px] flex items-center justify-center">
-              <div className="text-center">
-                <p className="text-gray-600 dark:text-gray-300 mb-2">
-                  Forecast visualization coming soon
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-300">
-                  This will show predicted income, expenses, and savings based on historical data
+              <div className="text-center p-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
+                  <TrendingUpIcon className="text-blue-600 dark:text-blue-400" size={32} />
+                </div>
+                <span className="inline-block px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-semibold rounded-full mb-3">
+                  COMING SOON
+                </span>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  AI-Powered Financial Forecasting
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md">
+                  Advanced predictive analytics will forecast your future income, expenses, and savings based on historical patterns and trends
                 </p>
               </div>
             </div>
@@ -415,15 +433,45 @@ export default function Analytics() {
 
         {/* Treemap Chart */}
         <div key="treemap">
-          <GridItem key="treemap-grid" title="Expense Breakdown (Treemap)">
-            <TreemapChart transactions={transactions} />
+          <GridItem key="treemap-grid" title="Expense Breakdown">
+            <div className="h-full min-h-[200px] flex items-center justify-center">
+              <div className="text-center p-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full mb-4">
+                  <BarChart3Icon className="text-purple-600 dark:text-purple-400" size={32} />
+                </div>
+                <span className="inline-block px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-semibold rounded-full mb-3">
+                  COMING SOON
+                </span>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Interactive Expense Breakdown
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md">
+                  Visualize your spending patterns with an interactive treemap showing hierarchical category breakdowns
+                </p>
+              </div>
+            </div>
           </GridItem>
         </div>
 
         {/* Sankey Chart */}
         <div key="sankey">
-          <GridItem key="sankey-grid" title="Cash Flow (Sankey)">
-            <SankeyChart transactions={transactions} accounts={accounts} />
+          <GridItem key="sankey-grid" title="Cash Flow">
+            <div className="h-full min-h-[200px] flex items-center justify-center">
+              <div className="text-center p-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
+                  <ArrowUpRightIcon className="text-green-600 dark:text-green-400" size={32} />
+                </div>
+                <span className="inline-block px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300 text-xs font-semibold rounded-full mb-3">
+                  COMING SOON
+                </span>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  Cash Flow Visualization
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 max-w-md">
+                  Track the flow of money through your accounts with an interactive Sankey diagram showing income sources and expense destinations
+                </p>
+              </div>
+            </div>
           </GridItem>
         </div>
         </DraggableGrid>

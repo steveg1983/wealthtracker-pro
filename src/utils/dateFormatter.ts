@@ -26,11 +26,11 @@ export function setUserLocale(locale: string): void {
 }
 
 // Determine if the user prefers UK date format (dd/mm/yyyy)
+// For consistency with UK market positioning, always use UK format
 export function isUKDateFormat(): boolean {
-  const locale = getUserLocale();
-  // Check for UK, Ireland, Australia, New Zealand, and other countries using dd/mm/yyyy
-  const ukFormatLocales = ['en-GB', 'en-IE', 'en-AU', 'en-NZ', 'en-IN', 'en-ZA'];
-  return ukFormatLocales.some(loc => locale.startsWith(loc));
+  // Always return true to ensure UK date format (dd/mm/yyyy) is used throughout
+  // This ensures consistency as requested in the UI/UX review
+  return true;
 }
 
 // Format date according to user's locale
@@ -52,7 +52,7 @@ export function formatDate(date: Date | string | null | undefined, options?: Int
   return dateObj.toLocaleDateString(locale, options || defaultOptions);
 }
 
-// Format date for display in short format (dd/mm/yyyy or mm/dd/yyyy)
+// Format date for display in short format (always dd/mm/yyyy for UK market)
 export function formatShortDate(date: Date | string | null | undefined): string {
   if (!date) return '';
   
@@ -63,11 +63,8 @@ export function formatShortDate(date: Date | string | null | undefined): string 
   const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
   const year = dateObj.getFullYear();
   
-  if (isUKDateFormat()) {
-    return `${day}/${month}/${year}`;
-  } else {
-    return `${month}/${day}/${year}`;
-  }
+  // Always use UK format (dd/mm/yyyy) for consistency
+  return `${day}/${month}/${year}`;
 }
 
 // Format date for input fields (always yyyy-mm-dd for HTML date inputs)
@@ -94,18 +91,12 @@ export function parseDate(dateString: string): Date | null {
     if (!isNaN(date.getTime())) return date;
   }
   
-  // Handle UK format (dd/mm/yyyy)
+  // Handle UK format (dd/mm/yyyy) - always parse as UK format
   if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateString)) {
     const parts = dateString.split('/');
-    if (isUKDateFormat()) {
-      // dd/mm/yyyy
-      const date = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-      if (!isNaN(date.getTime())) return date;
-    } else {
-      // mm/dd/yyyy
-      const date = new Date(parseInt(parts[2]), parseInt(parts[0]) - 1, parseInt(parts[1]));
-      if (!isNaN(date.getTime())) return date;
-    }
+    // Always parse as dd/mm/yyyy for UK market
+    const date = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    if (!isNaN(date.getTime())) return date;
   }
   
   // Try native Date parsing as fallback
@@ -165,7 +156,8 @@ export function formatRelativeDate(date: Date | string | null | undefined): stri
 
 // Get date format placeholder for input fields
 export function getDateFormatPlaceholder(): string {
-  return isUKDateFormat() ? 'dd/mm/yyyy' : 'mm/dd/yyyy';
+  // Always return UK format for consistency
+  return 'dd/mm/yyyy';
 }
 
 // Get month names in user's locale
