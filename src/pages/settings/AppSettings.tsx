@@ -4,6 +4,7 @@ import { usePreferences } from '../../contexts/PreferencesContext';
 import PageWrapper from '../../components/PageWrapper';
 import BudgetAlertSettings from '../../components/BudgetAlertSettings';
 import LargeTransactionAlertSettings from '../../components/LargeTransactionAlertSettings';
+import LocaleSelector from '../../components/settings/LocaleSelector';
 
 export default function AppSettings() {
   const navigate = useNavigate();
@@ -214,8 +215,11 @@ export default function AppSettings() {
         </div>
       </div>
 
+      {/* Locale & Date Format */}
+      <LocaleSelector />
+
       {/* Base Currency */}
-      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6">
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6 mb-6 mt-6">
         <div className="flex items-center gap-3 mb-4">
           <GlobeIcon className="text-gray-600 dark:text-gray-400" size={20} />
           <h2 className="text-xl font-semibold text-theme-heading dark:text-white">Base Currency</h2>

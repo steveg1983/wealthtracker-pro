@@ -105,6 +105,7 @@ export default function Layout(): React.JSX.Element {
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   const [accountsExpanded, setAccountsExpanded] = useState(false);
   const [forecastingExpanded, setForecastingExpanded] = useState(false);
+  const [advancedExpanded, setAdvancedExpanded] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
   const [currentConflict, setCurrentConflict] = useState<any>(null);
   const location = useLocation();
@@ -216,33 +217,7 @@ export default function Layout(): React.JSX.Element {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMobileMenuOpen, openSearch, openHelp]);
 
-  // Auto-expand/collapse sections based on current page
-  React.useEffect(() => {
-    // Settings section
-    if (location.pathname.startsWith('/settings')) {
-      setSettingsExpanded(true);
-    } else {
-      setSettingsExpanded(false);
-    }
-    
-    // Accounts section
-    if (location.pathname.startsWith('/accounts') || 
-        location.pathname.startsWith('/reconciliation') || 
-        location.pathname.startsWith('/transactions')) {
-      setAccountsExpanded(true);
-    } else {
-      setAccountsExpanded(false);
-    }
-    
-    // Forecasting section
-    if (location.pathname.startsWith('/forecasting') || 
-        location.pathname.startsWith('/budget') || 
-        location.pathname.startsWith('/goals')) {
-      setForecastingExpanded(true);
-    } else {
-      setForecastingExpanded(false);
-    }
-  }, [location.pathname]);
+  // Removed auto-expand logic - users control collapsible sections manually
 
   // Handle conflict resolution modal
   useEffect(() => {
@@ -322,15 +297,26 @@ export default function Layout(): React.JSX.Element {
             
             {/* Accounts with Sub-navigation */}
             <div>
-              <SidebarLink 
-                to="/accounts" 
-                icon={WalletIcon} 
-                label="Accounts" 
-                isCollapsed={isSidebarCollapsed}
-                hasSubItems={!isSidebarCollapsed}
-              />
+              {!isSidebarCollapsed ? (
+                <button
+                  onClick={() => setAccountsExpanded(!accountsExpanded)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                  aria-expanded={accountsExpanded}
+                  aria-label="Accounts section"
+                >
+                  <WalletIcon size={18} />
+                  <span className="flex-1 text-sm text-left">Accounts</span>
+                  <ChevronRightIcon 
+                    size={14} 
+                    className={`text-gray-400 transition-transform duration-200 ${accountsExpanded ? 'rotate-90' : ''}`} 
+                  />
+                </button>
+              ) : (
+                <SidebarLink to="/accounts" icon={WalletIcon} label="Accounts" isCollapsed={true} />
+              )}
               {accountsExpanded && !isSidebarCollapsed && (
                 <div className="mt-1 space-y-0.5">
+                  <SidebarLink to="/accounts" icon={WalletIcon} label="All Accounts" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} />
                 </div>
@@ -343,13 +329,23 @@ export default function Layout(): React.JSX.Element {
             {/* Forecasting with Sub-navigation */}
             {(showBudget || showGoals) && (
               <div>
-                <SidebarLink 
-                  to="/forecasting" 
-                  icon={LineChartIcon} 
-                  label="Forecasting" 
-                  isCollapsed={isSidebarCollapsed}
-                  hasSubItems={!isSidebarCollapsed}
-                />
+                {!isSidebarCollapsed ? (
+                  <button
+                    onClick={() => setForecastingExpanded(!forecastingExpanded)}
+                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                    aria-expanded={forecastingExpanded}
+                    aria-label="Forecasting section"
+                  >
+                    <LineChartIcon size={18} />
+                    <span className="flex-1 text-sm text-left">Forecasting</span>
+                    <ChevronRightIcon 
+                      size={14} 
+                      className={`text-gray-400 transition-transform duration-200 ${forecastingExpanded ? 'rotate-90' : ''}`} 
+                    />
+                  </button>
+                ) : (
+                  <SidebarLink to="/forecasting" icon={LineChartIcon} label="Forecasting" isCollapsed={true} />
+                )}
                 {forecastingExpanded && !isSidebarCollapsed && (
                   <div className="mt-1 space-y-0.5">
                     {showBudget && <SidebarLink to="/budget" icon={TargetIcon} label="Budget" isCollapsed={false} isSubItem={true} />}
@@ -360,25 +356,60 @@ export default function Layout(): React.JSX.Element {
             )}
             
             {showAnalytics && <SidebarLink to="/analytics" icon={BarChart3Icon} label="Analytics" isCollapsed={isSidebarCollapsed} />}
-            {showAIAnalytics && <SidebarLink to="/ai-analytics" icon={MagicWandIcon} label="AI Analytics" isCollapsed={isSidebarCollapsed} />}
-            <SidebarLink to="/ai-features" icon={LightbulbIcon} label="AI Features" isCollapsed={isSidebarCollapsed} />
-            <SidebarLink to="/custom-reports" icon={FileTextIcon} label="Custom Reports" isCollapsed={isSidebarCollapsed} />
-            {showTaxPlanning && <SidebarLink to="/tax-planning" icon={CalculatorIcon} label="Tax Planning" isCollapsed={isSidebarCollapsed} />}
-            {showHousehold && <SidebarLink to="/household" icon={UsersIcon} label="Household" isCollapsed={isSidebarCollapsed} />}
-            {showBusinessFeatures && <SidebarLink to="/business-features" icon={BriefcaseIcon} label="Business Features" isCollapsed={isSidebarCollapsed} />}
-            {showFinancialPlanning && <SidebarLink to="/financial-planning" icon={CalculatorIcon} label="Financial Planning" isCollapsed={isSidebarCollapsed} />}
-            {showDataIntelligence && <SidebarLink to="/data-intelligence" icon={DatabaseIcon} label="Data Intelligence" isCollapsed={isSidebarCollapsed} />}
-            {showSummaries && <SidebarLink to="/summaries" icon={PieChartIcon} label="Summaries" isCollapsed={isSidebarCollapsed} />}
+            
+            {/* Advanced Features with Sub-navigation */}
+            <div>
+              {!isSidebarCollapsed ? (
+                <button
+                  onClick={() => setAdvancedExpanded(!advancedExpanded)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                  aria-expanded={advancedExpanded}
+                  aria-label="Advanced features section"
+                >
+                  <MagicWandIcon size={18} />
+                  <span className="flex-1 text-sm text-left">Advanced</span>
+                  <ChevronRightIcon 
+                    size={14} 
+                    className={`text-gray-400 transition-transform duration-200 ${advancedExpanded ? 'rotate-90' : ''}`} 
+                  />
+                </button>
+              ) : (
+                <SidebarLink to="/ai-analytics" icon={MagicWandIcon} label="Advanced" isCollapsed={true} />
+              )}
+              {advancedExpanded && !isSidebarCollapsed && (
+                <div className="mt-1 space-y-0.5">
+                  {showAIAnalytics && <SidebarLink to="/ai-analytics" icon={MagicWandIcon} label="AI Analytics" isCollapsed={false} isSubItem={true} />}
+                  <SidebarLink to="/ai-features" icon={LightbulbIcon} label="AI Features" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/custom-reports" icon={FileTextIcon} label="Custom Reports" isCollapsed={false} isSubItem={true} />
+                  {showTaxPlanning && <SidebarLink to="/tax-planning" icon={CalculatorIcon} label="Tax Planning" isCollapsed={false} isSubItem={true} />}
+                  {showHousehold && <SidebarLink to="/household" icon={UsersIcon} label="Household" isCollapsed={false} isSubItem={true} />}
+                  {showBusinessFeatures && <SidebarLink to="/business-features" icon={BriefcaseIcon} label="Business Features" isCollapsed={false} isSubItem={true} />}
+                  {showFinancialPlanning && <SidebarLink to="/financial-planning" icon={CalculatorIcon} label="Financial Planning" isCollapsed={false} isSubItem={true} />}
+                  {showDataIntelligence && <SidebarLink to="/data-intelligence" icon={DatabaseIcon} label="Data Intelligence" isCollapsed={false} isSubItem={true} />}
+                  {showSummaries && <SidebarLink to="/summaries" icon={PieChartIcon} label="Summaries" isCollapsed={false} isSubItem={true} />}
+                </div>
+              )}
+            </div>
             
             {/* Settings with Sub-navigation */}
             <div>
-              <SidebarLink 
-                to="/settings" 
-                icon={SettingsIcon} 
-                label="Settings" 
-                isCollapsed={isSidebarCollapsed}
-                hasSubItems={!isSidebarCollapsed}
-              />
+              {!isSidebarCollapsed ? (
+                <button
+                  onClick={() => setSettingsExpanded(!settingsExpanded)}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                  aria-expanded={settingsExpanded}
+                  aria-label="Settings section"
+                >
+                  <SettingsIcon size={18} />
+                  <span className="flex-1 text-sm text-left">Settings</span>
+                  <ChevronRightIcon 
+                    size={14} 
+                    className={`text-gray-400 transition-transform duration-200 ${settingsExpanded ? 'rotate-90' : ''}`} 
+                  />
+                </button>
+              ) : (
+                <SidebarLink to="/settings" icon={SettingsIcon} label="Settings" isCollapsed={true} />
+              )}
               {settingsExpanded && !isSidebarCollapsed && (
                 <div className="mt-1 space-y-0.5">
                   <SidebarLink to="/settings/app" icon={Settings2Icon} label="App Settings" isCollapsed={false} isSubItem={true} />

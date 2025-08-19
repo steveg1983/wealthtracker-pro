@@ -125,7 +125,8 @@ export default function Investments() {
   };
 
   const performanceData = generatePerformanceData();
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+  // Use consistent colors for better visual coherence
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#84CC16'];
 
   // If no investment accounts, show empty state
   if (investmentAccounts.length === 0) {
@@ -361,9 +362,9 @@ export default function Investments() {
             </p>
           ) : (
             <div className="space-y-4">
-              {investmentAccounts.map((account) => {
-                const holding = holdings.find(h => h.name === account.name);
-                if (!holding) return null;
+              {holdings.map((holding, index) => {
+                const account = investmentAccounts.find(a => a.name === holding.name);
+                if (!account) return null;
                 
                 return (
                   <div 
@@ -372,11 +373,17 @@ export default function Investments() {
                     onClick={() => setSelectedAccountId(account.id)}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="font-medium text-gray-900 dark:text-white hover:text-primary dark:hover:text-primary transition-colors">
-                          {holding.name}
-                        </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{holding.ticker}</p>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <div>
+                          <h3 className="font-medium text-gray-900 dark:text-white hover:text-primary dark:hover:text-primary transition-colors">
+                            {holding.name}
+                          </h3>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{holding.ticker}</p>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <div className="text-right">
@@ -393,7 +400,7 @@ export default function Investments() {
                           className="h-2 rounded-full"
                           style={{ 
                             width: `${holding.allocation}%`,
-                            backgroundColor: COLORS[investmentAccounts.indexOf(account) % COLORS.length]
+                            backgroundColor: COLORS[index % COLORS.length]
                           }}
                         />
                       </div>

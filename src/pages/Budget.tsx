@@ -5,6 +5,7 @@ import { useNotifications } from '../contexts/NotificationContext';
 import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, RepeatIcon, PiggyBankIcon, ArrowRightIcon, BellIcon, CalculatorIcon } from '../components/icons';
 import { EditIcon, DeleteIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
+import { InlineHelp } from '../components/HelpTooltip';
 import BudgetModal from '../components/BudgetModal';
 import EnvelopeBudgeting from '../components/EnvelopeBudgeting';
 import RecurringBudgetTemplates from '../components/RecurringBudgetTemplates';
@@ -220,6 +221,7 @@ export default function Budget() {
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
+          title="Traditional category-based budgeting"
         >
           <BanknoteIcon size={16} />
           Traditional
@@ -231,6 +233,7 @@ export default function Budget() {
               ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
               : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
           }`}
+          title="Envelope budgeting - allocate money to virtual envelopes"
         >
           <PiggyBankIcon size={16} />
           Envelope

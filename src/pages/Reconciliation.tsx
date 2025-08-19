@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useApp } from '../contexts/AppContext';
 import { ChevronRightIcon, ChevronLeftIcon, ArrowLeftIcon, EditIcon, PlusIcon, DeleteIcon, XIcon, CheckCircleIcon, Building2Icon, CreditCardIcon, CircleDotIcon } from '../components/icons';
 import { IconButton } from '../components/icons/IconButton';
+import HelpTooltip from '../components/HelpTooltip';
 import EditTransactionModal from '../components/EditTransactionModal';
 import CategorySelect from '../components/CategorySelect';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -285,7 +286,15 @@ export default function Reconciliation() {
       <div>
         <div className="mb-6">
           <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4">
-            <h1 className="text-3xl font-bold text-white">Reconciliation</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold text-white">Reconciliation</h1>
+              <HelpTooltip
+                title="Account Reconciliation"
+                content="Match your transactions with bank statements to ensure accuracy. Mark transactions as cleared when they appear on your statement. This helps identify missing or duplicate transactions."
+                position="right"
+                iconSize={20}
+              />
+            </div>
           </div>
           <p className="text-gray-600 dark:text-gray-400 mt-2">
             Select an account below to reconcile imported bank transactions
