@@ -43,20 +43,35 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
   const [formattedAmount, setFormattedAmount] = useState('');
   const amountInputRef = useRef<HTMLInputElement>(null);
   
+  // Initialize form with transaction data if editing, otherwise use defaults
+  const initialFormData: FormData = transaction ? {
+    date: transaction.date instanceof Date ? transaction.date.toISOString().split('T')[0] : new Date(transaction.date).toISOString().split('T')[0],
+    description: transaction.description,
+    amount: transaction.type === 'transfer' ? transaction.amount.toString() : Math.abs(transaction.amount).toString(),
+    type: transaction.type,
+    category: '',  // Will be set in useEffect
+    subCategory: '', // Will be set in useEffect
+    accountId: transaction.accountId,
+    tags: transaction.tags || [],
+    notes: transaction.notes || '',
+    cleared: transaction.cleared || false,
+    reconciledWith: transaction.reconciledWith || ''
+  } : {
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    amount: '',
+    type: 'expense',
+    category: '',
+    subCategory: '',
+    accountId: accounts.length > 0 ? accounts[0].id : '',
+    tags: [],
+    notes: '',
+    cleared: false,
+    reconciledWith: ''
+  };
+  
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
-    {
-      date: '',
-      description: '',
-      amount: '',
-      type: 'expense',
-      category: '',
-      subCategory: '',
-      accountId: '',
-      tags: [],
-      notes: '',
-      cleared: false,
-      reconciledWith: ''
-    },
+    initialFormData,
     {
       onSubmit: (data) => {
         try {

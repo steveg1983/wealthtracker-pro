@@ -47,6 +47,11 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
     (to === '/accounts' && (location.pathname.startsWith('/transactions') || location.pathname.startsWith('/reconciliation'))) ||
     (to === '/forecasting' && (location.pathname.startsWith('/budget') || location.pathname.startsWith('/goals'))));
 
+  // Preserve demo mode parameter in navigation
+  const searchParams = new URLSearchParams(location.search);
+  const isDemoMode = searchParams.get('demo') === 'true';
+  const linkTo = isDemoMode ? `${to}?demo=true` : to;
+
   const handleLinkClick = () => {
     // For mobile menu, close it
     if (onNavigate) {
@@ -82,7 +87,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
 
   return (
     <Link
-      to={to}
+      to={linkTo}
       className={className}
       title={isCollapsed ? label : undefined}
       onClick={handleLinkClick}

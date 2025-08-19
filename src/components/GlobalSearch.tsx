@@ -100,7 +100,16 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps): Re
   };
 
   const handleResultClick = (result: SearchResult): void => {
-    const route = getResultRoute(result);
+    // Preserve demo mode parameter if present
+    const searchParams = new URLSearchParams(window.location.search);
+    const isDemoMode = searchParams.get('demo') === 'true';
+    
+    let route = getResultRoute(result);
+    if (isDemoMode) {
+      // Add demo parameter to the route
+      route = route.includes('?') ? `${route}&demo=true` : `${route}?demo=true`;
+    }
+    
     navigate(route);
     onClose();
   };
