@@ -58,6 +58,80 @@ export const demoAccounts = [
     isActive: true,
     createdAt: new Date('2024-01-01').toISOString(),
     updatedAt: new Date().toISOString(),
+    holdings: [
+      {
+        id: uuidv4(),
+        symbol: 'AAPL',
+        name: 'Apple Inc.',
+        shares: 50,
+        costBasis: 7500.00,
+        currentPrice: 185.50,
+        marketValue: 9275.00,
+        value: 9275.00,
+        assetType: 'stock',
+        allocation: 20.3
+      },
+      {
+        id: uuidv4(),
+        symbol: 'GOOGL',
+        name: 'Alphabet Inc.',
+        shares: 25,
+        costBasis: 3250.00,
+        currentPrice: 140.25,
+        marketValue: 3506.25,
+        value: 3506.25,
+        assetType: 'stock',
+        allocation: 7.7
+      },
+      {
+        id: uuidv4(),
+        symbol: 'MSFT',
+        name: 'Microsoft Corporation',
+        shares: 30,
+        costBasis: 10200.00,
+        currentPrice: 380.75,
+        marketValue: 11422.50,
+        value: 11422.50,
+        assetType: 'stock',
+        allocation: 25.0
+      },
+      {
+        id: uuidv4(),
+        symbol: 'VTI',
+        name: 'Vanguard Total Stock Market ETF',
+        shares: 40,
+        costBasis: 8800.00,
+        currentPrice: 235.40,
+        marketValue: 9416.00,
+        value: 9416.00,
+        assetType: 'etf',
+        allocation: 20.6
+      },
+      {
+        id: uuidv4(),
+        symbol: 'BND',
+        name: 'Vanguard Total Bond Market ETF',
+        shares: 100,
+        costBasis: 7800.00,
+        currentPrice: 74.95,
+        marketValue: 7495.00,
+        value: 7495.00,
+        assetType: 'etf',
+        allocation: 16.4
+      },
+      {
+        id: uuidv4(),
+        symbol: 'CASH',
+        name: 'Cash & Money Market',
+        shares: 1,
+        costBasis: 4563.15,
+        currentPrice: 4563.15,
+        marketValue: 4563.15,
+        value: 4563.15,
+        assetType: 'cash',
+        allocation: 10.0
+      }
+    ]
   },
   {
     id: uuidv4(),

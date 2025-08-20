@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 import fs from 'fs';
 
 test.describe('Data Export Workflows', () => {

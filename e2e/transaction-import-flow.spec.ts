@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 import path from 'path';
 import fs from 'fs';
 

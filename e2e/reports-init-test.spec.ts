@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 
 test('Reports page initialization test', async ({ page }) => {
   // First go to home page

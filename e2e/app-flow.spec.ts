@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 
 test.describe('WealthTracker App Flow', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
   });
 
   test('initial app load and navigation', async ({ page }) => {

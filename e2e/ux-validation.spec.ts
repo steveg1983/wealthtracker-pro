@@ -42,7 +42,7 @@ test.describe('UX Validation - Critical User Workflows', () => {
   test('Account balance should be visible without navigation', async ({ page }) => {
     // From dashboard, all account balances should be visible
     await setupTestAuth(page);
-    await page.goto('http://localhost:5173/dashboard?testMode=true');
+    await page.goto('http://localhost:5173/dashboard?demo=true');
     
     // Wait for content to load - longer timeout for authentication
     await page.waitForLoadState('networkidle', { timeout: 10000 });
@@ -123,7 +123,7 @@ test.describe('UX Validation - Critical User Workflows', () => {
     for (const path of pages) {
       await setupTestAuth(page);
       // Add testMode param to URL to ensure test mode is active
-      await page.goto(`http://localhost:5173${path}?testMode=true`);
+      await page.goto(`http://localhost:5173${path}?demo=true`);
       await page.waitForLoadState('networkidle', { timeout: 10000 });
       
       // Wait for the page to be fully loaded (not showing Loading/Authenticating)

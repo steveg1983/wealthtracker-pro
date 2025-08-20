@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 
 test.describe('Performance E2E Tests', () => {
   test('app loads within acceptable time', async ({ page }) => {
@@ -18,7 +19,8 @@ test.describe('Performance E2E Tests', () => {
   });
 
   test('handles large datasets efficiently', async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
     
     // Create multiple accounts
     await page.click('text=Accounts');
@@ -51,7 +53,8 @@ test.describe('Performance E2E Tests', () => {
   });
 
   test('search and filter performance', async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
     
     // Create account first
     await page.click('text=Accounts');
@@ -85,7 +88,8 @@ test.describe('Performance E2E Tests', () => {
   });
 
   test('chart rendering performance', async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
     
     // Create data for charts
     await page.click('text=Accounts');
@@ -115,7 +119,8 @@ test.describe('Performance E2E Tests', () => {
   });
 
   test('form submission responsiveness', async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
     
     // Test account creation form
     await page.click('text=Accounts');
@@ -138,7 +143,8 @@ test.describe('Performance E2E Tests', () => {
   });
 
   test('navigation responsiveness', async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
     
     const routes = ['Accounts', 'Transactions', 'Budget', 'Goals', 'Dashboard'];
     
@@ -161,7 +167,8 @@ test.describe('Performance E2E Tests', () => {
   });
 
   test('concurrent operations', async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
     
     // Create an account
     await page.click('text=Accounts');
@@ -188,7 +195,8 @@ test.describe('Performance E2E Tests', () => {
   });
 
   test('memory usage remains stable', async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
     
     // Perform many operations to test memory stability
     for (let cycle = 0; cycle < 3; cycle++) {

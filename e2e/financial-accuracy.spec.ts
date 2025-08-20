@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 
 test.describe('Financial Accuracy E2E Tests', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
   });
 
   test('decimal precision in calculations', async ({ page }) => {

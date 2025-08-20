@@ -130,6 +130,7 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps): Reac
   return (
     <div
       className="fixed top-4 right-4 z-50 space-y-3"
+      role="region"
       aria-label="Notifications"
       aria-live="polite"
       aria-atomic="false"

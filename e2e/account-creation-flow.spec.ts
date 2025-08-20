@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 
 test.describe('Account Creation Flow', () => {
   test.beforeEach(async ({ page }) => {

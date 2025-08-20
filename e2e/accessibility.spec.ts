@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
+import { setupTestAuth } from './test-helpers';
 
 // Pages to test for accessibility
 const PAGES = [
@@ -16,7 +17,11 @@ test.describe('Accessibility Tests', () => {
   // Test each page for accessibility violations
   PAGES.forEach(({ name, path }) => {
     test(`${name} page should have no accessibility violations`, async ({ page }) => {
-      await page.goto(path);
+      // Set up test authentication to bypass Clerk
+      await setupTestAuth(page);
+      
+      // Use testMode URL parameter for demo mode
+      await page.goto(`${path}?demo=true`);
       
       // Wait for content to load
       await page.waitForLoadState('networkidle');
@@ -43,7 +48,8 @@ test.describe('Accessibility Tests', () => {
 
   test.describe('Color Contrast Checks', () => {
     test('Financial amounts should have sufficient contrast', async ({ page }) => {
-      await page.goto('/');
+      await setupTestAuth(page);
+      await page.goto('/?demo=true');
       await page.waitForLoadState('networkidle');
       
       // Check for negative amounts (red text)
@@ -78,7 +84,8 @@ test.describe('Accessibility Tests', () => {
     });
     
     test('Table headers should have sufficient contrast', async ({ page }) => {
-      await page.goto('/transactions');
+      await setupTestAuth(page);
+      await page.goto('/transactions?demo=true');
       await page.waitForLoadState('networkidle');
       
       // Check table headers with bg-secondary class
@@ -169,7 +176,8 @@ test.describe('Accessibility Tests', () => {
     });
     
     test('Modal focus trap should work', async ({ page }) => {
-      await page.goto('/');
+      await setupTestAuth(page);
+      await page.goto('/?demo=true');
       await page.waitForLoadState('networkidle');
       
       // Open a modal
@@ -206,7 +214,8 @@ test.describe('Accessibility Tests', () => {
 
   test.describe('Screen Reader Announcements', () => {
     test('Form errors should be announced', async ({ page }) => {
-      await page.goto('/');
+      await setupTestAuth(page);
+      await page.goto('/?demo=true');
       await page.waitForLoadState('networkidle');
       
       // Open Add Transaction modal

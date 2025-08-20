@@ -33,14 +33,15 @@ export function isUKDateFormat(): boolean {
   return true;
 }
 
-// Format date according to user's locale
+// Format date according to user's locale (always UK format for consistency)
 export function formatDate(date: Date | string | null | undefined, options?: Intl.DateTimeFormatOptions): string {
   if (!date) return '';
   
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(dateObj.getTime())) return '';
   
-  const locale = getUserLocale();
+  // Always use en-GB locale for UK date format consistency
+  const locale = 'en-GB';
   
   // Default options if none provided
   const defaultOptions: Intl.DateTimeFormatOptions = {
@@ -111,7 +112,8 @@ export function formatDateTime(date: Date | string | null | undefined): string {
   const dateObj = typeof date === 'string' ? new Date(date) : date;
   if (isNaN(dateObj.getTime())) return '';
   
-  const locale = getUserLocale();
+  // Always use en-GB locale for UK format consistency
+  const locale = 'en-GB';
   
   return dateObj.toLocaleString(locale, {
     year: 'numeric',
@@ -160,9 +162,9 @@ export function getDateFormatPlaceholder(): string {
   return 'dd/mm/yyyy';
 }
 
-// Get month names in user's locale
+// Get month names in user's locale (UK format)
 export function getMonthNames(format: 'long' | 'short' = 'long'): string[] {
-  const locale = getUserLocale();
+  const locale = 'en-GB';
   const months: string[] = [];
   
   for (let i = 0; i < 12; i++) {
@@ -173,9 +175,9 @@ export function getMonthNames(format: 'long' | 'short' = 'long'): string[] {
   return months;
 }
 
-// Get day names in user's locale
+// Get day names in user's locale (UK format)
 export function getDayNames(format: 'long' | 'short' | 'narrow' = 'long'): string[] {
-  const locale = getUserLocale();
+  const locale = 'en-GB';
   const days: string[] = [];
   
   // Start with Sunday (0) to Saturday (6)

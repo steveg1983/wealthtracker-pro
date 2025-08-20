@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   TrendingUpIcon, 
   TrendingDownIcon, 
@@ -18,6 +19,8 @@ import {
 import { useApp } from '../../contexts/AppContext';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { formatCurrency } from '../../utils/currency';
+import { preserveDemoParam } from '../../utils/navigation';
+import AddTransactionModal from '../AddTransactionModal';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -30,9 +33,12 @@ import { formatCurrency } from '../../utils/currency';
 export function ImprovedDashboard() {
   const { accounts, transactions, budgets } = useApp();
   const { formatCurrency: formatCurrencyWithSymbol } = useCurrencyDecimal();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
   
   // Load saved preferences from localStorage
   useEffect(() => {
@@ -285,7 +291,10 @@ export function ImprovedDashboard() {
             ))}
             
             {metrics.budgetStatus.length > 3 && (
-              <button className="w-full mt-2 py-2 text-blue-600 dark:text-blue-400 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+              <button 
+                onClick={() => navigate(preserveDemoParam('/budget', location.search))}
+                className="w-full mt-2 py-2 text-blue-600 dark:text-blue-400 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+              >
                 View All Budgets ({metrics.budgetStatus.length}) →
               </button>
             )}
@@ -362,6 +371,14 @@ export function ImprovedDashboard() {
                 key={account.id}
                 className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                 data-testid="account-balance-card"
+                onClick={() => navigate(preserveDemoParam(`/accounts/${account.id}`, location.search))}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    navigate(preserveDemoParam(`/accounts/${account.id}`, location.search));
+                  }
+                }}
               >
                 <div className="flex-1">
                   <p className="font-medium text-gray-900 dark:text-white">
@@ -488,7 +505,10 @@ export function ImprovedDashboard() {
               </div>
             ))}
             
-            <button className="w-full mt-4 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">
+            <button 
+              onClick={() => navigate(preserveDemoParam('/transactions', location.search))}
+              className="w-full mt-4 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+            >
               View All Transactions →
             </button>
           </div>
@@ -497,34 +517,52 @@ export function ImprovedDashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <button className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center">
+        <button 
+          onClick={() => setShowAddTransactionModal(true)}
+          className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center"
+        >
           <CreditCardIcon size={24} className="mx-auto mb-2 text-blue-600" />
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             Add Transaction
           </span>
         </button>
         
-        <button className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center">
+        <button 
+          onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
+          className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center"
+        >
           <WalletIcon size={24} className="mx-auto mb-2 text-green-600" />
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             View Accounts
           </span>
         </button>
         
-        <button className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center">
+        <button 
+          onClick={() => navigate(preserveDemoParam('/budget', location.search))}
+          className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center"
+        >
           <TargetIcon size={24} className="mx-auto mb-2 text-purple-600" />
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             Set Budget
           </span>
         </button>
         
-        <button className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center">
+        <button 
+          onClick={() => navigate(preserveDemoParam('/analytics', location.search))}
+          className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center"
+        >
           <TrendingUpIcon size={24} className="mx-auto mb-2 text-orange-600" />
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             Analytics
           </span>
         </button>
       </div>
+      
+      {/* Add Transaction Modal */}
+      <AddTransactionModal
+        isOpen={showAddTransactionModal}
+        onClose={() => setShowAddTransactionModal(false)}
+      />
     </div>
   );
 }

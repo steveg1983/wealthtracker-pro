@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { ChevronRightIcon, HomeIcon } from '../icons';
+import { preserveDemoParam } from '../../utils/navigation';
 
 interface BreadcrumbItem {
   label: string;
@@ -48,14 +49,14 @@ export function Breadcrumbs() {
   }
 
   const breadcrumbs: BreadcrumbItem[] = [
-    { label: 'Home', path: '/' }
+    { label: 'Home', path: preserveDemoParam('/', location.search) }
   ];
 
   let currentPath = '';
   pathSegments.forEach((segment, index) => {
     currentPath += `/${segment}`;
     const label = routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
-    breadcrumbs.push({ label, path: currentPath });
+    breadcrumbs.push({ label, path: preserveDemoParam(currentPath, location.search) });
   });
 
   return (
@@ -116,7 +117,7 @@ export function MobileBreadcrumb() {
   return (
     <div className="sm:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
       <Link
-        to={parentPath}
+        to={preserveDemoParam(parentPath, location.search)}
         className="flex items-center gap-2 text-primary dark:text-primary-light"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

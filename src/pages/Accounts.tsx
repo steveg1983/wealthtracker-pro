@@ -343,50 +343,50 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 <div className="relative group">
                                   <IconButton
                                     onClick={() => setSettingsAccountId(account.id)}
-                                    icon={<SettingsIcon size={18} />}
+                                    icon={<SettingsIcon size={20} />}
                                     variant="ghost"
                                     size="md"
-                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[44px] min-h-[44px]"
+                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[48px] min-h-[48px]"
                                     title="Account Settings"
                                   />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
-                                    Account Settings
+                                    Settings
                                   </span>
                                 </div>
                                 <button
                                   onClick={() => setReconcileAccountId(account.id)}
-                                  className="p-3 min-w-[44px] min-h-[44px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
-                                  title="Reconcile Account"
+                                  className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  title="Reconcile transactions"
                                 >
-                                  <CheckCircleIcon size={18} />
+                                  <CheckCircleIcon size={20} />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
-                                    Reconcile Account
+                                    Reconcile
                                   </span>
                                 </button>
                                 <div className="relative group">
                                   <IconButton
                                     onClick={() => handleEdit(account.id, account.balance)}
-                                    icon={<EditIcon size={18} />}
+                                    icon={<EditIcon size={20} />}
                                     variant="ghost"
                                     size="md"
-                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[44px] min-h-[44px]"
-                                    title="Edit Balance"
+                                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 min-w-[48px] min-h-[48px]"
+                                    title="Adjust balance"
                                   />
                                   <span className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
-                                    Edit Balance
+                                    Adjust
                                   </span>
                                 </div>
                                 <div className="relative group">
                                   <IconButton
                                     onClick={() => handleDelete(account.id)}
-                                    icon={<DeleteIcon size={18} />}
+                                    icon={<DeleteIcon size={20} />}
                                     variant="ghost"
                                     size="md"
-                                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 min-w-[44px] min-h-[44px]"
-                                    title="Delete Account"
+                                    className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 hover:bg-red-100/50 dark:hover:bg-red-900/30 min-w-[48px] min-h-[48px]"
+                                    title="Delete account"
                                   />
                                   <span className="absolute bottom-full right-0 mb-2 px-3 py-1.5 text-xs text-white bg-gray-900/90 dark:bg-gray-700/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 whitespace-nowrap pointer-events-none shadow-lg border border-white/10">
-                                    Delete Account
+                                    Delete
                                   </span>
                                 </div>
                               </div>

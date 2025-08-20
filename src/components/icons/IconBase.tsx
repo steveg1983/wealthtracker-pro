@@ -48,7 +48,7 @@ export const IconBase: React.FC<IconBaseProps> = ({
         ...style,
       }}
       strokeWidth={strokeWidth}
-      role={onClick ? 'button' : 'img'}
+      role={onClick ? 'button' : title ? 'img' : undefined}
       aria-label={title}
       data-testid={dataTestId}
     >

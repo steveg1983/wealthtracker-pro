@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 
 test.describe('Example Test Suite', () => {
   test('should load the homepage', async ({ page }) => {
@@ -13,7 +14,8 @@ test.describe('Example Test Suite', () => {
   });
 
   test('should navigate to transactions page', async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
     
     // Click on the Transactions link
     await page.click('text=Transactions');
@@ -26,7 +28,8 @@ test.describe('Example Test Suite', () => {
   });
 
   test('should add a new transaction', async ({ page }) => {
-    await page.goto('/transactions');
+    await setupTestAuth(page);
+    await page.goto('/transactions?demo=true');
     
     // Click Add Transaction button
     await page.click('button:has-text("Add Transaction")');

@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 
 // Helper function to navigate to Budget page
 async function navigateToBudget(page: Page) {

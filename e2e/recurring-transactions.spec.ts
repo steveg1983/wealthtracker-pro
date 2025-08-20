@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 
 test.describe('Recurring Transactions Management', () => {
   test.beforeEach(async ({ page }) => {

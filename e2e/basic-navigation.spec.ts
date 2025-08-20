@@ -1,8 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 
 test.describe('Basic Navigation', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
   });
 
   test('app loads successfully', async ({ page }) => {

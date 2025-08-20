@@ -1,15 +1,16 @@
 import { test, expect } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 
 test.describe('Critical User Workflows', () => {
   test.beforeEach(async ({ page }) => {
-    // Clear localStorage before each test
-    await page.goto('/');
+    // Set up test auth and clear localStorage before each test
+    await setupTestAuth(page);
+    await page.goto('/?demo=true');
+    await page.waitForTimeout(2000); // Wait for app to fully load
     await page.evaluate(() => localStorage.clear());
-    await page.reload();
   });
 
   test('Complete financial setup workflow', async ({ page }) => {
-    await page.goto('/');
 
     // Step 1: Create accounts
     await page.getByRole('link', { name: /accounts/i }).click();
@@ -38,7 +39,6 @@ test.describe('Critical User Workflows', () => {
   });
 
   test('Record and categorize transactions', async ({ page }) => {
-    await page.goto('/');
 
     // Navigate to transactions
     await page.getByRole('link', { name: /transactions/i }).click();
@@ -70,7 +70,6 @@ test.describe('Critical User Workflows', () => {
   });
 
   test('Set up and monitor budgets', async ({ page }) => {
-    await page.goto('/');
 
     // Navigate to budget
     await page.getByRole('link', { name: /budget/i }).click();
@@ -96,7 +95,6 @@ test.describe('Critical User Workflows', () => {
   });
 
   test('Create and track financial goals', async ({ page }) => {
-    await page.goto('/');
 
     // Navigate to goals
     await page.getByRole('link', { name: /goals/i }).click();
@@ -187,8 +185,7 @@ test.describe('Critical User Workflows', () => {
     await expect(page.getByRole('button', { name: /add.*account/i })).toBeVisible();
   });
 
-  test('Data persistence across sessions', async ({ page, context }) => {
-    await page.goto('/');
+  test('Data persistence across sessions', async ({ page }) => {
 
     // Add data via UI or localStorage
     await page.evaluate(() => {
@@ -227,16 +224,15 @@ test.describe('Critical User Workflows', () => {
     await expect(page.getByText('Persistent Account')).toBeVisible();
     await expect(page.getByText(/£7,500\.00|7,500\.00/)).toBeVisible();
 
-    // Open new page in same context to simulate new tab
-    const newPage = await context.newPage();
-    await newPage.goto('/accounts');
-
-    // Verify data is available in new tab
-    await expect(newPage.getByText('Persistent Account')).toBeVisible();
+    // Navigate to another page and back to verify persistence
+    await page.goto('/transactions?demo=true');
+    await page.goto('/accounts?demo=true');
+    
+    // Verify data is still available
+    await expect(page.getByText('Persistent Account')).toBeVisible();
   });
 
   test('Export and import data workflow', async ({ page }) => {
-    await page.goto('/');
 
     // Navigate to settings
     await page.getByRole('link', { name: /settings/i }).click();

@@ -1,4 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
+import { setupTestAuth } from './test-helpers';
 import { AxeBuilder } from '@axe-core/playwright';
 
 // Helper function to navigate to accounts page
