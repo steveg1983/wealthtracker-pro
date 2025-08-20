@@ -103,7 +103,6 @@ export default function Layout(): React.JSX.Element {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [settingsExpanded, setSettingsExpanded] = useState(false);
-  const [accountsExpanded, setAccountsExpanded] = useState(false);
   const [forecastingExpanded, setForecastingExpanded] = useState(false);
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
   const [conflictModalOpen, setConflictModalOpen] = useState(false);
@@ -295,33 +294,10 @@ export default function Layout(): React.JSX.Element {
             <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             
-            {/* Accounts with Sub-navigation */}
-            <div>
-              {!isSidebarCollapsed ? (
-                <button
-                  onClick={() => setAccountsExpanded(!accountsExpanded)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
-                  aria-expanded={accountsExpanded}
-                  aria-label="Accounts section"
-                >
-                  <WalletIcon size={18} />
-                  <span className="flex-1 text-sm text-left">Accounts</span>
-                  <ChevronRightIcon 
-                    size={14} 
-                    className={`text-gray-400 transition-transform duration-200 ${accountsExpanded ? 'rotate-90' : ''}`} 
-                  />
-                </button>
-              ) : (
-                <SidebarLink to="/accounts" icon={WalletIcon} label="Accounts" isCollapsed={true} />
-              )}
-              {accountsExpanded && !isSidebarCollapsed && (
-                <div className="mt-1 space-y-0.5">
-                  <SidebarLink to="/accounts" icon={WalletIcon} label="All Accounts" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} />
-                  <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} />
-                </div>
-              )}
-            </div>
+            {/* Accounts - Direct link */}
+            <SidebarLink to="/accounts" icon={WalletIcon} label="Accounts" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={isSidebarCollapsed} />
+            <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={isSidebarCollapsed} />
             
             {showInvestments && <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={isSidebarCollapsed} />}
             {showEnhancedInvestments && <SidebarLink to="/enhanced-investments" icon={BarChart3Icon} label="Investment Analytics" isCollapsed={isSidebarCollapsed} />}
@@ -527,26 +503,10 @@ export default function Layout(): React.JSX.Element {
                 <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 
-                {/* Accounts with Sub-navigation */}
-                <div>
-                  <SidebarLink 
-                    to="/accounts" 
-                    icon={WalletIcon} 
-                    label="Accounts" 
-                    isCollapsed={false}
-                    hasSubItems={true}
-                    onNavigate={() => {
-                      setAccountsExpanded(true);
-                      toggleMobileMenu();
-                    }}
-                  />
-                  {accountsExpanded && (
-                    <div className="mt-1 space-y-1">
-                      <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                      <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
-                    </div>
-                  )}
-                </div>
+                {/* Accounts - Direct links */}
+                <SidebarLink to="/accounts" icon={WalletIcon} label="Accounts" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} onNavigate={toggleMobileMenu} />
+                <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} onNavigate={toggleMobileMenu} />
                 
                 {showInvestments && <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={false} onNavigate={toggleMobileMenu} />}
                 {showEnhancedInvestments && <SidebarLink to="/enhanced-investments" icon={BarChart3Icon} label="Investment Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
