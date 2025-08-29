@@ -120,7 +120,7 @@ SELECT DISTINCT
   'Income' as name,
   'income' as type,
   'type' as level,
-  NULL as parent_id,
+  NULL::UUID as parent_id,
   true as is_system
 FROM users u
 LEFT JOIN categories c ON c.user_id = u.id AND c.name = 'Income' AND c.level = 'type'
@@ -132,7 +132,7 @@ SELECT DISTINCT
   'Expense' as name,
   'expense' as type,
   'type' as level,
-  NULL as parent_id,
+  NULL::UUID as parent_id,
   true as is_system
 FROM users u
 LEFT JOIN categories c ON c.user_id = u.id AND c.name = 'Expense' AND c.level = 'type'
@@ -144,7 +144,7 @@ SELECT DISTINCT
   'Transfer' as name,
   'both' as type,
   'type' as level,
-  NULL as parent_id,
+  NULL::UUID as parent_id,
   true as is_system
 FROM users u
 LEFT JOIN categories c ON c.user_id = u.id AND c.name = 'Transfer' AND c.level = 'type'
