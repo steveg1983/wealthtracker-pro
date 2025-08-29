@@ -52,7 +52,15 @@
   - Income: `+£100.00` (green)
   - Liabilities stay negative
 
-### 5. Key Architecture Patterns
+### 5. CRITICAL: No Half-Implemented Features
+**ABSOLUTE RULE**: If you start it, you FINISH it completely:
+- UI changes REQUIRE backend implementation
+- Backend changes REQUIRE UI connection
+- Database changes REQUIRE service layer updates
+- Type changes REQUIRE full implementation
+See CLAUDE_REQUIREMENTS.md for mandatory checklist
+
+### 6. Key Architecture Patterns
 
 #### Component Structure
 ```typescript
