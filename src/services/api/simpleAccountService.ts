@@ -112,6 +112,51 @@ export async function createAccount(
     }
     
     console.log('[SimpleAccountService] Account created successfully:', data);
+    
+    // Create a transfer category for this account
+    try {
+      const transferCategoryData = {
+        user_id: userId,
+        name: `To/From ${data.name}`,
+        type: 'both' as const,
+        level: 'detail' as const,
+        parent_id: null, // Will be set to the Transfer type category ID later
+        is_system: false,
+        is_transfer_category: true,
+        account_id: data.id,
+        is_active: true
+      };
+      
+      // First, find the Transfer type category for this user
+      const { data: transferTypeCategory } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('name', 'Transfer')
+        .eq('level', 'type')
+        .single();
+      
+      if (transferTypeCategory) {
+        transferCategoryData.parent_id = transferTypeCategory.id;
+      }
+      
+      const { data: categoryData, error: categoryError } = await supabase
+        .from('categories')
+        .insert(transferCategoryData)
+        .select()
+        .single();
+      
+      if (categoryError) {
+        console.error('[SimpleAccountService] Failed to create transfer category:', categoryError);
+        // Don't fail the account creation if category creation fails
+      } else {
+        console.log('[SimpleAccountService] Transfer category created:', categoryData);
+      }
+    } catch (categoryError) {
+      console.error('[SimpleAccountService] Error creating transfer category:', categoryError);
+      // Continue anyway - account creation is more important
+    }
+    
     return transformAccountFromDb(data);
     
   } catch (error) {
@@ -128,6 +173,21 @@ export async function createAccount(
     const accounts = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS) || [];
     accounts.push(localAccount);
     await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);
+    
+    // Also create transfer category in localStorage
+    const categories = await storageAdapter.get<any[]>(STORAGE_KEYS.CATEGORIES) || [];
+    categories.push({
+      id: crypto.randomUUID(),
+      name: `To/From ${localAccount.name}`,
+      type: 'both',
+      level: 'detail',
+      parentId: 'type-transfer',
+      isSystem: false,
+      isTransferCategory: true,
+      accountId: localAccount.id,
+      isActive: true
+    });
+    await storageAdapter.set(STORAGE_KEYS.CATEGORIES, categories);
     
     return localAccount;
   }
@@ -226,6 +286,25 @@ export async function deleteAccount(accountId: string): Promise<void> {
       throw new Error('Supabase not configured');
     }
     
+    // First, soft-delete the associated transfer category
+    try {
+      const { error: categoryError } = await supabase
+        .from('categories')
+        .update({ is_active: false })
+        .eq('account_id', accountId)
+        .eq('is_transfer_category', true);
+      
+      if (categoryError) {
+        console.error('[SimpleAccountService] Error soft-deleting transfer category:', categoryError);
+        // Continue with account deletion even if category update fails
+      } else {
+        console.log('[SimpleAccountService] Transfer category soft-deleted for account:', accountId);
+      }
+    } catch (categoryError) {
+      console.error('[SimpleAccountService] Error handling transfer category:', categoryError);
+    }
+    
+    // Now delete the account
     const { error } = await supabase
       .from('accounts')
       .delete()
@@ -241,6 +320,16 @@ export async function deleteAccount(accountId: string): Promise<void> {
     const accounts = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS) || [];
     const filtered = accounts.filter(a => a.id !== accountId);
     await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, filtered);
+    
+    // Also soft-delete transfer category in localStorage
+    const categories = await storageAdapter.get<any[]>(STORAGE_KEYS.CATEGORIES) || [];
+    const updatedCategories = categories.map(cat => {
+      if (cat.accountId === accountId && cat.isTransferCategory) {
+        return { ...cat, isActive: false };
+      }
+      return cat;
+    });
+    await storageAdapter.set(STORAGE_KEYS.CATEGORIES, updatedCategories);
   }
 }
 

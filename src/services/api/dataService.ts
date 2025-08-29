@@ -7,6 +7,7 @@
 import { UserService } from './userService';
 import { AccountService } from './accountService';
 import { TransactionService } from './transactionService';
+import * as CategoryService from './categoryService';
 import { isSupabaseConfigured } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
@@ -251,7 +252,16 @@ export class DataService {
    * Get categories
    */
   static async getCategories(): Promise<Category[]> {
-    // TODO: Implement CategoryService when ready
+    const clerkId = userIdService.getCurrentClerkId();
+    if (clerkId && isSupabaseConfigured()) {
+      try {
+        return await CategoryService.getCategories(clerkId);
+      } catch (error) {
+        console.error('[DataService] Error loading categories from Supabase:', error);
+      }
+    }
+    
+    // Fallback to localStorage
     const stored = await storageAdapter.get<Category[]>(STORAGE_KEYS.CATEGORIES);
     return stored || [];
   }
