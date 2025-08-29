@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppContextSupabase';
 import { HashIcon, AlertCircleIcon } from '../../components/icons';
 import { PlusIcon, EditIcon, DeleteIcon, XIcon, CheckIcon } from '../../components/icons';
 import { IconButton } from '../../components/icons/IconButton';
-import type { Tag } from '../../contexts/AppContext';
+import type { Tag } from '../../contexts/AppContextSupabase';
 import PageWrapper from '../../components/PageWrapper';
 
 interface TagFormData {

@@ -41,40 +41,22 @@ export const supabase = supabaseUrl && supabaseAnonKey
     })
   : null
 
-// Helper to sync Clerk user with Supabase
+// DEPRECATED: Use userIdService.ensureUserExists() instead
+// This function is kept for backward compatibility but should not be used
+// It uses the wrong table (user_profiles instead of users)
 export async function syncClerkUser(clerkUserId: string, email: string, name?: string) {
-  if (!supabase) return false;
+  console.warn('syncClerkUser is deprecated. Use userIdService.ensureUserExists() instead');
   
-  try {
-    const { data: existingProfile } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('clerk_user_id', clerkUserId)
-      .single();
-
-    if (!existingProfile) {
-      const { error } = await supabase
-        .from('user_profiles')
-        .insert({
-          clerk_user_id: clerkUserId,
-          email,
-          full_name: name,
-          subscription_tier: 'free',  // Set default tier
-          subscription_status: 'active',  // Set default status
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-
-      if (error) {
-        console.error('Error creating user profile:', error);
-        return false;
-      }
-    }
-    return true;
-  } catch (error) {
-    console.error('Error syncing Clerk user:', error);
-    return false;
-  }
+  // Import userIdService and delegate to it
+  const { userIdService } = await import('../services/userIdService');
+  const databaseId = await userIdService.ensureUserExists(
+    clerkUserId,
+    email,
+    name?.split(' ')[0], // firstName
+    name?.split(' ')[1]  // lastName
+  );
+  
+  return databaseId !== null;
 }
 
 // Database types

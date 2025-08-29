@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { anomalyDetectionService, type Anomaly, type AnomalyDetectionConfig } from '../services/anomalyDetectionService';
 import { 
   AlertTriangleIcon, 
@@ -86,6 +86,25 @@ export default function AnomalyDetection() {
       case 'low': return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
       case 'medium': return 'text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20';
       case 'high': return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
+    }
+  };
+
+  const whyText = (a: Anomaly) => {
+    switch (a.type) {
+      case 'unusual_amount':
+        return 'Flagged due to large deviation from your typical spending in this category (z-score threshold).';
+      case 'frequency_spike':
+        return 'Recent transactions occurred more frequently than your usual interval for this merchant.';
+      case 'new_merchant':
+        return 'Purchases from a merchant not seen in your history (last 6+ months).';
+      case 'category_overspend':
+        return 'Current month spending is significantly above your 3-month average for this category.';
+      case 'time_pattern':
+        return 'Transactions happened at unusual hours (e.g., midnight–5AM) relative to your typical pattern.';
+      case 'duplicate_charge':
+        return 'Multiple charges with same amount and merchant within a short time window (<= 3 days).';
+      default:
+        return '';
     }
   };
 
@@ -282,6 +301,11 @@ export default function AnomalyDetection() {
                           {anomaly.suggestedAction}
                         </p>
                       )}
+                      {/* Why flagged */}
+                      <details className="mt-2">
+                        <summary className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">Why was this flagged?</summary>
+                        <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{whyText(anomaly)}</p>
+                      </details>
                     </div>
                     
                     <button
@@ -352,6 +376,12 @@ export default function AnomalyDetection() {
                   </p>
                 </div>
               )}
+
+              {/* Why flagged in modal */}
+              <div className="bg-gray-50 dark:bg-gray-700/40 p-3 rounded-lg">
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">Why was this flagged?</p>
+                <p className="text-sm text-gray-700 dark:text-gray-300">{whyText(selectedAnomaly)}</p>
+              </div>
 
               <div className="flex gap-3">
                 {selectedAnomaly.transactionId && (

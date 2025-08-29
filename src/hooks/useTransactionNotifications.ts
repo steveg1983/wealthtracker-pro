@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { useNotifications } from '../contexts/NotificationContext';
 import type { Transaction } from '../types';
 

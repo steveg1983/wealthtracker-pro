@@ -50,7 +50,7 @@ export function RealtimeSyncProvider({
 }: RealtimeSyncProviderProps): React.JSX.Element {
   const {
     enabled = true,
-    showNotifications = true,
+    showNotifications = false, // Disable connection status notifications by default
     syncData = {
       accounts: true,
       transactions: true,

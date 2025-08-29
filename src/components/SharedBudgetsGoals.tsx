@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { householdService } from '../services/householdService';
 import { sharedFinanceService, type SharedBudget, type SharedGoal, type BudgetApproval } from '../services/sharedFinanceService';
 import { 

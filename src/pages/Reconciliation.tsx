@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { ChevronRightIcon, ChevronLeftIcon, ArrowLeftIcon, EditIcon, PlusIcon, DeleteIcon, XIcon, CheckCircleIcon, Building2Icon, CreditCardIcon, CircleDotIcon } from '../components/icons';
 import { preserveDemoParam } from '../utils/navigation';
 import { IconButton } from '../components/icons/IconButton';
@@ -30,6 +30,15 @@ export default function Reconciliation() {
   const [showSplitModal, setShowSplitModal] = useState(false);
   const [splittingTransaction, setSplittingTransaction] = useState<Transaction | null>(null);
   const [splitItems, setSplitItems] = useState<Array<{id: string, description: string, category: string, amount: number}>>([]);
+  
+  // Quick filter states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [amountMin, setAmountMin] = useState('');
+  const [amountMax, setAmountMax] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
   // Use shared reconciliation hook
   const { 
@@ -38,13 +47,53 @@ export default function Reconciliation() {
     getUnreconciledCount 
   } = useReconciliation(accounts, transactions);
 
-  // Get uncleared transactions for selected account
-  const unclearedTransactions = useMemo(() => 
-    selectedAccount 
+  // Get uncleared transactions for selected account with filters
+  const unclearedTransactions = useMemo(() => {
+    let filtered = selectedAccount 
       ? transactions.filter(t => t.accountId === selectedAccount && !t.cleared)
-      : [],
-    [selectedAccount, transactions]
-  );
+      : [];
+    
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(t => 
+        t.description.toLowerCase().includes(query) ||
+        t.notes?.toLowerCase().includes(query) ||
+        t.merchant?.toLowerCase().includes(query)
+      );
+    }
+    
+    // Apply date filters
+    if (dateFrom) {
+      filtered = filtered.filter(t => {
+        const transDate = typeof t.date === 'string' ? t.date : t.date.toISOString().split('T')[0];
+        return transDate >= dateFrom;
+      });
+    }
+    if (dateTo) {
+      filtered = filtered.filter(t => {
+        const transDate = typeof t.date === 'string' ? t.date : t.date.toISOString().split('T')[0];
+        return transDate <= dateTo;
+      });
+    }
+    
+    // Apply amount filters
+    if (amountMin) {
+      const min = parseFloat(amountMin);
+      filtered = filtered.filter(t => Math.abs(t.amount) >= min);
+    }
+    if (amountMax) {
+      const max = parseFloat(amountMax);
+      filtered = filtered.filter(t => Math.abs(t.amount) <= max);
+    }
+    
+    // Apply category filter
+    if (selectedCategory) {
+      filtered = filtered.filter(t => t.category === selectedCategory);
+    }
+    
+    return filtered;
+  }, [selectedAccount, transactions, searchQuery, dateFrom, dateTo, amountMin, amountMax, selectedCategory]);
     
   // Pagination
   const totalPages = Math.ceil(unclearedTransactions.length / transactionsPerPage);
@@ -56,7 +105,19 @@ export default function Reconciliation() {
   useEffect(() => {
     setCurrentPage(1);
     setSelectedTransactions(new Set());
+    // Clear filters when changing accounts
+    clearFilters();
   }, [selectedAccount]);
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchQuery('');
+    setDateFrom('');
+    setDateTo('');
+    setAmountMin('');
+    setAmountMax('');
+    setSelectedCategory('');
+  };
 
   // Handle marking transaction as cleared/reconciled
   const handleReconcile = (transactionId: string): void => {
@@ -438,6 +499,108 @@ export default function Reconciliation() {
         </div>
       ) : (
         <div>
+          {/* Quick Filters Bar */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Filters</h3>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="text-sm text-primary hover:text-secondary"
+              >
+                {showFilters ? 'Hide Filters' : 'Show Filters'}
+              </button>
+            </div>
+            
+            {showFilters && (
+              <div className="space-y-4">
+                {/* Search bar */}
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      placeholder="Search transactions..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+                
+                {/* Filter row */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  {/* Date range */}
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">From Date</label>
+                    <input
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">To Date</label>
+                    <input
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  
+                  {/* Amount range */}
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Min Amount</label>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={amountMin}
+                      onChange={(e) => setAmountMin(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Max Amount</label>
+                    <input
+                      type="number"
+                      placeholder="0.00"
+                      value={amountMax}
+                      onChange={(e) => setAmountMax(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                  
+                  {/* Category filter */}
+                  <div>
+                    <label className="text-xs text-gray-500 dark:text-gray-400 block mb-1">Category</label>
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">All Categories</option>
+                      {categories.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                {/* Clear filters button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={clearFilters}
+                    className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  >
+                    Clear all filters
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Action Bar */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-4 mb-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">

@@ -1,6 +1,8 @@
-import { Component } from 'react';
+import { Component, useEffect, useRef } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { AlertTriangleIcon, RefreshCwIcon, HomeIcon } from './icons';
+import { captureException } from '../lib/sentry';
 
 interface Props {
   children: ReactNode;
@@ -14,10 +16,11 @@ interface State {
   errorInfo?: ErrorInfo;
 }
 
-export default class ErrorBoundary extends Component<Props, State> {
+class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false };
+    this.handlePopState = this.handlePopState.bind(this);
   }
 
   static getDerivedStateFromError(error: Error): State {
@@ -28,9 +31,80 @@ export default class ErrorBoundary extends Component<Props, State> {
     console.error('Error caught by boundary:', error, errorInfo);
     this.setState({ errorInfo });
     
+    // Report to Sentry
+    captureException(error, {
+      componentStack: errorInfo.componentStack,
+      props: this.props,
+    });
+    
     // Call the onError callback if provided
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
+    }
+  }
+
+  componentDidMount() {
+    // Listen for browser back/forward navigation
+    window.addEventListener('popstate', this.handlePopState);
+    // Also listen for hash changes
+    window.addEventListener('hashchange', this.handlePopState);
+    // Listen for pushstate/replacestate (programmatic navigation)
+    this.interceptHistoryMethods();
+  }
+
+  componentWillUnmount() {
+    // Clean up the event listeners
+    window.removeEventListener('popstate', this.handlePopState);
+    window.removeEventListener('hashchange', this.handlePopState);
+    // Restore original history methods
+    this.restoreHistoryMethods();
+  }
+
+  originalPushState?: typeof window.history.pushState;
+  originalReplaceState?: typeof window.history.replaceState;
+
+  interceptHistoryMethods = () => {
+    // Store original methods
+    this.originalPushState = window.history.pushState;
+    this.originalReplaceState = window.history.replaceState;
+
+    // Override pushState
+    window.history.pushState = (...args) => {
+      this.originalPushState?.apply(window.history, args);
+      this.handlePopState();
+    };
+
+    // Override replaceState
+    window.history.replaceState = (...args) => {
+      this.originalReplaceState?.apply(window.history, args);
+      this.handlePopState();
+    };
+  }
+
+  restoreHistoryMethods = () => {
+    if (this.originalPushState) {
+      window.history.pushState = this.originalPushState;
+    }
+    if (this.originalReplaceState) {
+      window.history.replaceState = this.originalReplaceState;
+    }
+  }
+
+  handlePopState = () => {
+    // Reset error state when user navigates with browser back/forward buttons
+    if (this.state.hasError) {
+      console.log('ErrorBoundary: Resetting due to navigation');
+      // Use setTimeout to ensure this happens after the URL has changed
+      setTimeout(() => {
+        this.setState({ hasError: false, error: undefined, errorInfo: undefined });
+      }, 0);
+    }
+  }
+
+  componentDidUpdate(prevProps: Props & { resetKey?: string }) {
+    // Reset error state when resetKey changes (indicating navigation)
+    if (this.props.resetKey !== prevProps.resetKey && this.state.hasError) {
+      this.setState({ hasError: false, error: undefined, errorInfo: undefined });
     }
   }
 
@@ -95,4 +169,24 @@ export default class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children;
   }
+}
+
+// Export the class component directly as default
+// It will handle browser navigation via popstate events
+export default ErrorBoundaryClass;
+
+// Also export a Router-aware version for use inside Router context
+export function RouterAwareErrorBoundary(props: Props) {
+  const location = useLocation();
+  const errorBoundaryRef = useRef<ErrorBoundaryClass>(null);
+  
+  // Use location.pathname as a reset key
+  // This will cause the error boundary to reset when the route changes
+  return (
+    <ErrorBoundaryClass 
+      ref={errorBoundaryRef}
+      resetKey={location.pathname}
+      {...props} 
+    />
+  );
 }

@@ -18,22 +18,38 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { SupabaseService } from '../../services/supabaseService';
 import { storageAdapter } from '../../services/storageAdapter';
+import { userIdService } from '../../services/userIdService';
 import type { Account, Transaction, Budget, Goal } from '../../types';
 
-// Helper to get user ID from Clerk auth
-function getCurrentUserId(): string | null {
+// Helper to get database user ID (not Clerk ID)
+async function getCurrentDatabaseUserId(): Promise<string | null> {
+  // First try to get from userIdService (cached)
+  const cachedId = userIdService.getCurrentDatabaseUserId();
+  if (cachedId) {
+    return cachedId;
+  }
+
+  // If not cached, get Clerk ID and convert
+  let clerkId: string | null = null;
+  
   // In the browser environment, we can access the global Clerk instance
   if (typeof window !== 'undefined' && window.Clerk) {
     const user = window.Clerk.user;
-    return user?.id || null;
+    clerkId = user?.id || null;
   }
   
   // Fallback for SSR or when Clerk is not available
-  if (typeof window !== 'undefined') {
-    return sessionStorage.getItem('current_user_id') || null;
+  if (!clerkId && typeof window !== 'undefined') {
+    clerkId = sessionStorage.getItem('current_user_id') || null;
   }
   
-  return null;
+  if (!clerkId) {
+    return null;
+  }
+
+  // Convert Clerk ID to database UUID
+  const databaseId = await userIdService.getDatabaseUserId(clerkId);
+  return databaseId;
 }
 
 // =============================================================================
@@ -44,7 +60,7 @@ export const fetchAccountsFromSupabase = createAsyncThunk(
   'accounts/fetchFromSupabase',
   async (_, { rejectWithValue }) => {
     try {
-      const userId = getCurrentUserId();
+      const userId = await getCurrentDatabaseUserId();
       if (!userId) {
         throw new Error('User not authenticated');
       }
@@ -73,7 +89,7 @@ export const createAccountInSupabase = createAsyncThunk(
   'accounts/createInSupabase',
   async (accountData: Omit<Account, 'id' | 'lastUpdated'>, { rejectWithValue, dispatch }) => {
     try {
-      const userId = getCurrentUserId();
+      const userId = await getCurrentDatabaseUserId();
       if (!userId) {
         throw new Error('User not authenticated');
       }
@@ -199,7 +215,7 @@ export const fetchTransactionsFromSupabase = createAsyncThunk(
   'transactions/fetchFromSupabase',
   async (limit: number = 1000, { rejectWithValue }) => {
     try {
-      const userId = getCurrentUserId();
+      const userId = await getCurrentDatabaseUserId();
       if (!userId) {
         throw new Error('User not authenticated');
       }
@@ -228,7 +244,7 @@ export const createTransactionInSupabase = createAsyncThunk(
   'transactions/createInSupabase',
   async (transactionData: Omit<Transaction, 'id'>, { rejectWithValue }) => {
     try {
-      const userId = getCurrentUserId();
+      const userId = await getCurrentDatabaseUserId();
       if (!userId) {
         throw new Error('User not authenticated');
       }
@@ -351,7 +367,7 @@ export const fetchBudgetsFromSupabase = createAsyncThunk(
   'budgets/fetchFromSupabase',
   async (_, { rejectWithValue }) => {
     try {
-      const userId = getCurrentUserId();
+      const userId = await getCurrentDatabaseUserId();
       if (!userId) {
         throw new Error('User not authenticated');
       }
@@ -380,7 +396,7 @@ export const createBudgetInSupabase = createAsyncThunk(
   'budgets/createInSupabase',
   async (budgetData: Omit<Budget, 'id' | 'createdAt' | 'spent'>, { rejectWithValue }) => {
     try {
-      const userId = getCurrentUserId();
+      const userId = await getCurrentDatabaseUserId();
       if (!userId) {
         throw new Error('User not authenticated');
       }
@@ -426,7 +442,7 @@ export const fetchGoalsFromSupabase = createAsyncThunk(
   'goals/fetchFromSupabase',
   async (_, { rejectWithValue }) => {
     try {
-      const userId = getCurrentUserId();
+      const userId = await getCurrentDatabaseUserId();
       if (!userId) {
         throw new Error('User not authenticated');
       }
@@ -455,7 +471,7 @@ export const createGoalInSupabase = createAsyncThunk(
   'goals/createInSupabase',
   async (goalData: Omit<Goal, 'id' | 'createdAt' | 'currentAmount'>, { rejectWithValue }) => {
     try {
-      const userId = getCurrentUserId();
+      const userId = await getCurrentDatabaseUserId();
       if (!userId) {
         throw new Error('User not authenticated');
       }
@@ -501,7 +517,7 @@ export const syncOfflineData = createAsyncThunk(
   'app/syncOfflineData',
   async (_, { dispatch, rejectWithValue }) => {
     try {
-      const userId = getCurrentUserId();
+      const userId = await getCurrentDatabaseUserId();
       if (!userId) {
         throw new Error('User not authenticated');
       }

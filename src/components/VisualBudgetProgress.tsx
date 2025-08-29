@@ -10,7 +10,7 @@ import {
   InfoIcon,
   SparklesIcon
 } from './icons';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Budget, Transaction } from '../types';
 

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useApp } from "../contexts/AppContext";
+import { useApp } from "../contexts/AppContextSupabase";
 import type { Goal } from "../types";
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';

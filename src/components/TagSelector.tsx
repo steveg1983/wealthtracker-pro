@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { XIcon } from './icons/XIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { HashIcon } from './icons/HashIcon';

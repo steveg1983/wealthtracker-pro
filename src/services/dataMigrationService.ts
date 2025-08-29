@@ -8,6 +8,7 @@
 
 import { supabase } from '../lib/supabase';
 import { store } from '../store';
+import { userIdService } from './userIdService';
 import type { Account, Transaction, Budget, Goal } from '../types';
 
 interface MigrationStatus {
@@ -65,24 +66,27 @@ export class DataMigrationService {
   }
 
   /**
-   * Get user's Supabase profile ID from Clerk ID
+   * Get user's Supabase profile ID from Clerk ID (create if doesn't exist)
+   * Now delegates to centralized userIdService
    */
   static async getUserProfileId(clerkUserId: string): Promise<string | null> {
     if (!supabase) return null;
 
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('clerk_user_id', clerkUserId)
-        .single();
+      // Use centralized userIdService for all ID conversions and user creation
+      const databaseUserId = await userIdService.ensureUserExists(
+        clerkUserId,
+        'migrated@example.com', // Placeholder, will be updated by user profile
+        undefined,
+        undefined
+      );
 
-      if (error) {
-        console.error('Error fetching user profile:', error);
+      if (!databaseUserId) {
+        console.error('Failed to get or create user for migration');
         return null;
       }
 
-      return data?.id || null;
+      return databaseUserId;
     } catch (error) {
       console.error('Error in getUserProfileId:', error);
       return null;

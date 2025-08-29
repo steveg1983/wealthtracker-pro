@@ -10,6 +10,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useUser } from '@clerk/clerk-react';
+import { userIdService } from '../services/userIdService';
 import StripeService from '../services/stripeService';
 import SubscriptionApiService from '../services/subscriptionApiService';
 import type { 
@@ -61,17 +62,31 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
 
   useEffect(() => {
     if (isSignedIn && user) {
-      // Initialize user profile if needed
-      SubscriptionApiService.initializeUserProfile(
-        user.id,
-        user.primaryEmailAddress?.emailAddress || '',
-        user.fullName || undefined
-      ).then(() => {
-        loadSubscriptionData();
-      }).catch(() => {
-        // Profile might already exist, just load data
-        loadSubscriptionData();
-      });
+      // Ensure user exists in database first
+      const initializeUser = async () => {
+        const databaseId = await userIdService.ensureUserExists(
+          user.id,
+          user.primaryEmailAddress?.emailAddress || '',
+          user.firstName || undefined,
+          user.lastName || undefined
+        );
+
+        if (databaseId) {
+          // Initialize user profile if needed
+          SubscriptionApiService.initializeUserProfile(
+            user.id,
+            user.primaryEmailAddress?.emailAddress || '',
+            user.fullName || undefined
+          ).then(() => {
+            loadSubscriptionData();
+          }).catch(() => {
+            // Profile might already exist, just load data
+            loadSubscriptionData();
+          });
+        }
+      };
+
+      initializeUser();
     } else {
       // Reset state when signed out
       setSubscription(null);

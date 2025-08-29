@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { UserButton } from '@clerk/clerk-react';
-import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, LightbulbIcon, FileTextIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, LightbulbIcon, FileTextIcon, ArchiveIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
@@ -16,10 +16,15 @@ import { useServiceWorker } from '../hooks/useServiceWorker';
 import { OfflineIndicator as PWAOfflineIndicator } from './pwa/OfflineIndicator';
 import { MobilePullToRefreshWrapper } from './MobilePullToRefreshWrapper';
 import { QuickAddOfflineButton } from './pwa/QuickAddOfflineButton';
-import { ConflictResolutionModal } from './pwa/ConflictResolutionModal';
+import { EnhancedConflictResolutionModal } from './pwa/EnhancedConflictResolutionModal';
+import { useConflictResolution } from '../hooks/useConflictResolution';
 import GlobalSearch, { useGlobalSearchDialog } from './GlobalSearch';
 import KeyboardShortcutsHelp, { useKeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
-import NotificationBell from './NotificationBell';
+import ExplainPanel from './ExplainPanel';
+import { aiService } from '../services/ai/aiService';
+import { recordEvent } from '../services/ai/metrics';
+import EnhancedNotificationBell from './EnhancedNotificationBell';
+import { NavigationBadge } from './ActivityBadge';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import { RealtimeStatusDot } from './RealtimeStatusIndicator';
@@ -28,6 +33,7 @@ import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import ErrorBoundary from './ErrorBoundary';
 import { FloatingActionButton } from './FloatingActionButton';
 import DemoModeIndicator from './DemoModeIndicator';
+import SyncStatusIndicator from './SyncStatusIndicator';
 
 interface SidebarLinkProps {
   to: string;
@@ -95,6 +101,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
       aria-current={isActive ? 'page' : undefined}
     >
       {content}
+      {!isCollapsed && hasSubItems && <NavigationBadge type={label === 'Accounts' ? 'account' : label === 'Budget' ? 'budget' : undefined} />}
     </Link>
   );
 }
@@ -106,8 +113,7 @@ export default function Layout(): React.JSX.Element {
   const [accountsExpanded, setAccountsExpanded] = useState(false);
   const [forecastingExpanded, setForecastingExpanded] = useState(false);
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
-  const [conflictModalOpen, setConflictModalOpen] = useState(false);
-  const [currentConflict, setCurrentConflict] = useState<any>(null);
+  const [investmentsExpanded, setInvestmentsExpanded] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
@@ -129,14 +135,27 @@ export default function Layout(): React.JSX.Element {
   const { isWideView } = useLayout();
   const { isOpen: isSearchOpen, openSearch, closeSearch } = useGlobalSearchDialog();
   const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
-  // Swipe navigation removed - using standard React Router navigation
+  const [isExplainOpen, setExplainOpen] = useState(false);
+  const [explainTitle, setExplainTitle] = useState('Explain This Page');
+  const [explainMarkdown, setExplainMarkdown] = useState('');
+  const [isExplaining, setIsExplaining] = useState(false);
+  
+  // Initialize conflict resolution
+  const {
+    currentConflict,
+    currentAnalysis,
+    isModalOpen: isConflictModalOpen,
+    resolveConflict,
+    dismissConflict,
+    conflictState
+  } = useConflictResolution();
   
   // Initialize global keyboard shortcuts
   const { activeSequence } = useGlobalKeyboardShortcuts(openHelp);
 
   // Simple page navigation helper
   const getNextPrevPage = (direction: 'next' | 'prev', currentPath: string): string | null => {
-    const pages = ['/dashboard', '/accounts', '/transactions', '/investments', '/analytics'];
+    const pages = ['/dashboard', '/accounts', '/transfers', '/transactions', '/investments', '/analytics'];
     const currentIndex = pages.indexOf(currentPath);
     
     if (currentIndex === -1) return null;
@@ -232,8 +251,32 @@ export default function Layout(): React.JSX.Element {
     return () => window.removeEventListener('open-conflict-resolver', handleOpenConflictResolver);
   }, []);
 
+  // Explain panel host
+  useEffect(() => {
+    const handler = async (event: Event) => {
+      const detail = (event as CustomEvent).detail as { route: string; title?: string; signals?: Record<string, unknown> };
+      try {
+        setIsExplaining(true);
+        setExplainTitle(detail.title || 'Explain This Page');
+        const res = await aiService.explainPage({ route: detail.route, title: detail.title, signals: detail.signals });
+        setExplainTitle(res.title || detail.title || 'Explain This Page');
+        setExplainMarkdown(res.markdown);
+        setExplainOpen(true);
+        recordEvent('explain_opened', { route: detail.route });
+      } catch (e) {
+        setExplainTitle('Explain This Page');
+        setExplainMarkdown('Sorry, an explanation could not be generated.');
+        setExplainOpen(true);
+      } finally {
+        setIsExplaining(false);
+      }
+    };
+    window.addEventListener('open-explain', handler as EventListener);
+    return () => window.removeEventListener('open-explain', handler as EventListener);
+  }, []);
+
   return (
-    <div className="flex h-screen bg-tertiary dark:bg-gray-900">
+    <div className="flex min-h-screen bg-tertiary dark:bg-gray-900">
       <DemoModeIndicator />
       <EnhancedSkipLinks />
       <FocusIndicator />
@@ -258,7 +301,7 @@ export default function Layout(): React.JSX.Element {
       <aside
         className={`${
           isSidebarCollapsed ? 'w-14' : 'w-52'
-        } bg-sidebar dark:bg-gray-800 shadow-2xl rounded-2xl transition-all duration-300 hidden md:block m-4 h-[calc(100vh-2rem)]`}
+        } bg-sidebar dark:bg-gray-800 shadow-2xl rounded-2xl transition-all duration-300 hidden md:block m-4 h-[calc(100vh-2rem)] fixed`}
         aria-label="Main navigation sidebar"
       >
         <div className="p-3 h-full flex flex-col">
@@ -303,7 +346,11 @@ export default function Layout(): React.JSX.Element {
                   <Link
                     to={searchParams.get('demo') === 'true' ? '/accounts?demo=true' : '/accounts'}
                     onClick={() => setAccountsExpanded(!accountsExpanded)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                    className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
+                      location.pathname === '/accounts' || location.pathname.startsWith('/transactions') || location.pathname.startsWith('/reconciliation')
+                        ? 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
+                        : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
+                    }`}
                     aria-expanded={accountsExpanded}
                     aria-label="Accounts"
                   >
@@ -316,6 +363,7 @@ export default function Layout(): React.JSX.Element {
                   </Link>
                   {accountsExpanded && (
                     <div className="mt-1 space-y-0.5">
+                      <SidebarLink to="/transfers" icon={ArrowRightLeftIcon} label="Transfer Center" isCollapsed={false} isSubItem={true} />
                       <SidebarLink to="/transactions" icon={CreditCardIcon} label="Transactions" isCollapsed={false} isSubItem={true} />
                       <SidebarLink to="/reconciliation" icon={ArrowRightLeftIcon} label="Reconciliation" isCollapsed={false} isSubItem={true} />
                     </div>
@@ -326,34 +374,72 @@ export default function Layout(): React.JSX.Element {
               )}
             </div>
             
-            {showInvestments && <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={isSidebarCollapsed} />}
-            {showEnhancedInvestments && <SidebarLink to="/enhanced-investments" icon={BarChart3Icon} label="Investment Analytics" isCollapsed={isSidebarCollapsed} />}
-            
-            {/* Forecasting with Sub-navigation */}
-            {(showBudget || showGoals) && (
+            {/* Investments with Sub-navigation */}
+            {(showInvestments || showEnhancedInvestments) && (
               <div>
                 {!isSidebarCollapsed ? (
-                  <button
-                    onClick={() => setForecastingExpanded(!forecastingExpanded)}
-                    className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
-                    aria-expanded={forecastingExpanded}
-                    aria-label="Forecasting section"
-                  >
-                    <LineChartIcon size={18} />
-                    <span className="flex-1 text-sm text-left">Forecasting</span>
-                    <ChevronRightIcon 
-                      size={14} 
-                      className={`text-gray-400 transition-transform duration-200 ${forecastingExpanded ? 'rotate-90' : ''}`} 
-                    />
-                  </button>
+                  <div>
+                    <Link
+                      to={searchParams.get('demo') === 'true' ? '/investments?demo=true' : '/investments'}
+                      onClick={() => setInvestmentsExpanded(!investmentsExpanded)}
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
+                        location.pathname === '/investments' || location.pathname.startsWith('/enhanced-investments')
+                          ? 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
+                          : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
+                      }`}
+                      aria-expanded={investmentsExpanded}
+                      aria-label="Investments"
+                    >
+                      <TrendingUpIcon size={18} />
+                      <span className="flex-1 text-sm text-left">Investments</span>
+                      <ChevronRightIcon 
+                        size={14} 
+                        className={`text-gray-400 transition-transform duration-200 ${investmentsExpanded ? 'rotate-90' : ''}`} 
+                      />
+                    </Link>
+                    {investmentsExpanded && (
+                      <div className="mt-1 space-y-0.5">
+                        {showEnhancedInvestments && <SidebarLink to="/enhanced-investments" icon={BarChart3Icon} label="Investment Analytics" isCollapsed={false} isSubItem={true} />}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={true} />
+                )}
+              </div>
+            )}
+            
+            {/* Forecasting with Sub-navigation */}
+            {showGoals && (
+              <div>
+                {!isSidebarCollapsed ? (
+                  <div>
+                    <Link
+                      to={searchParams.get('demo') === 'true' ? '/forecasting?demo=true' : '/forecasting'}
+                      onClick={() => setForecastingExpanded(!forecastingExpanded)}
+                      className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
+                        location.pathname === '/forecasting' || location.pathname === '/budget' || location.pathname === '/goals'
+                          ? 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
+                          : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
+                      }`}
+                      aria-expanded={forecastingExpanded}
+                      aria-label="Forecasting & Budget"
+                    >
+                      <LineChartIcon size={18} />
+                      <span className="flex-1 text-sm text-left">Forecasting</span>
+                      <ChevronRightIcon 
+                        size={14} 
+                        className={`text-gray-400 transition-transform duration-200 ${forecastingExpanded ? 'rotate-90' : ''}`} 
+                      />
+                    </Link>
+                    {forecastingExpanded && (
+                      <div className="mt-1 space-y-0.5">
+                        <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} />
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <SidebarLink to="/forecasting" icon={LineChartIcon} label="Forecasting" isCollapsed={true} />
-                )}
-                {forecastingExpanded && !isSidebarCollapsed && (
-                  <div className="mt-1 space-y-0.5">
-                    {showBudget && <SidebarLink to="/budget" icon={TargetIcon} label="Budget" isCollapsed={false} isSubItem={true} />}
-                    {showGoals && <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} />}
-                  </div>
                 )}
               </div>
             )}
@@ -363,11 +449,18 @@ export default function Layout(): React.JSX.Element {
             {/* Advanced Features with Sub-navigation */}
             <div>
               {!isSidebarCollapsed ? (
-                <button
+                <Link
+                  to={searchParams.get('demo') === 'true' ? '/advanced?demo=true' : '/advanced'}
                   onClick={() => setAdvancedExpanded(!advancedExpanded)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
+                    location.pathname === '/advanced' || location.pathname.startsWith('/ai-') || location.pathname === '/custom-reports' || 
+                    location.pathname === '/tax-planning' || location.pathname === '/household' || location.pathname === '/business-features' ||
+                    location.pathname === '/financial-planning' || location.pathname === '/data-intelligence' || location.pathname === '/summaries'
+                      ? 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
+                      : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
+                  }`}
                   aria-expanded={advancedExpanded}
-                  aria-label="Advanced features section"
+                  aria-label="Advanced"
                 >
                   <MagicWandIcon size={18} />
                   <span className="flex-1 text-sm text-left">Advanced</span>
@@ -375,9 +468,9 @@ export default function Layout(): React.JSX.Element {
                     size={14} 
                     className={`text-gray-400 transition-transform duration-200 ${advancedExpanded ? 'rotate-90' : ''}`} 
                   />
-                </button>
+                </Link>
               ) : (
-                <SidebarLink to="/ai-analytics" icon={MagicWandIcon} label="Advanced" isCollapsed={true} />
+                <SidebarLink to="/advanced" icon={MagicWandIcon} label="Advanced" isCollapsed={true} />
               )}
               {advancedExpanded && !isSidebarCollapsed && (
                 <div className="mt-1 space-y-0.5">
@@ -397,11 +490,17 @@ export default function Layout(): React.JSX.Element {
             {/* Settings with Sub-navigation */}
             <div>
               {!isSidebarCollapsed ? (
-                <button
+                <Link
+                  to={searchParams.get('demo') === 'true' ? '/settings?demo=true' : '/settings'}
                   onClick={() => setSettingsExpanded(!settingsExpanded)}
-                  className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                  className={`w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] ${
+                    location.pathname.startsWith('/settings') || location.pathname === '/enhanced-import' || 
+                    location.pathname === '/export-manager' || location.pathname === '/documents' || location.pathname === '/open-banking'
+                      ? 'bg-sidebar-active dark:bg-gray-900 text-black dark:text-white shadow-lg border-2 border-sidebar dark:border-gray-600'
+                      : 'bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50'
+                  }`}
                   aria-expanded={settingsExpanded}
-                  aria-label="Settings section"
+                  aria-label="Settings"
                 >
                   <SettingsIcon size={18} />
                   <span className="flex-1 text-sm text-left">Settings</span>
@@ -409,7 +508,7 @@ export default function Layout(): React.JSX.Element {
                     size={14} 
                     className={`text-gray-400 transition-transform duration-200 ${settingsExpanded ? 'rotate-90' : ''}`} 
                   />
-                </button>
+                </Link>
               ) : (
                 <SidebarLink to="/settings" icon={SettingsIcon} label="Settings" isCollapsed={true} />
               )}
@@ -419,6 +518,7 @@ export default function Layout(): React.JSX.Element {
                   <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} />
+                  <SidebarLink to="/settings/deleted-accounts" icon={ArchiveIcon} label="Deleted Accounts" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/settings/security" icon={ShieldIcon} label="Security" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Enhanced Import" isCollapsed={false} isSubItem={true} />
                   <SidebarLink to="/export-manager" icon={DownloadIcon} label="Export Manager" isCollapsed={false} isSubItem={true} />
@@ -448,7 +548,8 @@ export default function Layout(): React.JSX.Element {
           <h1 className="text-lg font-bold text-gray-900 dark:text-white" id="mobile-app-title">Wealth Tracker</h1>
           
           <div className="flex items-center gap-2">
-            <NotificationBell />
+            <SyncStatusIndicator variant="compact" className="mr-1" />
+            <EnhancedNotificationBell />
             <button
               onClick={openSearch}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
@@ -472,7 +573,8 @@ export default function Layout(): React.JSX.Element {
       
       {/* Desktop Notification Bell, User Profile and Theme Switcher */}
       <div className="hidden md:flex items-center gap-3 fixed top-4 right-4 z-30" role="toolbar" aria-label="User tools">
-        <NotificationBell />
+        <SyncStatusIndicator variant="compact" />
+        <EnhancedNotificationBell />
         <RealtimeStatusDot />
         <UserButton 
           afterSignOutUrl="/"
@@ -555,27 +657,53 @@ export default function Layout(): React.JSX.Element {
                   )}
                 </div>
                 
-                {showInvestments && <SidebarLink to="/investments" icon={TrendingUpIcon} label="Investments" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                {showEnhancedInvestments && <SidebarLink to="/enhanced-investments" icon={BarChart3Icon} label="Investment Analytics" isCollapsed={false} onNavigate={toggleMobileMenu} />}
-                
-                {/* Forecasting with Sub-navigation */}
-                {(showBudget || showGoals) && (
+                {/* Investments with Sub-navigation */}
+                {(showInvestments || showEnhancedInvestments) && (
                   <div>
-                    <SidebarLink 
-                      to="/forecasting" 
-                      icon={LineChartIcon} 
-                      label="Forecasting" 
-                      isCollapsed={false}
-                      hasSubItems={true}
-                      onNavigate={() => {
-                        setForecastingExpanded(true);
+                    <Link
+                      to={searchParams.get('demo') === 'true' ? '/investments?demo=true' : '/investments'}
+                      onClick={() => {
+                        setInvestmentsExpanded(!investmentsExpanded);
                         toggleMobileMenu();
                       }}
-                    />
+                      className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                    >
+                      <TrendingUpIcon size={18} />
+                      <span className="flex-1 text-sm text-left">Investments</span>
+                      <ChevronRightIcon 
+                        size={14} 
+                        className={`text-gray-400 transition-transform duration-200 ${investmentsExpanded ? 'rotate-90' : ''}`} 
+                      />
+                    </Link>
+                    {investmentsExpanded && (
+                      <div className="mt-1 space-y-1">
+                        {showEnhancedInvestments && <SidebarLink to="/enhanced-investments" icon={BarChart3Icon} label="Investment Analytics" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {/* Forecasting with Sub-navigation */}
+                {showGoals && (
+                  <div>
+                    <Link
+                      to={searchParams.get('demo') === 'true' ? '/forecasting?demo=true' : '/forecasting'}
+                      onClick={() => {
+                        setForecastingExpanded(!forecastingExpanded);
+                        toggleMobileMenu();
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2.5 md:py-2 rounded-lg transition-colors min-h-[40px] md:min-h-[auto] bg-secondary text-white dark:text-gray-300 hover:bg-secondary dark:hover:bg-gray-800/50"
+                    >
+                      <LineChartIcon size={18} />
+                      <span className="flex-1 text-sm text-left">Forecasting</span>
+                      <ChevronRightIcon 
+                        size={14} 
+                        className={`text-gray-400 transition-transform duration-200 ${forecastingExpanded ? 'rotate-90' : ''}`} 
+                      />
+                    </Link>
                     {forecastingExpanded && (
                       <div className="mt-1 space-y-1">
-                        {showBudget && <SidebarLink to="/budget" icon={TargetIcon} label="Budget" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
-                        {showGoals && <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />}
+                        <SidebarLink to="/goals" icon={GoalIcon} label="Goals" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       </div>
                     )}
                   </div>
@@ -606,6 +734,7 @@ export default function Layout(): React.JSX.Element {
                       <SidebarLink to="/settings/data" icon={DatabaseIcon} label="Data Management" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/categories" icon={TagIcon} label="Categories" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/tags" icon={HashIcon} label="Tags" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
+                      <SidebarLink to="/settings/deleted-accounts" icon={ArchiveIcon} label="Deleted Accounts" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/settings/security" icon={ShieldIcon} label="Security" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/enhanced-import" icon={UploadIcon} label="Enhanced Import" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
                       <SidebarLink to="/export-manager" icon={DownloadIcon} label="Export Manager" isCollapsed={false} isSubItem={true} onNavigate={toggleMobileMenu} />
@@ -624,7 +753,7 @@ export default function Layout(): React.JSX.Element {
       <main 
         ref={swipeRef as React.RefObject<HTMLElement>}
         id="main-content"
-        className="flex-1 overflow-auto md:pl-0 mt-16 md:mt-0" 
+        className={`flex-1 md:pl-0 mt-16 md:mt-0 ${isSidebarCollapsed ? 'md:ml-[5.5rem]' : 'md:ml-[14.5rem]'} transition-all duration-300`}
         style={{ WebkitOverflowScrolling: 'touch' }}
         role="main"
         aria-label="Main content"
@@ -651,7 +780,22 @@ export default function Layout(): React.JSX.Element {
               </button>
             </div>
             <div className="flex items-center gap-4 ml-6">
-              <NotificationBell />
+              {/* Global Explain button */}
+              <div>
+                {/* Reuse ExplainThisButton via event dispatch to avoid heavy imports here */}
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('open-explain', { detail: { route: window.location.pathname } }))}
+                  className="px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50 transition-colors"
+                  title="Explain this page"
+                  aria-label="Explain this page"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="text-amber-500"><path d="M12 3a6 6 0 00-4.472 9.999c.346.4.542.912.542 1.44V16a1 1 0 001 1h6a1 1 0 001-1v-1.56c0-.528.196-1.04.542-1.44A6 6 0 0012 3z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M9 21h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                    <span className="text-sm font-medium">Explain</span>
+                  </span>
+                </button>
+              </div>
+              <EnhancedNotificationBell />
               <RealtimeStatusDot />
               <UserButton 
                 afterSignOutUrl="/"
@@ -692,13 +836,12 @@ export default function Layout(): React.JSX.Element {
       <QuickAddOfflineButton />
       
       {/* Conflict Resolution Modal */}
-      <ConflictResolutionModal 
-        isOpen={conflictModalOpen}
-        onClose={() => {
-          setConflictModalOpen(false);
-          setCurrentConflict(null);
-        }}
+      <EnhancedConflictResolutionModal 
+        isOpen={isConflictModalOpen}
+        onClose={dismissConflict}
         conflict={currentConflict}
+        analysis={currentAnalysis}
+        onResolve={resolveConflict}
       />
       
       {/* Service Worker Update Notification */}
@@ -715,6 +858,51 @@ export default function Layout(): React.JSX.Element {
       
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp isOpen={isHelpOpen} onClose={closeHelp} />
+
+      {/* Explain Panel */}
+      <ExplainPanel
+        isOpen={isExplainOpen}
+        title={isExplaining ? 'Preparing explanation…' : explainTitle}
+        markdown={isExplaining ? 'Loading…' : explainMarkdown}
+        onClose={() => setExplainOpen(false)}
+      />
+      
+      {/* Enhanced Conflict Resolution Modal */}
+      {currentConflict && (
+        <EnhancedConflictResolutionModal
+          isOpen={isConflictModalOpen}
+          onClose={dismissConflict}
+          conflict={currentConflict}
+          analysis={currentAnalysis}
+          onResolve={resolveConflict}
+        />
+      )}
+      
+      {/* Conflict Status Indicator - Show when there are unresolved conflicts */}
+      {conflictState.requiresUserIntervention && (
+        <div className="fixed bottom-20 right-4 z-50 bg-amber-100 dark:bg-amber-900/90 p-3 rounded-lg shadow-lg">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse" />
+            <span className="text-sm text-amber-800 dark:text-amber-200">
+              {conflictState.conflicts.length} conflict{conflictState.conflicts.length !== 1 ? 's' : ''} need attention
+            </span>
+          </div>
+        </div>
+      )}
+      
+      {/* Auto-resolved notification */}
+      {conflictState.autoResolvedCount > 0 && (
+        <div className="fixed top-20 right-4 z-50 bg-green-100 dark:bg-green-900/90 p-3 rounded-lg shadow-lg animate-fade-in-out">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <span className="text-sm text-green-800 dark:text-green-200">
+              {conflictState.autoResolvedCount} conflict{conflictState.autoResolvedCount !== 1 ? 's' : ''} auto-resolved
+            </span>
+          </div>
+        </div>
+      )}
       
       {/* Keyboard Sequence Indicator */}
       <KeyboardSequenceIndicator activeSequence={activeSequence} />

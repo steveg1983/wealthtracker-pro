@@ -15,6 +15,13 @@ export default function ServiceWorkerUpdateNotification({
   useEffect(() => {
     if (!registration) return;
 
+    // In development, don't show update prompts as they can be confusing
+    const isDevelopment = window.location.hostname === 'localhost' && window.location.port === '5173';
+    if (isDevelopment) {
+      console.log('[SW Update] Skipping update prompt in development');
+      return;
+    }
+
     const handleUpdateFound = () => {
       const installingWorker = registration.installing;
       if (!installingWorker) return;
@@ -41,6 +48,19 @@ export default function ServiceWorkerUpdateNotification({
 
   const handleUpdate = () => {
     setIsUpdating(true);
+    
+    // Set a timeout to force reload if the update gets stuck
+    const reloadTimeout = setTimeout(() => {
+      console.log('[SW Update] Update seems stuck, forcing reload...');
+      window.location.reload();
+    }, 3000); // Force reload after 3 seconds if update doesn't complete
+    
+    // Listen for the controller change which indicates successful update
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      clearTimeout(reloadTimeout);
+      window.location.reload();
+    }, { once: true });
+    
     skipWaiting();
   };
 

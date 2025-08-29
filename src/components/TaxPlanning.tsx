@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { taxPlanningService, type TaxEstimate, type TaxDeduction, type TaxOptimization, type CapitalGain } from '../services/taxPlanningService';
 import { 
   CalculatorIcon,

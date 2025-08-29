@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RecurringTransactionModal from './RecurringTransactionModal';
-import type { RecurringTransaction } from '../contexts/AppContext';
+import type { RecurringTransaction } from '../contexts/AppContextSupabase';
 
 // Mock all dependencies
 const mockAddTransaction = vi.fn();

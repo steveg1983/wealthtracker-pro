@@ -281,37 +281,46 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions = {}): UseRealti
     }
 
     const userId = user.id;
-    const subscriptionKeys: string[] = [];
+    let mounted = true;
 
-    // Subscribe to accounts
-    if (syncData.accounts) {
-      const accountsKey = realtimeService.subscribeToAccounts(userId, handleAccountsEvent);
-      if (accountsKey) subscriptionKeys.push(accountsKey);
-    }
+    const setupSubscriptions = async () => {
+      const subscriptionKeys: string[] = [];
 
-    // Subscribe to transactions
-    if (syncData.transactions) {
-      const transactionsKey = realtimeService.subscribeToTransactions(userId, handleTransactionsEvent);
-      if (transactionsKey) subscriptionKeys.push(transactionsKey);
-    }
+      // Subscribe to accounts
+      if (syncData.accounts && mounted) {
+        const accountsKey = await realtimeService.subscribeToAccounts(userId, handleAccountsEvent);
+        if (accountsKey) subscriptionKeys.push(accountsKey);
+      }
 
-    // Subscribe to budgets
-    if (syncData.budgets) {
-      const budgetsKey = realtimeService.subscribeToBudgets(userId, handleBudgetsEvent);
-      if (budgetsKey) subscriptionKeys.push(budgetsKey);
-    }
+      // Subscribe to transactions
+      if (syncData.transactions && mounted) {
+        const transactionsKey = await realtimeService.subscribeToTransactions(userId, handleTransactionsEvent);
+        if (transactionsKey) subscriptionKeys.push(transactionsKey);
+      }
 
-    // Subscribe to goals
-    if (syncData.goals) {
-      const goalsKey = realtimeService.subscribeToGoals(userId, handleGoalsEvent);
-      if (goalsKey) subscriptionKeys.push(goalsKey);
-    }
+      // Subscribe to budgets
+      if (syncData.budgets && mounted) {
+        const budgetsKey = await realtimeService.subscribeToBudgets(userId, handleBudgetsEvent);
+        if (budgetsKey) subscriptionKeys.push(budgetsKey);
+      }
 
-    subscriptionKeysRef.current = subscriptionKeys;
+      // Subscribe to goals
+      if (syncData.goals && mounted) {
+        const goalsKey = await realtimeService.subscribeToGoals(userId, handleGoalsEvent);
+        if (goalsKey) subscriptionKeys.push(goalsKey);
+      }
+
+      if (mounted) {
+        subscriptionKeysRef.current = subscriptionKeys;
+      }
+    };
+
+    setupSubscriptions();
 
     // Cleanup on unmount or user change
     return () => {
-      subscriptionKeys.forEach(key => {
+      mounted = false;
+      subscriptionKeysRef.current.forEach(key => {
         realtimeService.unsubscribe(key);
       });
       subscriptionKeysRef.current = [];

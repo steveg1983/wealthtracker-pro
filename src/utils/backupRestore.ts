@@ -1,5 +1,5 @@
 import type { Account, Transaction, Budget, Goal, Category } from '../types';
-import type { RecurringTransaction } from '../contexts/AppContext';
+import type { RecurringTransaction } from '../contexts/AppContextSupabase';
 
 export interface BackupData {
   accounts: Account[];

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { portfolioRebalanceService } from '../services/portfolioRebalanceService';
 import type { AssetAllocation, RebalanceAction, PortfolioTarget } from '../services/portfolioRebalanceService';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrency } from '../hooks/useCurrency';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Investment } from '../types';

@@ -63,7 +63,7 @@ vi.mock('../contexts/AppContext', () => ({
 }));
 
 // Import after mocking
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import TransactionModal from './TransactionModal';
 
 describe('TransactionModal', () => {

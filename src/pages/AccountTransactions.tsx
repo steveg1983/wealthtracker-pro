@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { useApp } from '../contexts/AppContext';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useApp } from '../contexts/AppContextSupabase';
+import { preserveDemoParam } from '../utils/navigation';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { ArrowLeftIcon, SearchIcon, ChevronUpIcon, ChevronDownIcon, PlusIcon, CalendarIcon, BanknoteIcon, FileTextIcon, TagIcon, ArrowRightLeftIcon, XIcon, SettingsIcon, MinimizeIcon, MaximizeIcon } from '../components/icons';
 import EditTransactionModal from '../components/EditTransactionModal';
@@ -12,6 +13,7 @@ import type { Transaction } from '../types';
 export default function AccountTransactions() {
   const { accountId } = useParams<{ accountId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { accounts, transactions, categories, deleteTransaction, addTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const { compactView, setCompactView } = usePreferences();
@@ -229,19 +231,58 @@ export default function AccountTransactions() {
   // Handle quick add
   const handleQuickAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!account || !quickAddForm.description || !quickAddForm.amount || !quickAddForm.category) return;
+    if (!account || !quickAddForm.description || !quickAddForm.amount) return;
     
-    await addTransaction({
+    // For transfers, category is the target account ID
+    // For income/expense, category is required
+    if (quickAddForm.type !== 'transfer' && !quickAddForm.category) return;
+    
+    // Calculate the correct amount based on transaction type
+    let amount = parseFloat(quickAddForm.amount);
+    if (quickAddForm.type === 'expense') {
+      amount = -Math.abs(amount); // Expenses are always negative
+    } else if (quickAddForm.type === 'income') {
+      amount = Math.abs(amount); // Income is always positive
+    } else if (quickAddForm.type === 'transfer') {
+      // For transfers, amount is negative (money leaving this account)
+      amount = -Math.abs(amount);
+    }
+    
+    // Create the transaction
+    const transactionData: any = {
       date: new Date(quickAddForm.date),
       description: quickAddForm.description,
-      amount: parseFloat(quickAddForm.amount),
+      amount: amount,
       type: quickAddForm.type,
-      category: quickAddForm.category,
       accountId: account.id,
       tags: quickAddForm.tags,
       notes: quickAddForm.notes,
       cleared: false
-    });
+    };
+    
+    // Add category or transfer_account_id based on type
+    if (quickAddForm.type === 'transfer') {
+      transactionData.transfer_account_id = quickAddForm.category;
+    } else {
+      transactionData.category = quickAddForm.category;
+    }
+    
+    const newTransaction = await addTransaction(transactionData);
+    
+    // For transfers, create the opposite transaction in the target account
+    if (quickAddForm.type === 'transfer' && quickAddForm.category && newTransaction) {
+      await addTransaction({
+        date: new Date(quickAddForm.date),
+        description: quickAddForm.description,
+        amount: Math.abs(amount), // Positive amount for receiving account
+        type: 'transfer',
+        transfer_account_id: account.id, // Reference back to the source account
+        accountId: quickAddForm.category, // Target account receives the transfer
+        tags: quickAddForm.tags,
+        notes: quickAddForm.notes,
+        cleared: false
+      });
+    }
     
     // Reset form
     setQuickAddForm({
@@ -394,7 +435,7 @@ export default function AccountTransactions() {
     <div className="flex flex-col h-full">
       {/* Back button */}
       <button
-        onClick={() => navigate('/accounts')}
+        onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
         className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 mb-4"
       >
         <ArrowLeftIcon size={20} />
@@ -691,15 +732,33 @@ export default function AccountTransactions() {
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 <TagIcon size={16} />
-                Category
+                {quickAddForm.type === 'transfer' ? 'To Account' : 'Category'}
               </label>
-              <CategorySelector
-                selectedCategory={quickAddForm.category}
-                onCategoryChange={(categoryId) => setQuickAddForm({ ...quickAddForm, category: categoryId })}
-                transactionType={quickAddForm.type}
-                placeholder="Select category..."
-                allowCreate={false}
-              />
+              {quickAddForm.type === 'transfer' ? (
+                <select
+                  value={quickAddForm.category}
+                  onChange={(e) => setQuickAddForm({ ...quickAddForm, category: e.target.value })}
+                  className="w-full px-3 py-1.5 h-[36px] text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary dark:text-white"
+                  required
+                >
+                  <option value="">Select account...</option>
+                  {accounts
+                    .filter(acc => acc.id !== account?.id) // Don't show current account
+                    .map(acc => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} ({formatCurrency(acc.balance)})
+                      </option>
+                    ))}
+                </select>
+              ) : (
+                <CategorySelector
+                  selectedCategory={quickAddForm.category}
+                  onCategoryChange={(categoryId) => setQuickAddForm({ ...quickAddForm, category: categoryId })}
+                  transactionType={quickAddForm.type}
+                  placeholder="Select category..."
+                  allowCreate={false}
+                />
+              )}
             </div>
             
             <div>

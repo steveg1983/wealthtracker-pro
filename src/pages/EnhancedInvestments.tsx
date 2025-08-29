@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { investmentEnhancementService } from '../services/investmentEnhancementService';
 import { 
   TrendingUpIcon, 

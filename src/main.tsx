@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux'
 import { ClerkProvider } from '@clerk/clerk-react'
+import { ClerkErrorBoundary } from './components/auth/ClerkErrorBoundary'
 import { store } from './store'
 import './index.css'
 import App from './App.tsx'
@@ -9,7 +10,7 @@ import * as serviceWorkerRegistration from './utils/serviceWorkerRegistration'
 import { initializeSecurity } from './security'
 import { pushNotificationService } from './services/pushNotificationService'
 import { checkEnvironmentVariables } from './utils/env-check'
-// import { initSentry } from './lib/sentry'
+import { initSentry } from './lib/sentry'
 
 // Check environment variables in development
 if (import.meta.env.DEV) {
@@ -40,11 +41,11 @@ if ('serviceWorker' in navigator) {
 }
 
 // Initialize Sentry error tracking
-// try {
-//   initSentry();
-// } catch (error) {
-//   console.error('Error initializing Sentry:', error);
-// }
+try {
+  initSentry();
+} catch (error) {
+  console.error('Error initializing Sentry:', error);
+}
 
 // Add error logging
 window.addEventListener('error', (event): void => {
@@ -66,11 +67,22 @@ try {
     console.log('Starting React app...');
     createRoot(root).render(
       <StrictMode>
-        <ClerkProvider publishableKey={PUBLISHABLE_KEY} afterSignOutUrl="/">
-          <Provider store={store}>
-            <App />
-          </Provider>
-        </ClerkProvider>
+        <ClerkErrorBoundary>
+          <ClerkProvider 
+            publishableKey={PUBLISHABLE_KEY} 
+            afterSignOutUrl="/"
+            appearance={{
+              variables: {
+                colorPrimary: '#3b82f6'
+              }
+            }}
+            allowedRedirectOrigins={[window.location.origin]}
+          >
+            <Provider store={store}>
+              <App />
+            </Provider>
+          </ClerkProvider>
+        </ClerkErrorBoundary>
       </StrictMode>,
     );
     console.log('React app rendered');

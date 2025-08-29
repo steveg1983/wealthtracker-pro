@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { exportService } from '../services/exportService';
 import type { ExportOptions, ExportTemplate, ScheduledReport } from '../services/exportService';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { 
   DownloadIcon,
   CalendarIcon,

@@ -15,7 +15,7 @@ import {
   SaveIcon,
   PlayIcon
 } from './icons';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { useNotifications } from '../contexts/NotificationContext';
 
 // Report component types

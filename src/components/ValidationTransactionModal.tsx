@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Modal } from './common/Modal';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { EditIcon, TrashIcon, CheckIcon, XIcon } from './icons';
 import type { Transaction, Account } from '../types';

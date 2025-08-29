@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useApp } from '../contexts/AppContext';
-import type { RecurringTransaction } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
+import type { RecurringTransaction } from '../contexts/AppContextSupabase';
 import { RepeatIcon } from './icons';
 import { Modal, ModalBody } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';

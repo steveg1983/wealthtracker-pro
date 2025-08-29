@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { TagIcon } from './icons/TagIcon';
@@ -22,6 +22,7 @@ interface CategorySelectorProps {
   placeholder?: string;
   className?: string;
   allowCreate?: boolean;
+  currentAccountId?: string; // The account from which the transaction is being created
 }
 
 export default function CategorySelector({
@@ -30,7 +31,8 @@ export default function CategorySelector({
   transactionType,
   placeholder = "Select category...",
   className = "",
-  allowCreate = false
+  allowCreate = false,
+  currentAccountId
 }: CategorySelectorProps): React.JSX.Element {
   const { categories, getSubCategories, getDetailCategories } = useApp();
   const [showDropdown, setShowDropdown] = useState(false);
@@ -49,6 +51,24 @@ export default function CategorySelector({
 
   // Get all detail categories for the transaction type
   const getAllDetailCategories = (): Category[] => {
+    // For transfers, show only transfer categories
+    if (transactionType === 'transfer') {
+      // Get all transfer categories (those with isTransferCategory flag)
+      const transferCategories = categories.filter(cat => 
+        cat.isTransferCategory === true && 
+        cat.isActive !== false && // Exclude soft-deleted categories
+        cat.accountId !== currentAccountId // Exclude the current account's transfer category
+      );
+      
+      // If no transfer categories available (only one account exists), return empty
+      if (transferCategories.length === 0) {
+        return [];
+      }
+      
+      return transferCategories;
+    }
+    
+    // For income/expense, show regular categories
     const subCategories = getSubCategoriesForType();
     const detailCategories: Category[] = [];
     
@@ -192,7 +212,12 @@ export default function CategorySelector({
               ))
             ) : (
               <div className="px-3 py-2 text-gray-500 dark:text-gray-400 text-center">
-                {searchTerm ? 'No categories found' : 'No categories available'}
+                {transactionType === 'transfer' && !currentAccountId ? 
+                  'Please select an account first' :
+                  transactionType === 'transfer' ? 
+                  'No other accounts available for transfers' : 
+                  searchTerm ? 'No categories found' : 
+                  'No categories available'}
               </div>
             )}
             

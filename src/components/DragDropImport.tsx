@@ -10,7 +10,7 @@ import {
   DownloadIcon,
   SparklesIcon
 } from './icons';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { importService } from '../services/importService';
 import type { Transaction } from '../types';
 

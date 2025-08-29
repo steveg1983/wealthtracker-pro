@@ -9,7 +9,7 @@ import { setBudgets } from '../store/slices/budgetsSlice';
 import { setGoals } from '../store/slices/goalsSlice';
 import { setRecurringTransactions } from '../store/slices/recurringTransactionsSlice';
 import { updatePreferences } from '../store/slices/preferencesSlice';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { serializeForRedux } from '../utils/serializeForRedux';
 

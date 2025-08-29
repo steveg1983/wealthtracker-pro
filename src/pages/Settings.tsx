@@ -1,6 +1,8 @@
-import { Settings2Icon, DatabaseIcon, TagIcon, HashIcon, PaletteIcon, BellIcon, EyeIcon } from '../components/icons';
+import { Settings2Icon, DatabaseIcon, TagIcon, HashIcon, PaletteIcon, BellIcon, EyeIcon, ArchiveIcon } from '../components/icons';
 import { Link } from 'react-router-dom';
 import PageWrapper from '../components/PageWrapper';
+import SyncStatusIndicator from '../components/SyncStatusIndicator';
+import SubscriptionStatus from '../components/SubscriptionStatus';
 
 export default function Settings() {
   const settingsOptions = [
@@ -45,11 +47,24 @@ export default function Settings() {
       icon: EyeIcon,
       path: '/settings/accessibility',
       color: 'bg-pink-500'
+    },
+    {
+      title: 'Deleted Accounts',
+      description: 'View and restore deleted accounts',
+      icon: ArchiveIcon,
+      path: '/settings/deleted-accounts',
+      color: 'bg-gray-500'
     }
   ];
 
   return (
     <PageWrapper title="Settings">
+
+      {/* Subscription and Sync Status Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <SubscriptionStatus />
+        <SyncStatusIndicator variant="detailed" showLastSync={true} />
+      </div>
 
       {/* Main About Section */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-8 mb-6">

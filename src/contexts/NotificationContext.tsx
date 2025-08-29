@@ -56,7 +56,22 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
   const [notifications, setNotifications] = useState<Notification[]>((): Notification[] => {
     try {
       const saved = localStorage.getItem('money_management_notifications');
-      return saved ? JSON.parse(saved) : [];
+      const parsed = saved ? JSON.parse(saved) : [];
+      // Limit to 20 most recent notifications on initialization to prevent excessive notifications
+      // Also clear very old notifications (older than 7 days)
+      const now = Date.now();
+      const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+      const filtered = Array.isArray(parsed) 
+        ? parsed.filter((n: any) => {
+            try {
+              const timestamp = new Date(n.timestamp).getTime();
+              return timestamp > sevenDaysAgo;
+            } catch {
+              return false;
+            }
+          })
+        : [];
+      return filtered.slice(0, 20);
     } catch {
       return [];
     }
@@ -128,11 +143,19 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       read: false
     };
     
-    setNotifications((prev): Notification[] => [newNotification, ...prev]);
+    setNotifications((prev): Notification[] => {
+      // Limit to 50 notifications to prevent spam
+      const updated = [newNotification, ...prev];
+      return updated.slice(0, 50);
+    });
   }, []);
 
   const addNotifications = useCallback((newNotifications: Notification[]): void => {
-    setNotifications((prev): Notification[] => [...newNotifications, ...prev]);
+    setNotifications((prev): Notification[] => {
+      // Limit to 50 notifications to prevent spam
+      const updated = [...newNotifications, ...prev];
+      return updated.slice(0, 50);
+    });
   }, []);
 
   const markAsRead = useCallback((id: string): void => {

@@ -4,15 +4,17 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { SentryErrorBoundary } from './lib/sentry';
 import { ErrorFallback } from './components/ErrorFallback';
 import { CombinedProvider } from './contexts/CombinedProvider';
-import { AppProvider } from './contexts/AppContext';
+// Use Supabase-enabled AppContext if configured
+import { AppProvider } from './contexts/AppContextSupabase';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { ThemeProvider } from './design-system';
-import { ReduxMigrationWrapper } from './components/ReduxMigrationWrapper';
+// ReduxMigrationWrapper removed - app now "just works" without migration prompts
 import { SupabaseDataLoader } from './components/SupabaseDataLoader';
 import { AuthProvider } from './contexts/AuthContext';
-import { RealtimeSyncProvider } from './contexts/RealtimeSyncProvider';
+// import { RealtimeSyncProvider } from './contexts/RealtimeSyncProvider'; // Temporarily disabled
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { ActivityLoggerProvider } from './components/ActivityLoggerProvider';
 import Layout from './components/Layout';
 import PageLoader from './components/PageLoader';
 import { merchantLogoService } from './services/merchantLogoService';
@@ -20,12 +22,16 @@ import { performanceService } from './services/performanceService';
 import { automaticBackupService } from './services/automaticBackupService';
 import { lazyWithPreload, preloadWhenIdle } from './utils/lazyWithPreload';
 import { initSafariCompat } from './utils/safariCompat';
+import { initClerkSafariCompat } from './utils/clerkSafarifix';
 import DiagnosticReport from './DiagnosticReport';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { PublicRoute } from './components/auth/PublicRoute';
 import { ProtectedSuspense } from './components/auth/ProtectedSuspense';
 import RealtimeSyncTest from './components/RealtimeSyncTest';
+import SafariWarning from './components/SafariWarning';
 import { isDemoMode, initializeDemoData } from './utils/demoData';
+import DebugInfo from './components/DebugInfo';
+import { DebugErrorBoundary } from './components/DebugErrorBoundary';
 
 // Lazy load all pages for code splitting with preload support
 // Using webpack magic comments for better chunk naming and preloading hints
@@ -49,6 +55,7 @@ const AppSettings = lazyWithPreload(() => import(/* webpackChunkName: "app-setti
 const DataManagement = lazyWithPreload(() => import(/* webpackChunkName: "data-management" */ './pages/settings/DataManagement'));
 const Categories = lazyWithPreload(() => import(/* webpackChunkName: "categories" */ './pages/settings/Categories'));
 const Tags = lazyWithPreload(() => import(/* webpackChunkName: "tags" */ './pages/settings/Tags'));
+const DeletedAccounts = lazyWithPreload(() => import(/* webpackChunkName: "deleted-accounts" */ './pages/settings/DeletedAccounts'));
 const SecuritySettings = lazyWithPreload(() => import(/* webpackChunkName: "security-settings" */ './pages/settings/SecuritySettings'));
 const AuditLogs = lazyWithPreload(() => import(/* webpackChunkName: "audit-logs" */ './pages/settings/AuditLogs'));
 const Notifications = lazyWithPreload(() => import(/* webpackChunkName: "notifications" */ './pages/settings/Notifications'));
@@ -63,12 +70,14 @@ const BusinessFeatures = lazyWithPreload(() => import(/* webpackChunkName: "busi
 const FinancialPlanning = lazyWithPreload(() => import(/* webpackChunkName: "financial-planning" */ './pages/FinancialPlanning'));
 const DataIntelligence = lazyWithPreload(() => import(/* webpackChunkName: "data-intelligence" */ './pages/DataIntelligence'));
 const ExportManager = lazyWithPreload(() => import(/* webpackChunkName: "export-manager" */ './pages/ExportManager'));
+const Advanced = lazyWithPreload(() => import(/* webpackChunkName: "advanced" */ './pages/Advanced'));
 const EnhancedImport = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-import" */ './pages/EnhancedImport'));
 const Documents = lazyWithPreload(() => import(/* webpackChunkName: "documents" */ './pages/Documents'));
 const OCRTest = lazyWithPreload(() => import(/* webpackChunkName: "ocr-test" */ './components/OCRTest'));
 const OpenBanking = lazyWithPreload(() => import(/* webpackChunkName: "open-banking" */ './pages/OpenBanking'));
 const Performance = lazyWithPreload(() => import(/* webpackChunkName: "performance" */ './pages/Performance'));
 const Subscription = lazyWithPreload(() => import(/* webpackChunkName: "subscription" */ './pages/Subscription'));
+const TransferCenter = lazyWithPreload(() => import(/* webpackChunkName: "transfer-center" */ './pages/TransferCenter'));
 
 function App(): React.JSX.Element {
   useEffect(() => {
@@ -78,6 +87,10 @@ function App(): React.JSX.Element {
       const safariCompat = await initSafariCompat();
       if (safariCompat.safari) {
         console.log('Safari compatibility mode:', safariCompat);
+        
+        // Apply Clerk-specific Safari fixes
+        const clerkCompat = await initClerkSafariCompat();
+        console.log('Clerk Safari compatibility:', clerkCompat);
       }
     };
     
@@ -118,19 +131,20 @@ function App(): React.JSX.Element {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <SentryErrorBoundary fallback={(errorData) => <ErrorFallback error={errorData.error as Error} resetError={errorData.resetError} />} showDialog>
-        <CombinedProvider>
+    <DebugErrorBoundary>
+      <ErrorBoundary>
+        <SentryErrorBoundary fallback={(errorData) => <ErrorFallback error={errorData.error as Error} resetError={errorData.resetError} />} showDialog>
+          <CombinedProvider>
           <ThemeProvider>
             <AppProvider>
               <AuthProvider>
                 <SubscriptionProvider>
                   <ToastProvider>
                     <NotificationProvider>
-                      <ReduxMigrationWrapper>
-                        <SupabaseDataLoader>
-                          <RealtimeSyncProvider>
-                          <Router>
+                      <SupabaseDataLoader>
+                            <ActivityLoggerProvider>
+                              <Router>
+                                <SafariWarning />
                         <Routes>
                         {/* Login route outside of Layout */}
                         <Route path="/login" element={
@@ -162,6 +176,11 @@ function App(): React.JSX.Element {
                           <Route path="accounts/:accountId" element={
                             <ProtectedSuspense>
                               <AccountTransactions />
+                            </ProtectedSuspense>
+                          } />
+                          <Route path="transfers" element={
+                            <ProtectedSuspense>
+                              <TransferCenter />
                             </ProtectedSuspense>
                           } />
                           <Route path="transactions" element={
@@ -291,6 +310,11 @@ function App(): React.JSX.Element {
                       <Subscription />
                     </Suspense>
                   } />
+                  <Route path="advanced" element={
+                    <Suspense fallback={<PageLoader />}>
+                      <Advanced />
+                    </Suspense>
+                  } />
                   <Route path="settings">
                     <Route index element={
                       <Suspense fallback={<PageLoader />}>
@@ -327,6 +351,11 @@ function App(): React.JSX.Element {
                         <AccessibilitySettings />
                       </Suspense>
                     } />
+                    <Route path="deleted-accounts" element={
+                      <Suspense fallback={<PageLoader />}>
+                        <DeletedAccounts />
+                      </Suspense>
+                    } />
                     <Route path="security" element={
                       <Suspense fallback={<PageLoader />}>
                         <SecuritySettings />
@@ -361,10 +390,9 @@ function App(): React.JSX.Element {
                         <Route path="forecasting" element={<Navigate to="/budget" replace />} />
                       </Route>
                         </Routes>
-                        </Router>
-                          </RealtimeSyncProvider>
+                              </Router>
+                            </ActivityLoggerProvider>
                         </SupabaseDataLoader>
-                      </ReduxMigrationWrapper>
                     </NotificationProvider>
                   </ToastProvider>
                 </SubscriptionProvider>
@@ -374,6 +402,7 @@ function App(): React.JSX.Element {
         </CombinedProvider>
       </SentryErrorBoundary>
     </ErrorBoundary>
+    </DebugErrorBoundary>
   );
 }
 

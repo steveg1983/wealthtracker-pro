@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { PieChartIcon, TrendingUpIcon, CalendarIcon, DownloadIcon, FilterIcon, PdfIcon } from '../components/icons';
 import { exportTransactionsToCSV, downloadCSV } from '../utils/csvExport';
 import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';

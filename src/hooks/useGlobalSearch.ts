@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import type { Account, Transaction, Budget, Goal } from '../types';
 
 export interface SearchResult {

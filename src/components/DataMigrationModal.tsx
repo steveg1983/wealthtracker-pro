@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { DataMigrationService } from '../services/dataMigrationService';
+import { userIdService } from '../services/userIdService';
 import { DatabaseIcon, CheckCircleIcon, AlertCircleIcon, LoadingIcon } from './icons';
 
 interface DataMigrationModalProps {
@@ -35,6 +36,20 @@ export default function DataMigrationModal({ isOpen, onClose, onComplete }: Data
     setErrorMessage('');
 
     try {
+      // Ensure user exists and get database ID
+      const databaseId = await userIdService.ensureUserExists(
+        userId,
+        'migration@example.com', // Will be updated by user profile
+        undefined,
+        undefined
+      );
+
+      if (!databaseId) {
+        setErrorMessage('Failed to initialize user in database');
+        setMigrationState('error');
+        return;
+      }
+
       const result = await DataMigrationService.migrateToSupabase(userId);
       
       if (result.error && result.error !== 'User already has cloud data') {

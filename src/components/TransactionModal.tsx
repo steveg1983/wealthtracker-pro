@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { XIcon } from './icons/XIcon';
 import TagSelector from './TagSelector';
 import CategorySelector from './CategorySelector';
@@ -352,6 +352,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
                 transactionType={formData.type}
                 placeholder="Select category..."
                 allowCreate={false}
+                currentAccountId={formData.accountId}
               />
             </div>
             {touched.category && errors.category && (

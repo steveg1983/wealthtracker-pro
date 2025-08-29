@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { ofxImportService } from '../services/ofxImportService';
 import { Modal } from './common/Modal';
 import {

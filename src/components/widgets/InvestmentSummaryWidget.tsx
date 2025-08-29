@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppContextSupabase';
 import { Investment } from '../../types';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { TrendingUpIcon, TrendingDownIcon, LineChartIcon } from '../icons';

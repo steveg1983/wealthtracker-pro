@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { advancedAnalyticsService, type BillNegotiationSuggestion } from '../services/advancedAnalyticsService';
 import { Modal } from './common/Modal';
 import { 

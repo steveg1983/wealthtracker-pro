@@ -34,12 +34,6 @@ interface PreferencesContextType {
   setShowEnhancedInvestments: (value: boolean) => void;
   showAIAnalytics: boolean;
   setShowAIAnalytics: (value: boolean) => void;
-  showTaxPlanning: boolean;
-  setShowTaxPlanning: (value: boolean) => void;
-  showHousehold: boolean;
-  setShowHousehold: (value: boolean) => void;
-  showBusinessFeatures: boolean;
-  setShowBusinessFeatures: (value: boolean) => void;
   showFinancialPlanning: boolean;
   setShowFinancialPlanning: (value: boolean) => void;
   showDataIntelligence: boolean;
@@ -182,36 +176,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       return saved !== 'false'; // Default to true
     } catch (error) {
       console.error('Error reading showAIAnalytics from localStorage:', error);
-      return true;
-    }
-  });
-
-  const [showTaxPlanning, setShowTaxPlanning] = useState((): boolean => {
-    try {
-      const saved = localStorage.getItem('money_management_show_tax_planning');
-      return saved !== 'false'; // Default to true
-    } catch (error) {
-      console.error('Error reading showTaxPlanning from localStorage:', error);
-      return true;
-    }
-  });
-
-  const [showHousehold, setShowHousehold] = useState((): boolean => {
-    try {
-      const saved = localStorage.getItem('money_management_show_household');
-      return saved !== 'false'; // Default to true
-    } catch (error) {
-      console.error('Error reading showHousehold from localStorage:', error);
-      return true;
-    }
-  });
-
-  const [showBusinessFeatures, setShowBusinessFeatures] = useState((): boolean => {
-    try {
-      const saved = localStorage.getItem('money_management_show_business_features');
-      return saved !== 'false'; // Default to true
-    } catch (error) {
-      console.error('Error reading showBusinessFeatures from localStorage:', error);
       return true;
     }
   });
@@ -371,9 +335,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       localStorage.setItem('money_management_show_investments', showInvestments.toString());
       localStorage.setItem('money_management_show_enhanced_investments', showEnhancedInvestments.toString());
       localStorage.setItem('money_management_show_ai_analytics', showAIAnalytics.toString());
-      localStorage.setItem('money_management_show_tax_planning', showTaxPlanning.toString());
-      localStorage.setItem('money_management_show_household', showHousehold.toString());
-      localStorage.setItem('money_management_show_business_features', showBusinessFeatures.toString());
       localStorage.setItem('money_management_show_financial_planning', showFinancialPlanning.toString());
       localStorage.setItem('money_management_show_data_intelligence', showDataIntelligence.toString());
       localStorage.setItem('money_management_show_summaries', showSummaries.toString());
@@ -385,7 +346,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     const timeoutId = setTimeout(savePreferences, 300);
     
     return (): void => clearTimeout(timeoutId);
-  }, [compactView, currency, theme, colorTheme, firstName, showBudget, showGoals, showAnalytics, showInvestments, showEnhancedInvestments, showAIAnalytics, showTaxPlanning, showHousehold, showBusinessFeatures, showFinancialPlanning, showDataIntelligence, showSummaries, themeSchedule, enableGoalCelebrations]);
+  }, [compactView, currency, theme, colorTheme, firstName, showBudget, showGoals, showAnalytics, showInvestments, showEnhancedInvestments, showAIAnalytics, showFinancialPlanning, showDataIntelligence, showSummaries, themeSchedule, enableGoalCelebrations]);
 
   return (
     <PreferencesContext.Provider value={{
@@ -414,12 +375,6 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       setShowEnhancedInvestments,
       showAIAnalytics,
       setShowAIAnalytics,
-      showTaxPlanning,
-      setShowTaxPlanning,
-      showHousehold,
-      setShowHousehold,
-      showBusinessFeatures,
-      setShowBusinessFeatures,
       showFinancialPlanning,
       setShowFinancialPlanning,
       showDataIntelligence,

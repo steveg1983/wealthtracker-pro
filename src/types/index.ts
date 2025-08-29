@@ -29,6 +29,8 @@ export interface Account {
   plaidAccountId?: string;
   mask?: string;
   updatedAt?: Date;
+  sortCode?: string; // UK bank sort code (XX-XX-XX format)
+  accountNumber?: string; // Bank account number (typically 8 digits)
 }
 
 export interface Transaction {
@@ -63,6 +65,49 @@ export interface Transaction {
   accountName?: string;
   recurringTransactionId?: string;
   addedBy?: string; // Member ID who added this transaction
+  linkedTransferId?: string; // ID of the corresponding transfer transaction in the other account
+  
+  // Transfer-specific metadata for wealth management
+  transferMetadata?: {
+    // Core transfer info
+    transferType?: 'internal' | 'wire' | 'ach' | 'crypto' | 'asset_sale' | 'dividend' | 'rebalance';
+    transferPurpose?: string; // "Quarterly rebalancing", "Tax payment", "Investment funding", etc.
+    
+    // Financial details
+    fees?: number; // Transfer fees charged
+    feesCurrency?: string; // Currency of fees if different
+    exchangeRate?: number; // For cross-currency transfers
+    originalAmount?: number; // Amount before conversion
+    originalCurrency?: string; // Original currency
+    
+    // Asset-specific
+    assetType?: 'cash' | 'stock' | 'bond' | 'crypto' | 'real_estate' | 'commodity' | 'other';
+    units?: number; // Number of units transferred (shares, coins, etc.)
+    pricePerUnit?: number; // Price at time of transfer
+    marketValue?: number; // Total market value at transfer time
+    costBasis?: number; // For tax purposes
+    
+    // Timing and scheduling
+    initiatedDate?: Date; // When transfer was initiated
+    settlementDate?: Date; // When transfer actually settles
+    isScheduled?: boolean; // Is this a scheduled/recurring transfer
+    scheduleId?: string; // Link to transfer schedule
+    
+    // Compliance and audit
+    approvedBy?: string; // For transfers requiring approval
+    approvalDate?: Date;
+    reference?: string; // External reference number
+    documentation?: string[]; // Links to supporting documents
+    taxImplications?: string; // Notes on tax impact
+    
+    // Reconciliation
+    expectedAmount?: number; // What we expected to receive
+    actualAmount?: number; // What actually arrived
+    discrepancy?: number; // Difference if any
+    reconciliationStatus?: 'pending' | 'matched' | 'discrepancy' | 'resolved';
+    reconciliationNotes?: string;
+  };
+  
   // Investment-specific fields
   investmentData?: {
     symbol?: string;
@@ -114,6 +159,9 @@ export interface Category {
   color?: string;
   icon?: string;
   isSystem?: boolean;
+  isTransferCategory?: boolean; // Indicates this is an account-specific transfer category
+  accountId?: string; // The account this transfer category is associated with
+  isActive?: boolean; // Used for soft-deleting categories (e.g., when account is deleted)
 }
 
 export interface Investment {

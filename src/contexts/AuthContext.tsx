@@ -12,6 +12,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUser, useAuth as useClerkAuth, useSession } from '@clerk/clerk-react';
 import { AuthService, AuthUser } from '../services/authService';
 import { syncClerkUser } from '../lib/supabase';
+import { setSentryUser, clearSentryUser } from '../lib/sentry';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -41,6 +42,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSecurityScore(AuthService.getSecurityScore(mappedUser));
       setSecurityRecommendations(AuthService.getSecurityRecommendations(mappedUser));
       
+      // Set Sentry user context
+      setSentryUser({
+        id: clerkUser.id,
+        email: clerkUser.primaryEmailAddress?.emailAddress,
+        username: clerkUser.username || clerkUser.fullName || undefined
+      });
+      
       // Sync user with Supabase
       syncClerkUser(
         clerkUser.id,
@@ -57,12 +65,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAuthUser(null);
       setSecurityScore(0);
       setSecurityRecommendations([]);
+      
+      // Clear Sentry user context
+      clearSentryUser();
     }
   }, [clerkUser, isLoaded]);
 
   const signOut = async () => {
     await clerkSignOut();
     setAuthUser(null);
+    
+    // Clear Sentry user context
+    clearSentryUser();
   };
 
   const refreshSession = async () => {

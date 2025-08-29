@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useApp } from "../contexts/AppContext";
+import { useApp } from "../contexts/AppContextSupabase";
 import GoalModal from "../components/GoalModal";
 import { TargetIcon, TrendingUpIcon, CalendarIcon } from "../components/icons";
 import { PlusIcon, EditIcon, DeleteIcon } from "../components/icons";

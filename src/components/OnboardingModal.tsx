@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { supportedCurrencies } from '../utils/currency';
 
 interface OnboardingModalProps {
@@ -9,6 +10,7 @@ interface OnboardingModalProps {
 export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps): React.JSX.Element | null {
   const [firstName, setFirstName] = useState('');
   const [baseCurrency, setBaseCurrency] = useState('GBP');
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = (e: React.FormEvent): void => {
     e.preventDefault();
@@ -17,11 +19,51 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
     }
   };
 
+  // No scroll prevention - user can scroll freely
+  useEffect(() => {
+    if (!isOpen) return;
+    // Modal will stay fixed in viewport automatically
+    // No need to prevent scrolling
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
+  // Render modal using React Portal at document.body level
+  // This ensures the modal is outside any transformed parents
+  return createPortal(
+    <>
+      {/* Fixed backdrop that covers the viewport */}
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 99998
+        }}
+        onClick={(e) => e.stopPropagation()}
+      />
+      
+      {/* Modal centered in viewport using fixed positioning */}
+      <div 
+        ref={modalRef}
+        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl"
+        style={{
+          position: 'fixed',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          maxWidth: '448px',
+          width: '90%',
+          maxHeight: '80vh',
+          overflowY: 'auto',
+          zIndex: 99999,
+          animation: 'fadeInScale 0.3s ease-out'
+        }}
+      >
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
             Welcome to WealthTracker!
@@ -87,6 +129,7 @@ export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalP
           </p>
         </div>
       </div>
-    </div>
+    </>,
+    document.body
   );
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { scheduledReportService, type ScheduledCustomReport } from '../services/scheduledReportService';
 import { customReportService } from '../services/customReportService';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { useNotifications } from '../contexts/NotificationContext';
 import type { CustomReport } from './CustomReportBuilder';
 import {

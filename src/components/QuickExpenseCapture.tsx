@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { mobileService } from '../services/mobileService';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { 
   CameraIcon,
   MapPinIcon,

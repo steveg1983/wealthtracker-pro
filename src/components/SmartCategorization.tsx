@@ -8,7 +8,7 @@ import {
   ChevronRightIcon,
   AlertCircleIcon
 } from './icons';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { smartCategorizationService } from '../services/smartCategorizationService';
 import type { Transaction, Category } from '../types';
 

@@ -16,9 +16,9 @@ export function getMinimalSystemCategories(): Category[] {
     { id: 'type-expense', name: 'Expense', type: 'expense', level: 'type', isSystem: true },
     { id: 'type-transfer', name: 'Transfer', type: 'both', level: 'type', isSystem: true },
     
-    // Transfer detail categories (required for transfers to work)
-    { id: 'transfer-in', name: 'Transfer In', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
-    { id: 'transfer-out', name: 'Transfer Out', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
+    // Note: Transfer categories are now dynamically created for each account
+    // When an account is created, a corresponding "To/From [Account Name]" category is added
+    // This provides better tracking and automatic linking of transfers between accounts
   ];
 }
 
@@ -114,8 +114,8 @@ export function getDefaultCategories(): Category[] {
     // Adjustment categories
     { id: 'account-adjustments', name: 'Account Adjustments', type: 'both', level: 'detail', parentId: 'sub-adjustments', isSystem: true },
     
-    // Transfer categories
-    { id: 'transfer-in', name: 'Transfer In', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
-    { id: 'transfer-out', name: 'Transfer Out', type: 'both', level: 'detail', parentId: 'type-transfer', isSystem: true },
+    // Note: Transfer categories are now dynamically created for each account
+    // When an account is created, a corresponding "To/From [Account Name]" category is added automatically
+    // This provides better tracking and automatic linking of transfers between accounts
   ];
 }

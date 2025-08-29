@@ -1,4 +1,4 @@
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { Target, AlertCircle } from './icons';
 import { Link } from 'react-router-dom';
 

@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { TargetIcon, TrendingUpIcon, CheckCircleIcon } from '../icons';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';

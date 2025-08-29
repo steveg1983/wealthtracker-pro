@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { X } from '../icons';
+import { X } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -28,15 +28,17 @@ export function Modal({
       // Store the currently focused element
       previousActiveElement.current = document.activeElement as HTMLElement;
       
-      // Focus the modal
-      modalRef.current?.focus();
+      // Focus the modal after a short delay
+      setTimeout(() => {
+        modalRef.current?.focus();
+      }, 50);
       
       // Trap focus within modal
       const handleTabKey = (e: KeyboardEvent) => {
         if (e.key !== 'Tab') return;
         
         const focusableElements = modalRef.current?.querySelectorAll(
-          'a[href], button, textarea, input[type="text"], input[type="radio"], input[type="checkbox"], select, [tabindex]:not([tabindex="-1"])'
+          'a[href], button, textarea, input[type="text"], input[type="number"], input[type="radio"], input[type="checkbox"], select, [tabindex]:not([tabindex="-1"])'
         );
         
         if (!focusableElements || focusableElements.length === 0) return;
@@ -63,13 +65,17 @@ export function Modal({
       document.addEventListener('keydown', handleTabKey);
       document.addEventListener('keydown', handleEscapeKey);
       
-      // Prevent body scroll when modal is open
+      // Prevent body scroll when modal is open - simplified approach
+      const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
       
       return () => {
+        // Cleanup event listeners
         document.removeEventListener('keydown', handleTabKey);
         document.removeEventListener('keydown', handleEscapeKey);
-        document.body.style.overflow = '';
+        
+        // Restore body scroll
+        document.body.style.overflow = originalOverflow;
         
         // Restore focus to the previously focused element
         previousActiveElement.current?.focus();
@@ -82,44 +88,90 @@ export function Modal({
   const sizeClasses = {
     sm: 'max-w-sm',
     md: 'max-w-md',
-    lg: 'max-w-lg',
-    xl: 'max-w-xl',
+    lg: 'max-w-2xl',
+    xl: 'max-w-4xl',
     full: 'max-w-full mx-4'
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <>
+      {/* Backdrop with blur and fade animation */}
       <div 
-        ref={modalRef}
-        className={`bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-600/70 w-full ${sizeClasses[size]} max-h-[95vh] sm:max-h-[90vh] overflow-hidden mx-1 sm:mx-0`}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-        aria-describedby={ariaDescribedBy}
-        tabIndex={-1}
-      >
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-gray-200 dark:border-gray-600">
-          <h2 id="modal-title" className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">{title}</h2>
-          {showCloseButton && (
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-200 p-2 min-w-[44px] min-h-[44px] flex items-center justify-center"
-              aria-label="Close modal"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      
+      {/* Professional Modal Container - Perfect centering with flexbox */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 pointer-events-none">
+        <div 
+          ref={modalRef}
+          className={`
+            relative
+            bg-white dark:bg-gray-900 
+            rounded-2xl 
+            shadow-2xl 
+            w-full 
+            ${sizeClasses[size]}
+            max-h-[calc(100vh-2rem)]
+            sm:max-h-[calc(100vh-3rem)]
+            lg:max-h-[calc(100vh-4rem)]
+            flex 
+            flex-col
+            overflow-hidden
+            animate-in zoom-in-95 slide-in-from-bottom-4 duration-300
+            border border-gray-200/50 dark:border-gray-700/50
+            pointer-events-auto
+          `}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="modal-title"
+          aria-describedby={ariaDescribedBy}
+          tabIndex={-1}
+        >
+          {/* Header - Always visible, never scrolls */}
+          <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
+            <h2 
+              id="modal-title" 
+              className="text-xl font-bold text-gray-900 dark:text-white"
             >
-              <X size={24} className="sm:w-5 sm:h-5" />
-            </button>
-          )}
-        </div>
-        <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 80px)' }}>
-          {children}
+              {title}
+            </h2>
+            {showCloseButton && (
+              <button
+                onClick={onClose}
+                className="
+                  p-2 
+                  rounded-lg 
+                  text-gray-400 
+                  hover:text-gray-600 
+                  dark:text-gray-500 
+                  dark:hover:text-gray-300 
+                  hover:bg-gray-100 
+                  dark:hover:bg-gray-800 
+                  transition-all 
+                  duration-200
+                  focus:outline-none 
+                  focus:ring-2 
+                  focus:ring-primary/50
+                "
+                aria-label="Close modal"
+              >
+                <X size={20} />
+              </button>
+            )}
+          </div>
+          
+          {/* Content area - Scrollable with professional scrollbar styling */}
+          <div className="flex-1 overflow-y-auto overscroll-contain 
+                          scrollbar-thin scrollbar-track-transparent 
+                          scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600
+                          hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500">
+            {children}
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -129,7 +181,11 @@ interface ModalBodyProps {
 }
 
 export function ModalBody({ children, className = '' }: ModalBodyProps): React.JSX.Element {
-  return <div className={`p-4 sm:p-6 ${className}`}>{children}</div>;
+  return (
+    <div className={`px-6 py-5 ${className}`}>
+      {children}
+    </div>
+  );
 }
 
 interface ModalFooterProps {
@@ -139,7 +195,7 @@ interface ModalFooterProps {
 
 export function ModalFooter({ children, className = '' }: ModalFooterProps): React.JSX.Element {
   return (
-    <div className={`p-4 sm:p-6 border-t border-gray-200 dark:border-gray-600 ${className}`}>
+    <div className={`flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 ${className}`}>
       {children}
     </div>
   );

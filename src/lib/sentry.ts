@@ -1,11 +1,4 @@
 import * as Sentry from '@sentry/react';
-import { useEffect } from 'react';
-import {
-  createRoutesFromChildren,
-  matchRoutes,
-  useLocation,
-  useNavigationType
-} from 'react-router-dom';
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
@@ -23,13 +16,6 @@ export function initSentry() {
     environment: APP_ENV,
     release: `wealthtracker@${APP_VERSION}`,
     integrations: [
-      Sentry.reactRouterV7BrowserTracingIntegration({
-        useEffect,
-        useLocation,
-        useNavigationType,
-        createRoutesFromChildren,
-        matchRoutes
-      }),
       Sentry.replayIntegration({
         maskAllText: true,
         maskAllInputs: true,

@@ -1,10 +1,9 @@
 import { useState } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { PlusIcon } from '../components/icons';
 import CategoryCreationModal from './CategoryCreationModal';
 import { getCurrencySymbol } from '../utils/currency';
-// Import { Modal, ModalBody, ModalFooter } from './common/Modal'; // Unused imports
-import { ResponsiveModal } from './ResponsiveModal';
+import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
 import MarkdownEditor from './MarkdownEditor';
 import { ValidationService } from '../services/validationService';
@@ -64,9 +63,13 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
           });
           
           // If validation passes, add the transaction
+          // CRITICAL FIX: Ensure amount is negative for expenses
+          const amount = parseFloat(validatedData.amount);
+          const finalAmount = data.type === 'expense' ? -Math.abs(amount) : Math.abs(amount);
+          
           addTransaction({
             description: validatedData.description,
-            amount: parseFloat(validatedData.amount),
+            amount: finalAmount,
             type: data.type,
             category: validatedData.category,
             accountId: validatedData.accountId,
@@ -102,17 +105,15 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
 
   return (
     <>
-      <ResponsiveModal 
+      <Modal 
         isOpen={isOpen} 
         onClose={onClose} 
         title="Add Transaction" 
-        size="md"
-        mobileSnapPoints={[0.5, 0.9]}
-        mobileInitialSnapPoint={1}
+        size="lg"
       >
         <form onSubmit={handleSubmit}>
-          <div className="p-4 md:p-6">
-          <div className="space-y-4">
+          <ModalBody>
+            <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Type
@@ -337,9 +338,9 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 {validationErrors.general}
               </div>
             )}
-          </div>
-          </div>
-          <div className="border-t border-gray-200 dark:border-gray-700 p-4 md:p-6">
+            </div>
+          </ModalBody>
+          <ModalFooter>
             <div className="flex gap-3 w-full">
               <button
                 type="button"
@@ -357,9 +358,9 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
                 Add Transaction
               </LoadingButton>
             </div>
-          </div>
+          </ModalFooter>
         </form>
-      </ResponsiveModal>
+      </Modal>
 
         {/* Category Creation Modal */}
         <CategoryCreationModal

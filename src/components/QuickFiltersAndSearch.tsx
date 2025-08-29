@@ -17,7 +17,7 @@ import {
   TrashIcon,
   EditIcon
 } from './icons';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import type { Transaction } from '../types';
 
 interface FilterPreset {

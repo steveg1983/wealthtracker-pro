@@ -86,7 +86,7 @@ vi.mock('../contexts/AppContext', () => ({
 }));
 
 // Import after mocking
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import AccountReconciliationModal from './AccountReconciliationModal';
 
 describe('AccountReconciliationModal', () => {

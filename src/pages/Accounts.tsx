@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { preserveDemoParam } from '../utils/navigation';
 import AddAccountModal from '../components/AddAccountModal';
 import AccountReconciliationModal from '../components/AccountReconciliationModal';
@@ -224,7 +224,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                   <div className="flex items-center gap-2 md:gap-3">
                     <Icon className={color} size={20} />
-                    <h2 className="text-base md:text-lg font-semibold text-white">{title}</h2>
+                    <h2 className="text-base md:text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
                     <span className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
                       ({typeAccounts.length} {typeAccounts.length === 1 ? 'account' : 'accounts'})
                     </span>
@@ -314,17 +314,15 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                           </div>
                         ) : (
                           <>
-                            <div className="flex items-center gap-2">
-                              <p className={`text-lg md:text-xl font-semibold w-[140px] sm:w-[180px] text-right tabular-nums whitespace-nowrap ${
+                            <div className="flex items-center gap-3">
+                              <p className={`text-lg md:text-xl font-semibold tabular-nums whitespace-nowrap ${
                                 account.balance >= 0 
                                   ? 'text-gray-900 dark:text-white' 
                                   : 'text-gray-900 dark:text-white'
                               }`}>
                                 {formatDisplayCurrency(account.balance, account.currency)}
                               </p>
-                              <div className="flex items-center gap-1 w-[120px] sm:w-[160px] justify-start">
-                              {/* Space for future icons */}
-                              <div className="w-[40px] sm:w-[60px]">
+                              <div className="flex items-center gap-1">
                                 {account.type === 'investment' && account.holdings && account.holdings.length > 0 && (
                                 <button
                                   onClick={() => setPortfolioAccountId(account.id)}
@@ -389,7 +387,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                     Delete
                                   </span>
                                 </div>
-                              </div>
                               </div>
                             </div>
                           </>

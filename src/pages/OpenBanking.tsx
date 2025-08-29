@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import PageWrapper from '../components/PageWrapper';
 import PlaidLink from '../components/PlaidLink';
 import { plaidService } from '../services/plaidService';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { BankIcon, ShieldIcon, ClockIcon, CheckCircleIcon } from '../components/icons';
 
 export default function OpenBanking() {

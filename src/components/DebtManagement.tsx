@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
 import { 

@@ -8,7 +8,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
 import '@testing-library/jest-dom';
 import ImportDataModal from './ImportDataModal';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { parseMNY, parseMBF, applyMappingToData } from '../utils/mnyParser';
 import { parseQIF } from '../utils/qifParser';
 

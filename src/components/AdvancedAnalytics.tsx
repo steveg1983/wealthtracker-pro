@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { advancedAnalyticsService, type SpendingAnomaly, type SpendingPrediction, type SavingsOpportunity, type FinancialInsight } from '../services/advancedAnalyticsService';
 import { 
   AlertTriangleIcon, 

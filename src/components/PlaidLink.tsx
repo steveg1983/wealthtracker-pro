@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { plaidService, PlaidPublicToken } from '../services/plaidService';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { LinkIcon, RefreshCwIcon, TrashIcon, AlertCircleIcon, CheckCircleIcon } from './icons';
 
 interface PlaidLinkProps {

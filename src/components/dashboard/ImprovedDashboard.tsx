@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   TrendingUpIcon, 
@@ -14,13 +14,16 @@ import {
   PieChartIcon,
   SettingsIcon,
   CheckIcon,
-  XIcon
+  XIcon,
+  BarChart3Icon
 } from '../icons';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { formatCurrency } from '../../utils/currency';
 import { preserveDemoParam } from '../../utils/navigation';
 import AddTransactionModal from '../AddTransactionModal';
+import { PieChart, BarChart, ResponsiveContainer } from '../charts/ChartJsCharts';
+import { SkeletonCard } from '../loading/Skeleton';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -32,10 +35,9 @@ import AddTransactionModal from '../AddTransactionModal';
  */
 export function ImprovedDashboard() {
   const { accounts, transactions, budgets } = useApp();
-  const { formatCurrency: formatCurrencyWithSymbol } = useCurrencyDecimal();
+  const { formatCurrency: formatCurrencyWithSymbol, displayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const location = useLocation();
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const [showAccountSettings, setShowAccountSettings] = useState(false);
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
   const [showAddTransactionModal, setShowAddTransactionModal] = useState(false);
@@ -54,11 +56,11 @@ export function ImprovedDashboard() {
   // Calculate key metrics
   const metrics = useMemo(() => {
     const totalAssets = accounts
-      .filter(acc => acc.type === 'asset')
+      .filter(acc => acc.balance > 0)
       .reduce((sum, acc) => sum + acc.balance, 0);
     
     const totalLiabilities = accounts
-      .filter(acc => acc.type === 'liability')
+      .filter(acc => acc.balance < 0)
       .reduce((sum, acc) => sum + Math.abs(acc.balance), 0);
     
     const netWorth = totalAssets - totalLiabilities;
@@ -89,12 +91,12 @@ export function ImprovedDashboard() {
     
     // Identify accounts needing attention
     const accountsNeedingAttention = accounts.filter(acc => {
-      // Check for low balances in checking accounts
-      if (acc.type === 'asset' && acc.subtype === 'checking' && acc.balance < 500) {
+      // Check for low balances in checking/current accounts
+      if ((acc.type === 'current' || acc.type === 'checking') && acc.balance < 500) {
         return true;
       }
       // Check for high credit utilization
-      if (acc.type === 'liability' && acc.subtype === 'credit' && acc.creditLimit) {
+      if (acc.type === 'credit' && acc.creditLimit) {
         const utilization = Math.abs(acc.balance) / acc.creditLimit;
         return utilization > 0.7;
       }
@@ -140,15 +142,57 @@ export function ImprovedDashboard() {
       totalBudgeted,
       totalSpentOnBudgets,
       overallBudgetPercent,
-      netWorthChange: netWorth * 0.05, // Placeholder - calculate from historical data
-      netWorthChangePercent: 5.2 // Placeholder
+      netWorthChange: 0, // Will be calculated from actual historical data when available
+      netWorthChangePercent: 0 // Will be calculated from actual historical data when available
     };
   }, [accounts, transactions, budgets]);
-
-  const toggleSection = (section: string) => {
-    setExpandedSection(expandedSection === section ? null : section);
-  };
   
+  // Generate net worth data for chart - ONLY REAL DATA
+  const netWorthData = useMemo(() => {
+    // Only show current month's actual data
+    // In the future, this will pull from historical snapshots
+    const currentDate = new Date();
+    const currentMonth = currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    
+    // For now, we only have current data
+    // As the user uses the app over time, we'll build up historical data
+    return [{
+      month: currentMonth,
+      netWorth: metrics.netWorth
+    }];
+  }, [metrics.netWorth]);
+  
+  // Generate pie chart data for account distribution
+  const pieData = useMemo(() => {
+    return accounts
+      .filter(acc => acc.balance > 0)
+      .map(acc => ({
+        id: acc.id,
+        name: acc.name,
+        value: acc.balance
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5); // Top 5 accounts
+  }, [accounts]);
+  
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
+  const isDarkMode = document.documentElement.classList.contains('dark');
+  
+  const chartStyles = useMemo(() => ({
+    tooltip: {
+      backgroundColor: isDarkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+      border: isDarkMode ? '1px solid #374151' : '1px solid #E5E7EB',
+      borderRadius: '8px',
+      color: isDarkMode ? '#E5E7EB' : '#111827'
+    },
+    pieTooltip: {
+      backgroundColor: isDarkMode ? 'rgba(31, 41, 55, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+      border: isDarkMode ? '1px solid #374151' : '1px solid #ccc',
+      borderRadius: '8px',
+      color: isDarkMode ? '#E5E7EB' : '#111827'
+    }
+  }), [isDarkMode]);
+
   const toggleAccountSelection = (accountId: string) => {
     setSelectedAccountIds(prev => {
       const newSelection = prev.includes(accountId)
@@ -174,21 +218,26 @@ export function ImprovedDashboard() {
               <span className="text-3xl sm:text-4xl lg:text-5xl font-bold">
                 {formatCurrencyWithSymbol(metrics.netWorth)}
               </span>
-              {metrics.netWorthChange > 0 ? (
-                <span className="flex items-center gap-1 text-green-300 text-sm sm:text-base">
-                  <ArrowUpIcon size={16} />
-                  +{metrics.netWorthChangePercent.toFixed(1)}%
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-red-300 text-sm sm:text-base">
-                  <ArrowDownIcon size={16} />
-                  {metrics.netWorthChangePercent.toFixed(1)}%
-                </span>
+              {/* Only show change when we have historical data */}
+              {metrics.netWorthChange !== 0 && (
+                metrics.netWorthChange > 0 ? (
+                  <span className="flex items-center gap-1 text-green-300 text-sm sm:text-base">
+                    <ArrowUpIcon size={16} />
+                    +{metrics.netWorthChangePercent.toFixed(1)}%
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-red-300 text-sm sm:text-base">
+                    <ArrowDownIcon size={16} />
+                    {metrics.netWorthChangePercent.toFixed(1)}%
+                  </span>
+                )
               )}
             </div>
-            <p className="mt-3 opacity-80 text-sm sm:text-base">
-              vs last month: {formatCurrencyWithSymbol(metrics.netWorthChange)}
-            </p>
+            {metrics.netWorthChange !== 0 && (
+              <p className="mt-3 opacity-80 text-sm sm:text-base">
+                vs last month: {formatCurrencyWithSymbol(metrics.netWorthChange)}
+              </p>
+            )}
           </div>
           <BanknoteIcon size={48} className="opacity-50 hidden sm:block" />
         </div>
@@ -390,7 +439,7 @@ export function ImprovedDashboard() {
                 </div>
                 <div className="text-right">
                   <p className={`text-lg font-bold ${
-                    account.type === 'liability' 
+                    account.balance < 0
                       ? 'text-red-600 dark:text-red-400' 
                       : 'text-green-600 dark:text-green-400'
                   }`}>
@@ -443,8 +492,8 @@ export function ImprovedDashboard() {
                       {account.name}
                     </p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {account.type === 'asset' && account.balance < 500 && 'Low balance'}
-                      {account.type === 'liability' && account.creditLimit && 
+                      {(account.type === 'current' || account.type === 'checking') && account.balance < 500 && 'Low balance'}
+                      {account.type === 'credit' && account.creditLimit && 
                         Math.abs(account.balance) / account.creditLimit > 0.7 && 'High utilization'}
                     </p>
                   </div>
@@ -456,64 +505,129 @@ export function ImprovedDashboard() {
         </div>
       )}
 
-      {/* Recent Activity - Collapsible */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg">
-        <button
-          onClick={() => toggleSection('activity')}
-          className="w-full p-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors rounded-xl"
-        >
-          <div className="flex items-center gap-3">
-            <CreditCardIcon size={24} className="text-gray-500" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              Recent Activity
-            </h3>
-            <span className="text-sm text-gray-500 dark:text-gray-400">
-              ({metrics.recentActivity.length} transactions)
-            </span>
+      {/* Net Worth Chart */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <BarChart3Icon size={24} className="text-gray-500" />
+          Net Worth Over Time
+        </h3>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          {netWorthData.length === 1 
+            ? "Current month's net worth (historical data will build up over time)"
+            : "Your wealth progression over time"
+          }
+        </p>
+        <div className="h-64">
+          {netWorthData.length === 1 ? (
+            <div className="h-full flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+              <BarChart3Icon size={48} className="opacity-20 mb-3" />
+              <p className="text-lg font-medium mb-2">Current Net Worth</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                {formatCurrencyWithSymbol(metrics.netWorth, displayCurrency)}
+              </p>
+              <p className="text-sm mt-3 text-center max-w-md">
+                As you continue using WealthTracker, we'll track your net worth over time 
+                to show you trends and progress towards your financial goals.
+              </p>
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart 
+                data={netWorthData}
+                dataKey="netWorth"
+                fill="#8B5CF6"
+                label="Net Worth"
+                formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
+                contentStyle={chartStyles.tooltip}
+                tickFormatter={(value: number) => {
+                  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+                  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
+                  return value.toString();
+                }}
+              />
+            </ResponsiveContainer>
+          )}
+        </div>
+      </div>
+
+      {/* Account Distribution Chart */}
+      {pieData.length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+            <PieChartIcon size={24} className="text-gray-500" />
+            Account Distribution
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Your top 5 accounts by balance
+          </p>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart
+                data={pieData}
+                innerRadius={true}
+                colors={COLORS}
+                onClick={(clickedData: any) => {
+                  navigate(`/transactions?account=${clickedData.id}`);
+                }}
+                formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
+                contentStyle={chartStyles.pieTooltip}
+              />
+            </ResponsiveContainer>
           </div>
-          <ChevronRightIcon 
-            size={20} 
-            className={`text-gray-400 transition-transform ${
-              expandedSection === 'activity' ? 'rotate-90' : ''
-            }`}
-          />
-        </button>
-        
-        {expandedSection === 'activity' && (
-          <div className="px-6 pb-6 space-y-2">
-            {metrics.recentActivity.map(transaction => (
+        </div>
+      )}
+
+      {/* Recent Transactions Table */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <CreditCardIcon size={24} className="text-gray-500" />
+          Recent Transactions
+        </h3>
+        <div className="space-y-1 overflow-auto" style={{ maxHeight: '400px' }}>
+          {metrics.recentActivity.length > 0 ? (
+            metrics.recentActivity.slice(0, 10).map(transaction => (
               <div 
-                key={transaction.id}
-                className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-700 last:border-0"
+                key={transaction.id} 
+                className="flex items-center gap-2 sm:gap-3 py-2 sm:py-1.5 border-b dark:border-gray-700/50 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-600/50 transition-colors rounded px-2 -mx-2"
               >
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {transaction.description}
-                  </p>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    {new Date(transaction.date).toLocaleDateString()}
-                  </p>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-0 sm:gap-3 flex-1">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <span className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      {new Date(transaction.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                    </span>
+                    <span className="text-xs sm:text-sm font-bold text-gray-600 dark:text-gray-400 w-4 text-center">
+                      {transaction.cleared ? 'R' : 'N'}
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm font-medium dark:text-white truncate flex-1">{transaction.description}</p>
                 </div>
-                <p className={`font-semibold ${
-                  transaction.type === 'income' 
+                <span className={`text-xs sm:text-sm font-semibold whitespace-nowrap ${
+                  transaction.type === 'income' || (transaction.type === 'transfer' && transaction.amount > 0)
                     ? 'text-green-600 dark:text-green-400' 
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {transaction.type === 'income' ? '+' : '-'}
-                  {formatCurrencyWithSymbol(Math.abs(transaction.amount))}
-                </p>
+                  {transaction.type === 'expense' || (transaction.type === 'transfer' && transaction.amount < 0)
+                    ? formatCurrencyWithSymbol(-Math.abs(transaction.amount))
+                    : `+${formatCurrencyWithSymbol(Math.abs(transaction.amount))}`}
+                </span>
               </div>
-            ))}
-            
+            ))
+          ) : (
+            <p className="text-gray-500 dark:text-gray-400 text-center py-6">
+              No transactions yet
+            </p>
+          )}
+          {metrics.recentActivity.length > 10 && (
             <button 
               onClick={() => navigate(preserveDemoParam('/transactions', location.search))}
               className="w-full mt-4 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
             >
               View All Transactions →
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
 
       {/* Quick Actions */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

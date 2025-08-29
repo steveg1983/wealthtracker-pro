@@ -177,9 +177,16 @@ export const generateDemoTransactions = (count: number = 50) => {
       ? -(Math.random() * 500 + 10).toFixed(2) // Expenses: -$10 to -$510
       : (Math.random() * 3000 + 1000).toFixed(2); // Income: $1000 to $4000
     
-    const category = isExpense 
-      ? transactionCategories[Math.floor(Math.random() * (transactionCategories.length - 1))]
-      : 'Salary';
+    // Get expense categories or income category
+    const expenseCategories = demoCategories.filter(c => c.type === 'expense');
+    const incomeCategory = demoCategories.find(c => c.type === 'income');
+    
+    const categoryObj = isExpense 
+      ? expenseCategories[Math.floor(Math.random() * expenseCategories.length)]
+      : incomeCategory;
+    
+    const category = categoryObj?.id || 'cat-other';
+    const categoryName = categoryObj?.name || 'Other';
     
     transactions.push({
       id: uuidv4(),
@@ -187,6 +194,7 @@ export const generateDemoTransactions = (count: number = 50) => {
       description: transactionDescriptions[Math.floor(Math.random() * transactionDescriptions.length)],
       amount: amount.toString(),
       category,
+      categoryName,
       accountId: demoAccounts[Math.floor(Math.random() * demoAccounts.length)].id,
       type: parseFloat(amount) < 0 ? 'expense' : 'income',
       isRecurring: Math.random() > 0.9,
@@ -285,18 +293,18 @@ export const demoGoals = [
 
 // Demo categories with colors
 export const demoCategories = [
-  { name: 'Groceries', color: '#10b981', icon: '🛒' },
-  { name: 'Restaurants', color: '#f59e0b', icon: '🍽️' },
-  { name: 'Transportation', color: '#3b82f6', icon: '🚗' },
-  { name: 'Entertainment', color: '#8b5cf6', icon: '🎬' },
-  { name: 'Shopping', color: '#ec4899', icon: '🛍️' },
-  { name: 'Bills & Utilities', color: '#ef4444', icon: '📱' },
-  { name: 'Healthcare', color: '#06b6d4', icon: '🏥' },
-  { name: 'Education', color: '#6366f1', icon: '📚' },
-  { name: 'Travel', color: '#0ea5e9', icon: '✈️' },
-  { name: 'Insurance', color: '#84cc16', icon: '🛡️' },
-  { name: 'Investments', color: '#14b8a6', icon: '📈' },
-  { name: 'Salary', color: '#22c55e', icon: '💰' },
+  { id: 'cat-groceries', name: 'Groceries', color: '#10b981', icon: '🛒', type: 'expense' },
+  { id: 'cat-restaurants', name: 'Restaurants', color: '#f59e0b', icon: '🍽️', type: 'expense' },
+  { id: 'cat-transportation', name: 'Transportation', color: '#3b82f6', icon: '🚗', type: 'expense' },
+  { id: 'cat-entertainment', name: 'Entertainment', color: '#8b5cf6', icon: '🎬', type: 'expense' },
+  { id: 'cat-shopping', name: 'Shopping', color: '#ec4899', icon: '🛍️', type: 'expense' },
+  { id: 'cat-bills', name: 'Bills & Utilities', color: '#ef4444', icon: '📱', type: 'expense' },
+  { id: 'cat-healthcare', name: 'Healthcare', color: '#06b6d4', icon: '🏥', type: 'expense' },
+  { id: 'cat-education', name: 'Education', color: '#6366f1', icon: '📚', type: 'expense' },
+  { id: 'cat-travel', name: 'Travel', color: '#0ea5e9', icon: '✈️', type: 'expense' },
+  { id: 'cat-insurance', name: 'Insurance', color: '#84cc16', icon: '🛡️', type: 'expense' },
+  { id: 'cat-investments', name: 'Investments', color: '#14b8a6', icon: '📈', type: 'both' },
+  { id: 'cat-salary', name: 'Salary', color: '#22c55e', icon: '💰', type: 'income' },
 ];
 
 // Demo recurring transactions

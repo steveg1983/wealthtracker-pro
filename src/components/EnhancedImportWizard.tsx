@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import type { Transaction } from '../types';
 import { enhancedCsvImportService, type ColumnMapping, type ImportProfile } from '../services/enhancedCsvImportService';
 import { importRulesService } from '../services/importRulesService';

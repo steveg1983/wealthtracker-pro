@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { qifImportService } from '../services/qifImportService';
 import type { Account } from '../types';
 import { Modal } from './common/Modal';

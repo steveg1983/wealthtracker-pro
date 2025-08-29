@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { UploadIcon } from './icons/UploadIcon';
 import { FileTextIcon } from './icons/FileTextIcon';
 import { AlertCircleIcon } from './icons/AlertCircleIcon';

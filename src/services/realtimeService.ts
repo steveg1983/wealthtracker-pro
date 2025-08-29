@@ -11,6 +11,7 @@
 
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
+import { userIdService } from './userIdService';
 import type { Account, Transaction, Budget, Goal } from '../types';
 
 export type RealtimeEventType = 'INSERT' | 'UPDATE' | 'DELETE';
@@ -167,28 +168,40 @@ class RealtimeService {
 
   /**
    * Subscribe to accounts changes
+   * @param clerkOrDbId - Can be either Clerk ID or database UUID
    */
-  subscribeToAccounts(
-    userId: string, 
+  async subscribeToAccounts(
+    clerkOrDbId: string, 
     callback: RealtimeCallback<Account>,
     options: { includeInitial?: boolean } = {}
-  ): string | null {
-    if (!supabase || !userId) return null;
+  ): Promise<string | null> {
+    if (!supabase || !clerkOrDbId) return null;
 
-    const subscriptionKey = `accounts:${userId}`;
+    // Convert Clerk ID to database UUID if needed
+    let dbUserId = clerkOrDbId;
+    if (clerkOrDbId.startsWith('user_')) {
+      const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
+      if (!resolvedId) {
+        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        return null;
+      }
+      dbUserId = resolvedId;
+    }
+
+    const subscriptionKey = `accounts:${dbUserId}`;
     
     // Remove existing subscription if any
     this.unsubscribe(subscriptionKey);
 
     const channel = supabase
-      .channel(`accounts_${userId}`)
+      .channel(`accounts_${dbUserId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'accounts',
-          filter: `user_id=eq.${userId}`,
+          filter: `user_id=eq.${dbUserId}`,
         },
         (payload) => {
           const event: RealtimeEvent<Account> = {
@@ -219,28 +232,40 @@ class RealtimeService {
 
   /**
    * Subscribe to transactions changes
+   * @param clerkOrDbId - Can be either Clerk ID or database UUID
    */
-  subscribeToTransactions(
-    userId: string, 
+  async subscribeToTransactions(
+    clerkOrDbId: string, 
     callback: RealtimeCallback<Transaction>,
     options: { includeInitial?: boolean } = {}
-  ): string | null {
-    if (!supabase || !userId) return null;
+  ): Promise<string | null> {
+    if (!supabase || !clerkOrDbId) return null;
 
-    const subscriptionKey = `transactions:${userId}`;
+    // Convert Clerk ID to database UUID if needed
+    let dbUserId = clerkOrDbId;
+    if (clerkOrDbId.startsWith('user_')) {
+      const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
+      if (!resolvedId) {
+        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        return null;
+      }
+      dbUserId = resolvedId;
+    }
+
+    const subscriptionKey = `transactions:${dbUserId}`;
     
     // Remove existing subscription if any
     this.unsubscribe(subscriptionKey);
 
     const channel = supabase
-      .channel(`transactions_${userId}`)
+      .channel(`transactions_${dbUserId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'transactions',
-          filter: `user_id=eq.${userId}`,
+          filter: `user_id=eq.${dbUserId}`,
         },
         (payload) => {
           const event: RealtimeEvent<Transaction> = {
@@ -271,28 +296,40 @@ class RealtimeService {
 
   /**
    * Subscribe to budgets changes
+   * @param clerkOrDbId - Can be either Clerk ID or database UUID
    */
-  subscribeToBudgets(
-    userId: string, 
+  async subscribeToBudgets(
+    clerkOrDbId: string, 
     callback: RealtimeCallback<Budget>,
     options: { includeInitial?: boolean } = {}
-  ): string | null {
-    if (!supabase || !userId) return null;
+  ): Promise<string | null> {
+    if (!supabase || !clerkOrDbId) return null;
 
-    const subscriptionKey = `budgets:${userId}`;
+    // Convert Clerk ID to database UUID if needed
+    let dbUserId = clerkOrDbId;
+    if (clerkOrDbId.startsWith('user_')) {
+      const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
+      if (!resolvedId) {
+        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        return null;
+      }
+      dbUserId = resolvedId;
+    }
+
+    const subscriptionKey = `budgets:${dbUserId}`;
     
     // Remove existing subscription if any
     this.unsubscribe(subscriptionKey);
 
     const channel = supabase
-      .channel(`budgets_${userId}`)
+      .channel(`budgets_${dbUserId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'budgets',
-          filter: `user_id=eq.${userId}`,
+          filter: `user_id=eq.${dbUserId}`,
         },
         (payload) => {
           const event: RealtimeEvent<Budget> = {
@@ -323,21 +360,33 @@ class RealtimeService {
 
   /**
    * Subscribe to goals changes
+   * @param clerkOrDbId - Can be either Clerk ID or database UUID
    */
-  subscribeToGoals(
-    userId: string, 
+  async subscribeToGoals(
+    clerkOrDbId: string, 
     callback: RealtimeCallback<Goal>,
     options: { includeInitial?: boolean } = {}
-  ): string | null {
-    if (!supabase || !userId) return null;
+  ): Promise<string | null> {
+    if (!supabase || !clerkOrDbId) return null;
 
-    const subscriptionKey = `goals:${userId}`;
+    // Convert Clerk ID to database UUID if needed
+    let dbUserId = clerkOrDbId;
+    if (clerkOrDbId.startsWith('user_')) {
+      const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
+      if (!resolvedId) {
+        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        return null;
+      }
+      dbUserId = resolvedId;
+    }
+
+    const subscriptionKey = `goals:${dbUserId}`;
     
     // Remove existing subscription if any
     this.unsubscribe(subscriptionKey);
 
     const channel = supabase
-      .channel(`goals_${userId}`)
+      .channel(`goals_${dbUserId}`)
       .on(
         'postgres_changes',
         {

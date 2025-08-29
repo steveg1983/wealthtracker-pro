@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { financialSummaryService, type SummaryData } from '../services/financialSummaryService';
 import { CalendarIcon, TrendingUpIcon, TrendingDownIcon, PieChartIcon, TargetIcon } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';

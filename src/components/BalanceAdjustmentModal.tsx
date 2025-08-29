@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { XIcon, CalendarIcon, TagIcon } from './icons';
 import { formatCurrency } from '../utils/currency';
 import CategoryCreationModal from './CategoryCreationModal';

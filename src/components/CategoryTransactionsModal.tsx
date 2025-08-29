@@ -3,7 +3,7 @@ import { XIcon } from './icons/XIcon';
 import { CalendarIcon } from './icons/CalendarIcon';
 import { SearchIcon } from './icons/SearchIcon';
 import { XCircleIcon } from './icons/XCircleIcon';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface CategoryTransactionsModalProps {

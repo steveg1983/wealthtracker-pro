@@ -10,7 +10,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import PortfolioRebalancer from './PortfolioRebalancer';
 import type { Account } from '../types';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 
 // Mock icons
 vi.mock('./icons', () => ({

@@ -7,7 +7,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
 import BudgetSummaryWidget from './BudgetSummaryWidget';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppContextSupabase';
 import { useBudgets } from '../../contexts/BudgetContext';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { budgetCalculationService } from '../../services/budgetCalculationService';

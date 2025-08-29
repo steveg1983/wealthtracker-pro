@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { smartCategorizationService } from '../services/smartCategorizationService';
 import { 
   LightbulbIcon, 
@@ -10,6 +10,7 @@ import {
   MagicWandIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
+import { recordEvent } from '../services/ai/metrics';
 
 export default function SmartCategorizationSettings() {
   const { transactions, categories, updateTransaction } = useApp();
@@ -24,6 +25,11 @@ export default function SmartCategorizationSettings() {
     confidence: number;
   } | null>(null);
   const [confidenceThreshold, setConfidenceThreshold] = useState(80);
+  const [preview, setPreview] = useState<Array<{
+    id: string;
+    description: string;
+    suggestion?: { categoryId: string; confidence: number; reason: string };
+  }>>([]);
 
   useEffect(() => {
     // Learn from existing transactions on mount
@@ -49,6 +55,7 @@ export default function SmartCategorizationSettings() {
   };
 
   const handleAutoCategorize = async () => {
+    recordEvent('auto_categorize_clicked', { threshold: confidenceThreshold });
     const uncategorized = transactions.filter(t => !t.category);
     const results = smartCategorizationService.autoCategorize(
       uncategorized, 
@@ -68,6 +75,20 @@ export default function SmartCategorizationSettings() {
       count: results.length,
       confidence: avgConfidence
     });
+  };
+
+  const handlePreviewSuggestions = () => {
+    recordEvent('preview_categorization_clicked', { limit: 10 });
+    const uncategorized = transactions.filter(t => !t.category).slice(0, 10);
+    const items = uncategorized.map(t => {
+      const suggestions = smartCategorizationService.suggestCategories(t, 1);
+      return {
+        id: t.id,
+        description: t.description,
+        suggestion: suggestions[0]
+      };
+    });
+    setPreview(items);
   };
 
   const uncategorizedCount = transactions.filter(t => !t.category).length;
@@ -178,6 +199,12 @@ export default function SmartCategorizationSettings() {
                 <MagicWandIcon size={16} />
                 Auto-Categorize Transactions
               </button>
+              <button
+                onClick={handlePreviewSuggestions}
+                className="ml-3 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+              >
+                Preview Suggestions (Top 10)
+              </button>
             </div>
           </>
         ) : (
@@ -198,6 +225,38 @@ export default function SmartCategorizationSettings() {
                 with an average confidence of <strong>{Math.round(autoCategorizeResult.confidence * 100)}%</strong>
               </p>
             </div>
+          </div>
+        )}
+
+        {preview.length > 0 && (
+          <div className="mt-6">
+            <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Preview (Top 10)</h5>
+            <div className="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                <thead className="bg-gray-50 dark:bg-gray-700/40">
+                  <tr>
+                    <th className="px-3 py-2 text-left font-medium">Description</th>
+                    <th className="px-3 py-2 text-left font-medium">Suggested Category</th>
+                    <th className="px-3 py-2 text-left font-medium">Confidence</th>
+                    <th className="px-3 py-2 text-left font-medium">Why</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {preview.map(item => {
+                    const catName = item.suggestion ? (categories.find(c => c.id === item.suggestion!.categoryId)?.name || item.suggestion!.categoryId) : '—';
+                    return (
+                      <tr key={item.id}>
+                        <td className="px-3 py-2 text-gray-800 dark:text-gray-200">{item.description}</td>
+                        <td className="px-3 py-2">{catName}</td>
+                        <td className="px-3 py-2">{item.suggestion ? Math.round(item.suggestion.confidence * 100) + '%' : '—'}</td>
+                        <td className="px-3 py-2 text-gray-600 dark:text-gray-400">{item.suggestion?.reason || '—'}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Only suggestions meeting your confidence threshold will be auto-applied.</p>
           </div>
         )}
       </div>

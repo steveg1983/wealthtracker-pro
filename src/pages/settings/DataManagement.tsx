@@ -1,9 +1,11 @@
 import { useState, lazy, Suspense } from 'react';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppContextSupabase';
 import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon, Building2Icon, KeyIcon } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
 
 // Lazy load heavy components to reduce initial bundle size
+const DataMigrationWizard = lazy(() => import('../../components/DataMigrationWizard'));
+const EnhancedExportManager = lazy(() => import('../../components/EnhancedExportManager'));
 const ImportDataModal = lazy(() => import('../../components/ImportDataModal'));
 const CSVImportWizard = lazy(() => import('../../components/CSVImportWizard'));
 const OFXImportModal = lazy(() => import('../../components/OFXImportModal'));
@@ -38,6 +40,7 @@ export default function DataManagementSettings() {
   const [showImportRules, setShowImportRules] = useState(false);
   const [showBankConnections, setShowBankConnections] = useState(false);
   const [showBankAPISettings, setShowBankAPISettings] = useState(false);
+  const [showMigrationWizard, setShowMigrationWizard] = useState(false);
 
   const handleExportData = () => {
     const dataStr = exportData();
@@ -107,6 +110,15 @@ export default function DataManagementSettings() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Import Options</h3>
         
+        {/* Migration Wizard - Full Width */}
+        <button
+          onClick={() => setShowMigrationWizard(true)}
+          className="w-full mb-4 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors flex items-center justify-center gap-2 shadow-lg"
+        >
+          <DatabaseIcon size={20} />
+          <span className="font-medium">Data Migration Wizard (Mint, Quicken, YNAB, etc.)</span>
+        </button>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={() => setShowBatchImport(true)}
@@ -160,13 +172,20 @@ export default function DataManagementSettings() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
         
+        {/* Enhanced Export Manager - Full Width */}
+        <div className="mb-4">
+          <Suspense fallback={<LoadingState />}>
+            <EnhancedExportManager />
+          </Suspense>
+        </div>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={handleExportData}
             className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
           >
             <DownloadIcon size={20} />
-            Export Data to JSON
+            Quick Export (JSON)
           </button>
 
           <button
@@ -174,7 +193,7 @@ export default function DataManagementSettings() {
             className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2"
           >
             <GridIcon size={20} />
-            Export to Excel (Advanced)
+            Legacy Excel Export
           </button>
         </div>
       </div>
@@ -322,6 +341,18 @@ export default function DataManagementSettings() {
           </div>
         </div>
       )}
+
+      {/* Data Migration Wizard */}
+      <Suspense fallback={<LoadingState />}>
+        <DataMigrationWizard
+          isOpen={showMigrationWizard}
+          onClose={() => setShowMigrationWizard(false)}
+          onComplete={(data) => {
+            console.log('Migration completed:', data);
+            setShowMigrationWizard(false);
+          }}
+        />
+      </Suspense>
 
       {/* Import Modal */}
       <Suspense fallback={<LoadingState />}>

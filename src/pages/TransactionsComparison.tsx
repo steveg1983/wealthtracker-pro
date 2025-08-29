@@ -4,7 +4,7 @@ import PageWrapper from '../components/PageWrapper';
 import { VirtualizedTransactionList } from '../components/VirtualizedTransactionList';
 import { TransactionListRedux } from '../components/TransactionListRedux';
 import AddTransactionModal from '../components/AddTransactionModal';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { useAppSelector } from '../store';
 import { PlusIcon } from '../components/icons';
 

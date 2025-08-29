@@ -11,6 +11,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch } from 'react-redux';
 import { useAuth } from '../contexts/AuthContext';
+import { userIdService } from '../services/userIdService';
 import { AppDispatch } from '../store';
 import { loadAllData } from '../store/thunks';
 import PageLoader from './PageLoader';
@@ -29,30 +30,50 @@ export function SupabaseDataLoader({ children }: SupabaseDataLoaderProps) {
   useEffect(() => {
     // Only load data when user is authenticated and we have a user ID
     if (isAuthenticated && user && !authLoading && !dataLoaded && !dataLoading) {
-      setDataLoading(true);
-      setError(null);
-      
-      // Store user ID for the thunks to use
-      if (typeof window !== 'undefined') {
-        sessionStorage.setItem('current_user_id', user.id);
-      }
-      
-      // Load all data from Supabase
-      dispatch(loadAllData())
-        .unwrap()
-        .then(() => {
-          console.log('✅ Data loaded successfully from Supabase');
+      const loadData = async () => {
+        setDataLoading(true);
+        setError(null);
+        
+        // Ensure user exists in database and get database ID
+        const databaseId = await userIdService.ensureUserExists(
+          user.id,
+          user.email || 'user@example.com',
+          user.firstName,
+          user.lastName
+        );
+
+        if (!databaseId) {
+          console.error('Failed to initialize user in database');
+          setError('Failed to initialize user account. Please try refreshing the page.');
           setDataLoaded(true);
-        })
-        .catch((error) => {
-          console.error('❌ Failed to load data from Supabase:', error);
-          setError('Failed to load your data. Please try refreshing the page.');
-          // Still mark as loaded so the app can function with cached data
-          setDataLoaded(true);
-        })
-        .finally(() => {
           setDataLoading(false);
-        });
+          return;
+        }
+        
+        // Store user ID for the thunks to use (for backward compatibility)
+        if (typeof window !== 'undefined') {
+          sessionStorage.setItem('current_user_id', user.id);
+        }
+        
+        // Load all data from Supabase
+        dispatch(loadAllData())
+          .unwrap()
+          .then(() => {
+            console.log('✅ Data loaded successfully from Supabase');
+            setDataLoaded(true);
+          })
+          .catch((error) => {
+            console.error('❌ Failed to load data from Supabase:', error);
+            setError('Failed to load your data. Please try refreshing the page.');
+            // Still mark as loaded so the app can function with cached data
+            setDataLoaded(true);
+          })
+          .finally(() => {
+            setDataLoading(false);
+          });
+      };
+
+      loadData();
     }
   }, [dispatch, isAuthenticated, user, authLoading, dataLoaded, dataLoading]);
 

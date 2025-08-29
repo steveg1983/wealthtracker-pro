@@ -4,7 +4,7 @@
  */
 
 // Cache versions - INCREMENT THIS to bust cache
-const CACHE_VERSION = 'v3';
+const CACHE_VERSION = 'v5-professional-icons';
 const CACHE_NAMES = {
   static: `wealthtracker-static-${CACHE_VERSION}`,
   dynamic: `wealthtracker-dynamic-${CACHE_VERSION}`,
@@ -49,7 +49,15 @@ const CACHEABLE_API_ROUTES = [
 
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
+  console.log('[SW] Installing service worker v4-dev-fix...');
+  
+  // Log if we're in development mode
+  if (self.location.hostname === 'localhost' && self.location.port === '5173') {
+    console.log('[SW] Running in development mode - limited caching enabled');
+  }
+  
+  // Skip waiting to activate immediately
+  self.skipWaiting();
   
   event.waitUntil(
     caches.open(CACHE_NAMES.static)
@@ -63,7 +71,7 @@ self.addEventListener('install', (event) => {
 
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
+  console.log('[SW] Activating service worker v4-dev-fix...');
   
   event.waitUntil(
     caches.keys()
@@ -91,13 +99,38 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // DEVELOPMENT MODE: Skip Vite dev server requests
+  const isDevelopment = url.hostname === 'localhost' && url.port === '5173';
+  if (isDevelopment) {
+    // Skip all Vite-specific requests
+    if (
+      url.pathname.includes('@vite') ||
+      url.pathname.includes('@react-refresh') ||
+      url.pathname.startsWith('/src/') ||
+      url.pathname.includes('node_modules') ||
+      url.search.includes('t=') || // Vite HMR timestamps
+      url.pathname.endsWith('.tsx') ||
+      url.pathname.endsWith('.ts') ||
+      url.pathname.endsWith('.jsx')
+    ) {
+      // Let Vite dev server handle these directly
+      return;
+    }
+    
+    // In development, also skip navigation requests (app routes)
+    // These should be handled by Vite's dev server, not the service worker
+    if (request.mode === 'navigate' && !url.pathname.startsWith('/api/')) {
+      return;
+    }
+  }
+
   // Handle API requests
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(handleApiRequest(request));
     return;
   }
 
-  // Handle static assets
+  // Handle static assets (but not in development for source files)
   if (request.method === 'GET') {
     event.respondWith(handleStaticRequest(request));
   }
@@ -154,6 +187,30 @@ async function handleApiRequest(request) {
 // Handle static assets with appropriate strategy
 async function handleStaticRequest(request) {
   const url = new URL(request.url);
+  
+  // Don't handle navigation requests as static assets
+  if (request.mode === 'navigate' && url.pathname !== '/' && url.pathname !== '/index.html') {
+    return fetch(request);
+  }
+  
+  // In development, be more selective about what we cache
+  const isDevelopment = url.hostname === 'localhost' && url.port === '5173';
+  if (isDevelopment) {
+    // Only cache essential static files in development
+    const shouldCache = 
+      url.pathname === '/' ||
+      url.pathname === '/index.html' ||
+      url.pathname === '/manifest.json' ||
+      url.pathname.includes('/icon-') ||
+      url.pathname.endsWith('.png') ||
+      url.pathname.endsWith('.jpg') ||
+      url.pathname.endsWith('.svg');
+    
+    if (!shouldCache) {
+      // For non-cacheable development files, just fetch from network
+      return fetch(request);
+    }
+  }
   
   // Use network-first for JavaScript modules to avoid stale cache issues
   if (url.pathname.includes('/assets/') && url.pathname.endsWith('.js')) {

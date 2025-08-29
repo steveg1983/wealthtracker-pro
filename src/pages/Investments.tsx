@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { TrendingUpIcon, TrendingDownIcon, BarChart3Icon, AlertCircleIcon, ChevronRightIcon, LineChartIcon, EyeIcon, PlusIcon } from '../components/icons';
 import EnhancedPortfolioView from '../components/EnhancedPortfolioView';
 import AddInvestmentModal from '../components/AddInvestmentModal';
@@ -51,10 +51,11 @@ export default function Investments() {
 
   // Create holdings data from investment accounts
   const holdings = investmentAccounts.map((acc) => {
+    const numericBalance = typeof acc.balance === 'string' ? parseFloat(acc.balance) : acc.balance;
     return {
       name: acc.name,
-      value: acc.balance,
-      allocation: portfolioValue > 0 ? (acc.balance / portfolioValue) * 100 : 0,
+      value: numericBalance,
+      allocation: portfolioValue > 0 ? (numericBalance / portfolioValue) * 100 : 0,
       return: 0, // Would need historical data to calculate actual returns
       ticker: acc.institution || 'N/A'
     };
@@ -519,10 +520,10 @@ export default function Investments() {
                 <RealTimePortfolioEnhanced
                   holdings={investmentAccounts.flatMap(acc => 
                     (acc.holdings || []).map(h => ({
-                      symbol: h.ticker,
+                      symbol: h.symbol || h.ticker,
                       shares: toDecimal(h.shares),
-                      averageCost: toDecimal(h.averageCost || h.value / h.shares),
-                      costBasis: toDecimal(h.shares * (h.averageCost || h.value / h.shares))
+                      averageCost: toDecimal(h.averageCost || h.costBasis / h.shares || h.value / h.shares),
+                      costBasis: toDecimal(h.costBasis || h.shares * (h.averageCost || h.value / h.shares))
                     }))
                   )}
                   baseCurrency={investmentAccounts[0]?.currency || 'USD'}
@@ -547,10 +548,10 @@ export default function Investments() {
                   {account.holdings && account.holdings.length > 0 ? (
                     <RealTimePortfolioEnhanced
                       holdings={account.holdings.map(h => ({
-                        symbol: h.ticker,
+                        symbol: h.symbol || h.ticker,
                         shares: toDecimal(h.shares),
-                        averageCost: toDecimal(h.averageCost || h.value / h.shares),
-                        costBasis: toDecimal(h.shares * (h.averageCost || h.value / h.shares))
+                        averageCost: toDecimal(h.averageCost || h.costBasis / h.shares || h.value / h.shares),
+                        costBasis: toDecimal(h.costBasis || h.shares * (h.averageCost || h.value / h.shares))
                       }))}
                       baseCurrency={account.currency}
                     />

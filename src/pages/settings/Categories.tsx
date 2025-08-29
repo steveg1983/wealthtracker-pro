@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppContextSupabase';
 import CategoryCreationModal from '../../components/CategoryCreationModal';
 import CategoryTransactionsModal from '../../components/CategoryTransactionsModal';
 import { AlertCircleIcon, Settings2Icon, GripVerticalIcon } from '../../components/icons';
@@ -38,6 +38,7 @@ interface SortableCategoryProps {
   onClick?: () => void;
   children?: React.ReactNode;
   isDraggable?: boolean;
+  canDelete?: boolean;
 }
 
 function SortableCategory({ 
@@ -53,7 +54,8 @@ function SortableCategory({
   onCancel,
   onClick,
   children,
-  isDraggable = true
+  isDraggable = true,
+  canDelete = false
 }: SortableCategoryProps) {
   const {
     attributes,
@@ -146,7 +148,22 @@ function SortableCategory({
               />
             </>
           ) : (
-            <>{children}</>
+            <>
+              {isEditMode && canDelete && !isDeleteMode && (
+                <IconButton
+                  onClick={(e) => {
+                    e?.stopPropagation();
+                    onDelete();
+                  }}
+                  icon={<DeleteIcon size={16} />}
+                  variant="ghost"
+                  size="sm"
+                  className="text-red-500 hover:text-red-700"
+                  title="Delete category"
+                />
+              )}
+              {children}
+            </>
           )}
         </div>
       </div>
@@ -414,6 +431,13 @@ export default function CategoriesSettings() {
       }
     }
   };
+  
+  // Helper function to check if a category can be deleted
+  const canDeleteCategory = (categoryId: string): boolean => {
+    const transactionCount = transactions.filter(t => t.category === categoryId).length;
+    const childCategories = categories.filter(c => c.parentId === categoryId);
+    return transactionCount === 0 && childCategories.length === 0;
+  };
 
   const handleCategoryClick = (categoryId: string, categoryName: string) => {
     if (!isEditMode && !isDeleteMode) {
@@ -487,6 +511,7 @@ export default function CategoriesSettings() {
                       onCancel={cancelEdit}
                       onClick={() => handleCategoryClick(subCategory.id, subCategory.name)}
                       isDraggable={true}
+                      canDelete={canDeleteCategory(subCategory.id)}
                     >
                       <div className="flex items-center gap-2">
                         {orderedDetailCategories.length > 0 && (
@@ -530,6 +555,7 @@ export default function CategoriesSettings() {
                                   onCancel={cancelEdit}
                                   onClick={() => handleCategoryClick(detailCategory.id, detailCategory.name)}
                                   isDraggable={true}
+                                  canDelete={canDeleteCategory(detailCategory.id)}
                                 >
                                   {!isEditMode && (
                                     <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -612,8 +638,9 @@ export default function CategoriesSettings() {
               ) : (
                 <>
                   <li>Click on any category name to rename it</li>
+                  <li>Use the delete button (trash icon) for categories with no transactions</li>
                   <li>Drag detail categories to different subcategories to reorganize them</li>
-                  <li>Toggle Delete Mode to remove categories</li>
+                  <li>Toggle Delete Mode to reassign/delete categories with transactions</li>
                   <li>Default categories can be edited just like custom ones</li>
                 </>
               )}
@@ -669,6 +696,7 @@ export default function CategoriesSettings() {
                       onCancel={cancelEdit}
                       onClick={() => handleCategoryClick(category.id, category.name)}
                       isDraggable={false}
+                      canDelete={canDeleteCategory(category.id)}
                     >
                       {!isEditMode && (
                         <span className="text-sm text-gray-500 dark:text-gray-400">

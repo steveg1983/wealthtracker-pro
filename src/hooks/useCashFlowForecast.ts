@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { cashFlowForecastService, type ForecastResult, type RecurringPattern } from '../services/cashFlowForecastService';
 import type { Account, Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';

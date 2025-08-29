@@ -12,9 +12,9 @@ interface MobileNavItem {
 const mobileNavItems: MobileNavItem[] = [
   { to: '/', icon: HomeIcon, label: 'Home' },
   { to: '/accounts', icon: WalletIcon, label: 'Accounts' },
-  { to: '/investments', icon: TrendingUpIcon, label: 'Invest' },
-  { to: '/analytics', icon: BarChart3Icon, label: 'Analytics' },
-  { to: '/settings', icon: SettingsIcon, label: 'Settings' },
+  { to: '/transactions', icon: BarChart3Icon, label: 'Transactions' },
+  { to: '/budget', icon: TrendingUpIcon, label: 'Budget' },
+  { to: '/goals', icon: SettingsIcon, label: 'Goals' },
 ];
 
 export default function MobileBottomNav(): React.JSX.Element {
@@ -40,7 +40,7 @@ export default function MobileBottomNav(): React.JSX.Element {
               className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               onClick={() => setShowQuickActions(false)}
             >
-              <WalletIcon size={20} />
+              <BarChart3Icon size={20} />
               <span>Add Transaction</span>
             </Link>
             <Link
@@ -48,15 +48,23 @@ export default function MobileBottomNav(): React.JSX.Element {
               className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               onClick={() => setShowQuickActions(false)}
             >
-              <PlusIcon size={20} />
+              <WalletIcon size={20} />
               <span>Add Account</span>
+            </Link>
+            <Link
+              to="/budget?action=add"
+              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              onClick={() => setShowQuickActions(false)}
+            >
+              <TrendingUpIcon size={20} />
+              <span>Add Budget</span>
             </Link>
             <Link
               to="/goals?action=add"
               className="flex items-center gap-3 px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
               onClick={() => setShowQuickActions(false)}
             >
-              <TrendingUpIcon size={20} />
+              <SettingsIcon size={20} />
               <span>Set Goal</span>
             </Link>
           </div>

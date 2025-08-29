@@ -20,7 +20,7 @@ import {
 } from './icons';
 import { format } from 'date-fns';
 import { useCurrency } from '../hooks/useCurrency';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 
 export default function HouseholdManagement() {
   const { transactions } = useApp();

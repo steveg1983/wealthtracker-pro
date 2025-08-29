@@ -1,7 +1,7 @@
 import React from 'react';
 import { Transaction, Category } from '../types';
 import { useBulkOperations } from '../hooks/useBulkOperations';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import BulkOperationsToolbar from './BulkOperationsToolbar';
 import BulkCheckbox from './BulkCheckbox';
 import { DeleteIcon, EditIcon, CheckIcon, TagIcon } from './icons';

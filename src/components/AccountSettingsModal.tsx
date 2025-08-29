@@ -1,6 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
+import { useApp } from '../contexts/AppContextSupabase';
 import type { Account as BaseAccount } from '../types';
 
 // Extend the base Account type with additional fields needed for settings
@@ -43,6 +44,9 @@ export default function AccountSettingsModal({
   account,
   onSave
 }: AccountSettingsModalProps) {
+  const { accounts } = useApp();
+  const [validationError, setValidationError] = useState<string | null>(null);
+  
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
     {
       type: 'current',
@@ -56,6 +60,21 @@ export default function AccountSettingsModal({
     {
       onSubmit: (data) => {
         if (!account) return;
+        
+        // Professional validation for bank details
+        if (data.sortCode && data.accountNumber && 
+            data.sortCode !== '00-00-00' && data.accountNumber !== '00000000') {
+          const duplicate = accounts.find(a => 
+            a.sortCode === data.sortCode && 
+            a.accountNumber === data.accountNumber &&
+            a.id !== account.id // Exclude current account from check
+          );
+          
+          if (duplicate) {
+            setValidationError(`These bank details are already used by '${duplicate.name}'`);
+            return;
+          }
+        }
 
         const updates: Partial<Account> = {
           type: data.type,
@@ -106,6 +125,19 @@ export default function AccountSettingsModal({
   const handleSortCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatSortCode(e.target.value);
     updateField('sortCode', formatted);
+    setValidationError(null); // Clear error when user types
+  };
+  
+  const handleAccountNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const cleaned = e.target.value.replace(/\D/g, '').slice(0, 8);
+    updateField('accountNumber', cleaned);
+    setValidationError(null); // Clear error when user types
+  };
+  
+  // Check if account type should show bank details
+  const shouldShowBankDetails = (): boolean => {
+    const bankAccountTypes = ['current', 'checking', 'savings', 'loan', 'credit', 'investment', 'mortgage'];
+    return bankAccountTypes.includes(formData.type);
   };
 
   if (!account) return null;
@@ -165,8 +197,8 @@ export default function AccountSettingsModal({
             </div>
           </div>
 
-          {/* Bank Details */}
-          {(formData.type === 'current' || formData.type === 'savings') && (
+          {/* Bank Details - Professional approach for all relevant account types */}
+          {shouldShowBankDetails() && (
             <>
               <div>
                 <label htmlFor="sort-code" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -179,9 +211,12 @@ export default function AccountSettingsModal({
                   onChange={handleSortCodeChange}
                   placeholder="XX-XX-XX"
                   maxLength={8}
-                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                  className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border ${validationError ? 'border-red-500' : 'border-gray-300/50 dark:border-gray-600/50'} rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white`}
                   aria-label="Bank sort code"
                 />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Used for automatic transaction import matching
+                </p>
               </div>
 
               <div>
@@ -192,13 +227,22 @@ export default function AccountSettingsModal({
                   id="account-number"
                   type="text"
                   value={formData.accountNumber}
-                  onChange={(e) => updateField('accountNumber', e.target.value.replace(/\D/g, ''))}
+                  onChange={handleAccountNumberChange}
                   placeholder="12345678"
                   aria-label="Bank account number"
                   maxLength={8}
-                  className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+                  className={`w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border ${validationError ? 'border-red-500' : 'border-gray-300/50 dark:border-gray-600/50'} rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white`}
                 />
               </div>
+              
+              {/* Professional validation error message */}
+              {validationError && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    {validationError}
+                  </p>
+                </div>
+              )}
             </>
           )}
 

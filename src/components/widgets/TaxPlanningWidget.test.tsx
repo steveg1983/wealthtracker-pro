@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, Mock } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import TaxPlanningWidget from './TaxPlanningWidget';
-import { useApp } from '../../contexts/AppContext';
+import { useApp } from '../../contexts/AppContextSupabase';
 import { taxPlanningService } from '../../services/taxPlanningService';
 import { useNavigate } from 'react-router-dom';
 import { toDecimal } from '../../utils/decimal';

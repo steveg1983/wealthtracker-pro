@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { XIcon, ArrowRightIcon, CheckIcon, AlertCircleIcon } from './icons';
 import type { Transaction } from '../types';
 

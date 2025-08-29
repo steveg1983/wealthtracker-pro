@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useApp } from '../contexts/AppContext';
+import { useApp } from '../contexts/AppContextSupabase';
 import { budgetRecommendationService, type BudgetAnalysis, type BudgetRecommendation } from '../services/budgetRecommendationService';
 import { 
   LightbulbIcon,
