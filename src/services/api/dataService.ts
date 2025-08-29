@@ -8,6 +8,8 @@ import { UserService } from './userService';
 import { AccountService } from './accountService';
 import { TransactionService } from './transactionService';
 import * as CategoryService from './categoryService';
+import * as BudgetService from './budgetService';
+import * as GoalService from './goalService';
 import { isSupabaseConfigured } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
@@ -234,7 +236,16 @@ export class DataService {
    * Get budgets
    */
   static async getBudgets(): Promise<Budget[]> {
-    // TODO: Implement BudgetService when ready
+    const clerkId = userIdService.getCurrentClerkId();
+    if (clerkId && isSupabaseConfigured()) {
+      try {
+        return await BudgetService.getBudgets(clerkId);
+      } catch (error) {
+        console.error('[DataService] Error loading budgets from Supabase:', error);
+      }
+    }
+    
+    // Fallback to localStorage
     const stored = await storageAdapter.get<Budget[]>(STORAGE_KEYS.BUDGETS);
     return stored || [];
   }
@@ -243,7 +254,16 @@ export class DataService {
    * Get goals
    */
   static async getGoals(): Promise<Goal[]> {
-    // TODO: Implement GoalService when ready
+    const clerkId = userIdService.getCurrentClerkId();
+    if (clerkId && isSupabaseConfigured()) {
+      try {
+        return await GoalService.getGoals(clerkId);
+      } catch (error) {
+        console.error('[DataService] Error loading goals from Supabase:', error);
+      }
+    }
+    
+    // Fallback to localStorage
     const stored = await storageAdapter.get<Goal[]>(STORAGE_KEYS.GOALS);
     return stored || [];
   }
