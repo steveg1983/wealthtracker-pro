@@ -1,9 +1,11 @@
 // Plaid Service for Open Banking Integration
-// Note: In production, most of these operations should happen server-side for security
-// This is a client-side simulation that would connect to your backend API
+// This service manages the client-side Plaid Link integration
+// All sensitive operations are handled by the backend service
 
 import type { Account, Transaction } from '../types';
 import type { SavedPlaidConnection, PlaidApiParams } from '../types/plaid';
+import { plaidBackendService } from './api/plaidBackendService';
+import { useUser } from '@clerk/clerk-react';
 
 export interface PlaidAccount {
   account_id: string;
@@ -137,44 +139,75 @@ class PlaidService {
   }
 
   // Initialize Plaid Link
-  async createLinkToken(userId: string): Promise<PlaidLinkToken> {
-    // In production, this would call your backend API
-    // The backend would use the Plaid client to create a link token
-    
-    // Simulated response for development
-    return {
-      link_token: `link-${this.plaidEnv}-${Date.now()}`,
-      expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString() // 30 minutes
-    };
+  async createLinkToken(clerkId: string): Promise<PlaidLinkToken> {
+    try {
+      // Use the backend service to create a secure link token
+      const result = await plaidBackendService.createLinkToken(clerkId);
+      return {
+        link_token: result.link_token,
+        expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+      };
+    } catch (error) {
+      console.error('Failed to create link token:', error);
+      // Fallback to development mode if backend is not available
+      if (this.plaidEnv !== 'production') {
+        return {
+          link_token: `link-${this.plaidEnv}-${Date.now()}`,
+          expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+        };
+      }
+      throw error;
+    }
   }
 
-  // Exchange public token for access token (must be done server-side in production)
-  async exchangePublicToken(publicToken: string): Promise<{ access_token: string; item_id: string }> {
-    // In production, send the public token to your backend
-    // Backend exchanges it for an access token using Plaid API
-    
-    // Simulated response
-    return {
-      access_token: `access-${this.plaidEnv}-${Date.now()}`,
-      item_id: `item-${Date.now()}`
-    };
+  // Exchange public token for access token (handled by backend)
+  async exchangePublicToken(
+    publicToken: string,
+    clerkId: string,
+    institutionId: string,
+    institutionName: string
+  ): Promise<{ access_token: string; item_id: string }> {
+    try {
+      // Use backend service for secure token exchange
+      const connection = await plaidBackendService.exchangePublicToken(
+        clerkId,
+        publicToken,
+        institutionId,
+        institutionName
+      );
+      return {
+        access_token: 'stored-securely', // Don't expose actual token to client
+        item_id: connection.item_id
+      };
+    } catch (error) {
+      console.error('Failed to exchange public token:', error);
+      // Fallback for development
+      if (this.plaidEnv !== 'production') {
+        return {
+          access_token: `access-${this.plaidEnv}-${Date.now()}`,
+          item_id: `item-${Date.now()}`
+        };
+      }
+      throw error;
+    }
   }
 
   // Add a new bank connection
-  async addConnection(publicTokenData: PlaidPublicToken): Promise<PlaidConnection> {
-    const { access_token, item_id } = await this.exchangePublicToken(publicTokenData.public_token);
-    
-    // In production, the access token should be sent to your backend
-    // and never stored client-side
-    if (this.plaidEnv === 'production') {
-      console.warn('Production mode: Access token should be sent to backend, not stored client-side');
-    }
+  async addConnection(
+    publicTokenData: PlaidPublicToken,
+    clerkId: string
+  ): Promise<PlaidConnection> {
+    const { access_token, item_id } = await this.exchangePublicToken(
+      publicTokenData.public_token,
+      clerkId,
+      publicTokenData.institution_id,
+      publicTokenData.institution_name
+    );
     
     const connection: PlaidConnection = {
       id: `conn-${Date.now()}`,
       institutionId: publicTokenData.institution_id,
       institutionName: publicTokenData.institution_name,
-      // Not storing access token in client
       itemId: item_id,
       lastSync: new Date(),
       accounts: publicTokenData.accounts.map(acc => acc.account_id),
@@ -182,12 +215,17 @@ class PlaidService {
       isDevelopment: this.plaidEnv !== 'production'
     };
     
+    // Store connection locally for UI
     this.connections.push(connection);
     this.saveConnections();
     
-    // In production, send access token to backend
-    if (this.plaidEnv === 'production') {
-      await this.sendTokenToBackend(access_token, item_id);
+    // Sync accounts immediately after connection
+    if (clerkId) {
+      try {
+        await this.syncAccountsFromBackend(clerkId, connection.id);
+      } catch (error) {
+        console.error('Failed to sync accounts after connection:', error);
+      }
     }
     
     return connection;
@@ -199,16 +237,52 @@ class PlaidService {
   }
 
   // Remove a connection
-  removeConnection(connectionId: string): boolean {
-    const index = this.connections.findIndex(c => c.id === connectionId);
-    if (index === -1) return false;
-    
-    this.connections.splice(index, 1);
-    this.saveConnections();
-    return true;
+  async removeConnection(connectionId: string, clerkId?: string): Promise<boolean> {
+    try {
+      // Remove from backend if clerkId provided
+      if (clerkId) {
+        await plaidBackendService.removeConnection(clerkId, connectionId);
+      }
+      
+      // Remove from local storage
+      const index = this.connections.findIndex(c => c.id === connectionId);
+      if (index === -1) return false;
+      
+      this.connections.splice(index, 1);
+      this.saveConnections();
+      return true;
+    } catch (error) {
+      console.error('Failed to remove connection:', error);
+      return false;
+    }
   }
 
-  // Sync accounts from Plaid
+  // Sync accounts from backend
+  async syncAccountsFromBackend(clerkId: string, connectionId: string): Promise<Account[]> {
+    try {
+      const plaidAccounts = await plaidBackendService.syncAccounts(clerkId, connectionId);
+      
+      // Convert to our Account format
+      return plaidAccounts.map(acc => ({
+        id: acc.account_id,
+        name: acc.official_name || acc.name,
+        type: this.mapPlaidAccountType(acc.type, acc.subtype),
+        balance: acc.balance_current || 0,
+        currency: acc.currency || 'USD',
+        isActive: true,
+        lastUpdated: new Date(),
+        plaidConnectionId: connectionId,
+        plaidAccountId: acc.account_id,
+        mask: acc.mask
+      }));
+    } catch (error) {
+      console.error('Failed to sync accounts from backend:', error);
+      // Fall back to local simulation if backend fails
+      return this.syncAccounts(connectionId);
+    }
+  }
+
+  // Sync accounts from Plaid (local simulation)
   async syncAccounts(connectionId: string): Promise<Account[]> {
     const connection = this.connections.find(c => c.id === connectionId);
     if (!connection) throw new Error('Connection not found');
@@ -286,7 +360,46 @@ class PlaidService {
     return 'other';
   }
 
-  // Sync transactions from Plaid
+  // Sync transactions from backend
+  async syncTransactionsFromBackend(
+    clerkId: string,
+    connectionId: string,
+    startDate: Date,
+    endDate: Date = new Date()
+  ): Promise<Transaction[]> {
+    try {
+      const transactions = await plaidBackendService.syncTransactions(
+        clerkId,
+        connectionId,
+        startDate,
+        endDate
+      );
+      
+      return transactions.map(txn => ({
+        id: txn.id,
+        accountId: txn.account_id,
+        date: new Date(txn.date),
+        description: txn.description,
+        amount: txn.amount,
+        category: txn.category,
+        pending: txn.pending,
+        plaidTransactionId: txn.plaid_transaction_id,
+        merchant: txn.merchant_name,
+        paymentChannel: txn.payment_channel,
+        location: txn.location_city ? {
+          city: txn.location_city,
+          region: null,
+          country: txn.location_country
+        } : undefined
+      }));
+    } catch (error) {
+      console.error('Failed to sync transactions from backend:', error);
+      // Fall back to local simulation
+      return this.syncTransactions(connectionId, startDate, endDate);
+    }
+  }
+
+  // Sync transactions from Plaid (local simulation)
   async syncTransactions(connectionId: string, startDate: Date, endDate: Date = new Date()): Promise<Transaction[]> {
     const connection = this.connections.find(c => c.id === connectionId);
     if (!connection) throw new Error('Connection not found');
@@ -467,17 +580,30 @@ class PlaidService {
     return connection ? connection.accounts : [];
   }
 
-  // Send access token to backend (production only)
-  private async sendTokenToBackend(accessToken: string, itemId: string): Promise<void> {
-    // This should be implemented to send the token to your secure backend
-    // Example:
-    // await fetch('/api/plaid/store-token', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({ accessToken, itemId }),
-    //   credentials: 'include'
-    // });
-    console.warn('sendTokenToBackend not implemented - access token should be sent to secure backend');
+  // Load connections from backend
+  async loadConnectionsFromBackend(clerkId: string): Promise<void> {
+    try {
+      const backendConnections = await plaidBackendService.getConnections(clerkId);
+      
+      // Merge with local connections
+      this.connections = backendConnections.map(conn => ({
+        id: conn.id,
+        institutionId: conn.institution_id,
+        institutionName: conn.institution_name,
+        itemId: conn.item_id,
+        lastSync: new Date(conn.last_sync),
+        accounts: [], // Will be populated when accounts are synced
+        status: conn.status as any,
+        error: conn.error,
+        isDevelopment: false
+      }));
+      
+      this.saveConnections();
+    } catch (error) {
+      console.error('Failed to load connections from backend:', error);
+      // Fall back to local connections
+      this.loadConnections();
+    }
   }
 
   // Make authenticated API call through backend

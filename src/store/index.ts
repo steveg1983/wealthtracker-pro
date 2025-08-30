@@ -12,6 +12,7 @@ import recurringTransactionsReducer from './slices/recurringTransactionsSlice';
 import preferencesReducer from './slices/preferencesSlice';
 import notificationsReducer from './slices/notificationsSlice';
 import layoutReducer from './slices/layoutSlice';
+import demoReducer from './slices/demoSlice';
 
 export const store = configureStore({
   reducer: {
@@ -25,6 +26,7 @@ export const store = configureStore({
     preferences: preferencesReducer,
     notifications: notificationsReducer,
     layout: layoutReducer,
+    demo: demoReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

@@ -271,9 +271,37 @@ export class StripeService {
    */
   static async cancelSubscription(
     subscriptionId: string,
+    clerkToken: string,
     cancelAtPeriodEnd: boolean = true
-  ): Promise<UserSubscription> {
-    return this.updateSubscription(subscriptionId, { cancelAtPeriodEnd });
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await fetch(`http://localhost:3000/api/subscriptions/${subscriptionId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${clerkToken}`
+        },
+        body: JSON.stringify({ 
+          cancelAtPeriodEnd // Cancel at end of billing period by default
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { 
+          success: false, 
+          error: error.error || `Failed to cancel subscription: ${response.statusText}` 
+        };
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error cancelling subscription:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to cancel subscription' 
+      };
+    }
   }
 
   /**

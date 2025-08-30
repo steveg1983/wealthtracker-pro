@@ -93,14 +93,46 @@ export default function SubscriptionPage({
     setSelectedPlan(plan);
     
     if (plan.tier === 'free') {
-      // Handle free plan selection (downgrade)
+      // Handle free plan selection (downgrade/cancellation)
       if (currentSubscription) {
         try {
-          // TODO: Implement cancellation with token
-          setError('Downgrade functionality coming soon');
+          setIsLoading(true);
+          
+          if (!session) {
+            setError('Authentication required. Please sign in again.');
+            return;
+          }
+          
+          const token = await session.getToken();
+          if (!token) {
+            setError('Failed to get authentication token');
+            return;
+          }
+          
+          // Cancel the subscription through Stripe
+          const result = await StripeService.cancelSubscription(
+            currentSubscription.stripeSubscriptionId,
+            token
+          );
+          
+          if (result.success) {
+            // Clear local subscription state
+            setCurrentSubscription(null);
+            setError(null);
+            
+            // Show success message
+            alert('Your subscription has been cancelled successfully. You will retain access until the end of your billing period.');
+            
+            // Reload subscription status
+            await loadCurrentSubscription();
+          } else {
+            setError(result.error || 'Failed to cancel subscription');
+          }
         } catch (err) {
-          console.error('Error downgrading to free:', err);
-          setError('Failed to downgrade subscription');
+          console.error('Error cancelling subscription:', err);
+          setError('Failed to cancel subscription. Please try again or contact support.');
+        } finally {
+          setIsLoading(false);
         }
       }
       return;

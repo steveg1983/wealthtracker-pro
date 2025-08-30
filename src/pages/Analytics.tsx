@@ -12,6 +12,7 @@ import {
   PlayIcon
 } from '../components/icons';
 import { analyticsEngine } from '../services/analyticsEngine';
+import { anomalyDetectionService } from '../services/anomalyDetectionService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import PageWrapper from '../components/PageWrapper';
 
@@ -100,19 +101,32 @@ export default function Analytics(): React.JSX.Element {
       });
     }
     
-    // Anomaly detection
-    // TODO: Implement detectAnomalies method in analyticsEngine
-    // const anomalies = analyticsEngine.detectAnomalies(
-    //   transactions.map(t => ({ date: t.date, value: parseFloat(t.amount) }))
-    // );
-    // if (anomalies.length > 0) {
-    //   newInsights.push({
-    //     type: 'anomaly',
-    //     title: `${anomalies.length} unusual transaction${anomalies.length > 1 ? 's' : ''} detected`,
-    //     description: 'Review these transactions for potential errors or fraud',
-    //     severity: 'warning'
-    //   });
-    // }
+    // Anomaly detection - NOW ENABLED
+    try {
+      const anomalies = await anomalyDetectionService.detectAnomalies(transactions, categories);
+      
+      if (anomalies.length > 0) {
+        newInsights.push({
+          type: 'anomaly',
+          title: `${anomalies.length} unusual transaction${anomalies.length > 1 ? 's' : ''} detected`,
+          description: 'Review these transactions for potential errors or fraud',
+          severity: 'warning'
+        });
+        
+        // Add specific anomaly details
+        anomalies.slice(0, 3).forEach(anomaly => {
+          newInsights.push({
+            type: 'anomaly',
+            title: `${anomaly.type.replace(/_/g, ' ').charAt(0).toUpperCase() + anomaly.type.replace(/_/g, ' ').slice(1)}`,
+            description: anomaly.description,
+            severity: anomaly.severity as 'info' | 'warning' | 'success'
+          });
+        });
+      }
+    } catch (error) {
+      console.error('Error detecting anomalies:', error);
+      // Don't fail the entire insights generation if anomaly detection fails
+    }
     
     setInsights(newInsights);
   };

@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { documentService } from '../services/documentService';
 import type { Document, DocumentUploadOptions } from '../services/documentService';
 import {
@@ -39,8 +39,22 @@ export default function DocumentUpload({
   const [tagInput, setTagInput] = useState('');
   const [notes, setNotes] = useState('');
   const [extractData, setExtractData] = useState(true);
+  const [isCameraSupported, setIsCameraSupported] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Check camera support on mount
+  useEffect(() => {
+    // Check if we're on a mobile device with camera support
+    const checkCameraSupport = () => {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      const hasMediaDevices = typeof navigator !== 'undefined' && 
+                             'mediaDevices' in navigator;
+      setIsCameraSupported(isMobile || hasMediaDevices);
+    };
+    checkCameraSupport();
+  }, []);
 
   const handleFileSelection = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
@@ -214,16 +228,34 @@ export default function DocumentUpload({
             <UploadIcon size={16} />
             Select Files
           </button>
-          <button
-            onClick={() => {
-              // TODO: Implement camera capture for mobile
-              alert('Camera capture coming soon!');
+          {/* Hidden camera input for mobile devices */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              if (files.length > 0) {
+                setSelectedFiles(prevFiles => [...prevFiles, ...files]);
+                // Auto-set to receipt for camera captures
+                setDocumentType('receipt');
+              }
+              // Reset input
+              if (e.target) e.target.value = '';
             }}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
-          >
-            <CameraIcon size={16} />
-            Take Photo
-          </button>
+            className="hidden"
+          />
+          {isCameraSupported && (
+            <button
+              onClick={() => cameraInputRef.current?.click()}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              title="Take a photo of your receipt"
+            >
+              <CameraIcon size={16} />
+              Take Photo
+            </button>
+          )}
         </div>
       </div>
 

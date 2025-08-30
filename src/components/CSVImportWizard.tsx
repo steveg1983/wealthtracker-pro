@@ -178,7 +178,51 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
         setImportResult(result);
       } else {
         // Import accounts
-        // TODO: Implement account import
+        const result: ImportResult = {
+          totalRows: mappedData.length,
+          successCount: 0,
+          errorCount: 0,
+          errors: [],
+          importedItems: []
+        };
+        
+        for (const item of mappedData) {
+          try {
+            // Validate required fields
+            if (!item.name || !item.type) {
+              result.errorCount++;
+              result.errors.push(`Missing required fields: ${!item.name ? 'name' : ''} ${!item.type ? 'type' : ''}`);
+              continue;
+            }
+            
+            // Map account type to our format
+            const accountType = String(item.type).toLowerCase();
+            const validTypes = ['checking', 'savings', 'credit', 'investment', 'loan', 'cash', 'current'];
+            if (!validTypes.includes(accountType)) {
+              result.errorCount++;
+              result.errors.push(`Invalid account type: ${item.type}`);
+              continue;
+            }
+            
+            // Create the account
+            await addAccount({
+              name: String(item.name),
+              type: accountType as any,
+              balance: parseFloat(String(item.balance || 0)),
+              currency: String(item.currency || 'GBP'),
+              institution: item.institution ? String(item.institution) : '',
+              isActive: true
+            });
+            
+            result.successCount++;
+            result.importedItems.push(item);
+          } catch (error) {
+            result.errorCount++;
+            result.errors.push(`Failed to import account ${item.name}: ${error}`);
+          }
+        }
+        
+        setImportResult(result);
       }
       
       setCurrentStep('result');
