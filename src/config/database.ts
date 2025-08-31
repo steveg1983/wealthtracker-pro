@@ -32,13 +32,17 @@ export const FEATURES = {
 };
 
 // Export which AppContext to use
-export { AppProvider as AppProviderLocal } from '../contexts/AppContextSupabase';
+export { AppProvider as AppProviderLocal } from '../contexts/AppContext';
 export { AppProvider as AppProviderSupabase } from '../contexts/AppContextSupabase';
+
+// Import both providers
+import { AppProvider as LocalProvider } from '../contexts/AppContext';
+import { AppProvider as SupabaseProvider } from '../contexts/AppContextSupabase';
 
 // Use Supabase version if configured, otherwise use local
 export const AppProvider = USE_SUPABASE 
-  ? require('../contexts/AppContextSupabase').AppProvider
-  : require('../contexts/AppContext').AppProvider;
+  ? SupabaseProvider
+  : LocalProvider;
 
 // Helper to get current data source
 export const getDataSource = (): 'supabase' | 'localStorage' => {
