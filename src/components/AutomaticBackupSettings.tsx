@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { automaticBackupService, type BackupConfig } from '../services/automaticBackupService';
 import { useNotifications } from '../contexts/NotificationContext';
-import {
 import { logger } from '../services/loggingService';
+import {
   ShieldIcon,
   ClockIcon,
   SaveIcon as HardDriveIcon,

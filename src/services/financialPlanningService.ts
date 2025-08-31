@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import type { Transaction } from '../types';
-import type {
 import { logger } from './loggingService';
+import type {
   SavedRetirementPlan,
   SavedMortgageCalculation,
   SavedAmortizationEntry,

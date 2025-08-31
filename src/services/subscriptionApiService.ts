@@ -11,8 +11,8 @@
 import { loadStripe } from '@stripe/stripe-js';
 import { useUser } from '@clerk/clerk-react';
 import SupabaseSubscriptionService from './supabaseSubscriptionService';
-import type { 
 import { logger } from './loggingService';
+import type { 
   CreateSubscriptionRequest,
   CreateSubscriptionResponse,
   UpdateSubscriptionRequest,

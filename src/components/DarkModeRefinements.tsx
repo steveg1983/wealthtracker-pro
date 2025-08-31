@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import {
 import { logger } from '../services/loggingService';
+import {
   SunIcon,
   MoonIcon,
   MonitorIcon,

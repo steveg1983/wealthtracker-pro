@@ -1,7 +1,7 @@
 import { Transaction, Account, Budget } from '../types';
 import { toDecimal } from '../utils/decimal';
-import type {
 import { logger } from './loggingService';
+import type {
   NotificationAction,
   NotificationData,
   SavedOfflineTransaction,

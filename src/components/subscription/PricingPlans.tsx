@@ -12,8 +12,8 @@ import React, { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import StripeService from '../../services/stripeService';
 import type { SubscriptionPlan, SubscriptionTier } from '../../types/subscription';
-import { 
 import { logger } from '../../services/loggingService';
+import { 
   CheckIcon, 
   XIcon, 
   StarIcon, 

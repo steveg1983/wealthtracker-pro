@@ -4,8 +4,8 @@
  */
 
 import React from 'react';
-import {
 import { logger } from '../../services/loggingService';
+import {
   // Navigation & Core
   IconHome,
   IconSettings,

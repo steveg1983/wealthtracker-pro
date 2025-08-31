@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { 
 import { logger } from '../services/loggingService';
+import { 
   getRegistration, 
   checkForUpdates, 
   getSyncStatus,

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../../services/dataIntelligenceService';
 import type { DataIntelligenceStats, SpendingInsight } from '../../services/dataIntelligenceService';
-import { 
 import { logger } from '../../services/loggingService';
+import { 
   DatabaseIcon,
   BellIcon,
   CreditCardIcon,

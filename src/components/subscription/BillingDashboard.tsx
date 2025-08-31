@@ -18,8 +18,8 @@ import type {
   PaymentMethod,
   SubscriptionTier 
 } from '../../types/subscription';
-import { 
 import { logger } from '../../services/loggingService';
+import { 
   CreditCardIcon, 
   CalendarIcon, 
   DollarSignIcon,

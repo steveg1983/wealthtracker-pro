@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 import type { Transaction, Category } from '../types';
-import type {
 import { logger } from './loggingService';
+import type {
   SavedMerchantData,
   SavedSubscription,
   SavedSpendingPattern,

@@ -11,8 +11,8 @@
 
 import { loadStripe, Stripe } from '@stripe/stripe-js';
 import { apiUrl } from '../config/api';
-import type {
 import { logger } from './loggingService';
+import type {
   SubscriptionTier,
   SubscriptionPlan,
   UserSubscription,

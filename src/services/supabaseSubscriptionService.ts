@@ -10,8 +10,8 @@
  */
 
 import { supabase } from '../lib/supabase';
-import type { 
 import { logger } from './loggingService';
+import type { 
   UserSubscription, 
   SubscriptionTier, 
   SubscriptionStatus,

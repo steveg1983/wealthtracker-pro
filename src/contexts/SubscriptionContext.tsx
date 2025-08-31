@@ -13,8 +13,8 @@ import { useUser } from '@clerk/clerk-react';
 import { userIdService } from '../services/userIdService';
 import StripeService from '../services/stripeService';
 import SubscriptionApiService from '../services/subscriptionApiService';
-import type { 
 import { logger } from '../services/loggingService';
+import type { 
   UserSubscription, 
   SubscriptionTier, 
   FeatureLimits,
