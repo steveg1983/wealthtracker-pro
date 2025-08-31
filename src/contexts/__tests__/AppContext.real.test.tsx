@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { AppProvider, useApp } from './App';
+import { AppProvider, useApp } from '../AppContextSupabase';
 import { RealTestDatabase, renderWithRealData, testDb } from '../../test/setup/real-test-framework';
 
 describe('App - REAL DATABASE TESTS', () => {

@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useRealTimePrices } from './useRealTimePrices';
+import { useRealTimePrices } from '../useRealTimePrices';
 import { RealTestDatabase, RealTestProvider, testDb } from '../../test/setup/real-test-framework';
 
 describe('useRealTimePrices - REAL DATABASE TESTS', () => {

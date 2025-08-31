@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useReconciliation } from './useReconciliation';
+import { useReconciliation } from '../useReconciliation';
 import { RealTestDatabase, RealTestProvider, testDb } from '../../test/setup/real-test-framework';
 
 describe('useReconciliation - REAL DATABASE TESTS', () => {

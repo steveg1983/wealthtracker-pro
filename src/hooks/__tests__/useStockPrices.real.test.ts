@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useStockPrices } from './useStockPrices';
+import { useStockPrices } from '../useStockPrices';
 import { RealTestDatabase, RealTestProvider, testDb } from '../../test/setup/real-test-framework';
 
 describe('useStockPrices - REAL DATABASE TESTS', () => {

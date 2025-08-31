@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useLocalStorage } from './useLocalStorage';
+import { useLocalStorage } from '../useLocalStorage';
 import { RealTestDatabase, RealTestProvider, testDb } from '../../test/setup/real-test-framework';
 
 describe('useLocalStorage - REAL DATABASE TESTS', () => {

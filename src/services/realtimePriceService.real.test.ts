@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { supabase } from '../config/supabase';
+import { supabase } from '../lib/supabase';
 
 describe('realtimePriceService - REAL DATABASE TESTS', () => {
   it('connects to REAL database', async () => {

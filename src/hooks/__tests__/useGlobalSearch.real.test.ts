@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useGlobalSearch } from './useGlobalSearch';
+import { useGlobalSearch } from '../useGlobalSearch';
 import { RealTestDatabase, RealTestProvider, testDb } from '../../test/setup/real-test-framework';
 
 describe('useGlobalSearch - REAL DATABASE TESTS', () => {

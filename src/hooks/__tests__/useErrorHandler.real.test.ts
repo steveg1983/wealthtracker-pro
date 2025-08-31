@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { renderHook, waitFor, act } from '@testing-library/react';
-import { useErrorHandler } from './useErrorHandler';
+import { useErrorHandler } from '../useErrorHandler';
 import { RealTestDatabase, RealTestProvider, testDb } from '../../test/setup/real-test-framework';
 
 describe('useErrorHandler - REAL DATABASE TESTS', () => {
