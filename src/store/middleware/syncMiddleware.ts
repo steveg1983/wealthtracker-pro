@@ -1,5 +1,7 @@
-import { Middleware } from '@reduxjs/toolkit';
+import { Middleware, Dispatch, AnyAction } from '@reduxjs/toolkit';
 import { syncService } from '../../services/syncService';
+import type { SyncEventPayload, EntityType, SyncData, SyncOperation } from '../../types/sync-types';
+import { logger } from '../../services/loggingService';
 
 // Action types to sync
 const SYNC_ACTIONS = {
@@ -68,7 +70,7 @@ export const syncMiddleware: Middleware = (store) => (next) => (action) => {
     try {
       // Extract entity ID and data from the action
       let entityId: string | undefined;
-      let data: any;
+      let data: SyncData<EntityType>;
       
       // Handle different action payload structures
       if (action.payload) {
@@ -101,7 +103,7 @@ export const syncMiddleware: Middleware = (store) => (next) => (action) => {
         );
       }
     } catch (error) {
-      console.error('Failed to queue sync operation:', error);
+      logger.error('Failed to queue sync operation:', error);
     }
   }
   
@@ -109,9 +111,9 @@ export const syncMiddleware: Middleware = (store) => (next) => (action) => {
 };
 
 // Helper to handle incoming sync updates
-export const handleRemoteSyncUpdate = (
-  dispatch: any,
-  event: { entity: string; entityId: string; data: any; type: string }
+export const handleRemoteSyncUpdate = <T extends EntityType>(
+  dispatch: Dispatch<AnyAction>,
+  event: SyncEventPayload<T> & { type: string }
 ) => {
   const { entity, entityId, data, type } = event;
   
@@ -188,27 +190,27 @@ export const handleRemoteSyncUpdate = (
 };
 
 // Initialize sync listeners when store is created
-export const initializeSyncListeners = (dispatch: any) => {
+export const initializeSyncListeners = (dispatch: Dispatch<AnyAction>) => {
   // Listen for remote updates
-  syncService.on('remote-create', (event: any) => {
+  syncService.on('remote-create', (event: SyncEventPayload) => {
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'CREATE' });
   });
   
-  syncService.on('remote-update', (event: any) => {
+  syncService.on('remote-update', (event: SyncEventPayload) => {
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'UPDATE' });
   });
   
-  syncService.on('remote-delete', (event: any) => {
+  syncService.on('remote-delete', (event: SyncEventPayload) => {
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'DELETE' });
   });
   
-  syncService.on('remote-merge', (event: any) => {
+  syncService.on('remote-merge', (event: SyncEventPayload) => {
     handleRemoteSyncUpdate(dispatch, { ...event, type: 'UPDATE' });
   });
   
   // Handle sync failures
-  syncService.on('sync-failed', (operation: any) => {
-    console.error('Sync operation failed:', operation);
+  syncService.on('sync-failed', (operation: SyncOperation) => {
+    logger.error('Sync operation failed:', operation);
     // Could dispatch an action to show error to user
     dispatch({ 
       type: 'ui/showNotification', 

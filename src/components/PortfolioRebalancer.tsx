@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { portfolioRebalanceService } from '../services/portfolioRebalanceService';
 import type { AssetAllocation, RebalanceAction, PortfolioTarget } from '../services/portfolioRebalanceService';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Investment } from '../types';
 import {
@@ -37,7 +37,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
   const [taxConsiderations, setTaxConsiderations] = useState(true);
   
   const { accounts } = useApp();
-  const { currencySymbol } = useCurrency();
+  const { currencySymbol } = useCurrencyDecimal();
   const { formatCurrency } = useCurrencyDecimal();
 
   // Extract investments from accounts with holdings

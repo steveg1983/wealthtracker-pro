@@ -20,6 +20,7 @@ import { SupabaseService } from '../../services/supabaseService';
 import { storageAdapter } from '../../services/storageAdapter';
 import { userIdService } from '../../services/userIdService';
 import type { Account, Transaction, Budget, Goal } from '../../types';
+import { logger } from '../../services/loggingService';
 
 // Helper to get database user ID (not Clerk ID)
 async function getCurrentDatabaseUserId(): Promise<string | null> {
@@ -72,7 +73,7 @@ export const fetchAccountsFromSupabase = createAsyncThunk(
       
       return accounts;
     } catch (error) {
-      console.error('Failed to fetch accounts from Supabase:', error);
+      logger.error('Failed to fetch accounts from Supabase:', error);
       
       // Fallback to localStorage
       try {
@@ -106,7 +107,7 @@ export const createAccountInSupabase = createAsyncThunk(
       
       return newAccount;
     } catch (error) {
-      console.error('Failed to create account in Supabase:', error);
+      logger.error('Failed to create account in Supabase:', error);
       
       // Offline fallback - create locally with temp ID
       const tempAccount: Account = {
@@ -146,7 +147,7 @@ export const updateAccountInSupabase = createAsyncThunk(
       
       return updatedAccount;
     } catch (error) {
-      console.error('Failed to update account in Supabase:', error);
+      logger.error('Failed to update account in Supabase:', error);
       
       // Offline fallback - update locally
       const cachedAccounts = await storageAdapter.get<Account[]>('accounts') || [];
@@ -191,7 +192,7 @@ export const deleteAccountFromSupabase = createAsyncThunk(
       
       return id;
     } catch (error) {
-      console.error('Failed to delete account from Supabase:', error);
+      logger.error('Failed to delete account from Supabase:', error);
       
       // Offline fallback - mark as deleted locally
       const cachedAccounts = await storageAdapter.get<Account[]>('accounts') || [];
@@ -227,7 +228,7 @@ export const fetchTransactionsFromSupabase = createAsyncThunk(
       
       return transactions;
     } catch (error) {
-      console.error('Failed to fetch transactions from Supabase:', error);
+      logger.error('Failed to fetch transactions from Supabase:', error);
       
       // Fallback to localStorage
       try {
@@ -261,7 +262,7 @@ export const createTransactionInSupabase = createAsyncThunk(
       
       return newTransaction;
     } catch (error) {
-      console.error('Failed to create transaction in Supabase:', error);
+      logger.error('Failed to create transaction in Supabase:', error);
       
       // Offline fallback - create locally with temp ID
       const tempTransaction: Transaction = {
@@ -299,7 +300,7 @@ export const updateTransactionInSupabase = createAsyncThunk(
       
       return updatedTransaction;
     } catch (error) {
-      console.error('Failed to update transaction in Supabase:', error);
+      logger.error('Failed to update transaction in Supabase:', error);
       
       // Offline fallback - update locally
       const cachedTransactions = await storageAdapter.get<Transaction[]>('transactions') || [];
@@ -343,7 +344,7 @@ export const deleteTransactionFromSupabase = createAsyncThunk(
       
       return id;
     } catch (error) {
-      console.error('Failed to delete transaction from Supabase:', error);
+      logger.error('Failed to delete transaction from Supabase:', error);
       
       // Offline fallback - mark as deleted locally
       const cachedTransactions = await storageAdapter.get<Transaction[]>('transactions') || [];
@@ -379,7 +380,7 @@ export const fetchBudgetsFromSupabase = createAsyncThunk(
       
       return budgets;
     } catch (error) {
-      console.error('Failed to fetch budgets from Supabase:', error);
+      logger.error('Failed to fetch budgets from Supabase:', error);
       
       // Fallback to localStorage
       try {
@@ -413,7 +414,7 @@ export const createBudgetInSupabase = createAsyncThunk(
       
       return newBudget;
     } catch (error) {
-      console.error('Failed to create budget in Supabase:', error);
+      logger.error('Failed to create budget in Supabase:', error);
       
       // Offline fallback - create locally with temp ID
       const tempBudget: Budget = {
@@ -454,7 +455,7 @@ export const fetchGoalsFromSupabase = createAsyncThunk(
       
       return goals;
     } catch (error) {
-      console.error('Failed to fetch goals from Supabase:', error);
+      logger.error('Failed to fetch goals from Supabase:', error);
       
       // Fallback to localStorage
       try {
@@ -488,7 +489,7 @@ export const createGoalInSupabase = createAsyncThunk(
       
       return newGoal;
     } catch (error) {
-      console.error('Failed to create goal in Supabase:', error);
+      logger.error('Failed to create goal in Supabase:', error);
       
       // Offline fallback - create locally with temp ID
       const tempGoal: Goal = {
@@ -546,7 +547,7 @@ export const syncOfflineData = createAsyncThunk(
       
       return true;
     } catch (error) {
-      console.error('Failed to sync offline data:', error);
+      logger.error('Failed to sync offline data:', error);
       return rejectWithValue('Failed to sync offline data');
     }
   }

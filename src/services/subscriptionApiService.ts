@@ -12,6 +12,7 @@ import { loadStripe } from '@stripe/stripe-js';
 import { useUser } from '@clerk/clerk-react';
 import SupabaseSubscriptionService from './supabaseSubscriptionService';
 import type { 
+import { logger } from './loggingService';
   CreateSubscriptionRequest,
   CreateSubscriptionResponse,
   UpdateSubscriptionRequest,
@@ -49,7 +50,7 @@ export class SubscriptionApiService {
         '- POST /api/billing/portal (create portal session)'
       );
     } catch (error) {
-      console.error('Error creating subscription:', error);
+      logger.error('Error creating subscription:', error);
       throw error;
     }
   }
@@ -67,7 +68,7 @@ export class SubscriptionApiService {
         'See createSubscription method for implementation guidance.'
       );
     } catch (error) {
-      console.error('Error updating subscription:', error);
+      logger.error('Error updating subscription:', error);
       throw error;
     }
   }
@@ -83,7 +84,7 @@ export class SubscriptionApiService {
 
       return await SupabaseSubscriptionService.getCurrentSubscription(userProfile.id);
     } catch (error) {
-      console.error('Error getting current subscription:', error);
+      logger.error('Error getting current subscription:', error);
       return null;
     }
   }
@@ -114,7 +115,7 @@ export class SubscriptionApiService {
           .reduce((total, i) => total + i.amount, 0)
       };
     } catch (error) {
-      console.error('Error getting billing history:', error);
+      logger.error('Error getting billing history:', error);
       throw error;
     }
   }
@@ -132,7 +133,7 @@ export class SubscriptionApiService {
         '3. Returns portal URL'
       );
     } catch (error) {
-      console.error('Error creating portal session:', error);
+      logger.error('Error creating portal session:', error);
       throw error;
     }
   }
@@ -167,7 +168,7 @@ export class SubscriptionApiService {
 
       return await SupabaseSubscriptionService.upsertSubscription(demoSubscription);
     } catch (error) {
-      console.error('Error creating demo subscription:', error);
+      logger.error('Error creating demo subscription:', error);
       throw error;
     }
   }
@@ -196,7 +197,7 @@ export class SubscriptionApiService {
 
       return await SupabaseSubscriptionService.upsertSubscription(updatedSubscription);
     } catch (error) {
-      console.error('Error canceling demo subscription:', error);
+      logger.error('Error canceling demo subscription:', error);
       throw error;
     }
   }
@@ -218,7 +219,7 @@ export class SubscriptionApiService {
         await SupabaseSubscriptionService.refreshUsageCounts(userProfile.id);
       }
     } catch (error) {
-      console.error('Error initializing user profile:', error);
+      logger.error('Error initializing user profile:', error);
       // Don't throw here as this might be called multiple times
     }
   }
@@ -233,7 +234,7 @@ export class SubscriptionApiService {
 
       return await SupabaseSubscriptionService.hasFeatureAccess(userProfile.id, feature);
     } catch (error) {
-      console.error('Error checking feature access:', error);
+      logger.error('Error checking feature access:', error);
       return false;
     }
   }
@@ -259,7 +260,7 @@ export class SubscriptionApiService {
         tier: subscription?.tier || 'free'
       };
     } catch (error) {
-      console.error('Error getting usage info:', error);
+      logger.error('Error getting usage info:', error);
       throw error;
     }
   }

@@ -13,6 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { OfflineTransaction } from '../../services/mobileService';
 import type { BaseWidgetProps } from '../../types/widget-types';
+import { logger } from '../../services/loggingService';
 
 interface MobileAppWidgetProps extends BaseWidgetProps {}
 
@@ -68,7 +69,7 @@ export default function MobileAppWidget({ size = 'medium' }: MobileAppWidgetProp
         alert('PWA installation not available on this device.');
       }
     } catch (error) {
-      console.error('PWA installation failed:', error);
+      logger.error('PWA installation failed:', error);
     }
   };
 

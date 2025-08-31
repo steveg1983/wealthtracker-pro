@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import type { SpendingPattern } from '../services/dataIntelligenceService';
 import { 
+import { logger } from '../services/loggingService';
   TrendingUpIcon,
   BarChart3Icon,
   CalendarIcon,
@@ -38,7 +39,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
       const loadedPatterns = dataIntelligenceService.getSpendingPatterns();
       setPatterns(loadedPatterns);
     } catch (error) {
-      console.error('Error loading spending patterns:', error);
+      logger.error('Error loading spending patterns:', error);
     } finally {
       setIsLoading(false);
     }
@@ -55,7 +56,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
       loadPatterns();
       onDataChange?.();
     } catch (error) {
-      console.error('Error analyzing patterns:', error);
+      logger.error('Error analyzing patterns:', error);
     } finally {
       setIsAnalyzing(false);
     }

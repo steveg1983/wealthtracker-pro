@@ -1,5 +1,6 @@
 import { performOCR } from './ocrService';
 import { indexedDBService, migrateFromLocalStorage } from './indexedDBService';
+import { logger } from './loggingService';
 
 interface SavedDocument extends Omit<Document, 'uploadDate' | 'expiryDate' | 'extractedData'> {
   uploadDate: string;
@@ -104,7 +105,7 @@ class DocumentService {
       await this.migrateDocuments();
       this.initialized = true;
     } catch (error) {
-      console.error('Failed to initialize document service:', error);
+      logger.error('Failed to initialize document service:', error);
       // Fallback to localStorage if IndexedDB fails
     }
   }
@@ -143,7 +144,7 @@ class DocumentService {
       await this.ensureInitialized();
       return await indexedDBService.getAll<Document>('documents');
     } catch (error) {
-      console.error('Failed to load documents from IndexedDB:', error);
+      logger.error('Failed to load documents from IndexedDB:', error);
       // Fallback to localStorage
       try {
         const stored = localStorage.getItem(this.storageKey);
@@ -160,7 +161,7 @@ class DocumentService {
           }));
         }
       } catch (err) {
-        console.error('Failed to load documents from localStorage:', err);
+        logger.error('Failed to load documents from localStorage:', err);
       }
       return [];
     }
@@ -171,7 +172,7 @@ class DocumentService {
       await this.ensureInitialized();
       await indexedDBService.put('documents', document);
     } catch (error) {
-      console.error('Failed to save document to IndexedDB:', error);
+      logger.error('Failed to save document to IndexedDB:', error);
       // Fallback: Keep in memory only, don't save to localStorage
       throw new Error('Failed to save document');
     }
@@ -225,7 +226,7 @@ class DocumentService {
         try {
           document.extractedData = await this.extractDataFromDocument(file);
         } catch (error) {
-          console.error('OCR extraction failed:', error);
+          logger.error('OCR extraction failed:', error);
           // Continue without extracted data
         }
       }
@@ -235,7 +236,7 @@ class DocumentService {
 
       return document;
     } catch (error) {
-      console.error('Failed to upload document:', error);
+      logger.error('Failed to upload document:', error);
       throw error;
     }
   }
@@ -344,7 +345,7 @@ class DocumentService {
       const doc = await indexedDBService.get<Document>('documents', documentId);
       return doc ?? null;
     } catch (error) {
-      console.error('Failed to get document:', error);
+      logger.error('Failed to get document:', error);
       return null;
     }
   }
@@ -393,7 +394,7 @@ class DocumentService {
 
       return filtered.sort((a, b) => b.uploadDate.getTime() - a.uploadDate.getTime());
     } catch (error) {
-      console.error('Failed to get documents:', error);
+      logger.error('Failed to get documents:', error);
       return [];
     }
   }
@@ -413,7 +414,7 @@ class DocumentService {
       await this.saveDocument(updated);
       return true;
     } catch (error) {
-      console.error('Failed to update document:', error);
+      logger.error('Failed to update document:', error);
       return false;
     }
   }
@@ -431,7 +432,7 @@ class DocumentService {
       
       return true;
     } catch (error) {
-      console.error('Failed to delete document:', error);
+      logger.error('Failed to delete document:', error);
       return false;
     }
   }
@@ -452,7 +453,7 @@ class DocumentService {
       await this.ensureInitialized();
       return await indexedDBService.getBlob(documentId);
     } catch (error) {
-      console.error('Failed to get document blob:', error);
+      logger.error('Failed to get document blob:', error);
       return undefined;
     }
   }
@@ -464,7 +465,7 @@ class DocumentService {
       if (!blob) return null;
       return URL.createObjectURL(blob);
     } catch (error) {
-      console.error('Failed to get document URL:', error);
+      logger.error('Failed to get document URL:', error);
       return null;
     }
   }
@@ -496,7 +497,7 @@ class DocumentService {
         usagePercentage: storageInfo.quota > 0 ? (storageInfo.usage / storageInfo.quota) * 100 : 0
       };
     } catch (error) {
-      console.error('Failed to get storage stats:', error);
+      logger.error('Failed to get storage stats:', error);
       return {
         totalDocuments: 0,
         totalSize: 0,
@@ -517,7 +518,7 @@ class DocumentService {
       const metadata = documents.map(({ fullUrl, thumbnailUrl, ...doc }) => doc);
       return JSON.stringify(metadata, null, 2);
     } catch (error) {
-      console.error('Failed to export metadata:', error);
+      logger.error('Failed to export metadata:', error);
       return '[]';
     }
   }
@@ -541,7 +542,7 @@ class DocumentService {
       
       return toDelete.length;
     } catch (error) {
-      console.error('Failed to cleanup old documents:', error);
+      logger.error('Failed to cleanup old documents:', error);
       return 0;
     }
   }
@@ -563,7 +564,7 @@ class DocumentService {
         );
       });
     } catch (error) {
-      console.error('Failed to search documents:', error);
+      logger.error('Failed to search documents:', error);
       return [];
     }
   }
@@ -581,7 +582,7 @@ class DocumentService {
         doc.expiryDate >= new Date()
       );
     } catch (error) {
-      console.error('Failed to get expiring documents:', error);
+      logger.error('Failed to get expiring documents:', error);
       return [];
     }
   }

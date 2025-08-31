@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
 import type { Account } from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
+import { logger } from '../loggingService';
 
 export class AccountService {
   /**
@@ -22,13 +23,13 @@ export class AccountService {
         .order('created_at', { ascending: true });
 
       if (error) {
-        console.error('Error fetching accounts:', error);
+        logger.error('Error fetching accounts:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data || [];
     } catch (error) {
-      console.error('AccountService.getAccounts error:', error);
+      logger.error('AccountService.getAccounts error:', error);
       // Fallback to localStorage on error
       const stored = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS);
       return stored || [];
@@ -85,14 +86,14 @@ export class AccountService {
         .single();
 
       if (error) {
-        console.error('Error creating account:', error);
+        logger.error('Error creating account:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       console.log('Account created successfully:', data);
       return data;
     } catch (error) {
-      console.error('AccountService.createAccount error:', error);
+      logger.error('AccountService.createAccount error:', error);
       throw error;
     }
   }
@@ -129,13 +130,13 @@ export class AccountService {
         .single();
 
       if (error) {
-        console.error('Error updating account:', error);
+        logger.error('Error updating account:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data;
     } catch (error) {
-      console.error('AccountService.updateAccount error:', error);
+      logger.error('AccountService.updateAccount error:', error);
       throw error;
     }
   }
@@ -159,11 +160,11 @@ export class AccountService {
         .eq('id', id);
 
       if (error) {
-        console.error('Error deleting account:', error);
+        logger.error('Error deleting account:', error);
         throw new Error(handleSupabaseError(error));
       }
     } catch (error) {
-      console.error('AccountService.deleteAccount error:', error);
+      logger.error('AccountService.deleteAccount error:', error);
       throw error;
     }
   }
@@ -188,13 +189,13 @@ export class AccountService {
         if (error.code === 'PGRST116') { // Not found
           return null;
         }
-        console.error('Error fetching account:', error);
+        logger.error('Error fetching account:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data;
     } catch (error) {
-      console.error('AccountService.getAccountById error:', error);
+      logger.error('AccountService.getAccountById error:', error);
       throw error;
     }
   }
@@ -222,11 +223,11 @@ export class AccountService {
         .eq('id', id);
 
       if (error) {
-        console.error('Error updating balance:', error);
+        logger.error('Error updating balance:', error);
         throw new Error(handleSupabaseError(error));
       }
     } catch (error) {
-      console.error('AccountService.updateBalance error:', error);
+      logger.error('AccountService.updateBalance error:', error);
       throw error;
     }
   }
@@ -266,7 +267,7 @@ export class AccountService {
 
       return newBalance;
     } catch (error) {
-      console.error('AccountService.recalculateBalance error:', error);
+      logger.error('AccountService.recalculateBalance error:', error);
       throw error;
     }
   }
@@ -288,13 +289,13 @@ export class AccountService {
         .eq('is_active', true);
 
       if (error) {
-        console.error('Error fetching total balance:', error);
+        logger.error('Error fetching total balance:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data?.reduce((sum, a) => sum + (a.balance || 0), 0) || 0;
     } catch (error) {
-      console.error('AccountService.getTotalBalance error:', error);
+      logger.error('AccountService.getTotalBalance error:', error);
       throw error;
     }
   }

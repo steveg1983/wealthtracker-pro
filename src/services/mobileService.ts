@@ -1,6 +1,7 @@
 import { Transaction, Account, Budget } from '../types';
 import { toDecimal } from '../utils/decimal';
 import type {
+import { logger } from './loggingService';
   NotificationAction,
   NotificationData,
   SavedOfflineTransaction,
@@ -154,7 +155,7 @@ class MobileService {
           this.saveNotificationSettings();
         }
       } catch (error) {
-        console.error('Error setting up notifications:', error);
+        logger.error('Error setting up notifications:', error);
       }
     }
   }
@@ -197,7 +198,7 @@ class MobileService {
         transaction.retry_count = 0;
       } catch (error) {
         transaction.retry_count++;
-        console.error('Failed to sync transaction:', error);
+        logger.error('Failed to sync transaction:', error);
         
         // Remove after 5 failed attempts
         if (transaction.retry_count >= 5) {
@@ -271,7 +272,7 @@ class MobileService {
         };
       });
     } catch (error) {
-      console.error('Camera capture failed:', error);
+      logger.error('Camera capture failed:', error);
       throw error;
     }
   }

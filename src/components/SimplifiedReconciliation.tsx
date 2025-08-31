@@ -10,6 +10,7 @@ import {
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Transaction, Account } from '../types';
+import { logger } from '../services/loggingService';
 
 interface SimplifiedReconciliationProps {
   account: Account;
@@ -135,7 +136,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
         onClose();
       }, 2000);
     } catch (error) {
-      console.error('Reconciliation failed:', error);
+      logger.error('Reconciliation failed:', error);
     } finally {
       setIsReconciling(false);
     }

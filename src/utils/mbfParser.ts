@@ -1,3 +1,4 @@
+import { logger } from '../services/loggingService';
 // Microsoft Money .mny file parser
 // .mny files are the active database files used by Microsoft Money
 
@@ -297,7 +298,7 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
     };
     
   } catch (error) {
-    console.error('Error parsing .mny file:', error);
+    logger.error('Error parsing .mny file:', error);
     throw new Error('Failed to parse Microsoft Money file. The file may be encrypted, corrupted, or in an unsupported version.');
   }
 }

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { logger } from '../services/loggingService';
 
 interface UseModalFormOptions<T> {
   onSubmit: (data: T) => void | Promise<void>;
@@ -65,7 +66,7 @@ export function useModalForm<T>(
       
       onClose();
     } catch (error) {
-      console.error('Form submission error:', error);
+      logger.error('Form submission error:', error);
       setErrors({ submit: error instanceof Error ? error.message : 'An error occurred' });
     } finally {
       setIsSubmitting(false);

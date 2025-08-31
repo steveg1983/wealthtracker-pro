@@ -1,3 +1,4 @@
+import { logger } from '../services/loggingService';
 // Service Worker Registration with enhanced update handling
 
 const isLocalhost = Boolean(
@@ -29,7 +30,7 @@ export function register(config?: Config): void {
         baseUrl = import.meta.env.BASE_URL;
       }
     } catch {
-      console.warn('Failed to access import.meta.env.BASE_URL, using default');
+      logger.warn('Failed to access import.meta.env.BASE_URL, using default');
     }
     
     const publicUrl = new URL(baseUrl, window.location.href);
@@ -129,7 +130,7 @@ function registerValidSW(swUrl: string, config?: Config): void {
       });
     })
     .catch((error) => {
-      console.error('Error during service worker registration:', error);
+      logger.error('Error during service worker registration:', error);
     });
 }
 
@@ -168,7 +169,7 @@ export function unregister(): void {
         registration.unregister();
       })
       .catch((error) => {
-        console.error(error.message);
+        logger.error(error.message);
       });
   }
 }

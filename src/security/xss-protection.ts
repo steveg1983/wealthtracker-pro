@@ -4,6 +4,7 @@
  */
 
 import DOMPurify from 'dompurify';
+import { logger } from '../services/loggingService';
 
 // Configure DOMPurify options for different contexts
 const DEFAULT_CONFIG: DOMPurify.Config = {
@@ -87,7 +88,7 @@ export const sanitizeURL = (url: string): string => {
   // Block dangerous protocols
   const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:'];
   if (dangerousProtocols.some(protocol => cleanUrl.startsWith(protocol))) {
-    console.warn('Blocked dangerous URL:', url);
+    logger.warn('Blocked dangerous URL:', url);
     return '';
   }
   
@@ -119,7 +120,7 @@ export const sanitizeJSON = (jsonString: string): string => {
     const sanitized = sanitizeJSONObject(parsed);
     return JSON.stringify(sanitized);
   } catch {
-    console.warn('Invalid JSON input:', jsonString);
+    logger.warn('Invalid JSON input:', jsonString);
     return '{}';
   }
 };
@@ -302,7 +303,7 @@ if (typeof window !== 'undefined') {
   if (isDevelopment) {
     DOMPurify.addHook('beforeSanitizeElements', (node, data, config) => {
       if (data && data.tagName && ['script', 'iframe', 'object', 'embed'].includes(data.tagName)) {
-        console.warn('DOMPurify blocked dangerous element:', data.tagName);
+        logger.warn('DOMPurify blocked dangerous element:', data.tagName);
       }
     });
   }

@@ -13,6 +13,7 @@ import {
 import { useApp } from '../contexts/AppContextSupabase';
 import { exportService } from '../services/exportService';
 import { format, differenceInDays, addDays } from 'date-fns';
+import { logger } from '../services/loggingService';
 
 interface BackupSettings {
   enabled: boolean;
@@ -150,7 +151,7 @@ export default function BackupReminder(): React.JSX.Element {
       }, 1500);
 
     } catch (error) {
-      console.error('Backup failed:', error);
+      logger.error('Backup failed:', error);
       alert('Backup failed. Please try again.');
       setIsBackingUp(false);
       setBackupProgress(0);

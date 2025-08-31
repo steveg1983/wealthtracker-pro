@@ -8,6 +8,7 @@ import { useUserId } from '../../hooks/useUserId';
 import { AccountService } from '../../services/api/accountService';
 import { supabase } from '../../lib/supabase';
 import type { Account } from '../../types';
+import { logger } from '../../services/loggingService';
 
 export default function DeletedAccounts() {
   const navigate = useNavigate();
@@ -40,7 +41,7 @@ export default function DeletedAccounts() {
           .order('updated_at', { ascending: false });
 
         if (error) {
-          console.error('[DeletedAccounts] Error fetching deleted accounts:', error);
+          logger.error('[DeletedAccounts] Error fetching deleted accounts:', error);
         } else {
           console.log('[DeletedAccounts] Found deleted accounts:', data?.length || 0);
           if (data && data.length > 0) {
@@ -54,7 +55,7 @@ export default function DeletedAccounts() {
           setDeletedAccounts(transformedAccounts);
         }
       } catch (error) {
-        console.error('[DeletedAccounts] Failed to fetch deleted accounts:', error);
+        logger.error('[DeletedAccounts] Failed to fetch deleted accounts:', error);
       } finally {
         setLoading(false);
       }
@@ -74,7 +75,7 @@ export default function DeletedAccounts() {
         .eq('id', accountId);
 
       if (error) {
-        console.error('Error restoring account:', error);
+        logger.error('Error restoring account:', error);
         return;
       }
 
@@ -90,7 +91,7 @@ export default function DeletedAccounts() {
       // If not using realtime, uncomment the line below:
       // window.location.reload();
     } catch (error) {
-      console.error('Failed to restore account:', error);
+      logger.error('Failed to restore account:', error);
     } finally {
       setRestoringId(null);
     }

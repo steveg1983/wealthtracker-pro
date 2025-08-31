@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { documentService } from '../services/documentService';
 import type { ExtractedData } from '../services/documentService';
 import { UploadIcon } from './icons';
+import { logger } from '../services/loggingService';
 
 export default function OCRTest() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -34,7 +35,7 @@ export default function OCRTest() {
       
       setExtractedData(result.extractedData || null);
     } catch (error) {
-      console.error('OCR processing failed:', error);
+      logger.error('OCR processing failed:', error);
       alert('Failed to process image: ' + (error as Error).message);
     } finally {
       setIsProcessing(false);

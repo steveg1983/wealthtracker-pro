@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { Building2, Wallet, CreditCard, TrendingUp, PiggyBank, Banknote, Package, AlertCircle } from 'lucide-react';
+import { logger } from '../services/loggingService';
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -229,7 +230,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
       }, 100);
       
     } catch (error) {
-      console.error('[AddAccountModal] Failed to add account:', error);
+      logger.error('[AddAccountModal] Failed to add account:', error);
       setError(error instanceof Error ? error.message : 'Failed to add account. Please try again.');
       setIsSubmitting(false); // Only reset on error, not on success
     }

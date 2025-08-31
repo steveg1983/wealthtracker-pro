@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { plaidService, PlaidPublicToken } from '../services/plaidService';
 import { useApp } from '../contexts/AppContextSupabase';
 import { LinkIcon, RefreshCwIcon, TrashIcon, AlertCircleIcon, CheckCircleIcon } from './icons';
+import { logger } from '../services/loggingService';
 
 interface PlaidLinkProps {
   onSuccess?: () => void;
@@ -78,7 +79,7 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
       
       if (onSuccess) onSuccess();
     } catch (error) {
-      console.error('Failed to connect bank:', error);
+      logger.error('Failed to connect bank:', error);
       if (onError) onError(error as Error);
     } finally {
       setIsLinking(false);
@@ -107,7 +108,7 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
       // Refresh connections
       setConnections(plaidService.getConnections());
     } catch (error) {
-      console.error('Sync failed:', error);
+      logger.error('Sync failed:', error);
       plaidService.updateConnectionStatus(connectionId, 'error', (error as Error).message);
       setConnections(plaidService.getConnections());
     } finally {

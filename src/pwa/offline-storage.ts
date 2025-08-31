@@ -6,6 +6,7 @@
 import React from 'react';
 import { indexedDBService } from '../services/indexedDBService';
 import type { Transaction, Account, Budget, Goal } from '../types';
+import { logger } from '../services/loggingService';
 
 export interface OfflineQueueItem {
   id?: string;
@@ -75,7 +76,7 @@ class OfflineStorageService {
       // For sync-meta store with 'key' as keyPath
       await indexedDBService.put('sync-meta', { key: 'lastSync', timestamp: null });
     } catch (error) {
-      console.error('[OfflineStorage] Failed to initialize stores:', error);
+      logger.error('[OfflineStorage] Failed to initialize stores:', error);
     }
   }
 
@@ -187,7 +188,7 @@ class OfflineStorageService {
           await indexedDBService.delete(this.OFFLINE_QUEUE_STORE, operation.id!);
           this.offlineState.pendingChanges--;
         } catch (error) {
-          console.error(`[OfflineStorage] Failed to sync operation ${operation.id}:`, error);
+          logger.error(`[OfflineStorage] Failed to sync operation ${operation.id}:`, error);
           
           // Handle conflict
           if ((error as any).status === 409) {
@@ -199,7 +200,7 @@ class OfflineStorageService {
             
             if (operation.retries >= 3) {
               // Move to dead letter queue or handle differently
-              console.error(`[OfflineStorage] Operation ${operation.id} failed after 3 retries`);
+              logger.error(`[OfflineStorage] Operation ${operation.id} failed after 3 retries`);
             } else {
               await indexedDBService.put(this.OFFLINE_QUEUE_STORE, operation);
             }
@@ -433,7 +434,7 @@ class OfflineStorageService {
           await indexedDBService.put(this.OFFLINE_DATA_STORE, { id: key, ...data });
         }
       } catch (error) {
-        console.error(`[OfflineStorage] Failed to cache ${key}:`, error);
+        logger.error(`[OfflineStorage] Failed to cache ${key}:`, error);
       }
     }
   }

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import type { Account, Transaction, Budget, Goal } from '../types';
+import { logger } from '../services/loggingService';
 
 export interface SearchResult {
   id: string;
@@ -83,7 +84,7 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        console.error('Error searching account:', account.id, error);
+        logger.error('Error searching account:', account.id, error);
       }
     });
 
@@ -112,7 +113,7 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        console.error('Error searching transaction:', transaction.id, error);
+        logger.error('Error searching transaction:', transaction.id, error);
       }
     });
 
@@ -139,7 +140,7 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        console.error('Error searching budget:', budget.id, error);
+        logger.error('Error searching budget:', budget.id, error);
       }
     });
 
@@ -170,14 +171,14 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        console.error('Error searching goal:', goal.id, error);
+        logger.error('Error searching goal:', goal.id, error);
       }
     });
 
     // Sort by score (highest first)
     return results.sort((a, b) => b.score - a.score);
     } catch (error) {
-      console.error('Error in global search:', error);
+      logger.error('Error in global search:', error);
       return [];
     }
   }, [query, accounts, transactions, budgets, goals, categories]);

@@ -3,6 +3,7 @@
 
 import type { ExtractedData, ExtractedItem } from './documentService';
 import type { TesseractWorker, TesseractLine, TesseractLogMessage } from '../types/tesseract';
+import { logger } from './loggingService';
 
 interface OCRResult {
   text: string;
@@ -30,7 +31,7 @@ class OCRService {
       
       this.tesseractLoaded = true;
     } catch (error) {
-      console.error('Failed to initialize OCR:', error);
+      logger.error('Failed to initialize OCR:', error);
       throw new Error('OCR initialization failed');
     }
   }
@@ -50,7 +51,7 @@ class OCRService {
         lines: data.lines.map((line: TesseractLine) => line.text)
       };
     } catch (error) {
-      console.error('OCR extraction failed:', error);
+      logger.error('OCR extraction failed:', error);
       throw new Error('Failed to extract text from image');
     }
   }
@@ -267,7 +268,7 @@ class OCRService {
   private async extractDataFromPDF(file: File): Promise<ExtractedData> {
     // This is a placeholder for PDF extraction
     // In a real implementation, you would use pdf.js or a similar library
-    console.warn('PDF extraction not yet implemented');
+    logger.warn('PDF extraction not yet implemented');
     
     return {
       confidence: 0,
@@ -292,7 +293,7 @@ export async function performOCR(file: File): Promise<ExtractedData> {
   try {
     return await ocrService.extractDataFromDocument(file);
   } catch (error) {
-    console.error('OCR failed:', error);
+    logger.error('OCR failed:', error);
     // Return minimal data on error
     return {
       confidence: 0,

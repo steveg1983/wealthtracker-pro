@@ -2,6 +2,7 @@ import type { CustomReport, ReportComponent } from '../components/CustomReportBu
 import type { Transaction, Account, Budget, Category } from '../types';
 import Decimal from 'decimal.js';
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, subYears, parseISO, format } from 'date-fns';
+import { logger } from './loggingService';
 
 class CustomReportService {
   private readonly STORAGE_KEY = 'money_management_custom_reports';
@@ -12,7 +13,7 @@ class CustomReportService {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
-      console.error('Failed to load custom reports:', error);
+      logger.error('Failed to load custom reports:', error);
       return [];
     }
   }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { searchService, SearchOptions, SearchResponse } from '../services/searchService';
 import type { Transaction, Account, Budget, Goal } from '../types';
 import { useDebounce } from './useDebounce';
+import { logger } from '../services/loggingService';
 
 interface UseEnhancedSearchProps {
   transactions: Transaction[];
@@ -56,7 +57,7 @@ export function useEnhancedSearch({
           createdAt: new Date(s.createdAt)
         })));
       } catch (error) {
-        console.error('Error loading saved searches:', error);
+        logger.error('Error loading saved searches:', error);
       }
     }
   }, []);
@@ -79,7 +80,7 @@ export function useEnhancedSearch({
       const response = searchService.searchTransactions(transactions, options);
       setSearchResponse(response);
     } catch (error) {
-      console.error('Search error:', error);
+      logger.error('Search error:', error);
     } finally {
       setIsSearching(false);
     }

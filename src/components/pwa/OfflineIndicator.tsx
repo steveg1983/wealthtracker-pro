@@ -6,6 +6,7 @@
 import React from 'react';
 import { useOfflineState, useOfflineOperations } from '../../pwa/offline-storage';
 import { WifiOffIcon, WifiIcon, RefreshCwIcon, AlertCircleIcon } from '../icons';
+import { logger } from '../../services/loggingService';
 
 export const OfflineIndicator: React.FC = () => {
   const offlineState = useOfflineState();
@@ -36,7 +37,7 @@ export const OfflineIndicator: React.FC = () => {
     try {
       await sync();
     } catch (error) {
-      console.error('Sync failed:', error);
+      logger.error('Sync failed:', error);
     }
   };
 

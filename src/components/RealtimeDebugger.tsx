@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { useUserId } from '../hooks/useUserId';
+import { logger } from '../services/loggingService';
 
 export default function RealtimeDebugger() {
   const { databaseId, isLoading } = useUserId();
@@ -44,7 +45,7 @@ export default function RealtimeDebugger() {
             console.log('📡 [RealtimeDebugger] Status:', status);
             setStatus(status);
             if (error) {
-              console.error('❌ [RealtimeDebugger] Error:', error);
+              logger.error('❌ [RealtimeDebugger] Error:', error);
             }
           });
 

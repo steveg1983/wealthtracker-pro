@@ -6,6 +6,7 @@ import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';
 import ScheduledReports from '../components/ScheduledReports';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
 import { LazyLineChart, LazyDoughnutChart } from '../components/charts/LazyChart';
+import { logger } from '../services/loggingService';
 
 export default function Reports() {
   const { transactions, accounts } = useApp();
@@ -208,7 +209,7 @@ export default function Reports() {
         generateSimplePDFReport(reportData, accounts);
       }
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      logger.error('Error generating PDF:', error);
       alert('Failed to generate PDF report. Please try again.');
     } finally {
       setIsGeneratingPDF(false);

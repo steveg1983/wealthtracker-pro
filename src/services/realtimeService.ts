@@ -13,6 +13,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { userIdService } from './userIdService';
 import type { Account, Transaction, Budget, Goal } from '../types';
+import { logger } from './loggingService';
 
 export type RealtimeEventType = 'INSERT' | 'UPDATE' | 'DELETE';
 
@@ -116,7 +117,7 @@ class RealtimeService {
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.warn('Max reconnection attempts reached');
+      logger.warn('Max reconnection attempts reached');
       return;
     }
 
@@ -182,7 +183,7 @@ class RealtimeService {
     if (clerkOrDbId.startsWith('user_')) {
       const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
       if (!resolvedId) {
-        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        logger.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
         return null;
       }
       dbUserId = resolvedId;
@@ -221,7 +222,7 @@ class RealtimeService {
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Accounts subscription error: ${err?.message || status}`);
+          logger.error(`Accounts subscription error: ${err?.message || status}`);
           this.handleConnectionChange(false);
         }
       });
@@ -246,7 +247,7 @@ class RealtimeService {
     if (clerkOrDbId.startsWith('user_')) {
       const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
       if (!resolvedId) {
-        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        logger.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
         return null;
       }
       dbUserId = resolvedId;
@@ -285,7 +286,7 @@ class RealtimeService {
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Transactions subscription error: ${err?.message || status}`);
+          logger.error(`Transactions subscription error: ${err?.message || status}`);
           this.handleConnectionChange(false);
         }
       });
@@ -310,7 +311,7 @@ class RealtimeService {
     if (clerkOrDbId.startsWith('user_')) {
       const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
       if (!resolvedId) {
-        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        logger.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
         return null;
       }
       dbUserId = resolvedId;
@@ -349,7 +350,7 @@ class RealtimeService {
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Budgets subscription error: ${err?.message || status}`);
+          logger.error(`Budgets subscription error: ${err?.message || status}`);
           this.handleConnectionChange(false);
         }
       });
@@ -374,7 +375,7 @@ class RealtimeService {
     if (clerkOrDbId.startsWith('user_')) {
       const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
       if (!resolvedId) {
-        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        logger.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
         return null;
       }
       dbUserId = resolvedId;
@@ -413,7 +414,7 @@ class RealtimeService {
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Goals subscription error: ${err?.message || status}`);
+          logger.error(`Goals subscription error: ${err?.message || status}`);
           this.handleConnectionChange(false);
         }
       });
@@ -478,7 +479,7 @@ class RealtimeService {
       try {
         callback(this.connectionState);
       } catch (error) {
-        console.error('Error in connection callback:', error);
+        logger.error('Error in connection callback:', error);
       }
     });
   }

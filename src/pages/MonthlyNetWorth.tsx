@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeftIcon, TrendingUpIcon, TrendingDownIcon, BanknoteIcon, Building2Icon, CreditCardIcon, LandmarkIcon, PiggyBankIcon } from '../components/icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { logger } from '../services/loggingService';
 
 export default function MonthlyNetWorth() {
   const { accounts } = useApp();
@@ -48,7 +49,7 @@ export default function MonthlyNetWorth() {
           setIsLoading(false);
         }
       } catch (error) {
-        console.error('Error converting accounts:', error);
+        logger.error('Error converting accounts:', error);
         if (!cancelled) {
           setIsLoading(false);
         }

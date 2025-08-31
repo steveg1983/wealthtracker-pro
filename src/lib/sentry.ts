@@ -1,4 +1,5 @@
 import * as Sentry from '@sentry/react';
+import { logger } from '../services/loggingService';
 
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
@@ -85,7 +86,7 @@ export function clearSentryUser() {
 
 export function captureException(error: Error, context?: Record<string, any>) {
   if (!ENABLE_ERROR_TRACKING) {
-    console.error('Error captured:', error, context);
+    logger.error('Error captured:', error, context);
     return;
   }
   

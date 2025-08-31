@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { captureException } from '../lib/sentry';
+import { logger } from '../services/loggingService';
 
 export function useErrorHandler(): {
   handleError: (error: Error, context?: Record<string, any>) => void;
@@ -7,7 +8,7 @@ export function useErrorHandler(): {
 } {
   const handleError = useCallback((error: Error, context?: Record<string, any>) => {
     captureException(error, context);
-    console.error('Error handled:', error, context);
+    logger.error('Error handled:', error, context);
   }, []);
 
   const handleAsyncError = useCallback(async <T,>(

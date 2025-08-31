@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useCurrency } from '../hooks/useCurrency';
+// Deprecated import removed - using useCurrencyDecimal instead
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useBudgets } from '../contexts/BudgetContext';
 import {
   CalculatorIcon,
   PlusIcon,
@@ -77,9 +76,8 @@ export default function ZeroBasedBudgeting() {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
-  const { categories, transactions } = useApp();
-  const { getBudgetByCategory } = useBudgets();
-  const { currencySymbol } = useCurrency();
+  const { categories, transactions, budgets } = useApp();
+  const { currencySymbol } = useCurrencyDecimal();
   const { formatCurrency } = useCurrencyDecimal();
 
   // Load periods from localStorage

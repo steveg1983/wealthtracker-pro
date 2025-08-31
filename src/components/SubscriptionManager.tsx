@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import type { Subscription } from '../services/dataIntelligenceService';
 import { 
+import { logger } from '../services/loggingService';
   CreditCardIcon,
   PlusIcon,
   EditIcon,
@@ -39,7 +40,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
       const subs = dataIntelligenceService.getSubscriptions();
       setSubscriptions(subs);
     } catch (error) {
-      console.error('Error loading subscriptions:', error);
+      logger.error('Error loading subscriptions:', error);
     } finally {
       setIsLoading(false);
     }

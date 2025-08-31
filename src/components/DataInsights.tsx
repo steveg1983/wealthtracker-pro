@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import type { SpendingInsight } from '../services/dataIntelligenceService';
 import { 
+import { logger } from '../services/loggingService';
   BellIcon,
   AlertCircleIcon,
   TrendingUpIcon,
@@ -39,7 +40,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
       const loadedInsights = dataIntelligenceService.getInsights();
       setInsights(loadedInsights);
     } catch (error) {
-      console.error('Error loading insights:', error);
+      logger.error('Error loading insights:', error);
     } finally {
       setIsLoading(false);
     }

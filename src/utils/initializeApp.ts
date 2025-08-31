@@ -1,10 +1,11 @@
 import { generateTestData } from './generateTestData';
+import { logger } from '../services/loggingService';
 
 export function initializeAppData() {
   try {
     // Check if localStorage is available
     if (typeof Storage === 'undefined') {
-      console.error('LocalStorage not available');
+      logger.error('LocalStorage not available');
       return generateTestData();
     }
     
@@ -32,7 +33,7 @@ export function initializeAppData() {
           localStorage.setItem('money_management_accent_color', 'pink');
         }
       } catch (e) {
-        console.error('Error saving to localStorage:', e);
+        logger.error('Error saving to localStorage:', e);
       }
       
       return testData;
@@ -45,7 +46,7 @@ export function initializeAppData() {
       budgets: hasBudgets ? JSON.parse(hasBudgets) : []
     };
   } catch (error) {
-    console.error('Error initializing app data:', error);
+    logger.error('Error initializing app data:', error);
     return generateTestData();
   }
 }

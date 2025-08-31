@@ -5,6 +5,7 @@ import { toDecimal } from '../utils/decimal';
 import { getStockQuote, calculatePortfolioMetrics } from '../services/stockPriceService';
 import type { PortfolioMetrics } from '../services/stockPriceService';
 import { RefreshCwIcon, TrendingUpIcon, TrendingDownIcon, AlertCircleIcon } from './icons';
+import { logger } from '../services/loggingService';
 
 interface RealTimePortfolioProps {
   accountId: string;
@@ -50,7 +51,7 @@ export default function RealTimePortfolio({ accountId, accountName, currency }: 
       setPortfolioMetrics(metrics);
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Error fetching portfolio data:', error);
+      logger.error('Error fetching portfolio data:', error);
     } finally {
       setIsLoading(false);
     }

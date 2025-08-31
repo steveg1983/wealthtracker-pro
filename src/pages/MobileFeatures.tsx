@@ -16,6 +16,7 @@ import PageWrapper from '../components/PageWrapper';
 import QuickExpenseCapture from '../components/QuickExpenseCapture';
 import NotificationSettings from '../components/NotificationSettings';
 import type { OfflineTransaction, PushNotification } from '../services/mobileService';
+import { logger } from '../services/loggingService';
 
 export default function MobileFeatures() {
   const [isOffline, setIsOffline] = useState(mobileService.isOffline());
@@ -59,7 +60,7 @@ export default function MobileFeatures() {
       await mobileService.syncOfflineTransactions();
       loadData();
     } catch (error) {
-      console.error('Sync failed:', error);
+      logger.error('Sync failed:', error);
     } finally {
       setIsSyncing(false);
     }
@@ -74,7 +75,7 @@ export default function MobileFeatures() {
         alert('PWA installation not available on this device.');
       }
     } catch (error) {
-      console.error('PWA installation failed:', error);
+      logger.error('PWA installation failed:', error);
     }
   };
 

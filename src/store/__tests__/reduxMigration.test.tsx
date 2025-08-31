@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import React from 'react';
 import { configureStore } from '@reduxjs/toolkit';
+import { ClerkProvider } from '@clerk/clerk-react';
 import accountsReducer from '../slices/accountsSlice';
 import transactionsReducer from '../slices/transactionsSlice';
 import categoriesReducer from '../slices/categoriesSlice';
@@ -14,11 +15,28 @@ import preferencesReducer from '../slices/preferencesSlice';
 import notificationsReducer from '../slices/notificationsSlice';
 import layoutReducer from '../slices/layoutSlice';
 import { useAppSelector } from '../index';
-import { AppProvider } from '../../contexts/AppContext';
+import { AppProvider } from '../../contexts/AppContextSupabase';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { LayoutProvider } from '../../contexts/LayoutContext';
 import { ReduxMigrationWrapper } from '../../components/ReduxMigrationWrapper';
+
+// Mock Clerk hooks
+vi.mock('@clerk/clerk-react', () => ({
+  useUser: () => ({ 
+    user: { 
+      id: 'user_test123',
+      primaryEmailAddress: { emailAddress: 'test@example.com' }
+    }, 
+    isLoaded: true 
+  }),
+  useAuth: () => ({ 
+    userId: 'user_test123',
+    isLoaded: true,
+    isSignedIn: true
+  }),
+  ClerkProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
 
 describe('Redux Migration', () => {
   let store: ReturnType<typeof configureStore>;
@@ -42,19 +60,21 @@ describe('Redux Migration', () => {
   });
 
   const wrapper = ({ children }: { children: React.ReactNode }) => (
-    <Provider store={store}>
-      <PreferencesProvider>
+    <ClerkProvider publishableKey="pk_test">
+      <Provider store={store}>
         <AppProvider>
-          <NotificationProvider>
-            <LayoutProvider>
-              <ReduxMigrationWrapper>
-                {children}
-              </ReduxMigrationWrapper>
-            </LayoutProvider>
-          </NotificationProvider>
+          <PreferencesProvider>
+            <NotificationProvider>
+              <LayoutProvider>
+                <ReduxMigrationWrapper>
+                  {children}
+                </ReduxMigrationWrapper>
+              </LayoutProvider>
+            </NotificationProvider>
+          </PreferencesProvider>
         </AppProvider>
-      </PreferencesProvider>
-    </Provider>
+      </Provider>
+    </ClerkProvider>
   );
 
   it('should sync accounts from context to Redux', async () => {

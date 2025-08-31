@@ -1,5 +1,6 @@
 import type { ImportRule, ImportRuleCondition, ImportRuleAction, ImportRuleTest } from '../types/importRules';
 import type { Transaction } from '../types';
+import { logger } from './loggingService';
 
 interface TransactionWithSkip extends Partial<Transaction> {
   __skip?: boolean;
@@ -19,7 +20,7 @@ export class ImportRulesService {
         this.rules = JSON.parse(saved);
       }
     } catch (error) {
-      console.error('Error loading import rules:', error);
+      logger.error('Error loading import rules:', error);
       this.rules = [];
     }
   }

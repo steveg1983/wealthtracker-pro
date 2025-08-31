@@ -18,6 +18,7 @@ import {
 import { useUser } from '@clerk/clerk-react';
 import type { SubscriptionPlan } from '../../types/subscription';
 import { 
+import { logger } from '../../services/loggingService';
   CreditCardIcon, 
   ShieldIcon, 
   CheckIcon,
@@ -108,7 +109,7 @@ export default function PaymentForm({
         onSuccess('payment-processing');
       }
     } catch (err) {
-      console.error('Payment error:', err);
+      logger.error('Payment error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Payment failed';
       setMessage(errorMessage);
       onError(errorMessage);

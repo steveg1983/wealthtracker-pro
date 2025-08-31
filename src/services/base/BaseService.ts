@@ -1,5 +1,6 @@
 import { storageAdapter } from '../storageAdapter';
 import type { JsonValue } from '../../types/common';
+import { logger } from '../loggingService';
 
 /**
  * Base service class providing common functionality for all services
@@ -49,7 +50,7 @@ export abstract class BaseService {
    * Handle service errors consistently
    */
   protected handleError(operation: string, error: unknown): void {
-    console.error(`[${this.serviceName}] Error in ${operation}:`, error);
+    logger.error(`[${this.serviceName}] Error in ${operation}:`, error);
     // Could integrate with error tracking service here
   }
 }

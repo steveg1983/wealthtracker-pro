@@ -1,12 +1,10 @@
 import type { ReactNode } from 'react';
 import { AccountProvider } from './AccountContext';
 import { TransactionProvider } from './TransactionContext';
-import { BudgetProvider } from './BudgetContext';
 import { CategoryProvider } from './CategoryContext';
-import { GoalProvider } from './GoalContext';
 import { PreferencesProvider } from './PreferencesContext';
 import { LayoutProvider } from './LayoutContext';
-import { getDefaultTestAccounts, getDefaultTestTransactions, getDefaultTestBudgets, getDefaultTestGoals } from '../data/defaultTestData';
+import { getDefaultTestAccounts, getDefaultTestTransactions } from '../data/defaultTestData';
 
 interface CombinedProviderProps {
   children: ReactNode;
@@ -17,8 +15,6 @@ export function CombinedProvider({ children, useTestData = false }: CombinedProv
   // Get test data if requested
   const initialAccounts = useTestData ? getDefaultTestAccounts() : [];
   const initialTransactions = useTestData ? getDefaultTestTransactions() : [];
-  const initialBudgets = useTestData ? getDefaultTestBudgets() : [];
-  const initialGoals = useTestData ? getDefaultTestGoals() : [];
 
   return (
     <PreferencesProvider>
@@ -29,11 +25,7 @@ export function CombinedProvider({ children, useTestData = false }: CombinedProv
               initialTransactions={initialTransactions}
               initialRecurringTransactions={[]}
             >
-              <BudgetProvider initialBudgets={initialBudgets}>
-                <GoalProvider initialGoals={initialGoals}>
-                  {children}
-                </GoalProvider>
-              </BudgetProvider>
+              {children}
             </TransactionProvider>
           </AccountProvider>
         </CategoryProvider>

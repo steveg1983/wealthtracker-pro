@@ -124,7 +124,7 @@ export default function Forecasting() {
           return {
             budgetId: budget.id,
             categoryName: category?.name || 'Unknown',
-            percentage: Math.round(budget.percentage),
+            percentage: toDecimal(budget.percentage).round().toNumber(),
             spent: budget.spent,
             budget: budget.amount,
             period: budget.period,
@@ -134,7 +134,7 @@ export default function Forecasting() {
           return {
             budgetId: budget.id,
             categoryName: category?.name || 'Unknown',
-            percentage: Math.round(budget.percentage),
+            percentage: toDecimal(budget.percentage).round().toNumber(),
             spent: budget.spent,
             budget: budget.amount,
             period: budget.period,
@@ -462,7 +462,7 @@ export default function Forecasting() {
 
                         <div className="pt-2">
                           <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-                            <span>{Math.round(budget.percentage)}% used</span>
+                            <span>{toDecimal(budget.percentage).round().toString()}% used</span>
                             <span>{budget.remaining >= 0 ? `${formatCurrency(toDecimal(budget.remaining))} left` : 'Over budget'}</span>
                           </div>
                           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">

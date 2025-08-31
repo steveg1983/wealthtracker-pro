@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { enhancedEncryption, EncryptedData } from '../security/encryption-enhanced';
+import { logger } from '../services/loggingService';
 
 interface UseEncryptedStateOptions {
   autoDecrypt?: boolean;
@@ -41,7 +42,7 @@ export function useEncryptedState<T>(
         }
       } catch (err) {
         setError(err as Error);
-        console.error('Failed to initialize encryption:', err);
+        logger.error('Failed to initialize encryption:', err);
       }
     };
     
@@ -63,7 +64,7 @@ export function useEncryptedState<T>(
       }
     } catch (err) {
       setError(err as Error);
-      console.error('Failed to load encrypted value:', err);
+      logger.error('Failed to load encrypted value:', err);
     } finally {
       setIsLoading(false);
     }
@@ -92,7 +93,7 @@ export function useEncryptedState<T>(
       }
     } catch (err) {
       setError(err as Error);
-      console.error('Failed to encrypt value:', err);
+      logger.error('Failed to encrypt value:', err);
     }
   }, [decryptedValue, storageKey, persist]);
 
@@ -129,7 +130,7 @@ export function useEncryptedState<T>(
       }
     } catch (err) {
       setError(err as Error);
-      console.error('Failed to import encrypted data:', err);
+      logger.error('Failed to import encrypted data:', err);
     }
   }, [storageKey, persist]);
 

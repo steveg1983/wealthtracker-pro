@@ -10,6 +10,7 @@ import { parseMNY, parseMBF, applyMappingToData, type FieldMapping } from '../ut
 import { parseQIF as enhancedParseQIF } from '../utils/qifParser';
 import MnyMappingModal from './MnyMappingModal';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { logger } from '../services/loggingService';
 
 interface ImportDataModalProps {
   isOpen: boolean;
@@ -182,7 +183,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         }
       }
     } catch (error) {
-      console.error('Parse error:', error);
+      logger.error('Parse error:', error);
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Failed to parse file');
       setPreview(null);
@@ -291,7 +292,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         setMessage('');
       }, 2000);
     } catch (error) {
-      console.error('Import error:', error);
+      logger.error('Import error:', error);
       setStatus('error');
       setMessage('Failed to import data');
     } finally {

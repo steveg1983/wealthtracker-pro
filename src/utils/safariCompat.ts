@@ -1,3 +1,4 @@
+import { logger } from '../services/loggingService';
 // Safari compatibility utilities
 
 export const isSafari = () => {
@@ -14,7 +15,7 @@ export const getEnvVar = (key: string, defaultValue: string = '') => {
       return import.meta.env[key];
     }
   } catch (e) {
-    console.warn(`Failed to access import.meta.env.${key}:`, e);
+    logger.warn(`Failed to access import.meta.env.${key}:`, e);
   }
   
   // Fallback for Safari
@@ -28,7 +29,7 @@ export const getEnvVar = (key: string, defaultValue: string = '') => {
 // Check if IndexedDB is available and working
 export const checkIndexedDBSupport = async (): Promise<boolean> => {
   if (!('indexedDB' in window)) {
-    console.warn('IndexedDB not supported');
+    logger.warn('IndexedDB not supported');
     return false;
   }
   
@@ -49,7 +50,7 @@ export const checkIndexedDBSupport = async (): Promise<boolean> => {
     
     return true;
   } catch (e) {
-    console.warn('IndexedDB test failed:', e);
+    logger.warn('IndexedDB test failed:', e);
     return false;
   }
 };
@@ -62,7 +63,7 @@ export class SafariStorageFallback {
     try {
       localStorage.setItem(this.prefix + key, JSON.stringify(value));
     } catch (e) {
-      console.error('Safari storage fallback failed:', e);
+      logger.error('Safari storage fallback failed:', e);
     }
   }
   
@@ -71,7 +72,7 @@ export class SafariStorageFallback {
       const item = localStorage.getItem(this.prefix + key);
       return item ? JSON.parse(item) : null;
     } catch (e) {
-      console.error('Safari storage fallback failed:', e);
+      logger.error('Safari storage fallback failed:', e);
       return null;
     }
   }
@@ -80,7 +81,7 @@ export class SafariStorageFallback {
     try {
       localStorage.removeItem(this.prefix + key);
     } catch (e) {
-      console.error('Safari storage fallback failed:', e);
+      logger.error('Safari storage fallback failed:', e);
     }
   }
   
@@ -93,7 +94,7 @@ export class SafariStorageFallback {
         }
       });
     } catch (e) {
-      console.error('Safari storage fallback failed:', e);
+      logger.error('Safari storage fallback failed:', e);
     }
   }
 }
@@ -101,7 +102,7 @@ export class SafariStorageFallback {
 // Fix for Safari's strict mode with service workers
 export const registerServiceWorkerSafari = async () => {
   if (!('serviceWorker' in navigator)) {
-    console.warn('Service Workers not supported');
+    logger.warn('Service Workers not supported');
     return null;
   }
   
@@ -115,7 +116,7 @@ export const registerServiceWorkerSafari = async () => {
     console.log('Service Worker registered for Safari:', registration);
     return registration;
   } catch (e) {
-    console.warn('Service Worker registration failed in Safari:', e);
+    logger.warn('Service Worker registration failed in Safari:', e);
     return null;
   }
 };
@@ -151,7 +152,7 @@ export const initSafariCompat = async () => {
   const isPrivate = !hasIndexedDB && localStorage.length === 0;
   
   if (isPrivate) {
-    console.warn('Safari private browsing mode detected - some features may be limited');
+    logger.warn('Safari private browsing mode detected - some features may be limited');
   }
   
   return {

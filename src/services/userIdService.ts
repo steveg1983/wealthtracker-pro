@@ -17,6 +17,7 @@
 
 import { supabase, isSupabaseConfigured } from './api/supabaseClient';
 import { UserService } from './api/userService';
+import { logger } from './loggingService';
 
 // Types for clarity
 export type ClerkUserId = string; // Format: "user_2abc123..."
@@ -41,7 +42,7 @@ class UserIdService {
    */
   async getDatabaseUserId(clerkId: ClerkUserId): Promise<DatabaseUserId | null> {
     if (!clerkId) {
-      console.warn('[UserIdService] No Clerk ID provided');
+      logger.warn('[UserIdService] No Clerk ID provided');
       return null;
     }
 
@@ -73,7 +74,7 @@ class UserIdService {
           console.log('[UserIdService] User not found for Clerk ID:', clerkId);
           return null;
         }
-        console.error('[UserIdService] Error fetching user:', error);
+        logger.error('[UserIdService] Error fetching user:', error);
         return null;
       }
 
@@ -92,7 +93,7 @@ class UserIdService {
       console.log('[UserIdService] Found database ID:', user.id, 'for Clerk ID:', clerkId);
       return user.id;
     } catch (error) {
-      console.error('[UserIdService] Failed to get database user ID:', error);
+      logger.error('[UserIdService] Failed to get database user ID:', error);
       return null;
     }
   }
@@ -204,7 +205,7 @@ class UserIdService {
       
       return databaseId;
     } catch (error) {
-      console.error('[UserIdService] Failed to ensure user exists:', error);
+      logger.error('[UserIdService] Failed to ensure user exists:', error);
       return null;
     }
   }

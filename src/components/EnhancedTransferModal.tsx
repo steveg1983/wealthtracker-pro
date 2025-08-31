@@ -5,6 +5,7 @@ import { ArrowRightIcon } from './icons/ArrowRightIcon';
 import { AlertCircleIcon } from './icons/AlertCircleIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import type { Transaction, Account } from '../types';
+import { logger } from '../services/loggingService';
 
 interface EnhancedTransferModalProps {
   isOpen: boolean;
@@ -177,7 +178,7 @@ export default function EnhancedTransferModal({
       
       onClose();
     } catch (error) {
-      console.error('Failed to create transfer:', error);
+      logger.error('Failed to create transfer:', error);
       setErrors({ description: 'Failed to create transfer. Please try again.' });
     } finally {
       setIsSubmitting(false);

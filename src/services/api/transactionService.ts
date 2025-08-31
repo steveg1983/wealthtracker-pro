@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
 import type { Transaction } from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
+import { logger } from '../loggingService';
 
 export class TransactionService {
   /**
@@ -21,13 +22,13 @@ export class TransactionService {
         .order('date', { ascending: false });
 
       if (error) {
-        console.error('Error fetching transactions:', error);
+        logger.error('Error fetching transactions:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data || [];
     } catch (error) {
-      console.error('TransactionService.getTransactions error:', error);
+      logger.error('TransactionService.getTransactions error:', error);
       // Fallback to localStorage on error
       const stored = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS);
       return stored || [];
@@ -65,7 +66,7 @@ export class TransactionService {
         .single();
 
       if (error) {
-        console.error('Error creating transaction:', error);
+        logger.error('Error creating transaction:', error);
         throw new Error(handleSupabaseError(error));
       }
 
@@ -74,7 +75,7 @@ export class TransactionService {
 
       return data;
     } catch (error) {
-      console.error('TransactionService.createTransaction error:', error);
+      logger.error('TransactionService.createTransaction error:', error);
       throw error;
     }
   }
@@ -119,7 +120,7 @@ export class TransactionService {
         .single();
 
       if (error) {
-        console.error('Error updating transaction:', error);
+        logger.error('Error updating transaction:', error);
         throw new Error(handleSupabaseError(error));
       }
 
@@ -131,7 +132,7 @@ export class TransactionService {
 
       return data;
     } catch (error) {
-      console.error('TransactionService.updateTransaction error:', error);
+      logger.error('TransactionService.updateTransaction error:', error);
       throw error;
     }
   }
@@ -162,7 +163,7 @@ export class TransactionService {
         .eq('id', id);
 
       if (error) {
-        console.error('Error deleting transaction:', error);
+        logger.error('Error deleting transaction:', error);
         throw new Error(handleSupabaseError(error));
       }
 
@@ -171,7 +172,7 @@ export class TransactionService {
         await this.updateAccountBalance(transaction.account_id, -transaction.amount);
       }
     } catch (error) {
-      console.error('TransactionService.deleteTransaction error:', error);
+      logger.error('TransactionService.deleteTransaction error:', error);
       throw error;
     }
   }
@@ -202,13 +203,13 @@ export class TransactionService {
         .order('date', { ascending: false });
 
       if (error) {
-        console.error('Error fetching transactions by date range:', error);
+        logger.error('Error fetching transactions by date range:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data || [];
     } catch (error) {
-      console.error('TransactionService.getTransactionsByDateRange error:', error);
+      logger.error('TransactionService.getTransactionsByDateRange error:', error);
       throw error;
     }
   }
@@ -230,13 +231,13 @@ export class TransactionService {
         .order('date', { ascending: false });
 
       if (error) {
-        console.error('Error fetching transactions by account:', error);
+        logger.error('Error fetching transactions by account:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data || [];
     } catch (error) {
-      console.error('TransactionService.getTransactionsByAccount error:', error);
+      logger.error('TransactionService.getTransactionsByAccount error:', error);
       throw error;
     }
   }
@@ -258,13 +259,13 @@ export class TransactionService {
         .order('date', { ascending: false });
 
       if (error) {
-        console.error('Error fetching transactions by category:', error);
+        logger.error('Error fetching transactions by category:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data || [];
     } catch (error) {
-      console.error('TransactionService.getTransactionsByCategory error:', error);
+      logger.error('TransactionService.getTransactionsByCategory error:', error);
       throw error;
     }
   }
@@ -301,7 +302,7 @@ export class TransactionService {
         .select();
 
       if (error) {
-        console.error('Error bulk creating transactions:', error);
+        logger.error('Error bulk creating transactions:', error);
         throw new Error(handleSupabaseError(error));
       }
 
@@ -312,7 +313,7 @@ export class TransactionService {
 
       return data || [];
     } catch (error) {
-      console.error('TransactionService.bulkCreateTransactions error:', error);
+      logger.error('TransactionService.bulkCreateTransactions error:', error);
       throw error;
     }
   }
@@ -341,7 +342,7 @@ export class TransactionService {
           .eq('id', accountId);
       }
     } catch (error) {
-      console.error('Error updating account balance:', error);
+      logger.error('Error updating account balance:', error);
     }
   }
 

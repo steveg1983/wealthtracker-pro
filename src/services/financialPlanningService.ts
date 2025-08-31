@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 import type { Transaction } from '../types';
 import type {
+import { logger } from './loggingService';
   SavedRetirementPlan,
   SavedMortgageCalculation,
   SavedAmortizationEntry,
@@ -235,7 +236,7 @@ class FinancialPlanningService {
         }));
       }
     } catch (error) {
-      console.error('Error loading financial planning data:', error);
+      logger.error('Error loading financial planning data:', error);
     }
   }
 
@@ -248,7 +249,7 @@ class FinancialPlanningService {
       localStorage.setItem('financial-goals', JSON.stringify(this.financialGoals));
       localStorage.setItem('financial-insurance-needs', JSON.stringify(this.insuranceNeeds));
     } catch (error) {
-      console.error('Error saving financial planning data:', error);
+      logger.error('Error saving financial planning data:', error);
     }
   }
 

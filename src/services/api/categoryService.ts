@@ -8,6 +8,7 @@ import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import { getDefaultCategories } from '../../data/defaultCategories';
 import type { Category } from '../../types';
+import { logger } from '../loggingService';
 
 /**
  * Transform database snake_case to TypeScript camelCase
@@ -53,7 +54,7 @@ export async function getCategories(clerkId: string): Promise<Category[]> {
       .order('name', { ascending: true });
     
     if (error) {
-      console.error('[CategoryService] Error fetching categories:', error);
+      logger.error('[CategoryService] Error fetching categories:', error);
       throw error;
     }
     
@@ -72,7 +73,7 @@ export async function getCategories(clerkId: string): Promise<Category[]> {
     return categories;
     
   } catch (error) {
-    console.error('[CategoryService] Error loading categories, falling back to localStorage:', error);
+    logger.error('[CategoryService] Error loading categories, falling back to localStorage:', error);
     
     // Fallback to localStorage
     const stored = await storageAdapter.get<Category[]>(STORAGE_KEYS.CATEGORIES);
@@ -120,7 +121,7 @@ export async function createDefaultCategoriesForUser(userId: string): Promise<vo
       .insert(typeLevelCats);
     
     if (typeError) {
-      console.error('[CategoryService] Error creating type categories:', typeError);
+      logger.error('[CategoryService] Error creating type categories:', typeError);
       return;
     }
     
@@ -157,14 +158,14 @@ export async function createDefaultCategoriesForUser(userId: string): Promise<vo
         .insert(remainingCats);
       
       if (remainingError) {
-        console.error('[CategoryService] Error creating remaining categories:', remainingError);
+        logger.error('[CategoryService] Error creating remaining categories:', remainingError);
       }
     }
     
     console.log('[CategoryService] Default categories created for user:', userId);
     
   } catch (error) {
-    console.error('[CategoryService] Error creating default categories:', error);
+    logger.error('[CategoryService] Error creating default categories:', error);
   }
 }
 
@@ -204,7 +205,7 @@ export async function createCategory(clerkId: string, category: Omit<Category, '
     return transformCategoryFromDb(data);
     
   } catch (error) {
-    console.error('[CategoryService] Error creating category:', error);
+    logger.error('[CategoryService] Error creating category:', error);
     
     // Fallback to localStorage
     const newCategory: Category = {
@@ -252,7 +253,7 @@ export async function updateCategory(categoryId: string, updates: Partial<Catego
     return transformCategoryFromDb(data);
     
   } catch (error) {
-    console.error('[CategoryService] Error updating category:', error);
+    logger.error('[CategoryService] Error updating category:', error);
     
     // Fallback to localStorage
     const categories = await storageAdapter.get<Category[]>(STORAGE_KEYS.CATEGORIES) || [];
@@ -298,7 +299,7 @@ export async function deleteCategory(categoryId: string): Promise<void> {
     }
     
   } catch (error) {
-    console.error('[CategoryService] Error deleting category:', error);
+    logger.error('[CategoryService] Error deleting category:', error);
     
     // Fallback to localStorage
     const categories = await storageAdapter.get<Category[]>(STORAGE_KEYS.CATEGORIES) || [];

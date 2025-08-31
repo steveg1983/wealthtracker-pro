@@ -12,6 +12,7 @@
 import { supabase } from '../../lib/supabase';
 import { userIdService } from '../userIdService';
 import { realTimePriceService } from '../realtimePriceService';
+import { logger } from '../loggingService';
 
 export interface Investment {
   id: string;
@@ -83,7 +84,7 @@ class InvestmentService {
 
       return investments.map(this.mapInvestment);
     } catch (error) {
-      console.error('Error getting investments:', error);
+      logger.error('Error getting investments', error, 'InvestmentService');
       
       // Fallback to localStorage
       const stored = localStorage.getItem(`investments_${clerkId}`);
@@ -110,7 +111,7 @@ class InvestmentService {
 
       return (data || []).map(this.mapInvestment);
     } catch (error) {
-      console.error('Error getting account investments:', error);
+      logger.error('Error getting account investments', error, 'InvestmentService');
       return [];
     }
   }
@@ -133,7 +134,7 @@ class InvestmentService {
           const priceData = await realTimePriceService.getQuote(investment.symbol);
           currentPrice = priceData.price;
         } catch (error) {
-          console.warn('Failed to fetch current price:', error);
+          logger.warn('Failed to fetch current price', error, 'InvestmentService');
         }
       }
 
@@ -179,7 +180,7 @@ class InvestmentService {
 
       return this.mapInvestment(data);
     } catch (error) {
-      console.error('Error creating investment:', error);
+      logger.error('Error creating investment', error, 'InvestmentService');
       throw error;
     }
   }
@@ -222,7 +223,7 @@ class InvestmentService {
 
       return this.mapInvestment(data);
     } catch (error) {
-      console.error('Error updating investment:', error);
+      logger.error('Error updating investment', error, 'InvestmentService');
       throw error;
     }
   }
@@ -243,7 +244,7 @@ class InvestmentService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error deleting investment:', error);
+      logger.error('Error deleting investment', error, 'InvestmentService');
       throw error;
     }
   }
@@ -267,7 +268,7 @@ class InvestmentService {
 
       return this.mapInvestment(data);
     } catch (error) {
-      console.error('Error getting investment:', error);
+      logger.error('Error getting investment', error, 'InvestmentService');
       throw error;
     }
   }
@@ -306,7 +307,7 @@ class InvestmentService {
 
       return this.mapTransaction(data);
     } catch (error) {
-      console.error('Error creating transaction:', error);
+      logger.error('Error creating transaction', error, 'InvestmentService');
       throw error;
     }
   }
@@ -330,7 +331,7 @@ class InvestmentService {
 
       return (data || []).map(this.mapTransaction);
     } catch (error) {
-      console.error('Error getting transactions:', error);
+      logger.error('Error getting transactions', error, 'InvestmentService');
       return [];
     }
   }
@@ -366,7 +367,7 @@ class InvestmentService {
         investments
       };
     } catch (error) {
-      console.error('Error getting portfolio summary:', error);
+      logger.error('Error getting portfolio summary', error, 'InvestmentService');
       return {
         totalValue: 0,
         totalCost: 0,
@@ -400,7 +401,7 @@ class InvestmentService {
         }
       }
     } catch (error) {
-      console.warn('Failed to update investment prices:', error);
+      logger.warn('Failed to update investment prices', error, 'InvestmentService');
     }
   }
 
@@ -442,7 +443,7 @@ class InvestmentService {
         await this.updateInvestment(clerkId, transaction.investmentId, updates);
       }
     } catch (error) {
-      console.error('Error updating investment from transaction:', error);
+      logger.error('Error updating investment from transaction', error, 'InvestmentService');
     }
   }
 
@@ -469,7 +470,7 @@ class InvestmentService {
             .eq('id', investment.id);
         }
       } catch (error) {
-        console.error('Error updating prices:', error);
+        logger.error('Error updating prices', error, 'InvestmentService');
       }
     }, interval);
   }
@@ -551,14 +552,14 @@ class InvestmentService {
             updatedAt: undefined
           });
         } catch (error) {
-          console.warn('Failed to migrate investment:', error);
+          logger.warn('Failed to migrate investment', error, 'InvestmentService');
         }
       }
 
       // Clear localStorage after successful migration
       localStorage.removeItem(`investments_${clerkId}`);
     } catch (error) {
-      console.error('Error migrating investments:', error);
+      logger.error('Error migrating investments', error, 'InvestmentService');
     }
   }
 }

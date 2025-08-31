@@ -2,6 +2,7 @@ import type { Transaction, Account, Budget, Goal } from '../types';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, subWeeks, subMonths } from 'date-fns';
+import { logger } from './loggingService';
 
 export interface SummaryData {
   period: 'weekly' | 'monthly';
@@ -313,7 +314,7 @@ class FinancialSummaryService {
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(summaries));
       localStorage.setItem(this.LAST_SUMMARY_KEY, new Date().toISOString());
     } catch (error) {
-      console.error('Failed to save summary:', error);
+      logger.error('Failed to save summary:', error);
     }
   }
 

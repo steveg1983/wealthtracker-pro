@@ -22,12 +22,13 @@ import {
 } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import type { Investment } from '../types';
+import { logger } from '../services/loggingService';
 
 type ActiveTab = 'export' | 'templates' | 'scheduled' | 'history';
 
 export default function ExportManager() {
-  const { transactions, accounts } = useApp();
-  const investments: Investment[] = []; // TODO: Add investments to AppContext
+  const { transactions, accounts, investments = [] } = useApp();
+  // Investments now properly integrated from AppContext
   const [activeTab, setActiveTab] = useState<ActiveTab>('export');
   const [templates, setTemplates] = useState<ExportTemplate[]>([]);
   const [scheduledReports, setScheduledReports] = useState<ScheduledReport[]>([]);
@@ -89,7 +90,7 @@ export default function ExportManager() {
         URL.revokeObjectURL(url);
       }
     } catch (error) {
-      console.error('Export failed:', error);
+      logger.error('Export failed:', error);
       alert('Export failed. Please try again.');
     } finally {
       setIsLoading(false);

@@ -25,6 +25,7 @@ import {
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
 import { toDecimal } from '../utils/decimal';
+import { logger } from '../services/loggingService';
 
 interface BulkTransactionEditProps {
   isOpen: boolean;
@@ -246,7 +247,7 @@ export default function BulkTransactionEdit({
       setChanges({ appendNote: false });
       onClose();
     } catch (error) {
-      console.error('Error applying bulk changes:', error);
+      logger.error('Error applying bulk changes:', error);
     } finally {
       setApplying(false);
     }

@@ -8,6 +8,7 @@ import {
 } from '../utils/currency-decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { toDecimal } from '../utils/decimal';
+import { logger } from '../services/loggingService';
 
 export function useCurrencyDecimal(): {
   formatCurrency: (amount: DecimalInstance | number, originalCurrency?: string) => string;
@@ -35,7 +36,7 @@ export function useCurrencyDecimal(): {
       const converted = await convertCurrency(amount, fromCurrency, displayCurrency);
       return formatCurrency(converted, displayCurrency);
     } catch (error) {
-      console.error('Currency conversion error:', error);
+      logger.error('Currency conversion error:', error);
       return formatCurrency(amount, fromCurrency) + ' (!)';
     }
   }, [displayCurrency, formatCurrency]);
@@ -49,7 +50,7 @@ export function useCurrencyDecimal(): {
     try {
       return await convertCurrency(amount, fromCurrency, displayCurrency);
     } catch (error) {
-      console.error('Currency conversion error:', error);
+      logger.error('Currency conversion error:', error);
       return toDecimal(amount);
     }
   }, [displayCurrency]);
@@ -60,7 +61,7 @@ export function useCurrencyDecimal(): {
       const total = await convertMultipleCurrencies(amounts, displayCurrency);
       return total;
     } catch (error) {
-      console.error('Currency conversion error:', error);
+      logger.error('Currency conversion error:', error);
       // Fallback: just sum amounts without conversion
       return amounts.reduce((sum, item) => sum.plus(item.amount), toDecimal(0));
     }

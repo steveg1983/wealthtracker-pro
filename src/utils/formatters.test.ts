@@ -43,9 +43,9 @@ describe('Formatters', () => {
       expect(result).toBe('€1,234.56');
     });
 
-    it('defaults to EUR for unknown currencies', () => {
+    it('formats JPY currency correctly', () => {
       const result = formatCurrency(1234.56, 'JPY');
-      expect(result).toBe('€1,234.56');
+      expect(result).toBe('¥1,234.56');
     });
 
     it('handles zero amounts', () => {
@@ -53,9 +53,9 @@ describe('Formatters', () => {
       expect(result).toBe('£0.00');
     });
 
-    it('handles negative amounts by taking absolute value', () => {
+    it('handles negative amounts correctly', () => {
       const result = formatCurrency(-1234.56);
-      expect(result).toBe('£1,234.56');
+      expect(result).toBe('-£1,234.56');
     });
 
     it('formats very large amounts', () => {
@@ -89,14 +89,14 @@ describe('Formatters', () => {
       expect(formatCurrency(100, 'EUR')).toBe('€100.00');
     });
 
-    it('is case sensitive for currency codes', () => {
+    it('handles unknown currency codes', () => {
       const result = formatCurrency(100, 'gbp');
-      expect(result).toBe('€100.00'); // Should default to EUR for lowercase
+      expect(result).toBe('gbp100.00'); // Unknown codes are used as-is
     });
 
-    it('handles string currency parameter', () => {
+    it('handles empty currency parameter', () => {
       const result = formatCurrency(100, '');
-      expect(result).toBe('€100.00'); // Empty string should default to EUR
+      expect(result).toBe('100.00'); // Empty string results in no symbol
     });
   });
 
@@ -317,8 +317,8 @@ describe('Formatters', () => {
       const number = formatNumber(negativeAmount);
       const compact = formatCompactNumber(negativeAmount);
       
-      // Currency should use absolute value (per implementation)
-      expect(currency).toBe('£1,234,567.00');
+      // Currency should preserve negative sign
+      expect(currency).toBe('-£1,234,567.00');
       
       // Number should preserve negative
       expect(number).toBe('-1,234,567.00');

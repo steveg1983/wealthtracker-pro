@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { logger } from '../services/loggingService';
 
 type SetValue<T> = T | ((val: T) => T);
 
@@ -20,7 +21,7 @@ export function useLocalStorage<T>(
       }
       return JSON.parse(item) as T;
     } catch (error) {
-      console.error(`Error reading localStorage key "${key}":`, error);
+      logger.error(`Error reading localStorage key "${key}":`, error);
       return initialValue instanceof Function ? initialValue() : initialValue;
     }
   }, [initialValue, key]);
@@ -52,7 +53,7 @@ export function useLocalStorage<T>(
           window.dispatchEvent(new Event('local-storage'));
         }
       } catch (error) {
-        console.error(`Error setting localStorage key "${key}":`, error);
+        logger.error(`Error setting localStorage key "${key}":`, error);
       }
     },
     [key, storedValue]

@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Budget } from '../types';
+import { logger } from '../services/loggingService';
 
 interface BudgetContextType {
   budgets: Budget[];
@@ -26,7 +27,7 @@ export function BudgetProvider({ children, initialBudgets = [] }: BudgetProvider
       try {
         return JSON.parse(savedBudgets);
       } catch (error) {
-        console.error('Error parsing saved budgets:', error);
+        logger.error('Error parsing saved budgets:', error);
         return initialBudgets;
       }
     }

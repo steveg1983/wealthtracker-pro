@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { automaticBackupService, type BackupConfig } from '../services/automaticBackupService';
 import { useNotifications } from '../contexts/NotificationContext';
 import {
+import { logger } from '../services/loggingService';
   ShieldIcon,
   ClockIcon,
   SaveIcon as HardDriveIcon,
@@ -36,7 +37,7 @@ export default function AutomaticBackupSettings() {
       const stored = await automaticBackupService.getStoredBackups();
       setStoredBackups(stored);
     } catch (error) {
-      console.error('Failed to load backup data:', error);
+      logger.error('Failed to load backup data:', error);
     }
   };
 

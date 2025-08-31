@@ -4,6 +4,7 @@
  */
 
 import { serviceWorkerRegistration } from '../utils/serviceWorkerRegistration';
+import { logger } from './loggingService';
 
 interface NotificationOptions {
   title: string;
@@ -43,13 +44,13 @@ class PushNotificationService {
     try {
       // Check if service worker is supported
       if (!('serviceWorker' in navigator)) {
-        console.warn('Service Worker not supported');
+        logger.warn('Service Worker not supported');
         return;
       }
 
       // Check if push notifications are supported
       if (!('PushManager' in window)) {
-        console.warn('Push notifications not supported');
+        logger.warn('Push notifications not supported');
         return;
       }
 
@@ -62,7 +63,7 @@ class PushNotificationService {
       console.log('Push notification permission:', permission);
 
     } catch (error) {
-      console.error('Failed to initialize push notifications:', error);
+      logger.error('Failed to initialize push notifications:', error);
     }
   }
 
@@ -80,7 +81,7 @@ class PushNotificationService {
       
       return permission;
     } catch (error) {
-      console.error('Failed to request notification permission:', error);
+      logger.error('Failed to request notification permission:', error);
       return 'denied';
     }
   }
@@ -127,7 +128,7 @@ class PushNotificationService {
 
       return subscription;
     } catch (error) {
-      console.error('Failed to subscribe to push notifications:', error);
+      logger.error('Failed to subscribe to push notifications:', error);
       return null;
     }
   }
@@ -155,7 +156,7 @@ class PushNotificationService {
       
       return false;
     } catch (error) {
-      console.error('Failed to unsubscribe from push notifications:', error);
+      logger.error('Failed to unsubscribe from push notifications:', error);
       return false;
     }
   }
@@ -176,7 +177,7 @@ class PushNotificationService {
         })
       });
     } catch (error) {
-      console.error('Failed to send subscription to server:', error);
+      logger.error('Failed to send subscription to server:', error);
     }
   }
 
@@ -193,7 +194,7 @@ class PushNotificationService {
         body: JSON.stringify({ subscription })
       });
     } catch (error) {
-      console.error('Failed to remove subscription from server:', error);
+      logger.error('Failed to remove subscription from server:', error);
     }
   }
 
@@ -215,7 +216,7 @@ class PushNotificationService {
           body: JSON.stringify({ preferences })
         });
       } catch (error) {
-        console.error('Failed to update notification preferences:', error);
+        logger.error('Failed to update notification preferences:', error);
       }
     }
   }

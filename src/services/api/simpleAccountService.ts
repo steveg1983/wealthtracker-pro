@@ -12,6 +12,7 @@ import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import type { Account } from '../../types';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+import { logger } from '../loggingService';
 
 /**
  * Transform database snake_case to TypeScript camelCase
@@ -96,8 +97,8 @@ export async function createAccount(
       .single();
     
     if (error) {
-      console.error('[SimpleAccountService] Failed to create account:', error);
-      console.error('[SimpleAccountService] Error details:', {
+      logger.error('[SimpleAccountService] Failed to create account:', error);
+      logger.error('[SimpleAccountService] Error details:', {
         message: error.message,
         details: error.details,
         hint: error.hint,
@@ -107,7 +108,7 @@ export async function createAccount(
     }
     
     if (!data) {
-      console.error('[SimpleAccountService] No data returned from account creation');
+      logger.error('[SimpleAccountService] No data returned from account creation');
       throw new Error('Account creation returned no data');
     }
     
@@ -147,20 +148,20 @@ export async function createAccount(
         .single();
       
       if (categoryError) {
-        console.error('[SimpleAccountService] Failed to create transfer category:', categoryError);
+        logger.error('[SimpleAccountService] Failed to create transfer category:', categoryError);
         // Don't fail the account creation if category creation fails
       } else {
         console.log('[SimpleAccountService] Transfer category created:', categoryData);
       }
     } catch (categoryError) {
-      console.error('[SimpleAccountService] Error creating transfer category:', categoryError);
+      logger.error('[SimpleAccountService] Error creating transfer category:', categoryError);
       // Continue anyway - account creation is more important
     }
     
     return transformAccountFromDb(data);
     
   } catch (error) {
-    console.error('[SimpleAccountService] Error creating account, falling back to localStorage:', error);
+    logger.error('[SimpleAccountService] Error creating account, falling back to localStorage:', error);
     
     // Fallback to localStorage if Supabase fails
     const localAccount: Account = {
@@ -222,7 +223,7 @@ export async function getAccounts(userIdParam: string): Promise<Account[]> {
       .order('created_at', { ascending: true });
     
     if (error) {
-      console.error('[SimpleAccountService] Error fetching accounts:', error);
+      logger.error('[SimpleAccountService] Error fetching accounts:', error);
       throw error;
     }
     
@@ -256,7 +257,7 @@ export async function updateAccount(
       .single();
     
     if (error) {
-      console.error('[SimpleAccountService] Error updating account:', error);
+      logger.error('[SimpleAccountService] Error updating account:', error);
       throw error;
     }
     
@@ -295,13 +296,13 @@ export async function deleteAccount(accountId: string): Promise<void> {
         .eq('is_transfer_category', true);
       
       if (categoryError) {
-        console.error('[SimpleAccountService] Error soft-deleting transfer category:', categoryError);
+        logger.error('[SimpleAccountService] Error soft-deleting transfer category:', categoryError);
         // Continue with account deletion even if category update fails
       } else {
         console.log('[SimpleAccountService] Transfer category soft-deleted for account:', accountId);
       }
     } catch (categoryError) {
-      console.error('[SimpleAccountService] Error handling transfer category:', categoryError);
+      logger.error('[SimpleAccountService] Error handling transfer category:', categoryError);
     }
     
     // Now delete the account
@@ -311,7 +312,7 @@ export async function deleteAccount(accountId: string): Promise<void> {
       .eq('id', accountId);
     
     if (error) {
-      console.error('[SimpleAccountService] Error deleting account:', error);
+      logger.error('[SimpleAccountService] Error deleting account:', error);
       throw error;
     }
     
@@ -353,7 +354,7 @@ export async function subscribeToAccountChanges(
     const dbUserId = await userIdService.getDatabaseUserId(clerkId);
     
     if (!dbUserId) {
-      console.warn('[SimpleAccountService] No database user found for Clerk ID:', clerkId);
+      logger.warn('[SimpleAccountService] No database user found for Clerk ID:', clerkId);
       return () => {};
     }
 
@@ -385,7 +386,7 @@ export async function subscribeToAccountChanges(
       .subscribe((status, error) => {
         console.log(`📡 [SimpleAccountService] Subscription status: ${status}`);
         if (error) {
-          console.error('❌ [SimpleAccountService] Subscription error:', error);
+          logger.error('❌ [SimpleAccountService] Subscription error:', error);
         }
         if (status === 'SUBSCRIBED') {
           console.log('✅ [SimpleAccountService] Successfully subscribed!');
@@ -400,11 +401,11 @@ export async function subscribeToAccountChanges(
             console.log(`   ${idx + 1}. ${ch.topic} - State: ${ch.state}`);
           });
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('❌ [SimpleAccountService] Channel error - check if realtime is enabled in Supabase');
-          console.error('   You may need to enable realtime for the accounts table in Supabase dashboard');
-          console.error('   Go to: Table Editor > accounts > Replication (toggle on)');
+          logger.error('❌ [SimpleAccountService] Channel error - check if realtime is enabled in Supabase');
+          logger.error('   You may need to enable realtime for the accounts table in Supabase dashboard');
+          logger.error('   Go to: Table Editor > accounts > Replication (toggle on)');
         } else if (status === 'TIMED_OUT') {
-          console.error('⏱️ [SimpleAccountService] Subscription timed out');
+          logger.error('⏱️ [SimpleAccountService] Subscription timed out');
         } else if (status === 'CLOSED') {
           console.log('🔒 [SimpleAccountService] Channel closed');
         }
@@ -416,7 +417,7 @@ export async function subscribeToAccountChanges(
       supabase.removeChannel(channel);
     };
   } catch (error) {
-    console.error('[SimpleAccountService] Error setting up subscription:', error);
+    logger.error('[SimpleAccountService] Error setting up subscription:', error);
     return () => {};
   }
 }

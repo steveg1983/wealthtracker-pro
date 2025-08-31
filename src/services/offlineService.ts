@@ -1,5 +1,6 @@
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import type { Transaction, Account, Budget, Goal } from '../types';
+import { logger } from './loggingService';
 
 // Define the database schema
 interface OfflineDB extends DBSchema {
@@ -108,7 +109,7 @@ class OfflineService {
       navigator.serviceWorker.ready.then((registration) => {
         return (registration as any).sync.register('sync-offline-data');
       }).catch((err) => {
-        console.error('Failed to register background sync:', err);
+        logger.error('Failed to register background sync:', err);
       });
     }
   }
@@ -226,7 +227,7 @@ class OfflineService {
           // Remove from queue on success
           await this.db!.delete('offlineQueue', item.id);
         } catch (error) {
-          console.error(`Failed to sync item ${item.id}:`, error);
+          logger.error(`Failed to sync item ${item.id}:`, error);
           
           // Update retry count and error
           item.retries += 1;

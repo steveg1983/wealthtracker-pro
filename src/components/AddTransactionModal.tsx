@@ -10,6 +10,7 @@ import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
 import { LoadingButton } from './loading/LoadingState';
 import { useToast } from '../contexts/ToastContext';
+import { logger } from '../services/loggingService';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -90,7 +91,7 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
           } else {
             // Show user-friendly error toast
             showError(error);
-            console.error('Failed to add transaction:', error);
+            logger.error('Failed to add transaction:', error);
             setValidationErrors({ general: 'Unable to save transaction. Please try again.' });
           }
         }

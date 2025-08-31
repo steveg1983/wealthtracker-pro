@@ -117,7 +117,7 @@ export const authConfig = {
   
   // Development settings
   development: {
-    allowedRedirectUrls: ['http://localhost:*/*'],
+    allowedRedirectUrls: [window.location.origin + '/*'],
     sessionTimeout: 24 * 60 * 60 * 1000, // 24 hours for dev
     requireEmailVerification: false,
     requireMFA: false,

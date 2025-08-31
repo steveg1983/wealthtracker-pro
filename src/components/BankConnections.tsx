@@ -13,6 +13,7 @@ import {
   SearchIcon
 } from './icons';
 import { format } from 'date-fns';
+import { logger } from '../services/loggingService';
 
 interface BankConnectionsProps {
   onAccountsLinked?: () => void;
@@ -75,7 +76,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
         alert('Plaid Link integration would open here with token: ' + result.linkToken);
       }
     } catch (error) {
-      console.error('Failed to connect bank:', error);
+      logger.error('Failed to connect bank:', error);
     } finally {
       setIsLoading(false);
     }
@@ -91,7 +92,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
         loadConnections();
         onAccountsLinked?.();
       } else {
-        console.error('Sync failed:', result.errors);
+        logger.error('Sync failed:', result.errors);
       }
     } finally {
       setSyncingConnections(prev => {

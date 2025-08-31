@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AccessibilityTester } from '../utils/accessibility-testing';
+import { logger } from '../services/loggingService';
 
 interface UseAccessibilityAuditOptions {
   autoAudit?: boolean; // Run audit automatically on mount
@@ -38,16 +39,16 @@ export function useAccessibilityAudit(options: UseAccessibilityAuditOptions = {}
         const warnings = auditResults.filter(i => i.type === 'warning');
         
         if (errors.length > 0) {
-          console.error(`❌ ${errors.length} errors`);
+          logger.error(`❌ ${errors.length} errors`);
           errors.forEach(error => {
-            console.error(`- ${error.message}`, error.element);
+            logger.error(`- ${error.message}`, error.element);
           });
         }
         
         if (warnings.length > 0) {
-          console.warn(`⚠️ ${warnings.length} warnings`);
+          logger.warn(`⚠️ ${warnings.length} warnings`);
           warnings.forEach(warning => {
-            console.warn(`- ${warning.message}`, warning.element);
+            logger.warn(`- ${warning.message}`, warning.element);
           });
         }
         

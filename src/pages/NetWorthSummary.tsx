@@ -4,6 +4,7 @@ import { ArrowLeftIcon, TrendingUpIcon, BanknoteIcon, ChevronRightIcon, Building
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Account } from '../types';
+import { logger } from '../services/loggingService';
 
 type SummaryType = 'networth' | 'assets' | 'liabilities';
 
@@ -60,7 +61,7 @@ export default function NetWorthSummary() {
           setIsLoading(false);
         }
       } catch (error) {
-        console.error('Error converting accounts:', error);
+        logger.error('Error converting accounts:', error);
         if (!cancelled) {
           setIsLoading(false);
         }

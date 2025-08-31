@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { useBudgets } from '../../contexts/BudgetContext';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -13,8 +12,7 @@ interface BudgetSummaryWidgetProps {
 }
 
 export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWidgetProps) {
-  const { transactions, categories } = useApp();
-  const { budgets } = useBudgets();
+  const { transactions, categories, budgets } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
   const period = settings.period || 'current';
@@ -40,10 +38,9 @@ export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWid
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
     
-    // Convert budgets to service-compatible format
+    // Budgets already have categoryId from the new interface
     const serviceBudgets = budgets.map(budget => ({
       ...budget,
-      categoryId: budget.category,
       period: budget.period || 'monthly' as const
     }));
     

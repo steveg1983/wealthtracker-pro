@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, X, AlertCircle, CreditCard, Crown, Zap, Users } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { formatDistanceToNow } from 'date-fns';
+import { logger } from '../services/loggingService';
 
 interface PlanFeature {
   name: string;
@@ -103,7 +104,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
     try {
       await updateSubscription(newTier);
     } catch (error) {
-      console.error('Failed to upgrade subscription:', error);
+      logger.error('Failed to upgrade subscription:', error);
     }
   };
 
@@ -112,7 +113,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
       try {
         await cancelSubscription();
       } catch (error) {
-        console.error('Failed to cancel subscription:', error);
+        logger.error('Failed to cancel subscription:', error);
       }
     }
   };
@@ -121,7 +122,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
     try {
       await reactivateSubscription();
     } catch (error) {
-      console.error('Failed to reactivate subscription:', error);
+      logger.error('Failed to reactivate subscription:', error);
     }
   };
 

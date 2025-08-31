@@ -25,6 +25,7 @@ import { LoadingButton } from './loading/LoadingState';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import BankFormatSelector from './BankFormatSelector';
 import ImportRulesManager from './ImportRulesManager';
+import { logger } from '../services/loggingService';
 
 interface EnhancedImportWizardProps {
   isOpen: boolean;
@@ -193,7 +194,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
                   imported++;
                 } else if (!isDuplicate) {
                   // Skip transactions with missing required fields
-                  console.warn('Skipping transaction with missing required fields:', transaction);
+                  logger.warn('Skipping transaction with missing required fields:', transaction);
                 } else {
                   duplicates++;
                 }
@@ -254,7 +255,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
           successfulFiles++;
           
         } catch (error) {
-          console.error(`Error processing file ${fileInfo.name}:`, error);
+          logger.error(`Error processing file ${fileInfo.name}:`, error);
           setFiles(prev => prev.map((f, index) => 
             index === i ? { 
               ...f, 

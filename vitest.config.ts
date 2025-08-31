@@ -5,9 +5,12 @@ import path from 'path';
 export default defineConfig({
   plugins: [react()],
   test: {
+    // PROPER test configuration for REAL testing
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/test/setup.ts'],
+    setupFiles: ['./src/test/setup/vitest-setup.ts'],
+    testTimeout: 30000, // Increased timeout for database operations
+    hookTimeout: 30000, // Increased hook timeout for setup/teardown
     exclude: [
       '**/node_modules/**',
       '**/dist/**',

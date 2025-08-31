@@ -9,6 +9,7 @@ import { AlertTriangleIcon, CheckIcon, MergeIcon } from '../icons';
 import { formatCurrency } from '../../utils/formatters';
 import { format } from 'date-fns';
 import { ConflictResolutionService, ConflictAnalysis } from '../../services/conflictResolutionService';
+import { logger } from '../../services/loggingService';
 
 interface EnhancedConflictResolutionModalProps {
   isOpen: boolean;
@@ -89,7 +90,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
       await onResolve(selectedResolution, resolvedData);
       onClose();
     } catch (error) {
-      console.error('Failed to resolve conflict:', error);
+      logger.error('Failed to resolve conflict:', error);
     } finally {
       setIsResolving(false);
     }

@@ -11,6 +11,7 @@
 
 import { supabase } from '../lib/supabase';
 import type { 
+import { logger } from './loggingService';
   UserSubscription, 
   SubscriptionTier, 
   SubscriptionStatus,
@@ -57,7 +58,7 @@ export class SupabaseSubscriptionService {
         updatedAt: new Date(data.updated_at)
       };
     } catch (error) {
-      console.error('Error getting current subscription:', error);
+      logger.error('Error getting current subscription:', error);
       throw error;
     }
   }
@@ -110,7 +111,7 @@ export class SupabaseSubscriptionService {
         updatedAt: new Date(data.updated_at)
       };
     } catch (error) {
-      console.error('Error upserting subscription:', error);
+      logger.error('Error upserting subscription:', error);
       throw error;
     }
   }
@@ -163,7 +164,7 @@ export class SupabaseSubscriptionService {
         lastCalculated: new Date(data.last_calculated)
       };
     } catch (error) {
-      console.error('Error getting subscription usage:', error);
+      logger.error('Error getting subscription usage:', error);
       throw error;
     }
   }
@@ -196,7 +197,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error updating subscription usage:', error);
+      logger.error('Error updating subscription usage:', error);
       throw error;
     }
   }
@@ -213,7 +214,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error refreshing usage counts:', error);
+      logger.error('Error refreshing usage counts:', error);
       throw error;
     }
   }
@@ -231,7 +232,7 @@ export class SupabaseSubscriptionService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error checking feature access:', error);
+      logger.error('Error checking feature access:', error);
       // Default to false for safety
       return false;
     }
@@ -259,7 +260,7 @@ export class SupabaseSubscriptionService {
         isDefault: pm.is_default
       }));
     } catch (error) {
-      console.error('Error getting payment methods:', error);
+      logger.error('Error getting payment methods:', error);
       throw error;
     }
   }
@@ -286,7 +287,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error adding payment method:', error);
+      logger.error('Error adding payment method:', error);
       throw error;
     }
   }
@@ -311,7 +312,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error setting default payment method:', error);
+      logger.error('Error setting default payment method:', error);
       throw error;
     }
   }
@@ -329,7 +330,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error removing payment method:', error);
+      logger.error('Error removing payment method:', error);
       throw error;
     }
   }
@@ -360,7 +361,7 @@ export class SupabaseSubscriptionService {
         createdAt: new Date(invoice.created_at)
       }));
     } catch (error) {
-      console.error('Error getting invoices:', error);
+      logger.error('Error getting invoices:', error);
       throw error;
     }
   }
@@ -387,7 +388,7 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error adding invoice:', error);
+      logger.error('Error adding invoice:', error);
       throw error;
     }
   }
@@ -411,7 +412,7 @@ export class SupabaseSubscriptionService {
         throw error;
       }
     } catch (error) {
-      console.error('Error creating user profile:', error);
+      logger.error('Error creating user profile:', error);
       throw error;
     }
   }
@@ -430,7 +431,7 @@ export class SupabaseSubscriptionService {
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Error getting user profile:', error);
+      logger.error('Error getting user profile:', error);
       throw error;
     }
   }

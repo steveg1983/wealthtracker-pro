@@ -19,6 +19,7 @@ import {
 let XLSX: typeof import('xlsx') | null = null;
 import { toDecimal } from '../utils/decimal';
 import type { Transaction, Account, Budget } from '../types';
+import { logger } from '../services/loggingService';
 
 interface ExcelExportProps {
   isOpen: boolean;
@@ -425,7 +426,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
       XLSX.writeFile(wb, filename);
       onClose();
     } catch (error) {
-      console.error('Failed to export Excel file:', error);
+      logger.error('Failed to export Excel file:', error);
       alert('Failed to export Excel file. Please try again.');
     } finally {
       setIsExporting(false);

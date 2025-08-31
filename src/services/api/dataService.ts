@@ -14,6 +14,7 @@ import { isSupabaseConfigured } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import type { Account, Transaction, Budget, Goal, Category } from '../../types';
+import { logger } from '../loggingService';
 
 export interface AppData {
   accounts: Account[];
@@ -39,10 +40,10 @@ export class DataService {
         if (databaseId) {
           console.log('[DataService] User initialized with database ID:', databaseId);
         } else {
-          console.warn('[DataService] No database ID returned from userIdService');
+          logger.warn('[DataService] No database ID returned from userIdService');
         }
       } catch (error) {
-        console.error('[DataService] Failed to initialize user:', error);
+        logger.error('[DataService] Failed to initialize user:', error);
         // Continue with localStorage fallback
       }
     }
@@ -55,7 +56,7 @@ export class DataService {
   static async loadAppData(): Promise<AppData> {
     const userId = userIdService.getCurrentDatabaseUserId();
     if (!userId && isSupabaseConfigured()) {
-      console.warn('[DataService] No database ID available, using localStorage fallback');
+      logger.warn('[DataService] No database ID available, using localStorage fallback');
     }
 
     try {
@@ -76,7 +77,7 @@ export class DataService {
         categories
       };
     } catch (error) {
-      console.error('Error loading app data:', error);
+      logger.error('Error loading app data:', error);
       // Return empty data on error
       return {
         accounts: [],
@@ -241,7 +242,7 @@ export class DataService {
       try {
         return await BudgetService.getBudgets(clerkId);
       } catch (error) {
-        console.error('[DataService] Error loading budgets from Supabase:', error);
+        logger.error('[DataService] Error loading budgets from Supabase:', error);
       }
     }
     
@@ -259,13 +260,166 @@ export class DataService {
       try {
         return await GoalService.getGoals(clerkId);
       } catch (error) {
-        console.error('[DataService] Error loading goals from Supabase:', error);
+        logger.error('[DataService] Error loading goals from Supabase:', error);
       }
     }
     
     // Fallback to localStorage
     const stored = await storageAdapter.get<Goal[]>(STORAGE_KEYS.GOALS);
     return stored || [];
+  }
+
+  /**
+   * Create budget
+   */
+  static async createBudget(budget: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>): Promise<Budget> {
+    const clerkId = userIdService.getCurrentClerkId();
+    if (clerkId && isSupabaseConfigured()) {
+      try {
+        return await BudgetService.createBudget(clerkId, budget);
+      } catch (error) {
+        logger.error('[DataService] Error creating budget in Supabase:', error);
+      }
+    }
+    
+    // Fallback to localStorage
+    const newBudget: Budget = {
+      ...budget,
+      id: crypto.randomUUID(),
+      spent: budget.spent || 0,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    const budgets = await this.getBudgets();
+    budgets.push(newBudget);
+    await storageAdapter.set(STORAGE_KEYS.BUDGETS, budgets);
+    return newBudget;
+  }
+
+  /**
+   * Update budget
+   */
+  static async updateBudget(id: string, updates: Partial<Budget>): Promise<Budget> {
+    const clerkId = userIdService.getCurrentClerkId();
+    if (clerkId && isSupabaseConfigured()) {
+      try {
+        return await BudgetService.updateBudget(id, updates);
+      } catch (error) {
+        logger.error('[DataService] Error updating budget in Supabase:', error);
+      }
+    }
+    
+    // Fallback to localStorage
+    const budgets = await this.getBudgets();
+    const index = budgets.findIndex(b => b.id === id);
+    if (index === -1) throw new Error('Budget not found');
+    
+    budgets[index] = { 
+      ...budgets[index], 
+      ...updates,
+      updatedAt: new Date()
+    };
+    await storageAdapter.set(STORAGE_KEYS.BUDGETS, budgets);
+    return budgets[index];
+  }
+
+  /**
+   * Delete budget
+   */
+  static async deleteBudget(id: string): Promise<void> {
+    const clerkId = userIdService.getCurrentClerkId();
+    if (clerkId && isSupabaseConfigured()) {
+      try {
+        return await BudgetService.deleteBudget(id);
+      } catch (error) {
+        logger.error('[DataService] Error deleting budget from Supabase:', error);
+      }
+    }
+    
+    // Fallback to localStorage
+    const budgets = await this.getBudgets();
+    const filtered = budgets.filter(b => b.id !== id);
+    await storageAdapter.set(STORAGE_KEYS.BUDGETS, filtered);
+  }
+
+  /**
+   * Create goal
+   */
+  static async createGoal(goal: Omit<Goal, 'id' | 'createdAt' | 'updatedAt' | 'progress'>): Promise<Goal> {
+    const clerkId = userIdService.getCurrentClerkId();
+    if (clerkId && isSupabaseConfigured()) {
+      try {
+        return await GoalService.createGoal(clerkId, goal);
+      } catch (error) {
+        logger.error('[DataService] Error creating goal in Supabase:', error);
+      }
+    }
+    
+    // Fallback to localStorage
+    const newGoal: Goal = {
+      ...goal,
+      id: crypto.randomUUID(),
+      progress: (goal.currentAmount / goal.targetAmount) * 100,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    const goals = await this.getGoals();
+    goals.push(newGoal);
+    await storageAdapter.set(STORAGE_KEYS.GOALS, goals);
+    return newGoal;
+  }
+
+  /**
+   * Update goal
+   */
+  static async updateGoal(id: string, updates: Partial<Goal>): Promise<Goal> {
+    const clerkId = userIdService.getCurrentClerkId();
+    if (clerkId && isSupabaseConfigured()) {
+      try {
+        return await GoalService.updateGoal(id, updates);
+      } catch (error) {
+        logger.error('[DataService] Error updating goal in Supabase:', error);
+      }
+    }
+    
+    // Fallback to localStorage
+    const goals = await this.getGoals();
+    const index = goals.findIndex(g => g.id === id);
+    if (index === -1) throw new Error('Goal not found');
+    
+    const updatedGoal = { 
+      ...goals[index], 
+      ...updates,
+      updatedAt: new Date()
+    };
+    
+    // Recalculate progress if amounts changed
+    if (updates.currentAmount !== undefined || updates.targetAmount !== undefined) {
+      updatedGoal.progress = (updatedGoal.currentAmount / updatedGoal.targetAmount) * 100;
+    }
+    
+    goals[index] = updatedGoal;
+    await storageAdapter.set(STORAGE_KEYS.GOALS, goals);
+    return goals[index];
+  }
+
+  /**
+   * Delete goal
+   */
+  static async deleteGoal(id: string): Promise<void> {
+    const clerkId = userIdService.getCurrentClerkId();
+    if (clerkId && isSupabaseConfigured()) {
+      try {
+        return await GoalService.deleteGoal(id);
+      } catch (error) {
+        logger.error('[DataService] Error deleting goal from Supabase:', error);
+      }
+    }
+    
+    // Fallback to localStorage
+    const goals = await this.getGoals();
+    const filtered = goals.filter(g => g.id !== id);
+    await storageAdapter.set(STORAGE_KEYS.GOALS, filtered);
   }
 
   /**
@@ -277,7 +431,7 @@ export class DataService {
       try {
         return await CategoryService.getCategories(clerkId);
       } catch (error) {
-        console.error('[DataService] Error loading categories from Supabase:', error);
+        logger.error('[DataService] Error loading categories from Supabase:', error);
       }
     }
     

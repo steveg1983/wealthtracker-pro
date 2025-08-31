@@ -1,5 +1,6 @@
 import { exportService } from './exportService';
 import type { ExportOptions } from '../types/export';
+import { logger } from './loggingService';
 
 export interface BackupConfig {
   enabled: boolean;
@@ -41,7 +42,7 @@ class AutomaticBackupService {
           this.setupFallbackScheduler();
         }
       } catch (error) {
-        console.error('[AutomaticBackup] Failed to setup periodic sync:', error);
+        logger.error('[AutomaticBackup] Failed to setup periodic sync:', error);
         this.setupFallbackScheduler();
       }
     } else {
@@ -63,7 +64,7 @@ class AutomaticBackupService {
       });
       console.log('[AutomaticBackup] Periodic sync registered');
     } catch (error) {
-      console.error('[AutomaticBackup] Failed to register periodic sync:', error);
+      logger.error('[AutomaticBackup] Failed to register periodic sync:', error);
       throw error;
     }
   }
@@ -146,7 +147,7 @@ class AutomaticBackupService {
       
       console.log('[AutomaticBackup] Backup completed successfully');
     } catch (error) {
-      console.error('[AutomaticBackup] Backup failed:', error);
+      logger.error('[AutomaticBackup] Backup failed:', error);
       
       this.updateBackupHistory({
         timestamp: Date.now(),
@@ -187,7 +188,7 @@ class AutomaticBackupService {
         try {
           data[key.replace('money_management_', '')] = JSON.parse(value);
         } catch (error) {
-          console.warn(`Failed to parse ${key}:`, error);
+          logger.warn(`Failed to parse ${key}:`, error);
         }
       }
     }
@@ -384,7 +385,7 @@ class AutomaticBackupService {
       try {
         return JSON.parse(stored);
       } catch (error) {
-        console.error('Failed to parse backup config:', error);
+        logger.error('Failed to parse backup config:', error);
       }
     }
     
@@ -455,7 +456,7 @@ class AutomaticBackupService {
       try {
         return JSON.parse(stored);
       } catch (error) {
-        console.error('Failed to parse backup history:', error);
+        logger.error('Failed to parse backup history:', error);
       }
     }
     

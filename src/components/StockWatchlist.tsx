@@ -4,6 +4,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import StockQuoteWidget, { StockQuoteSearch } from './StockQuoteWidget';
 import { PlusIcon, XIcon, RefreshCwIcon } from './icons';
+import { logger } from '../services/loggingService';
 
 interface StockQuote {
   symbol: string;
@@ -35,7 +36,7 @@ export default function StockWatchlist() {
       setQuotes(stockQuotes);
       setLastUpdated(new Date());
     } catch (error) {
-      console.error('Error fetching watchlist quotes:', error);
+      logger.error('Error fetching watchlist quotes:', error);
     } finally {
       setIsLoading(false);
     }

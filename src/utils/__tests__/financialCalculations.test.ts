@@ -285,17 +285,19 @@ describe('Financial Calculations', () => {
 
   describe('Time-Based Analysis', () => {
     it('gets recent transactions', () => {
-      const recentTransactions = getRecentTransactions(mockTransactions, 7); // Last 7 days
+      // Create transactions with recent dates
+      const now = new Date();
+      const recentMockTransactions = [
+        createMockTransaction({ date: now, amount: 100 }),
+        createMockTransaction({ date: new Date(now.getTime() - 24 * 60 * 60 * 1000), amount: 200 }), // 1 day ago
+        createMockTransaction({ date: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000), amount: 300 }), // 5 days ago
+        createMockTransaction({ date: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000), amount: 400 }), // 10 days ago
+      ];
       
-      // Assuming current date is around January 20, 2025
-      const recent = recentTransactions.filter(t => {
-        const daysDiff = Math.floor(
-          (new Date('2025-01-20').getTime() - t.date.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        return daysDiff <= 7;
-      });
+      const recentTransactions = getRecentTransactions(recentMockTransactions, 7); // Last 7 days
       
-      expect(recent.length).toBeGreaterThan(0);
+      expect(recentTransactions.length).toBe(3); // Should get 3 transactions within 7 days
+      expect(recentTransactions[0].amount).toBe(100); // Most recent first
     });
 
     it('calculates monthly trends', () => {
@@ -383,18 +385,27 @@ describe('Financial Calculations', () => {
     });
 
     it('calculates time-based goal projections', () => {
-      const goal = mockGoals[1]; // Vacation Fund
+      // Create a goal with a future target date
+      const currentDate = new Date();
+      const futureDate = new Date(currentDate);
+      futureDate.setMonth(futureDate.getMonth() + 6); // 6 months from now
+      
+      const currentAmount = 1000;
       const monthlyContribution = 300;
       
       const projection = calculateProjectedSavings(
-        goal.currentAmount,
+        currentAmount,
         monthlyContribution,
-        goal.targetDate
+        futureDate
       );
       
-      expect(projection.projectedAmount).toBeGreaterThan(goal.currentAmount);
-      expect(projection.willMeetGoal).toBeDefined();
-      expect(projection.monthsToGoal).toBeDefined();
+      // The months calculation might include partial months
+      // Just verify it's greater than current and reasonable
+      expect(projection.projectedAmount).toBeGreaterThanOrEqual(currentAmount + (monthlyContribution * 5));
+      expect(projection.projectedAmount).toBeLessThanOrEqual(currentAmount + (monthlyContribution * 7));
+      expect(projection.willMeetGoal).toBe(true);
+      expect(projection.monthsToGoal).toBeGreaterThanOrEqual(5);
+      expect(projection.monthsToGoal).toBeLessThanOrEqual(7);
     });
   });
 

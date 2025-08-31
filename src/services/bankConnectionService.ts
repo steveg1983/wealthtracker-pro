@@ -1,4 +1,5 @@
 import type { Account, Transaction } from '../types';
+import { logger } from './loggingService';
 
 export interface BankConnection {
   id: string;
@@ -335,7 +336,7 @@ class BankConnectionService {
         this.connections = JSON.parse(stored);
       }
     } catch (error) {
-      console.error('Failed to load bank connections:', error);
+      logger.error('Failed to load bank connections:', error);
       this.connections = [];
     }
   }
@@ -347,7 +348,7 @@ class BankConnectionService {
     try {
       localStorage.setItem('bankConnections', JSON.stringify(this.connections));
     } catch (error) {
-      console.error('Failed to save bank connections:', error);
+      logger.error('Failed to save bank connections:', error);
     }
   }
 
@@ -363,7 +364,7 @@ class BankConnectionService {
         this.trueLayerConfig = config.trueLayer || {};
       }
     } catch (error) {
-      console.error('Failed to load bank API config:', error);
+      logger.error('Failed to load bank API config:', error);
     }
   }
 
@@ -378,7 +379,7 @@ class BankConnectionService {
       };
       localStorage.setItem('bankAPIConfig', JSON.stringify(config));
     } catch (error) {
-      console.error('Failed to save bank API config:', error);
+      logger.error('Failed to save bank API config:', error);
     }
   }
 }

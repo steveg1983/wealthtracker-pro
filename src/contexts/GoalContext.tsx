@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../services/loggingService';
 
 interface Goal {
   id: string;
@@ -44,7 +45,7 @@ export function GoalProvider({ children, initialGoals = [] }: GoalProviderProps)
           createdAt: new Date(goal.createdAt)
         }));
       } catch (error) {
-        console.error('Error parsing saved goals:', error);
+        logger.error('Error parsing saved goals:', error);
         return initialGoals;
       }
     }

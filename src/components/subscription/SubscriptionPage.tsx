@@ -19,6 +19,7 @@ import SyncSubscriptionButton from './SyncSubscriptionButton';
 import StripeStatusButton from './StripeStatusButton';
 import type { SubscriptionPlan, UserSubscription } from '../../types/subscription';
 import { ArrowLeftIcon, CheckCircleIcon } from '../icons';
+import { logger } from '../../services/loggingService';
 
 type ViewMode = 'plans' | 'payment' | 'billing' | 'success';
 
@@ -52,7 +53,7 @@ export default function SubscriptionPage({
             setIsLoading(false);
           }
         } catch (err) {
-          console.error('Error getting auth token:', err);
+          logger.error('Error getting auth token:', err);
           setIsLoading(false);
         }
       } else {
@@ -69,7 +70,7 @@ export default function SubscriptionPage({
     
     try {
       if (!token) {
-        console.warn('No auth token available');
+        logger.warn('No auth token available');
         setIsLoading(false);
         return;
       }
@@ -82,7 +83,7 @@ export default function SubscriptionPage({
         setCurrentView('billing');
       }
     } catch (err) {
-      console.error('Error loading subscription:', err);
+      logger.error('Error loading subscription:', err);
       setError('Failed to load subscription information');
     } finally {
       setIsLoading(false);
@@ -129,7 +130,7 @@ export default function SubscriptionPage({
             setError(result.error || 'Failed to cancel subscription');
           }
         } catch (err) {
-          console.error('Error cancelling subscription:', err);
+          logger.error('Error cancelling subscription:', err);
           setError('Failed to cancel subscription. Please try again or contact support.');
         } finally {
           setIsLoading(false);
@@ -165,7 +166,7 @@ export default function SubscriptionPage({
         setError('Failed to create checkout session');
       }
     } catch (err) {
-      console.error('Error creating checkout:', err);
+      logger.error('Error creating checkout:', err);
       setError('Failed to start checkout process');
     } finally {
       setIsLoading(false);

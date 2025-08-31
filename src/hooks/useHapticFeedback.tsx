@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { logger } from '../services/loggingService';
 
 /**
  * Haptic feedback patterns
@@ -141,7 +142,7 @@ export function useHapticFeedback() {
       
       return false;
     } catch (error) {
-      console.warn('Haptic feedback failed:', error);
+      logger.warn('Haptic feedback failed:', error);
       return false;
     }
   }, [isHapticAvailable, isHapticEnabled]);

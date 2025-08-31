@@ -4,6 +4,7 @@ import type { DecimalInstance } from '../types/decimal-types';
 import { smartCategorizationService } from './smartCategorizationService';
 import { importRulesService } from './importRulesService';
 import type { JsonValue } from '../types/common';
+import { logger } from './loggingService';
 
 export interface ColumnMapping {
   sourceColumn: string;
@@ -283,7 +284,7 @@ class EnhancedCsvImportService {
     }
     
     // Default to today if parsing fails
-    console.warn(`Cannot parse date: ${value}, using today's date`);
+    logger.warn(`Cannot parse date: ${value}, using today's date`);
     return new Date().toISOString().split('T')[0];
   }
 
@@ -555,7 +556,7 @@ class EnhancedCsvImportService {
     try {
       localStorage.setItem('csvImportProfiles', JSON.stringify(this.profiles));
     } catch (error) {
-      console.error('Failed to save import profiles:', error);
+      logger.error('Failed to save import profiles:', error);
     }
   }
 
@@ -617,7 +618,7 @@ class EnhancedCsvImportService {
         transactions.push(transaction);
         
       } catch (error) {
-        console.warn(`Failed to parse row ${rowIndex}:`, error);
+        logger.warn(`Failed to parse row ${rowIndex}:`, error);
       }
     }
     

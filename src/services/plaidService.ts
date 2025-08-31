@@ -6,6 +6,7 @@ import type { Account, Transaction } from '../types';
 import type { SavedPlaidConnection, PlaidApiParams } from '../types/plaid';
 import { plaidBackendService } from './api/plaidBackendService';
 import { useUser } from '@clerk/clerk-react';
+import { logger } from './loggingService';
 
 export interface PlaidAccount {
   account_id: string;
@@ -125,7 +126,7 @@ class PlaidService {
         });
       }
     } catch (error) {
-      console.error('Failed to load Plaid connections:', error);
+      logger.error('Failed to load Plaid connections:', error);
       this.connections = [];
     }
   }
@@ -134,7 +135,7 @@ class PlaidService {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.connections));
     } catch (error) {
-      console.error('Failed to save Plaid connections:', error);
+      logger.error('Failed to save Plaid connections:', error);
     }
   }
 
@@ -148,7 +149,7 @@ class PlaidService {
         expiration: new Date(Date.now() + 30 * 60 * 1000).toISOString()
       };
     } catch (error) {
-      console.error('Failed to create link token:', error);
+      logger.error('Failed to create link token:', error);
       // Fallback to development mode if backend is not available
       if (this.plaidEnv !== 'production') {
         return {
@@ -180,7 +181,7 @@ class PlaidService {
         item_id: connection.item_id
       };
     } catch (error) {
-      console.error('Failed to exchange public token:', error);
+      logger.error('Failed to exchange public token:', error);
       // Fallback for development
       if (this.plaidEnv !== 'production') {
         return {
@@ -224,7 +225,7 @@ class PlaidService {
       try {
         await this.syncAccountsFromBackend(clerkId, connection.id);
       } catch (error) {
-        console.error('Failed to sync accounts after connection:', error);
+        logger.error('Failed to sync accounts after connection:', error);
       }
     }
     
@@ -252,7 +253,7 @@ class PlaidService {
       this.saveConnections();
       return true;
     } catch (error) {
-      console.error('Failed to remove connection:', error);
+      logger.error('Failed to remove connection:', error);
       return false;
     }
   }
@@ -276,7 +277,7 @@ class PlaidService {
         mask: acc.mask
       }));
     } catch (error) {
-      console.error('Failed to sync accounts from backend:', error);
+      logger.error('Failed to sync accounts from backend:', error);
       // Fall back to local simulation if backend fails
       return this.syncAccounts(connectionId);
     }
@@ -393,7 +394,7 @@ class PlaidService {
         } : undefined
       }));
     } catch (error) {
-      console.error('Failed to sync transactions from backend:', error);
+      logger.error('Failed to sync transactions from backend:', error);
       // Fall back to local simulation
       return this.syncTransactions(connectionId, startDate, endDate);
     }
@@ -600,7 +601,7 @@ class PlaidService {
       
       this.saveConnections();
     } catch (error) {
-      console.error('Failed to load connections from backend:', error);
+      logger.error('Failed to load connections from backend:', error);
       // Fall back to local connections
       this.loadConnections();
     }
@@ -615,7 +616,7 @@ class PlaidService {
     }
     
     // Development mode simulation
-    console.warn('Development mode: Simulating API response');
+    logger.warn('Development mode: Simulating API response');
     return {} as T;
   }
 }

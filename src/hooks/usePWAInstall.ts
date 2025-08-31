@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '../services/loggingService';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -62,7 +63,7 @@ export function usePWAInstall(): {
       
       return outcome === 'accepted';
     } catch (error) {
-      console.error('Error installing app:', error);
+      logger.error('Error installing app:', error);
       return false;
     }
   };

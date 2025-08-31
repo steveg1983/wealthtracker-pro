@@ -1,3 +1,4 @@
+import { logger } from './loggingService';
 interface MerchantLogo {
   name: string;
   logo: string; // URL or emoji
@@ -157,7 +158,7 @@ export class MerchantLogoService {
         });
       }
     } catch (error) {
-      console.error('Error loading cached logos:', error);
+      logger.error('Error loading cached logos:', error);
     }
   }
   
@@ -169,7 +170,7 @@ export class MerchantLogoService {
       const cacheObj = Object.fromEntries(this.logoCache);
       localStorage.setItem('merchantLogos', JSON.stringify(cacheObj));
     } catch (error) {
-      console.error('Error saving cached logos:', error);
+      logger.error('Error saving cached logos:', error);
     }
   }
   
@@ -246,7 +247,7 @@ export class MerchantLogoService {
             img.onerror = () => {
               clearTimeout(timeout);
               const sourceNames = ['Clearbit logo', 'Google favicon', 'DuckDuckGo favicon'];
-              console.warn(`${sourceNames[attemptCount]} failed for ${domain}${attemptCount < sources.length - 1 ? ', trying next...' : ', will use emoji'}`);
+              logger.warn(`${sourceNames[attemptCount]} failed for ${domain}${attemptCount < sources.length - 1 ? ', trying next...' : ', will use emoji'}`);
               attemptCount++;
               tryNextSource();
             };
@@ -257,7 +258,7 @@ export class MerchantLogoService {
           tryNextSource();
         });
       } catch (error) {
-        console.error(`Error fetching logo for ${domain}:`, error);
+        logger.error(`Error fetching logo for ${domain}:`, error);
       }
       
       return null;

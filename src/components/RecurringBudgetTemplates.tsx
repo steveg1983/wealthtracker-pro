@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { 
@@ -43,8 +42,7 @@ interface RecurringSettings {
 }
 
 export default function RecurringBudgetTemplates() {
-  const { categories } = useApp();
-  const { budgets, addBudget, updateBudget, deleteBudget } = useBudgets();
+  const { categories, budgets, addBudget, updateBudget, deleteBudget } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
   const [templates, setTemplates] = useLocalStorage<BudgetTemplate[]>('budget-templates', []);
@@ -70,12 +68,12 @@ export default function RecurringBudgetTemplates() {
 
     const budgetItems = budgets.map(budget => {
       // Find category name for the budget
-      const categoryName = categories.find(c => c.id === budget.category)?.name || budget.category;
+      const categoryName = categories.find(c => c.id === budget.categoryId)?.name || budget.categoryId;
       
       return {
         name: categoryName,
         amount: budget.amount,
-        categoryIds: [budget.category],
+        categoryIds: [budget.categoryId],
         color: '#3B82F6', // Default color
         priority: 'medium' as const
       };
@@ -146,7 +144,7 @@ export default function RecurringBudgetTemplates() {
       // Create a budget for the first category in the item
       if (item.categoryIds.length > 0) {
         const newBudget = {
-          category: item.categoryIds[0],
+          categoryId: item.categoryIds[0],
           amount: item.amount,
           period: 'monthly' as const,
           isActive: true

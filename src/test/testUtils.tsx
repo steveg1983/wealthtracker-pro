@@ -8,13 +8,28 @@ import { render, RenderOptions } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { BrowserRouter } from 'react-router-dom';
 import { vi } from 'vitest';
+import { ClerkProvider } from '@clerk/clerk-react';
 import { store } from '../store';
 import { AppProvider } from '../contexts/AppContextSupabase';
 import { PreferencesProvider } from '../contexts/PreferencesContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { LayoutProvider } from '../contexts/LayoutContext';
+import { ToastProvider } from '../contexts/ToastContext';
 import { ThemeProvider } from '../design-system';
 import type { Transaction, Account, Budget, Goal, Category } from '../types';
+import { logger } from '../services/loggingService';
+
+// Mock Clerk for testing
+const mockClerkProp = {
+  user: {
+    id: 'test-user-id',
+    firstName: 'Test',
+    lastName: 'User',
+    emailAddresses: [{ emailAddress: 'test@example.com' }],
+  },
+  isLoaded: true,
+  isSignedIn: true,
+};
 
 // Mock data generators
 export const createMockTransaction = (overrides: Partial<Transaction> = {}): Transaction => ({
@@ -180,21 +195,25 @@ export const AllProviders: React.FC<AllProvidersProps> = ({
   initialState = {} 
 }) => {
   return (
-    <BrowserRouter>
-      <Provider store={store}>
-        <PreferencesProvider>
-          <ThemeProvider>
-            <AppProvider initialData={initialState}>
-              <NotificationProvider>
-                <LayoutProvider>
-                  {children}
-                </LayoutProvider>
-              </NotificationProvider>
-            </AppProvider>
-          </ThemeProvider>
-        </PreferencesProvider>
-      </Provider>
-    </BrowserRouter>
+    <ClerkProvider publishableKey="pk_test_cHJvLWNyYWZ0LTg2LmNsZXJrLmFjY291bnRzLmRldiQ" navigate={() => {}} initialState={mockClerkProp}>
+      <BrowserRouter>
+        <Provider store={store}>
+          <PreferencesProvider>
+            <ThemeProvider>
+              <ToastProvider>
+                <AppProvider initialData={initialState}>
+                  <NotificationProvider>
+                    <LayoutProvider>
+                      {children}
+                    </LayoutProvider>
+                  </NotificationProvider>
+                </AppProvider>
+              </ToastProvider>
+            </ThemeProvider>
+          </PreferencesProvider>
+        </Provider>
+      </BrowserRouter>
+    </ClerkProvider>
   );
 };
 
@@ -318,7 +337,7 @@ export class TestErrorBoundary extends React.Component<
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Test error boundary caught an error:', error, errorInfo);
+    logger.error('Test error boundary caught an error:', error, errorInfo);
   }
 
   render() {

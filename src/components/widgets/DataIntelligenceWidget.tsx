@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../../services/dataIntelligenceService';
 import type { DataIntelligenceStats, SpendingInsight } from '../../services/dataIntelligenceService';
 import { 
+import { logger } from '../../services/loggingService';
   DatabaseIcon,
   BellIcon,
   CreditCardIcon,
@@ -48,7 +49,7 @@ export default function DataIntelligenceWidget({
       setStats(statsData);
       setInsights(insightsData.slice(0, maxInsights));
     } catch (error) {
-      console.error('Error loading data intelligence data:', error);
+      logger.error('Error loading data intelligence data:', error);
     } finally {
       setIsLoading(false);
     }

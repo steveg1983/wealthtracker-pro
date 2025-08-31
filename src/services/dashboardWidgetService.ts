@@ -11,6 +11,7 @@
 
 import { supabase } from '../lib/supabase';
 import { userIdService } from './userIdService';
+import { logger } from './loggingService';
 
 export interface WidgetPosition {
   x: number;
@@ -115,7 +116,7 @@ class DashboardWidgetService {
       // Fall back to localStorage
       return this.getFromLocalStorage();
     } catch (error) {
-      console.error('Error getting widgets:', error);
+      logger.error('Error getting widgets:', error);
       return this.getFromLocalStorage();
     }
   }
@@ -145,10 +146,10 @@ class DashboardWidgetService {
         });
 
       if (error) {
-        console.error('Error saving widgets to database:', error);
+        logger.error('Error saving widgets to database:', error);
       }
     } catch (error) {
-      console.error('Error saving widgets:', error);
+      logger.error('Error saving widgets:', error);
     }
   }
 
@@ -303,7 +304,7 @@ class DashboardWidgetService {
         updatedAt: new Date(data.updated_at)
       };
     } catch (error) {
-      console.error('Error saving layout:', error);
+      logger.error('Error saving layout:', error);
       throw error;
     }
   }
@@ -329,7 +330,7 @@ class DashboardWidgetService {
         await this.saveWidgets(clerkId, data.widgets);
       }
     } catch (error) {
-      console.error('Error loading layout:', error);
+      logger.error('Error loading layout:', error);
       throw error;
     }
   }
@@ -360,7 +361,7 @@ class DashboardWidgetService {
         updatedAt: new Date(layout.updated_at)
       }));
     } catch (error) {
-      console.error('Error getting layouts:', error);
+      logger.error('Error getting layouts:', error);
       return [];
     }
   }
@@ -401,7 +402,7 @@ class DashboardWidgetService {
         return JSON.parse(stored);
       }
     } catch (error) {
-      console.error('Error reading from localStorage:', error);
+      logger.error('Error reading from localStorage:', error);
     }
     return this.getDefaultWidgets();
   }
@@ -413,7 +414,7 @@ class DashboardWidgetService {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(widgets));
     } catch (error) {
-      console.error('Error saving to localStorage:', error);
+      logger.error('Error saving to localStorage:', error);
     }
   }
 }

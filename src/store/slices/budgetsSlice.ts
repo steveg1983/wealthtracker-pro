@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Budget } from '../../types';
+import { serializeForRedux } from '../../utils/serializeForRedux';
 import { getCurrentISOString } from '../../utils/dateHelpers';
 import {
   fetchBudgetsFromSupabase,
@@ -30,7 +31,7 @@ const budgetsSlice = createSlice({
   initialState,
   reducers: {
     setBudgets: (state, action: PayloadAction<Budget[]>) => {
-      state.budgets = action.payload;
+      state.budgets = serializeForRedux(action.payload) as any;
       state.error = null;
     },
     addBudget: (state, action: PayloadAction<Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>>) => {
@@ -40,16 +41,16 @@ const budgetsSlice = createSlice({
         createdAt: getCurrentISOString(),
         updatedAt: getCurrentISOString(),
       };
-      state.budgets.push(newBudget);
+      state.budgets.push(serializeForRedux(newBudget) as any);
     },
     updateBudget: (state, action: PayloadAction<{ id: string; updates: Partial<Budget> }>) => {
       const index = state.budgets.findIndex(b => b.id === action.payload.id);
       if (index !== -1) {
-        state.budgets[index] = {
+        state.budgets[index] = serializeForRedux({
           ...state.budgets[index],
           ...action.payload.updates,
           updatedAt: getCurrentISOString(),
-        };
+        }) as any;
       }
     },
     deleteBudget: (state, action: PayloadAction<string>) => {
@@ -72,7 +73,7 @@ const budgetsSlice = createSlice({
       })
       .addCase(fetchBudgetsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
-        state.budgets = action.payload;
+        state.budgets = serializeForRedux(action.payload) as any;
       })
       .addCase(fetchBudgetsFromSupabase.rejected, (state, action) => {
         state.loading = false;

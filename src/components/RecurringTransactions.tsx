@@ -15,6 +15,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { Transaction } from '../types';
 import { format, addDays, addWeeks, addMonths, addYears, isBefore, isAfter } from 'date-fns';
 import { formatCurrency } from '../utils/formatters';
+import { logger } from '../services/loggingService';
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
 
@@ -117,7 +118,7 @@ export default function RecurringTransactions(): React.JSX.Element {
           : t
       ));
     } catch (error) {
-      console.error('Failed to process recurring template:', error);
+      logger.error('Failed to process recurring template:', error);
     } finally {
       setProcessingTemplates(prev => {
         const next = new Set(prev);

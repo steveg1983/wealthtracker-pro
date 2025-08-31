@@ -13,11 +13,11 @@ import {
   PiggyBankIcon,
   AlertTriangleIcon
 } from './icons';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 export default function BudgetRecommendations() {
   const { transactions, categories, budgets, updateBudget, addBudget } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   const [analysis, setAnalysis] = useState<BudgetAnalysis | null>(null);
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);

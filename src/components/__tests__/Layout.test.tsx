@@ -34,12 +34,5 @@ describe('Layout', () => {
     }
   });
 
-  it('validates form inputs', async () => {
-    // Add validation tests
-  });
-
-  it('handles error states', () => {
-    // Add error handling tests
-  });
 
 });

@@ -19,6 +19,7 @@ import {
 } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import type { Transaction } from '../types';
+import { logger } from '../services/loggingService';
 
 interface FilterPreset {
   id: string;
@@ -82,7 +83,7 @@ export function QuickFiltersAndSearch({
       try {
         setSavedSearches(JSON.parse(saved));
       } catch (e) {
-        console.error('Failed to parse saved searches:', e);
+        logger.error('Failed to parse saved searches:', e);
       }
     }
     
@@ -91,7 +92,7 @@ export function QuickFiltersAndSearch({
       try {
         setRecentSearches(JSON.parse(recent));
       } catch (e) {
-        console.error('Failed to parse recent searches:', e);
+        logger.error('Failed to parse recent searches:', e);
       }
     }
   }, []);

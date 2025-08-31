@@ -1,25 +1,32 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import compression from 'vite-plugin-compression2'
+import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
+
+// Feature flags (read at config time in Node)
+const ANALYZE = !!process.env.ANALYZE_BUNDLE
+const ENABLE_COMPRESS = process.env.ENABLE_ASSET_COMPRESSION !== 'false'
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [
-    react(),
-    // Add gzip compression for better mobile performance
-    compression({
-      algorithm: 'gzip',
-      threshold: 1024, // Compress files larger than 1kb for mobile
-      deleteOriginalAssets: false,
-    }),
-    // Add brotli compression for modern browsers
-    compression({
-      algorithm: 'brotliCompress',
-      threshold: 1024,
-      deleteOriginalAssets: false,
-    })
-  ],
+  plugins: (
+    () => {
+      const plugins = [react()]
+      // Compress only during build, and only if enabled
+      if (ENABLE_COMPRESS) {
+        plugins.push(
+          compression({ algorithm: 'gzip', threshold: 1024, deleteOriginalAssets: false, apply: 'build' }) as any,
+          compression({ algorithm: 'brotliCompress', threshold: 1024, deleteOriginalAssets: false, apply: 'build' }) as any,
+        )
+      }
+      // Bundle analyzer gated by env flag
+      if (ANALYZE) {
+        plugins.push(visualizer({ open: true, filename: 'bundle-stats.html', gzipSize: true, brotliSize: true }) as any)
+      }
+      return plugins
+    }
+  )(),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -32,7 +39,14 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: false,
-    open: false
+    open: false,
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_URL || 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      }
+    }
   },
   preview: {
     host: true,
@@ -45,23 +59,16 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        // Optimized chunking - keep React together to avoid module errors
-        manualChunks: {
-          // Core vendor bundle - MUST stay together
-          'vendor': [
-            'react',
-            'react-dom',
-            'react-router-dom',
-            '@reduxjs/toolkit',
-            'react-redux',
-            'redux'
-          ],
-          // Heavy visualization libraries
-          'charts': ['recharts', 'd3-scale', 'd3-shape'],
-          // Excel/CSV processing
-          'excel': ['xlsx'],
-          // PDF generation
-          'pdf': ['jspdf', 'html2canvas']
+        // Simpler chunking strategy to reduce build complexity
+        manualChunks: (id) => {
+          if (!id.includes('node_modules')) return undefined
+          const clean = id.replace(/.*node_modules\//, '')
+          if (clean.startsWith('react/') || clean === 'react' || clean.startsWith('react-dom/')) return 'react'
+          if (clean.includes('@supabase')) return 'supabase'
+          if (clean.includes('@clerk')) return 'auth'
+          if (clean.includes('plotly') || clean.includes('recharts') || clean.includes('chart.js')) return 'charts'
+          if (clean.includes('xlsx') || clean.includes('jspdf') || clean.includes('html2canvas') || clean.includes('tesseract')) return 'heavy'
+          return 'vendor'
         },
         // Use content hash for better caching
         entryFileNames: 'assets/[name]-[hash].js',

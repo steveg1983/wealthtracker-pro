@@ -18,6 +18,7 @@ import {
 import { toDecimal } from '../utils/decimal';
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
+import { logger } from '../services/loggingService';
 
 interface TransactionReconciliationProps {
   isOpen: boolean;
@@ -198,7 +199,7 @@ export default function TransactionReconciliation({
       
       setResults({ matched, unmatched, suggestions });
     } catch (error) {
-      console.error('Error during reconciliation:', error);
+      logger.error('Error during reconciliation:', error);
     } finally {
       setReconciling(false);
     }

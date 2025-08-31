@@ -10,7 +10,9 @@
  */
 
 import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { apiUrl } from '../config/api';
 import type {
+import { logger } from './loggingService';
   SubscriptionTier,
   SubscriptionPlan,
   UserSubscription,
@@ -80,7 +82,7 @@ export class StripeService {
         price: 7.99,
         currency: 'gbp',
         interval: 'month',
-        stripePriceId: import.meta.env.STRIPE_PREMIUM_PRICE_ID || '',
+        stripePriceId: import.meta.env.VITE_STRIPE_PREMIUM_PRICE_ID || '',
         features: [
           'Unlimited accounts',
           'Unlimited transactions',
@@ -110,7 +112,7 @@ export class StripeService {
         price: 15.99,
         currency: 'gbp',
         interval: 'month',
-        stripePriceId: import.meta.env.STRIPE_PRO_PRICE_ID || '',
+        stripePriceId: import.meta.env.VITE_STRIPE_PRO_PRICE_ID || '',
         features: [
           'Everything in Premium',
           'API access',
@@ -203,7 +205,7 @@ export class StripeService {
     clerkToken: string
   ): Promise<{ sessionId: string; url: string }> {
     try {
-      const response = await fetch('http://localhost:3000/api/subscriptions/create-checkout', {
+      const response = await fetch(apiUrl('subscriptions/create-checkout'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -224,7 +226,7 @@ export class StripeService {
       const data = await response.json();
       return data.data;
     } catch (error) {
-      console.error('Error creating checkout session:', error);
+      logger.error('Error creating checkout session:', error);
       throw error;
     }
   }
@@ -261,7 +263,7 @@ export class StripeService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error updating subscription:', error);
+      logger.error('Error updating subscription:', error);
       throw error;
     }
   }
@@ -275,7 +277,7 @@ export class StripeService {
     cancelAtPeriodEnd: boolean = true
   ): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await fetch(`http://localhost:3000/api/subscriptions/${subscriptionId}/cancel`, {
+      const response = await fetch(apiUrl(`subscriptions/${subscriptionId}/cancel`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -296,7 +298,7 @@ export class StripeService {
 
       return { success: true };
     } catch (error) {
-      console.error('Error cancelling subscription:', error);
+      logger.error('Error cancelling subscription:', error);
       return { 
         success: false, 
         error: error instanceof Error ? error.message : 'Failed to cancel subscription' 
@@ -312,9 +314,7 @@ export class StripeService {
     newPriceId: string
   ): Promise<SubscriptionPreview> {
     try {
-      const response = await fetch(
-        `/api/subscriptions/${subscriptionId}/preview?priceId=${newPriceId}`
-      );
+      const response = await fetch(apiUrl(`subscriptions/${subscriptionId}/preview?priceId=${newPriceId}`));
 
       if (!response.ok) {
         throw new Error(`Failed to get subscription preview: ${response.statusText}`);
@@ -322,7 +322,7 @@ export class StripeService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting subscription preview:', error);
+      logger.error('Error getting subscription preview:', error);
       throw error;
     }
   }
@@ -334,11 +334,11 @@ export class StripeService {
     try {
       // If no token provided, we can't make the request
       if (!clerkToken) {
-        console.warn('No authentication token provided');
+        logger.warn('No authentication token provided');
         return null;
       }
 
-      const response = await fetch('http://localhost:3000/api/subscriptions/status', {
+      const response = await fetch(apiUrl('subscriptions/status'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${clerkToken}`
@@ -370,7 +370,7 @@ export class StripeService {
       }
       return null;
     } catch (error) {
-      console.error('Error getting current subscription:', error);
+      logger.error('Error getting current subscription:', error);
       throw error;
     }
   }
@@ -380,7 +380,7 @@ export class StripeService {
    */
   static async getBillingHistory(): Promise<BillingHistory> {
     try {
-      const response = await fetch('/api/billing/history');
+      const response = await fetch(apiUrl('billing/history'));
 
       if (!response.ok) {
         throw new Error(`Failed to get billing history: ${response.statusText}`);
@@ -388,7 +388,7 @@ export class StripeService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting billing history:', error);
+      logger.error('Error getting billing history:', error);
       throw error;
     }
   }
@@ -398,7 +398,7 @@ export class StripeService {
    */
   static async addPaymentMethod(paymentMethodId: string): Promise<PaymentMethod> {
     try {
-      const response = await fetch('/api/billing/payment-methods', {
+      const response = await fetch(apiUrl('billing/payment-methods'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -412,7 +412,7 @@ export class StripeService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error adding payment method:', error);
+      logger.error('Error adding payment method:', error);
       throw error;
     }
   }
@@ -422,7 +422,7 @@ export class StripeService {
    */
   static async setDefaultPaymentMethod(paymentMethodId: string): Promise<void> {
     try {
-      const response = await fetch(`/api/billing/payment-methods/${paymentMethodId}/default`, {
+      const response = await fetch(apiUrl(`billing/payment-methods/${paymentMethodId}/default`), {
         method: 'PUT',
       });
 
@@ -430,7 +430,7 @@ export class StripeService {
         throw new Error(`Failed to set default payment method: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Error setting default payment method:', error);
+      logger.error('Error setting default payment method:', error);
       throw error;
     }
   }
@@ -440,7 +440,7 @@ export class StripeService {
    */
   static async removePaymentMethod(paymentMethodId: string): Promise<void> {
     try {
-      const response = await fetch(`/api/billing/payment-methods/${paymentMethodId}`, {
+      const response = await fetch(apiUrl(`billing/payment-methods/${paymentMethodId}`), {
         method: 'DELETE',
       });
 
@@ -448,7 +448,7 @@ export class StripeService {
         throw new Error(`Failed to remove payment method: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Error removing payment method:', error);
+      logger.error('Error removing payment method:', error);
       throw error;
     }
   }
@@ -458,7 +458,7 @@ export class StripeService {
    */
   static async createPortalSession(): Promise<string> {
     try {
-      const response = await fetch('/api/billing/portal', {
+      const response = await fetch(apiUrl('billing/portal'), {
         method: 'POST',
       });
 
@@ -469,7 +469,7 @@ export class StripeService {
       const { url } = await response.json();
       return url;
     } catch (error) {
-      console.error('Error creating portal session:', error);
+      logger.error('Error creating portal session:', error);
       throw error;
     }
   }

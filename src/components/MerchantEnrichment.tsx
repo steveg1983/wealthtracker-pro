@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import type { MerchantData, MerchantEnrichment } from '../services/dataIntelligenceService';
 import { 
+import { logger } from '../services/loggingService';
   SearchIcon,
   TagIcon,
   BuildingIcon,
@@ -81,7 +82,7 @@ export default function MerchantEnrichment({ onDataChange }: MerchantEnrichmentP
       ];
       setMerchants(mockMerchants);
     } catch (error) {
-      console.error('Error loading merchants:', error);
+      logger.error('Error loading merchants:', error);
     } finally {
       setIsLoading(false);
     }

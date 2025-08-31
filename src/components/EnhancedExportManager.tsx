@@ -21,6 +21,7 @@ import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths } f
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import { logger } from '../services/loggingService';
 
 type ExportFormat = 'pdf' | 'excel' | 'csv';
 type ReportType = 'transactions' | 'summary' | 'budget' | 'tax' | 'investment' | 'networth' | 'custom';
@@ -408,7 +409,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
       
       setIsOpen(false);
     } catch (error) {
-      console.error('Export failed:', error);
+      logger.error('Export failed:', error);
     } finally {
       setIsExporting(false);
     }

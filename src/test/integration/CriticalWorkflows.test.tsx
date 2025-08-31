@@ -280,25 +280,29 @@ describe('Critical Workflows Integration Tests', () => {
 
       const savingsDeposit = screen.getAllByText('Deposit £100')[1];
       await user.click(savingsDeposit);
-      await user.click(savingsDeposit); // Click twice
-      // Verify multiple deposits
+      await user.click(savingsDeposit); // Two deposits to savings
+      
+      // After deposits: checking has 100, savings has 200
       await waitFor(() => {
         const accountsList = screen.getByTestId('accounts-list');
-        expect(accountsList).toHaveTextContent('300.00');
+        // Both accounts should be visible with their balances
+        expect(accountsList).toHaveTextContent('Checking Account: £100.00');
+        expect(accountsList).toHaveTextContent('Savings Account: £200.00');
       });
 
-      // Verify total balance - both accounts have 300 each = 600
-      expect(screen.getByTestId('total-balance')).toHaveTextContent('Total: £600.00');
+      // Verify total balance - checking has 100, savings has 200 = 300
+      expect(screen.getByTestId('total-balance')).toHaveTextContent('Total: £300.00');
 
       // Make withdrawal
       const checkingWithdraw = screen.getAllByText('Withdraw £50')[0];
       await user.click(checkingWithdraw);
-      // Verify withdrawal worked
+      // Verify withdrawal worked (checking: 100-50=50)
       await waitFor(() => {
         const accountsList = screen.getByTestId('accounts-list');
-        expect(accountsList).toHaveTextContent('250.00');
+        expect(accountsList).toHaveTextContent('Checking Account: £50.00'); 
       });
-      expect(screen.getByTestId('total-balance')).toHaveTextContent('Total: £500.00');
+      // Total balance: checking 50 + savings 200 = 250
+      expect(screen.getByTestId('total-balance')).toHaveTextContent('Total: £250.00');
     });
   });
 

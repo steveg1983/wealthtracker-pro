@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppSelector, useAppDispatch } from '../store';
+import { selectTransactions } from '../store/selectors/transactionsSelectors';
+import { selectAccounts } from '../store/selectors/accountsSelectors';
 import { deleteTransaction } from '../store/slices/transactionsSlice';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { format } from 'date-fns';
@@ -23,9 +25,9 @@ export function TransactionListRedux() {
   const { formatCurrency } = useCurrencyDecimal();
   
   // Get data from Redux store
-  const transactions = useAppSelector(state => state.transactions.transactions);
+  const transactions = useAppSelector(selectTransactions);
   const categories = useAppSelector(state => state.categories.categories);
-  const accounts = useAppSelector(state => state.accounts.accounts);
+  const accounts = useAppSelector(selectAccounts);
   
   // Local state for UI
   const [searchTerm, setSearchTerm] = useState('');

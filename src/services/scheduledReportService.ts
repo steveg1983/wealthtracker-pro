@@ -3,6 +3,7 @@ import { exportService } from './exportService';
 import type { CustomReport } from '../components/CustomReportBuilder';
 import type { Transaction, Account, Budget, Category } from '../types';
 import { format } from 'date-fns';
+import { logger } from './loggingService';
 
 export interface ScheduledCustomReport {
   id: string;
@@ -50,7 +51,7 @@ class ScheduledReportService {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
-      console.error('Failed to load scheduled reports:', error);
+      logger.error('Failed to load scheduled reports:', error);
       return [];
     }
   }
@@ -208,7 +209,7 @@ class ScheduledReportService {
       
       console.log(`[ScheduledReports] Report completed: ${scheduledReport.reportName}`);
     } catch (error) {
-      console.error(`[ScheduledReports] Report failed: ${scheduledReport.reportName}`, error);
+      logger.error(`[ScheduledReports] Report failed: ${scheduledReport.reportName}`, error);
       
       // Save failure to history
       this.addToHistory({

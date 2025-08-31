@@ -1,4 +1,6 @@
 import { StrictMode } from 'react'
+// Route console.* to centralized logger in production (no-op in dev)
+import './setup/consoleToLogger'
 import { createRoot } from 'react-dom/client'
 import { Provider } from 'react-redux'
 import { ClerkProvider } from '@clerk/clerk-react'
@@ -11,6 +13,7 @@ import { initializeSecurity } from './security'
 import { pushNotificationService } from './services/pushNotificationService'
 import { checkEnvironmentVariables } from './utils/env-check'
 import { initSentry } from './lib/sentry'
+import { logger } from './services/loggingService';
 
 // Check environment variables in development
 if (import.meta.env.DEV) {
@@ -20,8 +23,8 @@ if (import.meta.env.DEV) {
 // Get Clerk publishable key
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 if (!PUBLISHABLE_KEY) {
-  console.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
-  console.error('Available env vars:', Object.keys(import.meta.env));
+  logger.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
+  logger.error('Available env vars:', Object.keys(import.meta.env));
 }
 
 // Initialize all security features
@@ -44,16 +47,16 @@ if ('serviceWorker' in navigator) {
 try {
   initSentry();
 } catch (error) {
-  console.error('Error initializing Sentry:', error);
+  logger.error('Error initializing Sentry:', error);
 }
 
 // Add error logging
 window.addEventListener('error', (event): void => {
-  console.error('Global error:', event.error);
+  logger.error('Global error:', event.error);
 });
 
 window.addEventListener('unhandledrejection', (event): void => {
-  console.error('Unhandled promise rejection:', event.reason);
+  logger.error('Unhandled promise rejection:', event.reason);
 });
 
 // Remove any pre-existing dark class on app start
@@ -62,7 +65,7 @@ document.documentElement.classList.remove('dark');
 try {
   const root = document.getElementById('root');
   if (!root) {
-    console.error('Root element not found!');
+    logger.error('Root element not found!');
   } else {
     console.log('Starting React app...');
     createRoot(root).render(
@@ -88,7 +91,7 @@ try {
     console.log('React app rendered');
   }
 } catch (error) {
-  console.error('Error rendering app:', error);
+  logger.error('Error rendering app:', error);
 }
 
 // Register service worker for offline support
@@ -107,7 +110,7 @@ serviceWorkerRegistration.register({
       await pushNotificationService.initialize();
       console.log('Push notifications initialized');
     } catch (error) {
-      console.error('Failed to initialize push notifications:', error);
+      logger.error('Failed to initialize push notifications:', error);
     }
   },
   onUpdate: (registration) => {

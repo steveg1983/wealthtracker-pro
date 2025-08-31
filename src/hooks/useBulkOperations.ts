@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { IconProps } from '../components/icons';
+import { logger } from '../services/loggingService';
 
 export interface BulkOperation<T> {
   id: string;
@@ -70,7 +71,7 @@ export function useBulkOperations<T extends { id: string }>(
       await operation.action(selectedObjects);
       setSelectedItems(new Set()); // Clear selection after successful operation
     } catch (error) {
-      console.error('Bulk operation failed:', error);
+      logger.error('Bulk operation failed:', error);
       throw error;
     } finally {
       setIsProcessing(false);

@@ -13,6 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { BusinessMetrics } from '../../services/businessService';
 import type { BaseWidgetProps } from '../../types/widget-types';
+import { logger } from '../../services/loggingService';
 
 interface BusinessWidgetProps extends BaseWidgetProps {}
 
@@ -30,7 +31,7 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
       const businessMetrics = businessService.getBusinessMetrics();
       setMetrics(businessMetrics);
     } catch (error) {
-      console.error('Error loading business metrics:', error);
+      logger.error('Error loading business metrics:', error);
     } finally {
       setIsLoading(false);
     }

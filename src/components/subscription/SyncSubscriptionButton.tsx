@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { RefreshCwIcon } from '../icons';
+import { apiUrl } from '../../config/api';
+import { logger } from '../../services/loggingService';
 
 export default function SyncSubscriptionButton({ onSync }: { onSync?: () => void }): React.JSX.Element {
   const { getToken } = useAuth();
@@ -18,7 +20,7 @@ export default function SyncSubscriptionButton({ onSync }: { onSync?: () => void
         return;
       }
 
-      const response = await fetch('http://localhost:3000/api/subscriptions/sync', {
+      const response = await fetch(apiUrl('subscriptions/sync'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -41,7 +43,7 @@ export default function SyncSubscriptionButton({ onSync }: { onSync?: () => void
         setMessage(`Error: ${data.error || 'Sync failed'}`);
       }
     } catch (error) {
-      console.error('Sync error:', error);
+      logger.error('Sync error:', error);
       setMessage('Failed to sync subscription');
     } finally {
       setSyncing(false);

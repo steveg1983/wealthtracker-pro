@@ -39,7 +39,7 @@ class SecureStorageAdapter implements StorageAdapter {
       // Schedule periodic cleanup
       this.scheduleCleanup();
     } catch (error) {
-      console.error('Failed to initialize secure storage:', error);
+      logger.error('Failed to initialize secure storage:', error);
       // Fallback to localStorage if IndexedDB fails
       this._isReady = true;
     }
@@ -81,7 +81,7 @@ class SecureStorageAdapter implements StorageAdapter {
       console.log('Migration completed successfully');
       this.migrationCompleted = true;
     } catch (error) {
-      console.error('Migration failed:', error);
+      logger.error('Migration failed:', error);
     }
   }
 
@@ -107,7 +107,7 @@ class SecureStorageAdapter implements StorageAdapter {
 
       return null;
     } catch (error) {
-      console.error(`Error getting ${key}:`, error);
+      logger.error(`Error getting ${key}:`, error);
       // Final fallback to localStorage
       const localData = localStorage.getItem(key);
       if (localData) {
@@ -149,7 +149,7 @@ class SecureStorageAdapter implements StorageAdapter {
         localStorage.removeItem(key);
       }
     } catch (error) {
-      console.error(`Error setting ${key}:`, error);
+      logger.error(`Error setting ${key}:`, error);
       // Fallback to localStorage
       localStorage.setItem(key, JSON.stringify(value));
     }
@@ -160,7 +160,7 @@ class SecureStorageAdapter implements StorageAdapter {
       await encryptedStorage.removeItem(key);
       localStorage.removeItem(key); // Also remove from localStorage
     } catch (error) {
-      console.error(`Error removing ${key}:`, error);
+      logger.error(`Error removing ${key}:`, error);
       localStorage.removeItem(key);
     }
   }
@@ -178,7 +178,7 @@ class SecureStorageAdapter implements StorageAdapter {
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
     } catch (error) {
-      console.error('Error clearing storage:', error);
+      logger.error('Error clearing storage:', error);
     }
   }
 
@@ -190,7 +190,7 @@ class SecureStorageAdapter implements StorageAdapter {
         await encryptedStorage.cleanupExpiredData();
         await indexedDBService.cleanCache();
       } catch (error) {
-        console.error('Cleanup error:', error);
+        logger.error('Cleanup error:', error);
       }
     }, 60 * 60 * 1000); // 1 hour
 
@@ -200,7 +200,7 @@ class SecureStorageAdapter implements StorageAdapter {
         await encryptedStorage.cleanupExpiredData();
         await indexedDBService.cleanCache();
       } catch (error) {
-        console.error('Initial cleanup error:', error);
+        logger.error('Initial cleanup error:', error);
       }
     }, 5000);
   }
@@ -226,6 +226,7 @@ export const storageAdapter = new SecureStorageAdapter();
 
 // Hook for React components
 import { useEffect, useState } from 'react';
+import { logger } from './loggingService';
 
 export function useSecureStorage<T>(key: string, initialValue: T): [T, (value: T) => Promise<void>, boolean] {
   const [value, setValue] = useState<T>(initialValue);
@@ -239,7 +240,7 @@ export function useSecureStorage<T>(key: string, initialValue: T): [T, (value: T
           setValue(stored);
         }
       } catch (error) {
-        console.error(`Error loading ${key}:`, error);
+        logger.error(`Error loading ${key}:`, error);
       } finally {
         setIsLoading(false);
       }

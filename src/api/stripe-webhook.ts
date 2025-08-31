@@ -1,5 +1,6 @@
 import { Stripe } from 'stripe';
 import { processWebhookEvent, HANDLED_EVENTS } from '../lib/stripe-webhooks';
+import { logger } from '../services/loggingService';
 
 // Initialize Stripe with secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -31,7 +32,7 @@ export function createExpressWebhookHandler() {
         webhookSecret
       );
     } catch (err) {
-      console.error('Webhook signature verification failed:', err);
+      logger.error('Webhook signature verification failed:', err);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
@@ -68,7 +69,7 @@ export async function handleNextJsWebhook(req: any, res: any) {
       webhookSecret
     );
   } catch (err) {
-    console.error('Webhook signature verification failed:', err);
+    logger.error('Webhook signature verification failed:', err);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
@@ -99,7 +100,7 @@ export async function handleVercelEdgeWebhook(request: Request) {
   try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err) {
-    console.error('Webhook signature verification failed:', err);
+    logger.error('Webhook signature verification failed:', err);
     return new Response(
       JSON.stringify({ error: 'Webhook signature verification failed' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }

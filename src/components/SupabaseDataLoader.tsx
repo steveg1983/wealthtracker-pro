@@ -15,6 +15,7 @@ import { userIdService } from '../services/userIdService';
 import { AppDispatch } from '../store';
 import { loadAllData } from '../store/thunks';
 import PageLoader from './PageLoader';
+import { logger } from '../services/loggingService';
 
 interface SupabaseDataLoaderProps {
   children: React.ReactNode;
@@ -43,7 +44,7 @@ export function SupabaseDataLoader({ children }: SupabaseDataLoaderProps) {
         );
 
         if (!databaseId) {
-          console.error('Failed to initialize user in database');
+          logger.error('Failed to initialize user in database');
           setError('Failed to initialize user account. Please try refreshing the page.');
           setDataLoaded(true);
           setDataLoading(false);
@@ -63,7 +64,7 @@ export function SupabaseDataLoader({ children }: SupabaseDataLoaderProps) {
             setDataLoaded(true);
           })
           .catch((error) => {
-            console.error('❌ Failed to load data from Supabase:', error);
+            logger.error('❌ Failed to load data from Supabase:', error);
             setError('Failed to load your data. Please try refreshing the page.');
             // Still mark as loaded so the app can function with cached data
             setDataLoaded(true);

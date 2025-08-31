@@ -1,4 +1,5 @@
 import type { Transaction, Holding } from '../types';
+import { logger } from '../services/loggingService';
 
 interface InvestmentTransactionData {
   ticker: string;
@@ -57,7 +58,7 @@ export function parseInvestmentTransaction(transaction: Transaction): Investment
 
     return null;
   } catch (error) {
-    console.error('Error parsing investment transaction:', error);
+    logger.error('Error parsing investment transaction:', error);
     return null;
   }
 }

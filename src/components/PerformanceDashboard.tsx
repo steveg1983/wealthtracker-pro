@@ -3,6 +3,7 @@ import { usePerformanceMonitoring } from '../hooks/usePerformanceMonitoring';
 import { Card } from './common/Card';
 import ActivityIcon from './icons/ActivityIcon';
 import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { logger } from '../services/loggingService';
 
 interface WebVitalScore {
   metric: string;
@@ -76,7 +77,7 @@ export const PerformanceDashboard: React.FC = () => {
     try {
       observer.observe({ type: 'paint', buffered: true });
     } catch (error) {
-      console.warn('Paint timing not supported');
+      logger.warn('Paint timing not supported');
     }
 
     return () => {

@@ -28,6 +28,7 @@ import { fetchTransactionsFromSupabase as loadTransactions } from '../slices/tra
 import { loadCategories } from '../slices/categoriesSlice';
 import { loadRecurringTransactions } from '../slices/recurringTransactionsSlice';
 import { syncOfflineData } from './supabaseThunks';
+import { logger } from '../../services/loggingService';
 
 // Load all data from Supabase (with localStorage fallback)
 export const loadAllData = createAsyncThunk<void, void, { dispatch: AppDispatch }>(
@@ -48,7 +49,7 @@ export const loadAllData = createAsyncThunk<void, void, { dispatch: AppDispatch 
       // Sync any offline changes
       dispatch(syncOfflineData());
     } catch (error) {
-      console.error('Failed to load data from Supabase:', error);
+      logger.error('Failed to load data from Supabase:', error);
       // The individual thunks will handle fallback to localStorage
     }
   }

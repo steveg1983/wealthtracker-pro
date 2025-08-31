@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { dividendService } from '../services/dividendService';
 import type { Dividend, DividendSummary, DividendProjection } from '../services/dividendService';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Investment } from '../types';
 import {
@@ -36,7 +36,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
   const [selectedSymbol, setSelectedSymbol] = useState<string>('');
   
   const { accounts } = useApp();
-  const { currencySymbol } = useCurrency();
+  const { currencySymbol } = useCurrencyDecimal();
   const { formatCurrency } = useCurrencyDecimal();
 
   // Extract investments from accounts with holdings

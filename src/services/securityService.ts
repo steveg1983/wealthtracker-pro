@@ -1,6 +1,7 @@
 import { Transaction, Account, Budget, Goal, Investment } from '../types';
 import type { AuditLogChanges, SavedAuditLog, BiometricAvailabilityResult } from '../types/security';
 import type { JsonValue } from '../types/common';
+import { logger } from './loggingService';
 
 export interface SecuritySettings {
   twoFactorEnabled: boolean;
@@ -194,7 +195,7 @@ class SecurityService {
         return biometricCredential;
       }
     } catch (error) {
-      console.error('Biometric setup failed:', error);
+      logger.error('Biometric setup failed:', error);
     }
 
     return null;
@@ -229,7 +230,7 @@ class SecurityService {
       const assertion = await navigator.credentials.get(getOptions);
       return assertion !== null;
     } catch (error) {
-      console.error('Biometric verification failed:', error);
+      logger.error('Biometric verification failed:', error);
       return false;
     }
   }
@@ -293,7 +294,7 @@ class SecurityService {
       
       return this.arrayBufferToBase64(combined.buffer);
     } catch (error) {
-      console.error('Encryption failed:', error);
+      logger.error('Encryption failed:', error);
       return data;
     }
   }
@@ -324,7 +325,7 @@ class SecurityService {
       const decoder = new TextDecoder();
       return decoder.decode(decryptedBuffer);
     } catch (error) {
-      console.error('Decryption failed:', error);
+      logger.error('Decryption failed:', error);
       return encryptedData;
     }
   }

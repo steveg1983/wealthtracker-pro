@@ -2,6 +2,7 @@ import CryptoJS from 'crypto-js';
 import { indexedDBService } from './indexedDBService';
 import type { JsonValue } from '../types/common';
 import type { StorageOptions, StoredData, StorageItem, BulkStorageItem, StorageEstimate, ExportedData } from '../types/storage';
+import { logger } from './loggingService';
 
 // Types are now imported from ../types/storage.ts
 
@@ -42,7 +43,7 @@ class EncryptedStorageService {
       const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
       return JSON.parse(decryptedString) as JsonValue;
     } catch (error) {
-      console.error('Decryption failed:', error);
+      logger.error('Decryption failed:', error);
       throw new Error('Failed to decrypt data');
     }
   }
@@ -120,7 +121,7 @@ class EncryptedStorageService {
 
       return data as T;
     } catch (error) {
-      console.error('Error retrieving data:', error);
+      logger.error('Error retrieving data:', error);
       return null;
     }
   }
@@ -201,7 +202,7 @@ class EncryptedStorageService {
             value: data,
             options: { encrypted: true }
           });
-          console.warn(`Migrating non-JSON value for key ${key}: "${data}"`);
+          logger.warn(`Migrating non-JSON value for key ${key}: "${data}"`);
         }
       }
     }

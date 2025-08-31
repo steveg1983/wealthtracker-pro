@@ -1,4 +1,5 @@
 import type { Account, Transaction, Budget, Goal } from '../types';
+import { logger } from './loggingService';
 
 export interface HouseholdMember {
   id: string;
@@ -125,7 +126,7 @@ class HouseholdService {
         }));
       }
     } catch (error) {
-      console.error('Failed to load household data:', error);
+      logger.error('Failed to load household data:', error);
     }
   }
 
@@ -137,7 +138,7 @@ class HouseholdService {
       localStorage.setItem(this.INVITES_KEY, JSON.stringify(this.invites));
       localStorage.setItem(this.ACTIVITIES_KEY, JSON.stringify(this.activities));
     } catch (error) {
-      console.error('Failed to save household data:', error);
+      logger.error('Failed to save household data:', error);
     }
   }
 

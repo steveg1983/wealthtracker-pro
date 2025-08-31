@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import PageWrapper from '../components/PageWrapper';
 import { SkeletonCard } from '../components/loading/Skeleton';
+import { logger } from '../services/loggingService';
 
 // Lazy load only modals and heavy features for better performance
 const TestDataWarningModal = lazy(() => import('../components/TestDataWarningModal'));
@@ -27,7 +28,7 @@ export default function Dashboard() {
         try {
           // Simple test query to check connection
           const { error } = await supabase
-            .from('user_profiles')
+            .from('users')
             .select('id')
             .limit(1);
           
@@ -38,10 +39,10 @@ export default function Dashboard() {
             // Silent auto-migration - no user interaction needed
             // Migration happens automatically in AppContextSupabase
           } else {
-            console.warn('⚠️ Supabase connection issue:', error.message);
+            logger.warn('⚠️ Supabase connection issue:', error.message);
           }
         } catch (err) {
-          console.error('❌ Supabase connection failed:', err);
+          logger.error('❌ Supabase connection failed:', err);
           setSupabaseConnected(false);
         }
       } else {

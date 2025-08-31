@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { exportService } from '../services/exportService';
 import type { ExportOptions, ExportTemplate } from '../services/exportService';
 import { 
+import { logger } from '../services/loggingService';
   XIcon,
   DownloadIcon,
   FileTextIcon,
@@ -124,7 +125,7 @@ export default function EnhancedExportModal({
 
       onClose();
     } catch (error) {
-      console.error('Export failed:', error);
+      logger.error('Export failed:', error);
       alert('Export failed. Please try again.');
     } finally {
       setIsLoading(false);

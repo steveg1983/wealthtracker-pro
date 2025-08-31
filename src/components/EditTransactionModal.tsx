@@ -12,6 +12,7 @@ import MarkdownEditor from './MarkdownEditor';
 import DocumentManager from './DocumentManager';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
+import { logger } from '../services/loggingService';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -115,7 +116,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
           if (error instanceof z.ZodError) {
             setValidationErrors(ValidationService.formatErrors(error));
           } else {
-            console.error('Failed to update transaction:', error);
+            logger.error('Failed to update transaction:', error);
             setValidationErrors({ general: 'Failed to update transaction. Please try again.' });
           }
         }

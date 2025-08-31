@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { logger } from '../../services/loggingService';
 
 export type Theme = 'light' | 'dark' | 'auto' | 'scheduled';
 export type ColorTheme = 'green' | 'blue' | 'purple' | 'orange';
@@ -39,7 +40,7 @@ const savePreferencesToStorage = (preferences: PreferencesState) => {
   try {
     localStorage.setItem('preferences', JSON.stringify(preferences));
   } catch (error) {
-    console.error('Failed to save preferences:', error);
+    logger.error('Failed to save preferences:', error);
   }
 };
 

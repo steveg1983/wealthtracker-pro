@@ -19,6 +19,7 @@ import InvoiceManager from '../components/InvoiceManager';
 import MileageTracker from '../components/MileageTracker';
 import BusinessExpenseManager from '../components/BusinessExpenseManager';
 import type { BusinessMetrics } from '../services/businessService';
+import { logger } from '../services/loggingService';
 
 export default function BusinessFeatures() {
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'expenses' | 'mileage'>('overview');
@@ -35,7 +36,7 @@ export default function BusinessFeatures() {
       const businessMetrics = businessService.getBusinessMetrics();
       setMetrics(businessMetrics);
     } catch (error) {
-      console.error('Error loading business data:', error);
+      logger.error('Error loading business data:', error);
     } finally {
       setIsLoading(false);
     }

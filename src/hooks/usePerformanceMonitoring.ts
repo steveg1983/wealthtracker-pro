@@ -1,4 +1,5 @@
 import { useEffect, useCallback } from 'react';
+import { logger } from '../services/loggingService';
 
 interface PerformanceMetrics {
   fcp?: number; // First Contentful Paint
@@ -71,7 +72,7 @@ export const usePerformanceMonitoring = () => {
       clsObserver.observe({ type: 'layout-shift', buffered: true });
       inpObserver.observe({ type: 'event', buffered: true, durationThreshold: 40 });
     } catch (error) {
-      console.warn('Performance monitoring not supported:', error);
+      logger.warn('Performance monitoring not supported:', error);
     }
 
     // Get First Contentful Paint
@@ -151,7 +152,7 @@ export const usePerformanceMonitoring = () => {
     if ('PerformanceObserver' in window) {
       const observer = new PerformanceObserver((list) => {
         list.getEntries().forEach((entry: any) => {
-          console.warn('Long task detected:', {
+          logger.warn('Long task detected:', {
             duration: entry.duration,
             startTime: entry.startTime,
             attribution: entry.attribution
@@ -162,7 +163,7 @@ export const usePerformanceMonitoring = () => {
       try {
         observer.observe({ entryTypes: ['longtask'] });
       } catch (error) {
-        console.warn('Long task monitoring not supported');
+        logger.warn('Long task monitoring not supported');
       }
     }
   }, []);

@@ -1,4 +1,5 @@
 import type { SavedThemeSchedule, SavedThemePreset } from '../types/theme';
+import { logger } from './loggingService';
 
 export interface ThemeSchedule {
   id: string;
@@ -88,7 +89,7 @@ class ThemeSchedulingService {
         this.currentSchedule = this.schedules.find(s => s.id === scheduleId) || null;
       }
     } catch (error) {
-      console.error('Error loading theme scheduling data:', error);
+      logger.error('Error loading theme scheduling data:', error);
     }
   }
 
@@ -98,7 +99,7 @@ class ThemeSchedulingService {
       localStorage.setItem('theme-presets', JSON.stringify(this.presets));
       localStorage.setItem('current-theme-schedule', JSON.stringify(this.currentSchedule?.id || null));
     } catch (error) {
-      console.error('Error saving theme scheduling data:', error);
+      logger.error('Error saving theme scheduling data:', error);
     }
   }
 

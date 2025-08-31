@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
+import { logger } from '../services/loggingService';
 
 interface PreferencesContextType {
   compactView: boolean;
@@ -54,7 +55,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       // Default to true (compact view) if no saved preference
       return saved !== null ? saved === 'true' : true;
     } catch (error) {
-      console.error('Error reading compactView from localStorage:', error);
+      logger.error('Error reading compactView from localStorage:', error);
       return true; // Default to compact view
     }
   });
@@ -63,7 +64,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     try {
       return localStorage.getItem('money_management_currency') || 'GBP';
     } catch (error) {
-      console.error('Error reading currency from localStorage:', error);
+      logger.error('Error reading currency from localStorage:', error);
       return 'GBP';
     }
   });
@@ -80,7 +81,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       }
       return saved as 'light' | 'dark' | 'auto' | 'scheduled';
     } catch (error) {
-      console.error('Error reading theme from localStorage:', error);
+      logger.error('Error reading theme from localStorage:', error);
       return 'light';
     }
   });
@@ -94,7 +95,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       }
       return saved as 'blue' | 'green' | 'red' | 'pink';
     } catch (error) {
-      console.error('Error reading colorTheme from localStorage:', error);
+      logger.error('Error reading colorTheme from localStorage:', error);
       return 'blue';
     }
   });
@@ -103,7 +104,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     try {
       return localStorage.getItem('money_management_first_name') || '';
     } catch (error) {
-      console.error('Error reading firstName from localStorage:', error);
+      logger.error('Error reading firstName from localStorage:', error);
       return '';
     }
   });
@@ -114,7 +115,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const saved = localStorage.getItem('money_management_show_budget');
       return saved !== 'false'; // Default to true
     } catch (error) {
-      console.error('Error reading showBudget from localStorage:', error);
+      logger.error('Error reading showBudget from localStorage:', error);
       return true;
     }
   });
@@ -124,7 +125,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const saved = localStorage.getItem('money_management_show_goals');
       return saved !== 'false'; // Default to true
     } catch (error) {
-      console.error('Error reading showGoals from localStorage:', error);
+      logger.error('Error reading showGoals from localStorage:', error);
       return true;
     }
   });
@@ -134,7 +135,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const saved = localStorage.getItem('money_management_show_analytics');
       return saved !== 'false'; // Default to true
     } catch (error) {
-      console.error('Error reading showAnalytics from localStorage:', error);
+      logger.error('Error reading showAnalytics from localStorage:', error);
       return true;
     }
   });
@@ -144,7 +145,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const saved = localStorage.getItem('money_management_goal_celebrations');
       return saved !== 'false'; // Default to true
     } catch (error) {
-      console.error('Error reading enableGoalCelebrations from localStorage:', error);
+      logger.error('Error reading enableGoalCelebrations from localStorage:', error);
       return true;
     }
   });
@@ -155,7 +156,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const saved = localStorage.getItem('money_management_show_investments');
       return saved !== 'false'; // Default to true
     } catch (error) {
-      console.error('Error reading showInvestments from localStorage:', error);
+      logger.error('Error reading showInvestments from localStorage:', error);
       return true;
     }
   });
@@ -165,7 +166,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const saved = localStorage.getItem('money_management_show_enhanced_investments');
       return saved !== 'false'; // Default to true
     } catch (error) {
-      console.error('Error reading showEnhancedInvestments from localStorage:', error);
+      logger.error('Error reading showEnhancedInvestments from localStorage:', error);
       return true;
     }
   });
@@ -175,7 +176,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const saved = localStorage.getItem('money_management_show_ai_analytics');
       return saved !== 'false'; // Default to true
     } catch (error) {
-      console.error('Error reading showAIAnalytics from localStorage:', error);
+      logger.error('Error reading showAIAnalytics from localStorage:', error);
       return true;
     }
   });
@@ -185,7 +186,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const saved = localStorage.getItem('money_management_show_financial_planning');
       return saved !== 'false'; // Default to true
     } catch (error) {
-      console.error('Error reading showFinancialPlanning from localStorage:', error);
+      logger.error('Error reading showFinancialPlanning from localStorage:', error);
       return true;
     }
   });
@@ -195,7 +196,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const saved = localStorage.getItem('money_management_show_data_intelligence');
       return saved !== 'false'; // Default to true
     } catch (error) {
-      console.error('Error reading showDataIntelligence from localStorage:', error);
+      logger.error('Error reading showDataIntelligence from localStorage:', error);
       return true;
     }
   });
@@ -205,7 +206,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       const saved = localStorage.getItem('money_management_show_summaries');
       return saved !== 'false'; // Default to true
     } catch (error) {
-      console.error('Error reading showSummaries from localStorage:', error);
+      logger.error('Error reading showSummaries from localStorage:', error);
       return true;
     }
   });
@@ -222,7 +223,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
         darkStartTime: '18:00'
       };
     } catch (error) {
-      console.error('Error reading theme schedule from localStorage:', error);
+      logger.error('Error reading theme schedule from localStorage:', error);
       return {
         enabled: false,
         lightStartTime: '06:00',

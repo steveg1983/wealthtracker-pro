@@ -17,6 +17,7 @@ import FixSummaryModal from './FixSummaryModal';
 import type { ChangeRecord } from './FixSummaryModal';
 import BalanceReconciliationModal from './BalanceReconciliationModal';
 import type { ReconciliationOption } from './BalanceReconciliationModal';
+import { logger } from '../services/loggingService';
 
 interface DataValidationProps {
   isOpen: boolean;
@@ -453,7 +454,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       setChanges(allChanges);
       setShowSummary(true);
     } catch (error) {
-      console.error('Error fixing issues:', error);
+      logger.error('Error fixing issues:', error);
     } finally {
       setFixing(false);
       setFixProgress({ current: 0, total: 0 });
@@ -468,7 +469,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
     if (change.type === 'transaction') {
       if (change.field === 'deleted') {
         // Can't undo deletions in this simple implementation
-        console.warn('Cannot undo deletion');
+        logger.warn('Cannot undo deletion');
       } else {
         updateTransaction(change.itemId, { [change.field]: change.oldValue });
       }
@@ -608,7 +609,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
         await new Promise(resolve => setTimeout(resolve, 500));
         
       } catch (error) {
-        console.error('Error adding transaction:', error);
+        logger.error('Error adding transaction:', error);
       }
 
       fixChanges.push({

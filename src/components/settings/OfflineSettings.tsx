@@ -5,6 +5,7 @@ import { formatBytes } from '../../utils/formatters';
 import { Button } from '../common/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../common/Card';
 import { WifiOffIcon, DatabaseIcon, RefreshCwIcon, TrashIcon, DownloadIcon } from '../icons';
+import { logger } from '../../services/loggingService';
 
 export function OfflineSettings(): React.JSX.Element {
   const { isOffline, isSyncing, pendingChanges, syncNow, clearOfflineData } = useOffline();
@@ -23,7 +24,7 @@ export function OfflineSettings(): React.JSX.Element {
         setCacheSize(estimate.usage || 0);
       }
     } catch (error) {
-      console.error('Failed to calculate cache size:', error);
+      logger.error('Failed to calculate cache size:', error);
     } finally {
       setIsCalculatingSize(false);
     }
@@ -46,7 +47,7 @@ export function OfflineSettings(): React.JSX.Element {
         
         alert('Cache cleared successfully');
       } catch (error) {
-        console.error('Failed to clear cache:', error);
+        logger.error('Failed to clear cache:', error);
         alert('Failed to clear cache');
       }
     }
@@ -73,7 +74,7 @@ export function OfflineSettings(): React.JSX.Element {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Failed to download offline data:', error);
+      logger.error('Failed to download offline data:', error);
       alert('Failed to download offline data');
     }
   };

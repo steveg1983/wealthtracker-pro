@@ -14,6 +14,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import PageWrapper from '../components/PageWrapper';
 import { investmentService, type PortfolioSummary } from '../services/api/investmentService';
+import { logger } from '../services/loggingService';
 
 export default function Investments() {
   const { accounts, transactions, updateAccount } = useApp();
@@ -52,7 +53,7 @@ export default function Investments() {
       // Migrate from localStorage if needed
       await investmentService.migrateFromLocalStorage(user.id);
     } catch (error) {
-      console.error('Failed to load portfolio data:', error);
+      logger.error('Failed to load portfolio data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -720,7 +721,7 @@ export default function Investments() {
               await loadPortfolioData();
               setShowAddInvestmentModal(false);
             } catch (error) {
-              console.error('Failed to add investment:', error);
+              logger.error('Failed to add investment:', error);
             }
           }}
         />

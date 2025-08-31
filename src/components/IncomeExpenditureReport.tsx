@@ -3,6 +3,7 @@ import { Settings, Maximize2 } from '../components/icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import TransactionDetailsModal from './TransactionDetailsModal';
 import type { Transaction, Account } from '../types';
+import { logger } from '../services/loggingService';
 
 interface Category {
   id: string;
@@ -125,7 +126,7 @@ export default function IncomeExpenditureReport({
   
   // Validate data structure
   if (!data || !data.months || !data.categories || !Array.isArray(data.months) || !Array.isArray(data.categories)) {
-    console.error('Invalid data structure provided to IncomeExpenditureReport:', data);
+    logger.error('Invalid data structure provided to IncomeExpenditureReport:', data);
     return (
       <div className="text-center py-8 text-gray-500 dark:text-gray-400">
         <p>Unable to display report. Please check your data.</p>
@@ -326,7 +327,7 @@ export default function IncomeExpenditureReport({
             {data.categories.map(categoryData => {
               // Skip invalid category data
               if (!categoryData || !categoryData.category || !categoryData.category.id) {
-                console.warn('Skipping invalid category data:', categoryData);
+                logger.warn('Skipping invalid category data:', categoryData);
                 return null;
               }
               

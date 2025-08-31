@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getStockQuote, getMultipleStockQuotes } from '../services/stockPriceService';
 import type { Holding } from '../types';
 import type { DecimalInstance } from '../utils/decimal';
+import { logger } from '../services/loggingService';
 
 interface StockPrice {
   symbol: string;
@@ -54,7 +55,7 @@ export function useStockPrices(holdings: Holding[]): UseStockPricesResult {
       setPrices(newPrices);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch stock prices');
-      console.error('Error fetching stock prices:', err);
+      logger.error('Error fetching stock prices:', err);
     } finally {
       setLoading(false);
     }
@@ -115,7 +116,7 @@ export function useStockPrice(symbol: string | undefined) {
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to fetch stock price');
-        console.error('Error fetching stock price:', err);
+        logger.error('Error fetching stock price:', err);
       } finally {
         setLoading(false);
       }

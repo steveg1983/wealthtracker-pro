@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { offlineDataService } from '../services/offlineDataService';
+import { logger } from '../services/loggingService';
 
 interface UseOfflineDataReturn {
   isOnline: boolean;
@@ -24,7 +25,7 @@ export function useOfflineData(): UseOfflineDataReturn {
       const syncs = await offlineDataService.getPendingSyncs();
       setPendingSyncCount(syncs.length);
     } catch (error) {
-      console.error('Failed to get pending syncs:', error);
+      logger.error('Failed to get pending syncs:', error);
     }
   }, []);
 
@@ -34,7 +35,7 @@ export function useOfflineData(): UseOfflineDataReturn {
       const conflictList = await offlineDataService.getConflicts();
       setConflicts(conflictList);
     } catch (error) {
-      console.error('Failed to get conflicts:', error);
+      logger.error('Failed to get conflicts:', error);
     }
   }, []);
 

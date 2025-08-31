@@ -1,3 +1,4 @@
+import { logger } from './loggingService';
 /**
  * Performance Monitoring Service
  * Tracks Core Web Vitals, custom metrics, and provides performance insights
@@ -61,7 +62,7 @@ class PerformanceService {
         });
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
       } catch (e) {
-        console.warn('LCP observer not supported');
+        logger.warn('LCP observer not supported');
       }
 
       // Observe First Input Delay
@@ -76,7 +77,7 @@ class PerformanceService {
         });
         fidObserver.observe({ entryTypes: ['first-input'] });
       } catch (e) {
-        console.warn('FID observer not supported');
+        logger.warn('FID observer not supported');
       }
 
       // Observe Cumulative Layout Shift
@@ -92,7 +93,7 @@ class PerformanceService {
         });
         clsObserver.observe({ entryTypes: ['layout-shift'] });
       } catch (e) {
-        console.warn('CLS observer not supported');
+        logger.warn('CLS observer not supported');
       }
 
       // Observe First Contentful Paint
@@ -107,7 +108,7 @@ class PerformanceService {
         });
         fcpObserver.observe({ entryTypes: ['paint'] });
       } catch (e) {
-        console.warn('FCP observer not supported');
+        logger.warn('FCP observer not supported');
       }
     }
 
@@ -135,7 +136,7 @@ class PerformanceService {
       try {
         inpObserver.observe({ entryTypes: ['event'] });
       } catch (e) {
-        console.warn('INP observer not supported');
+        logger.warn('INP observer not supported');
       }
     }
   }
@@ -202,7 +203,7 @@ class PerformanceService {
       if (currentTime >= lastTime + 1000) {
         const fps = Math.round((frames * 1000) / (currentTime - lastTime));
         if (fps < 30) {
-          console.warn(`[Performance] Low FPS detected: ${fps}`);
+          logger.warn(`[Performance] Low FPS detected: ${fps}`);
         }
         frames = 0;
         lastTime = currentTime;
@@ -223,7 +224,7 @@ class PerformanceService {
       const slowResources = entries.filter((entry) => entry.duration > 1000);
       
       if (slowResources.length > 0) {
-        console.warn('[Performance] Slow resources detected:', 
+        logger.warn('[Performance] Slow resources detected:', 
           slowResources.map(r => ({
             name: r.name,
             duration: Math.round(r.duration),
@@ -236,7 +237,7 @@ class PerformanceService {
     try {
       resourceObserver.observe({ entryTypes: ['resource'] });
     } catch (e) {
-      console.warn('Resource timing not supported');
+      logger.warn('Resource timing not supported');
     }
   }
 
@@ -270,7 +271,7 @@ class PerformanceService {
     
     // Warn if bundle is too large
     if (totalSize > 5 * 1048576) { // 5MB
-      console.warn('[Performance] Bundle size exceeds 5MB threshold');
+      logger.warn('[Performance] Bundle size exceeds 5MB threshold');
     }
   }
 
@@ -402,7 +403,7 @@ class PerformanceService {
       const measure = performance.measure(name, startMark, endMark);
       this.recordCustomMetric(name, measure.duration);
     } catch (e) {
-      console.error('Performance measurement failed:', e);
+      logger.error('Performance measurement failed:', e);
     }
   }
 

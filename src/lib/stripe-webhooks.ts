@@ -1,5 +1,6 @@
 import { Stripe } from 'stripe';
 import { supabase } from './supabase';
+import { logger } from '../services/loggingService';
 
 // Webhook event types we handle
 export const HANDLED_EVENTS = [
@@ -58,7 +59,7 @@ export async function processWebhookEvent(
         return { success: true, message: 'Event type not handled' };
     }
   } catch (error) {
-    console.error('Webhook processing error:', error);
+    logger.error('Webhook processing error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -79,19 +80,32 @@ async function handleCheckoutSessionCompleted(
   }
 
   // Update user's subscription in database
-  const { error } = await supabase
-    .from('user_profiles')
-    .update({
-      stripe_customer_id: session.customer as string,
-      stripe_subscription_id: session.subscription as string,
-      subscription_status: 'active',
-      subscription_tier: getPlanFromPriceId(session.amount_total || 0),
-      updated_at: new Date().toISOString()
-    })
-    .eq('user_id', session.client_reference_id!);
+  // Resolve the user by the client reference (assumed Clerk ID) then update by user ID
+  let userId: string | null = null;
+  if (session.client_reference_id) {
+    const { data: user } = await supabase
+      .from('users')
+      .select('id')
+      .eq('clerk_id', session.client_reference_id as string)
+      .single();
+    userId = user?.id ?? null;
+  }
+
+  const { error } = userId
+    ? await supabase
+        .from('users')
+        .update({
+          stripe_customer_id: session.customer as string,
+          // Store subscription status/tier on users for quick access
+          subscription_status: 'active',
+          subscription_tier: getPlanFromPriceId(session.amount_total || 0),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', userId)
+    : { error: null } as any;
 
   if (error) {
-    console.error('Failed to update user subscription:', error);
+    logger.error('Failed to update user subscription:', error);
     return { success: false, error: error.message };
   }
 
@@ -115,8 +129,8 @@ async function handleSubscriptionUpdate(
 
   // Find user by Stripe customer ID
   const { data: user, error: userError } = await supabase
-    .from('user_profiles')
-    .select('user_id')
+    .from('users')
+    .select('id')
     .eq('stripe_customer_id', subscription.customer as string)
     .single();
 
@@ -126,15 +140,13 @@ async function handleSubscriptionUpdate(
 
   // Update subscription details
   const { error } = await supabase
-    .from('user_profiles')
+    .from('users')
     .update({
       subscription_status: status,
       subscription_tier: tier,
-      subscription_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
-      cancel_at_period_end: subscription.cancel_at_period_end,
       updated_at: new Date().toISOString()
     })
-    .eq('user_id', user.user_id);
+    .eq('id', user.id);
 
   if (error) {
     return { success: false, error: error.message };
@@ -156,8 +168,8 @@ async function handleSubscriptionDeleted(
 
   // Find user
   const { data: user, error: userError } = await supabase
-    .from('user_profiles')
-    .select('user_id, email')
+    .from('users')
+    .select('id, email')
     .eq('stripe_customer_id', subscription.customer as string)
     .single();
 
@@ -167,15 +179,13 @@ async function handleSubscriptionDeleted(
 
   // Downgrade to free tier
   const { error } = await supabase
-    .from('user_profiles')
+    .from('users')
     .update({
       subscription_status: 'canceled',
       subscription_tier: 'free',
-      subscription_period_end: null,
-      cancel_at_period_end: false,
       updated_at: new Date().toISOString()
     })
-    .eq('user_id', user.user_id);
+    .eq('id', user.id);
 
   if (error) {
     return { success: false, error: error.message };
@@ -215,7 +225,7 @@ async function handleInvoicePaid(
     });
 
   if (error) {
-    console.error('Failed to record payment:', error);
+    logger.error('Failed to record payment:', error);
   }
 
   return { success: true, message: 'Payment recorded' };
@@ -231,8 +241,8 @@ async function handlePaymentFailed(
 
   // Find user
   const { data: user, error: userError } = await supabase
-    .from('user_profiles')
-    .select('user_id, email')
+    .from('users')
+    .select('id, email')
     .eq('stripe_customer_id', invoice.customer as string)
     .single();
 
@@ -242,15 +252,15 @@ async function handlePaymentFailed(
 
   // Update subscription status
   const { error } = await supabase
-    .from('user_profiles')
+    .from('users')
     .update({
       subscription_status: 'past_due',
       updated_at: new Date().toISOString()
     })
-    .eq('user_id', user.user_id);
+    .eq('id', user.id);
 
   if (error) {
-    console.error('Failed to update subscription status:', error);
+    logger.error('Failed to update subscription status:', error);
   }
 
   // Send payment failed email
@@ -271,18 +281,17 @@ async function handlePaymentMethodAttached(
   const paymentMethod = event.data.object;
 
   // Update user's default payment method
+  // Optional: store limited payment method info on users if columns exist.
+  // To avoid schema drift, only update status fields here.
   const { error } = await supabase
-    .from('user_profiles')
+    .from('users')
     .update({
-      has_payment_method: true,
-      payment_method_last4: paymentMethod.card?.last4,
-      payment_method_brand: paymentMethod.card?.brand,
       updated_at: new Date().toISOString()
     })
     .eq('stripe_customer_id', paymentMethod.customer as string);
 
   if (error) {
-    console.error('Failed to update payment method:', error);
+    logger.error('Failed to update payment method:', error);
   }
 
   return { success: true, message: 'Payment method attached' };
@@ -367,6 +376,6 @@ async function logSubscriptionEvent(
       created_at: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Failed to log subscription event:', error);
+    logger.error('Failed to log subscription event:', error);
   }
 }

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { logger } from './services/loggingService';
 
 export default function ImportTest() {
   const [test, setTest] = useState(0);
@@ -10,7 +11,7 @@ export default function ImportTest() {
       console.log(`✅ ${name} imported successfully`);
       return true;
     } catch (error) {
-      console.error(`❌ ${name} import failed:`, error);
+      logger.error(`❌ ${name} import failed:`, error);
       return false;
     }
   };

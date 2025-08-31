@@ -13,16 +13,11 @@ import { supabase } from '../lib/supabase';
 import { storageAdapter, STORAGE_KEYS } from './storageAdapter';
 import { userIdService } from './userIdService';
 import type { Account, Transaction, Budget, Goal, Category } from '../types';
+import type { EntityType, SyncData, OfflineQueueItem } from '../types/sync-types';
+import { logger } from './loggingService';
 
-interface SyncQueueItem {
-  id: string;
-  type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'account' | 'transaction' | 'budget' | 'goal' | 'category';
-  data: any;
-  timestamp: number;
-  retries: number;
-  status: 'pending' | 'syncing' | 'completed' | 'failed';
-}
+// Use the properly typed OfflineQueueItem from sync-types
+type SyncQueueItem = OfflineQueueItem;
 
 interface SyncStatus {
   isOnline: boolean;
@@ -30,6 +25,14 @@ interface SyncStatus {
   lastSyncTime: Date | null;
   pendingChanges: number;
   syncErrors: string[];
+}
+
+interface LocalData {
+  accounts?: Account[];
+  transactions?: Transaction[];
+  budgets?: Budget[];
+  goals?: Goal[];
+  categories?: Category[];
 }
 
 class AutoSyncService {
@@ -107,7 +110,7 @@ class AutoSyncService {
       this.isInitialized = true;
       console.log('[AutoSync] Initialization complete');
     } catch (error) {
-      console.error('[AutoSync] Initialization failed:', error);
+      logger.error('[AutoSync] Initialization failed:', error);
       // Don't throw - app should work even if sync fails
     }
   }
@@ -133,7 +136,7 @@ class AutoSyncService {
 
       return accounts && accounts.length > 0;
     } catch (error) {
-      console.error('[AutoSync] Error checking cloud data:', error);
+      logger.error('[AutoSync] Error checking cloud data:', error);
       return false;
     }
   }
@@ -156,7 +159,7 @@ class AutoSyncService {
   /**
    * Check if there's any local data
    */
-  private hasLocalData(data: any): boolean {
+  private hasLocalData(data: LocalData): boolean {
     return data.accounts.length > 0 || 
            data.transactions.length > 0 || 
            data.budgets.length > 0 || 
@@ -166,7 +169,7 @@ class AutoSyncService {
   /**
    * Migrate local data to cloud (first-time sync)
    */
-  private async migrateToCloud(userId: string, localData: any): Promise<void> {
+  private async migrateToCloud(userId: string, localData: LocalData): Promise<void> {
     if (!supabase) return;
 
     console.log('[AutoSync] Starting silent migration to cloud...');
@@ -198,7 +201,7 @@ class AutoSyncService {
           .insert(accountsToInsert);
 
         if (accountError) {
-          console.error('[AutoSync] Failed to migrate accounts:', accountError);
+          logger.error('[AutoSync] Failed to migrate accounts:', accountError);
         } else {
           console.log('[AutoSync] Migrated', accountsToInsert.length, 'accounts');
         }
@@ -247,7 +250,7 @@ class AutoSyncService {
                 .insert(batch);
 
               if (error) {
-                console.error('[AutoSync] Failed to migrate transaction batch:', error);
+                logger.error('[AutoSync] Failed to migrate transaction batch:', error);
               }
             }
             console.log('[AutoSync] Migrated', transactionsToInsert.length, 'transactions');
@@ -261,7 +264,7 @@ class AutoSyncService {
       
       console.log('[AutoSync] Silent migration complete');
     } catch (error) {
-      console.error('[AutoSync] Migration failed:', error);
+      logger.error('[AutoSync] Migration failed:', error);
       // Don't throw - app should continue working
     }
   }
@@ -289,13 +292,13 @@ class AutoSyncService {
       );
 
       if (!databaseUserId) {
-        console.error('[AutoSync] Failed to create user');
+        logger.error('[AutoSync] Failed to create user');
         return null;
       }
 
       return databaseUserId;
     } catch (error) {
-      console.error('[AutoSync] Error ensuring user exists:', error);
+      logger.error('[AutoSync] Error ensuring user exists:', error);
       return null;
     }
   }
@@ -303,7 +306,7 @@ class AutoSyncService {
   /**
    * Merge local and cloud data intelligently
    */
-  private async mergeData(userId: string, localData: any): Promise<void> {
+  private async mergeData(userId: string, localData: LocalData): Promise<void> {
     // For now, prefer cloud data (it's the source of truth)
     // In the future, implement proper conflict resolution
     console.log('[AutoSync] Merge complete - using cloud as source of truth');
@@ -345,7 +348,11 @@ class AutoSyncService {
   /**
    * Add an operation to the sync queue
    */
-  queueOperation(type: SyncQueueItem['type'], entity: SyncQueueItem['entity'], data: any): void {
+  queueOperation<T extends EntityType>(
+    type: 'CREATE' | 'UPDATE' | 'DELETE',
+    entity: T,
+    data: SyncData<T>
+  ): void {
     const item: SyncQueueItem = {
       id: crypto.randomUUID(),
       type,
@@ -389,7 +396,7 @@ class AutoSyncService {
         // Remove completed items from queue
         this.syncQueue = this.syncQueue.filter(i => i.id !== item.id);
       } catch (error) {
-        console.error('[AutoSync] Sync failed for item:', item, error);
+        logger.error('[AutoSync] Sync failed for item:', item, error);
         item.status = 'pending';
         item.retries++;
 

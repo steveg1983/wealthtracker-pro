@@ -7,6 +7,7 @@
 
 import { supabase } from '../../lib/supabase';
 import { userIdService } from '../userIdService';
+import { logger } from '../loggingService';
 
 export interface PlaidConnection {
   id: string;
@@ -73,7 +74,7 @@ class PlaidBackendService {
       if (!userId) throw new Error('User not found');
 
       // In production, this would call your backend API
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/plaid/create-link-token`, {
+      const response = await fetch(`/api/plaid/create-link-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +95,7 @@ class PlaidBackendService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error creating link token:', error);
+      logger.error('Error creating link token:', error);
       throw error;
     }
   }
@@ -113,7 +114,7 @@ class PlaidBackendService {
       if (!userId) throw new Error('User not found');
 
       // Exchange public token for access token via backend
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/plaid/exchange-token`, {
+      const response = await fetch(`/api/plaid/exchange-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -149,7 +150,7 @@ class PlaidBackendService {
 
       return data;
     } catch (error) {
-      console.error('Error exchanging public token:', error);
+      logger.error('Error exchanging public token:', error);
       throw error;
     }
   }
@@ -172,7 +173,7 @@ class PlaidBackendService {
 
       return data || [];
     } catch (error) {
-      console.error('Error getting connections:', error);
+      logger.error('Error getting connections:', error);
       throw error;
     }
   }
@@ -198,7 +199,7 @@ class PlaidBackendService {
       }
 
       // Fetch accounts from Plaid via backend
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/plaid/accounts`, {
+      const response = await fetch(`/api/plaid/accounts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -253,7 +254,7 @@ class PlaidBackendService {
 
       return savedAccounts;
     } catch (error) {
-      console.error('Error syncing accounts:', error);
+      logger.error('Error syncing accounts:', error);
       throw error;
     }
   }
@@ -284,7 +285,7 @@ class PlaidBackendService {
       }
 
       // Fetch transactions from Plaid via backend
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/plaid/transactions`, {
+      const response = await fetch(`/api/plaid/transactions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -343,7 +344,7 @@ class PlaidBackendService {
 
       return savedTransactions;
     } catch (error) {
-      console.error('Error syncing transactions:', error);
+      logger.error('Error syncing transactions:', error);
       throw error;
     }
   }
@@ -369,7 +370,7 @@ class PlaidBackendService {
       }
 
       // Remove item from Plaid via backend
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/plaid/remove-item`, {
+      await fetch(`/api/plaid/remove-item`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -391,7 +392,7 @@ class PlaidBackendService {
 
       return true;
     } catch (error) {
-      console.error('Error removing connection:', error);
+      logger.error('Error removing connection:', error);
       return false;
     }
   }
@@ -454,7 +455,7 @@ class PlaidBackendService {
       }
 
       // Update webhook via backend
-      await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000'}/api/plaid/update-webhook`, {
+      await fetch(`/api/plaid/update-webhook`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -462,11 +463,11 @@ class PlaidBackendService {
         },
         body: JSON.stringify({
           access_token: connection.access_token,
-          webhook_url: `${import.meta.env.VITE_API_URL}/api/plaid/webhook`
+          webhook_url: `${window.location.origin}/api/plaid/webhook`
         })
       });
     } catch (error) {
-      console.error('Error creating webhook:', error);
+      logger.error('Error creating webhook:', error);
       throw error;
     }
   }

@@ -4,6 +4,7 @@
  */
 
 import { isSafari } from './safariCompat';
+import { logger } from '../services/loggingService';
 
 // Check if third-party cookies are blocked
 export const checkThirdPartyCookies = async (): Promise<boolean> => {
@@ -19,7 +20,7 @@ export const checkThirdPartyCookies = async (): Promise<boolean> => {
     
     return cookieSet;
   } catch (error) {
-    console.warn('Cookie test failed:', error);
+    logger.warn('Cookie test failed:', error);
     return false;
   }
 };
@@ -86,7 +87,7 @@ export const initClerkSafariCompat = async () => {
   }
 
   if (results.warnings.length > 0) {
-    console.warn('⚠️ Safari compatibility warnings:', results.warnings);
+    logger.warn('⚠️ Safari compatibility warnings:', results.warnings);
   }
 
   return results;
@@ -110,7 +111,7 @@ const applySafariFixes = () => {
       return originalFetch.apply(this, [url, options]);
     };
   } catch (error) {
-    console.error('Failed to patch fetch for Safari:', error);
+    logger.error('Failed to patch fetch for Safari:', error);
   }
 
   // 2. Add storage event listeners to sync auth state
@@ -161,7 +162,7 @@ const polyfillSafari = () => {
         return document.requestStorageAccess();
       }
     }).catch(error => {
-      console.warn('Storage access request failed:', error);
+      logger.warn('Storage access request failed:', error);
     });
   }
 };

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
+import { logger } from '../services/loggingService';
   SunIcon,
   MoonIcon,
   MonitorIcon,
@@ -43,7 +44,7 @@ export function DarkModeRefinements({
       try {
         return JSON.parse(saved);
       } catch (e) {
-        console.error('Failed to parse dark mode settings:', e);
+        logger.error('Failed to parse dark mode settings:', e);
       }
     }
     return {

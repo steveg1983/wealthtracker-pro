@@ -28,6 +28,7 @@ import 'ag-grid-community/styles/ag-theme-alpine.css';
 
 // Import Query type
 import type { Query } from '../components/analytics/QueryBuilder';
+import { logger } from '../services/loggingService';
 
 interface Dashboard {
   id: string;
@@ -124,7 +125,7 @@ export default function Analytics(): React.JSX.Element {
         });
       }
     } catch (error) {
-      console.error('Error detecting anomalies:', error);
+      logger.error('Error detecting anomalies:', error);
       // Don't fail the entire insights generation if anomaly detection fails
     }
     

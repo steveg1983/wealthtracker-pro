@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 import type { Transaction, Account } from '../types';
 import type { SavedInvoice, SavedMileageEntry, SavedBusinessExpense } from '../types/business';
+import { logger } from './loggingService';
 
 export interface VATRate {
   id: string;
@@ -150,7 +151,7 @@ class BusinessService {
         }));
       }
     } catch (error) {
-      console.error('Error loading business data:', error);
+      logger.error('Error loading business data:', error);
     }
   }
 
@@ -161,7 +162,7 @@ class BusinessService {
       localStorage.setItem('business-mileage', JSON.stringify(this.mileageEntries));
       localStorage.setItem('business-expenses', JSON.stringify(this.businessExpenses));
     } catch (error) {
-      console.error('Error saving business data:', error);
+      logger.error('Error saving business data:', error);
     }
   }
 

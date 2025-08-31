@@ -2,6 +2,7 @@
 // Handles large data like documents, images, and bulk data
 
 import type { JsonValue } from '../types/common';
+import { logger } from './loggingService';
 
 interface DBConfig {
   name: string;
@@ -111,14 +112,14 @@ class IndexedDBService {
       try {
         request = indexedDB.open(this.dbName, this.dbVersion);
       } catch (e) {
-        console.error('Failed to open IndexedDB:', e);
+        logger.error('Failed to open IndexedDB:', e);
         reject(new Error('IndexedDB not available (possibly private browsing mode)'));
         return;
       }
 
       request.onerror = (event) => {
         const error = (event.target as IDBOpenDBRequest).error;
-        console.error('IndexedDB error:', error);
+        logger.error('IndexedDB error:', error);
         if (this.safariMode) {
           reject(new Error('IndexedDB failed in Safari. This might be due to private browsing mode or storage restrictions.'));
         } else {
@@ -159,7 +160,7 @@ class IndexedDBService {
       try {
         await this.init();
       } catch (e) {
-        console.error('Failed to initialize IndexedDB:', e);
+        logger.error('Failed to initialize IndexedDB:', e);
         if (this.safariMode) {
           throw new Error('IndexedDB not available in Safari. Please check browser settings or disable private browsing mode.');
         }
@@ -434,6 +435,6 @@ export async function migrateFromLocalStorage<T = JsonValue>(
     // Keep localStorage as backup for now
     console.log(`Migrated ${items.length} items from localStorage to IndexedDB`);
   } catch (error) {
-    console.error(`Failed to migrate ${localStorageKey}:`, error);
+    logger.error(`Failed to migrate ${localStorageKey}:`, error);
   }
 }

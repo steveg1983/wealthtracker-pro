@@ -1,0 +1,5723 @@
+{
+  "timestamp": "2025-08-30T14:17:15.123Z",
+  "summary": {
+    "total": 239,
+    "withMocks": 158,
+    "withoutMocks": 81,
+    "byType": {
+      "component": 116,
+      "service": 39,
+      "context": 13,
+      "hook": 15,
+      "util": 21,
+      "other": 35
+    },
+    "files": [
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/formatters.test.ts",
+        "fileName": "formatters.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/csvImport.test.ts",
+        "fileName": "csvImport.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/csvExport.test.ts",
+        "fileName": "csvExport.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/reconciliation.test.ts",
+        "fileName": "reconciliation.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/recalculateBalances.test.ts",
+        "fileName": "recalculateBalances.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/qifParser.test.ts",
+        "fileName": "qifParser.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/pdfExport.test.ts",
+        "fileName": "pdfExport.test.ts",
+        "hasMocks": true,
+        "mockCount": 13,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "jspdf",
+          "html2canvas"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/mnyParser.test.ts",
+        "fileName": "mnyParser.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/mbfParser.test.ts",
+        "fileName": "mbfParser.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/investmentUtils.test.ts",
+        "fileName": "investmentUtils.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/formatters.test.ts",
+        "fileName": "formatters.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/financialCalculations.test.ts",
+        "fileName": "financialCalculations.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/decimal.test.ts",
+        "fileName": "decimal.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/decimal-converters.test.ts",
+        "fileName": "decimal-converters.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/currency.test.ts",
+        "fileName": "currency.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/currency-decimal.test.ts",
+        "fileName": "currency-decimal.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/csvImport.test.ts",
+        "fileName": "csvImport.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/calculations.test.ts",
+        "fileName": "calculations.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/calculations-decimal.test.ts",
+        "fileName": "calculations-decimal.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/backupRestore.test.ts",
+        "fileName": "backupRestore.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/api-error-handler.test.ts",
+        "fileName": "api-error-handler.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../lib/sentry"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": true
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/sentry-simple.test.ts",
+        "fileName": "sentry-simple.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/decimal-integration.test.tsx",
+        "fileName": "decimal-integration.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/UserWorkflowIntegration.test.tsx",
+        "fileName": "UserWorkflowIntegration.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [],
+        "viMocks": [
+          "../../pages/Dashboard",
+          "../../pages/Accounts",
+          "../../pages/Transactions",
+          "../../pages/Budget",
+          "../../pages/Goals",
+          "../../pages/Reports"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/SimpleIntegration.test.tsx",
+        "fileName": "SimpleIntegration.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/InvestmentPortfolioIntegration.test.tsx",
+        "fileName": "InvestmentPortfolioIntegration.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/ErrorHandlingIntegration.test.tsx",
+        "fileName": "ErrorHandlingIntegration.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../pages/Dashboard"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/DecimalFinancialIntegration.test.tsx",
+        "fileName": "DecimalFinancialIntegration.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "react-router-dom"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/DataFlow.test.tsx",
+        "fileName": "DataFlow.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/DashboardInteractionsIntegration.test.tsx",
+        "fileName": "DashboardInteractionsIntegration.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/CurrencyIntegration.test.tsx",
+        "fileName": "CurrencyIntegration.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../../pages/Dashboard",
+          "../../services/currencyService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/CriticalWorkflows.test.tsx",
+        "fileName": "CriticalWorkflows.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/CoreIntegration.test.tsx",
+        "fileName": "CoreIntegration.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/ComponentInteraction.test.tsx",
+        "fileName": "ComponentInteraction.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [],
+        "viMocks": [
+          "../../pages/Dashboard",
+          "../../pages/Accounts",
+          "../../pages/Transactions",
+          "../../pages/Budget"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/BudgetWorkflowIntegration.test.tsx",
+        "fileName": "BudgetWorkflowIntegration.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/test/integration/AppFlow.test.tsx",
+        "fileName": "AppFlow.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../App"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/slices/transactionsSlice.test.ts",
+        "fileName": "transactionsSlice.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../services/storageAdapter"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/slices/tagsSlice.test.ts",
+        "fileName": "tagsSlice.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../services/storageAdapter"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/slices/recurringTransactionsSlice.test.ts",
+        "fileName": "recurringTransactionsSlice.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../services/storageAdapter"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/slices/preferencesSlice.test.ts",
+        "fileName": "preferencesSlice.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/slices/notificationsSlice.test.ts",
+        "fileName": "notificationsSlice.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/slices/layoutSlice.test.ts",
+        "fileName": "layoutSlice.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/slices/goalsSlice.test.ts",
+        "fileName": "goalsSlice.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../../services/storageAdapter",
+          "../../utils/dateHelpers"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/slices/categoriesSlice.test.ts",
+        "fileName": "categoriesSlice.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../services/storageAdapter"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/slices/budgetsSlice.test.ts",
+        "fileName": "budgetsSlice.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../../services/storageAdapter",
+          "../../utils/dateHelpers"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/slices/accountsSlice.test.ts",
+        "fileName": "accountsSlice.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../services/storageAdapter"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/__tests__/slices.test.ts",
+        "fileName": "slices.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/store/__tests__/reduxMigration.test.tsx",
+        "fileName": "reduxMigration.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/transactionAnalyticsService.test.ts",
+        "fileName": "transactionAnalyticsService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/themeSchedulingService.test.ts",
+        "fileName": "themeSchedulingService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/storageAdapter.test.ts",
+        "fileName": "storageAdapter.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/stockPriceService.test.ts",
+        "fileName": "stockPriceService.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../utils/currency",
+          "./errorHandlingService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/smartCategorizationService.test.ts",
+        "fileName": "smartCategorizationService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/securityService.test.ts",
+        "fileName": "securityService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/searchService.test.ts",
+        "fileName": "searchService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "fuse.js"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/realtimePriceService.test.ts",
+        "fileName": "realtimePriceService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "./stockPriceService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/qifImportService.test.ts",
+        "fileName": "qifImportService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "./smartCategorizationService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/portfolioRebalanceService.test.ts",
+        "fileName": "portfolioRebalanceService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/portfolioCalculationService.test.ts",
+        "fileName": "portfolioCalculationService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/performanceService.test.ts",
+        "fileName": "performanceService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/ofxImportService.test.ts",
+        "fileName": "ofxImportService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "./smartCategorizationService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/offlineService.test.ts",
+        "fileName": "offlineService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "idb"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/notificationService.test.ts",
+        "fileName": "notificationService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/merchantLogoService.test.ts",
+        "fileName": "merchantLogoService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/localMerchantLogoService.test.ts",
+        "fileName": "localMerchantLogoService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../data/brandDatabase"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/investmentEnhancementService.test.ts",
+        "fileName": "investmentEnhancementService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../utils/decimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/indexedDBService.test.ts",
+        "fileName": "indexedDBService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/goalAchievementService.test.ts",
+        "fileName": "goalAchievementService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/financialSummaryService.test.ts",
+        "fileName": "financialSummaryService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../utils/decimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/financialPlanningService.test.ts",
+        "fileName": "financialPlanningService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/exportService.test.ts",
+        "fileName": "exportService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/errorHandlingService.test.ts",
+        "fileName": "errorHandlingService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/enhancedCsvImportService.test.ts",
+        "fileName": "enhancedCsvImportService.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../storageAdapter",
+          "uuid"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/encryptedStorageService.test.ts",
+        "fileName": "encryptedStorageService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "./indexedDBService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/cashFlowForecastService.test.ts",
+        "fileName": "cashFlowForecastService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "date-fns"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/budgetCalculationService.test.ts",
+        "fileName": "budgetCalculationService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "./base/BaseService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/bankConnectionService.test.ts",
+        "fileName": "bankConnectionService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/base/BaseService.test.ts",
+        "fileName": "BaseService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../storageAdapter"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/validationService.test.ts",
+        "fileName": "validationService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/userIdService.test.ts",
+        "fileName": "userIdService.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../api/supabaseClient",
+          "../api/userService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/transactionAnalyticsService.test.ts",
+        "fileName": "transactionAnalyticsService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/storageAdapter.test.ts",
+        "fileName": "storageAdapter.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../encryptedStorageService",
+          "../indexedDBService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/portfolioCalculationService.test.ts",
+        "fileName": "portfolioCalculationService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/importRulesService.test.ts",
+        "fileName": "importRulesService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/encryptedStorageService.test.ts",
+        "fileName": "encryptedStorageService.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../indexedDBService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/debtCalculationService.test.ts",
+        "fileName": "debtCalculationService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/budgetCalculationService.test.ts",
+        "fileName": "budgetCalculationService.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": true,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/security/__tests__/xss-protection.test.ts",
+        "fileName": "xss-protection.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/security/__tests__/encryption.test.ts",
+        "fileName": "encryption.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/pages/Transactions.test.tsx",
+        "fileName": "Transactions.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/pages/Reports.test.tsx",
+        "fileName": "Reports.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/pages/Dashboard.test.tsx",
+        "fileName": "Dashboard.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/pages/Budget.test.tsx",
+        "fileName": "Budget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/pages/Analytics.test.tsx",
+        "fileName": "Analytics.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/pages/Accounts.test.tsx",
+        "fileName": "Accounts.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/useModalForm.test.ts",
+        "fileName": "useModalForm.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/useLocalStorage.test.ts",
+        "fileName": "useLocalStorage.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/useCurrencyDecimal.test.ts",
+        "fileName": "useCurrencyDecimal.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../contexts/PreferencesContext",
+          "../utils/currency-decimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/useCurrency.test.ts",
+        "fileName": "useCurrency.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../contexts/PreferencesContext",
+          "../utils/currency"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useStockPrices.test.ts",
+        "fileName": "useStockPrices.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../services/stockPriceService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useReconciliation.test.ts",
+        "fileName": "useReconciliation.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../utils/reconciliation"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useRealTimePrices.test.ts",
+        "fileName": "useRealTimePrices.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../services/realtimePriceService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useLocalStorage.test.ts",
+        "fileName": "useLocalStorage.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useKeyboardShortcuts.test.ts",
+        "fileName": "useKeyboardShortcuts.test.ts",
+        "hasMocks": true,
+        "mockCount": 8,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "react-router-dom"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useGlobalSearch.test.ts",
+        "fileName": "useGlobalSearch.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useErrorHandler.test.ts",
+        "fileName": "useErrorHandler.test.ts",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../lib/sentry"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useDebounce.test.ts",
+        "fileName": "useDebounce.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useCashFlowForecast.test.ts",
+        "fileName": "useCashFlowForecast.test.ts",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../services/cashFlowForecastService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useBulkOperations.test.ts",
+        "fileName": "useBulkOperations.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useAdvancedSearch.test.ts",
+        "fileName": "useAdvancedSearch.test.ts",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": true,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/TransactionContext.test.tsx",
+        "fileName": "TransactionContext.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "uuid"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/PreferencesContext.test.tsx",
+        "fileName": "PreferencesContext.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/NotificationContext.test.tsx",
+        "fileName": "NotificationContext.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../services/notificationService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/NavigationContext.test.tsx",
+        "fileName": "NavigationContext.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/LayoutContext.test.tsx",
+        "fileName": "LayoutContext.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/GoalContext.test.tsx",
+        "fileName": "GoalContext.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "uuid"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/CategoryContext.test.tsx",
+        "fileName": "CategoryContext.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "uuid",
+          "../data/defaultCategories"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/BudgetContext.test.tsx",
+        "fileName": "BudgetContext.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "uuid"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/AppContext.test.tsx",
+        "fileName": "AppContext.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/AccountContext.test.tsx",
+        "fileName": "AccountContext.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "uuid"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/__tests__/PreferencesContextSafe.test.tsx",
+        "fileName": "PreferencesContextSafe.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/__tests__/CombinedProvider.test.tsx",
+        "fileName": "CombinedProvider.test.tsx",
+        "hasMocks": true,
+        "mockCount": 8,
+        "mocks": [],
+        "viMocks": [
+          "../AccountContext",
+          "../TransactionContext",
+          "../BudgetContext",
+          "../GoalContext",
+          "../CategoryContext",
+          "../PreferencesContext",
+          "../LayoutContext",
+          "../../data/defaultTestData"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/contexts/__tests__/AppContext.test.tsx",
+        "fileName": "AppContext.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../../services/storageAdapter"
+        ],
+        "jestMocks": [],
+        "isComponentTest": false,
+        "isServiceTest": false,
+        "isContextTest": true,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/ValidationTransactionModal.test.tsx",
+        "fileName": "ValidationTransactionModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 7,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "./common/Modal",
+          "../hooks/useCurrencyDecimal",
+          "../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/TransactionRow.test.tsx",
+        "fileName": "TransactionRow.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "./LocalMerchantLogo",
+          "./MarkdownNote",
+          "../hooks/useFormattedValues",
+          "./icons",
+          "./icons/IconButton"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/TransactionReconciliation.test.tsx",
+        "fileName": "TransactionReconciliation.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "../contexts/AppContext",
+          "../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/TransactionModal.test.tsx",
+        "fileName": "TransactionModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./TagSelector",
+          "./CategorySelector",
+          "../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/TransactionDetailsModal.test.tsx",
+        "fileName": "TransactionDetailsModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons/XIcon",
+          "../hooks/useCurrencyDecimal",
+          "../utils/decimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/ThemeSwitcher.test.tsx",
+        "fileName": "ThemeSwitcher.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../design-system",
+          "./icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/TestDataWarningModal.test.tsx",
+        "fileName": "TestDataWarningModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons/AlertTriangleIcon",
+          "./icons/XIcon"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/TagSelector.test.tsx",
+        "fileName": "TagSelector.test.tsx",
+        "hasMocks": true,
+        "mockCount": 7,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons/XIcon",
+          "./icons/PlusIcon",
+          "./icons/HashIcon",
+          "../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/StockQuoteWidget.test.tsx",
+        "fileName": "StockQuoteWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 10,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "../hooks/useCurrencyDecimal",
+          "../services/stockPriceService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/SplitTransactionModal.test.tsx",
+        "fileName": "SplitTransactionModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 7,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons/XIcon",
+          "./icons/PlusIcon",
+          "./icons/DeleteIcon",
+          "../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/SpendingByCategoryChart.test.tsx",
+        "fileName": "SpendingByCategoryChart.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "../hooks/useCurrencyDecimal",
+          "../services/transactionAnalyticsService",
+          "recharts"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/RecurringTransactionModal.test.tsx",
+        "fileName": "RecurringTransactionModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 8,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "./common/Modal",
+          "./icons",
+          "../hooks/useModalForm"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/ReconciliationModal.test.tsx",
+        "fileName": "ReconciliationModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/RealTimePortfolio.test.tsx",
+        "fileName": "RealTimePortfolio.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [],
+        "viMocks": [
+          "./icons",
+          "../utils/decimal",
+          "../services/stockPriceService",
+          "../contexts/AppContext",
+          "../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/QIFImportModal.test.tsx",
+        "fileName": "QIFImportModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 8,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "./common/Modal",
+          "./loading/LoadingState",
+          "../contexts/AppContext",
+          "../services/qifImportService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/PortfolioRebalancer.test.tsx",
+        "fileName": "PortfolioRebalancer.test.tsx",
+        "hasMocks": true,
+        "mockCount": 7,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "recharts",
+          "../services/portfolioRebalanceService",
+          "../contexts/AppContext",
+          "../hooks/useCurrency",
+          "../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/PageWrapper.test.tsx",
+        "fileName": "PageWrapper.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/PageLoader.test.tsx",
+        "fileName": "PageLoader.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/PageHeader.test.tsx",
+        "fileName": "PageHeader.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/OnboardingModal.test.tsx",
+        "fileName": "OnboardingModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../utils/currency"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/OfflineIndicator.test.tsx",
+        "fileName": "OfflineIndicator.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "./icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/OFXImportModal.test.tsx",
+        "fileName": "OFXImportModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 8,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "./common/Modal",
+          "./loading/LoadingState",
+          "../contexts/AppContext",
+          "../services/ofxImportService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/NotificationBell.test.tsx",
+        "fileName": "NotificationBell.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [],
+        "viMocks": [
+          "./icons",
+          "./NotificationCenter",
+          "../contexts/NotificationContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/NetWorthTrendChart.test.tsx",
+        "fileName": "NetWorthTrendChart.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "../hooks/useCurrencyDecimal",
+          "recharts"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/MnyMappingModal.test.tsx",
+        "fileName": "MnyMappingModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons/XIcon",
+          "./icons/AlertCircleIcon",
+          "./icons/CheckCircleIcon"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/MerchantLogo.test.tsx",
+        "fileName": "MerchantLogo.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../services/merchantLogoService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/LoadingScreen.test.tsx",
+        "fileName": "LoadingScreen.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/IncomeVsExpensesChart.test.tsx",
+        "fileName": "IncomeVsExpensesChart.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "../hooks/useCurrencyDecimal",
+          "recharts"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/ImportDataModal.test.tsx",
+        "fileName": "ImportDataModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 17,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons/UploadIcon",
+          "./icons/FileTextIcon",
+          "./icons/AlertCircleIcon",
+          "./icons/CheckCircleIcon",
+          "./icons/InfoIcon",
+          "./icons/AlertTriangleIcon",
+          "./icons",
+          "./common/Modal",
+          "./MnyMappingModal",
+          "../utils/mnyParser",
+          "../utils/qifParser",
+          "../contexts/AppContextSupabase"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/GoalModal.test.tsx",
+        "fileName": "GoalModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "./common/Modal",
+          "../hooks/useModalForm"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/GoalCelebrationModal.test.tsx",
+        "fileName": "GoalCelebrationModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "./common/Modal",
+          "./icons",
+          "../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/FixSummaryModal.test.tsx",
+        "fileName": "FixSummaryModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./common/Modal",
+          "../hooks/useCurrencyDecimal",
+          "./icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/ExpenseSplitModal.test.tsx",
+        "fileName": "ExpenseSplitModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [],
+        "viMocks": [
+          "./icons",
+          "../hooks/useCurrencyDecimal",
+          "../utils/decimal",
+          "../services/collaborationService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/ExcelExport.test.tsx",
+        "fileName": "ExcelExport.test.tsx",
+        "hasMocks": true,
+        "mockCount": 12,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "./common/Modal",
+          "xlsx",
+          "../hooks/useCurrencyDecimal",
+          "../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/ErrorBoundary.test.tsx",
+        "fileName": "ErrorBoundary.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/EnvelopeBudgeting.test.tsx",
+        "fileName": "EnvelopeBudgeting.test.tsx",
+        "hasMocks": true,
+        "mockCount": 7,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "../utils/decimal",
+          "../contexts/AppContext",
+          "../contexts/BudgetContext",
+          "../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/EnhancedPortfolioView.test.tsx",
+        "fileName": "EnhancedPortfolioView.test.tsx",
+        "hasMocks": true,
+        "mockCount": 7,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "react-router-dom",
+          "./icons",
+          "../hooks/useStockPrices",
+          "../services/stockPriceService",
+          "../utils/currency",
+          "../utils/decimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/EnhancedExportModal.test.tsx",
+        "fileName": "EnhancedExportModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "./icons",
+          "../services/exportService"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/EmptyState.test.tsx",
+        "fileName": "EmptyState.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/EditTransactionModal.test.tsx",
+        "fileName": "EditTransactionModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 12,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "../hooks/useTransactionNotifications",
+          "./CategoryCreationModal",
+          "./TagSelector",
+          "./MarkdownEditor",
+          "./DocumentManager",
+          "./common/Modal",
+          "../hooks/useModalForm",
+          "../utils/currency",
+          "../services/validationService",
+          "../components/icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/DashboardModal.test.tsx",
+        "fileName": "DashboardModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 9,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "react-router-dom",
+          "./icons/XIcon",
+          "./icons/MaximizeIcon",
+          "./icons/MinimizeIcon",
+          "recharts",
+          "./IncomeExpenditureReport",
+          "./ErrorBoundary",
+          "../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/CategoryTransactionsModal.test.tsx",
+        "fileName": "CategoryTransactionsModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [],
+        "viMocks": [
+          "./icons/XIcon",
+          "./icons/CalendarIcon",
+          "./icons/SearchIcon",
+          "./icons/XCircleIcon",
+          "../contexts/AppContext",
+          "../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/CategorySelect.test.tsx",
+        "fileName": "CategorySelect.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/CategoryCreationModal.test.tsx",
+        "fileName": "CategoryCreationModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "./common/Modal",
+          "./icons/PlusIcon",
+          "../hooks/useModalForm"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/CashFlowForecast.test.tsx",
+        "fileName": "CashFlowForecast.test.tsx",
+        "hasMocks": true,
+        "mockCount": 9,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "./loading/LoadingState",
+          "recharts",
+          "../hooks/useCurrencyDecimal",
+          "../hooks/useCashFlowForecast"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/CSVImportWizard.test.tsx",
+        "fileName": "CSVImportWizard.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "../services/enhancedCsvImportService",
+          "./loading/LoadingState",
+          "./common/Modal",
+          "./icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/BulkCheckbox.test.tsx",
+        "fileName": "BulkCheckbox.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/BudgetProgress.test.tsx",
+        "fileName": "BudgetProgress.test.tsx",
+        "hasMocks": true,
+        "mockCount": 9,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons",
+          "../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/BudgetModal.test.tsx",
+        "fileName": "BudgetModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "./common/Modal",
+          "../hooks/useModalForm"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/Breadcrumbs.test.tsx",
+        "fileName": "Breadcrumbs.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [],
+        "viMocks": [
+          "./icons",
+          "react-router-dom",
+          "../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/BatchImportModal.test.tsx",
+        "fileName": "BatchImportModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 7,
+        "mocks": [],
+        "viMocks": [
+          "../services/enhancedCsvImportService",
+          "../services/ofxImportService",
+          "../services/qifImportService",
+          "./common/Modal",
+          "./loading/LoadingState",
+          "./icons",
+          "../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/BalanceReconciliationModal.test.tsx",
+        "fileName": "BalanceReconciliationModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [],
+        "viMocks": [
+          "./common/Modal",
+          "./icons",
+          "../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/BalanceAdjustmentModal.test.tsx",
+        "fileName": "BalanceAdjustmentModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 8,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./CategoryCreationModal",
+          "./icons",
+          "../utils/currency",
+          "../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/AddTransactionModal.test.tsx",
+        "fileName": "AddTransactionModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContextSupabase",
+          "../contexts/ToastContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/AddInvestmentModal.test.tsx",
+        "fileName": "AddInvestmentModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 14,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./icons/PlusIcon",
+          "./common/Modal",
+          "../hooks/useModalForm",
+          "../contexts/AppContext",
+          "../hooks/useCurrencyDecimal",
+          "../utils/currency"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/AddAccountModal.test.tsx",
+        "fileName": "AddAccountModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "../contexts/PreferencesContext",
+          "./common/Modal",
+          "../hooks/useModalForm"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/AccountSettingsModal.test.tsx",
+        "fileName": "AccountSettingsModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "./common/Modal",
+          "../hooks/useModalForm"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/AccountSelectionModal.test.tsx",
+        "fileName": "AccountSelectionModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "./icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/AccountReconciliationModal.test.tsx",
+        "fileName": "AccountReconciliationModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 8,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "./CategoryCreationModal",
+          "./icons",
+          "../utils/currency",
+          "../contexts/AppContext"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/AccountBalancesChart.test.tsx",
+        "fileName": "AccountBalancesChart.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "../contexts/AppContext",
+          "../hooks/useCurrencyDecimal",
+          "recharts"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/WeeklySummaryWidget.test.tsx",
+        "fileName": "WeeklySummaryWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../FinancialSummary"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/UpcomingBillsWidget.test.tsx",
+        "fileName": "UpcomingBillsWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/TaxPlanningWidget.test.tsx",
+        "fileName": "TaxPlanningWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../services/taxPlanningService",
+          "react-router-dom",
+          "../../hooks/useCurrencyDecimal",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/SecurityWidget.test.tsx",
+        "fileName": "SecurityWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../services/securityService",
+          "react-router-dom",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/RecentTransactionsWidget.test.tsx",
+        "fileName": "RecentTransactionsWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "../../components/icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/NetWorthWidget.test.tsx",
+        "fileName": "NetWorthWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "../../components/icons",
+          "recharts"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/MonthlySummaryWidget.test.tsx",
+        "fileName": "MonthlySummaryWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../FinancialSummary"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/MobileAppWidget.test.tsx",
+        "fileName": "MobileAppWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../services/mobileService",
+          "react-router-dom",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/InvestmentSummaryWidget.test.tsx",
+        "fileName": "InvestmentSummaryWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "../icons",
+          "recharts"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/InvestmentEnhancementWidget.test.tsx",
+        "fileName": "InvestmentEnhancementWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../services/investmentEnhancementService",
+          "react-router-dom",
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/GoalProgressWidget.test.tsx",
+        "fileName": "GoalProgressWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "react-circular-progressbar",
+          "react-circular-progressbar/dist/styles.css",
+          "../../components/icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/FinancialPlanningWidget.test.tsx",
+        "fileName": "FinancialPlanningWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../services/financialPlanningService",
+          "react-router-dom",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/ExpenseBreakdownWidget.test.tsx",
+        "fileName": "ExpenseBreakdownWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "recharts"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/DataIntelligenceWidget.test.tsx",
+        "fileName": "DataIntelligenceWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../../services/dataIntelligenceService",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/CollaborationWidget.test.tsx",
+        "fileName": "CollaborationWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../services/collaborationService",
+          "react-router-dom",
+          "../../hooks/useCurrencyDecimal",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/CashFlowWidget.test.tsx",
+        "fileName": "CashFlowWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "../../components/icons",
+          "recharts"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/BusinessWidget.test.tsx",
+        "fileName": "BusinessWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../services/businessService",
+          "react-router-dom",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/BudgetSummaryWidget.test.tsx",
+        "fileName": "BudgetSummaryWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 7,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../contexts/BudgetContext",
+          "../../hooks/useCurrencyDecimal",
+          "../../services/budgetCalculationService",
+          "../../components/icons",
+          "recharts"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/BankConnectionsWidget.test.tsx",
+        "fileName": "BankConnectionsWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../services/bankConnectionService",
+          "react-router-dom",
+          "date-fns",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/widgets/AIAnalyticsWidget.test.tsx",
+        "fileName": "AIAnalyticsWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../services/advancedAnalyticsService",
+          "react-router-dom",
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/loading/Skeleton.test.tsx",
+        "fileName": "Skeleton.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/loading/LoadingState.test.tsx",
+        "fileName": "LoadingState.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/common/ResponsiveTable.test.tsx",
+        "fileName": "ResponsiveTable.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/common/Modal.test.tsx",
+        "fileName": "Modal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/common/MobileInput.test.tsx",
+        "fileName": "MobileInput.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/common/Card.test.tsx",
+        "fileName": "Card.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/common/Button.test.tsx",
+        "fileName": "Button.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/common/AriaLiveRegion.test.tsx",
+        "fileName": "AriaLiveRegion.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/common/AccessibleTable.test.tsx",
+        "fileName": "AccessibleTable.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/common/AccessibleFormField.test.tsx",
+        "fileName": "AccessibleFormField.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/common/__tests__/Modal.test.tsx",
+        "fileName": "Modal.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/charts/TreemapChart.test.tsx",
+        "fileName": "TreemapChart.test.tsx",
+        "hasMocks": true,
+        "mockCount": 4,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "recharts",
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/charts/SankeyChart.test.tsx",
+        "fileName": "SankeyChart.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/charts/LineChart.test.tsx",
+        "fileName": "LineChart.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "chart.js",
+          "react-chartjs-2"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/charts/LazyChart.test.tsx",
+        "fileName": "LazyChart.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "recharts"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/charts/DoughnutChart.test.tsx",
+        "fileName": "DoughnutChart.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "chart.js",
+          "react-chartjs-2"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/VirtualizedTransactionList.test.tsx",
+        "fileName": "VirtualizedTransactionList.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "react-window",
+          "react-window-infinite-loader",
+          "react-virtualized-auto-sizer",
+          "../icons",
+          "../../hooks/useFormattedValues"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/TransactionRow.test.tsx",
+        "fileName": "TransactionRow.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/TransactionCard.test.tsx",
+        "fileName": "TransactionCard.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/SplitTransactionModal.test.tsx",
+        "fileName": "SplitTransactionModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 7,
+        "mocks": [
+          "Mock function",
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../icons/XIcon",
+          "../icons/PlusIcon",
+          "../icons/DeleteIcon"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/RecurringTransactionModal.test.tsx",
+        "fileName": "RecurringTransactionModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function",
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../icons",
+          "../../hooks/useModalForm"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/Layout.test.tsx",
+        "fileName": "Layout.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/GoalModal.test.tsx",
+        "fileName": "GoalModal.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/GlobalSearch.test.tsx",
+        "fileName": "GlobalSearch.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "react-router-dom",
+          "../../hooks/useDebounce",
+          "../../hooks/useGlobalSearch",
+          "../icons",
+          "dompurify"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/ErrorBoundary.test.tsx",
+        "fileName": "ErrorBoundary.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [],
+        "viMocks": [
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/EditTransactionModal.test.tsx",
+        "fileName": "EditTransactionModal.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/DuplicateDetection.test.tsx",
+        "fileName": "DuplicateDetection.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/DataValidation.test.tsx",
+        "fileName": "DataValidation.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "../ValidationTransactionModal",
+          "../FixSummaryModal",
+          "../BalanceReconciliationModal",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/DashboardWidget.test.tsx",
+        "fileName": "DashboardWidget.test.tsx",
+        "hasMocks": true,
+        "mockCount": 2,
+        "mocks": [],
+        "viMocks": [
+          "../../hooks/useLocalStorage",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/CategorySelector.test.tsx",
+        "fileName": "CategorySelector.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../icons/ChevronDownIcon",
+          "../icons/PlusIcon",
+          "../icons/TagIcon"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/BulkTransactionEdit.test.tsx",
+        "fileName": "BulkTransactionEdit.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../hooks/useCurrencyDecimal",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/BudgetRollover.test.tsx",
+        "fileName": "BudgetRollover.test.tsx",
+        "hasMocks": true,
+        "mockCount": 6,
+        "mocks": [],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../contexts/BudgetContext",
+          "../../hooks/useLocalStorage",
+          "../../hooks/useCurrencyDecimal",
+          "../../utils/decimal",
+          "../icons"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/BudgetModal.test.tsx",
+        "fileName": "BudgetModal.test.tsx",
+        "hasMocks": false,
+        "mockCount": 0,
+        "mocks": [],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/BalanceReconciliationModal.test.tsx",
+        "fileName": "BalanceReconciliationModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 3,
+        "mocks": [],
+        "viMocks": [
+          "../icons",
+          "../common/Modal",
+          "../../hooks/useCurrencyDecimal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/AddTransactionModal.test.tsx",
+        "fileName": "AddTransactionModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 5,
+        "mocks": [],
+        "viMocks": [
+          "../../contexts/AppContext",
+          "../../services/validationService",
+          "../ResponsiveModal",
+          "../MarkdownEditor",
+          "../CategoryCreationModal"
+        ],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      },
+      {
+        "filePath": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/AccountSettingsModal.test.tsx",
+        "fileName": "AccountSettingsModal.test.tsx",
+        "hasMocks": true,
+        "mockCount": 1,
+        "mocks": [
+          "Mock function"
+        ],
+        "viMocks": [],
+        "jestMocks": [],
+        "isComponentTest": true,
+        "isServiceTest": false,
+        "isContextTest": false,
+        "isHookTest": false,
+        "isUtilTest": false
+      }
+    ]
+  },
+  "conversions": [
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/pdfExport.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/pdfExport.real.test.ts",
+      "mockCount": 13,
+      "mocks": [
+        "jspdf",
+        "html2canvas"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/currency-decimal.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/currency-decimal.real.test.ts",
+      "mockCount": 1,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/api-error-handler.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/utils/__tests__/api-error-handler.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../../lib/sentry"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/test/integration/UserWorkflowIntegration.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/test/integration/UserWorkflowIntegration.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "../../pages/Dashboard",
+        "../../pages/Accounts",
+        "../../pages/Transactions",
+        "../../pages/Budget",
+        "../../pages/Goals",
+        "../../pages/Reports"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/test/integration/ErrorHandlingIntegration.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/test/integration/ErrorHandlingIntegration.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "../../pages/Dashboard"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/test/integration/DecimalFinancialIntegration.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/test/integration/DecimalFinancialIntegration.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "react-router-dom"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/test/integration/CurrencyIntegration.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/test/integration/CurrencyIntegration.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "../../pages/Dashboard",
+        "../../services/currencyService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/test/integration/ComponentInteraction.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/test/integration/ComponentInteraction.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "../../pages/Dashboard",
+        "../../pages/Accounts",
+        "../../pages/Transactions",
+        "../../pages/Budget"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/test/integration/AppFlow.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/test/integration/AppFlow.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "../../App"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/store/slices/transactionsSlice.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/store/slices/transactionsSlice.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../../services/storageAdapter"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/store/slices/tagsSlice.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/store/slices/tagsSlice.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../../services/storageAdapter"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/store/slices/recurringTransactionsSlice.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/store/slices/recurringTransactionsSlice.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../../services/storageAdapter"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/store/slices/notificationsSlice.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/store/slices/notificationsSlice.real.test.ts",
+      "mockCount": 2,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/store/slices/goalsSlice.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/store/slices/goalsSlice.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../../services/storageAdapter",
+        "../../utils/dateHelpers"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/store/slices/categoriesSlice.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/store/slices/categoriesSlice.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../../services/storageAdapter"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/store/slices/budgetsSlice.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/store/slices/budgetsSlice.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../../services/storageAdapter",
+        "../../utils/dateHelpers"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/store/slices/accountsSlice.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/store/slices/accountsSlice.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../../services/storageAdapter"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/stockPriceService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/stockPriceService.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../utils/currency",
+        "./errorHandlingService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/searchService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/searchService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "fuse.js"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/realtimePriceService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/realtimePriceService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "./stockPriceService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/qifImportService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/qifImportService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "./smartCategorizationService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/ofxImportService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/ofxImportService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "./smartCategorizationService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/offlineService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/offlineService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "idb"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/localMerchantLogoService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/localMerchantLogoService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../data/brandDatabase"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/investmentEnhancementService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/investmentEnhancementService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../utils/decimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/financialSummaryService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/financialSummaryService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../utils/decimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/enhancedCsvImportService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/enhancedCsvImportService.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../storageAdapter",
+        "uuid"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/encryptedStorageService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/encryptedStorageService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "./indexedDBService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/cashFlowForecastService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/cashFlowForecastService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "date-fns"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/budgetCalculationService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/budgetCalculationService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "./base/BaseService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/base/BaseService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/base/BaseService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../storageAdapter"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/userIdService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/userIdService.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../api/supabaseClient",
+        "../api/userService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/storageAdapter.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/storageAdapter.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../encryptedStorageService",
+        "../indexedDBService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/encryptedStorageService.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/services/__tests__/encryptedStorageService.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../indexedDBService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/pages/Transactions.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/pages/Transactions.real.test.tsx",
+      "mockCount": 4,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/pages/Reports.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/pages/Reports.real.test.tsx",
+      "mockCount": 4,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/pages/Dashboard.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/pages/Dashboard.real.test.tsx",
+      "mockCount": 4,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/pages/Budget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/pages/Budget.real.test.tsx",
+      "mockCount": 4,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/pages/Analytics.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/pages/Analytics.real.test.tsx",
+      "mockCount": 4,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/pages/Accounts.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/pages/Accounts.real.test.tsx",
+      "mockCount": 4,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/hooks/useModalForm.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/hooks/useModalForm.real.test.ts",
+      "mockCount": 2,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/hooks/useCurrencyDecimal.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/hooks/useCurrencyDecimal.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../contexts/PreferencesContext",
+        "../utils/currency-decimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/hooks/useCurrency.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/hooks/useCurrency.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../contexts/PreferencesContext",
+        "../utils/currency"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useStockPrices.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useStockPrices.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../../services/stockPriceService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useReconciliation.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useReconciliation.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../../utils/reconciliation"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useRealTimePrices.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useRealTimePrices.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../../services/realtimePriceService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useKeyboardShortcuts.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useKeyboardShortcuts.real.test.ts",
+      "mockCount": 8,
+      "mocks": [
+        "react-router-dom"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useGlobalSearch.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useGlobalSearch.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useErrorHandler.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useErrorHandler.real.test.ts",
+      "mockCount": 1,
+      "mocks": [
+        "../../lib/sentry"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useCashFlowForecast.test.ts",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/hooks/__tests__/useCashFlowForecast.real.test.ts",
+      "mockCount": 2,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../services/cashFlowForecastService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/contexts/TransactionContext.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/contexts/TransactionContext.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "uuid"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/contexts/NotificationContext.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/contexts/NotificationContext.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "../services/notificationService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/contexts/NavigationContext.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/contexts/NavigationContext.real.test.tsx",
+      "mockCount": 3,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/contexts/GoalContext.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/contexts/GoalContext.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "uuid"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/contexts/CategoryContext.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/contexts/CategoryContext.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "uuid",
+        "../data/defaultCategories"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/contexts/BudgetContext.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/contexts/BudgetContext.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "uuid"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/contexts/AccountContext.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/contexts/AccountContext.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "uuid"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/contexts/__tests__/CombinedProvider.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/contexts/__tests__/CombinedProvider.real.test.tsx",
+      "mockCount": 8,
+      "mocks": [
+        "../AccountContext",
+        "../TransactionContext",
+        "../BudgetContext",
+        "../GoalContext",
+        "../CategoryContext",
+        "../PreferencesContext",
+        "../LayoutContext",
+        "../../data/defaultTestData"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/contexts/__tests__/AppContext.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/contexts/__tests__/AppContext.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "../../services/storageAdapter"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/ValidationTransactionModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/ValidationTransactionModal.real.test.tsx",
+      "mockCount": 7,
+      "mocks": [
+        "./icons",
+        "./common/Modal",
+        "../hooks/useCurrencyDecimal",
+        "../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/TransactionRow.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/TransactionRow.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "./LocalMerchantLogo",
+        "./MarkdownNote",
+        "../hooks/useFormattedValues",
+        "./icons",
+        "./icons/IconButton"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/TransactionReconciliation.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/TransactionReconciliation.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "./icons",
+        "../contexts/AppContext",
+        "../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/TransactionModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/TransactionModal.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "./TagSelector",
+        "./CategorySelector",
+        "../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/TransactionDetailsModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/TransactionDetailsModal.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "./icons/XIcon",
+        "../hooks/useCurrencyDecimal",
+        "../utils/decimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/ThemeSwitcher.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/ThemeSwitcher.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "../design-system",
+        "./icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/TestDataWarningModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/TestDataWarningModal.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "./icons/AlertTriangleIcon",
+        "./icons/XIcon"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/TagSelector.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/TagSelector.real.test.tsx",
+      "mockCount": 7,
+      "mocks": [
+        "./icons/XIcon",
+        "./icons/PlusIcon",
+        "./icons/HashIcon",
+        "../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/StockQuoteWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/StockQuoteWidget.real.test.tsx",
+      "mockCount": 10,
+      "mocks": [
+        "./icons",
+        "../hooks/useCurrencyDecimal",
+        "../services/stockPriceService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/SplitTransactionModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/SplitTransactionModal.real.test.tsx",
+      "mockCount": 7,
+      "mocks": [
+        "./icons/XIcon",
+        "./icons/PlusIcon",
+        "./icons/DeleteIcon",
+        "../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/SpendingByCategoryChart.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/SpendingByCategoryChart.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../contexts/AppContext",
+        "../hooks/useCurrencyDecimal",
+        "../services/transactionAnalyticsService",
+        "recharts"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/RecurringTransactionModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/RecurringTransactionModal.real.test.tsx",
+      "mockCount": 8,
+      "mocks": [
+        "../contexts/AppContext",
+        "./common/Modal",
+        "./icons",
+        "../hooks/useModalForm"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/ReconciliationModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/ReconciliationModal.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "./icons",
+        "../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/RealTimePortfolio.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/RealTimePortfolio.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "./icons",
+        "../utils/decimal",
+        "../services/stockPriceService",
+        "../contexts/AppContext",
+        "../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/QIFImportModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/QIFImportModal.real.test.tsx",
+      "mockCount": 8,
+      "mocks": [
+        "./icons",
+        "./common/Modal",
+        "./loading/LoadingState",
+        "../contexts/AppContext",
+        "../services/qifImportService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/PortfolioRebalancer.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/PortfolioRebalancer.real.test.tsx",
+      "mockCount": 7,
+      "mocks": [
+        "./icons",
+        "recharts",
+        "../services/portfolioRebalanceService",
+        "../contexts/AppContext",
+        "../hooks/useCurrency",
+        "../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/OnboardingModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/OnboardingModal.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "../utils/currency"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/OfflineIndicator.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/OfflineIndicator.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "./icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/OFXImportModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/OFXImportModal.real.test.tsx",
+      "mockCount": 8,
+      "mocks": [
+        "./icons",
+        "./common/Modal",
+        "./loading/LoadingState",
+        "../contexts/AppContext",
+        "../services/ofxImportService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/NotificationBell.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/NotificationBell.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "./icons",
+        "./NotificationCenter",
+        "../contexts/NotificationContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/NetWorthTrendChart.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/NetWorthTrendChart.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "../contexts/AppContext",
+        "../hooks/useCurrencyDecimal",
+        "recharts"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/MnyMappingModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/MnyMappingModal.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "./icons/XIcon",
+        "./icons/AlertCircleIcon",
+        "./icons/CheckCircleIcon"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/MerchantLogo.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/MerchantLogo.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "../services/merchantLogoService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/IncomeVsExpensesChart.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/IncomeVsExpensesChart.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "../contexts/AppContext",
+        "../hooks/useCurrencyDecimal",
+        "recharts"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/ImportDataModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/ImportDataModal.real.test.tsx",
+      "mockCount": 17,
+      "mocks": [
+        "./icons/UploadIcon",
+        "./icons/FileTextIcon",
+        "./icons/AlertCircleIcon",
+        "./icons/CheckCircleIcon",
+        "./icons/InfoIcon",
+        "./icons/AlertTriangleIcon",
+        "./icons",
+        "./common/Modal",
+        "./MnyMappingModal",
+        "../utils/mnyParser",
+        "../utils/qifParser",
+        "../contexts/AppContextSupabase"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/GoalModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/GoalModal.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "../contexts/AppContext",
+        "./common/Modal",
+        "../hooks/useModalForm"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/GoalCelebrationModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/GoalCelebrationModal.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "./common/Modal",
+        "./icons",
+        "../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/FixSummaryModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/FixSummaryModal.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "./common/Modal",
+        "../hooks/useCurrencyDecimal",
+        "./icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/ExpenseSplitModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/ExpenseSplitModal.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "./icons",
+        "../hooks/useCurrencyDecimal",
+        "../utils/decimal",
+        "../services/collaborationService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/ExcelExport.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/ExcelExport.real.test.tsx",
+      "mockCount": 12,
+      "mocks": [
+        "./icons",
+        "./common/Modal",
+        "xlsx",
+        "../hooks/useCurrencyDecimal",
+        "../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/ErrorBoundary.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/ErrorBoundary.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "./icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/EnvelopeBudgeting.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/EnvelopeBudgeting.real.test.tsx",
+      "mockCount": 7,
+      "mocks": [
+        "./icons",
+        "../utils/decimal",
+        "../contexts/AppContext",
+        "../contexts/BudgetContext",
+        "../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/EnhancedPortfolioView.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/EnhancedPortfolioView.real.test.tsx",
+      "mockCount": 7,
+      "mocks": [
+        "react-router-dom",
+        "./icons",
+        "../hooks/useStockPrices",
+        "../services/stockPriceService",
+        "../utils/currency",
+        "../utils/decimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/EnhancedExportModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/EnhancedExportModal.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "./icons",
+        "../services/exportService"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/EmptyState.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/EmptyState.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "./icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/EditTransactionModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/EditTransactionModal.real.test.tsx",
+      "mockCount": 12,
+      "mocks": [
+        "../contexts/AppContext",
+        "../hooks/useTransactionNotifications",
+        "./CategoryCreationModal",
+        "./TagSelector",
+        "./MarkdownEditor",
+        "./DocumentManager",
+        "./common/Modal",
+        "../hooks/useModalForm",
+        "../utils/currency",
+        "../services/validationService",
+        "../components/icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/DashboardModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/DashboardModal.real.test.tsx",
+      "mockCount": 9,
+      "mocks": [
+        "react-router-dom",
+        "./icons/XIcon",
+        "./icons/MaximizeIcon",
+        "./icons/MinimizeIcon",
+        "recharts",
+        "./IncomeExpenditureReport",
+        "./ErrorBoundary",
+        "../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/CategoryTransactionsModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/CategoryTransactionsModal.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "./icons/XIcon",
+        "./icons/CalendarIcon",
+        "./icons/SearchIcon",
+        "./icons/XCircleIcon",
+        "../contexts/AppContext",
+        "../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/CategorySelect.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/CategorySelect.real.test.tsx",
+      "mockCount": 1,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/CategoryCreationModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/CategoryCreationModal.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "../contexts/AppContext",
+        "./common/Modal",
+        "./icons/PlusIcon",
+        "../hooks/useModalForm"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/CashFlowForecast.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/CashFlowForecast.real.test.tsx",
+      "mockCount": 9,
+      "mocks": [
+        "./icons",
+        "./loading/LoadingState",
+        "recharts",
+        "../hooks/useCurrencyDecimal",
+        "../hooks/useCashFlowForecast"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/CSVImportWizard.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/CSVImportWizard.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "../contexts/AppContext",
+        "../services/enhancedCsvImportService",
+        "./loading/LoadingState",
+        "./common/Modal",
+        "./icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/BulkCheckbox.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/BulkCheckbox.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "./icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/BudgetProgress.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/BudgetProgress.real.test.tsx",
+      "mockCount": 9,
+      "mocks": [
+        "./icons",
+        "../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/BudgetModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/BudgetModal.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "../contexts/AppContext",
+        "./common/Modal",
+        "../hooks/useModalForm"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/Breadcrumbs.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/Breadcrumbs.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "./icons",
+        "react-router-dom",
+        "../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/BatchImportModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/BatchImportModal.real.test.tsx",
+      "mockCount": 7,
+      "mocks": [
+        "../services/enhancedCsvImportService",
+        "../services/ofxImportService",
+        "../services/qifImportService",
+        "./common/Modal",
+        "./loading/LoadingState",
+        "./icons",
+        "../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/BalanceReconciliationModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/BalanceReconciliationModal.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "./common/Modal",
+        "./icons",
+        "../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/BalanceAdjustmentModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/BalanceAdjustmentModal.real.test.tsx",
+      "mockCount": 8,
+      "mocks": [
+        "./CategoryCreationModal",
+        "./icons",
+        "../utils/currency",
+        "../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/AddTransactionModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/AddTransactionModal.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../contexts/AppContextSupabase",
+        "../contexts/ToastContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/AddInvestmentModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/AddInvestmentModal.real.test.tsx",
+      "mockCount": 14,
+      "mocks": [
+        "./icons/PlusIcon",
+        "./common/Modal",
+        "../hooks/useModalForm",
+        "../contexts/AppContext",
+        "../hooks/useCurrencyDecimal",
+        "../utils/currency"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/AddAccountModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/AddAccountModal.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../contexts/AppContext",
+        "../contexts/PreferencesContext",
+        "./common/Modal",
+        "../hooks/useModalForm"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/AccountSettingsModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/AccountSettingsModal.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "./common/Modal",
+        "../hooks/useModalForm"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/AccountSelectionModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/AccountSelectionModal.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "./icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/AccountReconciliationModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/AccountReconciliationModal.real.test.tsx",
+      "mockCount": 8,
+      "mocks": [
+        "./CategoryCreationModal",
+        "./icons",
+        "../utils/currency",
+        "../contexts/AppContext"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/AccountBalancesChart.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/AccountBalancesChart.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../contexts/AppContext",
+        "../hooks/useCurrencyDecimal",
+        "recharts"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/WeeklySummaryWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/WeeklySummaryWidget.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "../FinancialSummary"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/UpcomingBillsWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/UpcomingBillsWidget.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/TaxPlanningWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/TaxPlanningWidget.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../services/taxPlanningService",
+        "react-router-dom",
+        "../../hooks/useCurrencyDecimal",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/SecurityWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/SecurityWidget.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "../../services/securityService",
+        "react-router-dom",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/RecentTransactionsWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/RecentTransactionsWidget.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "../../components/icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/NetWorthWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/NetWorthWidget.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "../../components/icons",
+        "recharts"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/MonthlySummaryWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/MonthlySummaryWidget.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "../FinancialSummary"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/MobileAppWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/MobileAppWidget.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../../services/mobileService",
+        "react-router-dom",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/InvestmentSummaryWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/InvestmentSummaryWidget.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "../icons",
+        "recharts"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/InvestmentEnhancementWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/InvestmentEnhancementWidget.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "../../services/investmentEnhancementService",
+        "react-router-dom",
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/GoalProgressWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/GoalProgressWidget.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "react-circular-progressbar",
+        "react-circular-progressbar/dist/styles.css",
+        "../../components/icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/FinancialPlanningWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/FinancialPlanningWidget.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "../../services/financialPlanningService",
+        "react-router-dom",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/ExpenseBreakdownWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/ExpenseBreakdownWidget.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "recharts"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/DataIntelligenceWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/DataIntelligenceWidget.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "../../services/dataIntelligenceService",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/CollaborationWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/CollaborationWidget.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../../services/collaborationService",
+        "react-router-dom",
+        "../../hooks/useCurrencyDecimal",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/CashFlowWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/CashFlowWidget.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "../../components/icons",
+        "recharts"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/BusinessWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/BusinessWidget.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "../../services/businessService",
+        "react-router-dom",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/BudgetSummaryWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/BudgetSummaryWidget.real.test.tsx",
+      "mockCount": 7,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../contexts/BudgetContext",
+        "../../hooks/useCurrencyDecimal",
+        "../../services/budgetCalculationService",
+        "../../components/icons",
+        "recharts"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/BankConnectionsWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/BankConnectionsWidget.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../../services/bankConnectionService",
+        "react-router-dom",
+        "date-fns",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/widgets/AIAnalyticsWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/widgets/AIAnalyticsWidget.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "../../services/advancedAnalyticsService",
+        "react-router-dom",
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/loading/LoadingState.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/loading/LoadingState.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/common/Modal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/common/Modal.real.test.tsx",
+      "mockCount": 3,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/charts/TreemapChart.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/charts/TreemapChart.real.test.tsx",
+      "mockCount": 4,
+      "mocks": [
+        "recharts",
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/charts/SankeyChart.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/charts/SankeyChart.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/charts/LineChart.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/charts/LineChart.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "chart.js",
+        "react-chartjs-2"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/charts/LazyChart.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/charts/LazyChart.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "recharts"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/charts/DoughnutChart.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/charts/DoughnutChart.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "chart.js",
+        "react-chartjs-2"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/VirtualizedTransactionList.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/VirtualizedTransactionList.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "react-window",
+        "react-window-infinite-loader",
+        "react-virtualized-auto-sizer",
+        "../icons",
+        "../../hooks/useFormattedValues"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/TransactionRow.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/TransactionRow.real.test.tsx",
+      "mockCount": 2,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/TransactionCard.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/TransactionCard.real.test.tsx",
+      "mockCount": 1,
+      "mocks": []
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/SplitTransactionModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/SplitTransactionModal.real.test.tsx",
+      "mockCount": 7,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../icons/XIcon",
+        "../icons/PlusIcon",
+        "../icons/DeleteIcon"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/RecurringTransactionModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/RecurringTransactionModal.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../icons",
+        "../../hooks/useModalForm"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/GlobalSearch.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/GlobalSearch.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "react-router-dom",
+        "../../hooks/useDebounce",
+        "../../hooks/useGlobalSearch",
+        "../icons",
+        "dompurify"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/ErrorBoundary.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/ErrorBoundary.real.test.tsx",
+      "mockCount": 1,
+      "mocks": [
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/DuplicateDetection.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/DuplicateDetection.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/DataValidation.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/DataValidation.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "../ValidationTransactionModal",
+        "../FixSummaryModal",
+        "../BalanceReconciliationModal",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/DashboardWidget.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/DashboardWidget.real.test.tsx",
+      "mockCount": 2,
+      "mocks": [
+        "../../hooks/useLocalStorage",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/CategorySelector.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/CategorySelector.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../icons/ChevronDownIcon",
+        "../icons/PlusIcon",
+        "../icons/TagIcon"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/BulkTransactionEdit.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/BulkTransactionEdit.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../hooks/useCurrencyDecimal",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/BudgetRollover.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/BudgetRollover.real.test.tsx",
+      "mockCount": 6,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../contexts/BudgetContext",
+        "../../hooks/useLocalStorage",
+        "../../hooks/useCurrencyDecimal",
+        "../../utils/decimal",
+        "../icons"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/BalanceReconciliationModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/BalanceReconciliationModal.real.test.tsx",
+      "mockCount": 3,
+      "mocks": [
+        "../icons",
+        "../common/Modal",
+        "../../hooks/useCurrencyDecimal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/AddTransactionModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/AddTransactionModal.real.test.tsx",
+      "mockCount": 5,
+      "mocks": [
+        "../../contexts/AppContext",
+        "../../services/validationService",
+        "../ResponsiveModal",
+        "../MarkdownEditor",
+        "../CategoryCreationModal"
+      ]
+    },
+    {
+      "original": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/AccountSettingsModal.test.tsx",
+      "replacement": "/Users/stevegreen/wealthtracker-web/src/components/__tests__/AccountSettingsModal.real.test.tsx",
+      "mockCount": 1,
+      "mocks": []
+    }
+  ]
+}

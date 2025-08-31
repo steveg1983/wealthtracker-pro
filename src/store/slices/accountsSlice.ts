@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { serializeForRedux } from '../../utils/serializeForRedux';
 import Decimal from 'decimal.js';
 import type { Account } from '../../types';
 import { getCurrentISOString } from '../../utils/dateHelpers';
@@ -35,7 +36,7 @@ const accountsSlice = createSlice({
   initialState,
   reducers: {
     setAccounts: (state, action: PayloadAction<Account[]>) => {
-      state.accounts = action.payload;
+      state.accounts = serializeForRedux(action.payload) as any;
       state.error = null;
     },
     addAccount: (state, action: PayloadAction<Omit<Account, 'id' | 'lastUpdated'>>) => {
@@ -45,7 +46,7 @@ const accountsSlice = createSlice({
         lastUpdated: getCurrentISOString(),
         updatedAt: getCurrentISOString(),
       };
-      state.accounts.push(newAccount);
+      state.accounts.push(serializeForRedux(newAccount) as any);
     },
     updateAccount: (state, action: PayloadAction<{ id: string; updates: Partial<Account> }>) => {
       const index = state.accounts.findIndex(acc => acc.id === action.payload.id);
@@ -114,7 +115,7 @@ const accountsSlice = createSlice({
         state.loading = false;
         const index = state.accounts.findIndex(acc => acc.id === action.payload.id);
         if (index !== -1) {
-          state.accounts[index] = action.payload;
+          state.accounts[index] = serializeForRedux(action.payload) as any;
         }
       })
       .addCase(updateAccountInSupabase.rejected, (state, action) => {

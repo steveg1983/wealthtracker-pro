@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import { logger } from './services/loggingService';
 
 // Minimal app for Safari testing
 function SimpleApp() {
@@ -16,8 +17,12 @@ function SimpleApp() {
 
 // Simple error handling
 window.addEventListener('error', (e) => {
-  console.error('Error:', e);
-  document.body.innerHTML = `<div style="color: red; padding: 20px;">Error: ${e.message}</div>`;
+  logger.error('Error:', e);
+  const errorDiv = document.createElement('div');
+  errorDiv.style.cssText = 'color: red; padding: 20px;';
+  errorDiv.textContent = `Error: ${e.message}`;
+  document.body.innerHTML = '';
+  document.body.appendChild(errorDiv);
 });
 
 // Try to render
@@ -30,9 +35,16 @@ try {
       </StrictMode>
     );
   } else {
-    document.body.innerHTML = '<div style="color: red; padding: 20px;">Root element not found</div>';
+    const errorDiv = document.createElement('div');
+    errorDiv.style.cssText = 'color: red; padding: 20px;';
+    errorDiv.textContent = 'Root element not found';
+    document.body.appendChild(errorDiv);
   }
 } catch (error) {
-  console.error('Render error:', error);
-  document.body.innerHTML = `<div style="color: red; padding: 20px;">Render error: ${error}</div>`;
+  logger.error('Render error:', error);
+  const errorDiv = document.createElement('div');
+  errorDiv.style.cssText = 'color: red; padding: 20px;';
+  errorDiv.textContent = `Render error: ${error}`;
+  document.body.innerHTML = '';
+  document.body.appendChild(errorDiv);
 }

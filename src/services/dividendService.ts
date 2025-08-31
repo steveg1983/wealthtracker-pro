@@ -3,6 +3,7 @@ import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { errorHandlingService, ErrorCategory, ErrorSeverity, validate } from './errorHandlingService';
 import type { SavedDividend } from '../types/dividend';
+import { logger } from './loggingService';
 
 export interface Dividend {
   id: string;
@@ -74,7 +75,7 @@ class DividendService {
         }));
       }
     } catch (error) {
-      console.error('Failed to load dividends:', error);
+      logger.error('Failed to load dividends:', error);
       this.dividends = [];
     }
   }

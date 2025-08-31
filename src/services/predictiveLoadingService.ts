@@ -1,4 +1,5 @@
 import smartCache from './smartCacheService';
+import { logger } from './loggingService';
 
 interface PredictionRule {
   id: string;
@@ -281,7 +282,7 @@ class PredictiveLoadingService {
         return data;
       })
       .catch(error => {
-        console.warn(`Failed to preload ${key}:`, error);
+        logger.warn(`Failed to preload ${key}:`, error);
         this.trackPredictionFailure(prediction);
       })
       .finally(() => {
@@ -543,7 +544,7 @@ class PredictiveLoadingService {
         this.userPatterns = new Map(Object.entries(patterns));
       }
     } catch (e) {
-      console.warn('Failed to load user patterns:', e);
+      logger.warn('Failed to load user patterns:', e);
     }
   }
 
@@ -552,7 +553,7 @@ class PredictiveLoadingService {
       const patterns = Object.fromEntries(this.userPatterns);
       localStorage.setItem('userNavigationPatterns', JSON.stringify(patterns));
     } catch (e) {
-      console.warn('Failed to save user patterns:', e);
+      logger.warn('Failed to save user patterns:', e);
     }
   }
 

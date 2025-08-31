@@ -2,6 +2,7 @@ import Decimal from 'decimal.js';
 import type { Transaction, Budget, Goal, Account, Category } from '../types';
 import type { Notification } from '../contexts/NotificationContext';
 import type { JsonValue, UnknownObject } from '../types/common';
+import { logger } from './loggingService';
 
 export interface NotificationRule {
   id: string;
@@ -141,7 +142,7 @@ class NotificationService {
     try {
       localStorage.setItem(key, JSON.stringify(data));
     } catch (error) {
-      console.warn('Failed to save to localStorage:', error);
+      logger.warn('Failed to save to localStorage:', error);
     }
   }
 

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { 
+import { logger } from '../services/loggingService';
   getRegistration, 
   checkForUpdates, 
   getSyncStatus,
@@ -98,7 +99,7 @@ export function useServiceWorker() {
     try {
       await checkForUpdates();
     } catch (error) {
-      console.error('Failed to check for updates:', error);
+      logger.error('Failed to check for updates:', error);
     }
   }, []);
 
@@ -107,7 +108,7 @@ export function useServiceWorker() {
       const status = await getSyncStatus();
       setState(prev => ({ ...prev, syncStatus: status }));
     } catch (error) {
-      console.error('Failed to get sync status:', error);
+      logger.error('Failed to get sync status:', error);
     }
   }, []);
 

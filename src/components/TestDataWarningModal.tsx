@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AlertTriangleIcon } from './icons/AlertTriangleIcon';
 import { XIcon } from './icons/XIcon';
+import { logger } from '../services/loggingService';
 
 interface TestDataWarningModalProps {
   isOpen: boolean;
@@ -21,7 +22,7 @@ export default function TestDataWarningModal({ isOpen, onClose, onClearData }: T
       }
     } catch (error) {
       // Handle localStorage access errors gracefully
-      console.warn('Unable to access localStorage:', error);
+      logger.warn('Unable to access localStorage:', error);
     }
   }, [isOpen, onClose]);
 
@@ -31,7 +32,7 @@ export default function TestDataWarningModal({ isOpen, onClose, onClearData }: T
         localStorage.setItem('testDataWarningDismissed', 'true');
       } catch (error) {
         // Handle localStorage write errors gracefully
-        console.warn('Unable to save localStorage preference:', error);
+        logger.warn('Unable to save localStorage preference:', error);
       }
     }
     onClose();

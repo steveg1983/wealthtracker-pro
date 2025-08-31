@@ -1,6 +1,9 @@
 // Centralized Error Handling Service
 // Provides consistent error handling, logging, and user notifications
 
+import { isLocalhost } from '../config/environment';
+import { logger } from './loggingService';
+
 export enum ErrorSeverity {
   LOW = 'low',
   MEDIUM = 'medium',
@@ -84,7 +87,7 @@ class ErrorHandlingService {
         })).slice(-this.maxErrors);
       }
     } catch (error) {
-      console.error('Failed to load error log:', error);
+      logger.error('Failed to load error log:', error);
     }
   }
 
@@ -92,7 +95,7 @@ class ErrorHandlingService {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.errors.slice(-this.maxErrors)));
     } catch (error) {
-      console.error('Failed to save error log:', error);
+      logger.error('Failed to save error log:', error);
     }
   }
 
@@ -127,7 +130,7 @@ class ErrorHandlingService {
 
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.error('App Error:', errorObj);
+      logger.error('App Error:', errorObj);
     }
 
     // Call registered handlers
@@ -136,7 +139,7 @@ class ErrorHandlingService {
       try {
         handler(errorObj);
       } catch (err) {
-        console.error('Error in error handler:', err);
+        logger.error('Error in error handler:', err);
       }
     });
 
@@ -181,7 +184,7 @@ class ErrorHandlingService {
     switch (category) {
       case ErrorCategory.NETWORK:
         // Check if this is a local API connection issue
-        if (baseMessage.includes('localhost') || baseMessage.includes('127.0.0.1')) {
+        if (isLocalhost()) {
           return 'No backend server detected. The app is working in local-only mode.';
         }
         return 'Network connection error. The app will continue to work offline.';

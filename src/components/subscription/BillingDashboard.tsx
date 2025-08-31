@@ -19,6 +19,7 @@ import type {
   SubscriptionTier 
 } from '../../types/subscription';
 import { 
+import { logger } from '../../services/loggingService';
   CreditCardIcon, 
   CalendarIcon, 
   DollarSignIcon,
@@ -65,7 +66,7 @@ export default function BillingDashboard({
       setSubscription(subscriptionData);
       setBillingHistory(billingData);
     } catch (err) {
-      console.error('Error loading billing data:', err);
+      logger.error('Error loading billing data:', err);
       setError('Failed to load billing information');
     } finally {
       setIsLoading(false);
@@ -81,7 +82,7 @@ export default function BillingDashboard({
       await loadBillingData();
       setShowCancelModal(false);
     } catch (err) {
-      console.error('Error canceling subscription:', err);
+      logger.error('Error canceling subscription:', err);
       setError('Failed to cancel subscription');
     } finally {
       setIsProcessing(false);
@@ -93,7 +94,7 @@ export default function BillingDashboard({
       const portalUrl = await StripeService.createPortalSession();
       window.open(portalUrl, '_blank');
     } catch (err) {
-      console.error('Error creating portal session:', err);
+      logger.error('Error creating portal session:', err);
       setError('Failed to open billing portal');
     }
   };

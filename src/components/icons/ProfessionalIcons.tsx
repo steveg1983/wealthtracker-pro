@@ -5,6 +5,7 @@
 
 import React from 'react';
 import {
+import { logger } from '../../services/loggingService';
   // Navigation & Core
   IconHome,
   IconSettings,
@@ -263,7 +264,7 @@ export const ProfessionalIcon: React.FC<ProfessionalIconProps> = ({
   const IconComponent = iconMap[name];
   
   if (!IconComponent) {
-    console.warn(`Icon "${name}" not found in professional icon set`);
+    logger.warn(`Icon "${name}" not found in professional icon set`);
     return null;
   }
   

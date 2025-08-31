@@ -121,17 +121,23 @@ export interface Transaction {
 
 export interface Budget {
   id: string;
-  category: string;
+  categoryId: string;  // Changed from 'category' to match service implementation
   amount: number;
   period: 'monthly' | 'weekly' | 'yearly';
   isActive: boolean;
   createdAt: Date;
   name?: string;
   color?: string;
-  spent?: number;
+  spent: number;  // Made required to match service
   budgeted?: number;
   limit?: number;
-  updatedAt?: Date;
+  updatedAt: Date;  // Made required to match service
+  startDate?: string;
+  endDate?: string;
+  rollover?: boolean;
+  rolloverAmount?: number;
+  alertThreshold?: number;
+  notes?: string;
 }
 
 export interface Goal {
@@ -146,8 +152,18 @@ export interface Goal {
   isActive: boolean;
   createdAt: Date;
   achieved?: boolean;
-  progress?: number;
-  updatedAt?: Date;
+  progress: number;  // Made required to match service
+  updatedAt: Date;  // Made required to match service
+  category?: string;
+  priority?: 'low' | 'medium' | 'high';
+  status?: 'active' | 'completed' | 'paused';
+  accountId?: string;
+  autoContribute?: boolean;
+  contributionAmount?: number;
+  contributionFrequency?: string;
+  icon?: string;
+  color?: string;
+  completedAt?: string;
 }
 
 export interface Category {

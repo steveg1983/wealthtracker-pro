@@ -23,6 +23,7 @@ import MerchantEnrichment from '../components/MerchantEnrichment';
 import SpendingPatterns from '../components/SpendingPatterns';
 import DataInsights from '../components/DataInsights';
 import type { DataIntelligenceStats, SpendingInsight, Subscription } from '../services/dataIntelligenceService';
+import { logger } from '../services/loggingService';
 
 type ActiveTab = 'overview' | 'subscriptions' | 'merchants' | 'patterns' | 'insights';
 
@@ -45,7 +46,7 @@ export default function DataIntelligence() {
       setInsights(dataIntelligenceService.getInsights());
       setSubscriptions(dataIntelligenceService.getSubscriptions());
     } catch (error) {
-      console.error('Error loading data intelligence data:', error);
+      logger.error('Error loading data intelligence data:', error);
     } finally {
       setIsLoading(false);
     }
@@ -65,7 +66,7 @@ export default function DataIntelligence() {
       // For now, we'll just refresh the data
       loadData();
     } catch (error) {
-      console.error('Error running analysis:', error);
+      logger.error('Error running analysis:', error);
     } finally {
       setIsAnalyzing(false);
     }

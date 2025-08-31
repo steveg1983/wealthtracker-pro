@@ -1,47 +1,21 @@
 import { io, Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 import { ConflictResolutionService } from './conflictResolutionService';
+import type {
+  SyncOperation,
+  SyncConflict,
+  SyncStatus,
+  VectorClock,
+  SyncQueueItem as QueueItem,
+  EntityType,
+  SyncEventPayload,
+  SocketAckResponse,
+  ConflictAnalysis,
+  SyncData
+} from '../types/sync-types';
 
-// Types for sync operations
-export interface SyncOperation {
-  id: string;
-  type: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity: 'transaction' | 'account' | 'budget' | 'goal' | 'category';
-  entityId: string;
-  data: any;
-  timestamp: number;
-  clientId: string;
-  version: number;
-}
-
-export interface SyncConflict {
-  id: string;
-  localOperation: SyncOperation;
-  remoteOperation: SyncOperation;
-  resolution?: 'local' | 'remote' | 'merge';
-  mergedData?: any;
-}
-
-export interface SyncStatus {
-  isConnected: boolean;
-  isSyncing: boolean;
-  lastSyncTime?: Date;
-  pendingOperations: number;
-  conflicts: SyncConflict[];
-  error?: string;
-}
-
-// Vector clock for conflict resolution
-interface VectorClock {
-  [clientId: string]: number;
-}
-
-// Sync queue item
-interface QueueItem {
-  operation: SyncOperation;
-  retryCount: number;
-  maxRetries: number;
-}
+// Re-export for backward compatibility
+export type { SyncOperation, SyncConflict, SyncStatus } from '../types/sync-types';
 
 class SyncService {
   private socket: Socket | null = null;
@@ -81,7 +55,7 @@ class SyncService {
       const stored = localStorage.getItem('syncQueue');
       if (stored) {
         const queue = JSON.parse(stored);
-        this.syncQueue = queue.map((item: any) => ({
+        this.syncQueue = queue.map((item: QueueItem) => ({
           operation: item.operation,
           retryCount: 0,
           maxRetries: 3
@@ -89,7 +63,7 @@ class SyncService {
         this.syncStatus.pendingOperations = this.syncQueue.length;
       }
     } catch (error) {
-      console.error('Failed to load sync queue:', error);
+      logger.error('Failed to load sync queue:', error);
     }
   }
 
@@ -97,7 +71,7 @@ class SyncService {
     try {
       localStorage.setItem('syncQueue', JSON.stringify(this.syncQueue));
     } catch (error) {
-      console.error('Failed to save sync queue:', error);
+      logger.error('Failed to save sync queue:', error);
     }
   }
 
@@ -131,7 +105,7 @@ class SyncService {
 
       this.setupSocketListeners();
     } catch (error) {
-      console.error('Failed to connect to sync server:', error);
+      logger.error('Failed to connect to sync server:', error);
       this.handleConnectionError();
     }
   }
@@ -170,8 +144,8 @@ class SyncService {
       this.handleSyncAck(operationId);
     });
 
-    this.socket.on('error', (error: any) => {
-      console.error('Sync socket error:', error);
+    this.socket.on('error', (error: Error | { message: string }) => {
+      logger.error('Sync socket error:', error);
       this.syncStatus.error = error.message;
       this.emit('status-changed', this.syncStatus);
     });
@@ -184,7 +158,7 @@ class SyncService {
       console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
       setTimeout(() => this.connect(), delay);
     } else {
-      console.error('Max reconnection attempts reached, running in offline mode');
+      logger.error('Max reconnection attempts reached, running in offline mode');
       this.syncStatus.error = 'Unable to connect to sync server';
       this.emit('status-changed', this.syncStatus);
     }
@@ -251,12 +225,12 @@ class SyncService {
         // Remove from queue after successful send
         this.syncQueue = this.syncQueue.filter(q => q.operation.id !== item.operation.id);
       } catch (error) {
-        console.error('Failed to send operation:', error);
+        logger.error('Failed to send operation:', error);
         item.retryCount++;
         
         if (item.retryCount >= item.maxRetries) {
           // Move to failed operations
-          console.error('Operation failed after max retries:', item.operation);
+          logger.error('Operation failed after max retries:', item.operation);
           this.syncQueue = this.syncQueue.filter(q => q.operation.id !== item.operation.id);
           this.emit('sync-failed', item.operation);
         }
@@ -281,7 +255,7 @@ class SyncService {
         reject(new Error('Operation timeout'));
       }, 10000);
 
-      this.socket.emit('sync-operation', operation, (ack: any) => {
+      this.socket.emit('sync-operation', operation, (ack: SocketAckResponse) => {
         clearTimeout(timeout);
         if (ack.success) {
           resolve();
@@ -370,7 +344,7 @@ class SyncService {
     }
   }
 
-  private autoResolveConflict(conflict: SyncConflict, analysis?: any): 'local' | 'remote' | 'merge' | null {
+  private autoResolveConflict(conflict: SyncConflict, analysis?: ConflictAnalysis): 'local' | 'remote' | 'merge' | null {
     // If we have analysis, use it
     if (analysis && analysis.suggestedResolution) {
       switch (analysis.suggestedResolution) {
@@ -396,7 +370,11 @@ class SyncService {
     return 'remote';
   }
 
-  public resolveConflict(conflictId: string, resolution: 'local' | 'remote' | 'merge', mergedData?: any): void {
+  public resolveConflict<T extends EntityType>(
+    conflictId: string,
+    resolution: 'local' | 'remote' | 'merge',
+    mergedData?: SyncData<T>
+  ): void {
     const conflict = this.conflicts.find(c => c.id === conflictId);
     if (!conflict) return;
 
@@ -442,7 +420,11 @@ class SyncService {
     });
   }
 
-  private applyMergedData(entity: string, entityId: string, data: any): void {
+  private applyMergedData<T extends EntityType>(
+    entity: T,
+    entityId: string,
+    data: SyncData<T>
+  ): void {
     this.emit('remote-merge', {
       entity,
       entityId,
@@ -498,7 +480,10 @@ class SyncService {
     }
   }
 
-  private emit(event: string, data?: any): void {
+  private emit<T extends EntityType>(
+    event: string,
+    data?: SyncEventPayload<T> | SyncStatus | SyncConflict<T>
+  ): void {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
       callbacks.forEach(callback => callback(data));
@@ -568,3 +553,4 @@ export function useSyncStatus(): SyncStatus {
 
 // React imports for the hook
 import React from 'react';
+import { logger } from './loggingService';

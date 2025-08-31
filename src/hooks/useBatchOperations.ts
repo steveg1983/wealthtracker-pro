@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Transaction } from '../types';
+import { logger } from '../services/loggingService';
 
 export interface BatchOperation {
   id: string;
@@ -106,7 +107,7 @@ export function useBatchOperations({
       // Clear selection after successful update
       clearSelection();
     } catch (error) {
-      console.error('Batch update failed:', error);
+      logger.error('Batch update failed:', error);
       throw error;
     } finally {
       setIsProcessing(false);
@@ -140,7 +141,7 @@ export function useBatchOperations({
       // Clear selection after successful delete
       clearSelection();
     } catch (error) {
-      console.error('Batch delete failed:', error);
+      logger.error('Batch delete failed:', error);
       throw error;
     } finally {
       setIsProcessing(false);
@@ -167,7 +168,7 @@ export function useBatchOperations({
       await Promise.all(updates);
       clearSelection();
     } catch (error) {
-      console.error('Batch tag failed:', error);
+      logger.error('Batch tag failed:', error);
       throw error;
     } finally {
       setIsProcessing(false);
@@ -189,7 +190,7 @@ export function useBatchOperations({
       await Promise.all(updates);
       clearSelection();
     } catch (error) {
-      console.error('Batch untag failed:', error);
+      logger.error('Batch untag failed:', error);
       throw error;
     } finally {
       setIsProcessing(false);

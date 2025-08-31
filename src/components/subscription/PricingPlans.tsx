@@ -13,6 +13,7 @@ import { useUser } from '@clerk/clerk-react';
 import StripeService from '../../services/stripeService';
 import type { SubscriptionPlan, SubscriptionTier } from '../../types/subscription';
 import { 
+import { logger } from '../../services/loggingService';
   CheckIcon, 
   XIcon, 
   StarIcon, 
@@ -48,7 +49,7 @@ export default function PricingPlans({
     try {
       await onSelectPlan(plan);
     } catch (error) {
-      console.error('Error selecting plan:', error);
+      logger.error('Error selecting plan:', error);
     } finally {
       setLoadingPlan(null);
     }

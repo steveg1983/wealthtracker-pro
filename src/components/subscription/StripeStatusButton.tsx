@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { CheckCircleIcon, AlertCircleIcon } from '../icons';
+import { apiUrl } from '../../config/api';
+import { logger } from '../../services/loggingService';
 
 export default function StripeStatusButton(): React.JSX.Element {
   const { getToken } = useAuth();
@@ -20,7 +22,7 @@ export default function StripeStatusButton(): React.JSX.Element {
         return;
       }
 
-      const response = await fetch('http://localhost:3000/api/subscriptions/stripe-status', {
+      const response = await fetch(apiUrl('subscriptions/stripe-status'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -34,7 +36,7 @@ export default function StripeStatusButton(): React.JSX.Element {
         setError(data.error || 'Failed to check status');
       }
     } catch (error) {
-      console.error('Status check error:', error);
+      logger.error('Status check error:', error);
       setError('Failed to check subscription status');
     } finally {
       setLoading(false);

@@ -10,6 +10,7 @@ import {
   Zap
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { logger } from '../services/loggingService';
 
 interface WebhookEvent {
   id: string;
@@ -88,7 +89,7 @@ export default function WebhookManager(): React.JSX.Element {
 
       setIsLoading(false);
     } catch (error) {
-      console.error('Failed to load webhook data:', error);
+      logger.error('Failed to load webhook data:', error);
       setIsLoading(false);
     }
   };

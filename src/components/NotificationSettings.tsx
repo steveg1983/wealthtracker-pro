@@ -10,6 +10,7 @@ import {
   AlertCircleIcon
 } from './icons';
 import type { NotificationSettings as NotificationSettingsType } from '../services/mobileService';
+import { logger } from '../services/loggingService';
 
 interface NotificationSettingsProps {
   isOpen: boolean;
@@ -39,7 +40,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
         setSettings(prev => ({ ...prev, enabled: true }));
       }
     } catch (error) {
-      console.error('Failed to request notification permission:', error);
+      logger.error('Failed to request notification permission:', error);
     } finally {
       setIsRequestingPermission(false);
     }

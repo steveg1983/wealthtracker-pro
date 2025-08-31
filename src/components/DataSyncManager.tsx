@@ -14,6 +14,7 @@ import {
 import { useDataSync } from '../hooks/useDataSync';
 import { formatDistanceToNow } from 'date-fns';
 import { SyncConflict } from '../services/syncService';
+import { logger } from '../services/loggingService';
 
 export default function DataSyncManager(): React.JSX.Element {
   const { syncStatus, conflicts, forceSync, resolveConflict, clearSyncQueue } = useDataSync();
@@ -30,7 +31,7 @@ export default function DataSyncManager(): React.JSX.Element {
       resolveConflict(conflictId, resolution);
       setTimeout(() => setResolvingConflict(null), 500);
     } catch (error) {
-      console.error('Failed to resolve conflict:', error);
+      logger.error('Failed to resolve conflict:', error);
       setResolvingConflict(null);
     }
   };

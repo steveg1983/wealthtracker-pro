@@ -124,9 +124,9 @@ self.addEventListener('fetch', (event) => {
     }
   }
 
-  // Handle API requests
+  // Do not intercept same-origin API requests; the app talks directly to Supabase.
+  // Let the network handle `/api/*` or any backend proxies without SW interference.
   if (url.pathname.startsWith('/api/')) {
-    event.respondWith(handleApiRequest(request));
     return;
   }
 
@@ -136,53 +136,7 @@ self.addEventListener('fetch', (event) => {
   }
 });
 
-// Handle API requests with network-first strategy
-async function handleApiRequest(request) {
-  const cache = await caches.open(CACHE_NAMES.api);
-  
-  try {
-    // Try network first
-    const networkResponse = await fetch(request);
-    
-    // Cache successful GET requests
-    if (request.method === 'GET' && networkResponse.ok) {
-      const shouldCache = CACHEABLE_API_ROUTES.some(route => 
-        request.url.includes(route)
-      );
-      
-      if (shouldCache) {
-        await cache.put(request, networkResponse.clone());
-        await trimCache(CACHE_NAMES.api, CACHE_LIMITS.api);
-      }
-    }
-    
-    return networkResponse;
-  } catch (error) {
-    console.log('[SW] Network request failed, trying cache:', error);
-    
-    // Fallback to cache for GET requests
-    if (request.method === 'GET') {
-      const cachedResponse = await cache.match(request);
-      if (cachedResponse) {
-        console.log('[SW] Serving from cache:', request.url);
-        return cachedResponse;
-      }
-    }
-    
-    // Return error response
-    return new Response(
-      JSON.stringify({ 
-        error: 'Network error', 
-        offline: true,
-        message: 'The requested data is not available offline'
-      }),
-      { 
-        status: 503,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-  }
-}
+// (API handler removed — SW no longer caches `/api/*` routes.)
 
 // Handle static assets with appropriate strategy
 async function handleStaticRequest(request) {

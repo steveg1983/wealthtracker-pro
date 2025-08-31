@@ -1,5 +1,6 @@
 import { getStockQuote, type StockQuote } from './stockPriceService';
 import type { JsonValue } from '../types/common';
+import { logger } from './loggingService';
 
 export interface PriceUpdate {
   symbol: string;
@@ -31,7 +32,7 @@ class RealTimePriceService {
         try {
           listener(data);
         } catch (error) {
-          console.error(`Error in event listener for ${event}:`, error);
+          logger.error(`Error in event listener for ${event}:`, error);
         }
       });
     }
@@ -181,13 +182,13 @@ class RealTimePriceService {
             try {
               callback(update);
             } catch (error) {
-              console.error(`Error in price update callback for ${symbol}:`, error);
+              logger.error(`Error in price update callback for ${symbol}:`, error);
             }
           });
         }
       }
     } catch (error) {
-      console.error(`Error fetching price for ${symbol}:`, error);
+      logger.error(`Error fetching price for ${symbol}:`, error);
       this.emit('error', { symbol, error: String(error) } as JsonValue);
     }
   }

@@ -7,12 +7,15 @@ import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { renderWithProviders } from '../../test/testUtils';
+import { renderWithProviders } from '../../../test/testUtils';
 import { Modal } from '../Modal';
 
 describe('Modal', () => {
   const defaultProps = {
-    // Add default props based on component interface
+    isOpen: true,
+    onClose: vi.fn(),
+    title: 'Test Modal',
+    children: <div>Modal content</div>
   };
 
   beforeEach(() => {
@@ -21,22 +24,32 @@ describe('Modal', () => {
 
   it('renders without crashing', () => {
     renderWithProviders(<Modal {...defaultProps} />);
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('Test Modal')).toBeInTheDocument();
+    expect(screen.getByText('Modal content')).toBeInTheDocument();
   });
 
   it('handles user interactions', async () => {
     const user = userEvent.setup();
-    renderWithProviders(<Modal {...defaultProps} />);
+    const onClose = vi.fn();
+    renderWithProviders(<Modal {...defaultProps} onClose={onClose} />);
     
-    // Add interaction tests
+    // Click close button
+    const closeButton = screen.getByRole('button', { name: /close/i });
+    await user.click(closeButton);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('validates form inputs', async () => {
-    // Add validation tests
+  it('does not render when closed', () => {
+    renderWithProviders(<Modal {...defaultProps} isOpen={false} />);
+    expect(screen.queryByText('Test Modal')).not.toBeInTheDocument();
   });
 
-  it('handles error states', () => {
-    // Add error handling tests
+  it('handles escape key press', () => {
+    const onClose = vi.fn();
+    renderWithProviders(<Modal {...defaultProps} onClose={onClose} />);
+    
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
 });

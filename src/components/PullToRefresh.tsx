@@ -1,5 +1,6 @@
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { RefreshCwIcon, ChevronDownIcon } from './icons';
+import { logger } from '../services/loggingService';
 
 interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
@@ -94,7 +95,7 @@ export function PullToRefresh({
       try {
         await onRefresh();
       } catch (error) {
-        console.error('Refresh failed:', error);
+        logger.error('Refresh failed:', error);
       } finally {
         setIsRefreshing(false);
         setPullDistance(0);
@@ -137,7 +138,7 @@ export function PullToRefresh({
         try {
           await onRefresh();
         } catch (error) {
-          console.error('Refresh failed:', error);
+          logger.error('Refresh failed:', error);
         } finally {
           setIsRefreshing(false);
           setPullDistance(0);
@@ -291,7 +292,7 @@ export function usePullToRefresh(
       await onRefresh();
       setLastRefresh(new Date());
     } catch (error) {
-      console.error('Refresh failed:', error);
+      logger.error('Refresh failed:', error);
       throw error;
     } finally {
       setIsRefreshing(false);

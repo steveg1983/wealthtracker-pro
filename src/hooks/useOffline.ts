@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { offlineService } from '../services/offlineService';
+import { logger } from '../services/loggingService';
 
 interface UseOfflineReturn {
   isOffline: boolean;
@@ -25,7 +26,7 @@ export function useOffline(): UseOfflineReturn {
       const count = await offlineService.getOfflineQueueCount();
       setPendingChanges(count);
     } catch (error) {
-      console.error('Failed to get offline queue count:', error);
+      logger.error('Failed to get offline queue count:', error);
     }
   }, []);
 
@@ -51,7 +52,7 @@ export function useOffline(): UseOfflineReturn {
 
     const handleSyncConflict = (event: Event) => {
       const customEvent = event as CustomEvent;
-      console.warn('Sync conflict detected:', customEvent.detail);
+      logger.warn('Sync conflict detected:', customEvent.detail);
       // Could show a notification here
     };
 
@@ -79,7 +80,7 @@ export function useOffline(): UseOfflineReturn {
 
   const syncNow = useCallback(async () => {
     if (!navigator.onLine) {
-      console.warn('Cannot sync while offline');
+      logger.warn('Cannot sync while offline');
       return;
     }
 
@@ -132,7 +133,7 @@ export function useOfflineData<T extends { id: string }>(options: UseOfflineData
           throw new Error('Failed to save');
         }
       } catch (error) {
-        console.error('API save failed, saving offline:', error);
+        logger.error('API save failed, saving offline:', error);
         // Fall through to offline save
       }
     }
@@ -158,7 +159,7 @@ export function useOfflineData<T extends { id: string }>(options: UseOfflineData
           throw new Error('Failed to update');
         }
       } catch (error) {
-        console.error('API update failed, updating offline:', error);
+        logger.error('API update failed, updating offline:', error);
         // Fall through to offline update
       }
     }
@@ -182,7 +183,7 @@ export function useOfflineData<T extends { id: string }>(options: UseOfflineData
           throw new Error('Failed to delete');
         }
       } catch (error) {
-        console.error('API delete failed, deleting offline:', error);
+        logger.error('API delete failed, deleting offline:', error);
         // Fall through to offline delete
       }
     }

@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
 import { useUser } from '@clerk/clerk-react';
 import type { User } from '../../types';
+import { logger } from '../loggingService';
 
 export class UserService {
   /**
@@ -8,7 +9,7 @@ export class UserService {
    */
   static async getOrCreateUser(clerkId: string, email: string, firstName?: string, lastName?: string): Promise<User | null> {
     if (!isSupabaseConfigured()) {
-      console.warn('Supabase not configured, using local storage');
+      logger.warn('Supabase not configured, using local storage');
       return null;
     }
 
@@ -42,7 +43,7 @@ export class UserService {
           .single();
 
         if (createError) {
-          console.error('Error creating user:', createError);
+          logger.error('Error creating user:', createError);
           throw new Error(handleSupabaseError(createError));
         }
 
@@ -51,13 +52,13 @@ export class UserService {
 
       // Handle other errors
       if (fetchError) {
-        console.error('Error fetching user:', fetchError);
+        logger.error('Error fetching user:', fetchError);
         throw new Error(handleSupabaseError(fetchError));
       }
 
       return null;
     } catch (error) {
-      console.error('UserService.getOrCreateUser error:', error);
+      logger.error('UserService.getOrCreateUser error:', error);
       throw error;
     }
   }
@@ -79,13 +80,13 @@ export class UserService {
         .single();
 
       if (error) {
-        console.error('Error updating user:', error);
+        logger.error('Error updating user:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data;
     } catch (error) {
-      console.error('UserService.updateUser error:', error);
+      logger.error('UserService.updateUser error:', error);
       throw error;
     }
   }
@@ -107,11 +108,11 @@ export class UserService {
         .eq('clerk_id', clerkId);
 
       if (error) {
-        console.error('Error updating preferences:', error);
+        logger.error('Error updating preferences:', error);
         throw new Error(handleSupabaseError(error));
       }
     } catch (error) {
-      console.error('UserService.updatePreferences error:', error);
+      logger.error('UserService.updatePreferences error:', error);
       throw error;
     }
   }
@@ -133,11 +134,11 @@ export class UserService {
         .eq('clerk_id', clerkId);
 
       if (error) {
-        console.error('Error updating settings:', error);
+        logger.error('Error updating settings:', error);
         throw new Error(handleSupabaseError(error));
       }
     } catch (error) {
-      console.error('UserService.updateSettings error:', error);
+      logger.error('UserService.updateSettings error:', error);
       throw error;
     }
   }
@@ -161,13 +162,13 @@ export class UserService {
         if (error.code === 'PGRST116') { // Not found
           return null;
         }
-        console.error('Error fetching user:', error);
+        logger.error('Error fetching user:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data;
     } catch (error) {
-      console.error('UserService.getUserByClerkId error:', error);
+      logger.error('UserService.getUserByClerkId error:', error);
       throw error;
     }
   }
@@ -187,11 +188,11 @@ export class UserService {
         .eq('clerk_id', clerkId);
 
       if (error) {
-        console.error('Error updating last sync:', error);
+        logger.error('Error updating last sync:', error);
         throw new Error(handleSupabaseError(error));
       }
     } catch (error) {
-      console.error('UserService.updateLastSync error:', error);
+      logger.error('UserService.updateLastSync error:', error);
       throw error;
     }
   }

@@ -1,6 +1,7 @@
 import { Decimal } from 'decimal.js';
 import type { Transaction, Category } from '../types';
 import type {
+import { logger } from './loggingService';
   SavedMerchantData,
   SavedSubscription,
   SavedSpendingPattern,
@@ -184,7 +185,7 @@ class DataIntelligenceService {
         }));
       }
     } catch (error) {
-      console.error('Error loading data intelligence data:', error);
+      logger.error('Error loading data intelligence data:', error);
     }
   }
 
@@ -196,7 +197,7 @@ class DataIntelligenceService {
       localStorage.setItem('data-intelligence-smart-categories', JSON.stringify(this.smartCategories));
       localStorage.setItem('data-intelligence-insights', JSON.stringify(this.insights));
     } catch (error) {
-      console.error('Error saving data intelligence data:', error);
+      logger.error('Error saving data intelligence data:', error);
     }
   }
 

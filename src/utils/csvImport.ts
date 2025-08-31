@@ -1,5 +1,6 @@
 import { toDecimal } from './decimal';
 import type { Transaction, Account } from '../types';
+import { logger } from '../services/loggingService';
 
 /**
  * Parse CSV content into rows
@@ -105,7 +106,7 @@ export function importTransactionsFromCSV(
         cleared
       });
     } catch (error) {
-      console.error(`Error parsing row ${i}:`, error);
+      logger.error(`Error parsing row ${i}:`, error);
       // Skip problematic rows
     }
   }
@@ -157,7 +158,7 @@ export function importAccountsFromCSV(content: string): Omit<Account, 'id' | 'la
         institution
       });
     } catch (error) {
-      console.error(`Error parsing account row ${i}:`, error);
+      logger.error(`Error parsing account row ${i}:`, error);
     }
   }
   

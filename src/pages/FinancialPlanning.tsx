@@ -25,6 +25,7 @@ import FinancialGoalTracker from '../components/FinancialGoalTracker';
 import InsurancePlanner from '../components/InsurancePlanner';
 import NetWorthProjector from '../components/NetWorthProjector';
 import type { RetirementPlan, MortgageCalculation, CollegePlan, DebtPayoffPlan, FinancialGoal, InsuranceNeed } from '../services/financialPlanningService';
+import { logger } from '../services/loggingService';
 
 type ActiveTab = 'overview' | 'retirement' | 'mortgage' | 'college' | 'debt' | 'goals' | 'insurance' | 'networth';
 
@@ -52,7 +53,7 @@ export default function FinancialPlanning() {
       setFinancialGoals(financialPlanningService.getFinancialGoals());
       setInsuranceNeeds(financialPlanningService.getInsuranceNeeds());
     } catch (error) {
-      console.error('Error loading financial planning data:', error);
+      logger.error('Error loading financial planning data:', error);
     } finally {
       setIsLoading(false);
     }

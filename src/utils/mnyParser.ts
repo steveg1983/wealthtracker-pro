@@ -1,3 +1,4 @@
+import { logger } from '../services/loggingService';
 // Microsoft Money .mny file parser with manual mapping support
 
 export interface ParsedAccount {
@@ -205,7 +206,7 @@ export function applyMappingToData(rawData: Array<Record<string, unknown>>, mapp
       });
       
     } catch (error) {
-      console.error('Error processing record:', error);
+      logger.error('Error processing record:', error);
     }
   });
   

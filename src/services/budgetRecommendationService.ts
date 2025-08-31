@@ -1,5 +1,6 @@
 import type { Transaction, Category, Budget } from '../types';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { logger } from './loggingService';
 
 export interface BudgetRecommendation {
   categoryId: string;
@@ -67,7 +68,7 @@ class BudgetRecommendationService {
         return JSON.parse(stored);
       }
     } catch (error) {
-      console.error('Failed to load recommendation config:', error);
+      logger.error('Failed to load recommendation config:', error);
     }
     
     return {

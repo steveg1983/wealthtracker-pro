@@ -5,6 +5,7 @@
 
 import { useState, useCallback } from 'react';
 import { 
+import { logger } from '../services/loggingService';
   sanitizeText, 
   sanitizeHTML, 
   sanitizeURL, 
@@ -116,7 +117,7 @@ export const useSanitizedForm = <T extends Record<string, any>>(
       const fieldConfig = config[fieldName as string];
       
       if (!fieldConfig) {
-        console.warn(`No sanitization config for field: ${String(fieldName)}`);
+        logger.warn(`No sanitization config for field: ${String(fieldName)}`);
         setValues(prev => ({ ...prev, [fieldName]: value }));
         return;
       }

@@ -2,6 +2,7 @@ import { getExchangeRates } from '../utils/currency';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
 import { errorHandlingService, ErrorCategory, ErrorSeverity, retryWithBackoff } from './errorHandlingService';
+import { logger } from './loggingService';
 
 export interface StockQuote {
   symbol: string;
@@ -126,7 +127,7 @@ export async function getStockQuote(symbol: string): Promise<StockQuote | null> 
         maxRetries: 3,
         initialDelay: 500,
         onRetry: (attempt, error) => {
-          console.warn(`Stock quote fetch attempt ${attempt} failed:`, error.message);
+          logger.warn(`Stock quote fetch attempt ${attempt} failed:`, error.message);
         }
       }
     );
@@ -297,7 +298,7 @@ export async function convertStockPrice(
 
     return priceInBaseCurrency;
   } catch (error) {
-    console.error('Error converting stock price:', error);
+    logger.error('Error converting stock price:', error);
     return price; // Return original price if conversion fails
   }
 }

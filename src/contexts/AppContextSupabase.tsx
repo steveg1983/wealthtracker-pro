@@ -17,6 +17,7 @@ import {
   toDecimalGoal 
 } from '../utils/decimal-converters';
 import type { 
+import { logger } from '../services/loggingService';
   Account, 
   Transaction, 
   Category, 
@@ -151,7 +152,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             console.log('[AppContext] Accounts loaded:', accounts.length);
             setAccounts(accounts);
           } else {
-            console.warn('[AppContext] Failed to resolve database user ID - no data will be loaded');
+            logger.warn('[AppContext] Failed to resolve database user ID - no data will be loaded');
             setAccounts([]);
           }
         } else {
@@ -260,8 +261,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           };
         }
       } catch (error) {
-        console.error('[AppContext] Failed to initialize data:', error);
-        console.error('[AppContext] Error details:', {
+        logger.error('[AppContext] Failed to initialize data:', error);
+        logger.error('[AppContext] Error details:', {
           message: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined
         });
@@ -289,7 +290,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setLastSyncTime(new Date());
       setSyncError(null);
     } catch (error) {
-      console.error('Failed to refresh data:', error);
+      logger.error('Failed to refresh data:', error);
       setSyncError('Failed to sync data');
     } finally {
       setIsSyncing(false);
@@ -343,7 +344,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       return newAccount;
     } catch (error) {
-      console.error('[AppContext] Failed to add account:', error);
+      logger.error('[AppContext] Failed to add account:', error);
       throw error;
     }
   }, [user]);
@@ -363,7 +364,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         ));
       }
     } catch (error) {
-      console.error('Failed to update account:', error);
+      logger.error('Failed to update account:', error);
       throw error;
     }
   }, []);
@@ -384,7 +385,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           : cat
       ));
     } catch (error) {
-      console.error('Failed to delete account:', error);
+      logger.error('Failed to delete account:', error);
       throw error;
     }
   }, []);
@@ -452,7 +453,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('Failed to add transaction:', error);
+      logger.error('Failed to add transaction:', error);
       throw error;
     }
   }, [categories]);
@@ -570,7 +571,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       }
     } catch (error) {
-      console.error('Failed to update transaction:', error);
+      logger.error('Failed to update transaction:', error);
       throw error;
     }
   }, [transactions, categories]);
@@ -637,56 +638,94 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }));
       }
     } catch (error) {
-      console.error('Failed to delete transaction:', error);
+      logger.error('Failed to delete transaction:', error);
       throw error;
     }
   }, [transactions, categories]);
 
-  // Budget operations (still using localStorage for now)
-  const addBudget = useCallback((budget: Omit<Budget, 'id' | 'spent'>) => {
-    const newBudget: Budget = {
-      ...budget,
-      id: crypto.randomUUID(),
-      spent: 0
-    };
-    setBudgets(prev => [...prev, newBudget]);
+  // Budget operations using DataService
+  const addBudget = useCallback(async (budget: Omit<Budget, 'id' | 'spent' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const newBudget = await DataService.createBudget(budget);
+      setBudgets(prev => [...prev, newBudget]);
+      return newBudget;
+    } catch (error) {
+      logger.error('Failed to create budget:', error);
+      throw error;
+    }
   }, []);
 
-  const updateBudget = useCallback((id: string, updates: Partial<Budget>) => {
-    setBudgets(prev => prev.map(b => b.id === id ? { ...b, ...updates } : b));
+  const updateBudget = useCallback(async (id: string, updates: Partial<Budget>) => {
+    try {
+      const updatedBudget = await DataService.updateBudget(id, updates);
+      setBudgets(prev => prev.map(b => b.id === id ? updatedBudget : b));
+      return updatedBudget;
+    } catch (error) {
+      logger.error('Failed to update budget:', error);
+      throw error;
+    }
   }, []);
 
-  const deleteBudget = useCallback((id: string) => {
-    setBudgets(prev => prev.filter(b => b.id !== id));
+  const deleteBudget = useCallback(async (id: string) => {
+    try {
+      await DataService.deleteBudget(id);
+      setBudgets(prev => prev.filter(b => b.id !== id));
+    } catch (error) {
+      logger.error('Failed to delete budget:', error);
+      throw error;
+    }
   }, []);
 
-  // Goal operations (still using localStorage for now)
-  const addGoal = useCallback((goal: Omit<Goal, 'id' | 'progress'>) => {
-    const newGoal: Goal = {
-      ...goal,
-      id: crypto.randomUUID(),
-      progress: 0
-    };
-    setGoals(prev => [...prev, newGoal]);
+  // Goal operations using DataService
+  const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'progress' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const newGoal = await DataService.createGoal(goal);
+      setGoals(prev => [...prev, newGoal]);
+      return newGoal;
+    } catch (error) {
+      logger.error('Failed to create goal:', error);
+      throw error;
+    }
   }, []);
 
-  const updateGoal = useCallback((id: string, updates: Partial<Goal>) => {
-    setGoals(prev => prev.map(g => g.id === id ? { ...g, ...updates } : g));
+  const updateGoal = useCallback(async (id: string, updates: Partial<Goal>) => {
+    try {
+      const updatedGoal = await DataService.updateGoal(id, updates);
+      setGoals(prev => prev.map(g => g.id === id ? updatedGoal : g));
+      return updatedGoal;
+    } catch (error) {
+      logger.error('Failed to update goal:', error);
+      throw error;
+    }
   }, []);
 
-  const deleteGoal = useCallback((id: string) => {
-    setGoals(prev => prev.filter(g => g.id !== id));
+  const deleteGoal = useCallback(async (id: string) => {
+    try {
+      await DataService.deleteGoal(id);
+      setGoals(prev => prev.filter(g => g.id !== id));
+    } catch (error) {
+      logger.error('Failed to delete goal:', error);
+      throw error;
+    }
   }, []);
 
-  const contributeToGoal = useCallback((id: string, amount: number) => {
-    setGoals(prev => prev.map(g => {
-      if (g.id === id) {
-        const newProgress = Math.min((g.progress || 0) + amount, g.targetAmount);
-        return { ...g, progress: newProgress };
-      }
-      return g;
-    }));
-  }, []);
+  const contributeToGoal = useCallback(async (id: string, amount: number) => {
+    try {
+      const goal = goals.find(g => g.id === id);
+      if (!goal) throw new Error('Goal not found');
+      
+      const newCurrentAmount = Math.min(goal.currentAmount + amount, goal.targetAmount);
+      const updatedGoal = await DataService.updateGoal(id, {
+        currentAmount: newCurrentAmount
+      });
+      
+      setGoals(prev => prev.map(g => g.id === id ? updatedGoal : g));
+      return updatedGoal;
+    } catch (error) {
+      logger.error('Failed to contribute to goal:', error);
+      throw error;
+    }
+  }, [goals]);
 
   // Category operations (still using localStorage for now)
   const addCategory = useCallback((category: Omit<Category, 'id'>) => {
@@ -865,7 +904,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 export function useApp() {
   const context = useContext(AppContext);
   if (context === undefined) {
-    console.error('useApp called outside of AppProvider');
+    logger.error('useApp called outside of AppProvider');
     throw new Error('useApp must be used within an AppProvider');
   }
   return context;

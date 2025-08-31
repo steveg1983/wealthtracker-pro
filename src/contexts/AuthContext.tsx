@@ -13,6 +13,7 @@ import { useUser, useAuth as useClerkAuth, useSession } from '@clerk/clerk-react
 import { AuthService, AuthUser } from '../services/authService';
 import { syncClerkUser } from '../lib/supabase';
 import { setSentryUser, clearSentryUser } from '../lib/sentry';
+import { logger } from '../services/loggingService';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -58,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (success) {
           console.log('User synced with Supabase');
         } else {
-          console.warn('Failed to sync user with Supabase');
+          logger.warn('Failed to sync user with Supabase');
         }
       });
     } else if (isLoaded && !clerkUser) {

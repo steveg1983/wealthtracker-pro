@@ -1,11 +1,8 @@
+// Delegate currency formatting to Decimal-based implementation for correctness
+import { formatCurrency as decimalFormatCurrency } from './currency-decimal';
+
 export function formatCurrency(amount: number, currency: string = 'GBP'): string {
-  const symbol = currency === 'GBP' ? '£' : currency === 'USD' ? '$' : '€';
-  const absAmount = Math.abs(amount);
-  const formatted = absAmount.toLocaleString('en-GB', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return `${symbol}${formatted}`;
+  return decimalFormatCurrency(amount, currency);
 }
 
 export function formatNumber(num: number): string {

@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { enhancedEncryption } from '../../security/encryption-enhanced';
 import { sanitizeText } from '../../security/xss-protection';
 import { EyeIcon, EyeOffIcon, LockIcon } from 'lucide-react';
+import { logger } from '../../services/loggingService';
 
 interface SecureFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {
   value: string;
@@ -44,7 +45,7 @@ export const SecureField: React.FC<SecureFieldProps> = ({
         await enhancedEncryption.initialize();
       } catch (err) {
         setError('Failed to initialize encryption');
-        console.error('Encryption initialization failed:', err);
+        logger.error('Encryption initialization failed:', err);
       }
     };
     init();
@@ -74,7 +75,7 @@ export const SecureField: React.FC<SecureFieldProps> = ({
       setDecryptedValue(decrypted);
     } catch (err) {
       setError('Failed to decrypt value');
-      console.error('Decryption failed:', err);
+      logger.error('Decryption failed:', err);
       setDecryptedValue('');
     } finally {
       setIsDecrypting(false);
@@ -96,7 +97,7 @@ export const SecureField: React.FC<SecureFieldProps> = ({
         onEncryptedChange?.(encryptedString);
       } catch (err) {
         setError('Failed to encrypt value');
-        console.error('Encryption failed:', err);
+        logger.error('Encryption failed:', err);
       }
     }
   }, [isEncrypted, onChange, onEncryptedChange]);

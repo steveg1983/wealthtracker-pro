@@ -14,6 +14,7 @@ import { userIdService } from '../services/userIdService';
 import StripeService from '../services/stripeService';
 import SubscriptionApiService from '../services/subscriptionApiService';
 import type { 
+import { logger } from '../services/loggingService';
   UserSubscription, 
   SubscriptionTier, 
   FeatureLimits,
@@ -120,7 +121,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
         setUsage(defaultUsage);
       }
     } catch (err) {
-      console.error('Error loading subscription data:', err);
+      logger.error('Error loading subscription data:', err);
       setError('Failed to load subscription information');
       
       // Set free tier as fallback

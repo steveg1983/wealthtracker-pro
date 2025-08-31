@@ -7,6 +7,7 @@ import { supabase } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import type { Budget } from '../../types';
+import { logger } from '../loggingService';
 
 /**
  * Transform database snake_case to TypeScript camelCase
@@ -77,14 +78,14 @@ export async function getBudgets(clerkId: string): Promise<Budget[]> {
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('[BudgetService] Error fetching budgets:', error);
+      logger.error('[BudgetService] Error fetching budgets:', error);
       throw error;
     }
     
     return (data || []).map(transformBudgetFromDb);
     
   } catch (error) {
-    console.error('[BudgetService] Error loading budgets, falling back to localStorage:', error);
+    logger.error('[BudgetService] Error loading budgets, falling back to localStorage:', error);
     
     // Fallback to localStorage
     const stored = await storageAdapter.get<Budget[]>(STORAGE_KEYS.BUDGETS);
@@ -108,7 +109,7 @@ export async function getBudget(budgetId: string): Promise<Budget | null> {
       .single();
     
     if (error) {
-      console.error('[BudgetService] Error fetching budget:', error);
+      logger.error('[BudgetService] Error fetching budget:', error);
       throw error;
     }
     
@@ -151,7 +152,7 @@ export async function createBudget(
       .single();
     
     if (error) {
-      console.error('[BudgetService] Error creating budget:', error);
+      logger.error('[BudgetService] Error creating budget:', error);
       throw error;
     }
     
@@ -159,7 +160,7 @@ export async function createBudget(
     return transformBudgetFromDb(data);
     
   } catch (error) {
-    console.error('[BudgetService] Error creating budget, falling back to localStorage:', error);
+    logger.error('[BudgetService] Error creating budget, falling back to localStorage:', error);
     
     // Fallback to localStorage
     const newBudget: Budget = {
@@ -200,14 +201,14 @@ export async function updateBudget(
       .single();
     
     if (error) {
-      console.error('[BudgetService] Error updating budget:', error);
+      logger.error('[BudgetService] Error updating budget:', error);
       throw error;
     }
     
     return transformBudgetFromDb(data);
     
   } catch (error) {
-    console.error('[BudgetService] Error updating budget, falling back to localStorage:', error);
+    logger.error('[BudgetService] Error updating budget, falling back to localStorage:', error);
     
     // Fallback to localStorage
     const budgets = await storageAdapter.get<Budget[]>(STORAGE_KEYS.BUDGETS) || [];
@@ -242,14 +243,14 @@ export async function deleteBudget(budgetId: string): Promise<void> {
       .eq('id', budgetId);
     
     if (error) {
-      console.error('[BudgetService] Error deleting budget:', error);
+      logger.error('[BudgetService] Error deleting budget:', error);
       throw error;
     }
     
     console.log('[BudgetService] Budget deleted successfully');
     
   } catch (error) {
-    console.error('[BudgetService] Error deleting budget, falling back to localStorage:', error);
+    logger.error('[BudgetService] Error deleting budget, falling back to localStorage:', error);
     
     // Fallback to localStorage
     const budgets = await storageAdapter.get<Budget[]>(STORAGE_KEYS.BUDGETS) || [];
@@ -322,7 +323,7 @@ export async function subscribeToBudgetChanges(
     const dbUserId = await userIdService.getDatabaseUserId(clerkId);
     
     if (!dbUserId) {
-      console.warn('[BudgetService] No database user found for subscription');
+      logger.warn('[BudgetService] No database user found for subscription');
       return () => {};
     }
 
@@ -348,7 +349,7 @@ export async function subscribeToBudgetChanges(
       channel.unsubscribe();
     };
   } catch (error) {
-    console.error('[BudgetService] Error setting up subscription:', error);
+    logger.error('[BudgetService] Error setting up subscription:', error);
     return () => {};
   }
 }
@@ -371,7 +372,7 @@ export async function migrateBudgetsToSupabase(clerkId: string): Promise<void> {
         const { id, ...budgetData } = budget;
         await createBudget(clerkId, budgetData as any);
       } catch (error) {
-        console.error(`[BudgetService] Failed to migrate budget ${budget.name}:`, error);
+        logger.error(`[BudgetService] Failed to migrate budget ${budget.name}:`, error);
       }
     }
     
@@ -380,7 +381,7 @@ export async function migrateBudgetsToSupabase(clerkId: string): Promise<void> {
     console.log('[BudgetService] Migration completed');
     
   } catch (error) {
-    console.error('[BudgetService] Migration failed:', error);
+    logger.error('[BudgetService] Migration failed:', error);
   }
 }
 

@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { store } from '../store';
 import { userIdService } from './userIdService';
 import type { Account, Transaction, Budget, Goal } from '../types';
+import { logger } from './loggingService';
 
 interface MigrationStatus {
   inProgress: boolean;
@@ -60,7 +61,7 @@ export class DataMigrationService {
 
       return (accounts && accounts.length > 0) || false;
     } catch (error) {
-      console.error('Error checking cloud data:', error);
+      logger.error('Error checking cloud data:', error);
       return false;
     }
   }
@@ -82,13 +83,13 @@ export class DataMigrationService {
       );
 
       if (!databaseUserId) {
-        console.error('Failed to get or create user for migration');
+        logger.error('Failed to get or create user for migration');
         return null;
       }
 
       return databaseUserId;
     } catch (error) {
-      console.error('Error in getUserProfileId:', error);
+      logger.error('Error in getUserProfileId:', error);
       return null;
     }
   }
@@ -124,7 +125,7 @@ export class DataMigrationService {
         .select();
 
       if (error) {
-        console.error('Error migrating accounts:', error);
+        logger.error('Error migrating accounts:', error);
         this.migrationStatus.error = error.message;
         this.migrationStatus.stats.accounts.failed = accounts.length;
         return false;
@@ -146,7 +147,7 @@ export class DataMigrationService {
       
       return true;
     } catch (error) {
-      console.error('Failed to migrate accounts:', error);
+      logger.error('Failed to migrate accounts:', error);
       this.migrationStatus.error = 'Failed to migrate accounts';
       return false;
     }
@@ -165,7 +166,7 @@ export class DataMigrationService {
       // Get account ID mapping
       const idMapping = (window as any).__accountIdMapping as Map<string, string>;
       if (!idMapping) {
-        console.error('Account ID mapping not found');
+        logger.error('Account ID mapping not found');
         return false;
       }
 
@@ -199,7 +200,7 @@ export class DataMigrationService {
           .select();
 
         if (error) {
-          console.error(`Error migrating transaction batch ${i / batchSize + 1}:`, error);
+          logger.error(`Error migrating transaction batch ${i / batchSize + 1}:`, error);
           this.migrationStatus.stats.transactions.failed += batch.length;
         } else {
           migrated += data?.length || 0;
@@ -211,7 +212,7 @@ export class DataMigrationService {
       console.log(`✅ Migrated ${migrated} of ${transactions.length} transactions`);
       return migrated > 0;
     } catch (error) {
-      console.error('Failed to migrate transactions:', error);
+      logger.error('Failed to migrate transactions:', error);
       this.migrationStatus.error = 'Failed to migrate transactions';
       return false;
     }
@@ -246,7 +247,7 @@ export class DataMigrationService {
         .select();
 
       if (error) {
-        console.error('Error migrating budgets:', error);
+        logger.error('Error migrating budgets:', error);
         this.migrationStatus.error = error.message;
         this.migrationStatus.stats.budgets.failed = budgets.length;
         return false;
@@ -256,7 +257,7 @@ export class DataMigrationService {
       console.log(`✅ Migrated ${data?.length || 0} budgets successfully`);
       return true;
     } catch (error) {
-      console.error('Failed to migrate budgets:', error);
+      logger.error('Failed to migrate budgets:', error);
       this.migrationStatus.error = 'Failed to migrate budgets';
       return false;
     }
@@ -291,7 +292,7 @@ export class DataMigrationService {
         .select();
 
       if (error) {
-        console.error('Error migrating goals:', error);
+        logger.error('Error migrating goals:', error);
         this.migrationStatus.error = error.message;
         this.migrationStatus.stats.goals.failed = goals.length;
         return false;
@@ -301,7 +302,7 @@ export class DataMigrationService {
       console.log(`✅ Migrated ${data?.length || 0} goals successfully`);
       return true;
     } catch (error) {
-      console.error('Failed to migrate goals:', error);
+      logger.error('Failed to migrate goals:', error);
       this.migrationStatus.error = 'Failed to migrate goals';
       return false;
     }
@@ -352,17 +353,17 @@ export class DataMigrationService {
 
       const transactionsSuccess = await this.migrateTransactions(userId, transactions.transactions);
       if (!transactionsSuccess) {
-        console.warn('Some transactions failed to migrate');
+        logger.warn('Some transactions failed to migrate');
       }
 
       const budgetsSuccess = await this.migrateBudgets(userId, budgets.budgets);
       if (!budgetsSuccess) {
-        console.warn('Some budgets failed to migrate');
+        logger.warn('Some budgets failed to migrate');
       }
 
       const goalsSuccess = await this.migrateGoals(userId, goals.goals);
       if (!goalsSuccess) {
-        console.warn('Some goals failed to migrate');
+        logger.warn('Some goals failed to migrate');
       }
 
       // Mark migration as complete
@@ -378,7 +379,7 @@ export class DataMigrationService {
 
       return this.migrationStatus;
     } catch (error) {
-      console.error('❌ Migration failed:', error);
+      logger.error('❌ Migration failed:', error);
       this.migrationStatus.error = error instanceof Error ? error.message : 'Unknown error';
       this.migrationStatus.inProgress = false;
       return this.migrationStatus;

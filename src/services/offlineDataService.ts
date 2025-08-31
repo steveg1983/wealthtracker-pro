@@ -1,3 +1,4 @@
+import { logger } from './loggingService';
 /**
  * Offline Data Service
  * Handles offline data synchronization using IndexedDB
@@ -208,7 +209,7 @@ class OfflineDataService {
         await this.performSync();
       }
     } catch (error) {
-      console.error('Failed to trigger sync:', error);
+      logger.error('Failed to trigger sync:', error);
     } finally {
       this.syncInProgress = false;
     }
@@ -236,7 +237,7 @@ class OfflineDataService {
           await this.updateSyncRetryCount(sync.id, sync.retryCount + 1);
         }
       } catch (error) {
-        console.error('Sync failed for item:', sync.id, error);
+        logger.error('Sync failed for item:', sync.id, error);
         await this.updateSyncRetryCount(sync.id, sync.retryCount + 1);
       }
     }
@@ -258,7 +259,7 @@ class OfflineDataService {
 
       return response.ok;
     } catch (error) {
-      console.error('Failed to sync item:', error);
+      logger.error('Failed to sync item:', error);
       return false;
     }
   }

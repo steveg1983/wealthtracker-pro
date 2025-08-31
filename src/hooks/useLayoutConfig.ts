@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Layout, Layouts } from 'react-grid-layout';
+import { logger } from '../services/loggingService';
 
 export interface LayoutConfig {
   dashboard: Layout[];
@@ -43,7 +44,7 @@ export function useLayoutConfig(): UseLayoutConfigReturn {
           return parsed;
         }
       } catch (e) {
-        console.error('Failed to parse saved layouts:', e);
+        logger.error('Failed to parse saved layouts:', e);
       }
     }
     return {

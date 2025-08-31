@@ -4,6 +4,7 @@
  */
 
 import { 
+import { logger } from '../services/loggingService';
   sanitizeText, 
   sanitizeHTML, 
   sanitizeURL, 
@@ -100,7 +101,7 @@ export const sanitizeByFieldName = (fieldName: string, value: any): any => {
 export const sanitizeObject = <T extends Record<string, any>>(obj: T, depth: number = 0): T => {
   // Prevent infinite recursion
   if (depth > 10) {
-    console.warn('Maximum sanitization depth reached');
+    logger.warn('Maximum sanitization depth reached');
     return obj;
   }
 

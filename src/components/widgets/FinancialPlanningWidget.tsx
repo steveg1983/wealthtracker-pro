@@ -13,6 +13,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { RetirementPlan, FinancialGoal } from '../../services/financialPlanningService';
 import type { BaseWidgetProps } from '../../types/widget-types';
+import { logger } from '../../services/loggingService';
 
 interface FinancialPlanningWidgetProps extends BaseWidgetProps {}
 
@@ -31,7 +32,7 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
       setRetirementPlans(financialPlanningService.getRetirementPlans());
       setFinancialGoals(financialPlanningService.getFinancialGoals());
     } catch (error) {
-      console.error('Error loading financial planning data:', error);
+      logger.error('Error loading financial planning data:', error);
     } finally {
       setIsLoading(false);
     }

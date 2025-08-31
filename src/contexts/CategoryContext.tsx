@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { getDefaultCategories } from '../data/defaultCategories';
+import { logger } from '../services/loggingService';
 
 interface Category {
   id: string;
@@ -40,7 +41,7 @@ export function CategoryProvider({ children, initialCategories }: CategoryProvid
       try {
         return JSON.parse(savedCategories);
       } catch (error) {
-        console.error('Error parsing saved categories:', error);
+        logger.error('Error parsing saved categories:', error);
         return initialCategories || getDefaultCategories();
       }
     }
@@ -71,7 +72,7 @@ export function CategoryProvider({ children, initialCategories }: CategoryProvid
   const deleteCategory = (id: string) => {
     const category = categories.find(c => c.id === id);
     if (category?.isSystem) {
-      console.warn('Cannot delete system category');
+      logger.warn('Cannot delete system category');
       return;
     }
     setCategories(prev => prev.filter(category => category.id !== id));

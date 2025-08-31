@@ -133,7 +133,7 @@ const Transactions = React.memo(function Transactions() {
     
     // Create a custom drag image with enhanced styling
     const dragImage = document.createElement('div');
-    dragImage.innerHTML = columnConfig[column as keyof typeof columnConfig].label;
+    dragImage.textContent = columnConfig[column as keyof typeof columnConfig].label;
     dragImage.style.cssText = `
       position: absolute;
       top: -1000px;

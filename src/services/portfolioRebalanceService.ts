@@ -1,6 +1,7 @@
 // Portfolio Rebalancing Service
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
+import { logger } from './loggingService';
 
 interface SavedPortfolioTarget {
   id: string;
@@ -82,7 +83,7 @@ class PortfolioRebalanceService {
         }));
       }
     } catch (error) {
-      console.error('Failed to load portfolio targets:', error);
+      logger.error('Failed to load portfolio targets:', error);
       this.targets = [];
     }
   }
@@ -91,7 +92,7 @@ class PortfolioRebalanceService {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.targets));
     } catch (error) {
-      console.error('Failed to save portfolio targets:', error);
+      logger.error('Failed to save portfolio targets:', error);
     }
   }
 
@@ -102,7 +103,7 @@ class PortfolioRebalanceService {
         this.assetMappings = JSON.parse(stored);
       }
     } catch (error) {
-      console.error('Failed to load asset mappings:', error);
+      logger.error('Failed to load asset mappings:', error);
       this.assetMappings = [];
     }
   }
@@ -111,7 +112,7 @@ class PortfolioRebalanceService {
     try {
       localStorage.setItem(this.mappingsKey, JSON.stringify(this.assetMappings));
     } catch (error) {
-      console.error('Failed to save asset mappings:', error);
+      logger.error('Failed to save asset mappings:', error);
     }
   }
 

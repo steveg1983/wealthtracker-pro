@@ -15,7 +15,7 @@ describe('PreferencesContextSafe', () => {
         wrapper: PreferencesProvider
       });
 
-      expect(result.current.compactView).toBe(false);
+      expect(result.current.compactView).toBe(true); // Default is true in implementation
       expect(result.current.currency).toBe('GBP');
       expect(result.current.theme).toBe('light');
       expect(result.current.actualTheme).toBe('light');
@@ -76,13 +76,13 @@ describe('PreferencesContextSafe', () => {
         wrapper: PreferencesProvider
       });
 
-      expect(result.current.compactView).toBe(false);
+      expect(result.current.compactView).toBe(true); // Default is true in implementation
 
       act(() => {
-        result.current.setCompactView(true);
+        result.current.setCompactView(false); // Toggle to false
       });
 
-      expect(result.current.compactView).toBe(true);
+      expect(result.current.compactView).toBe(false);
     });
 
     it('updates currency', () => {
@@ -320,7 +320,7 @@ describe('PreferencesContextSafe', () => {
 
       expect(screen.getByTestId('currency')).toHaveTextContent('GBP');
       expect(screen.getByTestId('theme')).toHaveTextContent('light');
-      expect(screen.getByTestId('compact')).toHaveTextContent('false');
+      expect(screen.getByTestId('compact')).toHaveTextContent('true'); // Default is true
     });
 
     it('updates are reflected in all consumers', () => {

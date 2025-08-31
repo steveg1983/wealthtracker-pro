@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
@@ -52,8 +51,7 @@ interface RolloverHistory {
 }
 
 export default function BudgetRollover() {
-  const { categories, transactions, budgets: appBudgets } = useApp();
-  const { budgets, updateBudget } = useBudgets();
+  const { categories, transactions, budgets, updateBudget } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
   const [rolloverSettings, setRolloverSettings] = useLocalStorage<RolloverSettings>('rollover-settings', {
@@ -102,7 +100,7 @@ export default function BudgetRollover() {
       const spent = decimalTransactions
         .filter(t => 
           t.type === 'expense' && 
-          t.category === budget.category &&
+          t.categoryId === budget.categoryId &&
           t.date >= startDate &&
           t.date <= endDate
         )
@@ -113,7 +111,7 @@ export default function BudgetRollover() {
       // Calculate rollover amount based on settings
       let rolloverAmount = toDecimal(0);
       
-      if (rolloverSettings.enabled && !rolloverSettings.excludeCategories.includes(budget.category)) {
+      if (rolloverSettings.enabled && !rolloverSettings.excludeCategories.includes(budget.categoryId)) {
         if (remaining.greaterThan(0) || (remaining.lessThan(0) && rolloverSettings.carryNegative)) {
           switch (rolloverSettings.mode) {
             case 'all':
@@ -136,12 +134,12 @@ export default function BudgetRollover() {
       
       return {
         budgetId: budget.id,
-        category: budget.category,
+        category: budget.categoryId,
         originalBudget: decimalBudget.amount,
         spent,
         remaining,
         rolloverAmount,
-        isEligible: rolloverSettings.enabled && !rolloverSettings.excludeCategories.includes(budget.category),
+        isEligible: rolloverSettings.enabled && !rolloverSettings.excludeCategories.includes(budget.categoryId),
         willRollover: rolloverAmount.abs().greaterThan(0)
       };
     }).filter(Boolean);
@@ -293,7 +291,7 @@ export default function BudgetRollover() {
           {rolloverData.map((data) => {
             if (!data || !data.isEligible) return null;
             
-            const category = categories.find(c => c.name === data.category);
+            const category = categories.find(c => c.id === data.category);
             
             return (
               <div
@@ -301,7 +299,7 @@ export default function BudgetRollover() {
                 className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-lg shadow border border-white/20 dark:border-gray-700/50 p-4"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-gray-900 dark:text-white">{data.category}</h4>
+                  <h4 className="font-medium text-gray-900 dark:text-white">{category?.name || data.category}</h4>
                   {data.willRollover && (
                     <CheckCircleIcon size={16} className="text-green-500" />
                   )}
@@ -487,17 +485,17 @@ export default function BudgetRollover() {
                     <label key={category.id} className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        checked={rolloverSettings.excludeCategories.includes(category.name)}
+                        checked={rolloverSettings.excludeCategories.includes(category.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
                             setRolloverSettings({
                               ...rolloverSettings,
-                              excludeCategories: [...rolloverSettings.excludeCategories, category.name]
+                              excludeCategories: [...rolloverSettings.excludeCategories, category.id]
                             });
                           } else {
                             setRolloverSettings({
                               ...rolloverSettings,
-                              excludeCategories: rolloverSettings.excludeCategories.filter(c => c !== category.name)
+                              excludeCategories: rolloverSettings.excludeCategories.filter(c => c !== category.id)
                             });
                           }
                         }}

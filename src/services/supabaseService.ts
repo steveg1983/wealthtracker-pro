@@ -9,6 +9,7 @@
 
 import { supabase } from '../lib/supabase';
 import type { Account, Transaction, Budget, Goal } from '../types';
+import { logger } from './loggingService';
 
 export class SupabaseService {
   /**
@@ -16,19 +17,22 @@ export class SupabaseService {
    */
   static async getUserProfile(clerkUserId: string) {
     if (!supabase) return null;
-    
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('clerk_user_id', clerkUserId)
-      .single();
-    
-    if (error) {
-      console.error('Error fetching user profile:', error);
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('clerk_id', clerkUserId)
+        .single();
+
+      if (error) {
+        logger.error('Error fetching user profile:', error);
+        return null;
+      }
+      return data;
+    } catch (e) {
+      logger.error('Error fetching user profile:', e);
       return null;
     }
-    
-    return data;
   }
 
   /**
@@ -44,7 +48,7 @@ export class SupabaseService {
       .order('created_at', { ascending: true });
     
     if (error) {
-      console.error('Error fetching accounts:', error);
+      logger.error('Error fetching accounts:', error);
       return [];
     }
     
@@ -69,7 +73,7 @@ export class SupabaseService {
       .single();
     
     if (error) {
-      console.error('Error creating account:', error);
+      logger.error('Error creating account:', error);
       return null;
     }
     
@@ -87,7 +91,7 @@ export class SupabaseService {
       .single();
     
     if (error) {
-      console.error('Error updating account:', error);
+      logger.error('Error updating account:', error);
       return null;
     }
     
@@ -103,7 +107,7 @@ export class SupabaseService {
       .eq('id', accountId);
     
     if (error) {
-      console.error('Error deleting account:', error);
+      logger.error('Error deleting account:', error);
       return false;
     }
     
@@ -124,7 +128,7 @@ export class SupabaseService {
       .limit(limit);
     
     if (error) {
-      console.error('Error fetching transactions:', error);
+      logger.error('Error fetching transactions:', error);
       return [];
     }
     
@@ -151,7 +155,7 @@ export class SupabaseService {
       .single();
     
     if (error) {
-      console.error('Error creating transaction:', error);
+      logger.error('Error creating transaction:', error);
       return null;
     }
     
@@ -169,7 +173,7 @@ export class SupabaseService {
       .single();
     
     if (error) {
-      console.error('Error updating transaction:', error);
+      logger.error('Error updating transaction:', error);
       return null;
     }
     
@@ -185,7 +189,7 @@ export class SupabaseService {
       .eq('id', transactionId);
     
     if (error) {
-      console.error('Error deleting transaction:', error);
+      logger.error('Error deleting transaction:', error);
       return false;
     }
     
@@ -206,7 +210,7 @@ export class SupabaseService {
       .order('category', { ascending: true });
     
     if (error) {
-      console.error('Error fetching budgets:', error);
+      logger.error('Error fetching budgets:', error);
       return [];
     }
     
@@ -231,7 +235,7 @@ export class SupabaseService {
       .single();
     
     if (error) {
-      console.error('Error creating budget:', error);
+      logger.error('Error creating budget:', error);
       return null;
     }
     
@@ -251,7 +255,7 @@ export class SupabaseService {
       .order('target_date', { ascending: true });
     
     if (error) {
-      console.error('Error fetching goals:', error);
+      logger.error('Error fetching goals:', error);
       return [];
     }
     
@@ -276,7 +280,7 @@ export class SupabaseService {
       .single();
     
     if (error) {
-      console.error('Error creating goal:', error);
+      logger.error('Error creating goal:', error);
       return null;
     }
     

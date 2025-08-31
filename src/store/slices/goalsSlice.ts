@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Goal } from '../../types';
+import { serializeForRedux } from '../../utils/serializeForRedux';
 import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
 import {
   fetchGoalsFromSupabase,
@@ -30,7 +31,7 @@ const goalsSlice = createSlice({
   initialState,
   reducers: {
     setGoals: (state, action: PayloadAction<Goal[]>) => {
-      state.goals = action.payload;
+      state.goals = serializeForRedux(action.payload) as any;
       state.error = null;
     },
     addGoal: (state, action: PayloadAction<Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>>) => {
@@ -40,16 +41,16 @@ const goalsSlice = createSlice({
         createdAt: getCurrentISOString(),
         updatedAt: getCurrentISOString(),
       };
-      state.goals.push(newGoal);
+      state.goals.push(serializeForRedux(newGoal) as any);
     },
     updateGoal: (state, action: PayloadAction<{ id: string; updates: Partial<Goal> }>) => {
       const index = state.goals.findIndex(g => g.id === action.payload.id);
       if (index !== -1) {
-        state.goals[index] = {
+        state.goals[index] = serializeForRedux({
           ...state.goals[index],
           ...action.payload.updates,
           updatedAt: getCurrentISOString(),
-        };
+        }) as any;
       }
     },
     deleteGoal: (state, action: PayloadAction<string>) => {
@@ -72,7 +73,7 @@ const goalsSlice = createSlice({
       })
       .addCase(fetchGoalsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
-        state.goals = action.payload;
+        state.goals = serializeForRedux(action.payload) as any;
       })
       .addCase(fetchGoalsFromSupabase.rejected, (state, action) => {
         state.loading = false;

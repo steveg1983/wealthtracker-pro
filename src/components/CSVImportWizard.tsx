@@ -15,6 +15,7 @@ import {
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
 import { Modal } from './common/Modal';
+import { logger } from '../services/loggingService';
 
 interface CSVImportWizardProps {
   isOpen: boolean;
@@ -227,7 +228,7 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
       
       setCurrentStep('result');
     } catch (error) {
-      console.error('Import error:', error);
+      logger.error('Import error:', error);
     } finally {
       setIsProcessing(false);
     }

@@ -7,6 +7,7 @@ import { supabase } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import type { Goal } from '../../types';
+import { logger } from '../loggingService';
 
 /**
  * Transform database snake_case to TypeScript camelCase
@@ -86,14 +87,14 @@ export async function getGoals(clerkId: string): Promise<Goal[]> {
       .order('created_at', { ascending: false });
     
     if (error) {
-      console.error('[GoalService] Error fetching goals:', error);
+      logger.error('[GoalService] Error fetching goals:', error);
       throw error;
     }
     
     return (data || []).map(transformGoalFromDb);
     
   } catch (error) {
-    console.error('[GoalService] Error loading goals, falling back to localStorage:', error);
+    logger.error('[GoalService] Error loading goals, falling back to localStorage:', error);
     
     // Fallback to localStorage
     const stored = await storageAdapter.get<Goal[]>(STORAGE_KEYS.GOALS);
@@ -117,7 +118,7 @@ export async function getGoal(goalId: string): Promise<Goal | null> {
       .single();
     
     if (error) {
-      console.error('[GoalService] Error fetching goal:', error);
+      logger.error('[GoalService] Error fetching goal:', error);
       throw error;
     }
     
@@ -160,7 +161,7 @@ export async function createGoal(
       .single();
     
     if (error) {
-      console.error('[GoalService] Error creating goal:', error);
+      logger.error('[GoalService] Error creating goal:', error);
       throw error;
     }
     
@@ -168,7 +169,7 @@ export async function createGoal(
     return transformGoalFromDb(data);
     
   } catch (error) {
-    console.error('[GoalService] Error creating goal, falling back to localStorage:', error);
+    logger.error('[GoalService] Error creating goal, falling back to localStorage:', error);
     
     // Fallback to localStorage
     const newGoal: Goal = {
@@ -216,14 +217,14 @@ export async function updateGoal(
       .single();
     
     if (error) {
-      console.error('[GoalService] Error updating goal:', error);
+      logger.error('[GoalService] Error updating goal:', error);
       throw error;
     }
     
     return transformGoalFromDb(data);
     
   } catch (error) {
-    console.error('[GoalService] Error updating goal, falling back to localStorage:', error);
+    logger.error('[GoalService] Error updating goal, falling back to localStorage:', error);
     
     // Fallback to localStorage
     const goals = await storageAdapter.get<Goal[]>(STORAGE_KEYS.GOALS) || [];
@@ -270,14 +271,14 @@ export async function deleteGoal(goalId: string): Promise<void> {
       .eq('id', goalId);
     
     if (error) {
-      console.error('[GoalService] Error deleting goal:', error);
+      logger.error('[GoalService] Error deleting goal:', error);
       throw error;
     }
     
     console.log('[GoalService] Goal deleted successfully');
     
   } catch (error) {
-    console.error('[GoalService] Error deleting goal, falling back to localStorage:', error);
+    logger.error('[GoalService] Error deleting goal, falling back to localStorage:', error);
     
     // Fallback to localStorage
     const goals = await storageAdapter.get<Goal[]>(STORAGE_KEYS.GOALS) || [];
@@ -338,7 +339,7 @@ export async function contributeToGoal(
     return updatedGoal;
     
   } catch (error) {
-    console.error('[GoalService] Error contributing to goal:', error);
+    logger.error('[GoalService] Error contributing to goal:', error);
     
     // Fallback to just updating the goal amount
     return updateGoal(goalId, {
@@ -406,7 +407,7 @@ export async function subscribeToGoalChanges(
     const dbUserId = await userIdService.getDatabaseUserId(clerkId);
     
     if (!dbUserId) {
-      console.warn('[GoalService] No database user found for subscription');
+      logger.warn('[GoalService] No database user found for subscription');
       return () => {};
     }
 
@@ -432,7 +433,7 @@ export async function subscribeToGoalChanges(
       channel.unsubscribe();
     };
   } catch (error) {
-    console.error('[GoalService] Error setting up subscription:', error);
+    logger.error('[GoalService] Error setting up subscription:', error);
     return () => {};
   }
 }
@@ -455,7 +456,7 @@ export async function migrateGoalsToSupabase(clerkId: string): Promise<void> {
         const { id, progress, ...goalData } = goal;
         await createGoal(clerkId, goalData as any);
       } catch (error) {
-        console.error(`[GoalService] Failed to migrate goal ${goal.name}:`, error);
+        logger.error(`[GoalService] Failed to migrate goal ${goal.name}:`, error);
       }
     }
     
@@ -464,7 +465,7 @@ export async function migrateGoalsToSupabase(clerkId: string): Promise<void> {
     console.log('[GoalService] Migration completed');
     
   } catch (error) {
-    console.error('[GoalService] Migration failed:', error);
+    logger.error('[GoalService] Migration failed:', error);
   }
 }
 

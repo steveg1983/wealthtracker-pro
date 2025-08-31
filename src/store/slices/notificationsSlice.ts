@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { getCurrentISOString } from '../../utils/dateHelpers';
+import { logger } from '../../services/loggingService';
 
 export interface Notification {
   id: string;
@@ -34,7 +35,7 @@ const saveNotificationsToStorage = (notifications: Notification[]) => {
     const toSave = notifications.map(({ action, ...rest }) => rest);
     localStorage.setItem('notifications', JSON.stringify(toSave));
   } catch (error) {
-    console.error('Failed to save notifications:', error);
+    logger.error('Failed to save notifications:', error);
   }
 };
 

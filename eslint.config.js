@@ -31,7 +31,24 @@ export default tseslint.config([
       'no-prototype-builtins': 'warn',
       '@typescript-eslint/ban-ts-comment': 'warn',
       '@typescript-eslint/no-empty-object-type': 'warn',
-      'react-refresh/only-export-components': 'warn'
+      'react-refresh/only-export-components': 'warn',
+      // Encourage centralized logging via logger service
+      // Temporarily allow console.warn while we migrate to logger
+      'no-console': ['warn', { allow: ['error', 'warn'] }]
     }
   },
+  // Allow console usage in tests and Cypress helpers
+  {
+    files: ['cypress/**/*.{ts,tsx}', 'e2e/**/*.{ts,tsx}', 'src/test/**/*.{ts,tsx}', '**/*.test.{ts,tsx}'],
+    rules: {
+      'no-console': 'off'
+    }
+  },
+  // Allow console in the console-to-logger shim itself
+  {
+    files: ['src/setup/consoleToLogger.ts'],
+    rules: {
+      'no-console': 'off'
+    }
+  }
 ])

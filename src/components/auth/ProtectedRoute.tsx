@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { Skeleton } from '../loading/Skeleton';
 import StripeService from '../../services/stripeService';
 import { AlertCircleIcon, LockIcon } from '../icons';
+import { logger } from '../../services/loggingService';
 
 interface ProtectedRouteProps {
   children: ReactNode;
@@ -74,7 +75,7 @@ export function ProtectedRoute({
         setSubscription(sub);
       }
     } catch (error) {
-      console.error('Failed to check subscription:', error);
+      logger.error('Failed to check subscription:', error);
     } finally {
       setIsCheckingSubscription(false);
     }

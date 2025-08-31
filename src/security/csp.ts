@@ -176,11 +176,14 @@ export const applyCSPMetaTag = (): void => {
   document.head.appendChild(meta);
 };
 
+import { captureMessage } from '../lib/sentry';
+import { logger } from '../services/loggingService';
+
 // Check for CSP violations and report them
 export const setupCSPReporting = (): void => {
   if (typeof window !== 'undefined' && 'SecurityPolicyViolationEvent' in window && typeof document !== 'undefined') {
     document.addEventListener('securitypolicyviolation', (e: SecurityPolicyViolationEvent) => {
-      console.error('CSP Violation:', {
+      logger.error('CSP Violation:', {
         blockedURI: e.blockedURI,
         violatedDirective: e.violatedDirective,
         originalPolicy: e.originalPolicy,
@@ -197,8 +200,22 @@ export const setupCSPReporting = (): void => {
       // @ts-ignore - Safari compatibility
       const isProduction = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'production';
       if (isProduction) {
-        // Example: Send to logging service
-        // logService.logCSPViolation({...});
+        try {
+          captureMessage('CSP Violation', 'warning', {
+            blockedURI: e.blockedURI,
+            violatedDirective: e.violatedDirective,
+            originalPolicy: e.originalPolicy,
+            disposition: e.disposition,
+            documentURI: e.documentURI,
+            effectiveDirective: e.effectiveDirective,
+            lineNumber: String(e.lineNumber),
+            columnNumber: String(e.columnNumber),
+            sourceFile: e.sourceFile,
+            statusCode: String(e.statusCode),
+          });
+        } catch {
+          // Swallow any reporting issues to avoid cascading failures
+        }
       }
     });
   }

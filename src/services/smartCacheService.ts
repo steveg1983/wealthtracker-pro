@@ -1,4 +1,6 @@
 import { LRUCache } from 'lru-cache';
+import type { PreferenceValue, FilterConfig, CalculationParams, ExportOptions } from '../types/cache-types';
+import { logger } from './loggingService';
 
 interface CacheEntry<T> {
   data: T;
@@ -246,7 +248,7 @@ class SmartCacheService {
   /**
    * Cache user preferences
    */
-  cachePreference(key: string, value: any): void {
+  cachePreference(key: string, value: PreferenceValue): void {
     const prefKey = `pref:${key}`;
     this.set(prefKey, value, { ttl: Infinity }); // Never expire preferences
     
@@ -254,7 +256,7 @@ class SmartCacheService {
     try {
       localStorage.setItem(prefKey, JSON.stringify(value));
     } catch (e) {
-      console.warn('Failed to persist preference:', e);
+      logger.warn('Failed to persist preference:', e);
     }
   }
 
@@ -277,7 +279,7 @@ class SmartCacheService {
           this.set(prefKey, value, { ttl: Infinity });
         }
       } catch (e) {
-        console.warn('Failed to load preference:', e);
+        logger.warn('Failed to load preference:', e);
       }
     }
     
@@ -287,13 +289,13 @@ class SmartCacheService {
   /**
    * Cache filter states
    */
-  cacheFilters(page: string, filters: any): void {
+  cacheFilters(page: string, filters: FilterConfig): void {
     const filterKey = `filters:${page}`;
     this.set(filterKey, filters, { ttl: 24 * 60 * 60 * 1000 }); // 24 hours
     
     // Track recent filters
     const recentKey = 'filters:recent';
-    const recent = this.get<any[]>(recentKey) || [];
+    const recent = this.get<FilterConfig[]>(recentKey) || [];
     const updated = [filters, ...recent.filter(f => 
       JSON.stringify(f) !== JSON.stringify(filters)
     )].slice(0, 10);
@@ -303,17 +305,17 @@ class SmartCacheService {
   /**
    * Get cached filters
    */
-  getCachedFilters(page: string): any {
+  getCachedFilters(page: string): FilterConfig | null {
     return this.get(`filters:${page}`);
   }
 
   /**
    * Cache calculation results
    */
-  cacheCalculation(
+  cacheCalculation<T>(
     type: string,
-    params: any,
-    result: any,
+    params: CalculationParams,
+    result: T,
     dependencies?: string[]
   ): void {
     const key = `calc:${type}:${JSON.stringify(params)}`;
@@ -326,7 +328,7 @@ class SmartCacheService {
   /**
    * Get cached calculation
    */
-  getCachedCalculation<T>(type: string, params: any): T | null {
+  getCachedCalculation<T>(type: string, params: CalculationParams): T | null {
     const key = `calc:${type}:${JSON.stringify(params)}`;
     return this.get<T>(key);
   }
@@ -337,7 +339,7 @@ class SmartCacheService {
   async batch<T>(operations: Array<{
     key: string;
     fetcher: () => Promise<T>;
-    options?: any;
+    options?: ExportOptions;
   }>): Promise<T[]> {
     return Promise.all(
       operations.map(op => this.get(op.key, op.fetcher, op.options))
@@ -419,7 +421,7 @@ class SmartCacheService {
         this.set(key, data, options);
       })
       .catch(error => {
-        console.warn(`Failed to revalidate cache for ${key}:`, error);
+        logger.warn(`Failed to revalidate cache for ${key}:`, error);
       })
       .finally(() => {
         this.revalidationQueue.delete(key);
@@ -462,7 +464,7 @@ class SmartCacheService {
     return keys;
   }
 
-  private shouldCompress(data: any): boolean {
+  private shouldCompress(data: unknown): boolean {
     const size = JSON.stringify(data).length;
     return size > 10000; // Compress if larger than 10KB
   }
@@ -495,7 +497,7 @@ class SmartCacheService {
         }
       }
     } catch (e) {
-      console.warn('Failed to load cache from storage:', e);
+      logger.warn('Failed to load cache from storage:', e);
     }
   }
 

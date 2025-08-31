@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import CSVImportWizard from './CSVImportWizard';
 import OFXImportModal from './OFXImportModal';
@@ -113,8 +112,7 @@ const BANK_TEMPLATES = [
 ];
 
 export default function DataImportExport() {
-  const { accounts, transactions, categories, addAccount, addTransaction, addCategory } = useApp();
-  const { budgets } = useBudgets();
+  const { accounts, transactions, categories, addAccount, addTransaction, addCategory, budgets } = useApp();
   
   const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
   const [showCsvWizard, setShowCsvWizard] = useState(false);
@@ -165,7 +163,7 @@ export default function DataImportExport() {
         const csvHeaders = ['Date', 'Description', 'Amount', 'Type', 'Category', 'Account'];
         const csvRows = data.transactions.map(t => {
           const account = accounts.find(a => a.id === t.accountId);
-          const category = categories.find(c => c.id === t.category);
+          const category = categories.find(c => c.id === t.categoryId);
           return [
             t.date,
             `"${t.description}"`,

@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { serializeForRedux } from '../../utils/serializeForRedux';
 import Decimal from 'decimal.js';
 import type { Transaction } from '../../types';
 import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
@@ -35,7 +36,7 @@ const transactionsSlice = createSlice({
   initialState,
   reducers: {
     setTransactions: (state, action: PayloadAction<Transaction[]>) => {
-      state.transactions = action.payload;
+      state.transactions = serializeForRedux(action.payload) as any;
       state.error = null;
     },
     addTransaction: (state, action: PayloadAction<Omit<Transaction, 'id'>>) => {
@@ -44,7 +45,7 @@ const transactionsSlice = createSlice({
         id: crypto.randomUUID(),
         date: toISOString(action.payload.date) || getCurrentISOString(),
       };
-      state.transactions.push(newTransaction);
+      state.transactions.push(serializeForRedux(newTransaction) as any);
     },
     updateTransaction: (state, action: PayloadAction<{ id: string; updates: Partial<Transaction> }>) => {
       const index = state.transactions.findIndex(t => t.id === action.payload.id);
@@ -116,7 +117,7 @@ const transactionsSlice = createSlice({
         state.loading = false;
         const index = state.transactions.findIndex(txn => txn.id === action.payload.id);
         if (index !== -1) {
-          state.transactions[index] = action.payload;
+          state.transactions[index] = serializeForRedux(action.payload) as any;
         }
       })
       .addCase(updateTransactionInSupabase.rejected, (state, action) => {

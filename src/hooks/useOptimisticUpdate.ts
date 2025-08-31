@@ -414,8 +414,7 @@ export class OptimisticQueue<T extends { id: string }> {
     return this.queue.length;
   }
 
-  get isPro
-cessing() {
+  get isProcessing() {
     return this.processing;
   }
 }

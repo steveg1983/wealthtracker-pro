@@ -3,6 +3,8 @@
  * Prevents abuse by limiting the frequency of operations
  */
 
+import { environment } from '../config/environment';
+
 interface RateLimitConfig {
   maxRequests: number;
   windowMs: number;
@@ -313,7 +315,7 @@ export const initializeRateLimiter = () => {
     // Check if this is an API call (but exclude external APIs like Stripe/Supabase/backend)
     const isApiCall = typeof url === 'string' && (
       url.startsWith('/api/') || 
-      (url.includes('/api/') && !url.includes('localhost:3000') && !url.includes('supabase') && !url.includes('stripe'))
+      (url.includes('/api/') && !url.includes('supabase') && !url.includes('stripe'))
     );
     
     if (isApiCall) {

@@ -5,6 +5,7 @@
 
 import { supabase } from '../../lib/supabase';
 import type { Notification } from '../../contexts/NotificationContext';
+import { logger } from '../loggingService';
 
 export class NotificationServiceAPI {
   /**
@@ -22,7 +23,7 @@ export class NotificationServiceAPI {
         .limit(50);
 
       if (error) {
-        console.error('Error fetching notifications:', error);
+        logger.error('Error fetching notifications:', error);
         return [];
       }
 
@@ -35,7 +36,7 @@ export class NotificationServiceAPI {
         read: n.is_read
       }));
     } catch (error) {
-      console.error('Error in getNotifications:', error);
+      logger.error('Error in getNotifications:', error);
       return [];
     }
   }
@@ -63,7 +64,7 @@ export class NotificationServiceAPI {
         .single();
 
       if (error) {
-        console.error('Error creating notification:', error);
+        logger.error('Error creating notification:', error);
         return null;
       }
 
@@ -76,7 +77,7 @@ export class NotificationServiceAPI {
         read: data.is_read
       };
     } catch (error) {
-      console.error('Error in createNotification:', error);
+      logger.error('Error in createNotification:', error);
       return null;
     }
   }
@@ -94,13 +95,13 @@ export class NotificationServiceAPI {
         .eq('id', notificationId);
 
       if (error) {
-        console.error('Error marking notification as read:', error);
+        logger.error('Error marking notification as read:', error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error in markAsRead:', error);
+      logger.error('Error in markAsRead:', error);
       return false;
     }
   }
@@ -119,13 +120,13 @@ export class NotificationServiceAPI {
         .eq('is_read', false);
 
       if (error) {
-        console.error('Error marking all as read:', error);
+        logger.error('Error marking all as read:', error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error in markAllAsRead:', error);
+      logger.error('Error in markAllAsRead:', error);
       return false;
     }
   }
@@ -143,13 +144,13 @@ export class NotificationServiceAPI {
         .eq('id', notificationId);
 
       if (error) {
-        console.error('Error deleting notification:', error);
+        logger.error('Error deleting notification:', error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error in deleteNotification:', error);
+      logger.error('Error in deleteNotification:', error);
       return false;
     }
   }
@@ -167,13 +168,13 @@ export class NotificationServiceAPI {
         .eq('user_id', userId);
 
       if (error) {
-        console.error('Error clearing all notifications:', error);
+        logger.error('Error clearing all notifications:', error);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error('Error in clearAll:', error);
+      logger.error('Error in clearAll:', error);
       return false;
     }
   }
@@ -224,13 +225,13 @@ export class NotificationServiceAPI {
         .select();
 
       if (error) {
-        console.error('Error cleaning up old notifications:', error);
+        logger.error('Error cleaning up old notifications:', error);
         return 0;
       }
 
       return data?.length || 0;
     } catch (error) {
-      console.error('Error in cleanupOldNotifications:', error);
+      logger.error('Error in cleanupOldNotifications:', error);
       return 0;
     }
   }

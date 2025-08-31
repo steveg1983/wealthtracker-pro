@@ -1,51 +1,15 @@
+import { logger } from '../services/loggingService';
 /**
- * Supabase Client Configuration
- * 
- * This sets up our connection to Supabase for:
- * - Database operations
- * - Real-time subscriptions
- * - File storage
- * - Row Level Security with Clerk authentication
+ * Supabase client re-export
+ * Use the single client from services/api/supabaseClient to avoid duplication.
  */
-
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Missing Supabase environment variables. App will run in local mode only.');
-  console.warn('To enable cloud features, add to your .env.local:');
-  console.warn('VITE_SUPABASE_URL=your-project-url');
-  console.warn('VITE_SUPABASE_ANON_KEY=your-anon-key');
-}
-
-// Create Supabase client with enhanced configuration
-export const supabase = supabaseUrl && supabaseAnonKey 
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: {
-        autoRefreshToken: true,
-        persistSession: true,
-        detectSessionInUrl: false, // We use Clerk for auth
-      },
-      global: {
-        headers: {
-          'x-client-info': 'wealthtracker-web',
-        },
-      },
-      realtime: {
-        params: {
-          eventsPerSecond: 10,
-        },
-      },
-    })
-  : null
+export { supabase } from '../services/api/supabaseClient';
 
 // DEPRECATED: Use userIdService.ensureUserExists() instead
 // This function is kept for backward compatibility but should not be used
 // It uses the wrong table (user_profiles instead of users)
 export async function syncClerkUser(clerkUserId: string, email: string, name?: string) {
-  console.warn('syncClerkUser is deprecated. Use userIdService.ensureUserExists() instead');
+  logger.warn('syncClerkUser is deprecated. Use userIdService.ensureUserExists() instead');
   
   // Import userIdService and delegate to it
   const { userIdService } = await import('../services/userIdService');

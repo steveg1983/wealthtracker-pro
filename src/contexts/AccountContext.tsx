@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../services/loggingService';
 
 interface Holding {
   ticker: string;
@@ -60,7 +61,7 @@ export function AccountProvider({ children, initialAccounts = [] }: AccountProvi
           openingBalanceDate: acc.openingBalanceDate ? new Date(acc.openingBalanceDate) : undefined
         }));
       } catch (error) {
-        console.error('Error parsing saved accounts:', error);
+        logger.error('Error parsing saved accounts:', error);
         return initialAccounts;
       }
     }

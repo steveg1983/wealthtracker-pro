@@ -1,3 +1,4 @@
+import { logger } from '../services/loggingService';
 /**
  * Clerk Configuration - Setup for world-class authentication
  * 
@@ -113,7 +114,7 @@ export function getClerkPublishableKey(): string {
   const key = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
   
   if (!key) {
-    console.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
+    logger.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
     console.info('Please add it to your .env.local file');
     console.info('Get your key from: https://dashboard.clerk.com/apps/[your-app]/api-keys');
   }

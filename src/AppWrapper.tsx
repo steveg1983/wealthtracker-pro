@@ -1,5 +1,6 @@
 import { Component, ReactNode, ErrorInfo } from 'react';
 import App from './App';
+import { logger } from './services/loggingService';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -13,13 +14,13 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryS
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    console.error('App Error Boundary caught:', error);
+    logger.error('App Error Boundary caught:', error);
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('Error details:', error);
-    console.error('Error info:', errorInfo);
+    logger.error('Error details:', error);
+    logger.error('Error info:', errorInfo);
   }
 
   render(): ReactNode {

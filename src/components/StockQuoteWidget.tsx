@@ -3,6 +3,7 @@ import { getStockQuote } from '../services/stockPriceService';
 import type { DecimalInstance } from '../types/decimal-types';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { SearchIcon, TrendingUpIcon, TrendingDownIcon, RefreshCwIcon } from './icons';
+import { logger } from '../services/loggingService';
 
 interface StockQuote {
   symbol: string;
@@ -49,7 +50,7 @@ export default function StockQuoteWidget({
       }
     } catch (err) {
       setError('Failed to fetch quote');
-      console.error('Error fetching quote:', err);
+      logger.error('Error fetching quote:', err);
     } finally {
       setIsLoading(false);
     }

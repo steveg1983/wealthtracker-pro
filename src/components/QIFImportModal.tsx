@@ -12,6 +12,7 @@ import {
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
+import { logger } from '../services/loggingService';
 
 interface QIFImportModalProps {
   isOpen: boolean;
@@ -77,7 +78,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
         setSelectedAccountId(accounts[0].id);
       }
     } catch (error) {
-      console.error('Error parsing QIF file:', error);
+      logger.error('Error parsing QIF file:', error);
       alert('Error parsing QIF file. Please check the file format.');
     } finally {
       setIsProcessing(false);
@@ -114,7 +115,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
         account: accounts.find(a => a.id === selectedAccountId)
       });
     } catch (error) {
-      console.error('Import error:', error);
+      logger.error('Import error:', error);
       setImportResult({
         success: false,
         error: error instanceof Error ? error.message : 'Import failed'

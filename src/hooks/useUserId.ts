@@ -17,6 +17,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { userIdService, type ClerkUserId, type DatabaseUserId } from '../services/userIdService';
+import { logger } from '../services/loggingService';
 
 interface UseUserIdReturn {
   /** The Clerk authentication ID (e.g., "user_2abc123...") */
@@ -79,12 +80,12 @@ export function useUserId(): UseUserIdReturn {
       setDatabaseId(dbId);
       
       if (!dbId) {
-        console.warn('[useUserId] No database ID found for Clerk ID:', clerkId);
+        logger.warn('[useUserId] No database ID found for Clerk ID:', clerkId);
       } else {
         console.log('[useUserId] Database ID resolved:', dbId);
       }
     } catch (err) {
-      console.error('[useUserId] Error fetching database ID:', err);
+      logger.error('[useUserId] Error fetching database ID:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch database ID');
     } finally {
       setIsLoading(false);

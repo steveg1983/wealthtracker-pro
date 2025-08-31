@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ConflictResolutionService, ConflictAnalysis } from '../services/conflictResolutionService';
 import { syncService } from '../services/syncService';
+import { logger } from '../services/loggingService';
 
 export interface ConflictState {
   hasConflicts: boolean;
@@ -128,7 +129,7 @@ export function useConflictResolution() {
         setCurrentAnalysis(null);
       }
     } catch (error) {
-      console.error('Failed to resolve conflict:', error);
+      logger.error('Failed to resolve conflict:', error);
     }
   }, [currentConflict, conflictState.conflicts]);
 

@@ -16,12 +16,12 @@ import {
   EditIcon,
   TrashIcon
 } from './icons';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { format } from 'date-fns';
 
 export default function SharedBudgetsGoals() {
   const { transactions, categories, budgets, goals, addBudget, addGoal, updateBudget, updateGoal } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   const [household, setHousehold] = useState(householdService.getHousehold());
   const [currentMember] = useState(household?.members[0]); // Assume first member is current user
   

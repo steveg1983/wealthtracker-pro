@@ -1,3 +1,4 @@
+import { logger } from '../services/loggingService';
 /**
  * Performance Monitoring Utilities
  * Track and report application performance metrics
@@ -68,7 +69,7 @@ export class PerformanceMonitor {
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
         this.observers.push(lcpObserver);
       } catch (e) {
-        console.warn('Performance Observer not supported:', e);
+        logger.warn('Performance Observer not supported:', e);
       }
     }
   }
@@ -141,7 +142,7 @@ export class PerformanceMonitor {
           this.metrics.customMetrics[name] = entries[entries.length - 1].duration;
         }
       } catch (e) {
-        console.warn('Performance measure failed:', e);
+        logger.warn('Performance measure failed:', e);
       }
     }
   }

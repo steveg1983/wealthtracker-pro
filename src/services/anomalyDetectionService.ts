@@ -1,6 +1,7 @@
 import type { Transaction, Category } from '../types';
 import Decimal from 'decimal.js';
 import { startOfMonth, endOfMonth, subMonths, differenceInDays, format } from 'date-fns';
+import { logger } from './loggingService';
 
 export interface Anomaly {
   id: string;
@@ -58,7 +59,7 @@ class AnomalyDetectionService {
         return config;
       }
     } catch (error) {
-      console.error('Failed to load anomaly detection config:', error);
+      logger.error('Failed to load anomaly detection config:', error);
     }
     
     // Default config

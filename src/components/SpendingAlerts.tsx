@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useBudgets } from '../contexts/BudgetContext';
+// Removed useBudgets - now using useApp from AppContextSupabase
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
@@ -101,7 +101,7 @@ const DEFAULT_ALERT_CONFIGS: AlertConfig[] = [
 
 export default function SpendingAlerts() {
   const { categories, getDecimalTransactions, getDecimalBudgets } = useApp();
-  const { budgets } = useBudgets();
+  const { budgets } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
   const [alertConfigs, setAlertConfigs] = useLocalStorage<AlertConfig[]>('alert-configs', DEFAULT_ALERT_CONFIGS);

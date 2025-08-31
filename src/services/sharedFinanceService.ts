@@ -1,5 +1,6 @@
 import type { Budget, Goal, Transaction } from '../types';
 import { householdService, type HouseholdMember } from './householdService';
+import { logger } from './loggingService';
 
 export interface SharedBudget extends Budget {
   householdId: string;
@@ -129,7 +130,7 @@ class SharedFinanceService {
         }));
       }
     } catch (error) {
-      console.error('Failed to load shared finance data:', error);
+      logger.error('Failed to load shared finance data:', error);
     }
   }
 
@@ -140,7 +141,7 @@ class SharedFinanceService {
       localStorage.setItem(this.APPROVALS_KEY, JSON.stringify(this.approvals));
       localStorage.setItem(this.ACTIVITIES_KEY, JSON.stringify(this.activities));
     } catch (error) {
-      console.error('Failed to save shared finance data:', error);
+      logger.error('Failed to save shared finance data:', error);
     }
   }
 

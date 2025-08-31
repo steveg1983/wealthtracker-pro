@@ -1,5 +1,9 @@
 import { useCallback, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '../index';
+import { selectAccounts } from '../selectors/accountsSelectors';
+import { selectTransactions } from '../selectors/transactionsSelectors';
+import { selectBudgets } from '../selectors/budgetsSelectors';
+import { selectGoals } from '../selectors/goalsSelectors';
 import {
   addTransaction as addTransactionThunk,
   updateTransaction as updateTransactionThunk,
@@ -47,11 +51,11 @@ export function useAppRedux() {
   const dispatch = useAppDispatch();
   
   // Select all state
-  const accounts = useAppSelector(state => state.accounts.accounts);
-  const transactions = useAppSelector(state => state.transactions.transactions);
-  const budgets = useAppSelector(state => state.budgets.budgets);
+  const accounts = useAppSelector(selectAccounts);
+  const transactions = useAppSelector(selectTransactions);
+  const budgets = useAppSelector(selectBudgets);
   const categories = useAppSelector(state => state.categories.categories);
-  const goals = useAppSelector(state => state.goals.goals);
+  const goals = useAppSelector(selectGoals);
   const tags = useAppSelector(state => state.tags.tags);
   const recurringTransactions = useAppSelector(state => state.recurringTransactions.recurringTransactions);
   

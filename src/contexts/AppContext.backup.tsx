@@ -19,6 +19,7 @@ import type { DecimalInstance } from '../utils/decimal';
 import { recalculateAccountBalances } from '../utils/recalculateBalances';
 import { smartCategorizationService } from '../services/smartCategorizationService';
 import { storageAdapter, STORAGE_KEYS } from '../services/storageAdapter';
+import { logger } from '../services/loggingService';
 
 export interface Tag {
   id: string;
@@ -153,7 +154,7 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
         await storageAdapter.init();
         setIsStorageReady(true);
       } catch (error) {
-        console.error('Failed to initialize storage:', error);
+        logger.error('Failed to initialize storage:', error);
         // Continue with localStorage fallback
         setIsStorageReady(true);
       }
@@ -228,7 +229,7 @@ export function AppProvider({ children }: { children: ReactNode }): React.JSX.El
         }
 
       } catch (error) {
-        console.error('Error loading data:', error);
+        logger.error('Error loading data:', error);
         
         // Provide minimal working state without marking for clear
         setCategories(getMinimalSystemCategories());

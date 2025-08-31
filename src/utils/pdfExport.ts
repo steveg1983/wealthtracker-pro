@@ -2,6 +2,7 @@
 let jsPDF: typeof import('jspdf').default | null = null;
 let html2canvas: typeof import('html2canvas').default | null = null;
 import { Transaction, Account } from '../types';
+import { logger } from '../services/loggingService';
 
 interface ReportData {
   title: string;
@@ -143,7 +144,7 @@ export async function generatePDFReport(data: ReportData, accounts: Account[]): 
         pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, imgHeight);
         yPosition += imgHeight + 10;
       } catch (error) {
-        console.error('Error capturing chart:', error);
+        logger.error('Error capturing chart:', error);
       }
     }
   }

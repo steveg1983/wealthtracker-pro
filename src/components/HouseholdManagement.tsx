@@ -19,12 +19,12 @@ import {
   GoalIcon
 } from './icons';
 import { format } from 'date-fns';
-import { useCurrency } from '../hooks/useCurrency';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useApp } from '../contexts/AppContextSupabase';
 
 export default function HouseholdManagement() {
   const { transactions } = useApp();
-  const { formatCurrency } = useCurrency();
+  const { formatCurrency } = useCurrencyDecimal();
   const [household, setHousehold] = useState<Household | null>(null);
   const [currentMember, setCurrentMember] = useState<HouseholdMember | null>(null);
   const [showCreateForm, setShowCreateForm] = useState(false);

@@ -21,6 +21,7 @@ export async function importPDFLibraries() {
     const [jsPDF, html2canvas] = await Promise.all([
       import('jspdf'),
       import('html2canvas')
+import { logger } from '../services/loggingService';
     ]);
     moduleCache.set('pdf-libs', { jsPDF, html2canvas });
   }
@@ -119,7 +120,7 @@ export async function measureImport<T>(
       return result;
     } catch (error) {
       const end = performance.now();
-      console.error(`❌ Failed to load ${name} after ${(end - start).toFixed(2)}ms`, error);
+      logger.error(`❌ Failed to load ${name} after ${(end - start).toFixed(2)}ms`, error);
       throw error;
     }
   }
