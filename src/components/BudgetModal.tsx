@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { RadioCheckbox } from './common/RadioCheckbox';
 import { useModalForm } from '../hooks/useModalForm';
 import type { Budget } from '../types';
 
@@ -119,18 +120,15 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
             </select>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="isActive"
+          <label className="flex items-center gap-2 cursor-pointer">
+            <RadioCheckbox
               checked={formData.isActive}
-              onChange={(e) => updateField('isActive', e.target.checked)}
-              className="rounded border-gray-300 dark:border-gray-600"
+              onChange={(checked) => updateField('isActive', checked)}
             />
-            <label htmlFor="isActive" className="text-sm text-gray-700 dark:text-gray-300">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Budget is active
-            </label>
-          </div>
+            </span>
+          </label>
         </ModalBody>
         <ModalFooter>
           <div className="flex gap-3 w-full">

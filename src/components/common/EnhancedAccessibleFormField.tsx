@@ -131,10 +131,10 @@ export const EnhancedInput = forwardRef<HTMLInputElement, EnhancedInputProps>(
             ref={ref}
             required={required}
             className={`
-              block w-full rounded-md border-gray-300 dark:border-gray-600
+              block w-full rounded-lg border-gray-300 dark:border-gray-600
               dark:bg-gray-700 dark:text-white
               shadow-sm transition-colors
-              focus:border-blue-500 focus:ring-blue-500
+              focus:border-gray-500 focus:ring-gray-500
               disabled:bg-gray-100 dark:disabled:bg-gray-800
               disabled:cursor-not-allowed
               ${leftIcon ? 'pl-10' : 'pl-3'}
@@ -181,10 +181,10 @@ export const EnhancedSelect = forwardRef<HTMLSelectElement, EnhancedSelectProps>
           ref={ref}
           required={required}
           className={`
-            block w-full rounded-md border-gray-300 dark:border-gray-600
+            block w-full rounded-lg border-gray-300 dark:border-gray-600
             dark:bg-gray-700 dark:text-white
             shadow-sm transition-colors
-            focus:border-blue-500 focus:ring-blue-500
+            focus:border-gray-500 focus:ring-gray-500
             disabled:bg-gray-100 dark:disabled:bg-gray-800
             disabled:cursor-not-allowed
             px-3 py-2
@@ -236,10 +236,10 @@ export const EnhancedTextarea = forwardRef<HTMLTextAreaElement, EnhancedTextarea
           ref={ref}
           required={required}
           className={`
-            block w-full rounded-md border-gray-300 dark:border-gray-600
+            block w-full rounded-lg border-gray-300 dark:border-gray-600
             dark:bg-gray-700 dark:text-white
             shadow-sm transition-colors
-            focus:border-blue-500 focus:ring-blue-500
+            focus:border-gray-500 focus:ring-gray-500
             disabled:bg-gray-100 dark:disabled:bg-gray-800
             disabled:cursor-not-allowed
             px-3 py-2
@@ -283,10 +283,10 @@ export const EnhancedCheckbox = forwardRef<HTMLInputElement, EnhancedCheckboxPro
             aria-invalid={error ? true : undefined}
             className={`
               h-4 w-4 mt-0.5
-              text-blue-600 
+              text-gray-600 
               border-gray-300 dark:border-gray-600
               rounded
-              focus:ring-blue-500
+              focus:ring-gray-500
               disabled:opacity-50 disabled:cursor-not-allowed
               ${className}
             `}
@@ -398,7 +398,7 @@ export const EnhancedRadioGroup: React.FC<EnhancedRadioGroupProps> = ({
                 onChange={(e) => onChange(e.target.value)}
                 disabled={option.disabled}
                 aria-describedby={option.hint ? optionHintId : undefined}
-                className="h-4 w-4 mt-0.5 text-blue-600 border-gray-300 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="h-4 w-4 mt-0.5 text-gray-600 border-gray-300 focus:ring-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
               />
               <div className="ml-2">
                 <label

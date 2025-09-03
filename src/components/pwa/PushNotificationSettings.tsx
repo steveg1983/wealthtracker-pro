@@ -72,7 +72,7 @@ export const PushNotificationSettings: React.FC = () => {
       icon: BanknoteIcon,
       title: 'Budget Alerts',
       description: 'Get notified when you\'re close to your budget limits',
-      color: 'text-blue-600'
+      color: 'text-gray-600'
     },
     {
       key: 'billReminders' as const,
@@ -138,7 +138,7 @@ export const PushNotificationSettings: React.FC = () => {
             onClick={handleToggleNotifications}
             disabled={isLoading || permission === 'denied'}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              isSubscribed ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+              isSubscribed ? 'bg-gray-600' : 'bg-gray-200 dark:bg-gray-700'
             } ${isLoading || permission === 'denied' ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <span
@@ -169,7 +169,7 @@ export const PushNotificationSettings: React.FC = () => {
         {isSubscribed && (
           <button
             onClick={handleTestNotification}
-            className="mt-4 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            className="mt-4 text-sm text-gray-600 dark:text-gray-500 hover:underline"
           >
             {testSent ? (
               <span className="flex items-center gap-1">
@@ -210,7 +210,7 @@ export const PushNotificationSettings: React.FC = () => {
                   <button
                     onClick={() => handlePreferenceChange(key, !preferences[key])}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      preferences[key] ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+                      preferences[key] ? 'bg-gray-600' : 'bg-gray-200 dark:bg-gray-700'
                     }`}
                   >
                     <span

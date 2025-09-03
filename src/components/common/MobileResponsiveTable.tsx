@@ -108,7 +108,7 @@ export function MobileResponsiveTable<T>({
                     onClick={onRowClick ? () => onRowClick(item) : undefined}
                     className={`
                       ${onRowClick ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700' : ''}
-                      ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}
+                      ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-blue-50 dark:bg-gray-900'}
                     `}
                   >
                     {columns.map(column => (

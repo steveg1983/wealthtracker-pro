@@ -125,4 +125,5 @@ export function addBreadcrumb(breadcrumb: {
   });
 }
 
-export const SentryErrorBoundary = Sentry.ErrorBoundary;
+// Removed SentryErrorBoundary export due to React.Component bundling issue
+// Use the regular ErrorBoundary component instead

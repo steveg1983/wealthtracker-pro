@@ -22,7 +22,7 @@ export default function Notifications() {
         <PushNotificationSettings />
         
         {/* Additional settings sections can be added here */}
-        <div className="mt-8 bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
+        <div className="mt-8 bg-blue-50 dark:bg-gray-900 rounded-lg p-6">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             About Push Notifications
           </h3>

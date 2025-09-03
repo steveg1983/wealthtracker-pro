@@ -273,7 +273,7 @@ export default function Reports() {
             onClick={() => setActiveTab('overview')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors ${
               activeTab === 'overview'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-gray-600 text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
@@ -284,7 +284,7 @@ export default function Reports() {
             onClick={() => setActiveTab('budget')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors ${
               activeTab === 'budget'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-gray-600 text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >
@@ -295,7 +295,7 @@ export default function Reports() {
             onClick={() => setActiveTab('generator')}
             className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors ${
               activeTab === 'generator'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-gray-600 text-white'
                 : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
             }`}
           >

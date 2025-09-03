@@ -191,7 +191,7 @@ export default function ExportManager() {
     <PageWrapper title="Export Manager">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-800 dark:to-purple-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-gradient-to-r from-gray-600 to-purple-600 dark:from-gray-800 dark:to-purple-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Export Manager</h1>
@@ -511,7 +511,7 @@ export default function ExportManager() {
                         <h4 className="font-medium text-gray-900 dark:text-white">
                           {template.name}
                           {template.isDefault && (
-                            <span className="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 px-2 py-1 rounded">
+                            <span className="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-gray-900/20 dark:text-blue-200 px-2 py-1 rounded">
                               Default
                             </span>
                           )}
@@ -519,7 +519,7 @@ export default function ExportManager() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => handleUseTemplate(template)}
-                            className="p-1 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                            className="p-1 text-gray-600 dark:text-gray-500 hover:text-blue-900 dark:hover:text-gray-300"
                             title="Use template"
                           >
                             <PlayIcon size={14} />

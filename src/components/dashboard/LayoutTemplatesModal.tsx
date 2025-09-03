@@ -177,7 +177,7 @@ export default function LayoutTemplatesModal({
       case 'minimalist':
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
       case 'personal':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+        return 'bg-blue-100 text-blue-800 dark:bg-gray-900 dark:text-blue-200';
       case 'professional':
         return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200';
       case 'advanced':
@@ -269,13 +269,13 @@ export default function LayoutTemplatesModal({
                       key={template.id}
                       className={`relative border-2 rounded-lg p-4 cursor-pointer transition-all ${
                         selectedTemplate === template.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                       onClick={() => setSelectedTemplate(template.id)}
                     >
                       {selectedTemplate === template.id && (
-                        <CheckIcon className="absolute top-4 right-4 h-5 w-5 text-blue-600 dark:text-blue-400" />
+                        <CheckIcon className="absolute top-4 right-4 h-5 w-5 text-gray-600 dark:text-gray-500" />
                       )}
                       
                       <div className="flex items-start space-x-3">
@@ -336,7 +336,7 @@ export default function LayoutTemplatesModal({
                     </button>
                     <button
                       type="button"
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       onClick={handleApplyTemplate}
                       disabled={!selectedTemplate}
                     >

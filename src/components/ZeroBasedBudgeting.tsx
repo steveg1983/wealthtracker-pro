@@ -273,7 +273,7 @@ export default function ZeroBasedBudgeting() {
         
         <button
           onClick={() => setShowNewPeriodModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
         >
           <PlusIcon size={20} />
           New Budget Period
@@ -309,7 +309,7 @@ export default function ZeroBasedBudgeting() {
               {activePeriod.status === 'draft' && (
                 <button
                   onClick={() => activatePeriod(activePeriod.id)}
-                  className="text-blue-600 hover:text-blue-700"
+                  className="text-gray-600 hover:text-blue-700"
                 >
                   Activate Period
                 </button>
@@ -340,7 +340,7 @@ export default function ZeroBasedBudgeting() {
                   <p className="text-2xl font-bold">{formatCurrency(totals.allocated)}</p>
                   <p className="text-xs text-gray-500">{((totals.allocated / activePeriod.totalIncome) * 100).toFixed(1)}%</p>
                 </div>
-                <CalculatorIcon size={32} className="text-blue-600" />
+                <CalculatorIcon size={32} className="text-gray-600" />
               </div>
             </div>
             
@@ -471,7 +471,7 @@ export default function ZeroBasedBudgeting() {
                             setEditingItem(item);
                             setShowItemModal(true);
                           }}
-                          className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded"
+                          className="p-1 text-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded"
                         >
                           <EditIcon size={16} />
                         </button>
@@ -517,7 +517,7 @@ export default function ZeroBasedBudgeting() {
           </p>
           <button
             onClick={() => setShowNewPeriodModal(true)}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             Create First Budget Period
           </button>
@@ -633,7 +633,7 @@ function NewPeriodModal({ onSave, onClose }: NewPeriodModalProps) {
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             Create Period
           </button>
@@ -794,7 +794,7 @@ function BudgetItemModal({ item, categories, onSave, onClose }: BudgetItemModalP
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             {item ? 'Update' : 'Add'} Item
           </button>

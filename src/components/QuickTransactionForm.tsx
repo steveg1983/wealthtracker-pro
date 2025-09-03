@@ -154,7 +154,7 @@ export function QuickTransactionForm({
                 step="0.01"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full pl-8 pr-3 py-3 text-lg font-medium bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full pl-8 pr-3 py-3 text-lg font-medium bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="0.00"
                 required
               />
@@ -170,7 +170,7 @@ export function QuickTransactionForm({
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full px-3 py-2 bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               placeholder="What's this for?"
               required
             />
@@ -186,7 +186,7 @@ export function QuickTransactionForm({
               <select
                 value={accountId}
                 onChange={(e) => setAccountId(e.target.value)}
-                className="w-full px-2 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full px-2 py-2 text-sm bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 required
               >
                 {accounts.map(account => (
@@ -207,7 +207,7 @@ export function QuickTransactionForm({
                   <select
                     value={toAccountId}
                     onChange={(e) => setToAccountId(e.target.value)}
-                    className="w-full px-2 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-2 py-2 text-sm bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     required
                   >
                     {accounts.filter(a => a.id !== accountId).map(account => (
@@ -225,7 +225,7 @@ export function QuickTransactionForm({
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
-                    className="w-full px-2 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-2 py-2 text-sm bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     required={type !== 'transfer'}
                   >
                     {filteredCategories.map(cat => (
@@ -268,7 +268,7 @@ export function QuickTransactionForm({
               onClick={() => setType('transfer')}
               className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
                 type === 'transfer' 
-                  ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' 
+                  ? 'bg-blue-100 text-blue-700 dark:bg-gray-900/30 dark:text-gray-500' 
                   : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
               }`}
             >

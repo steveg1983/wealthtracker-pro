@@ -186,7 +186,7 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
             <button
               onClick={() => setViewMode('pie')}
               className={`px-3 py-1.5 rounded-l-lg transition-colors ${
-                viewMode === 'pie' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400'
+                viewMode === 'pie' ? 'bg-gray-600 text-white' : 'text-gray-600 dark:text-gray-400'
               }`}
               title="Pie Chart"
             >
@@ -195,7 +195,7 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
             <button
               onClick={() => setViewMode('bar')}
               className={`px-3 py-1.5 transition-colors ${
-                viewMode === 'bar' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400'
+                viewMode === 'bar' ? 'bg-gray-600 text-white' : 'text-gray-600 dark:text-gray-400'
               }`}
               title="Bar Chart"
             >
@@ -204,7 +204,7 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
             <button
               onClick={() => setViewMode('treemap')}
               className={`px-3 py-1.5 rounded-r-lg transition-colors ${
-                viewMode === 'treemap' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400'
+                viewMode === 'treemap' ? 'bg-gray-600 text-white' : 'text-gray-600 dark:text-gray-400'
               }`}
               title="Treemap"
             >
@@ -242,7 +242,7 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Value</p>
               <p className="text-2xl font-bold">{formatCurrency(totalValue)}</p>
             </div>
-            <PieChartIcon size={32} className="text-blue-600" />
+            <PieChartIcon size={32} className="text-gray-600" />
           </div>
         </div>
         

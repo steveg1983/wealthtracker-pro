@@ -147,9 +147,9 @@ export default function BillRemindersWidget({ isCompact = false }: BillReminders
     <div className="space-y-4">
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-2">
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-          <div className="text-xs text-blue-600 dark:text-blue-400">Total Due</div>
-          <div className="text-lg font-bold text-blue-700 dark:text-blue-300">
+        <div className="bg-blue-50 dark:bg-gray-900/20 rounded-lg p-3">
+          <div className="text-xs text-gray-600 dark:text-gray-500">Total Due</div>
+          <div className="text-lg font-bold text-blue-700 dark:text-gray-300">
             {formatCurrency(summary.totalDue)}
           </div>
         </div>
@@ -241,7 +241,7 @@ export default function BillRemindersWidget({ isCompact = false }: BillReminders
       {/* View All Button */}
       <button
         onClick={() => navigate('/transactions?filter=recurring')}
-        className="w-full text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-center py-2"
+        className="w-full text-sm text-gray-600 hover:text-blue-700 dark:text-gray-500 dark:hover:text-gray-300 text-center py-2"
       >
         View All Bills →
       </button>

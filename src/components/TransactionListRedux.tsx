@@ -221,7 +221,7 @@ export function TransactionListRedux() {
                         <div className="flex gap-1">
                           <button
                             onClick={() => setEditingTransaction(transaction)}
-                            className="p-1.5 text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
+                            className="p-1.5 text-gray-600 hover:text-gray-600 dark:text-gray-400 dark:hover:text-gray-500"
                             title="Edit transaction"
                           >
                             <EditIcon size={16} />

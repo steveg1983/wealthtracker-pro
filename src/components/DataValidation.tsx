@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { RadioCheckbox } from './common/RadioCheckbox';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal } from './common/Modal';
@@ -639,7 +640,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       case 'warning':
         return <AlertTriangleIcon className="text-yellow-500" size={20} />;
       case 'info':
-        return <AlertCircleIcon className="text-blue-500" size={20} />;
+        return <AlertCircleIcon className="text-gray-500" size={20} />;
       default:
         return null;
     }
@@ -685,7 +686,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
           
           <div className={`rounded-lg p-4 ${
             issueCounts.info > 0
-              ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+              ? 'bg-blue-50 dark:bg-gray-900/20 border border-blue-200 dark:border-blue-800'
               : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700'
           }`}>
             <div className="flex items-center justify-between">
@@ -693,7 +694,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
                 <div className="text-sm text-gray-600 dark:text-gray-400">Info</div>
                 <div className="text-2xl font-semibold mt-1">{issueCounts.info}</div>
               </div>
-              <AlertCircleIcon className={issueCounts.info > 0 ? 'text-blue-500' : 'text-gray-400'} size={32} />
+              <AlertCircleIcon className={issueCounts.info > 0 ? 'text-gray-500' : 'text-gray-400'} size={32} />
             </div>
           </div>
         </div>
@@ -762,13 +763,12 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
                             ? 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20'
                             : issue.type === 'warning'
                             ? 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20'
-                            : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-gray-900/20'
                         }`}
                       >
                         <div className="flex items-start gap-3">
                           {issue.fix && (
-                            <input
-                              type="checkbox"
+                            <RadioCheckbox
                               checked={selectedIssues.has(issue.id)}
                               onChange={() => handleToggleIssue(issue.id)}
                               className="mt-1"
@@ -800,7 +800,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
                                     issueType
                                   });
                                 }}
-                                className="flex items-center gap-1 px-2 py-1 text-xs text-blue-600 dark:text-blue-400
+                                className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 dark:text-gray-500
                                          hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                               >
                                 <EyeIcon size={14} />

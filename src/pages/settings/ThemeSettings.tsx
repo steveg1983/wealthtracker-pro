@@ -117,7 +117,7 @@ export default function ThemeSettings() {
     <PageWrapper>
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-800 dark:to-blue-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-gradient-to-r from-purple-600 to-gray-600 dark:from-purple-800 dark:to-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Theme Settings</h1>
@@ -140,7 +140,7 @@ export default function ThemeSettings() {
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               {getCurrentTheme() === 'dark' ? (
-                <MoonIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                <MoonIcon size={20} className="text-gray-600 dark:text-gray-500" />
               ) : (
                 <SunIcon size={20} className="text-yellow-600 dark:text-yellow-400" />
               )}
@@ -283,7 +283,7 @@ export default function ThemeSettings() {
                         </button>
                         <button
                           onClick={() => setEditingSchedule(schedule)}
-                          className="p-2 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                          className="p-2 text-gray-600 dark:text-gray-500 hover:text-blue-900 dark:hover:text-gray-300"
                           title="Edit schedule"
                         >
                           <EditIcon size={16} />
@@ -375,7 +375,7 @@ export default function ThemeSettings() {
                       <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
                         {preset.name}
                         {!preset.isCustom && (
-                          <span className="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 px-2 py-1 rounded">
+                          <span className="ml-2 text-xs bg-blue-100 text-blue-800 dark:bg-gray-900/20 dark:text-blue-200 px-2 py-1 rounded">
                             Default
                           </span>
                         )}
@@ -386,7 +386,7 @@ export default function ThemeSettings() {
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        className="p-2 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                        className="p-2 text-gray-600 dark:text-gray-500 hover:text-blue-900 dark:hover:text-gray-300"
                         title="Preview preset"
                       >
                         <EyeIcon size={16} />

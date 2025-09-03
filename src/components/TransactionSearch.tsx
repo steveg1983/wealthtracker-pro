@@ -136,7 +136,7 @@ export default function TransactionSearch({
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           placeholder={placeholder}
-          className="w-full pl-10 pr-20 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full pl-10 pr-20 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-500 focus:border-transparent"
         />
         {hasActiveFilters && (
           <button
@@ -150,8 +150,8 @@ export default function TransactionSearch({
           <button
             onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
             className={`absolute right-3 top-1/2 transform -translate-y-1/2 ${
-              isAdvancedOpen ? 'text-blue-500' : 'text-gray-400'
-            } hover:text-blue-600`}
+              isAdvancedOpen ? 'text-gray-500' : 'text-gray-400'
+            } hover:text-gray-600`}
           >
             <Filter size={18} />
           </button>
@@ -273,7 +273,7 @@ export default function TransactionSearch({
                 onClick={() => setFilters(prev => ({ ...prev, type: 'all' }))}
                 className={`px-3 py-1 text-sm rounded ${
                   filters.type === 'all' 
-                    ? 'bg-blue-500 text-white' 
+                    ? 'bg-gray-500 text-white' 
                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >

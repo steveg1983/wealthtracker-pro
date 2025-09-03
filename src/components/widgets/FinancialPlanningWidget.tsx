@@ -134,7 +134,7 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
               </p>
               <button
                 onClick={() => navigate('/financial-planning')}
-                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                className="text-xs text-gray-600 dark:text-gray-500 hover:underline"
               >
                 Create your first plan
               </button>
@@ -173,7 +173,7 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
                   <div key={goal.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
-                        <TargetIcon size={14} className="text-blue-600 dark:text-blue-400" />
+                        <TargetIcon size={14} className="text-gray-600 dark:text-gray-500" />
                         {onTrack ? (
                           <CheckCircleIcon size={12} className="text-green-500" />
                         ) : (

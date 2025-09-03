@@ -539,7 +539,7 @@ export function CustomDateRangePicker({
                         onChange(preset.getValue());
                         setIsOpen(false);
                       }}
-                      className="flex items-center justify-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm"
+                      className="flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-sm"
                     >
                       {preset.icon}
                       <span>{preset.label}</span>
@@ -643,7 +643,7 @@ export function CustomDateRangePicker({
                     onChange={(e) => setNaturalInput(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && applyNaturalLanguage()}
                     placeholder="Try: 'last 30 days', 'this month', 'january 2024', 'between jan 1 and jan 31'"
-                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                    className="w-full px-4 py-3 bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     autoFocus
                   />
                 </div>

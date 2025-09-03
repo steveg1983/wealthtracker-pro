@@ -214,7 +214,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             <PlusIcon size={20} />
             Add Dividend
@@ -259,7 +259,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
                 <p className="text-sm text-gray-600 dark:text-gray-400">Projected Annual</p>
                 <p className="text-2xl font-bold">{formatCurrency(summary.projectedAnnual.toNumber())}</p>
               </div>
-              <TrendingUpIcon size={32} className="text-blue-600" />
+              <TrendingUpIcon size={32} className="text-gray-600" />
             </div>
           </div>
           
@@ -333,7 +333,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
                     <div className="flex gap-2">
                       <button
                         onClick={() => setEditingDividend(dividend)}
-                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-blue-600 hover:text-blue-900 dark:text-blue-400"
+                        className="min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-600 hover:text-blue-900 dark:text-gray-500"
                         title="Edit"
                       >
                         <EditIcon size={20} />
@@ -414,7 +414,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
                         <div className="flex items-center justify-end gap-1">
                           <button
                             onClick={() => setEditingDividend(dividend)}
-                            className="p-1 text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded"
+                            className="p-1 text-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded"
                             title="Edit"
                           >
                             <EditIcon size={16} />
@@ -616,7 +616,7 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
           </button>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             {dividend ? 'Update' : 'Add'} Dividend
           </button>

@@ -244,9 +244,9 @@ export default function Analytics(): React.JSX.Element {
   
   return (
     <PageWrapper title="Analytics">
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 mb-4">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -308,7 +308,7 @@ export default function Analytics(): React.JSX.Element {
         {/* Key Metrics */}
         <div className="px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Income</p>
@@ -320,7 +320,7 @@ export default function Analytics(): React.JSX.Element {
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Expenses</p>
@@ -332,19 +332,19 @@ export default function Analytics(): React.JSX.Element {
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Savings Rate</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                  <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
                     {keyMetrics.savingsRate.toFixed(1)}%
                   </p>
                 </div>
-                <TrendingUpIcon className="text-blue-500" size={24} />
+                <TrendingUpIcon className="text-gray-500" size={24} />
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Transactions</p>
@@ -531,7 +531,7 @@ export default function Analytics(): React.JSX.Element {
                     <LightbulbIcon size={20} className={
                       insight.severity === 'warning' ? 'text-amber-500' :
                       insight.severity === 'success' ? 'text-green-500' :
-                      'text-blue-500'
+                      'text-gray-500'
                     } />
                     <div className="flex-1">
                       <h3 className="font-semibold text-gray-900 dark:text-white mb-1">

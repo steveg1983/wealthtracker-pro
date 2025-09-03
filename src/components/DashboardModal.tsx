@@ -202,9 +202,9 @@ export default function DashboardModal({
         return (
           <div className={isFullscreen ? "max-h-[calc(100vh-200px)] overflow-auto" : "max-h-96 overflow-auto"}>
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="text-sm text-blue-600 dark:text-blue-400">Accounts</p>
-                <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{(data as ReconciliationData[])?.length || 0}</p>
+              <div className="text-center p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-500">Accounts</p>
+                <p className="text-2xl font-bold text-blue-700 dark:text-gray-300">{(data as ReconciliationData[])?.length || 0}</p>
               </div>
               <div className="text-center p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
                 <p className="text-sm text-orange-600 dark:text-orange-400">Unreconciled</p>

@@ -128,7 +128,7 @@ export default function AccountSelector({
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="relative w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg pl-3 pr-10 py-2 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="relative w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg pl-3 pr-10 py-2 text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
         >
           <div className="flex items-center">
             <WalletIcon size={20} className="mr-3 text-gray-400" />
@@ -164,7 +164,7 @@ export default function AccountSelector({
                     onClick={() => !isDisabled && handleAccountToggle(account)}
                     disabled={isDisabled}
                     className={`relative cursor-pointer select-none py-2 pl-3 pr-9 w-full text-left hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                      isSelected ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white'
+                      isSelected ? 'bg-blue-50 dark:bg-gray-900/20 text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white'
                     } ${isDisabled ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <div className="flex items-center justify-between">
@@ -180,7 +180,7 @@ export default function AccountSelector({
                         </div>
                       </div>
                       {isSelected && (
-                        <span className="flex items-center text-blue-600 dark:text-blue-400">
+                        <span className="flex items-center text-gray-600 dark:text-gray-500">
                           <CheckIcon size={20} />
                         </span>
                       )}
@@ -195,7 +195,7 @@ export default function AccountSelector({
       
       {/* Selection Summary */}
       {selectedAccounts.length > 0 && (
-        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <div className="mt-3 p-3 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium text-blue-800 dark:text-blue-200">
               Total Available for Down Payment:
@@ -209,7 +209,7 @@ export default function AccountSelector({
             <div className="mt-2 space-y-1">
               {selectedAccounts.map((account) => (
                 <div key={account.id} className="flex justify-between text-sm">
-                  <span className="text-blue-700 dark:text-blue-300">
+                  <span className="text-blue-700 dark:text-gray-300">
                     {getAccountTypeIcon(account.type)} {account.name}
                   </span>
                   <span className="text-blue-800 dark:text-blue-200">
@@ -220,7 +220,7 @@ export default function AccountSelector({
             </div>
           )}
           
-          <div className="mt-2 text-xs text-blue-600 dark:text-blue-400">
+          <div className="mt-2 text-xs text-gray-600 dark:text-gray-500">
             💡 We recommend keeping 20% as emergency buffer ({formatCurrency(totalSelectedAmount * 0.2)})
           </div>
         </div>

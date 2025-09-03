@@ -168,7 +168,7 @@ export const AccessibleModal: React.FC<AccessibleModalProps> = ({
               <button
                 ref={closeButtonRef}
                 onClick={onClose}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
                 aria-label="Close dialog"
               >
                 <XIcon className="h-5 w-5" />

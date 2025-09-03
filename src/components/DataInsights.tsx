@@ -55,7 +55,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
   const getInsightIcon = (type: SpendingInsight['type']) => {
     switch (type) {
       case 'subscription_alert':
-        return <CreditCardIcon size={20} className="text-blue-600 dark:text-blue-400" />;
+        return <CreditCardIcon size={20} className="text-gray-600 dark:text-gray-500" />;
       case 'spending_spike':
         return <TrendingUpIcon size={20} className="text-red-600 dark:text-red-400" />;
       case 'new_merchant':
@@ -76,7 +76,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
       case 'medium':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200';
       case 'low':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200';
+        return 'bg-blue-100 text-blue-800 dark:bg-gray-900/20 dark:text-blue-200';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     }
@@ -182,11 +182,11 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
                 {insightStats.total}
               </p>
             </div>
-            <BellIcon size={24} className="text-blue-500" />
+            <BellIcon size={24} className="text-gray-500" />
           </div>
         </div>
 
@@ -218,11 +218,11 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Low Priority</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
                 {insightStats.low}
               </p>
             </div>
-            <AlertCircleIcon size={24} className="text-blue-500" />
+            <AlertCircleIcon size={24} className="text-gray-500" />
           </div>
         </div>
 

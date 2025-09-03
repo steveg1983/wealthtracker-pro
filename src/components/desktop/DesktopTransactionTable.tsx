@@ -66,7 +66,7 @@ export const DesktopTransactionTable: React.FC<DesktopTransactionTableProps> = (
                 </td>
                 <td className="px-6 py-4">{transaction.accountId}</td>
                 <td className="px-6 py-4 text-center">
-                  <button onClick={() => onEdit(transaction)} className="text-blue-600 hover:text-blue-800 mr-2">
+                  <button onClick={() => onEdit(transaction)} className="text-gray-600 hover:text-blue-800 mr-2">
                     Edit
                   </button>
                   <button onClick={() => onDelete(transaction.id)} className="text-red-600 hover:text-red-800">

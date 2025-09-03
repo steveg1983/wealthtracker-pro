@@ -110,7 +110,7 @@ export function SmartCategorization({
     const percent = confidence * 100;
     if (percent >= 80) return 'text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20';
     if (percent >= 60) return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
-    return 'text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-900/20';
+    return 'text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-gray-900/20';
   };
 
   // Get confidence label
@@ -257,7 +257,7 @@ export function SmartCategorization({
                 flex items-center justify-between gap-3 p-3 rounded-lg border
                 ${index === 0 
                   ? 'border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-800' 
-                  : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50'
+                  : 'border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-gray-900/50'
                 }
               `}
             >
@@ -433,7 +433,7 @@ export function BulkCategorization({
         </div>
 
         {/* Actions bar */}
-        <div className="px-6 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-3 bg-blue-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -465,7 +465,7 @@ export function BulkCategorization({
                 if (!transaction) return null;
                 
                 return (
-                  <div key={transactionId} className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
+                  <div key={transactionId} className="bg-blue-50 dark:bg-gray-900/50 rounded-lg p-4">
                     <div className="mb-3">
                       <p className="font-medium text-gray-900 dark:text-white">
                         {transaction.description}
@@ -518,7 +518,7 @@ export function BulkCategorization({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-gray-900/50">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600 dark:text-gray-400">
               Review selections before applying

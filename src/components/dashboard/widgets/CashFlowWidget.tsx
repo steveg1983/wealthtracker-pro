@@ -278,7 +278,7 @@ export default function CashFlowWidget({ isCompact = false }: CashFlowWidgetProp
       {/* View Details Button */}
       <button
         onClick={() => navigate('/analytics')}
-        className="w-full text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-center py-2"
+        className="w-full text-sm text-gray-600 hover:text-blue-700 dark:text-gray-500 dark:hover:text-gray-300 text-center py-2"
       >
         View Analytics →
       </button>

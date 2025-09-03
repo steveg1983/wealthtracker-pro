@@ -48,7 +48,7 @@ export function ProtectedRoute({
   // Show loading state while Clerk is initializing (skip in test mode, demo mode, or development)
   if (!isLoaded && !isTestMode && !isDemoMode && !isDevelopmentMode) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <Skeleton className="w-32 h-32 rounded-full mx-auto mb-4" />
           <Skeleton className="w-48 h-6 mx-auto mb-2" />
@@ -93,9 +93,9 @@ export function ProtectedRoute({
   if (requirePremium && !isTestMode && !isDemoMode && !isDevelopmentMode) {
     if (isCheckingSubscription) {
       return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <div className="w-8 h-8 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
             <p className="text-gray-600 dark:text-gray-400">Checking subscription status...</p>
           </div>
         </div>
@@ -104,7 +104,7 @@ export function ProtectedRoute({
 
     if (!subscription || subscription.tier === 'free') {
       return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
             <div className="flex items-center justify-center w-16 h-16 bg-yellow-100 dark:bg-yellow-900/30 rounded-full mx-auto mb-4">
               <LockIcon size={32} className="text-yellow-600 dark:text-yellow-400" />
@@ -121,7 +121,7 @@ export function ProtectedRoute({
             <div className="space-y-3">
               <button
                 onClick={() => window.location.href = '/subscription'}
-                className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="w-full px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
               >
                 Upgrade to Premium
               </button>
@@ -134,9 +134,9 @@ export function ProtectedRoute({
               </button>
             </div>
 
-            <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="mt-6 p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
               <div className="flex items-start gap-2">
-                <AlertCircleIcon size={16} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                <AlertCircleIcon size={16} className="text-gray-600 dark:text-gray-500 mt-0.5" />
                 <div className="text-sm text-blue-800 dark:text-blue-200">
                   <p className="font-medium mb-1">Premium includes:</p>
                   <ul className="space-y-1 text-xs">
@@ -160,7 +160,7 @@ export function ProtectedRoute({
     const userRole = user.publicMetadata?.role as string;
     if (userRole !== requiredRole && !isTestMode && !isDemoMode && !isDevelopmentMode) {
       return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
             <div className="flex items-center justify-center w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full mx-auto mb-4">
               <AlertCircleIcon size={32} className="text-red-600 dark:text-red-400" />

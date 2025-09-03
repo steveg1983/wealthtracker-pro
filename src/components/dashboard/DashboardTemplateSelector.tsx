@@ -90,7 +90,7 @@ export default function DashboardTemplateSelector({ onClose }: DashboardTemplate
                   className={`
                     relative p-4 rounded-lg border-2 transition-all text-left
                     ${isSelected 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                      ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20' 
                       : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     }
                     ${isCurrent ? 'ring-2 ring-green-500 ring-offset-2 dark:ring-offset-gray-800' : ''}
@@ -115,7 +115,7 @@ export default function DashboardTemplateSelector({ onClose }: DashboardTemplate
                       <Icon className={`
                         h-6 w-6
                         ${isSelected 
-                          ? 'text-blue-600 dark:text-blue-300' 
+                          ? 'text-gray-600 dark:text-gray-300' 
                           : 'text-gray-600 dark:text-gray-400'
                         }
                       `} />
@@ -154,7 +154,7 @@ export default function DashboardTemplateSelector({ onClose }: DashboardTemplate
                   
                   {isSelected && (
                     <div className="absolute top-2 right-2">
-                      <CheckCircleIcon className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                      <CheckCircleIcon className="h-5 w-5 text-gray-600 dark:text-gray-500" />
                     </div>
                   )}
                 </button>
@@ -163,7 +163,7 @@ export default function DashboardTemplateSelector({ onClose }: DashboardTemplate
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-gray-900">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {selectedTemplate ? (
@@ -181,7 +181,7 @@ export default function DashboardTemplateSelector({ onClose }: DashboardTemplate
             <div className="flex space-x-3">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
@@ -189,9 +189,9 @@ export default function DashboardTemplateSelector({ onClose }: DashboardTemplate
                 onClick={handleApplyTemplate}
                 disabled={!selectedTemplate || isApplying}
                 className={`
-                  px-4 py-2 text-sm font-medium rounded-md
+                  px-4 py-2 text-sm font-medium rounded-lg
                   ${selectedTemplate && !isApplying
-                    ? 'bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'bg-gray-600 text-white hover:bg-gray-700'
                     : 'bg-gray-300 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                   }
                 `}

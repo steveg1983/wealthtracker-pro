@@ -13,7 +13,7 @@ export function OfflineStatus(): React.JSX.Element | null {
     <div className="fixed bottom-4 right-4 z-50">
       <div className={`
         flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg backdrop-blur-sm
-        ${isOffline ? 'bg-orange-500/90' : isSyncing ? 'bg-blue-500/90' : 'bg-green-500/90'}
+        ${isOffline ? 'bg-orange-500/90' : isSyncing ? 'bg-gray-500/90' : 'bg-green-500/90'}
         text-white transition-all duration-300
       `}>
         {isOffline ? (
@@ -47,7 +47,7 @@ export function OfflineStatus(): React.JSX.Element | null {
             </div>
             <button
               onClick={syncNow}
-              className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md text-sm font-medium transition-colors"
+              className="px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg text-sm font-medium transition-colors"
               disabled={isSyncing}
             >
               Sync Now

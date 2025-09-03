@@ -162,7 +162,7 @@ export default function DocumentUpload({
 
   const getFileIcon = (mimeType: string) => {
     if (mimeType.startsWith('image/')) {
-      return <ImageIcon size={20} className="text-blue-600" />;
+      return <ImageIcon size={20} className="text-gray-600" />;
     }
     if (mimeType === 'application/pdf') {
       return <FileTextIcon size={20} className="text-red-600" />;
@@ -223,7 +223,7 @@ export default function DocumentUpload({
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             <UploadIcon size={16} />
             Select Files
@@ -287,7 +287,7 @@ export default function DocumentUpload({
               {tags.map(tag => (
                 <span
                   key={tag}
-                  className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full text-sm"
+                  className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-gray-900/20 text-blue-700 dark:text-gray-300 rounded-full text-sm"
                 >
                   <TagIcon size={12} />
                   {tag}
@@ -372,7 +372,7 @@ export default function DocumentUpload({
                   <div className="w-20">
                     <div className="h-1 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-blue-600 transition-all duration-300"
+                        className="h-full bg-gray-600 transition-all duration-300"
                         style={{ width: `${uploadProgress[file.name]}%` }}
                       />
                     </div>
@@ -454,7 +454,7 @@ export default function DocumentUpload({
           <button
             onClick={uploadFiles}
             disabled={selectedFiles.length === 0 || uploading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {uploading ? (
               <>

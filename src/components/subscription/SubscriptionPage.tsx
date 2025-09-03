@@ -212,7 +212,7 @@ export default function SubscriptionPage({
           </p>
           <button
             onClick={() => window.location.href = '/sign-in'}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             Sign In
           </button>
@@ -225,7 +225,7 @@ export default function SubscriptionPage({
     return (
       <div className={`flex items-center justify-center py-12 ${className}`}>
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading subscription information...</p>
         </div>
       </div>
@@ -245,7 +245,7 @@ export default function SubscriptionPage({
         {(currentView === 'payment' || currentView === 'success') && (
           <button
             onClick={handleBackToPricing}
-            className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-4"
+            className="flex items-center gap-2 text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 mb-4"
           >
             <ArrowLeftIcon size={16} />
             Back to Plans
@@ -271,7 +271,7 @@ export default function SubscriptionPage({
               }} />
               <button
                 onClick={() => setCurrentView('plans')}
-                className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                className="text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300"
               >
                 Change Plan
               </button>
@@ -336,7 +336,7 @@ export default function SubscriptionPage({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               <button
                 onClick={() => window.location.href = '/dashboard'}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
                 Go to Dashboard
               </button>
@@ -382,7 +382,7 @@ export default function SubscriptionPage({
   };
 
   return (
-    <div className={`min-h-screen bg-gray-50 dark:bg-gray-900 ${className}`}>
+    <div className={`min-h-screen bg-blue-50 dark:bg-gray-900 ${className}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {renderHeader()}
         

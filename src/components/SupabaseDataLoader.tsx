@@ -81,7 +81,7 @@ export function SupabaseDataLoader({ children }: SupabaseDataLoaderProps) {
   // Show loading while authenticating or loading data
   if (authLoading || (isAuthenticated && !dataLoaded)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-blue-50 dark:bg-gray-900">
         <div className="text-center">
           <PageLoader />
           <p className="mt-4 text-gray-600 dark:text-gray-400">
@@ -100,7 +100,7 @@ export function SupabaseDataLoader({ children }: SupabaseDataLoaderProps) {
   // Show error if data loading failed
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-blue-50 dark:bg-gray-900">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="mb-4 text-red-500">
             <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -118,7 +118,7 @@ export function SupabaseDataLoader({ children }: SupabaseDataLoaderProps) {
               setError(null);
               setDataLoaded(false);
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             Retry
           </button>

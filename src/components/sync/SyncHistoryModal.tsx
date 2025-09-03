@@ -83,7 +83,7 @@ export default function SyncHistoryModal({
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-3">
-            <Cloud size={24} className="text-blue-600" />
+            <Cloud size={24} className="text-gray-600" />
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Sync History
             </h2>

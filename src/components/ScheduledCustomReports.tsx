@@ -153,7 +153,7 @@ export default function ScheduledCustomReports(): React.JSX.Element {
                 className={`p-4 rounded-lg border ${
                   report.enabled 
                     ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' 
-                    : 'bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-800 opacity-60'
+                    : 'bg-blue-50 dark:bg-gray-900 border-gray-300 dark:border-gray-800 opacity-60'
                 }`}
               >
                 <div className="flex items-start justify-between">

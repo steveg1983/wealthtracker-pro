@@ -45,7 +45,7 @@ export default function Welcome() {
           <div className="text-center">
             <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
               The #1 Personal Finance App
-              <span className="block text-blue-600 dark:text-blue-400 mt-2">
+              <span className="block text-gray-600 dark:text-gray-500 mt-2">
                 That Just Works
               </span>
             </h1>
@@ -56,7 +56,7 @@ export default function Welcome() {
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <SignUpButton mode="modal">
-                <button className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
+                <button className="px-8 py-4 bg-gradient-to-r from-gray-500 to-indigo-600 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200">
                   Start Free Trial
                 </button>
               </SignUpButton>
@@ -91,8 +91,8 @@ export default function Welcome() {
         <div className="grid md:grid-cols-3 gap-8">
           {/* Feature 1 */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg hover:shadow-xl transition-shadow">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
-              <BarChart3Icon size={24} className="text-blue-600 dark:text-blue-400" />
+            <div className="w-12 h-12 bg-blue-100 dark:bg-gray-900 rounded-lg flex items-center justify-center mb-4">
+              <BarChart3Icon size={24} className="text-gray-600 dark:text-gray-500" />
             </div>
             <h3 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">
               Intelligent Analytics
@@ -131,7 +131,7 @@ export default function Welcome() {
       </div>
 
       {/* Pricing Teaser */}
-      <div className="bg-gray-50 dark:bg-gray-900 py-16">
+      <div className="bg-blue-50 dark:bg-gray-900 py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
             Free to Start, Powerful to Scale
@@ -144,7 +144,7 @@ export default function Welcome() {
               <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Free</h3>
               <p className="text-gray-500 dark:text-gray-400">Essential features</p>
             </div>
-            <div className="border-2 border-blue-500 rounded-xl p-6 transform scale-105 shadow-lg">
+            <div className="border-2 border-gray-500 rounded-xl p-6 transform scale-105 shadow-lg">
               <h3 className="font-semibold text-lg mb-2 text-gray-900 dark:text-white">Pro</h3>
               <p className="text-gray-500 dark:text-gray-400">Advanced analytics</p>
             </div>

@@ -60,7 +60,7 @@ export default function BulkOperationsToolbar<T>({
               <button
                 onClick={handleConfirmOperation}
                 disabled={isProcessing}
-                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
                   confirmingOp.destructive
                     ? 'bg-red-500 hover:bg-red-600 text-white'
                     : 'bg-[var(--color-primary)] hover:bg-[var(--color-secondary)] text-white'
@@ -71,7 +71,7 @@ export default function BulkOperationsToolbar<T>({
               <button
                 onClick={handleCancelConfirmation}
                 disabled={isProcessing}
-                className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -95,7 +95,7 @@ export default function BulkOperationsToolbar<T>({
                     key={operation.id}
                     onClick={() => handleOperationClick(operation)}
                     disabled={isProcessing}
-                    className={`px-3 py-1 text-sm font-medium rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                       operation.destructive
                         ? 'bg-red-500 hover:bg-red-600 text-white'
                         : 'bg-[var(--color-primary)] hover:bg-[var(--color-secondary)] text-white'

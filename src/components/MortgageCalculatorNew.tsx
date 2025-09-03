@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { RadioCheckbox } from './common/RadioCheckbox';
 import { ukMortgageService } from '../services/ukMortgageService';
 import { usMortgageService } from '../services/usMortgageService';
 import { financialPlanningService } from '../services/financialPlanningService';
@@ -531,7 +532,7 @@ export default function MortgageCalculatorNew() {
                   key={calc.id}
                   className={`p-4 rounded-lg border cursor-pointer transition-colors ${
                     selectedCalculation?.id === calc.id
-                      ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-blue-900/20'
+                      ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-gray-900/20'
                       : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                   onClick={() => setSelectedCalculation(calc)}
@@ -568,7 +569,7 @@ export default function MortgageCalculatorNew() {
                     </div>
                     <div className="font-medium">{formatCurrency(calc.monthlyPayment)}/month</div>
                     {calc.initialPeriod && (
-                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">Two-tier rate</div>
+                      <div className="text-xs text-gray-600 dark:text-gray-500 mt-1">Two-tier rate</div>
                     )}
                   </div>
                 </div>
@@ -586,7 +587,7 @@ export default function MortgageCalculatorNew() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Monthly Payment</p>
-                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
                           {formatCurrency(selectedCalculation.monthlyPayment)}
                         </p>
                         {selectedCalculation.pmi && (
@@ -595,7 +596,7 @@ export default function MortgageCalculatorNew() {
                           </p>
                         )}
                       </div>
-                      <DollarSignIcon size={24} className="text-blue-500" />
+                      <DollarSignIcon size={24} className="text-gray-500" />
                     </div>
                   </div>
 
@@ -766,9 +767,9 @@ export default function MortgageCalculatorNew() {
                   
                   {/* Two-tier Rate Breakdown */}
                   {selectedCalculation.initialPeriod && selectedCalculation.subsequentPeriod && (
-                    <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="mt-6 p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
                       <div className="flex items-center gap-2 mb-3">
-                        <TrendingUpIcon size={16} className="text-blue-500" />
+                        <TrendingUpIcon size={16} className="text-gray-500" />
                         <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Two-tier Rate Breakdown</h4>
                       </div>
                       
@@ -884,7 +885,7 @@ export default function MortgageCalculatorNew() {
               {region === 'UK' ? (
                 <div className="space-y-4">
                   {/* Calculator Type Selector */}
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Calculator Type</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       <label className="flex items-center p-3 border border-gray-200 dark:border-gray-600 rounded-lg cursor-pointer hover:bg-white dark:hover:bg-gray-800">
@@ -894,7 +895,7 @@ export default function MortgageCalculatorNew() {
                           value="standard"
                           checked={ukFormData.calculatorType === 'standard'}
                           onChange={(e) => setUkFormData({ ...ukFormData, calculatorType: e.target.value as any })}
-                          className="mr-3 text-blue-500 focus:ring-blue-400"
+                          className="mr-3 text-gray-500 focus:ring-blue-400"
                         />
                         <div>
                           <span className="text-sm font-medium text-gray-900 dark:text-white">Standard Mortgage</span>
@@ -909,7 +910,7 @@ export default function MortgageCalculatorNew() {
                           value="sharedOwnership"
                           checked={ukFormData.calculatorType === 'sharedOwnership'}
                           onChange={(e) => setUkFormData({ ...ukFormData, calculatorType: e.target.value as any })}
-                          className="mr-3 text-blue-500 focus:ring-blue-400"
+                          className="mr-3 text-gray-500 focus:ring-blue-400"
                         />
                         <div>
                           <span className="text-sm font-medium text-gray-900 dark:text-white">Shared Ownership</span>
@@ -924,7 +925,7 @@ export default function MortgageCalculatorNew() {
                           value="remortgage"
                           checked={ukFormData.calculatorType === 'remortgage'}
                           onChange={(e) => setUkFormData({ ...ukFormData, calculatorType: e.target.value as any })}
-                          className="mr-3 text-blue-500 focus:ring-blue-400"
+                          className="mr-3 text-gray-500 focus:ring-blue-400"
                         />
                         <div>
                           <span className="text-sm font-medium text-gray-900 dark:text-white">Remortgage</span>
@@ -939,7 +940,7 @@ export default function MortgageCalculatorNew() {
                           value="affordability"
                           checked={ukFormData.calculatorType === 'affordability'}
                           onChange={(e) => setUkFormData({ ...ukFormData, calculatorType: e.target.value as any })}
-                          className="mr-3 text-blue-500 focus:ring-blue-400"
+                          className="mr-3 text-gray-500 focus:ring-blue-400"
                         />
                         <div>
                           <span className="text-sm font-medium text-gray-900 dark:text-white">Affordability</span>
@@ -978,21 +979,19 @@ export default function MortgageCalculatorNew() {
                     
                     <div className="pt-3 border-t border-gray-200 dark:border-gray-600 space-y-3">
                       <label className="flex items-center">
-                        <input
-                          type="checkbox"
+                        <RadioCheckbox
                           checked={ukFormData.firstTimeBuyer}
-                          onChange={(e) => setUkFormData({ ...ukFormData, firstTimeBuyer: e.target.checked })}
-                          className="mr-3 rounded text-slate-500 focus:ring-slate-400 accent-slate-500 flex-shrink-0"
+                          onChange={(checked) => setUkFormData({ ...ukFormData, firstTimeBuyer: checked })}
+                          className="mr-3"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">First Time Buyer</span>
                       </label>
                       
                       <label className="flex items-center">
-                        <input
-                          type="checkbox"
+                        <RadioCheckbox
                           checked={ukFormData.additionalProperty}
-                          onChange={(e) => setUkFormData({ ...ukFormData, additionalProperty: e.target.checked })}
-                          className="mr-3 rounded text-slate-500 focus:ring-slate-400 accent-slate-500 flex-shrink-0"
+                          onChange={(checked) => setUkFormData({ ...ukFormData, additionalProperty: checked })}
+                          className="mr-3"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Additional Property (3% surcharge)</span>
                       </label>
@@ -1049,7 +1048,7 @@ export default function MortgageCalculatorNew() {
                                 onClick={() => setUseRealAccountData(false)}
                                 className={`px-3 py-1 text-xs rounded-full transition-colors ${
                                   !useRealAccountData 
-                                    ? 'bg-blue-600 text-white' 
+                                    ? 'bg-gray-600 text-white' 
                                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                                 }`}
                               >
@@ -1060,7 +1059,7 @@ export default function MortgageCalculatorNew() {
                                 onClick={() => setUseRealAccountData(true)}
                                 className={`px-3 py-1 text-xs rounded-full transition-colors ${
                                   useRealAccountData 
-                                    ? 'bg-blue-600 text-white' 
+                                    ? 'bg-gray-600 text-white' 
                                     : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                                 }`}
                               >
@@ -1234,13 +1233,13 @@ export default function MortgageCalculatorNew() {
                     <div className="space-y-4">
                       {/* Real Data Toggle */}
                       {financialData && (
-                        <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <div className="p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                           <div className="flex items-center justify-between">
                             <div>
                               <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
                                 🤖 Use Real Financial Data
                               </h4>
-                              <p className="text-xs text-blue-700 dark:text-blue-300">
+                              <p className="text-xs text-blue-700 dark:text-gray-300">
                                 Automatically fill fields with data from your accounts and transactions
                               </p>
                             </div>
@@ -1249,7 +1248,7 @@ export default function MortgageCalculatorNew() {
                               onClick={() => setUseRealIncomeData(!useRealIncomeData)}
                               className={`px-3 py-1 text-xs rounded-full transition-colors ${
                                 useRealIncomeData 
-                                  ? 'bg-blue-600 text-white' 
+                                  ? 'bg-gray-600 text-white' 
                                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                               }`}
                             >
@@ -1260,25 +1259,25 @@ export default function MortgageCalculatorNew() {
                           {financialData && (
                             <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                               <div className="text-center">
-                                <p className="text-blue-600 dark:text-blue-400">Annual Income</p>
+                                <p className="text-gray-600 dark:text-gray-500">Annual Income</p>
                                 <p className="font-semibold text-blue-900 dark:text-blue-100">
                                   {formatCurrency(financialData.annualIncome.toNumber())}
                                 </p>
                               </div>
                               <div className="text-center">
-                                <p className="text-blue-600 dark:text-blue-400">Monthly Expenses</p>
+                                <p className="text-gray-600 dark:text-gray-500">Monthly Expenses</p>
                                 <p className="font-semibold text-blue-900 dark:text-blue-100">
                                   {formatCurrency(financialData.monthlyExpenses.toNumber())}
                                 </p>
                               </div>
                               <div className="text-center">
-                                <p className="text-blue-600 dark:text-blue-400">Debt Payments</p>
+                                <p className="text-gray-600 dark:text-gray-500">Debt Payments</p>
                                 <p className="font-semibold text-blue-900 dark:text-blue-100">
                                   {formatCurrency(financialData.totalMonthlyDebtPayments.toNumber())}
                                 </p>
                               </div>
                               <div className="text-center">
-                                <p className="text-blue-600 dark:text-blue-400">Income Stability</p>
+                                <p className="text-gray-600 dark:text-gray-500">Income Stability</p>
                                 <p className="font-semibold text-blue-900 dark:text-blue-100">
                                   {financialData.incomeStability}
                                 </p>
@@ -1514,7 +1513,7 @@ export default function MortgageCalculatorNew() {
 
                   {/* Two-tier Rate Fields - Show when selected */}
                   {ukFormData.useTwoTierRate && (
-                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-4">
+                    <div className="p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg space-y-4">
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Two-tier Rate Structure</h4>
                       
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1578,11 +1577,10 @@ export default function MortgageCalculatorNew() {
                   {ukFormData.firstTimeBuyer && (
                     <div className="space-y-3">
                       <label className="flex items-center">
-                        <input
-                          type="checkbox"
+                        <RadioCheckbox
                           checked={ukFormData.useHelpToBuy}
-                          onChange={(e) => setUkFormData({ ...ukFormData, useHelpToBuy: e.target.checked })}
-                          className="mr-3 rounded text-slate-500 focus:ring-slate-400 accent-slate-500 flex-shrink-0"
+                          onChange={(checked) => setUkFormData({ ...ukFormData, useHelpToBuy: checked })}
+                          className="mr-3"
                         />
                         <span className="text-sm text-gray-700 dark:text-gray-300">Use Help to Buy Equity Loan</span>
                       </label>
@@ -1592,11 +1590,10 @@ export default function MortgageCalculatorNew() {
                           <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">Help to Buy Details</h4>
                           
                           <label className="flex items-center">
-                            <input
-                              type="checkbox"
+                            <RadioCheckbox
                               checked={ukFormData.isLondon}
-                              onChange={(e) => setUkFormData({ ...ukFormData, isLondon: e.target.checked })}
-                              className="mr-3 rounded text-slate-500 focus:ring-slate-400 accent-slate-500 flex-shrink-0"
+                              onChange={(checked) => setUkFormData({ ...ukFormData, isLondon: checked })}
+                              className="mr-3"
                             />
                             <span className="text-sm text-gray-700 dark:text-gray-300">London property (40% equity loan)</span>
                           </label>
@@ -1643,7 +1640,7 @@ export default function MortgageCalculatorNew() {
                             onClick={() => setUseRealAccountData(false)}
                             className={`px-3 py-1 text-xs rounded-full transition-colors ${
                               !useRealAccountData 
-                                ? 'bg-blue-600 text-white' 
+                                ? 'bg-gray-600 text-white' 
                                 : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                             }`}
                           >
@@ -1654,7 +1651,7 @@ export default function MortgageCalculatorNew() {
                             onClick={() => setUseRealAccountData(true)}
                             className={`px-3 py-1 text-xs rounded-full transition-colors ${
                               useRealAccountData 
-                                ? 'bg-blue-600 text-white' 
+                                ? 'bg-gray-600 text-white' 
                                 : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                             }`}
                           >

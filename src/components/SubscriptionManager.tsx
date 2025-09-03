@@ -77,7 +77,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
       case 'paused':
         return <StopIcon size={16} className="text-yellow-500" />;
       case 'trial':
-        return <ClockIcon size={16} className="text-blue-500" />;
+        return <ClockIcon size={16} className="text-gray-500" />;
       default:
         return <AlertCircleIcon size={16} className="text-gray-500" />;
     }
@@ -92,7 +92,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
       case 'paused':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200';
       case 'trial':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200';
+        return 'bg-blue-100 text-blue-800 dark:bg-gray-900/20 dark:text-blue-200';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     }
@@ -190,11 +190,11 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Monthly Cost</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
                 {formatCurrency(totalMonthlyAmount)}
               </p>
             </div>
-            <DollarSignIcon size={24} className="text-blue-500" />
+            <DollarSignIcon size={24} className="text-gray-500" />
           </div>
         </div>
 
@@ -345,7 +345,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => setEditingSubscription(subscription)}
-                            className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300"
+                            className="text-gray-600 dark:text-gray-500 hover:text-blue-900 dark:hover:text-gray-300"
                           >
                             <EditIcon size={16} />
                           </button>

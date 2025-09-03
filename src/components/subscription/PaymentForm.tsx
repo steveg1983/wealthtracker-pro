@@ -167,21 +167,21 @@ export default function PaymentForm({
             <span className="text-lg font-semibold text-gray-900 dark:text-white">
               Total:
             </span>
-            <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
+            <span className="text-lg font-bold text-gray-600 dark:text-gray-500">
               {formatPrice(plan.price)}/month
             </span>
           </div>
         </div>
 
         {/* Trial Info */}
-        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <div className="mt-4 p-3 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
           <div className="flex items-start gap-2">
-            <CheckIcon size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
+            <CheckIcon size={16} className="text-gray-600 mt-0.5 flex-shrink-0" />
             <div className="text-sm">
-              <p className="text-blue-900 dark:text-blue-300 font-medium">
+              <p className="text-blue-900 dark:text-gray-300 font-medium">
                 14-day free trial included
               </p>
-              <p className="text-blue-700 dark:text-blue-400 mt-1">
+              <p className="text-blue-700 dark:text-gray-500 mt-1">
                 You won't be charged until {new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toLocaleDateString()}
               </p>
             </div>
@@ -249,7 +249,7 @@ export default function PaymentForm({
           <button
             type="submit"
             disabled={isLoading || !stripe || !elements || !isComplete}
-            className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            className="flex-1 px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
           >
             {isLoading ? (
               <>

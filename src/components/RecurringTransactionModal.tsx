@@ -153,7 +153,7 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                     <div className="flex gap-2">
                       <button
                         onClick={() => processRecurringTransaction(recurring)}
-                        className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600"
+                        className="px-3 py-1 text-sm bg-gray-500 text-white rounded hover:bg-gray-600"
                       >
                         Process Now
                       </button>

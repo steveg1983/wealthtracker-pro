@@ -254,7 +254,7 @@ export default function BudgetComparison({
       case 'warning':
         return 'text-yellow-600 dark:text-yellow-400';
       case 'on-track':
-        return 'text-blue-600 dark:text-blue-400';
+        return 'text-gray-600 dark:text-gray-500';
       case 'under':
         return 'text-green-600 dark:text-green-400';
     }
@@ -275,7 +275,7 @@ export default function BudgetComparison({
   const getProgressBarColor = (percent: number) => {
     if (percent > 100) return 'bg-red-600 dark:bg-red-400';
     if (percent > 90) return 'bg-yellow-600 dark:bg-yellow-400';
-    if (percent > 70) return 'bg-blue-600 dark:bg-blue-400';
+    if (percent > 70) return 'bg-gray-600 dark:bg-blue-400';
     return 'bg-green-600 dark:bg-green-400';
   };
 
@@ -340,7 +340,7 @@ export default function BudgetComparison({
             {onExport && (
               <button
                 onClick={() => onExport(categoryComparisons)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-medium"
+                className="px-4 py-2 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition-colors text-sm font-medium"
               >
                 Export Data
               </button>

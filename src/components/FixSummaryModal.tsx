@@ -74,7 +74,7 @@ function FixSummaryModal({
   const getIssueTypeColor = (issueType: string) => {
     if (issueType.includes('error')) return 'text-red-600 bg-red-50 dark:bg-red-900/20';
     if (issueType.includes('warning')) return 'text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20';
-    return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20';
+    return 'text-gray-600 bg-blue-50 dark:bg-gray-900/20';
   };
 
   const groupedChanges = changes.reduce((acc, change) => {
@@ -171,7 +171,7 @@ function FixSummaryModal({
                         </div>
                         
                         {change.type === 'account' && change.field === 'balance' && (
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                          <div className="text-xs text-gray-500 dark:text-gray-400 mt-2 bg-blue-50 dark:bg-gray-900/20 px-2 py-1 rounded">
                             ℹ️ The account balance has been updated to match the sum of all transactions in this account
                           </div>
                         )}

@@ -147,7 +147,7 @@ export function PremiumFeature({ feature, fallback, children }: PremiumFeaturePr
         </p>
         <a
           href="/subscription"
-          className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+          className="text-gray-600 dark:text-gray-500 hover:underline text-sm"
         >
           Upgrade Now
         </a>

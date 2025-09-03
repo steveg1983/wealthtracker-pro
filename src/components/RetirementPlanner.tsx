@@ -267,7 +267,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                   key={plan.id}
                   className={`p-4 rounded-lg border cursor-pointer transition-colors ${
                     selectedPlan?.id === plan.id
-                      ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-blue-900/20'
+                      ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-gray-900/20'
                       : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                   onClick={() => setSelectedPlan(plan)}
@@ -280,7 +280,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                           e.stopPropagation();
                           handleEditPlan(plan);
                         }}
-                        className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                        className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-500"
                       >
                         <EditIcon size={14} />
                       </button>
@@ -324,7 +324,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                       </div>
                       <div className="pl-3">
                         <p className="text-xs text-gray-600 dark:text-gray-400">Monthly Income</p>
-                        <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                        <p className="text-lg font-bold text-gray-600 dark:text-gray-500">
                           {formatCurrency(projection.monthlyIncomeAvailable)}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
@@ -447,7 +447,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                           </div>
                           <div className="flex items-center gap-4">
                             <span className="text-green-600 dark:text-green-400">+{formatCurrency(year.contribution)}</span>
-                            <span className="text-blue-600 dark:text-blue-400">+{formatCurrency(year.growth)}</span>
+                            <span className="text-gray-600 dark:text-gray-500">+{formatCurrency(year.growth)}</span>
                             <span className="font-medium text-gray-900 dark:text-white w-20 text-right">
                               {formatCurrency(year.balance)}
                             </span>
@@ -635,7 +635,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                       <div className="text-sm text-green-600 dark:text-green-400">
                         +{formatCurrency(year.contribution)}
                       </div>
-                      <div className="text-sm text-blue-600 dark:text-blue-400">
+                      <div className="text-sm text-gray-600 dark:text-gray-500">
                         +{formatCurrency(year.growth)}
                       </div>
                       <div className="text-sm font-semibold text-gray-900 dark:text-white w-28 text-right">
@@ -667,7 +667,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                   </div>
                   <div>
                     <p className="text-gray-600 dark:text-gray-400">Monthly Income (4% rule)</p>
-                    <p className="font-semibold text-lg text-blue-600 dark:text-blue-400">
+                    <p className="font-semibold text-lg text-gray-600 dark:text-gray-500">
                       {formatCurrency(projection.monthlyIncomeAvailable)}
                     </p>
                   </div>

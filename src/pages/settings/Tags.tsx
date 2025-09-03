@@ -210,7 +210,7 @@ export default function Tags() {
             <div className="flex gap-3">
               <button
                 type="submit"
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-2xl hover:bg-gray-700 transition-colors"
               >
                 <CheckIcon size={16} color="white" />
                 {editingTag ? 'Update Tag' : 'Add Tag'}
@@ -307,8 +307,8 @@ export default function Tags() {
             Tag Usage Statistics
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl">
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            <div className="text-center p-4 bg-blue-50 dark:bg-gray-900/20 rounded-2xl">
+              <div className="text-2xl font-bold text-gray-600 dark:text-gray-500">
                 {tags.length}
               </div>
               <div className="text-sm text-gray-600 dark:text-gray-400">

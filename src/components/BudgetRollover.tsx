@@ -239,8 +239,8 @@ export default function BudgetRollover() {
           </div>
           {rolloverSettings.autoApply && (
             <div className="flex items-center gap-2">
-              <RepeatIcon size={14} className="text-blue-500" />
-              <span className="text-sm text-blue-600 dark:text-blue-400">Auto-apply</span>
+              <RepeatIcon size={14} className="text-gray-500" />
+              <span className="text-sm text-gray-600 dark:text-gray-500">Auto-apply</span>
             </div>
           )}
         </div>
@@ -327,7 +327,7 @@ export default function BudgetRollover() {
                   {data.willRollover && (
                     <div className="flex justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                       <span className="text-gray-600 dark:text-gray-400">Will Rollover:</span>
-                      <span className="font-medium text-blue-600 dark:text-blue-400">
+                      <span className="font-medium text-gray-600 dark:text-gray-500">
                         {formatCurrency(data.rolloverAmount)}
                       </span>
                     </div>

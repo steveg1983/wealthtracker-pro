@@ -237,7 +237,7 @@ export default function NIYearsTracker(): React.JSX.Element {
               }))}
               min="1940"
               max="2010"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
             />
           </div>
 
@@ -248,7 +248,7 @@ export default function NIYearsTracker(): React.JSX.Element {
             <select
               value={gender}
               onChange={(e) => setGender(e.target.value as 'male' | 'female')}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               <option value="male">Male</option>
               <option value="female">Female</option>
@@ -268,13 +268,13 @@ export default function NIYearsTracker(): React.JSX.Element {
               }))}
               min="1940"
               max={currentYear}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
             />
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <div className="flex items-start gap-2">
-              <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+              <Info className="h-5 w-5 text-gray-600 mt-0.5" />
               <div className="text-sm text-blue-900">
                 <p className="font-medium mb-1">Your State Pension Age: {trackerData.statePensionAge}</p>
                 <p>You have {trackerData.statePensionAge - trackerData.currentAge} years until State Pension age.</p>
@@ -318,7 +318,7 @@ export default function NIYearsTracker(): React.JSX.Element {
 
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-3">
-              <PoundSterling className="h-5 w-5 text-blue-600" />
+              <PoundSterling className="h-5 w-5 text-gray-600" />
               <h4 className="font-semibold text-gray-900">Estimated State Pension</h4>
             </div>
             
@@ -331,7 +331,7 @@ export default function NIYearsTracker(): React.JSX.Element {
               </div>
             ) : (
               <>
-                <div className="text-3xl font-bold text-blue-600 mb-2">
+                <div className="text-3xl font-bold text-gray-600 mb-2">
                   {formatCurrency(results.weeklyPension)}/week
                 </div>
                 <div className="space-y-2 text-sm">
@@ -348,7 +348,7 @@ export default function NIYearsTracker(): React.JSX.Element {
                 <div className="mt-3 bg-white rounded p-2">
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
-                      className="bg-blue-600 h-2 rounded-full"
+                      className="bg-gray-600 h-2 rounded-full"
                       style={{ width: `${Math.min(100, results.percentageOfFull)}%` }}
                     />
                   </div>
@@ -436,7 +436,7 @@ export default function NIYearsTracker(): React.JSX.Element {
                   </td>
                   <td className="py-2 px-3">
                     {year.status === 'gap' && results.canBuyYears.includes(year.year) && (
-                      <button className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                      <button className="text-xs text-gray-600 hover:text-blue-800 font-medium">
                         Buy this year
                       </button>
                     )}
@@ -450,7 +450,7 @@ export default function NIYearsTracker(): React.JSX.Element {
 
       <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <div className="flex items-start gap-2">
-          <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+          <Info className="h-5 w-5 text-gray-600 mt-0.5" />
           <div className="text-sm text-blue-900">
             <p className="font-medium mb-1">Important Information</p>
             <ul className="space-y-1">

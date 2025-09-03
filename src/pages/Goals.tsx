@@ -203,7 +203,7 @@ export default function Goals() {
               <p className="text-gray-500 dark:text-gray-400 text-sm">Active Goals</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{activeGoals.length}</p>
             </div>
-            <TargetIcon className="h-8 w-8 text-blue-600" />
+            <TargetIcon className="h-8 w-8 text-gray-600" />
           </div>
         </div>
 
@@ -307,7 +307,7 @@ export default function Goals() {
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full transition-all duration-300 ${
-                            progress >= 100 ? "bg-green-600" : progress >= 75 ? "bg-blue-600" : progress >= 50 ? "bg-yellow-600" : "bg-gray-400"
+                            progress >= 100 ? "bg-green-600" : progress >= 75 ? "bg-gray-600" : progress >= 50 ? "bg-yellow-600" : "bg-gray-400"
                           }`}
                           style={{ width: `${progress}%` }}
                         />
@@ -361,14 +361,14 @@ export default function Goals() {
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
             >
               <PlusIcon size={20} />
               <span>Create Your First Goal</span>
             </button>
             
             <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
                 <div className="text-2xl mb-2">💰</div>
                 <h4 className="font-medium text-gray-900 dark:text-white text-sm">Savings Goal</h4>
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
@@ -405,7 +405,7 @@ export default function Goals() {
             </p>
             <button
               onClick={() => setIsModalOpen(true)}
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center gap-2 bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors"
             >
               <PlusIcon size={20} />
               <span>Set a New Goal</span>
@@ -459,7 +459,7 @@ export default function Goals() {
           <div className="mt-6">
             <button
               onClick={() => setShowAchievements(!showAchievements)}
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium flex items-center gap-2"
+              className="text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 font-medium flex items-center gap-2"
             >
               <span>🏆</span>
               {showAchievements ? 'Hide' : 'View'} Achievement History

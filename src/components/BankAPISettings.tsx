@@ -138,7 +138,7 @@ export default function BankAPISettings() {
               href="https://dashboard.plaid.com/signup"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-gray-600 dark:text-gray-500 hover:underline"
             >
               dashboard.plaid.com
             </a>
@@ -238,7 +238,7 @@ export default function BankAPISettings() {
               href="https://console.truelayer.com/register"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-gray-600 dark:text-gray-500 hover:underline"
             >
               console.truelayer.com
             </a>
@@ -250,7 +250,7 @@ export default function BankAPISettings() {
       <div className="flex justify-end">
         <button
           onClick={handleSave}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
         >
           {saved ? (
             <>

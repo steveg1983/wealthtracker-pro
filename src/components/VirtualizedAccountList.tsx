@@ -113,7 +113,7 @@ export function VirtualizedAccountList({
           <div className="flex items-center gap-3 flex-1">
             <div className={`p-2 rounded-lg ${
               isDebt ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400' 
-                     : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                     : 'bg-blue-100 text-gray-600 dark:bg-gray-900/30 dark:text-gray-500'
             }`}>
               {getAccountIcon(account.type)}
             </div>

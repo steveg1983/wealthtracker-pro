@@ -106,7 +106,7 @@ const Dashboard = memo(function Dashboard() {
             setUseDraggableDashboard(newValue);
             localStorage.setItem('preferDraggableDashboard', String(newValue));
           }}
-          className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+          className="text-sm text-gray-600 hover:text-blue-700 dark:text-gray-500 dark:hover:text-gray-300 underline"
         >
           {useDraggableDashboard 
             ? t('dashboard.switchToStandard', 'Switch to Standard Dashboard')

@@ -155,7 +155,7 @@ export function AccessibilityAuditOverlay() {
             <button
               onClick={runAudit}
               disabled={isAuditing}
-              className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 disabled:opacity-50"
+              className="px-3 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600 disabled:opacity-50"
             >
               {isAuditing ? 'Auditing...' : 'Run Audit'}
             </button>

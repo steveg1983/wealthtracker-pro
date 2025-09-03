@@ -36,7 +36,7 @@ export default function DataSourceIndicator(): React.JSX.Element | null {
             </>
           ) : (
             <>
-              <DatabaseIcon size={16} className="text-blue-500" />
+              <DatabaseIcon size={16} className="text-gray-500" />
               <span className="text-sm font-medium text-gray-900 dark:text-white">
                 Local Storage
               </span>
@@ -88,7 +88,7 @@ export default function DataSourceIndicator(): React.JSX.Element | null {
 
         {dataSource === 'localStorage' && isOnline && (
           <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-xs text-blue-600 dark:text-blue-400">
+            <p className="text-xs text-gray-600 dark:text-gray-500">
               Configure Supabase for cloud sync
             </p>
           </div>

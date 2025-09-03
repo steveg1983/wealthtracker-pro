@@ -265,12 +265,12 @@ export default function SIPPCalculator() {
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+        <div className="bg-blue-50 dark:bg-gray-900/20 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
-            <PiggyBankIcon size={16} className="text-blue-600 dark:text-blue-400" />
+            <PiggyBankIcon size={16} className="text-gray-600 dark:text-gray-500" />
             <p className="text-sm text-gray-600 dark:text-gray-400">Projected Balance</p>
           </div>
-          <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+          <p className="text-xl font-bold text-gray-600 dark:text-gray-500">
             {formatCurrency(finalBalance)}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
@@ -358,7 +358,7 @@ export default function SIPPCalculator() {
       <div className="mb-6">
         <button
           onClick={() => setShowProjection(!showProjection)}
-          className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-3"
+          className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 mb-3"
         >
           <TrendingUpIcon size={14} />
           {showProjection ? 'Hide' : 'Show'} Year-by-Year Projection
@@ -386,7 +386,7 @@ export default function SIPPCalculator() {
                     <td className="text-right py-2 text-green-600 dark:text-green-400">
                       +{formatCurrency(year.taxRelief)}
                     </td>
-                    <td className="text-right py-2 text-blue-600 dark:text-blue-400">
+                    <td className="text-right py-2 text-gray-600 dark:text-gray-500">
                       +{formatCurrency(year.employerContribution)}
                     </td>
                     <td className="text-right py-2 text-purple-600 dark:text-purple-400">
@@ -414,7 +414,7 @@ export default function SIPPCalculator() {
       <div>
         <button
           onClick={() => setShowDrawdown(!showDrawdown)}
-          className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mb-3"
+          className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 mb-3"
         >
           <CalculatorIcon size={14} />
           {showDrawdown ? 'Hide' : 'Show'} Drawdown Scenarios
@@ -468,9 +468,9 @@ export default function SIPPCalculator() {
               ))}
             </div>
 
-            <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="mt-4 p-3 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
               <div className="flex gap-2">
-                <InfoIcon size={14} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                <InfoIcon size={14} className="text-gray-600 dark:text-gray-500 mt-0.5 flex-shrink-0" />
                 <div className="text-xs text-blue-900 dark:text-blue-100">
                   <p className="font-medium mb-1">Drawdown Tax Implications:</p>
                   <ul className="space-y-0.5">

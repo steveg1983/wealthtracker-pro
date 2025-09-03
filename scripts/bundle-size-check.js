@@ -57,6 +57,8 @@ function analyzeBundle() {
   let totalSize = 0;
   let hasErrors = false;
   let hasWarnings = false;
+  let jsFiles = [];
+  let cssFiles = [];
 
   // Check main HTML file
   const indexPath = path.join(distDir, 'index.html');
@@ -69,8 +71,8 @@ function analyzeBundle() {
     const files = fs.readdirSync(assetsDir);
     
     // Group files by type
-    const jsFiles = files.filter(f => f.endsWith('.js'));
-    const cssFiles = files.filter(f => f.endsWith('.css'));
+    jsFiles = files.filter(f => f.endsWith('.js'));
+    cssFiles = files.filter(f => f.endsWith('.css'));
     const otherFiles = files.filter(f => !f.endsWith('.js') && !f.endsWith('.css'));
 
     // Analyze JavaScript files
@@ -152,11 +154,11 @@ function analyzeBundle() {
     console.log('  • Analyze bundle composition with webpack-bundle-analyzer');
   }
   
-  if (js.length > 10) {
+  if (jsFiles && jsFiles.length > 10) {
     console.log('  • Consider combining smaller JS chunks');
   }
   
-  if (css.length > 5) {
+  if (cssFiles && cssFiles.length > 5) {
     console.log('  • Consider CSS optimization and combining');
   }
 

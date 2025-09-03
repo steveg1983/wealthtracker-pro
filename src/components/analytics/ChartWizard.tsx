@@ -627,7 +627,7 @@ export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps
             {selectedChart && chartData ? (
               <div className="h-full">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Preview</h3>
-                <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 h-[calc(100%-3rem)]">
+                <div className="bg-blue-50 dark:bg-gray-900 rounded-lg p-4 h-[calc(100%-3rem)]">
                   <Suspense fallback={<div className="flex items-center justify-center h-full">Loading chart...</div>}>
                     <Plot
                       data={chartData}

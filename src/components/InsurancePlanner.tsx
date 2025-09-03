@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { RadioCheckbox } from './common/RadioCheckbox';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useRegionalCurrency } from '../hooks/useRegionalCurrency';
@@ -323,7 +324,7 @@ export default function InsurancePlanner(): React.JSX.Element {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-500"></div>
       </div>
     );
   }
@@ -335,7 +336,7 @@ export default function InsurancePlanner(): React.JSX.Element {
           <h2 className="text-2xl font-bold text-gray-900">Insurance Planner</h2>
           <button
             onClick={() => setShowAddPlan(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             Add Insurance Plan
           </button>
@@ -390,7 +391,7 @@ export default function InsurancePlanner(): React.JSX.Element {
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleEditPlan(plan)}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="text-gray-600 hover:text-blue-800"
                       >
                         Edit
                       </button>
@@ -497,7 +498,7 @@ export default function InsurancePlanner(): React.JSX.Element {
                   <select
                     value={formData.type}
                     onChange={(e) => setFormData({ ...formData, type: e.target.value as InsurancePlan['type'] })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500"
                   >
                     <option value="life">Life Insurance</option>
                     <option value="disability">Disability Insurance</option>
@@ -517,7 +518,7 @@ export default function InsurancePlanner(): React.JSX.Element {
                     type="text"
                     value={formData.provider}
                     onChange={(e) => setFormData({ ...formData, provider: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500"
                     placeholder="Insurance company name"
                   />
                 </div>
@@ -532,7 +533,7 @@ export default function InsurancePlanner(): React.JSX.Element {
                     type="text"
                     value={formData.policyNumber || ''}
                     onChange={(e) => setFormData({ ...formData, policyNumber: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500"
                     placeholder="Policy #"
                   />
                 </div>
@@ -545,7 +546,7 @@ export default function InsurancePlanner(): React.JSX.Element {
                     type="number"
                     value={formData.coverageAmount}
                     onChange={(e) => setFormData({ ...formData, coverageAmount: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500"
                     placeholder="0"
                   />
                 </div>
@@ -560,7 +561,7 @@ export default function InsurancePlanner(): React.JSX.Element {
                     type="number"
                     value={formData.monthlyPremium}
                     onChange={(e) => setFormData({ ...formData, monthlyPremium: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500"
                     placeholder="0"
                   />
                 </div>
@@ -573,7 +574,7 @@ export default function InsurancePlanner(): React.JSX.Element {
                     type="number"
                     value={formData.annualPremium}
                     onChange={(e) => setFormData({ ...formData, annualPremium: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500"
                     placeholder="0"
                   />
                 </div>
@@ -586,7 +587,7 @@ export default function InsurancePlanner(): React.JSX.Element {
                     type="number"
                     value={formData.deductible}
                     onChange={(e) => setFormData({ ...formData, deductible: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500"
                     placeholder="0"
                   />
                 </div>
@@ -601,7 +602,7 @@ export default function InsurancePlanner(): React.JSX.Element {
                     type="date"
                     value={formData.startDate}
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500"
                   />
                 </div>
                 
@@ -613,7 +614,7 @@ export default function InsurancePlanner(): React.JSX.Element {
                     type="date"
                     value={formData.renewalDate}
                     onChange={(e) => setFormData({ ...formData, renewalDate: e.target.value })}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500"
                   />
                 </div>
               </div>
@@ -625,18 +626,17 @@ export default function InsurancePlanner(): React.JSX.Element {
                 <textarea
                   value={formData.notes || ''}
                   onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-gray-500"
                   rows={3}
                   placeholder="Additional information about this policy..."
                 />
               </div>
 
               <div className="flex items-center">
-                <input
-                  type="checkbox"
+                <RadioCheckbox
                   id="isActive"
                   checked={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                  onChange={(checked) => setFormData({ ...formData, isActive: checked })}
                   className="mr-2"
                 />
                 <label htmlFor="isActive" className="text-sm font-medium text-gray-700">
@@ -669,7 +669,7 @@ export default function InsurancePlanner(): React.JSX.Element {
               <button
                 onClick={handleSavePlan}
                 disabled={saving || !formData.provider || formData.coverageAmount <= 0}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Saving...' : editingPlan ? 'Update Plan' : 'Add Plan'}
               </button>

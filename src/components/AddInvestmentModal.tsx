@@ -175,7 +175,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
                   onClick={() => updateField('investmentType', type.value as FormData['investmentType'])}
                   className={`px-4 py-2 rounded-lg transition-colors ${
                     formData.investmentType === type.value
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-gray-600 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
@@ -350,7 +350,7 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
             >
               <PlusIcon size={20} />
               Add Investment

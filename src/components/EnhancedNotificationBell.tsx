@@ -89,7 +89,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
   const getActivityIcon = (activity: ActivityItem): React.JSX.Element => {
     switch (activity.type) {
       case 'transaction':
-        return <CreditCard size={16} className="text-blue-500" />;
+        return <CreditCard size={16} className="text-gray-500" />;
       case 'account':
         return <PiggyBank size={16} className="text-green-500" />;
       case 'budget':
@@ -106,7 +106,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
   };
 
   const getActivityColor = (activity: ActivityItem): string => {
-    if (!activity.read) return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
+    if (!activity.read) return 'bg-blue-50 dark:bg-gray-900/20 border-blue-200 dark:border-blue-800';
     return 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
   };
 
@@ -168,7 +168,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                   {counts.unread > 0 && (
                     <button
                       onClick={markAllAsRead}
-                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-xs text-gray-600 dark:text-gray-500 hover:underline"
                     >
                       Mark all as read
                     </button>
@@ -196,7 +196,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                     onClick={() => setFilter(tab.value as any)}
                     className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap ${
                       filter === tab.value
-                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                        ? 'bg-blue-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-500'
                         : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
                   >
@@ -261,7 +261,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                               </div>
 
                               {!activity.read && (
-                                <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                                <div className="w-2 h-2 bg-gray-500 rounded-full mt-2"></div>
                               )}
                             </div>
                           </button>

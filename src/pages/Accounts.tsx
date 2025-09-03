@@ -81,8 +81,8 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       type: 'current', 
       title: 'Current Accounts', 
       icon: WalletIcon, 
-      color: 'text-blue-600 dark:text-blue-400',
-      bgColor: 'bg-blue-200 dark:bg-blue-900/20',
+      color: 'text-gray-600 dark:text-gray-500',
+      bgColor: 'bg-blue-200 dark:bg-gray-900/20',
       borderColor: 'border-blue-200 dark:border-blue-800'
     },
     { 
@@ -244,7 +244,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                        <h3 className="text-base md:text-lg font-medium text-gray-900 dark:text-white hover:text-gray-600 dark:hover:text-gray-500 transition-colors">
                           {account.name}
                         </h3>
                         <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">
@@ -345,7 +345,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
                                 </div>
                                 <button
                                   onClick={() => setReconcileAccountId(account.id)}
-                                  className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
+                                  className="p-3 min-w-[48px] min-h-[48px] flex items-center justify-center text-gray-500 hover:text-blue-700 dark:text-gray-500 dark:hover:text-blue-200 hover:bg-blue-100/50 dark:hover:bg-blue-900/30 rounded-lg transition-all duration-200 relative group backdrop-blur-sm"
                                   title="Reconcile transactions"
                                 >
                                   <CheckCircleIcon size={20} />

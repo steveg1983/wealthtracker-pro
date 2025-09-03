@@ -61,7 +61,7 @@ export default function AddWidgetModal({
   
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      overview: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      overview: 'bg-blue-100 text-blue-800 dark:bg-gray-900 dark:text-blue-200',
       budget: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
       investment: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
       analytics: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
@@ -124,7 +124,7 @@ export default function AddWidgetModal({
                       placeholder="Search widgets..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>
                   
@@ -136,7 +136,7 @@ export default function AddWidgetModal({
                         onClick={() => setSelectedCategory(category)}
                         className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                           selectedCategory === category
-                            ? 'bg-blue-600 text-white'
+                            ? 'bg-gray-600 text-white'
                             : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                         }`}
                       >
@@ -170,7 +170,7 @@ export default function AddWidgetModal({
                               {widget.title}
                             </h4>
                           </div>
-                          <PlusIcon className="h-5 w-5 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400" />
+                          <PlusIcon className="h-5 w-5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-500" />
                         </div>
                         
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">

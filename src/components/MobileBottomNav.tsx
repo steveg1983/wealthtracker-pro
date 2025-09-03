@@ -74,7 +74,7 @@ export default function MobileBottomNav(): React.JSX.Element {
       {/* Quick Action Button */}
       <button
         onClick={() => setShowQuickActions(!showQuickActions)}
-        className={`md:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary dark:bg-blue-600 text-white rounded-full shadow-lg z-50 flex items-center justify-center transition-transform ${
+        className={`md:hidden fixed bottom-20 right-4 w-14 h-14 bg-primary dark:bg-gray-600 text-white rounded-full shadow-lg z-50 flex items-center justify-center transition-transform ${
           showQuickActions ? 'rotate-45' : ''
         }`}
         aria-label="Quick actions"

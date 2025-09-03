@@ -1,6 +1,6 @@
 export default function LoadingScreen(): React.JSX.Element {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+    <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
       <div className="text-center">
         <h1 className="text-2xl font-bold text-primary dark:text-pink-400 mb-4">
           Danielle's Money <span className="inline-block animate-bounce">👋</span>

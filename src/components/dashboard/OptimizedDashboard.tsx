@@ -156,7 +156,7 @@ const WidgetContent = memo(({ widget, metrics, accounts, transactions, budgets, 
           ))}
           <button
             onClick={() => navigate('/accounts')}
-            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            className="text-sm text-gray-600 hover:text-blue-700 dark:text-gray-500"
           >
             View all accounts →
           </button>
@@ -184,7 +184,7 @@ const WidgetContent = memo(({ widget, metrics, accounts, transactions, budgets, 
           ))}
           <button
             onClick={() => navigate('/transactions')}
-            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            className="text-sm text-gray-600 hover:text-blue-700 dark:text-gray-500"
           >
             View all transactions →
           </button>
@@ -212,7 +212,7 @@ const WidgetContent = memo(({ widget, metrics, accounts, transactions, budgets, 
           )}
           <button
             onClick={() => navigate('/budget')}
-            className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+            className="text-sm text-gray-600 hover:text-blue-700 dark:text-gray-500"
           >
             Manage budgets →
           </button>
@@ -391,7 +391,7 @@ export default function OptimizedDashboard(): React.JSX.Element {
               </button>
               <button
                 onClick={() => setIsEditMode(false)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
               >
                 <SaveIcon size={20} />
                 Save Layout
@@ -420,12 +420,12 @@ export default function OptimizedDashboard(): React.JSX.Element {
 
       {/* Edit Mode Instructions */}
       {isEditMode && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div className="bg-blue-50 dark:bg-gray-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
           <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
             <LayoutIcon size={20} />
             <span className="font-medium">Edit Mode Active</span>
           </div>
-          <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+          <p className="text-sm text-blue-700 dark:text-gray-300 mt-1">
             Drag widgets to reorder, click settings to configure, or remove widgets you don't need.
           </p>
         </div>
@@ -512,7 +512,7 @@ export default function OptimizedDashboard(): React.JSX.Element {
               setIsEditMode(true);
               setShowAddWidget(true);
             }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             Add Your First Widget
           </button>

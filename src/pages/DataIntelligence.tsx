@@ -130,7 +130,7 @@ export default function DataIntelligence() {
       case 'medium':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200';
       case 'low':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200';
+        return 'bg-blue-100 text-blue-800 dark:bg-gray-900/20 dark:text-blue-200';
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     }
@@ -139,7 +139,7 @@ export default function DataIntelligence() {
   const getInsightIcon = (type: SpendingInsight['type']) => {
     switch (type) {
       case 'subscription_alert':
-        return <CreditCardIcon size={16} className="text-blue-600 dark:text-blue-400" />;
+        return <CreditCardIcon size={16} className="text-gray-600 dark:text-gray-500" />;
       case 'spending_spike':
         return <TrendingUpIcon size={16} className="text-red-600 dark:text-red-400" />;
       case 'new_merchant':
@@ -167,7 +167,7 @@ export default function DataIntelligence() {
     <PageWrapper title="Data Intelligence">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 to-blue-600 dark:from-green-800 dark:to-blue-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-gradient-to-r from-green-600 to-gray-600 dark:from-green-800 dark:to-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Data Intelligence</h1>
@@ -308,11 +308,11 @@ export default function DataIntelligence() {
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Total Merchants</p>
-                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
                           {stats.totalMerchants > 0 ? stats.totalMerchants : '-'}
                         </p>
                       </div>
-                      <SearchIcon size={24} className="text-blue-500" />
+                      <SearchIcon size={24} className="text-gray-500" />
                     </div>
                     <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                       {stats.totalMerchants > 0 
@@ -382,7 +382,7 @@ export default function DataIntelligence() {
                 </h3>
                 <button
                   onClick={() => setActiveTab('insights')}
-                  className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                  className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
                 >
                   View All
                 </button>
@@ -458,7 +458,7 @@ export default function DataIntelligence() {
                   </h3>
                   <button
                     onClick={() => setActiveTab('subscriptions')}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                    className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
                   >
                     Manage
                   </button>

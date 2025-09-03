@@ -206,7 +206,7 @@ export default function RecentAlertsWidget({ isCompact = false }: RecentAlertsWi
         return 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20';
       case 'info':
       default:
-        return 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20';
+        return 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-gray-900/20';
     }
   };
 
@@ -220,7 +220,7 @@ export default function RecentAlertsWidget({ isCompact = false }: RecentAlertsWi
         return 'text-green-600';
       case 'info':
       default:
-        return 'text-blue-600';
+        return 'text-gray-600';
     }
   };
 
@@ -271,7 +271,7 @@ export default function RecentAlertsWidget({ isCompact = false }: RecentAlertsWi
                     {alert.actionLabel && (
                       <>
                         <span className="text-xs text-gray-400">•</span>
-                        <span className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+                        <span className="text-xs text-gray-600 dark:text-gray-500 hover:underline">
                           {alert.actionLabel}
                         </span>
                       </>
@@ -288,7 +288,7 @@ export default function RecentAlertsWidget({ isCompact = false }: RecentAlertsWi
       {alerts.length > (isCompact ? 3 : 5) && (
         <button
           onClick={() => navigate('/notifications')}
-          className="w-full text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-center py-2"
+          className="w-full text-sm text-gray-600 hover:text-blue-700 dark:text-gray-500 dark:hover:text-gray-300 text-center py-2"
         >
           View All Alerts ({alerts.length}) →
         </button>

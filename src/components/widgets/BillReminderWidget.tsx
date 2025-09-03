@@ -205,12 +205,12 @@ export default function BillReminderWidget({
       )}
       
       {/* Summary */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+      <div className="bg-blue-50 dark:bg-gray-900/20 rounded-lg p-3">
         <div className="flex items-center justify-between">
           <span className="text-sm text-gray-600 dark:text-gray-400">
             Total Due ({selectedPeriod} days)
           </span>
-          <span className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+          <span className="text-lg font-semibold text-gray-600 dark:text-gray-500">
             {formatCurrency(totalUpcoming)}
           </span>
         </div>
@@ -293,7 +293,7 @@ export default function BillReminderWidget({
                         ? 'bg-red-500' 
                         : bill.daysUntilDue <= 3
                           ? 'bg-yellow-500'
-                          : 'bg-blue-500'
+                          : 'bg-gray-500'
                     }`}
                     style={{ width: `${((7 - bill.daysUntilDue) / 7) * 100}%` }}
                   />
@@ -308,7 +308,7 @@ export default function BillReminderWidget({
       {upcomingBills.length > 5 && (
         <button
           onClick={() => navigate('/recurring-transactions')}
-          className="w-full flex items-center justify-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+          className="w-full flex items-center justify-center text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 font-medium"
         >
           View all {upcomingBills.length} bills
           <ChevronRightIcon className="h-4 w-4 ml-1" />
@@ -319,7 +319,7 @@ export default function BillReminderWidget({
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => navigate('/add-transaction?type=expense&recurring=true')}
-          className="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+          className="px-3 py-2 bg-blue-50 dark:bg-gray-900/20 text-gray-600 dark:text-gray-500 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
         >
           Add Bill
         </button>

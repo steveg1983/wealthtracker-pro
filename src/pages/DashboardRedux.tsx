@@ -120,7 +120,7 @@ export default function DashboardRedux() {
               onClick={() => setActiveTab('classic')}
               className={`px-4 py-2 text-sm font-medium rounded-l-lg ${
                 activeTab === 'classic'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-gray-600 text-white'
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
@@ -130,7 +130,7 @@ export default function DashboardRedux() {
               onClick={() => setActiveTab('modern')}
               className={`px-4 py-2 text-sm font-medium ${
                 activeTab === 'modern'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-gray-600 text-white'
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
@@ -140,7 +140,7 @@ export default function DashboardRedux() {
               onClick={() => setActiveTab('import-export')}
               className={`px-4 py-2 text-sm font-medium ${
                 activeTab === 'import-export'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-gray-600 text-white'
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
@@ -151,7 +151,7 @@ export default function DashboardRedux() {
               onClick={() => setActiveTab('redux')}
               className={`px-4 py-2 text-sm font-medium rounded-r-lg ${
                 activeTab === 'redux'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-gray-600 text-white'
                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
               }`}
             >
@@ -174,11 +174,11 @@ export default function DashboardRedux() {
 
       {activeTab === 'redux' && (
         <div className="space-y-6">
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+          <div className="bg-blue-50 dark:bg-gray-900/20 p-4 rounded-lg">
             <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
               Redux Integration Demo
             </h3>
-            <p className="text-blue-700 dark:text-blue-300">
+            <p className="text-blue-700 dark:text-gray-300">
               This dashboard is using Redux through migration hooks. The data is synced between Context API and Redux store.
             </p>
           </div>
@@ -256,7 +256,7 @@ export default function DashboardRedux() {
                 onClick={() => navigate('/transactions')}
                 className="p-4 text-center border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-                <BarChart3Icon size={24} className="mx-auto mb-2 text-blue-600" />
+                <BarChart3Icon size={24} className="mx-auto mb-2 text-gray-600" />
                 <span className="text-sm">View Transactions</span>
               </button>
               <button

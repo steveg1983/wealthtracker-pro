@@ -382,7 +382,7 @@ export default function ISACalculator() {
 
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
             >
               {showDetails ? 'Hide' : 'Show'} Return Assumptions
             </button>
@@ -427,9 +427,9 @@ export default function ISACalculator() {
           {calculation && (
             <div className="space-y-4">
               {/* Recommendation */}
-              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <div className="bg-blue-50 dark:bg-gray-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="flex items-start gap-2">
-                  <InfoIcon size={16} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <InfoIcon size={16} className="text-gray-600 dark:text-gray-500 mt-0.5" />
                   <div className="flex-1">
                     <h4 className="font-medium text-blue-900 dark:text-blue-100">
                       Recommendation

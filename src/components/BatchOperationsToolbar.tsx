@@ -87,8 +87,8 @@ export function BatchOperationsToolbar({
             >
               <CheckSquareIcon 
                 className={`h-5 w-5 ${
-                  isAllSelected ? 'text-blue-600' : 
-                  isPartiallySelected ? 'text-blue-400' : 
+                  isAllSelected ? 'text-gray-600' : 
+                  isPartiallySelected ? 'text-gray-500' : 
                   'text-gray-400'
                 }`} 
               />
@@ -292,7 +292,7 @@ function TagPicker({
                   }}
                   className={`px-3 py-1 rounded-full text-sm transition-colors ${
                     selectedTags.includes(tag)
-                      ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200'
+                      ? 'bg-blue-100 text-blue-800 dark:bg-gray-900/30 dark:text-blue-200'
                       : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                   }`}
                 >
@@ -313,7 +313,7 @@ function TagPicker({
                 onChange={(e) => setInputValue(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
                 placeholder="Enter tag name"
-                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
               <Button onClick={handleAddTag} size="sm">
                 Add
@@ -330,7 +330,7 @@ function TagPicker({
                 {selectedTags.map(tag => (
                   <span
                     key={tag}
-                    className="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200 rounded-full text-sm flex items-center gap-1"
+                    className="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-gray-900/30 dark:text-blue-200 rounded-full text-sm flex items-center gap-1"
                   >
                     {tag}
                     <button

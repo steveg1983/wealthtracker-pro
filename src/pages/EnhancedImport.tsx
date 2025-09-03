@@ -39,7 +39,7 @@ export default function EnhancedImport() {
     <PageWrapper title="Enhanced Import">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-800 dark:to-indigo-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div className="bg-gradient-to-r from-gray-600 to-indigo-600 dark:from-gray-800 dark:to-indigo-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold mb-2">Enhanced Import</h1>
@@ -57,7 +57,7 @@ export default function EnhancedImport() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
-              <GlobeIcon size={20} className="text-blue-600 dark:text-blue-400" />
+              <GlobeIcon size={20} className="text-gray-600 dark:text-gray-500" />
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Supported Banks</p>
                 <p className="font-semibold text-gray-900 dark:text-white">
@@ -109,8 +109,8 @@ export default function EnhancedImport() {
           {/* Enhanced Import Wizard */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                <UploadIcon size={24} className="text-blue-600 dark:text-blue-400" />
+              <div className="w-12 h-12 bg-blue-100 dark:bg-gray-900/30 rounded-lg flex items-center justify-center">
+                <UploadIcon size={24} className="text-gray-600 dark:text-gray-500" />
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -139,7 +139,7 @@ export default function EnhancedImport() {
                 </ul>
                 <button
                   onClick={() => setShowEnhancedWizard(true)}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
                   <PlayIcon size={16} />
                   Start Enhanced Import
@@ -261,16 +261,16 @@ export default function EnhancedImport() {
                 key={index}
                 className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg"
               >
-                <GlobeIcon size={14} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                <GlobeIcon size={14} className="text-gray-600 dark:text-gray-500 flex-shrink-0" />
                 <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
                   {bank}
                 </span>
               </div>
             ))}
           </div>
-          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
             <div className="flex items-start gap-3">
-              <AlertCircleIcon size={20} className="text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+              <AlertCircleIcon size={20} className="text-gray-600 dark:text-gray-500 flex-shrink-0 mt-0.5" />
               <div className="text-sm">
                 <p className="text-blue-900 dark:text-blue-100 font-medium mb-1">
                   Don't see your bank?

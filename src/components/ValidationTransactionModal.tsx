@@ -193,7 +193,7 @@ export default function ValidationTransactionModal({
                           </div>
                         )}
                         {issueType === 'large-transactions' && (
-                          <div className="text-sm text-blue-600 dark:text-blue-400 mt-2">
+                          <div className="text-sm text-gray-600 dark:text-gray-500 mt-2">
                             ℹ️ Unusually large transaction (&gt;10x average)
                           </div>
                         )}
@@ -223,7 +223,7 @@ export default function ValidationTransactionModal({
                       <>
                         <button
                           onClick={() => handleEdit(transaction)}
-                          className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+                          className="p-2 text-gray-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
                           title="Edit transaction"
                         >
                           <EditIcon size={20} />

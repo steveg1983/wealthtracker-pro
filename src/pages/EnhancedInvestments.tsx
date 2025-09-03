@@ -398,7 +398,7 @@ export default function EnhancedInvestments() {
                   <div className="flex items-center gap-2">
                     <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div 
-                        className="bg-blue-500 h-2 rounded-full" 
+                        className="bg-gray-500 h-2 rounded-full" 
                         style={{ width: `${score.social}%` }}
                       />
                     </div>
@@ -504,7 +504,7 @@ export default function EnhancedInvestments() {
       </div>
 
       {/* Content */}
-      <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-6">
+      <div className="bg-blue-50 dark:bg-gray-900/50 rounded-lg p-6">
         {activeTab === 'allocation-analysis' && <AllocationAnalysis />}
         {activeTab === 'portfolio-rebalancer' && <PortfolioRebalancer />}
         {activeTab === 'dividend-tracker' && <DividendTracker />}

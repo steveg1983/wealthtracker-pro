@@ -389,7 +389,7 @@ export default function DebtManagement() {
     switch (type) {
       case 'credit_card': return 'text-red-600 dark:text-red-400';
       case 'mortgage': return 'text-green-600 dark:text-green-400';
-      case 'student_loan': return 'text-blue-600 dark:text-blue-400';
+      case 'student_loan': return 'text-gray-600 dark:text-gray-500';
       case 'auto_loan': return 'text-purple-600 dark:text-purple-400';
       case 'personal_loan': return 'text-orange-600 dark:text-orange-400';
       default: return 'text-gray-600 dark:text-gray-400';
@@ -543,7 +543,7 @@ export default function DebtManagement() {
                 {totalInterestRate.toFixed(2)}%
               </p>
             </div>
-            <BarChart3Icon className="text-blue-500" size={24} />
+            <BarChart3Icon className="text-gray-500" size={24} />
           </div>
         </div>
 
@@ -576,7 +576,7 @@ export default function DebtManagement() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id as typeof activeTab)}
-            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
               activeTab === tab.id
                 ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -627,7 +627,7 @@ export default function DebtManagement() {
                 onClick={() => handlePayoffStrategyChange('snowball')}
                 className={`p-4 text-left border rounded-lg transition-colors ${
                   payoffStrategy.type === 'snowball'
-                    ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-gray-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -643,7 +643,7 @@ export default function DebtManagement() {
                 onClick={() => handlePayoffStrategyChange('avalanche')}
                 className={`p-4 text-left border rounded-lg transition-colors ${
                   payoffStrategy.type === 'avalanche'
-                    ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-gray-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
                 }`}
               >
@@ -835,7 +835,7 @@ export default function DebtManagement() {
               
               <div className="space-y-4">
                 {amortizationResult && (
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                  <div className="p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
                     <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">
                       Loan Summary
                     </h4>
@@ -870,7 +870,7 @@ export default function DebtManagement() {
                   <h4 className="font-medium text-gray-900 dark:text-white">Payment Schedule</h4>
                   <button
                     onClick={() => setShowAmortization(!showAmortization)}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="text-sm text-gray-600 hover:text-blue-800"
                   >
                     {showAmortization ? 'Hide' : 'Show'} Schedule
                   </button>

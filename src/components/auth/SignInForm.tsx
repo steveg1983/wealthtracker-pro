@@ -24,7 +24,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
       <div className="max-w-md w-full space-y-8 p-8">
         {/* Logo and Welcome */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+          <div className="mx-auto h-16 w-16 bg-gradient-to-r from-gray-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
             <ShieldCheckIcon className="h-10 w-10 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900 dark:text-white">
@@ -41,7 +41,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
             onClick={() => setAuthMethod('passkey')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
               authMethod === 'passkey'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                ? 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-500 shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
@@ -52,7 +52,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
             onClick={() => setAuthMethod('magic')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
               authMethod === 'magic'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                ? 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-500 shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
@@ -63,7 +63,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
             onClick={() => setAuthMethod('standard')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium transition-all ${
               authMethod === 'standard'
-                ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                ? 'bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-500 shadow-sm'
                 : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
             }`}
           >
@@ -88,12 +88,12 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
                 </p>
               </div>
               
-              <button className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all">
+              <button className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all">
                 <img src="/apple-passwords.svg" alt="Apple" className="h-5 w-5" />
                 Continue with Apple Passwords
               </button>
               
-              <button className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all">
+              <button className="w-full flex items-center justify-center gap-3 py-3 px-4 border border-gray-300 dark:border-gray-600 rounded-xl shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all">
                 <img src="/1password.svg" alt="1Password" className="h-5 w-5" />
                 Continue with 1Password
               </button>
@@ -107,7 +107,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
                 </div>
               </div>
               
-              <button className="w-full py-3 px-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-medium hover:from-blue-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all shadow-lg">
+              <button className="w-full py-3 px-4 bg-gradient-to-r from-gray-500 to-indigo-600 text-white rounded-xl font-medium hover:from-gray-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-all shadow-lg">
                 Use Device Passkey
               </button>
             </div>
@@ -134,7 +134,7 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
                 <input
                   type="email"
                   id="email"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-gray-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all"
                   placeholder="you@example.com"
                 />
               </div>
@@ -154,9 +154,9 @@ export default function SignInForm({ onSuccess }: SignInFormProps) {
                   headerTitle: 'hidden',
                   headerSubtitle: 'hidden',
                   socialButtonsBlockButton: 'rounded-xl',
-                  formButtonPrimary: 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 rounded-xl',
+                  formButtonPrimary: 'bg-gradient-to-r from-gray-500 to-indigo-600 hover:from-gray-600 hover:to-indigo-700 rounded-xl',
                   formFieldInput: 'rounded-xl',
-                  footerActionLink: 'text-blue-600 hover:text-blue-700'
+                  footerActionLink: 'text-gray-600 hover:text-blue-700'
                 }
               }}
               redirectUrl="/dashboard"

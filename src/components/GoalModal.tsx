@@ -204,12 +204,25 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
             <div className="space-y-2 max-h-32 overflow-y-auto">
               {accounts.map((account) => (
                 <label key={account.id} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.linkedAccountIds.includes(account.id)}
-                    onChange={() => toggleLinkedAccount(account.id)}
-                    className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                  />
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={formData.linkedAccountIds.includes(account.id)}
+                      onChange={() => toggleLinkedAccount(account.id)}
+                      className="sr-only"
+                    />
+                    <div className={`w-5 h-5 rounded-full border-2 transition-colors mr-2 ${
+                      formData.linkedAccountIds.includes(account.id)
+                        ? 'border-gray-600 bg-gray-600' 
+                        : 'border-gray-400 bg-white dark:bg-gray-800'
+                    }`}>
+                      {formData.linkedAccountIds.includes(account.id) && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-2 h-2 bg-white rounded-full" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
                   <span className="text-sm text-gray-700 dark:text-gray-300">
                     {account.name} ({account.type})
                   </span>
@@ -219,14 +232,27 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
           </div>
 
           <div>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isActive}
-                onChange={(e) => updateField('isActive', e.target.checked)}
-                className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
+            <label className="flex items-center cursor-pointer">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) => updateField('isActive', e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`w-5 h-5 rounded-full border-2 transition-colors ${
+                  formData.isActive 
+                    ? 'border-gray-600 bg-gray-600' 
+                    : 'border-gray-400 bg-white dark:bg-gray-800'
+                }`}>
+                  {formData.isActive && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-2 h-2 bg-white rounded-full" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                 Active Goal
               </span>
             </label>
@@ -243,7 +269,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-4 py-2 bg-gray-600 text-white rounded-2xl hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               {goal ? "Update Goal" : "Create Goal"}
             </button>

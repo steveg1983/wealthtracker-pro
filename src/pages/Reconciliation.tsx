@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 import { ChevronRightIcon, ChevronLeftIcon, ArrowLeftIcon, EditIcon, PlusIcon, DeleteIcon, XIcon, CheckCircleIcon, Building2Icon, CreditCardIcon, CircleDotIcon } from '../components/icons';
+import { RadioCheckbox } from '../components/common/RadioCheckbox';
 import { preserveDemoParam } from '../utils/navigation';
 import { IconButton } from '../components/icons/IconButton';
 import HelpTooltip from '../components/HelpTooltip';
@@ -661,11 +662,9 @@ export default function Reconciliation() {
                   <div className="flex items-start gap-4">
                     {/* Checkbox */}
                     <div className="pt-5">
-                      <input
-                        type="checkbox"
+                      <RadioCheckbox
                         checked={selectedTransactions.has(transaction.id)}
                         onChange={() => toggleTransactionSelection(transaction.id)}
-                        className="rounded text-primary focus:ring-primary"
                       />
                     </div>
                     
@@ -698,12 +697,11 @@ export default function Reconciliation() {
                         <div className="flex items-center justify-between mb-1">
                           <label className="text-xs text-gray-500 dark:text-gray-400">Category</label>
                           <div className="flex items-center gap-1">
-                            <input
-                              type="checkbox"
+                            <RadioCheckbox
                               id={`split-${transaction.id}`}
                               checked={isSplit || false}
                               onChange={() => handleSplitToggle(transaction.id)}
-                              className="rounded text-primary focus:ring-primary h-3 w-3"
+                              className="h-3 w-3"
                             />
                             <label htmlFor={`split-${transaction.id}`} className="text-xs text-gray-500 dark:text-gray-400 cursor-pointer">
                               Split
@@ -728,7 +726,7 @@ export default function Reconciliation() {
                           <div className="relative group">
                             <button
                               onClick={() => saveInlineEdits(transaction.id)}
-                              className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                              className="text-gray-600 hover:text-blue-700 dark:text-gray-500 dark:hover:text-gray-300"
                             >
                               <CheckCircleIcon size={18} />
                             </button>
@@ -742,7 +740,7 @@ export default function Reconciliation() {
                         )}
                         <div className="relative group">
                           <button
-                            className={`${transaction.isImported ? 'text-blue-600 dark:text-blue-400' : 'text-gray-300 dark:text-gray-600'} cursor-default`}
+                            className={`${transaction.isImported ? 'text-gray-600 dark:text-gray-500' : 'text-gray-300 dark:text-gray-600'} cursor-default`}
                           >
                             <CircleDotIcon size={18} className={transaction.isImported ? 'fill-current' : ''} />
                           </button>

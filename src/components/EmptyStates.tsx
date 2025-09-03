@@ -231,16 +231,16 @@ export function EmptyState({
       </div>
 
       {/* Educational Tips */}
-      <div className="mt-12 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg max-w-sm">
+      <div className="mt-12 p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg max-w-sm">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 p-2 bg-blue-100 dark:bg-blue-800/30 rounded-lg">
-            <SparklesIcon size={20} className="text-blue-600 dark:text-blue-400" />
+            <SparklesIcon size={20} className="text-gray-600 dark:text-gray-500" />
           </div>
           <div className="text-left">
             <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
               Pro Tip
             </p>
-            <p className="text-xs text-blue-700 dark:text-blue-300">
+            <p className="text-xs text-blue-700 dark:text-gray-300">
               {getProTip(type)}
             </p>
           </div>

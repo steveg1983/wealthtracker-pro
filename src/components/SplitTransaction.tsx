@@ -187,7 +187,7 @@ export default function SplitTransaction({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-500 to-purple-600">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-gray-500 to-purple-600">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 text-white">
               <Scissors size={24} />
@@ -211,7 +211,7 @@ export default function SplitTransaction({
                   onClick={() => setSplitMode('amount')}
                   className={`px-3 py-1 text-sm rounded transition-colors ${
                     splitMode === 'amount'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-gray-500 text-white'
                       : 'text-gray-600 dark:text-gray-400'
                   }`}
                 >
@@ -221,7 +221,7 @@ export default function SplitTransaction({
                   onClick={() => setSplitMode('percentage')}
                   className={`px-3 py-1 text-sm rounded transition-colors ${
                     splitMode === 'percentage'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-gray-500 text-white'
                       : 'text-gray-600 dark:text-gray-400'
                   }`}
                 >
@@ -274,7 +274,7 @@ export default function SplitTransaction({
                 className="bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 p-4"
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center text-sm font-medium text-blue-600 dark:text-blue-400">
+                  <div className="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-gray-900/30 rounded-full flex items-center justify-center text-sm font-medium text-gray-600 dark:text-gray-500">
                     {index + 1}
                   </div>
 
@@ -367,15 +367,15 @@ export default function SplitTransaction({
           {/* Add Split Button */}
           <button
             onClick={addSplit}
-            className="w-full mt-4 py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-blue-500 hover:text-blue-500 transition-colors flex items-center justify-center gap-2"
+            className="w-full mt-4 py-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 dark:text-gray-400 hover:border-gray-500 hover:text-gray-500 transition-colors flex items-center justify-center gap-2"
           >
             <Plus size={20} />
             Add Another Split
           </button>
 
           {/* Quick Split Templates */}
-          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-3">
+          <div className="mt-6 p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
+            <p className="text-sm font-medium text-blue-900 dark:text-gray-300 mb-3">
               Quick Split Templates:
             </p>
             <div className="flex flex-wrap gap-2">
@@ -435,7 +435,7 @@ export default function SplitTransaction({
               </button>
               <button
                 onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
               >
                 <Check size={20} />
                 Save Split

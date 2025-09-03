@@ -18,7 +18,7 @@ export default function Settings() {
       description: 'Import, export, and manage your financial data',
       icon: DatabaseIcon,
       path: '/settings/data',
-      color: 'bg-blue-500'
+      color: 'bg-gray-500'
     },
     {
       title: 'Categories',
@@ -69,7 +69,7 @@ export default function Settings() {
       {/* Main About Section */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-8 mb-6">
         <div className="flex items-center gap-4 mb-6">
-          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-600 rounded-2xl flex items-center justify-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-gray-600 rounded-2xl flex items-center justify-center">
             <span className="text-2xl font-bold text-white">WT</span>
           </div>
           <div>

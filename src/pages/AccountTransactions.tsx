@@ -534,7 +534,7 @@ export default function AccountTransactions() {
               <div className="flex items-center gap-2 border border-gray-300 dark:border-gray-600 rounded-lg p-1">
                 <button
                   onClick={() => setTypeFilter('all')}
-                  className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+                  className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${
                     typeFilter === 'all'
                       ? 'bg-primary text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -544,7 +544,7 @@ export default function AccountTransactions() {
                 </button>
                 <button
                   onClick={() => setTypeFilter('income')}
-                  className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+                  className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${
                     typeFilter === 'income'
                       ? 'bg-green-600 text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -554,7 +554,7 @@ export default function AccountTransactions() {
                 </button>
                 <button
                   onClick={() => setTypeFilter('expense')}
-                  className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+                  className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${
                     typeFilter === 'expense'
                       ? 'bg-red-600 text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -564,9 +564,9 @@ export default function AccountTransactions() {
                 </button>
                 <button
                   onClick={() => setTypeFilter('transfer')}
-                  className={`px-4 py-1.5 text-sm rounded-md transition-colors ${
+                  className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${
                     typeFilter === 'transfer'
-                      ? 'bg-blue-600 text-white'
+                      ? 'bg-gray-600 text-white'
                       : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
                   }`}
                 >

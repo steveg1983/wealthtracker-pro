@@ -70,9 +70,9 @@ export function HapticButton({
   // Variant classes
   const variantClasses = {
     primary: [
-      'bg-blue-600 text-white',
-      'hover:bg-blue-700 focus:ring-blue-500',
-      'dark:bg-blue-500 dark:hover:bg-blue-600'
+      'bg-gray-600 text-white',
+      'hover:bg-gray-700 focus:ring-gray-500',
+      'dark:bg-gray-500 dark:hover:bg-gray-600'
     ],
     secondary: [
       'bg-gray-200 text-gray-900',
@@ -147,8 +147,8 @@ export function HapticToggle({
   return (
     <button
       type="button"
-      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-        checked ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'
+      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 ${
+        checked ? 'bg-gray-600' : 'bg-gray-200 dark:bg-gray-700'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${className}`}
       onClick={handleToggle}
       disabled={disabled}
@@ -218,7 +218,7 @@ export function HapticSlider({
       value={value}
       onChange={handleChange}
       disabled={disabled}
-      className={`w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+      className={`w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 ${
         disabled ? 'opacity-50 cursor-not-allowed' : ''
       } ${className}`}
     />

@@ -331,7 +331,7 @@ export default function IRAComparisonCalculator() {
 
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
             >
               {showDetails ? 'Hide' : 'Show'} Advanced Settings
             </button>
@@ -419,7 +419,7 @@ export default function IRAComparisonCalculator() {
                 comparison.recommendation === 'roth' 
                   ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
                   : comparison.recommendation === 'traditional'
-                  ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                  ? 'bg-blue-50 dark:bg-gray-900/20 border border-blue-200 dark:border-blue-800'
                   : 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800'
               }`}>
                 <div className="flex items-start gap-2">
@@ -427,7 +427,7 @@ export default function IRAComparisonCalculator() {
                     comparison.recommendation === 'roth'
                       ? 'text-green-600 dark:text-green-400'
                       : comparison.recommendation === 'traditional'
-                      ? 'text-blue-600 dark:text-blue-400'
+                      ? 'text-gray-600 dark:text-gray-500'
                       : 'text-purple-600 dark:text-purple-400'
                   } />
                   <div className="flex-1">
@@ -444,7 +444,7 @@ export default function IRAComparisonCalculator() {
               {/* Side-by-side comparison */}
               <div className="grid grid-cols-2 gap-4">
                 {/* Traditional IRA */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <div className="bg-blue-50 dark:bg-gray-900/20 rounded-lg p-4">
                   <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">
                     Traditional IRA
                   </h4>

@@ -33,7 +33,7 @@ export default function NotificationBell(): React.JSX.Element {
       case 'success': return <CheckCircleIcon size={16} className="text-green-600" />;
       case 'warning': return <AlertCircleIcon size={16} className="text-yellow-600" />;
       case 'error': return <XCircleIcon size={16} className="text-red-600" />;
-      default: return <InfoIcon size={16} className="text-blue-600" />;
+      default: return <InfoIcon size={16} className="text-gray-600" />;
     }
   };
 
@@ -78,7 +78,7 @@ export default function NotificationBell(): React.JSX.Element {
                     setShowNotificationCenter(true);
                     setIsOpen(false);
                   }}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  className="text-xs text-gray-600 hover:text-blue-700 font-medium"
                   title="Open notification center"
                 >
                   <SettingsIcon size={14} />
@@ -120,7 +120,7 @@ export default function NotificationBell(): React.JSX.Element {
                   <div
                     key={notification.id}
                     className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors ${
-                      !notification.read ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''
+                      !notification.read ? 'bg-blue-50/50 dark:bg-gray-900/20' : ''
                     }`}
                   >
                     <div className="flex items-start gap-3">

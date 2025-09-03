@@ -98,7 +98,7 @@ export default function SavingsGoalsWidget({ isCompact = false }: SavingsGoalsWi
         <p className="text-gray-500 dark:text-gray-400">No active goals</p>
         <button
           onClick={() => navigate('/goals')}
-          className="mt-2 text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+          className="mt-2 text-sm text-gray-600 hover:text-blue-700 dark:text-gray-500"
         >
           Set a goal →
         </button>
@@ -123,7 +123,7 @@ export default function SavingsGoalsWidget({ isCompact = false }: SavingsGoalsWi
         </div>
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
           <div 
-            className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all"
+            className="bg-gradient-to-r from-gray-500 to-purple-500 h-2 rounded-full transition-all"
             style={{ width: `${Math.min(summary.overallProgress, 100)}%` }}
           />
         </div>
@@ -149,10 +149,10 @@ export default function SavingsGoalsWidget({ isCompact = false }: SavingsGoalsWi
           </div>
         </div>
         
-        <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded">
-          <CheckCircleIcon size={14} className="text-blue-600" />
+        <div className="flex items-center gap-2 p-2 bg-blue-50 dark:bg-gray-900/20 rounded">
+          <CheckCircleIcon size={14} className="text-gray-600" />
           <div>
-            <div className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+            <div className="text-sm font-semibold text-blue-700 dark:text-gray-300">
               {summary.completedGoals}
             </div>
             <div className="text-xs text-gray-600 dark:text-gray-400">Completed</div>
@@ -193,7 +193,7 @@ export default function SavingsGoalsWidget({ isCompact = false }: SavingsGoalsWi
                 <div 
                   className={`h-3 rounded-full transition-all ${
                     goal.isCompleted ? 'bg-green-500' :
-                    goal.isOnTrack ? 'bg-blue-500' :
+                    goal.isOnTrack ? 'bg-gray-500' :
                     'bg-amber-500'
                   }`}
                   style={{ width: `${goal.progress}%` }}
@@ -230,7 +230,7 @@ export default function SavingsGoalsWidget({ isCompact = false }: SavingsGoalsWi
       {/* View All Button */}
       <button
         onClick={() => navigate('/goals')}
-        className="w-full text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-center py-2"
+        className="w-full text-sm text-gray-600 hover:text-blue-700 dark:text-gray-500 dark:hover:text-gray-300 text-center py-2"
       >
         View All Goals →
       </button>

@@ -224,7 +224,7 @@ export function VisualBudgetProgress({
           {/* Expected progress line */}
           {velocity.percentOfPeriodElapsed > 0 && velocity.percentOfPeriodElapsed < 100 && (
             <div
-              className="absolute inset-y-0 w-1 bg-blue-500 dark:bg-blue-400 opacity-70"
+              className="absolute inset-y-0 w-1 bg-gray-500 dark:bg-blue-400 opacity-70"
               style={{ left: `${velocity.percentOfPeriodElapsed}%` }}
               onMouseEnter={() => setShowTooltip('expected')}
               onMouseLeave={() => setShowTooltip(null)}
@@ -397,7 +397,7 @@ export function BudgetDashboard({ compact = false }: BudgetDashboardProps): Reac
                 <button
                   key={period}
                   onClick={() => setSelectedPeriod(period)}
-                  className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  className={`px-3 py-1 text-sm rounded-lg transition-colors ${
                     selectedPeriod === period
                       ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                       : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'

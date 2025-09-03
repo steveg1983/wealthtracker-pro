@@ -160,7 +160,7 @@ export default function EnhancedExportModal({
                   onClick={() => handleTemplateSelect(template.id)}
                   className={`p-3 text-left border rounded-lg transition-colors ${
                     selectedTemplate === template.id
-                      ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-blue-900/20'
+                      ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-gray-900/20'
                       : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                 >
@@ -310,7 +310,7 @@ export default function EnhancedExportModal({
           <div className="flex items-center gap-3">
             <button
               onClick={() => window.open('/export-manager', '_blank')}
-              className="flex items-center gap-2 px-4 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm"
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 text-sm"
             >
               <PlayIcon size={14} />
               Advanced Options

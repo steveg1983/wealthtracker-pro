@@ -34,7 +34,7 @@ export default function OpenBanking() {
               <p className="text-sm text-gray-600 dark:text-gray-400">Connected Banks</p>
               <p className="text-2xl font-bold">{totalConnections}</p>
             </div>
-            <BankIcon size={32} className="text-blue-600" />
+            <BankIcon size={32} className="text-gray-600" />
           </div>
         </div>
         
@@ -77,7 +77,7 @@ export default function OpenBanking() {
             <button
               onClick={handleAutoSyncToggle}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                isAutoSyncEnabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                isAutoSyncEnabled ? 'bg-gray-600' : 'bg-gray-300 dark:bg-gray-600'
               }`}
             >
               <span

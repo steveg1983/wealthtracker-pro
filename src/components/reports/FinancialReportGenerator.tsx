@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { RadioCheckbox } from '../common/RadioCheckbox';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { exportService } from '../../services/exportService';
@@ -238,7 +239,7 @@ export default function FinancialReportGenerator(): React.JSX.Element {
               px-6 py-3 rounded-lg font-medium flex items-center gap-2
               ${isGenerating
                 ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-600 text-white hover:bg-gray-700'
               }
             `}
           >
@@ -324,7 +325,7 @@ export default function FinancialReportGenerator(): React.JSX.Element {
               className={`
                 p-3 rounded-lg border-2 transition-all
                 ${reportOptions.format === 'pdf'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                   : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
                 }
               `}
@@ -337,7 +338,7 @@ export default function FinancialReportGenerator(): React.JSX.Element {
               className={`
                 p-3 rounded-lg border-2 transition-all
                 ${reportOptions.format === 'excel'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                   : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
                 }
               `}
@@ -350,12 +351,12 @@ export default function FinancialReportGenerator(): React.JSX.Element {
               className={`
                 p-3 rounded-lg border-2 transition-all
                 ${reportOptions.format === 'csv'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                  ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                   : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
                 }
               `}
             >
-              <DocumentArrowDownIcon className="h-6 w-6 mx-auto mb-1 text-blue-600" />
+              <DocumentArrowDownIcon className="h-6 w-6 mx-auto mb-1 text-gray-600" />
               <span className="text-sm font-medium">CSV</span>
             </button>
           </div>
@@ -400,20 +401,16 @@ export default function FinancialReportGenerator(): React.JSX.Element {
         {/* Additional Options */}
         <div className="grid grid-cols-2 gap-4">
           <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
+            <RadioCheckbox
               checked={reportOptions.includeCharts}
-              onChange={(e) => setReportOptions(prev => ({ ...prev, includeCharts: e.target.checked }))}
-              className="rounded border-gray-300 dark:border-gray-600"
+              onChange={(checked) => setReportOptions(prev => ({ ...prev, includeCharts: checked }))}
             />
             <span className="text-sm text-gray-700 dark:text-gray-300">Include charts and visualizations</span>
           </label>
           <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
+            <RadioCheckbox
               checked={reportOptions.includeTransactions}
-              onChange={(e) => setReportOptions(prev => ({ ...prev, includeTransactions: e.target.checked }))}
-              className="rounded border-gray-300 dark:border-gray-600"
+              onChange={(checked) => setReportOptions(prev => ({ ...prev, includeTransactions: checked }))}
             />
             <span className="text-sm text-gray-700 dark:text-gray-300">Include transaction details</span>
           </label>
@@ -447,23 +444,23 @@ export default function FinancialReportGenerator(): React.JSX.Element {
           </div>
           <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
             <div className="text-sm text-gray-500 dark:text-gray-400">Savings Rate</div>
-            <div className="text-xl font-bold text-blue-600">
+            <div className="text-xl font-bold text-gray-600">
               {reportData.savingsRate.toFixed(1)}%
             </div>
           </div>
         </div>
 
-        <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+        <div className="mt-4 p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
           <div className="flex items-start gap-2">
-            <PresentationChartBarIcon className="h-5 w-5 text-blue-600 mt-0.5" />
+            <PresentationChartBarIcon className="h-5 w-5 text-gray-600 mt-0.5" />
             <div>
               <div className="font-medium text-blue-900 dark:text-blue-200">
                 Report will include {reportOptions.sections.filter(s => s.enabled).length} sections
               </div>
-              <div className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+              <div className="text-sm text-blue-700 dark:text-gray-300 mt-1">
                 Date range: {format(reportOptions.dateRange.start, 'MMM d, yyyy')} - {format(reportOptions.dateRange.end, 'MMM d, yyyy')}
               </div>
-              <div className="text-sm text-blue-700 dark:text-blue-300">
+              <div className="text-sm text-blue-700 dark:text-gray-300">
                 {reportData.transactionCount} transactions in selected period
               </div>
             </div>

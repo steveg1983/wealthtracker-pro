@@ -249,14 +249,14 @@ export default function AutomaticBackupSettings() {
             </div>
 
             {/* Cloud Storage (Coming Soon) */}
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg mb-6">
+            <div className="p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg mb-6">
               <div className="flex items-start gap-3">
-                <CloudIcon size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                <CloudIcon size={20} className="text-gray-600 dark:text-gray-500 mt-0.5" />
                 <div>
                   <h4 className="font-medium text-blue-900 dark:text-blue-100">
                     Cloud Storage Integration Coming Soon
                   </h4>
-                  <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                  <p className="text-sm text-blue-700 dark:text-gray-300 mt-1">
                     Future updates will include automatic sync to Google Drive, Dropbox, and OneDrive
                   </p>
                 </div>

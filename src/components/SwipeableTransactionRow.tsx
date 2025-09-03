@@ -140,7 +140,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
               setOffset(0);
               setIsRevealed(null);
             }}
-            className="p-3 bg-blue-500 text-white rounded-lg"
+            className="p-3 bg-gray-500 text-white rounded-lg"
             aria-label="Edit"
           >
             <EditIcon size={20} />
@@ -167,7 +167,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
       <div
         ref={ref}
         className={`relative bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${
-          isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+          isSelected ? 'bg-blue-50 dark:bg-gray-900/20' : ''
         }`}
         style={{
           transform: `translateX(${offset}px)`,

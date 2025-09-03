@@ -139,7 +139,7 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
         <button
           onClick={handleConnectBank}
           disabled={isLinking}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           <LinkIcon size={20} />
           {isLinking ? 'Connecting...' : 'Connect Bank Account'}
@@ -185,7 +185,7 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
                   <button
                     onClick={() => handleSync(connection.id)}
                     disabled={syncingConnections.has(connection.id)}
-                    className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="p-2 text-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     title="Sync accounts and transactions"
                   >
                     <RefreshCwIcon 

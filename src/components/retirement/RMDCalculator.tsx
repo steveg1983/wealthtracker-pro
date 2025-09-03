@@ -241,7 +241,7 @@ export default function RMDCalculator(): React.JSX.Element {
               }}
               min="50"
               max="120"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
             />
           </div>
 
@@ -256,7 +256,7 @@ export default function RMDCalculator(): React.JSX.Element {
                 ...prev,
                 accountBalance: Number(e.target.value) || 0
               }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
               placeholder="500000"
             />
           </div>
@@ -271,7 +271,7 @@ export default function RMDCalculator(): React.JSX.Element {
                 ...prev,
                 accountType: e.target.value as any
               }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               <option value="traditionalIRA">Traditional IRA</option>
               <option value="401k">401(k)</option>
@@ -292,7 +292,7 @@ export default function RMDCalculator(): React.JSX.Element {
                   ...prev,
                   stillWorking: e.target.checked
                 }))}
-                className="h-4 w-4 text-blue-600"
+                className="h-4 w-4 text-gray-600"
               />
               <label htmlFor="stillWorking" className="text-sm font-medium text-gray-700">
                 Still working for this employer (delays RMD)
@@ -309,7 +309,7 @@ export default function RMDCalculator(): React.JSX.Element {
                 ...prev,
                 spouseBeneficiary: e.target.checked
               }))}
-              className="h-4 w-4 text-blue-600"
+              className="h-4 w-4 text-gray-600"
             />
             <label htmlFor="spouseBeneficiary" className="text-sm font-medium text-gray-700">
               Spouse is sole beneficiary
@@ -330,7 +330,7 @@ export default function RMDCalculator(): React.JSX.Element {
                 }))}
                 min="20"
                 max="120"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
                 placeholder="Enter spouse's age"
               />
             </div>
@@ -355,7 +355,7 @@ export default function RMDCalculator(): React.JSX.Element {
           ) : calculation.stillWorking && (calculation.accountType === '401k' || calculation.accountType === '403b') ? (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
               <div className="flex items-start gap-2">
-                <Info className="h-5 w-5 text-blue-600 mt-0.5" />
+                <Info className="h-5 w-5 text-gray-600 mt-0.5" />
                 <div>
                   <p className="font-medium text-blue-900">RMD Delayed - Still Working</p>
                   <p className="text-sm text-blue-700 mt-1">
@@ -369,10 +369,10 @@ export default function RMDCalculator(): React.JSX.Element {
             <>
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-3">
-                  <Calculator className="h-5 w-5 text-blue-600" />
+                  <Calculator className="h-5 w-5 text-gray-600" />
                   <h4 className="font-semibold text-gray-900">Your {currentYear} RMD</h4>
                 </div>
-                <div className="text-3xl font-bold text-blue-600 mb-2">
+                <div className="text-3xl font-bold text-gray-600 mb-2">
                   {formatCurrency(results.rmdAmount)}
                 </div>
                 <div className="space-y-2 text-sm text-gray-600">

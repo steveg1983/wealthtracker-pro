@@ -85,7 +85,7 @@ export default function DataMigrationModal({ isOpen, onClose, onComplete }: Data
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
-            <DatabaseIcon size={24} className="text-blue-500" />
+            <DatabaseIcon size={24} className="text-gray-500" />
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
               Migrate to Cloud Storage
             </h2>
@@ -136,8 +136,8 @@ export default function DataMigrationModal({ isOpen, onClose, onComplete }: Data
                 </li>
               </ul>
               
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="text-sm text-blue-700 dark:text-blue-300">
+              <div className="p-3 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
+                <p className="text-sm text-blue-700 dark:text-gray-300">
                   <strong>Note:</strong> Your local data will be preserved as a backup until you're confident everything is working in the cloud.
                 </p>
               </div>
@@ -146,7 +146,7 @@ export default function DataMigrationModal({ isOpen, onClose, onComplete }: Data
             <div className="flex gap-3">
               <button
                 onClick={handleMigration}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
               >
                 Start Migration
               </button>
@@ -162,7 +162,7 @@ export default function DataMigrationModal({ isOpen, onClose, onComplete }: Data
 
         {migrationState === 'migrating' && (
           <div className="text-center py-8">
-            <LoadingIcon size={48} className="text-blue-500 mx-auto mb-4 animate-spin" />
+            <LoadingIcon size={48} className="text-gray-500 mx-auto mb-4 animate-spin" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Migrating Your Data...
             </h3>
@@ -254,7 +254,7 @@ export default function DataMigrationModal({ isOpen, onClose, onComplete }: Data
               {errorMessage !== 'User already has cloud data' && (
                 <button
                   onClick={handleMigration}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                  className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium"
                 >
                   Try Again
                 </button>

@@ -161,7 +161,7 @@ export function VirtualizedCategorySelector({
         
         <div className="flex items-center gap-2">
           {isRecent && (
-            <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded">
+            <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-500 rounded">
               Recent
             </span>
           )}
@@ -238,7 +238,7 @@ export function VirtualizedCategorySelector({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search categories..."
-                className="w-full pl-10 pr-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full pl-10 pr-3 py-2 bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 autoFocus
               />
             </div>
@@ -279,7 +279,7 @@ export function VirtualizedCategorySelector({
           </div>
 
           {/* Footer with stats */}
-          <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500">
+          <div className="px-4 py-2 bg-blue-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-500">
             {processedCategories.length} categories • {recentCategories.length} recent
           </div>
         </div>

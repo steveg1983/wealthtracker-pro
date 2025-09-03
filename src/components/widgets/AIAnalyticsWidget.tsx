@@ -108,9 +108,9 @@ export default function AIAnalyticsWidget({ size = 'medium' }: AIAnalyticsWidget
             <p className="text-xs text-gray-600 dark:text-gray-400">Anomalies</p>
           </div>
           
-          <div className="text-center p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <LightbulbIcon size={16} className="text-blue-600 dark:text-blue-400 mx-auto mb-1" />
-            <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+          <div className="text-center p-2 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
+            <LightbulbIcon size={16} className="text-gray-600 dark:text-gray-500 mx-auto mb-1" />
+            <p className="text-lg font-bold text-gray-600 dark:text-gray-500">
               {summary.insights}
             </p>
             <p className="text-xs text-gray-600 dark:text-gray-400">Insights</p>

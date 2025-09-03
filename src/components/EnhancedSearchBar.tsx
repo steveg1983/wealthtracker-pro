@@ -117,7 +117,7 @@ export function EnhancedSearchBar({
                 ? "Try 'expenses over $100 last month' or 'income this year'"
                 : "Search transactions, accounts, categories..."
               }
-              className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
+              className={`w-full pl-10 pr-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors ${
                 naturalLanguageMode 
                   ? 'border-purple-300 dark:border-purple-600 bg-purple-50 dark:bg-purple-900/20' 
                   : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800'
@@ -125,7 +125,7 @@ export function EnhancedSearchBar({
             />
             {isSearching && (
               <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                <div className="animate-spin h-4 w-4 border-2 border-blue-500 border-t-transparent rounded-full" />
+                <div className="animate-spin h-4 w-4 border-2 border-gray-500 border-t-transparent rounded-full" />
               </div>
             )}
           </div>
@@ -217,7 +217,7 @@ export function EnhancedSearchBar({
 
       {/* Advanced Filters */}
       {showFilters && (
-        <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
+        <div className="p-4 bg-blue-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
           <h3 className="font-medium text-gray-900 dark:text-white mb-3">Advanced Filters</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -231,14 +231,14 @@ export function EnhancedSearchBar({
                   type="date"
                   value={options.dateFrom ? new Date(options.dateFrom).toISOString().split('T')[0] : ''}
                   onChange={(e) => handleDateChange('dateFrom', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 />
                 <span className="text-gray-500">to</span>
                 <input
                   type="date"
                   value={options.dateTo ? new Date(options.dateTo).toISOString().split('T')[0] : ''}
                   onChange={(e) => handleDateChange('dateTo', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 />
               </div>
             </div>
@@ -255,7 +255,7 @@ export function EnhancedSearchBar({
                   placeholder="Min"
                   value={options.amountMin || ''}
                   onChange={(e) => handleAmountChange('amountMin', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 />
                 <span className="text-gray-500">to</span>
                 <input
@@ -264,7 +264,7 @@ export function EnhancedSearchBar({
                   placeholder="Max"
                   value={options.amountMax || ''}
                   onChange={(e) => handleAmountChange('amountMax', e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                  className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
                 />
               </div>
             </div>
@@ -287,7 +287,7 @@ export function EnhancedSearchBar({
                           : currentTypes.filter(t => t !== type);
                         onOptionsChange({ types: newTypes.length > 0 ? newTypes : undefined });
                       }}
-                      className="rounded text-blue-600 focus:ring-blue-500"
+                      className="rounded text-gray-600 focus:ring-gray-500"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
                       {type}
@@ -310,7 +310,7 @@ export function EnhancedSearchBar({
                     cleared: value === 'all' ? undefined : value === 'cleared'
                   });
                 }}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               >
                 <option value="all">All</option>
                 <option value="cleared">Cleared</option>
@@ -326,7 +326,7 @@ export function EnhancedSearchBar({
               <select
                 value={options.sortBy || 'date'}
                 onChange={(e) => onOptionsChange({ sortBy: e.target.value as any })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               >
                 <option value="date">Date</option>
                 <option value="amount">Amount</option>
@@ -343,7 +343,7 @@ export function EnhancedSearchBar({
               <select
                 value={options.sortOrder || 'desc'}
                 onChange={(e) => onOptionsChange({ sortOrder: e.target.value as any })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               >
                 <option value="asc">Ascending</option>
                 <option value="desc">Descending</option>
@@ -371,7 +371,7 @@ export function EnhancedSearchBar({
                       dateTo: parsed.dateTo
                     });
                   }}
-                  className="px-3 py-1 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="px-3 py-1 text-sm bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   {preset.label}
                 </button>

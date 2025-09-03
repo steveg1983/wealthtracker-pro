@@ -295,7 +295,7 @@ export function DarkModeRefinements({
                             ...settings.autoSchedule!,
                             lightStart: e.target.value
                           })}
-                          className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded"
+                          className="w-full px-2 py-1 text-sm bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded"
                         />
                       </div>
                       <div>
@@ -309,7 +309,7 @@ export function DarkModeRefinements({
                             ...settings.autoSchedule!,
                             darkStart: e.target.value
                           })}
-                          className="w-full px-2 py-1 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded"
+                          className="w-full px-2 py-1 text-sm bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded"
                         />
                       </div>
                     </div>
@@ -331,7 +331,7 @@ export function DarkModeRefinements({
                   ].map(option => (
                     <label
                       key={option.value}
-                      className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900/70 transition-colors"
+                      className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900/70 transition-colors"
                     >
                       <input
                         type="radio"

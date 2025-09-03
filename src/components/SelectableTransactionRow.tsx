@@ -52,14 +52,14 @@ export const SelectableTransactionRow = memo(function SelectableTransactionRow({
             checked={isSelected}
             onChange={() => onToggleSelect(transaction.id)}
             onClick={(e) => e.stopPropagation()}
-            className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            className="h-4 w-4 text-gray-600 rounded border-gray-300 focus:ring-gray-500"
             aria-label={`Select transaction ${transaction.description}`}
           />
         </div>
       )}
       
       {/* Transaction Row */}
-      <div className={`${selectionMode ? 'pl-10' : ''} ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}>
+      <div className={`${selectionMode ? 'pl-10' : ''} ${isSelected ? 'bg-blue-50 dark:bg-gray-900/20' : ''}`}>
         <TransactionRow
           transaction={transaction}
           account={account}
@@ -101,7 +101,7 @@ export function SelectableTransactionHeader({
           }
         }}
         onChange={onToggleSelectAll}
-        className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+        className="h-4 w-4 text-gray-600 rounded border-gray-300 focus:ring-gray-500"
         aria-label="Select all transactions"
       />
     </th>

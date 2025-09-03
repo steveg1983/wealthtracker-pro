@@ -50,7 +50,7 @@ export default function MarkdownEditor({
       .replace(/`([^`]+)`/gim, '<code class="bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm">$1</code>')
       
       // Links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-gray-600 dark:text-gray-500 hover:underline">$1</a>')
       
       // Lists
       .replace(/^\* (.+)$/gim, '<li class="ml-4">• $1</li>')
@@ -151,7 +151,7 @@ export default function MarkdownEditor({
               onClick={() => setIsPreviewMode(false)}
               className={`p-1.5 rounded text-sm ${
                 !isPreviewMode 
-                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
+                  ? 'bg-blue-100 dark:bg-gray-900/30 text-blue-700 dark:text-gray-300' 
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >
@@ -161,7 +161,7 @@ export default function MarkdownEditor({
               onClick={() => setIsPreviewMode(true)}
               className={`p-1.5 rounded text-sm ${
                 isPreviewMode 
-                  ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' 
+                  ? 'bg-blue-100 dark:bg-gray-900/30 text-blue-700 dark:text-gray-300' 
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >

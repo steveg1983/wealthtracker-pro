@@ -1,7 +1,7 @@
 import { Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
-import { SentryErrorBoundary } from './lib/sentry';
+// Removed SentryErrorBoundary due to React.Component bundling issue with Sentry
 import { ErrorFallback } from './components/ErrorFallback';
 import { CombinedProvider } from './contexts/CombinedProvider';
 // Use Supabase-enabled AppContext if configured
@@ -130,7 +130,6 @@ function App(): React.JSX.Element {
   return (
     <DebugErrorBoundary>
       <ErrorBoundary>
-        <SentryErrorBoundary fallback={(errorData) => <ErrorFallback error={errorData.error as Error} resetError={errorData.resetError} />} showDialog>
           <CombinedProvider>
           <ThemeProvider>
             <AppProvider>
@@ -387,7 +386,6 @@ function App(): React.JSX.Element {
             </AppProvider>
           </ThemeProvider>
         </CombinedProvider>
-      </SentryErrorBoundary>
     </ErrorBoundary>
     </DebugErrorBoundary>
   );

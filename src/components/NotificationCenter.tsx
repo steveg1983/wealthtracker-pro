@@ -80,7 +80,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
       case 'success': return <CheckCircleIcon size={16} className="text-green-600" />;
       case 'warning': return <AlertCircleIcon size={16} className="text-yellow-600" />;
       case 'error': return <XCircleIcon size={16} className="text-red-600" />;
-      default: return <InfoIcon size={16} className="text-blue-600" />;
+      default: return <InfoIcon size={16} className="text-gray-600" />;
     }
   };
 
@@ -101,7 +101,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
   const getRuleTypeIcon = (type: string): React.JSX.Element => {
     switch (type) {
       case 'budget': return <DollarSignIcon size={16} className="text-green-600" />;
-      case 'transaction': return <CreditCardIcon size={16} className="text-blue-600" />;
+      case 'transaction': return <CreditCardIcon size={16} className="text-gray-600" />;
       case 'goal': return <TargetIcon size={16} className="text-purple-600" />;
       case 'account': return <TrendingUpIcon size={16} className="text-orange-600" />;
       default: return <BellIcon size={16} className="text-gray-600" />;
@@ -137,7 +137,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
         style={style}
         className={`p-4 rounded-lg border transition-all hover:shadow-md ${
           !notification.read
-            ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
+            ? 'bg-blue-50 dark:bg-gray-900/20 border-blue-200 dark:border-blue-700'
             : 'bg-white dark:bg-gray-700 border-gray-200 dark:border-gray-600'
         }`}
       >
@@ -174,7 +174,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                     markAsRead(notification.id);
                     notification.action!.onClick();
                   }}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  className="text-xs text-gray-600 hover:text-blue-700 font-medium"
                 >
                   {notification.action.label}
                 </button>
@@ -220,7 +220,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                   rule.priority === 'urgent' ? 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400' :
                   rule.priority === 'high' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' :
                   rule.priority === 'medium' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400' :
-                  'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400'
+                  'bg-blue-100 text-blue-800 dark:bg-gray-900/20 dark:text-gray-500'
                 }`}>
                   {rule.priority}
                 </span>
@@ -276,7 +276,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <BellIcon size={24} className="text-blue-600 dark:text-blue-400" />
+              <BellIcon size={24} className="text-gray-600 dark:text-gray-500" />
               Notification Center
               {unreadCount > 0 && (
                 <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
@@ -296,7 +296,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
           <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg mt-4">
             <button
               onClick={() => setActiveTab('notifications')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'notifications'
                   ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -312,7 +312,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
             </button>
             <button
               onClick={() => setActiveTab('rules')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'rules'
                   ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -323,7 +323,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
             </button>
             <button
               onClick={() => setActiveTab('settings')}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                 activeTab === 'settings'
                   ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -348,7 +348,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                     placeholder="Search notifications..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
                   />
                 </div>
                 <div className="flex items-center gap-2">
@@ -356,7 +356,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                   <select
                     value={filter}
                     onChange={(e) => setFilter(e.target.value as any)}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-white text-sm"
                   >
                     <option value="all">All</option>
                     <option value="unread">Unread</option>
@@ -368,7 +368,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="px-4 py-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    className="px-4 py-2 text-gray-600 hover:text-blue-700 text-sm font-medium"
                   >
                     Mark All Read
                   </button>
@@ -427,7 +427,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                 </div>
                 <button
                   onClick={handleCreateRule}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                 >
                   <PlusIcon size={16} />
                   Add Rule
@@ -446,7 +446,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                   </p>
                   <button
                     onClick={handleCreateRule}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
                   >
                     Create Your First Rule
                   </button>
@@ -551,7 +551,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                         }}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                           notificationService.getTransactionConfig().duplicateDetectionEnabled
-                            ? 'bg-blue-600'
+                            ? 'bg-gray-600'
                             : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                       >
@@ -585,7 +585,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                         }}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                           notificationService.getGoalConfig().enableMilestoneNotifications
-                            ? 'bg-blue-600'
+                            ? 'bg-gray-600'
                             : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                       >
@@ -611,7 +611,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                         }}
                         className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
                           notificationService.getGoalConfig().enableCompletionCelebration
-                            ? 'bg-blue-600'
+                            ? 'bg-gray-600'
                             : 'bg-gray-300 dark:bg-gray-600'
                         }`}
                       >
@@ -640,7 +640,7 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
             </div>
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               Done
             </button>

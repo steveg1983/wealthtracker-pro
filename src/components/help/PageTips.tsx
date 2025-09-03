@@ -193,7 +193,7 @@ export default function PageTips({ page, onClose }: PageTipsProps): React.JSX.El
       <div className="fixed inset-0 bg-black/50 z-40" onClick={handleSkip}>
         {highlightedElement && (
           <div
-            className="absolute bg-transparent border-4 border-blue-500 rounded-lg pointer-events-none"
+            className="absolute bg-transparent border-4 border-gray-500 rounded-lg pointer-events-none"
             style={{
               top: highlightedElement.getBoundingClientRect().top - 4,
               left: highlightedElement.getBoundingClientRect().left - 4,
@@ -236,7 +236,7 @@ export default function PageTips({ page, onClose }: PageTipsProps): React.JSX.El
                 key={index}
                 className={`w-2 h-2 rounded-full ${
                   index === currentTipIndex
-                    ? 'bg-blue-600'
+                    ? 'bg-gray-600'
                     : index < currentTipIndex
                     ? 'bg-blue-300'
                     : 'bg-gray-300 dark:bg-gray-600'
@@ -262,7 +262,7 @@ export default function PageTips({ page, onClose }: PageTipsProps): React.JSX.El
             </button>
             <button
               onClick={handleNext}
-              className="px-4 py-1 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors flex items-center space-x-1"
+              className="px-4 py-1 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition-colors flex items-center space-x-1"
             >
               <span>{currentTipIndex < tips.length - 1 ? 'Next' : 'Done'}</span>
               <ArrowRightIcon className="w-4 h-4" />

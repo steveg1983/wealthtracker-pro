@@ -139,14 +139,14 @@ export default function TaxPlanningWidget({ size = 'medium' }: TaxPlanningWidget
 
         {/* Quick Actions */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="flex items-center justify-between p-2 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
             <div className="flex items-center gap-2">
-              <FileTextIcon size={14} className="text-blue-600 dark:text-blue-400" />
+              <FileTextIcon size={14} className="text-gray-600 dark:text-gray-500" />
               <span className="text-sm text-blue-800 dark:text-blue-200">
                 Track receipts & documents
               </span>
             </div>
-            <TrendingUpIcon size={14} className="text-blue-600 dark:text-blue-400" />
+            <TrendingUpIcon size={14} className="text-gray-600 dark:text-gray-500" />
           </div>
         </div>
 

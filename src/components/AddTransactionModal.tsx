@@ -151,7 +151,7 @@ const AddTransactionModal = memo(function AddTransactionModal({ isOpen, onClose 
                   onClick={() => updateField('type', 'transfer')}
                   className={`px-4 py-2 min-h-[44px] rounded-lg font-medium transition-colors ${
                     formData.type === 'transfer'
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-gray-500 text-white'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
                   }`}
                   aria-label="Select transfer transaction type"

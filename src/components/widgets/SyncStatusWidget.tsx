@@ -222,7 +222,7 @@ export default function SyncStatusWidget({
       case 'synced':
         return 'text-green-600 dark:text-green-400';
       case 'syncing':
-        return 'text-blue-600 dark:text-blue-400';
+        return 'text-gray-600 dark:text-gray-500';
       case 'error':
         return 'text-red-600 dark:text-red-400';
       case 'pending':
@@ -262,7 +262,7 @@ export default function SyncStatusWidget({
             ? 'bg-green-50 dark:bg-green-900/20'
             : overallStatus === 'offline'
               ? 'bg-gray-50 dark:bg-gray-800'
-              : 'bg-blue-50 dark:bg-blue-900/20'
+              : 'bg-blue-50 dark:bg-gray-900/20'
       }`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center">
@@ -292,7 +292,7 @@ export default function SyncStatusWidget({
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               !isOnline || isSyncing
                 ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-600 text-white hover:bg-gray-700'
             }`}
           >
             {isSyncing ? (
@@ -352,7 +352,7 @@ export default function SyncStatusWidget({
                 {status.status !== 'syncing' && isOnline && (
                   <button
                     onClick={() => syncAccount(status.accountId)}
-                    className="p-1.5 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                    className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-500 transition-colors"
                     title="Sync this account"
                   >
                     <ArrowPathIcon className="h-4 w-4" />
@@ -372,7 +372,7 @@ export default function SyncStatusWidget({
                 <div className="mt-2">
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
                     <div 
-                      className="bg-blue-500 h-1 rounded-full transition-all"
+                      className="bg-gray-500 h-1 rounded-full transition-all"
                       style={{ 
                         width: `${((status.itemsSynced || 0) / status.totalItems) * 100}%` 
                       }}

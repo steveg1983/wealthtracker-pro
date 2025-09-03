@@ -518,7 +518,7 @@ export default function EnhancedTransferModal({
           
           {/* Summary Box */}
           {formData.amount && formData.sourceAccountId && formData.targetAccountId && (
-            <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-xl">
+            <div className="bg-blue-50 dark:bg-gray-900 p-4 rounded-xl">
               <h3 className="font-medium text-gray-900 dark:text-white mb-2">Transfer Summary</h3>
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">

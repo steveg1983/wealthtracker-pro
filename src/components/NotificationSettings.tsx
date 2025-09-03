@@ -81,7 +81,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-              <BellIcon size={20} className="text-blue-600 dark:text-blue-400" />
+              <BellIcon size={20} className="text-gray-600 dark:text-gray-500" />
               Notification Settings
             </h2>
             <button
@@ -108,7 +108,7 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
                     <button
                       onClick={handleRequestPermission}
                       disabled={isRequestingPermission}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm"
+                      className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 text-sm"
                     >
                       {isRequestingPermission ? 'Requesting...' : 'Allow Notifications'}
                     </button>

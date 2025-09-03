@@ -224,19 +224,19 @@ export default function SocialSecurityOptimizer(): React.JSX.Element {
                     <div className="grid grid-cols-3 gap-3">
                       <div>
                         <p className="text-xs text-gray-600 dark:text-gray-400">Claim at Age</p>
-                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        <p className="text-xl font-bold text-gray-600 dark:text-gray-500">
                           {optimization.optimalAge}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-600 dark:text-gray-400">Monthly</p>
-                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        <p className="text-xl font-bold text-gray-600 dark:text-gray-500">
                           {formatCurrency(optimization.monthlyBenefit)}
                         </p>
                       </div>
                       <div>
                         <p className="text-xs text-gray-600 dark:text-gray-400">Lifetime</p>
-                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                        <p className="text-xl font-bold text-gray-600 dark:text-gray-500">
                           {formatCurrency(optimization.lifetimeBenefit)}
                         </p>
                       </div>
@@ -256,7 +256,7 @@ export default function SocialSecurityOptimizer(): React.JSX.Element {
                           <span className="text-sm font-medium w-16">Age {age}</span>
                           <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-6 relative">
                             <div 
-                              className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
+                              className="absolute left-0 top-0 h-full bg-gradient-to-r from-gray-500 to-purple-500 rounded-full"
                               style={{ width: `${percentage}%` }}
                             />
                             <span className="absolute right-2 top-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -271,9 +271,9 @@ export default function SocialSecurityOptimizer(): React.JSX.Element {
               )}
               
               {/* Additional Information */}
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <InfoIcon size={16} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <InfoIcon size={16} className="text-gray-600 dark:text-gray-500 mt-0.5" />
                   <div className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
                     <p>• 2025 COLA adjustment: 2.5% already included</p>
                     <p>• Maximum benefit at age 70: {formatCurrency(5108)}/month</p>

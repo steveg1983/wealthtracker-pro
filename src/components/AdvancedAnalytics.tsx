@@ -66,7 +66,7 @@ export default function AdvancedAnalytics() {
       case 'medium':
         return 'text-yellow-600 dark:text-yellow-400 bg-yellow-50 dark:bg-yellow-900/20';
       case 'low':
-        return 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20';
+        return 'text-gray-600 dark:text-gray-500 bg-blue-50 dark:bg-gray-900/20';
     }
   };
 
@@ -88,7 +88,7 @@ export default function AdvancedAnalytics() {
       case 'negative':
         return <AlertCircleIcon size={20} className="text-red-600 dark:text-red-400" />;
       case 'neutral':
-        return <InfoIcon size={20} className="text-blue-600 dark:text-blue-400" />;
+        return <InfoIcon size={20} className="text-gray-600 dark:text-gray-500" />;
     }
   };
 
@@ -102,7 +102,7 @@ export default function AdvancedAnalytics() {
   return (
     <div className="space-y-6">
       {/* Header with AI indicator */}
-      <div className="bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-purple-600 to-gray-600 rounded-2xl p-6 text-white">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold mb-2">AI-Powered Analytics</h2>
@@ -166,7 +166,7 @@ export default function AdvancedAnalytics() {
                         {insight.description}
                       </p>
                       {insight.actionable && (
-                        <button className="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:underline">
+                        <button className="mt-2 text-sm text-gray-600 dark:text-gray-500 hover:underline">
                           Take action →
                         </button>
                       )}
@@ -300,7 +300,7 @@ export default function AdvancedAnalytics() {
                       <div className="flex items-center gap-2">
                         <div className="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                           <div
-                            className="bg-blue-600 h-2 rounded-full"
+                            className="bg-gray-600 h-2 rounded-full"
                             style={{ width: `${prediction.confidence * 100}%` }}
                           />
                         </div>
@@ -310,7 +310,7 @@ export default function AdvancedAnalytics() {
                       </div>
                     </div>
                     {prediction.recommendation && (
-                      <p className="mt-3 text-sm text-blue-600 dark:text-blue-400">
+                      <p className="mt-3 text-sm text-gray-600 dark:text-gray-500">
                         💡 {prediction.recommendation}
                       </p>
                     )}
@@ -363,7 +363,7 @@ export default function AdvancedAnalytics() {
                           {formatCurrency(opportunity.potentialSavings)}/year
                         </p>
                       </div>
-                      <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
+                      <button className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm">
                         {opportunity.actionRequired}
                       </button>
                     </div>

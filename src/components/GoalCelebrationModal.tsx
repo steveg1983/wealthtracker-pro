@@ -92,7 +92,7 @@ export default function GoalCelebrationModal({ isOpen, onClose, goal, message }:
               onClose();
               // Share functionality could be added here
             }}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
           >
             <span>Share Achievement</span>
             <span>🎉</span>

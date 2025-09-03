@@ -54,7 +54,7 @@ export function PredictiveLoadingIndicator({
         {isPreloading && (
           <div className={`fixed ${positionClasses} h-1 bg-gray-200 dark:bg-gray-800 z-50`}>
             <div 
-              className="h-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 transition-all duration-300 animate-pulse"
+              className="h-full bg-gradient-to-r from-gray-500 via-purple-500 to-pink-500 transition-all duration-300 animate-pulse"
               style={{ width: `${preloadProgress * 100}%` }}
             />
           </div>
@@ -81,7 +81,7 @@ export function PredictiveLoadingIndicator({
   return (
     <div className={`fixed ${position === 'top' ? 'top-4' : 'bottom-4'} right-4 z-50 w-80 bg-white dark:bg-gray-900 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden`}>
       {/* Header */}
-      <div className="px-4 py-3 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white">
+      <div className="px-4 py-3 bg-gradient-to-r from-gray-500 via-purple-500 to-pink-500 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ZapIcon size={18} className="animate-pulse" />
@@ -105,8 +105,8 @@ export function PredictiveLoadingIndicator({
           <div className="flex items-center gap-2">
             {isPreloading ? (
               <>
-                <RefreshCwIcon size={14} className="animate-spin text-blue-500" />
-                <span className="text-sm font-medium text-blue-500">Preloading...</span>
+                <RefreshCwIcon size={14} className="animate-spin text-gray-500" />
+                <span className="text-sm font-medium text-gray-500">Preloading...</span>
               </>
             ) : (
               <>
@@ -126,7 +126,7 @@ export function PredictiveLoadingIndicator({
             </div>
             <div className="h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
               <div 
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-300"
+                className="h-full bg-gradient-to-r from-gray-500 to-purple-500 transition-all duration-300"
                 style={{ width: `${preloadProgress * 100}%` }}
               />
             </div>
@@ -136,7 +136,7 @@ export function PredictiveLoadingIndicator({
         {/* Metrics */}
         <div className="grid grid-cols-2 gap-2">
           <MetricCard
-            icon={<CloudIcon size={14} className="text-blue-500" />}
+            icon={<CloudIcon size={14} className="text-gray-500" />}
             label="Prefetched"
             value={prefetchedRoutes.size}
           />
@@ -239,11 +239,11 @@ export function PrefetchStatusBadge({
   if (!isPrefetching && !isPrefetched) return null;
 
   return (
-    <div className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+    <div className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-gray-900/30 rounded-full">
       {isPrefetching ? (
         <>
-          <RefreshCwIcon size={12} className="animate-spin text-blue-500" />
-          <span className="text-xs text-blue-600 dark:text-blue-400">Preloading</span>
+          <RefreshCwIcon size={12} className="animate-spin text-gray-500" />
+          <span className="text-xs text-gray-600 dark:text-gray-500">Preloading</span>
         </>
       ) : (
         <>

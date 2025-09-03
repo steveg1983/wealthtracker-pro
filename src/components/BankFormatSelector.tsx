@@ -183,7 +183,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
             placeholder="Search banks, payment services, or investment platforms..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
           />
         </div>
         
@@ -194,7 +194,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
             <select
               value={selectedRegion}
               onChange={(e) => setSelectedRegion(e.target.value)}
-              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-white text-sm"
             >
               <option value="all">All Regions</option>
               {Object.entries(REGION_GROUPS).map(([key, name]) => (
@@ -208,7 +208,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+              className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded focus:ring-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-white text-sm"
             >
               <option value="all">All Types</option>
               {Object.entries(TYPE_GROUPS).map(([key, name]) => (
@@ -237,7 +237,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
                       onClick={() => handleBankSelect(bank)}
                       className={`p-4 rounded-lg border-2 text-left transition-all hover:shadow-md ${
                         isSelected
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                           : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                       }`}
                     >
@@ -251,7 +251,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
                           </p>
                         </div>
                         {isSelected && (
-                          <CheckIcon size={16} className="text-blue-500 flex-shrink-0" />
+                          <CheckIcon size={16} className="text-gray-500 flex-shrink-0" />
                         )}
                       </div>
                     </button>
@@ -268,7 +268,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
                       onClick={() => handleBankSelect(bank)}
                       className={`w-full p-3 rounded-lg border text-left transition-all flex items-center justify-between ${
                         isSelected
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                           : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                       }`}
                     >
@@ -281,7 +281,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
                         </p>
                       </div>
                       {isSelected && (
-                        <CheckIcon size={20} className="text-blue-500" />
+                        <CheckIcon size={20} className="text-gray-500" />
                       )}
                     </button>
                   );
@@ -302,7 +302,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
                 setSelectedRegion('all');
                 setSelectedType('all');
               }}
-              className="mt-2 text-blue-500 hover:text-blue-600 text-sm"
+              className="mt-2 text-gray-500 hover:text-gray-600 text-sm"
             >
               Clear filters
             </button>
@@ -316,7 +316,7 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
           onClick={() => onBankSelected('custom', 'Custom Format')}
           className={`w-full p-4 rounded-lg border-2 border-dashed text-center transition-all ${
             selectedBank === 'custom'
-              ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+              ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
               : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
           }`}
         >

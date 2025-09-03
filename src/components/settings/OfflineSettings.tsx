@@ -11,6 +11,9 @@ export function OfflineSettings(): React.JSX.Element {
   const { isOffline, isSyncing, pendingChanges, syncNow, clearOfflineData } = useOffline();
   const [cacheSize, setCacheSize] = useState<number | null>(null);
   const [isCalculatingSize, setIsCalculatingSize] = useState(false);
+  const [autoSync, setAutoSync] = useState(true);
+  const [backgroundSync, setBackgroundSync] = useState(true);
+  const [conflictNotifications, setConflictNotifications] = useState(true);
 
   useEffect(() => {
     calculateCacheSize();
@@ -190,46 +193,85 @@ export function OfflineSettings(): React.JSX.Element {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <label className="flex items-center justify-between">
+            <label className="flex items-center justify-between cursor-pointer">
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">Auto-sync when online</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Automatically sync changes when connection is restored
                 </p>
               </div>
-              <input
-                type="checkbox"
-                defaultChecked
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={autoSync}
+                  onChange={(e) => setAutoSync(e.target.checked)}
+                  className="sr-only"
+                />
+                <div 
+                  className={`w-5 h-5 rounded-full border-2 transition-colors ${
+                    autoSync ? 'border-gray-600 dark:border-gray-400' : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  onClick={() => setAutoSync(!autoSync)}
+                >
+                  {autoSync && (
+                    <div className="w-3 h-3 rounded-full bg-gray-600 dark:bg-gray-400 m-0.5" />
+                  )}
+                </div>
+              </div>
             </label>
 
-            <label className="flex items-center justify-between">
+            <label className="flex items-center justify-between cursor-pointer">
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">Background sync</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Sync data in the background when the app is closed
                 </p>
               </div>
-              <input
-                type="checkbox"
-                defaultChecked
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={backgroundSync}
+                  onChange={(e) => setBackgroundSync(e.target.checked)}
+                  className="sr-only"
+                />
+                <div 
+                  className={`w-5 h-5 rounded-full border-2 transition-colors ${
+                    backgroundSync ? 'border-gray-600 dark:border-gray-400' : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  onClick={() => setBackgroundSync(!backgroundSync)}
+                >
+                  {backgroundSync && (
+                    <div className="w-3 h-3 rounded-full bg-gray-600 dark:bg-gray-400 m-0.5" />
+                  )}
+                </div>
+              </div>
             </label>
 
-            <label className="flex items-center justify-between">
+            <label className="flex items-center justify-between cursor-pointer">
               <div>
                 <p className="font-medium text-gray-900 dark:text-white">Conflict notifications</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Show notifications when sync conflicts occur
                 </p>
               </div>
-              <input
-                type="checkbox"
-                defaultChecked
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={conflictNotifications}
+                  onChange={(e) => setConflictNotifications(e.target.checked)}
+                  className="sr-only"
+                />
+                <div 
+                  className={`w-5 h-5 rounded-full border-2 transition-colors ${
+                    conflictNotifications ? 'border-gray-600 dark:border-gray-400' : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  onClick={() => setConflictNotifications(!conflictNotifications)}
+                >
+                  {conflictNotifications && (
+                    <div className="w-3 h-3 rounded-full bg-gray-600 dark:bg-gray-400 m-0.5" />
+                  )}
+                </div>
+              </div>
             </label>
           </div>
         </CardContent>

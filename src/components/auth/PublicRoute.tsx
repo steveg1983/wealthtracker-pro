@@ -17,7 +17,7 @@ export function PublicRoute({
   // Show loading state while Clerk is initializing
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <Skeleton className="w-32 h-32 rounded-full mx-auto mb-4" />
           <Skeleton className="w-48 h-6 mx-auto mb-2" />

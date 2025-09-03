@@ -70,22 +70,22 @@ export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.El
                 className={`
                   relative flex items-center p-4 rounded-lg border-2 transition-all
                   ${isSelected
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                   }
                 `}
               >
-                <Icon className={`h-5 w-5 mr-3 ${isSelected ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`} />
+                <Icon className={`h-5 w-5 mr-3 ${isSelected ? 'text-gray-600 dark:text-gray-500' : 'text-gray-400'}`} />
                 <div className="text-left">
                   <div className={`font-medium ${isSelected ? 'text-blue-900 dark:text-blue-100' : 'text-gray-900 dark:text-white'}`}>
                     {option.name}
                   </div>
-                  <div className={`text-sm ${isSelected ? 'text-blue-700 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>
+                  <div className={`text-sm ${isSelected ? 'text-blue-700 dark:text-gray-300' : 'text-gray-500 dark:text-gray-400'}`}>
                     {option.description}
                   </div>
                 </div>
                 {isSelected && (
-                  <CheckIcon className="absolute top-2 right-2 h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <CheckIcon className="absolute top-2 right-2 h-5 w-5 text-gray-600 dark:text-gray-500" />
                 )}
               </button>
             );
@@ -108,7 +108,7 @@ export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.El
                 className={`
                   relative flex flex-col items-center p-4 rounded-lg border-2 transition-all
                   ${isSelected
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                   }
                 `}
@@ -121,7 +121,7 @@ export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.El
                   {option.name}
                 </div>
                 {isSelected && (
-                  <CheckIcon className="absolute top-2 right-2 h-5 w-5 text-blue-600 dark:text-blue-400" />
+                  <CheckIcon className="absolute top-2 right-2 h-5 w-5 text-gray-600 dark:text-gray-500" />
                 )}
               </button>
             );
@@ -189,7 +189,7 @@ export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.El
             onClick={() => setTheme(selectedMode === 'dark' ? 'highContrastDark' : 'highContrastLight')}
             className={`
               relative w-11 h-6 rounded-full transition-colors
-              ${theme.id.includes('highContrast') ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}
+              ${theme.id.includes('highContrast') ? 'bg-gray-600' : 'bg-gray-200 dark:bg-gray-700'}
             `}
           >
             <span
@@ -216,7 +216,7 @@ export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.El
                 className={`
                   w-full text-left p-3 rounded-lg border transition-all
                   ${theme.id === customTheme.id
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                   }
                 `}
@@ -237,7 +237,7 @@ export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.El
         <div className="flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             Done
           </button>

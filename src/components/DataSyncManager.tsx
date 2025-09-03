@@ -38,7 +38,7 @@ export default function DataSyncManager(): React.JSX.Element {
 
   const getSyncIcon = () => {
     if (syncStatus.isSyncing) {
-      return <Loader2 size={20} className="animate-spin text-blue-500" />;
+      return <Loader2 size={20} className="animate-spin text-gray-500" />;
     }
     if (!syncStatus.isConnected) {
       return <CloudOff size={20} className="text-gray-400" />;
@@ -89,7 +89,7 @@ export default function DataSyncManager(): React.JSX.Element {
         {(syncStatus.pendingOperations > 0 || !syncStatus.isConnected) && (
           <button
             onClick={forceSync}
-            className="absolute -bottom-2 -right-2 p-1.5 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-colors"
+            className="absolute -bottom-2 -right-2 p-1.5 bg-gray-500 text-white rounded-full hover:bg-gray-600 transition-colors"
             title="Sync now"
           >
             <RefreshCw size={14} />
@@ -192,7 +192,7 @@ export default function DataSyncManager(): React.JSX.Element {
               <button
                 onClick={forceSync}
                 disabled={syncStatus.isSyncing || !syncStatus.isConnected}
-                className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                className="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
                 <RefreshCw size={16} className={syncStatus.isSyncing ? 'animate-spin' : ''} />
                 Sync Now
@@ -293,7 +293,7 @@ function ConflictItem({ conflict, onResolve, isResolving }: ConflictItemProps): 
         </div>
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
         >
           {showDetails ? 'Hide' : 'Show'} Details
         </button>
@@ -302,10 +302,10 @@ function ConflictItem({ conflict, onResolve, isResolving }: ConflictItemProps): 
       {showDetails && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
           {/* Local Version */}
-          <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="p-3 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
             <div className="flex items-center gap-2 mb-2">
-              <Clock size={16} className="text-blue-600 dark:text-blue-400" />
-              <span className="text-sm font-medium text-blue-900 dark:text-blue-300">
+              <Clock size={16} className="text-gray-600 dark:text-gray-500" />
+              <span className="text-sm font-medium text-blue-900 dark:text-gray-300">
                 Your Changes (Local)
               </span>
             </div>
@@ -338,7 +338,7 @@ function ConflictItem({ conflict, onResolve, isResolving }: ConflictItemProps): 
         <button
           onClick={() => onResolve(conflict.id, 'local')}
           disabled={isResolving}
-          className="flex-1 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+          className="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
         >
           {isResolving ? (
             <Loader2 size={16} className="animate-spin" />

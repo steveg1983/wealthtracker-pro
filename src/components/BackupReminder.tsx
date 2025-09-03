@@ -230,7 +230,7 @@ export default function BackupReminder(): React.JSX.Element {
                 {isOverdue ? (
                   <AlertTriangle className="text-red-500" size={24} />
                 ) : (
-                  <Shield className="text-blue-500" size={24} />
+                  <Shield className="text-gray-500" size={24} />
                 )}
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                   {isOverdue ? 'Backup Overdue!' : 'Time to Backup'}
@@ -294,7 +294,7 @@ export default function BackupReminder(): React.JSX.Element {
                 <div className="flex gap-3">
                   <button
                     onClick={performBackup}
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
                   >
                     <Download size={20} />
                     Backup Now
@@ -318,7 +318,7 @@ export default function BackupReminder(): React.JSX.Element {
                 {/* Backup Progress */}
                 <div className="py-8">
                   <div className="flex flex-col items-center">
-                    <Cloud size={48} className="text-blue-500 mb-4 animate-pulse" />
+                    <Cloud size={48} className="text-gray-500 mb-4 animate-pulse" />
                     <p className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                       Creating Backup...
                     </p>
@@ -329,7 +329,7 @@ export default function BackupReminder(): React.JSX.Element {
                     {/* Progress Bar */}
                     <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                       <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-500"
+                        className="bg-gray-600 h-2 rounded-full transition-all duration-500"
                         style={{ width: `${backupProgress}%` }}
                       />
                     </div>
@@ -361,7 +361,7 @@ export default function BackupReminder(): React.JSX.Element {
                 <button
                   onClick={() => setSettings(prev => ({ ...prev, enabled: !prev.enabled }))}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    settings.enabled ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    settings.enabled ? 'bg-gray-600' : 'bg-gray-300 dark:bg-gray-600'
                   }`}
                 >
                   <span
@@ -438,7 +438,7 @@ export default function BackupReminder(): React.JSX.Element {
                 <button
                   onClick={() => setSettings(prev => ({ ...prev, autoBackup: !prev.autoBackup }))}
                   className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    settings.autoBackup ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    settings.autoBackup ? 'bg-gray-600' : 'bg-gray-300 dark:bg-gray-600'
                   }`}
                 >
                   <span
@@ -463,7 +463,7 @@ export default function BackupReminder(): React.JSX.Element {
                   setShowSettings(false);
                   setShowReminder(false);
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
               >
                 Save Settings
               </button>

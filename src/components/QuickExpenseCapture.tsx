@@ -189,7 +189,7 @@ export default function QuickExpenseCapture({ isOpen, onClose, onExpenseCreated 
   const renderLocationStep = () => (
     <div className="space-y-6">
       <div className="text-center">
-        <MapPinIcon size={32} className="mx-auto mb-4 text-blue-600 dark:text-blue-400" />
+        <MapPinIcon size={32} className="mx-auto mb-4 text-gray-600 dark:text-gray-500" />
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
           Select Merchant
         </h3>

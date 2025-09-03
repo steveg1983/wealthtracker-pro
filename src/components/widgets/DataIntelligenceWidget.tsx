@@ -67,7 +67,7 @@ export default function DataIntelligenceWidget({
   const getInsightIcon = (type: SpendingInsight['type']) => {
     switch (type) {
       case 'subscription_alert':
-        return <CreditCardIcon size={14} className="text-blue-600 dark:text-blue-400" />;
+        return <CreditCardIcon size={14} className="text-gray-600 dark:text-gray-500" />;
       case 'spending_spike':
         return <TrendingUpIcon size={14} className="text-red-600 dark:text-red-400" />;
       case 'new_merchant':
@@ -84,7 +84,7 @@ export default function DataIntelligenceWidget({
       case 'medium':
         return 'text-yellow-600 dark:text-yellow-400';
       case 'low':
-        return 'text-blue-600 dark:text-blue-400';
+        return 'text-gray-600 dark:text-gray-500';
       default:
         return 'text-gray-600 dark:text-gray-400';
     }
@@ -113,13 +113,13 @@ export default function DataIntelligenceWidget({
     return (
       <div className="h-full flex flex-col">
         <div className="flex items-center gap-2 mb-3">
-          <DatabaseIcon size={16} className="text-blue-600 dark:text-blue-400" />
+          <DatabaseIcon size={16} className="text-gray-600 dark:text-gray-500" />
           <span className="font-medium text-gray-900 dark:text-white text-sm">Data Intelligence</span>
         </div>
         
         <div className="grid grid-cols-2 gap-3 flex-1">
           <div className="text-center">
-            <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+            <div className="text-lg font-bold text-gray-600 dark:text-gray-500">
               {stats.totalMerchants}
             </div>
             <div className="text-xs text-gray-600 dark:text-gray-400">Merchants</div>
@@ -151,7 +151,7 @@ export default function DataIntelligenceWidget({
       <div className="h-full flex flex-col">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <DatabaseIcon size={20} className="text-blue-600 dark:text-blue-400" />
+            <DatabaseIcon size={20} className="text-gray-600 dark:text-gray-500" />
             <span className="font-semibold text-gray-900 dark:text-white">Data Intelligence</span>
           </div>
           <button
@@ -165,7 +165,7 @@ export default function DataIntelligenceWidget({
         {/* Stats Grid */}
         <div className="grid grid-cols-4 gap-3 mb-4">
           <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
-            <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+            <div className="text-lg font-bold text-gray-600 dark:text-gray-500">
               {stats.totalMerchants}
             </div>
             <div className="text-xs text-gray-600 dark:text-gray-400">Merchants</div>
@@ -239,7 +239,7 @@ export default function DataIntelligenceWidget({
         )}
 
         <div className="mt-auto pt-3 border-t border-gray-200 dark:border-gray-700">
-          <button className="w-full flex items-center justify-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+          <button className="w-full flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300">
             <span>View Data Intelligence</span>
             <ArrowRightIcon size={12} />
           </button>
@@ -253,7 +253,7 @@ export default function DataIntelligenceWidget({
     <div className="h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <DatabaseIcon size={18} className="text-blue-600 dark:text-blue-400" />
+          <DatabaseIcon size={18} className="text-gray-600 dark:text-gray-500" />
           <span className="font-medium text-gray-900 dark:text-white">Data Intelligence</span>
         </div>
         <button
@@ -267,7 +267,7 @@ export default function DataIntelligenceWidget({
       {/* Key Stats */}
       <div className="grid grid-cols-2 gap-3 mb-3">
         <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
-          <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+          <div className="text-xl font-bold text-gray-600 dark:text-gray-500">
             {stats.totalMerchants}
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400">Merchants</div>
@@ -323,7 +323,7 @@ export default function DataIntelligenceWidget({
       )}
 
       <div className="mt-auto pt-2 border-t border-gray-200 dark:border-gray-700">
-        <button className="w-full flex items-center justify-center gap-2 text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+        <button className="w-full flex items-center justify-center gap-2 text-xs text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300">
           <span>View Details</span>
           <ArrowRightIcon size={10} />
         </button>

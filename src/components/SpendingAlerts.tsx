@@ -298,7 +298,7 @@ export default function SpendingAlerts() {
             {alertStats.unreadAlerts > 0 && (
               <button
                 onClick={markAllAsRead}
-                className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-700"
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-blue-700"
               >
                 <CheckCircleIcon size={16} />
                 Mark All Read

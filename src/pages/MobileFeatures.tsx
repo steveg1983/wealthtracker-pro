@@ -198,14 +198,14 @@ export default function MobileFeatures() {
 
             <button
               onClick={() => setShowNotificationSettings(true)}
-              className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-left"
+              className="flex items-center gap-4 p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors text-left"
             >
-              <BellIcon size={24} className="text-blue-600 dark:text-blue-400" />
+              <BellIcon size={24} className="text-gray-600 dark:text-gray-500" />
               <div>
                 <h3 className="font-medium text-blue-800 dark:text-blue-200">
                   Notification Settings
                 </h3>
-                <p className="text-sm text-blue-700 dark:text-blue-300">
+                <p className="text-sm text-blue-700 dark:text-gray-300">
                   Configure alerts and reminders
                 </p>
               </div>
@@ -245,7 +245,7 @@ export default function MobileFeatures() {
               {!notificationSettings.enabled && (
                 <button
                   onClick={handleRequestNotificationPermission}
-                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                  className="px-3 py-1 bg-gray-600 text-white rounded text-sm hover:bg-gray-700"
                 >
                   Enable
                 </button>
@@ -270,7 +270,7 @@ export default function MobileFeatures() {
               </p>
               <button
                 onClick={handleRequestNotificationPermission}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
               >
                 Enable Notifications
               </button>
@@ -302,7 +302,7 @@ export default function MobileFeatures() {
                   className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                     notification.read
                       ? 'bg-gray-50 dark:bg-gray-700/50 border-gray-200 dark:border-gray-700'
-                      : 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700'
+                      : 'bg-blue-50 dark:bg-gray-900/20 border-blue-200 dark:border-blue-700'
                   }`}
                   onClick={() => handleMarkNotificationAsRead(notification.id)}
                 >
@@ -354,7 +354,7 @@ export default function MobileFeatures() {
             
             <div>
               <h3 className="font-medium text-gray-900 dark:text-white mb-2 flex items-center gap-2">
-                <MapPinIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                <MapPinIcon size={20} className="text-gray-600 dark:text-gray-500" />
                 Location Services
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">

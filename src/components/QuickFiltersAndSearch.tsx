@@ -505,7 +505,7 @@ export function QuickFiltersAndSearch({
 
       {/* Saved Searches Panel */}
       {showSavedSearches && savedSearches.length > 0 && (
-        <div className="bg-gray-50 dark:bg-gray-900/50 rounded-lg p-4">
+        <div className="bg-blue-50 dark:bg-gray-900/50 rounded-lg p-4">
           <h4 className="font-medium text-gray-900 dark:text-white mb-3">
             Saved Searches
           </h4>
@@ -559,7 +559,7 @@ export function QuickFiltersAndSearch({
             <input
               type="text"
               placeholder="Enter filter name..."
-              className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent mb-4"
+              className="w-full px-3 py-2 bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent mb-4"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && e.currentTarget.value) {
                   saveCurrentFilter(e.currentTarget.value);

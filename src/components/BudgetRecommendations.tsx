@@ -287,7 +287,7 @@ export default function BudgetRecommendations() {
                   {insight.type === 'achievement' ? (
                     <CheckIcon size={20} className="text-green-600 dark:text-green-400" />
                   ) : insight.type === 'opportunity' ? (
-                    <PiggyBankIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                    <PiggyBankIcon size={20} className="text-gray-600 dark:text-gray-500" />
                   ) : (
                     <AlertTriangleIcon size={20} className="text-yellow-600 dark:text-yellow-400" />
                   )}

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { XIcon } from './icons/XIcon';
+import { RadioCheckbox } from './common/RadioCheckbox';
 import TagSelector from './TagSelector';
 import CategorySelector from './CategorySelector';
 import type { Transaction } from '../types';
@@ -427,19 +428,15 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="cleared"
+          <label className="flex items-center gap-2 cursor-pointer">
+            <RadioCheckbox
               checked={formData.cleared}
-              onChange={(e) => setFormData({ ...formData, cleared: e.target.checked })}
-              className="rounded border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-primary focus:ring-offset-2"
-              aria-describedby="cleared-hint"
+              onChange={(checked) => setFormData({ ...formData, cleared: checked })}
             />
-            <label htmlFor="cleared" className="text-sm text-gray-700 dark:text-gray-300">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
               Transaction cleared/reconciled
-            </label>
-          </div>
+            </span>
+          </label>
           <p id="cleared-hint" className="text-xs text-gray-500 dark:text-gray-400 ml-6">
             Check this if the transaction has been verified against your bank statement
           </p>

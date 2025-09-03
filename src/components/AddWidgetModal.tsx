@@ -72,7 +72,7 @@ export default function AddWidgetModal({
                   className={`
                     relative p-4 rounded-lg border-2 transition-all text-left
                     ${isSelected 
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                      ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20' 
                       : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                     }
                     ${isAlreadyAdded 
@@ -89,7 +89,7 @@ export default function AddWidgetModal({
                         : 'bg-gray-100 dark:bg-gray-700'
                       }
                     `}>
-                      <Icon size={24} className={isSelected ? 'text-blue-600' : 'text-gray-600 dark:text-gray-400'} />
+                      <Icon size={24} className={isSelected ? 'text-gray-600' : 'text-gray-600 dark:text-gray-400'} />
                     </div>
                     
                     <div className="flex-1">
@@ -116,7 +116,7 @@ export default function AddWidgetModal({
                     
                     {isSelected && !isAlreadyAdded && (
                       <div className="absolute top-2 right-2">
-                        <CheckIcon size={20} className="text-blue-600" />
+                        <CheckIcon size={20} className="text-gray-600" />
                       </div>
                     )}
                   </div>
@@ -127,7 +127,7 @@ export default function AddWidgetModal({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-gray-900/50">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {selectedWidget 
@@ -146,7 +146,7 @@ export default function AddWidgetModal({
               <button
                 onClick={handleAdd}
                 disabled={!selectedWidget}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 <PlusIcon size={20} />
                 Add Widget

@@ -225,7 +225,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
                 setEditingTarget(activeTarget);
                 setShowTargetModal(true);
               }}
-              className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg"
+              className="p-2 text-gray-600 hover:bg-blue-50 dark:hover:bg-gray-700 rounded-lg"
             >
               <EditIcon size={20} />
             </button>
@@ -330,7 +330,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
             <h3 className="text-lg font-semibold">Rebalancing Actions</h3>
             <button
               onClick={handleExecuteRebalance}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               <CheckCircleIcon size={20} />
               Mark as Rebalanced
@@ -460,10 +460,10 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
             </table>
           </div>
           
-          <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="mt-4 p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
             <div className="flex items-start gap-2">
-              <InfoIcon size={20} className="text-blue-600 mt-0.5" />
-              <div className="text-sm text-blue-800 dark:text-blue-300">
+              <InfoIcon size={20} className="text-gray-600 mt-0.5" />
+              <div className="text-sm text-blue-800 dark:text-gray-300">
                 <p className="font-medium mb-1">How to execute:</p>
                 <ol className="list-decimal list-inside space-y-1">
                   <li>Review the suggested actions above</li>
@@ -575,19 +575,19 @@ function TargetManagementModal({
         <div className="flex gap-4 mb-6 border-b dark:border-gray-700">
           <button
             onClick={() => setActiveTab('targets')}
-            className={`pb-2 px-1 ${activeTab === 'targets' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-400'}`}
+            className={`pb-2 px-1 ${activeTab === 'targets' ? 'border-b-2 border-gray-600 text-gray-600' : 'text-gray-600 dark:text-gray-400'}`}
           >
             My Targets
           </button>
           <button
             onClick={() => setActiveTab('templates')}
-            className={`pb-2 px-1 ${activeTab === 'templates' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-400'}`}
+            className={`pb-2 px-1 ${activeTab === 'templates' ? 'border-b-2 border-gray-600 text-gray-600' : 'text-gray-600 dark:text-gray-400'}`}
           >
             Templates
           </button>
           <button
             onClick={() => setActiveTab('edit')}
-            className={`pb-2 px-1 ${activeTab === 'edit' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600 dark:text-gray-400'}`}
+            className={`pb-2 px-1 ${activeTab === 'edit' ? 'border-b-2 border-gray-600 text-gray-600' : 'text-gray-600 dark:text-gray-400'}`}
           >
             {editingTarget ? 'Edit' : 'Create'} Target
           </button>
@@ -625,7 +625,7 @@ function TargetManagementModal({
                       {!target.isActive && (
                         <button
                           onClick={() => onSetActive(target)}
-                          className="text-sm text-blue-600 hover:text-blue-700"
+                          className="text-sm text-gray-600 hover:text-blue-700"
                         >
                           Set Active
                         </button>
@@ -671,7 +671,7 @@ function TargetManagementModal({
                   </div>
                   <button
                     onClick={() => onUseTemplate(template)}
-                    className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                    className="px-3 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
                   >
                     Use Template
                   </button>
@@ -722,7 +722,7 @@ function TargetManagementModal({
                   <button
                     type="button"
                     onClick={handleAddAllocation}
-                    className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700"
+                    className="flex items-center gap-1 text-sm text-gray-600 hover:text-blue-700"
                   >
                     <PlusIcon size={16} />
                     Add Asset Class
@@ -779,7 +779,7 @@ function TargetManagementModal({
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
               >
                 Save Target
               </button>

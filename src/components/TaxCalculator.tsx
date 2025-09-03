@@ -112,7 +112,7 @@ export default function TaxCalculator(): React.JSX.Element {
               value={grossIncome}
               onChange={(e) => setGrossIncome(e.target.value)}
               placeholder="0"
-              className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
             />
           </div>
         </div>
@@ -148,7 +148,7 @@ export default function TaxCalculator(): React.JSX.Element {
             <select
               value={filingStatus}
               onChange={(e) => setFilingStatus(e.target.value as any)}
-              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               <option value="single">Single</option>
               <option value="married">Married Filing Jointly</option>

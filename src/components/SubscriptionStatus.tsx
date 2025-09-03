@@ -48,8 +48,8 @@ const PLAN_DETAILS: Record<string, PlanDetails> = {
   pro: {
     name: 'Pro',
     icon: Crown,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+    color: 'text-gray-600',
+    bgColor: 'bg-blue-100 dark:bg-gray-900/30',
     price: '£9.99/month',
     badge: 'Most Popular',
     features: [
@@ -160,7 +160,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
                 {currentPlan.name}
               </span>
               {currentPlan.badge && (
-                <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
+                <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-500 rounded-full">
                   {currentPlan.badge}
                 </span>
               )}
@@ -230,7 +230,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             <>
               <button
                 onClick={() => handleUpgrade('pro')}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
                 Upgrade to Pro
               </button>
@@ -293,7 +293,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Crown size={20} className="text-blue-600" />
+                <Crown size={20} className="text-gray-600" />
                 <span className="font-medium text-gray-900 dark:text-white">Pro</span>
                 <span className="text-sm text-gray-500">£9.99/mo</span>
               </div>

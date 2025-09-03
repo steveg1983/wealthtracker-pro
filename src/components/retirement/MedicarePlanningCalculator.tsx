@@ -228,7 +228,7 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
                   ...prev,
                   partA: { ...prev.partA, coverage: Number(e.target.value) }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
                 <option value={40}>40+ quarters (Premium-free)</option>
                 <option value={30}>30-39 quarters ({formatCurrency(PART_A_2024.premiums[30])}/month)</option>
@@ -236,9 +236,9 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
               </select>
             </div>
             
-            <div className="bg-blue-50 p-3 rounded-md">
+            <div className="bg-blue-50 p-3 rounded-lg">
               <div className="flex items-start gap-2">
-                <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                <Info className="h-4 w-4 text-gray-600 mt-0.5" />
                 <div className="text-sm text-blue-900">
                   <p>Part A Deductible: {formatCurrency(PART_A_2024.deductible)} per benefit period</p>
                   <p className="mt-1">Coinsurance: Days 61-90: {formatCurrency(PART_A_2024.coinsurance.days_61_90)}/day</p>
@@ -251,7 +251,7 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
         {/* Part B - Medical Insurance */}
         <div className="border-b pb-6">
           <div className="flex items-center gap-2 mb-4">
-            <Shield className="h-5 w-5 text-blue-500" />
+            <Shield className="h-5 w-5 text-gray-500" />
             <h4 className="font-medium text-gray-900">Part B - Medical Insurance</h4>
           </div>
           
@@ -265,7 +265,7 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
                   ...prev,
                   partB: { ...prev.partB, enrolled: e.target.checked }
                 }))}
-                className="h-4 w-4 text-blue-600"
+                className="h-4 w-4 text-gray-600"
               />
               <label htmlFor="partB" className="text-sm font-medium text-gray-700">
                 Enroll in Part B
@@ -289,7 +289,7 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
                         partD: { ...prev.partD, income }
                       }));
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
                   />
                 </div>
 
@@ -303,7 +303,7 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
                       ...prev,
                       partB: { ...prev.partB, filingStatus: e.target.value as any }
                     }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
                   >
                     <option value="single">Single</option>
                     <option value="married_joint">Married Filing Jointly</option>
@@ -311,9 +311,9 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
                   </select>
                 </div>
 
-                <div className="bg-blue-50 p-3 rounded-md">
+                <div className="bg-blue-50 p-3 rounded-lg">
                   <div className="flex items-start gap-2">
-                    <Info className="h-4 w-4 text-blue-600 mt-0.5" />
+                    <Info className="h-4 w-4 text-gray-600 mt-0.5" />
                     <div className="text-sm text-blue-900">
                       <p>Part B Deductible: {formatCurrency(PART_B_2024.deductible)}/year</p>
                       <p className="mt-1">Standard Premium: {formatCurrency(PART_B_2024.standard_premium)}/month</p>
@@ -345,7 +345,7 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
                   ...prev,
                   partD: { ...prev.partD, enrolled: e.target.checked }
                 }))}
-                className="h-4 w-4 text-blue-600"
+                className="h-4 w-4 text-gray-600"
               />
               <label htmlFor="partD" className="text-sm font-medium text-gray-700">
                 Enroll in Part D
@@ -365,14 +365,14 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
                       ...prev,
                       partD: { ...prev.partD, planCost: Number(e.target.value) || 0 }
                     }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">
                     2024 average: {formatCurrency(PART_D_2024.average_premium)}/month
                   </p>
                 </div>
 
-                <div className="bg-green-50 p-3 rounded-md">
+                <div className="bg-green-50 p-3 rounded-lg">
                   <div className="flex items-start gap-2">
                     <Info className="h-4 w-4 text-green-600 mt-0.5" />
                     <div className="text-sm text-green-900">
@@ -408,7 +408,7 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
                   ...prev,
                   supplemental: { ...prev.supplemental, type: e.target.value as any }
                 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
               >
                 <option value="none">No Supplemental Coverage</option>
                 <option value="medigap">Medigap (Medicare Supplement)</option>
@@ -428,7 +428,7 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
                     ...prev,
                     supplemental: { ...prev.supplemental, planCost: Number(e.target.value) || 0 }
                   }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500"
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   {plan.supplemental.type === 'medigap' 
@@ -443,7 +443,7 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
         {/* Cost Summary */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6">
           <div className="flex items-center gap-2 mb-4">
-            <DollarSign className="h-6 w-6 text-blue-600" />
+            <DollarSign className="h-6 w-6 text-gray-600" />
             <h4 className="text-lg font-semibold text-gray-900">Estimated Medicare Costs</h4>
           </div>
 
@@ -479,16 +479,16 @@ export default function MedicarePlanningCalculator(): React.JSX.Element {
             <div className="pt-3 space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold text-gray-900">Total Monthly</span>
-                <span className="text-lg font-bold text-blue-600">{formatCurrency(costs.total)}</span>
+                <span className="text-lg font-bold text-gray-600">{formatCurrency(costs.total)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-lg font-semibold text-gray-900">Total Annual</span>
-                <span className="text-lg font-bold text-blue-600">{formatCurrency(costs.annual)}</span>
+                <span className="text-lg font-bold text-gray-600">{formatCurrency(costs.annual)}</span>
               </div>
             </div>
           </div>
 
-          <div className="mt-6 p-4 bg-white rounded-md">
+          <div className="mt-6 p-4 bg-white rounded-lg">
             <p className="text-sm text-gray-600">
               <strong>Note:</strong> These are estimated costs based on 2024 Medicare rates. 
               Actual costs may vary based on your specific plan choices, health needs, and location. 

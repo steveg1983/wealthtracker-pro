@@ -85,7 +85,7 @@ export default function BalanceReconciliationModal({
           <label className="block">
             <div className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
               selectedOption === 'opening-balance'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                 : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
             }`}>
               <div className="flex items-start gap-3">
@@ -125,7 +125,7 @@ export default function BalanceReconciliationModal({
           <label className="block">
             <div className={`border-2 rounded-lg p-4 cursor-pointer transition-all ${
               selectedOption === 'adjustment-transaction'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                 : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
             }`}>
               <div className="flex items-start gap-3">

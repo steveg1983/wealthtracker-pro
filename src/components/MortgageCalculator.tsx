@@ -139,7 +139,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                   key={calc.id}
                   className={`p-4 rounded-lg border cursor-pointer transition-colors ${
                     selectedCalculation?.id === calc.id
-                      ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-blue-900/20'
+                      ? 'border-[var(--color-primary)] bg-blue-50 dark:bg-gray-900/20'
                       : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                   onClick={() => setSelectedCalculation(calc)}
@@ -177,11 +177,11 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Monthly Payment</p>
-                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
                           {formatCurrency(selectedCalculation.monthlyPayment)}
                         </p>
                       </div>
-                      <DollarSignIcon size={24} className="text-blue-500" />
+                      <DollarSignIcon size={24} className="text-gray-500" />
                     </div>
                   </div>
 

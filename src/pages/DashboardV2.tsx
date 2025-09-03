@@ -245,16 +245,23 @@ export default function DashboardV2(): React.JSX.Element {
   
   return (
     <PageWrapper title="Dashboard">
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
-          <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div 
+          className="rounded-2xl mt-4 p-6 text-gray-600 dark:text-gray-300 shadow-lg"
+          style={{
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(147, 51, 234, 0.15) 100%)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(59, 130, 246, 0.1)'
+          }}
+        >
+          <div className="max-w-full mx-auto">
             <div className="flex justify-between items-start">
               <div>
-                <h1 className="text-2xl font-bold">
+                <h1 className="text-2xl font-bold text-gray-700 dark:text-gray-200">
                   Welcome back{firstName ? `, ${firstName}` : ''}!
                 </h1>
-                <p className="mt-2 text-blue-100">
+                <p className="mt-2 text-gray-600 dark:text-gray-400">
                   Your net worth is {formatCurrency(metrics.netWorth)} • 
                   {metrics.monthlySavings >= 0 ? ' Saved ' : ' Spent '} 
                   {formatCurrency(Math.abs(metrics.monthlySavings))} this month
@@ -267,7 +274,7 @@ export default function DashboardV2(): React.JSX.Element {
                 <button
                   onClick={handleRefresh}
                   disabled={isRefreshing}
-                  className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                  className="p-2 bg-gray-100/20 hover:bg-gray-100/30 dark:bg-gray-700/20 dark:hover:bg-gray-700/30 rounded-lg transition-colors text-gray-600 dark:text-gray-300"
                   title="Refresh data"
                 >
                   <ArrowPathIcon className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -276,7 +283,7 @@ export default function DashboardV2(): React.JSX.Element {
                 {/* Export Button */}
                 <button
                   onClick={() => setShowExport(true)}
-                  className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                  className="p-2 bg-gray-100/20 hover:bg-gray-100/30 dark:bg-gray-700/20 dark:hover:bg-gray-700/30 rounded-lg transition-colors text-gray-600 dark:text-gray-300"
                   title="Export data"
                 >
                   <ArrowDownTrayIcon className="h-5 w-5" />
@@ -285,7 +292,7 @@ export default function DashboardV2(): React.JSX.Element {
                 {/* Templates Button */}
                 <button
                   onClick={() => setShowTemplates(true)}
-                  className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                  className="p-2 bg-gray-100/20 hover:bg-gray-100/30 dark:bg-gray-700/20 dark:hover:bg-gray-700/30 rounded-lg transition-colors text-gray-600 dark:text-gray-300"
                   title="Layout templates"
                 >
                   <Squares2X2Icon className="h-5 w-5" />
@@ -294,7 +301,7 @@ export default function DashboardV2(): React.JSX.Element {
                 {/* Add Widget Button */}
                 <button
                   onClick={() => setShowAddWidget(true)}
-                  className="p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
+                  className="p-2 bg-gray-100/20 hover:bg-gray-100/30 dark:bg-gray-700/20 dark:hover:bg-gray-700/30 rounded-lg transition-colors text-gray-600 dark:text-gray-300"
                   title="Add widget"
                 >
                   <PlusIcon className="h-5 w-5" />
@@ -306,7 +313,7 @@ export default function DashboardV2(): React.JSX.Element {
                   className={`p-2 rounded-lg transition-colors ${
                     isEditMode 
                       ? 'bg-yellow-500 text-gray-900 hover:bg-yellow-400' 
-                      : 'bg-white/20 hover:bg-white/30'
+                      : 'bg-gray-100/20 hover:bg-gray-100/30 dark:bg-gray-700/20 dark:hover:bg-gray-700/30 text-gray-600 dark:text-gray-300'
                   }`}
                   title={isEditMode ? 'Lock layout' : 'Edit layout'}
                 >
@@ -322,7 +329,7 @@ export default function DashboardV2(): React.JSX.Element {
         </div>
         
         {/* Dashboard Grid */}
-        <div className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="max-w-full mx-auto py-6">
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[...Array(6)].map((_, i) => (
@@ -346,7 +353,7 @@ export default function DashboardV2(): React.JSX.Element {
               {widgets.filter(w => w.isVisible).map(widget => (
                 <div 
                   key={widget.id} 
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
                 >
                   {/* Widget Header */}
                   {isEditMode && (

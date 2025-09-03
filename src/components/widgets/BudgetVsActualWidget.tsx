@@ -131,7 +131,7 @@ export default function BudgetVsActualWidget({
         </p>
         <button
           onClick={() => navigate('/budget')}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
         >
           Create Budget
         </button>
@@ -272,7 +272,7 @@ export default function BudgetVsActualWidget({
                       ? 'bg-red-500' 
                       : comparison.percentUsed > 90
                         ? 'bg-yellow-500'
-                        : 'bg-blue-500'
+                        : 'bg-gray-500'
                   }`}
                   style={{ width: `${Math.min(comparison.percentUsed, 100)}%` }}
                 />
@@ -343,7 +343,7 @@ export default function BudgetVsActualWidget({
       {budgetComparisons.length > 5 && viewMode === 'summary' && (
         <button
           onClick={() => navigate('/budget')}
-          className="w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+          className="w-full text-center text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 font-medium"
         >
           View all {budgetComparisons.length} budget categories →
         </button>
@@ -353,7 +353,7 @@ export default function BudgetVsActualWidget({
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={() => navigate('/budget')}
-          className="px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+          className="px-3 py-2 bg-blue-50 dark:bg-gray-900/20 text-gray-600 dark:text-gray-500 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
         >
           Edit Budgets
         </button>

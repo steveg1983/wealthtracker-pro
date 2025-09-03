@@ -46,11 +46,11 @@ export const AccessibleButton = forwardRef<HTMLButtonElement, AccessibleButtonPr
   ) => {
     // Variant styles
     const variantStyles = {
-      primary: 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500',
+      primary: 'bg-gray-600 text-white hover:bg-gray-700 focus:ring-gray-500',
       secondary: 'bg-gray-200 text-gray-900 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 focus:ring-gray-500',
       danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500',
       ghost: 'bg-transparent hover:bg-gray-100 dark:hover:bg-gray-800 focus:ring-gray-500',
-      link: 'bg-transparent text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline focus:ring-blue-500'
+      link: 'bg-transparent text-gray-600 hover:text-blue-700 dark:text-gray-500 dark:hover:text-gray-300 underline focus:ring-gray-500'
     };
 
     // Size styles

@@ -62,7 +62,7 @@ export function NavigationBadge({
   if (count === 0) return null;
 
   return (
-    <span className={`ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-medium text-white bg-blue-500 rounded-full ${className}`}>
+    <span className={`ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-medium text-white bg-gray-500 rounded-full ${className}`}>
       {count > 9 ? '9+' : count}
     </span>
   );
@@ -120,7 +120,7 @@ export function InlineBadge({
   if (count === 0) return null;
 
   return (
-    <span className={`text-xs font-medium text-blue-600 dark:text-blue-400 ${className}`}>
+    <span className={`text-xs font-medium text-gray-600 dark:text-gray-500 ${className}`}>
       {prefix}{count}
     </span>
   );

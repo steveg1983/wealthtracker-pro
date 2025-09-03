@@ -36,7 +36,7 @@ export default function TaxYearSelector({ value, onChange, className = '' }: Tax
           id="tax-year-select"
           value={selectedYear}
           onChange={handleChange}
-          className="px-2 pr-6 py-0 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none cursor-pointer"
+          className="px-2 pr-6 py-0 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent appearance-none cursor-pointer"
           style={{ height: '28px' }}
         >
           <option value={currentYear}>Current Tax Year ({currentYear})</option>

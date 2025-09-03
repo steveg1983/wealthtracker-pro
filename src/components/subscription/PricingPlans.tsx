@@ -74,7 +74,7 @@ export default function PricingPlans({
     }
     
     if (plan.isPopular) {
-      return 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700';
+      return 'bg-gradient-to-r from-gray-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700';
     }
     
     return 'bg-white text-gray-900 border border-gray-300 hover:bg-gray-50';
@@ -111,7 +111,7 @@ export default function PricingPlans({
         <div className="inline-flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
           <button
             onClick={() => setBillingInterval('month')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               billingInterval === 'month'
                 ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -121,7 +121,7 @@ export default function PricingPlans({
           </button>
           <button
             onClick={() => setBillingInterval('year')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               billingInterval === 'year'
                 ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -142,14 +142,14 @@ export default function PricingPlans({
             key={plan.id}
             className={`relative rounded-2xl border-2 transition-all duration-200 ${
               plan.isPopular
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/10 scale-105'
+                ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/10 scale-105'
                 : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
             } ${plan.tier === currentTier ? 'ring-2 ring-green-500' : ''}`}
           >
             {/* Popular Badge */}
             {plan.isPopular && (
               <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                <div className="bg-gradient-to-r from-gray-600 to-purple-600 text-white px-4 py-1 rounded-full text-sm font-medium flex items-center gap-1">
                   <StarIcon size={14} />
                   Most Popular
                 </div>

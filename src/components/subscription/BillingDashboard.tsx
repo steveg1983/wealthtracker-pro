@@ -102,7 +102,7 @@ export default function BillingDashboard({
   const getStatusBadge = (status: string) => {
     const statusConfig = {
       active: { color: 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200', icon: CheckCircleIcon },
-      trialing: { color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200', icon: CheckCircleIcon },
+      trialing: { color: 'bg-blue-100 text-blue-800 dark:bg-gray-900/20 dark:text-blue-200', icon: CheckCircleIcon },
       past_due: { color: 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200', icon: AlertTriangleIcon },
       cancelled: { color: 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200', icon: AlertTriangleIcon },
     };
@@ -143,7 +143,7 @@ export default function BillingDashboard({
     return (
       <div className={`flex items-center justify-center py-12 ${className}`}>
         <div className="text-center">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-8 h-8 border-2 border-gray-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading billing information...</p>
         </div>
       </div>
@@ -274,7 +274,7 @@ export default function BillingDashboard({
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={() => setShowChangeModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
                 Change Plan
               </button>
@@ -296,7 +296,7 @@ export default function BillingDashboard({
             </p>
             <button
               onClick={() => setShowChangeModal(true)}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
             >
               Upgrade to Premium
             </button>
@@ -400,7 +400,7 @@ export default function BillingDashboard({
                           href={invoice.invoicePdf}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                          className="text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300"
                         >
                           <DownloadIcon size={16} />
                         </a>

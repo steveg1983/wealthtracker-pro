@@ -33,7 +33,7 @@ export default function TransactionsComparison() {
           <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             <button
               onClick={() => setUseRedux(false)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 !useRedux 
                   ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow' 
                   : 'text-gray-600 dark:text-gray-400'
@@ -44,7 +44,7 @@ export default function TransactionsComparison() {
             </button>
             <button
               onClick={() => setUseRedux(true)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 useRedux 
                   ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow' 
                   : 'text-gray-600 dark:text-gray-400'
@@ -58,7 +58,7 @@ export default function TransactionsComparison() {
           {/* Add Transaction Button */}
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             <PlusIcon size={20} />
             Add Transaction
@@ -97,8 +97,8 @@ export default function TransactionsComparison() {
         <TransactionListRedux />
       ) : (
         <div className="space-y-6">
-          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-            <p className="text-sm text-blue-700 dark:text-blue-300">
+          <div className="bg-blue-50 dark:bg-gray-900/20 p-4 rounded-lg">
+            <p className="text-sm text-blue-700 dark:text-gray-300">
               <strong>Context Mode:</strong> This is the original implementation using Context API.
             </p>
           </div>

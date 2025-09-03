@@ -68,7 +68,7 @@ export const OfflineIndicator: React.FC = () => {
             <button
               onClick={handleSync}
               disabled={offlineState.isOffline || offlineState.syncInProgress}
-              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               title="Sync now"
             >
               <RefreshCwIcon 
@@ -116,7 +116,7 @@ export const OfflineIndicator: React.FC = () => {
           <>
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="mt-3 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              className="mt-3 text-xs text-gray-600 dark:text-gray-500 hover:underline"
             >
               {showDetails ? 'Hide' : 'Show'} details
             </button>
@@ -136,7 +136,7 @@ export const OfflineIndicator: React.FC = () => {
                         >
                           <span>{conflict.entity} conflict</span>
                           <button
-                            className="text-blue-600 dark:text-blue-400 hover:underline"
+                            className="text-gray-600 dark:text-gray-500 hover:underline"
                             onClick={() => {
                               // Open conflict resolution modal
                               window.dispatchEvent(new CustomEvent('open-conflict-resolver', {

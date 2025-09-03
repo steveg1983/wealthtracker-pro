@@ -72,7 +72,7 @@ export default function StripeStatusButton(): React.JSX.Element {
           </div>
           
           {status.hasSubscription ? (
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-2">
+            <div className="p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg space-y-2">
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-gray-600 dark:text-gray-400">Plan:</span>
@@ -81,7 +81,7 @@ export default function StripeStatusButton(): React.JSX.Element {
                 <div>
                   <span className="text-gray-600 dark:text-gray-400">Status:</span>
                   <span className={`ml-2 font-medium capitalize ${
-                    status.status === 'trialing' ? 'text-blue-600' :
+                    status.status === 'trialing' ? 'text-gray-600' :
                     status.status === 'active' ? 'text-green-600' :
                     status.status === 'canceled' ? 'text-red-600' :
                     'text-gray-600'

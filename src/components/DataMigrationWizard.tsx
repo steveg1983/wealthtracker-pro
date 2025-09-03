@@ -74,7 +74,7 @@ const MIGRATION_SOURCES = [
     name: 'Quicken',
     description: 'Import from Quicken',
     icon: TrendingUp,
-    color: 'bg-blue-500',
+    color: 'bg-gray-500',
     fileTypes: ['.qif', '.qfx'],
     instructions: 'Export your Quicken data as QIF or QFX files.'
   },
@@ -248,7 +248,7 @@ export default function DataMigrationWizard({
                       currentStep > step.id
                         ? 'bg-green-500 text-white'
                         : currentStep === step.id
-                        ? 'bg-blue-500 text-white'
+                        ? 'bg-gray-500 text-white'
                         : 'bg-gray-200 dark:bg-gray-700 text-gray-500'
                     }`}
                   >
@@ -306,7 +306,7 @@ export default function DataMigrationWizard({
                       onClick={() => setSelectedSource(source.id)}
                       className={`p-4 rounded-lg border-2 transition-all ${
                         selectedSource === source.id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                           : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       }`}
                     >
@@ -340,7 +340,7 @@ export default function DataMigrationWizard({
                 {...getRootProps()}
                 className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
                   isDragActive
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                     : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
                 }`}
               >
@@ -418,14 +418,14 @@ export default function DataMigrationWizard({
                 ))}
               </div>
 
-              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="mt-6 p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
                 <div className="flex items-start gap-2">
-                  <Zap size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <Zap size={20} className="text-gray-600 dark:text-gray-500 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">
+                    <p className="text-sm font-medium text-blue-900 dark:text-gray-300 mb-1">
                       Smart Mapping Active
                     </p>
-                    <p className="text-xs text-blue-700 dark:text-blue-400">
+                    <p className="text-xs text-blue-700 dark:text-gray-500">
                       Our AI has automatically detected and mapped your fields based on common patterns.
                     </p>
                   </div>
@@ -493,7 +493,7 @@ export default function DataMigrationWizard({
             <div className="text-center py-8">
               {isProcessing ? (
                 <>
-                  <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <div className="w-16 h-16 border-4 border-gray-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                     Importing Your Data...
                   </h3>
@@ -543,7 +543,7 @@ export default function DataMigrationWizard({
                 (currentStep === 2 && uploadedFiles.length === 0) ||
                 isProcessing)
                 ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                : 'bg-gray-600 text-white hover:bg-gray-700'
             }`}
           >
             {currentStep === 5 ? 'Complete Import' : 'Next'}

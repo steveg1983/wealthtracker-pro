@@ -462,7 +462,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
       >
         <Download size={20} />
         Advanced Export
@@ -502,7 +502,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                         onClick={() => handleTemplateSelect(template.id)}
                         className={`p-4 rounded-lg border-2 transition-all text-left ${
                           selectedTemplate === template.id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
                         }`}
                       >
@@ -535,7 +535,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                     onClick={() => setOptions(prev => ({ ...prev, format: 'pdf' }))}
                     className={`flex-1 p-3 rounded-lg border-2 transition-all ${
                       options.format === 'pdf'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
@@ -548,7 +548,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                     onClick={() => setOptions(prev => ({ ...prev, format: 'excel' }))}
                     className={`flex-1 p-3 rounded-lg border-2 transition-all ${
                       options.format === 'excel'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
@@ -561,11 +561,11 @@ export default function EnhancedExportManager(): React.JSX.Element {
                     onClick={() => setOptions(prev => ({ ...prev, format: 'csv' }))}
                     className={`flex-1 p-3 rounded-lg border-2 transition-all ${
                       options.format === 'csv'
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                         : 'border-gray-200 dark:border-gray-700'
                     }`}
                   >
-                    <FilePlus size={24} className="mx-auto mb-2 text-blue-500" />
+                    <FilePlus size={24} className="mx-auto mb-2 text-gray-500" />
                     <p className="text-sm font-medium">CSV</p>
                     <p className="text-xs text-gray-500 mt-1">Universal format</p>
                   </button>
@@ -584,7 +584,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                       onClick={() => setOptions(prev => ({ ...prev, dateRange: range as any }))}
                       className={`px-4 py-2 rounded-lg border transition-all ${
                         options.dateRange === range
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
+                          ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20 text-gray-600'
                           : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300'
                       }`}
                     >
@@ -627,7 +627,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                       type="checkbox"
                       checked={options.includeCharts}
                       onChange={(e) => setOptions(prev => ({ ...prev, includeCharts: e.target.checked }))}
-                      className="w-4 h-4 text-blue-600 rounded"
+                      className="w-4 h-4 text-gray-600 rounded"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
                       Include charts and visualizations (PDF only)
@@ -639,7 +639,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                       type="checkbox"
                       checked={options.includeNotes}
                       onChange={(e) => setOptions(prev => ({ ...prev, includeNotes: e.target.checked }))}
-                      className="w-4 h-4 text-blue-600 rounded"
+                      className="w-4 h-4 text-gray-600 rounded"
                     />
                     <span className="text-sm text-gray-700 dark:text-gray-300">
                       Include transaction notes
@@ -698,7 +698,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                 <button
                   onClick={handleExport}
                   disabled={isExporting}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {isExporting ? (
                     <>

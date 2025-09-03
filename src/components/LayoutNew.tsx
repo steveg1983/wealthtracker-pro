@@ -85,8 +85,8 @@ export default function LayoutNew(): React.JSX.Element {
       {/* Progress Bar */}
       <NavigationProgress />
       
-      {/* Main Content Area - With consistent margins */}
-      <div className="w-full min-h-screen bg-blue-50 dark:bg-gray-900">
+      {/* Main Content Area - With consistent margins and padding for fixed header */}
+      <div className="w-full min-h-screen bg-blue-50 dark:bg-gray-900 pt-16">
         {/* Breadcrumbs with margins */}
         <div className="px-6 pt-1">
           <div className="bg-white/80 dark:bg-gray-800 rounded-lg px-3 py-0.5 mb-4 backdrop-blur-sm">

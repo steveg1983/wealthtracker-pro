@@ -47,7 +47,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
         </div>
         <button
           onClick={() => setShowDetails(!showDetails)}
-          className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+          className="text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300"
         >
           {showDetails ? 'Hide' : 'Show'} Details
         </button>
@@ -106,7 +106,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
         {/* Net Income */}
         <div className={`rounded-xl p-4 ${
           summary.netIncome.greaterThanOrEqualTo(0)
-            ? 'bg-blue-50 dark:bg-blue-900/20'
+            ? 'bg-blue-50 dark:bg-gray-900/20'
             : 'bg-orange-50 dark:bg-orange-900/20'
         }`}>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Net Income</p>
@@ -138,7 +138,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
                       </span>
                       <div className="flex-1 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
-                          className="bg-blue-600 h-2 rounded-full"
+                          className="bg-gray-600 h-2 rounded-full"
                           style={{ width: `${category.percentage}%` }}
                         />
                       </div>
@@ -247,7 +247,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
             financialSummaryService.saveSummary(summary);
             // Could add a toast notification here
           }}
-          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          className="flex-1 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
         >
           Save to History
         </button>

@@ -223,23 +223,30 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
   return (
     <div className="space-y-6">
       {/* Primary Focus: Net Worth Hero Card */}
-      <div className="bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
+      <div 
+        className="rounded-2xl p-6 sm:p-8 text-gray-600 dark:text-gray-300 shadow-lg"
+        style={{
+          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(147, 51, 234, 0.15) 100%)',
+          backdropFilter: 'blur(10px)',
+          border: '1px solid rgba(59, 130, 246, 0.1)'
+        }}
+      >
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h2 className="text-lg sm:text-xl opacity-90 font-medium">{t('dashboard.yourNetWorth', 'Your Net Worth')}</h2>
+            <h2 className="text-lg sm:text-xl font-medium text-gray-700 dark:text-gray-200">{t('dashboard.yourNetWorth', 'Your Net Worth')}</h2>
             <div className="mt-2 flex items-baseline gap-3">
-              <span className="text-3xl sm:text-4xl lg:text-5xl font-bold">
+              <span className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white">
                 {formatCurrencyWithSymbol(metrics.netWorth)}
               </span>
               {/* Only show change when we have historical data */}
               {metrics.netWorthChange !== 0 && (
                 metrics.netWorthChange > 0 ? (
-                  <span className="flex items-center gap-1 text-green-300 text-sm sm:text-base">
+                  <span className="flex items-center gap-1 text-green-600 dark:text-green-400 text-sm sm:text-base">
                     <ArrowUpIcon size={16} />
                     +{metrics.netWorthChangePercent.toFixed(1)}%
                   </span>
                 ) : (
-                  <span className="flex items-center gap-1 text-red-300 text-sm sm:text-base">
+                  <span className="flex items-center gap-1 text-red-600 dark:text-red-400 text-sm sm:text-base">
                     <ArrowDownIcon size={16} />
                     {metrics.netWorthChangePercent.toFixed(1)}%
                   </span>
@@ -247,25 +254,25 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
               )}
             </div>
             {metrics.netWorthChange !== 0 && (
-              <p className="mt-3 opacity-80 text-sm sm:text-base">
+              <p className="mt-3 text-gray-600 dark:text-gray-400 text-sm sm:text-base">
                 {t('dashboard.vsLastMonth', 'vs last month')}: {formatCurrencyWithSymbol(metrics.netWorthChange)}
               </p>
             )}
           </div>
-          <BanknoteIcon size={48} className="opacity-50 hidden sm:block" />
+          <BanknoteIcon size={48} className="text-gray-500 dark:text-gray-400 opacity-50 hidden sm:block" />
         </div>
         
         {/* Quick stats */}
-        <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/20">
+        <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-gray-200/20 dark:border-gray-700/20">
           <div>
-            <p className="text-sm opacity-70">{t('dashboard.assets', 'Assets')}</p>
-            <p className="text-xl font-semibold text-green-300">
+            <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.assets', 'Assets')}</p>
+            <p className="text-xl font-semibold text-green-600 dark:text-green-400">
               {formatCurrencyWithSymbol(metrics.totalAssets)}
             </p>
           </div>
           <div>
-            <p className="text-sm opacity-70">{t('dashboard.liabilities', 'Liabilities')}</p>
-            <p className="text-xl font-semibold text-red-300">
+            <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.liabilities', 'Liabilities')}</p>
+            <p className="text-xl font-semibold text-red-600 dark:text-red-400">
               {formatCurrencyWithSymbol(metrics.totalLiabilities)}
             </p>
           </div>
@@ -273,7 +280,7 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
       </div>
 
       {/* Secondary Focus: This Month's Performance */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           {t('dashboard.thisMonthPerformance', "This Month's Performance")}
         </h3>
@@ -299,24 +306,24 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
             <TrendingDownIcon size={24} className="text-red-500" />
           </div>
           
-          <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.saved', 'Saved')}</p>
-              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+              <p className="text-xl font-bold text-gray-600 dark:text-gray-500">
                 {formatCurrencyWithSymbol(metrics.monthlySavings)}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 {metrics.savingsRate.toFixed(1)}% {t('dashboard.rate', 'rate')}
               </p>
             </div>
-            <TargetIcon size={24} className="text-blue-500" />
+            <TargetIcon size={24} className="text-gray-500" />
           </div>
         </div>
       </div>
 
       {/* Budget Status Section - Shows current budget progress */}
       {metrics.budgetStatus.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6" data-testid="budget-status">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6" data-testid="budget-status">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <PieChartIcon size={24} className="text-gray-500" />
             {t('dashboard.budgetStatus', 'Budget Status')}
@@ -343,7 +350,7 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
                     className={`h-full transition-all duration-300 ${
                       budget.percentUsed > 100 ? 'bg-red-500' :
                       budget.percentUsed > 80 ? 'bg-yellow-500' :
-                      budget.percentUsed > 60 ? 'bg-blue-500' :
+                      budget.percentUsed > 60 ? 'bg-gray-500' :
                       'bg-green-500'
                     }`}
                     style={{ width: `${Math.min(budget.percentUsed, 100)}%` }}
@@ -355,7 +362,7 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
             {metrics.budgetStatus.length > 3 && (
               <button 
                 onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-                className="w-full mt-2 py-2 text-blue-600 dark:text-blue-400 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                className="w-full mt-2 py-2 text-gray-600 dark:text-gray-500 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
               >
                 View All Budgets ({metrics.budgetStatus.length}) →
               </button>
@@ -365,7 +372,7 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
       )}
 
       {/* Account Balances Section - Customizable by user */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <WalletIcon size={24} className="text-gray-500" />
@@ -405,12 +412,23 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
                   key={account.id}
                   className="flex items-center gap-2 p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded cursor-pointer"
                 >
-                  <input
-                    type="checkbox"
-                    checked={selectedAccountIds.includes(account.id)}
-                    onChange={() => toggleAccountSelection(account.id)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                  />
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={selectedAccountIds.includes(account.id)}
+                      onChange={() => toggleAccountSelection(account.id)}
+                      className="sr-only"
+                    />
+                    <div className={`w-5 h-5 rounded-full border-2 ${
+                      selectedAccountIds.includes(account.id)
+                        ? 'border-gray-600 dark:border-gray-400'
+                        : 'border-gray-300 dark:border-gray-600'
+                    }`}>
+                      {selectedAccountIds.includes(account.id) && (
+                        <div className="w-3 h-3 rounded-full bg-gray-600 dark:bg-gray-400 m-0.5" />
+                      )}
+                    </div>
+                  </div>
                   <span className="text-sm text-gray-700 dark:text-gray-300">
                     {account.name}
                   </span>
@@ -484,7 +502,7 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
 
       {/* Attention Required Section */}
       {metrics.accountsNeedingAttention.length > 0 && (
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-6">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-6">
           <div className="flex items-center gap-3 mb-4">
             <AlertCircleIcon size={24} className="text-yellow-600 dark:text-yellow-400" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -519,7 +537,7 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
       )}
 
       {/* Net Worth Chart */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <BarChart3Icon size={24} className="text-gray-500" />
           Net Worth Over Time
@@ -569,7 +587,7 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
 
       {/* Account Distribution Chart */}
       {pieData.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <PieChartIcon size={24} className="text-gray-500" />
             Account Distribution
@@ -609,7 +627,7 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
       )}
 
       {/* Recent Transactions Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <CreditCardIcon size={24} className="text-gray-500" />
           Recent Transactions
@@ -651,7 +669,7 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
           {metrics.recentActivity.length > 10 && (
             <button 
               onClick={() => navigate(preserveDemoParam('/transactions', location.search))}
-              className="w-full mt-4 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+              className="w-full mt-4 py-2 text-gray-600 dark:text-gray-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
             >
               View All Transactions →
             </button>
@@ -666,7 +684,7 @@ export const ImprovedDashboard = memo(function ImprovedDashboard() {
           onClick={() => setShowAddTransactionModal(true)}
           className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center"
         >
-          <CreditCardIcon size={24} className="mx-auto mb-2 text-blue-600" />
+          <CreditCardIcon size={24} className="mx-auto mb-2 text-gray-600" />
           <span className="text-sm font-medium text-gray-900 dark:text-white">
             Add Transaction
           </span>

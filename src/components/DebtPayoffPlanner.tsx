@@ -468,9 +468,9 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
             <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Strategy</h3>
-                <TargetIcon size={20} className="text-blue-500" />
+                <TargetIcon size={20} className="text-gray-500" />
               </div>
-              <p className="text-lg font-bold text-blue-600 dark:text-blue-400 capitalize">
+              <p className="text-lg font-bold text-gray-600 dark:text-gray-500 capitalize">
                 {strategy}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -490,7 +490,7 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
                   key={debt.account.id} 
                   className={`border rounded-lg p-4 ${
                     debt.isSelected 
-                      ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20' 
+                      ? 'border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-gray-900/20' 
                       : 'border-gray-200 dark:border-gray-700'
                   }`}
                 >
@@ -500,7 +500,7 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
                         type="checkbox"
                         checked={debt.isSelected}
                         onChange={() => toggleDebtSelection(debt.account.id)}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                        className="w-4 h-4 text-gray-600 rounded focus:ring-gray-500"
                       />
                       <div>
                         <h4 className="font-medium text-gray-900 dark:text-white">
@@ -579,11 +579,11 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
                 onClick={() => setStrategy('avalanche')}
                 className={`p-4 rounded-lg border-2 transition-all ${
                   strategy === 'avalanche'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
-                <ZapIcon size={24} className="mb-2 text-blue-600 dark:text-blue-400" />
+                <ZapIcon size={24} className="mb-2 text-gray-600 dark:text-gray-500" />
                 <h4 className="font-medium text-gray-900 dark:text-white">Avalanche</h4>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Pay highest interest rate first (saves most money)
@@ -594,7 +594,7 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
                 onClick={() => setStrategy('snowball')}
                 className={`p-4 rounded-lg border-2 transition-all ${
                   strategy === 'snowball'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
@@ -609,7 +609,7 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
                 onClick={() => setStrategy('custom')}
                 className={`p-4 rounded-lg border-2 transition-all ${
                   strategy === 'custom'
-                    ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                    ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                 }`}
               >
@@ -648,7 +648,7 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
             <div className="flex justify-between items-center mt-6">
               <button
                 onClick={handleCalculateProjection}
-                className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex items-center gap-2 px-6 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
               >
                 <BarChart3Icon size={16} />
                 Calculate Projection
@@ -679,9 +679,9 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <div className="bg-blue-50 dark:bg-gray-900/20 rounded-lg p-4">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Payoff Time</p>
-                  <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                  <p className="text-xl font-bold text-gray-600 dark:text-gray-500">
                     {currentProjection.totalMonths} months
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">

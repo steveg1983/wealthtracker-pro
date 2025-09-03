@@ -89,7 +89,7 @@ export default function DashboardOptimized() {
               onClick={() => setActiveTab('classic')}
               className={`pb-2 px-1 ${
                 activeTab === 'classic'
-                  ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                  ? 'border-b-2 border-gray-500 text-gray-600 dark:text-gray-500'
                   : 'text-gray-500 dark:text-gray-400'
               }`}
             >
@@ -99,7 +99,7 @@ export default function DashboardOptimized() {
               onClick={() => setActiveTab('modern')}
               className={`pb-2 px-1 ${
                 activeTab === 'modern'
-                  ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                  ? 'border-b-2 border-gray-500 text-gray-600 dark:text-gray-500'
                   : 'text-gray-500 dark:text-gray-400'
               }`}
             >
@@ -109,7 +109,7 @@ export default function DashboardOptimized() {
               onClick={() => setActiveTab('import-export')}
               className={`pb-2 px-1 ${
                 activeTab === 'import-export'
-                  ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+                  ? 'border-b-2 border-gray-500 text-gray-600 dark:text-gray-500'
                   : 'text-gray-500 dark:text-gray-400'
               }`}
             >
@@ -130,7 +130,7 @@ export default function DashboardOptimized() {
                         {formatCurrency(0)}
                       </p>
                     </div>
-                    <BanknoteIcon className="w-8 h-8 text-blue-500" />
+                    <BanknoteIcon className="w-8 h-8 text-gray-500" />
                   </div>
                 </div>
               </div>

@@ -70,7 +70,7 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
     return (
       <div className="h-full flex flex-col cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700/30 rounded-lg transition-colors p-3">
         <div className="flex items-center justify-between mb-2">
-          <BriefcaseIcon size={20} className="text-blue-600 dark:text-blue-400" />
+          <BriefcaseIcon size={20} className="text-gray-600 dark:text-gray-500" />
           <span className="text-xs text-gray-500 dark:text-gray-400">Business</span>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -90,7 +90,7 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <BriefcaseIcon size={20} className="text-blue-600 dark:text-blue-400" />
+          <BriefcaseIcon size={20} className="text-gray-600 dark:text-gray-500" />
           Business Overview
         </h3>
         <div className="flex items-center gap-1">
@@ -191,7 +191,7 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
         {/* Business Features Button */}
         <button
           onClick={() => navigate('/business-features')}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
         >
           Business Features
           <ArrowRightIcon size={14} />

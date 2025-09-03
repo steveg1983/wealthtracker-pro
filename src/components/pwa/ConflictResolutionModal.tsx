@@ -79,7 +79,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
           {/* Local Version */}
           <div className="border rounded-lg p-4 dark:border-gray-700">
             <h4 className="font-medium text-sm mb-2 flex items-center gap-2">
-              <span className="text-blue-600 dark:text-blue-400">Your Version</span>
+              <span className="text-gray-600 dark:text-gray-500">Your Version</span>
               {selectedResolution === 'client' && (
                 <CheckIcon className="h-4 w-4 text-green-500" />
               )}
@@ -92,9 +92,9 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
             </div>
             <button
               onClick={() => setSelectedResolution('client')}
-              className={`mt-3 w-full py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              className={`mt-3 w-full py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                 selectedResolution === 'client'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-gray-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
               }`}
             >
@@ -118,7 +118,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
             </div>
             <button
               onClick={() => setSelectedResolution('server')}
-              className={`mt-3 w-full py-2 px-3 rounded-md text-sm font-medium transition-colors ${
+              className={`mt-3 w-full py-2 px-3 rounded-lg text-sm font-medium transition-colors ${
                 selectedResolution === 'server'
                   ? 'bg-green-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
@@ -150,7 +150,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
         <div className="grid grid-cols-2 gap-4">
           <div className="text-center">
             <p className="text-sm text-gray-500 mb-1">Your Balance</p>
-            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+            <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
               {formatCurrency(client.balance)}
             </p>
           </div>
@@ -287,14 +287,14 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
           <button
             onClick={onClose}
             disabled={isResolving}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleResolve}
             disabled={isResolving}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-4 py-2 text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isResolving ? 'Resolving...' : 'Apply Resolution'}
           </button>

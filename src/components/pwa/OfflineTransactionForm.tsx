@@ -289,7 +289,7 @@ export const OfflineTransactionForm: React.FC<OfflineTransactionFormProps> = ({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-2 px-4 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Queuing...' : 'Add Transaction'}
               </button>

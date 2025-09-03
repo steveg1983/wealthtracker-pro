@@ -33,7 +33,7 @@ export default function AccessibilityAuditPanel({ isOpen, onClose }: { isOpen: b
       case 'warning':
         return <AlertTriangle size={16} className="text-yellow-600" />;
       case 'info':
-        return <Info size={16} className="text-blue-600" />;
+        return <Info size={16} className="text-gray-600" />;
       default:
         return null;
     }
@@ -80,7 +80,7 @@ export default function AccessibilityAuditPanel({ isOpen, onClose }: { isOpen: b
               </span>
             </div>
             <div className="flex items-center gap-2">
-              <Info size={16} className="text-blue-600" />
+              <Info size={16} className="text-gray-600" />
               <span className="text-gray-700 dark:text-gray-300">
                 {info.length} Info
               </span>

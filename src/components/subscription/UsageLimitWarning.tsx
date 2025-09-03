@@ -61,10 +61,10 @@ export default function UsageLimitWarning({
         };
       default:
         return {
-          bg: 'bg-blue-50 dark:bg-blue-900/20',
+          bg: 'bg-blue-50 dark:bg-gray-900/20',
           border: 'border-blue-200 dark:border-blue-800',
           text: 'text-blue-800 dark:text-blue-200',
-          progress: 'bg-blue-500'
+          progress: 'bg-gray-500'
         };
     }
   };
@@ -137,7 +137,7 @@ export default function UsageLimitWarning({
           <div className="flex flex-col sm:flex-row gap-2">
             <button
               onClick={() => window.location.href = '/subscription'}
-              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
             >
               <ArrowUpIcon size={14} />
               Upgrade to Premium
@@ -145,7 +145,7 @@ export default function UsageLimitWarning({
             
             <button
               onClick={() => window.location.href = '/subscription'}
-              className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm underline"
+              className="text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 text-sm underline"
             >
               View Plans
             </button>
@@ -212,14 +212,14 @@ export function UpgradeBenefits({ feature, className = '' }: UpgradeBenefitsProp
       <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={() => window.location.href = '/subscription'}
-          className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium"
+          className="flex-1 px-6 py-3 bg-gradient-to-r from-gray-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium"
         >
           Start Free Trial
         </button>
         
         <button
           onClick={() => window.location.href = '/subscription'}
-          className="px-6 py-3 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 text-sm font-medium"
+          className="px-6 py-3 text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 text-sm font-medium"
         >
           Compare Plans
         </button>

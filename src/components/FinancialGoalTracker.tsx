@@ -183,7 +183,7 @@ export default function FinancialGoalTracker({ onDataChange }: FinancialGoalTrac
   // Get category color
   const getCategoryColor = (category?: string) => {
     switch (category) {
-      case 'home': return 'text-blue-600 bg-blue-50 border-blue-200';
+      case 'home': return 'text-gray-600 bg-blue-50 border-blue-200';
       case 'car': return 'text-purple-600 bg-purple-50 border-purple-200';
       case 'education': return 'text-green-600 bg-green-50 border-green-200';
       case 'vacation': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
@@ -239,7 +239,7 @@ export default function FinancialGoalTracker({ onDataChange }: FinancialGoalTrac
         </div>
         <button
           onClick={handleCreateGoal}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
         >
           <PlusIcon size={16} />
           Add Goal
@@ -262,14 +262,14 @@ export default function FinancialGoalTracker({ onDataChange }: FinancialGoalTrac
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Overall Progress</h3>
-            <TrendingUpIcon size={20} className="text-blue-500" />
+            <TrendingUpIcon size={20} className="text-gray-500" />
           </div>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+          <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
             {overallProgress.toFixed(1)}%
           </p>
           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2">
             <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              className="bg-gray-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${Math.min(100, overallProgress)}%` }}
             />
           </div>
@@ -312,7 +312,7 @@ export default function FinancialGoalTracker({ onDataChange }: FinancialGoalTrac
             onClick={() => setSelectedCategory(category)}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               selectedCategory === category
-                ? 'bg-blue-600 text-white'
+                ? 'bg-gray-600 text-white'
                 : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
             }`}
           >
@@ -338,7 +338,7 @@ export default function FinancialGoalTracker({ onDataChange }: FinancialGoalTrac
           </p>
           <button
             onClick={handleCreateGoal}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             <PlusIcon size={16} />
             Create Your First Goal
@@ -371,7 +371,7 @@ export default function FinancialGoalTracker({ onDataChange }: FinancialGoalTrac
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => handleEditGoal(goal)}
-                      className="p-1 text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+                      className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-500"
                     >
                       <EditIcon size={14} />
                     </button>
@@ -400,7 +400,7 @@ export default function FinancialGoalTracker({ onDataChange }: FinancialGoalTrac
                         projection.currentProgress >= 100 
                           ? 'bg-green-500' 
                           : projection.onTrack 
-                            ? 'bg-blue-500' 
+                            ? 'bg-gray-500' 
                             : 'bg-yellow-500'
                       }`}
                       style={{ width: `${Math.min(100, projection.currentProgress)}%` }}
@@ -455,7 +455,7 @@ export default function FinancialGoalTracker({ onDataChange }: FinancialGoalTrac
                       <span className="text-sm font-medium">Goal Achieved!</span>
                     </div>
                   ) : projection.onTrack ? (
-                    <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-500">
                       <TrendingUpIcon size={16} />
                       <span className="text-sm font-medium">On Track</span>
                     </div>
@@ -477,7 +477,7 @@ export default function FinancialGoalTracker({ onDataChange }: FinancialGoalTrac
                         handleUpdateProgress(goal, Number(newAmount));
                       }
                     }}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+                    className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
                   >
                     Update
                   </button>
@@ -668,7 +668,7 @@ function GoalModal({ goal, onClose, onSave }: GoalModalProps) {
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               {goal ? 'Update' : 'Create'} Goal
             </button>

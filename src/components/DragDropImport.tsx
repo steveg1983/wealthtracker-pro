@@ -311,7 +311,7 @@ export function DragDropImport({
       case 'detecting':
       case 'parsing':
       case 'importing':
-        return <RefreshCwIcon size={48} className="text-blue-500 animate-spin" />;
+        return <RefreshCwIcon size={48} className="text-gray-500 animate-spin" />;
       default:
         return <UploadCloudIcon size={48} className="text-gray-400" />;
     }
@@ -407,7 +407,7 @@ export function DragDropImport({
                   className={`h-full transition-all duration-500 ease-out rounded-full ${
                     importProgress.status === 'error' ? 'bg-red-500' :
                     importProgress.status === 'complete' ? 'bg-green-500' :
-                    'bg-blue-500'
+                    'bg-gray-500'
                   }`}
                   style={{ width: `${importProgress.progress}%` }}
                 />
@@ -484,9 +484,9 @@ export function DragDropImport({
             
             <div className="flex-1 overflow-auto p-6">
               {/* Column Mapping */}
-              <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="mb-6 p-4 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
-                  <SparklesIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                  <SparklesIcon size={20} className="text-gray-600 dark:text-gray-500" />
                   <h4 className="font-medium text-blue-900 dark:text-blue-100">
                     Auto-detected Column Mappings
                   </h4>
@@ -508,7 +508,7 @@ export function DragDropImport({
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="bg-gray-50 dark:bg-gray-900">
+                    <tr className="bg-blue-50 dark:bg-gray-900">
                       {previewData.headers.map((header, idx) => (
                         <th key={idx} className="px-3 py-2 text-left font-medium text-gray-900 dark:text-white">
                           {header}

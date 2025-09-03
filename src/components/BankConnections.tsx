@@ -181,7 +181,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
           )}
           <button
             onClick={() => setShowAddBank(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
           >
             <PlusIcon size={16} />
             Add Bank
@@ -260,7 +260,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
           </p>
           <button
             onClick={() => setShowAddBank(true)}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
           >
             <PlusIcon size={20} />
             Connect Your First Bank

@@ -108,7 +108,7 @@ export function Toast({ toast, onDismiss }: ToastProps): React.JSX.Element {
       <button
         onClick={handleDismiss}
         className={`
-          flex-shrink-0 p-1 rounded-md
+          flex-shrink-0 p-1 rounded-lg
           ${textColors[toast.type]} hover:bg-black/5 dark:hover:bg-white/5
           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary
           min-w-[44px] min-h-[44px] flex items-center justify-center

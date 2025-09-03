@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CheckIcon, AlertCircleIcon, FileTextIcon } from './icons';
+import { RadioCheckbox } from './common/RadioCheckbox';
 
 interface Account {
   name: string;
@@ -141,11 +142,9 @@ export default function AccountSelectionModal({
                         className="text-primary"
                       />
                     ) : (
-                      <input
-                        type="checkbox"
+                      <RadioCheckbox
                         checked={selectedAccounts.has(account.name)}
                         onChange={() => {}}
-                        className="rounded text-primary"
                       />
                     )}
                   </div>

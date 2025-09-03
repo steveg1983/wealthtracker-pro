@@ -345,7 +345,7 @@ export default function NetWorthProjector({ onDataChange }: NetWorthPlannerProps
             </h3>
             <CalendarIcon size={20} className="text-gray-400" />
           </div>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+          <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
             {projection ? formatCurrency(projection.projectedNetWorth) : '—'}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -451,7 +451,7 @@ export default function NetWorthProjector({ onDataChange }: NetWorthPlannerProps
           <h3 className="font-semibold text-gray-900 dark:text-white">Projection Settings</h3>
           <button
             onClick={() => setShowProjectionSettings(!showProjectionSettings)}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
           >
             {showProjectionSettings ? 'Hide' : 'Customize'}
           </button>
@@ -505,7 +505,7 @@ export default function NetWorthProjector({ onDataChange }: NetWorthPlannerProps
           <div className="flex justify-end">
             <button
               onClick={savePlan}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               Save Projection Settings
             </button>
@@ -564,7 +564,7 @@ export default function NetWorthProjector({ onDataChange }: NetWorthPlannerProps
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {projection.milestones.map((milestone, index) => (
               <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                <p className="text-lg font-bold text-gray-600 dark:text-gray-500">
                   {formatCurrency(milestone.amount)}
                 </p>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">

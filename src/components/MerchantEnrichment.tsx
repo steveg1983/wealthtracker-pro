@@ -152,7 +152,7 @@ export default function MerchantEnrichment({ onDataChange }: MerchantEnrichmentP
       {/* Header */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <SearchIcon size={20} className="text-blue-600 dark:text-blue-400" />
+          <SearchIcon size={20} className="text-gray-600 dark:text-gray-500" />
           Merchant Enrichment
         </h3>
         <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -208,7 +208,7 @@ export default function MerchantEnrichment({ onDataChange }: MerchantEnrichmentP
                 <p className="text-sm text-gray-600 dark:text-gray-400">Tags:</p>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {enrichmentResult.suggestedTags.map((tag, index) => (
-                    <span key={index} className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 rounded">
+                    <span key={index} className="px-2 py-1 text-xs bg-blue-100 text-blue-800 dark:bg-gray-900/20 dark:text-blue-200 rounded">
                       {tag}
                     </span>
                   ))}
@@ -225,11 +225,11 @@ export default function MerchantEnrichment({ onDataChange }: MerchantEnrichmentP
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Merchants</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+              <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
                 {merchants.length}
               </p>
             </div>
-            <BuildingIcon size={24} className="text-blue-500" />
+            <BuildingIcon size={24} className="text-gray-500" />
           </div>
         </div>
 
@@ -396,7 +396,7 @@ export default function MerchantEnrichment({ onDataChange }: MerchantEnrichmentP
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
-                        <button className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300">
+                        <button className="text-gray-600 dark:text-gray-500 hover:text-blue-900 dark:hover:text-gray-300">
                           <EyeIcon size={16} />
                         </button>
                         <button className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300">

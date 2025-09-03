@@ -183,7 +183,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
         </div>
 
         {/* Balance Summary */}
-        <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 bg-blue-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Current Balance</p>
@@ -194,7 +194,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
             
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">After Reconciliation</p>
-              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+              <p className="text-xl font-bold text-gray-600 dark:text-gray-500">
                 {formatCurrency(projectedBalance)}
               </p>
             </div>
@@ -215,7 +215,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
                 <button
                   onClick={autoMatch}
                   disabled={!targetBalance}
-                  className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title="Auto-select transactions to match target"
                 >
                   <RefreshCwIcon size={16} />
@@ -246,7 +246,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
           <div className="flex items-center gap-2">
             <button
               onClick={selectAll}
-              className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+              className="px-3 py-1 text-sm text-gray-600 dark:text-gray-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
             >
               Select All
             </button>
@@ -280,7 +280,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
                     className={`
                       p-4 rounded-lg border cursor-pointer transition-all
                       ${isSelected 
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                        ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20' 
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                       }
                     `}
@@ -290,7 +290,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
                         <div className={`
                           w-5 h-5 rounded border-2 flex items-center justify-center
                           ${isSelected 
-                            ? 'bg-blue-600 border-blue-600' 
+                            ? 'bg-gray-600 border-gray-600' 
                             : 'border-gray-300 dark:border-gray-600'
                           }
                         `}>
@@ -322,7 +322,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-gray-900/50">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">

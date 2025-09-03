@@ -503,10 +503,10 @@ export default function AppSettings() {
             </button>
           </div>
           
-          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
+          <div className="p-4 bg-blue-50 dark:bg-gray-900/20 rounded-xl">
             <div className="flex items-start gap-2">
-              <AlertCircleIcon size={16} className="text-blue-600 dark:text-blue-400 mt-0.5" />
-              <div className="text-xs text-blue-700 dark:text-blue-300 space-y-1">
+              <AlertCircleIcon size={16} className="text-gray-600 dark:text-gray-500 mt-0.5" />
+              <div className="text-xs text-blue-700 dark:text-gray-300 space-y-1">
                 <p>
                   <strong>Automatic Updates:</strong> Tax data is checked daily in the background.
                 </p>

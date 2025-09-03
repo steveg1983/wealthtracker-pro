@@ -69,7 +69,7 @@ export default function CollaborationWidget({ size = 'medium' }: CollaborationWi
         onClick={handleViewHousehold}
       >
         <div className="flex items-center justify-between mb-2">
-          <UsersIcon size={20} className="text-blue-600 dark:text-blue-400" />
+          <UsersIcon size={20} className="text-gray-600 dark:text-gray-500" />
           <span className="text-xs text-gray-500 dark:text-gray-400">Household</span>
         </div>
         <div className="flex-1 flex items-center justify-center">
@@ -99,7 +99,7 @@ export default function CollaborationWidget({ size = 'medium' }: CollaborationWi
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-          <UsersIcon size={20} className="text-blue-600 dark:text-blue-400" />
+          <UsersIcon size={20} className="text-gray-600 dark:text-gray-500" />
           Collaboration
         </h3>
         {currentHousehold && (
@@ -207,7 +207,7 @@ export default function CollaborationWidget({ size = 'medium' }: CollaborationWi
             {/* View Household Button */}
             <button
               onClick={handleViewHousehold}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
             >
               Manage Household
               <ArrowRightIcon size={14} />

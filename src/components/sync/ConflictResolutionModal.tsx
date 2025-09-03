@@ -200,13 +200,13 @@ export default function ConflictResolutionModal({
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Local Version */}
                     <div className="relative">
-                      <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500 rounded-t-lg"></div>
+                      <div className="absolute top-0 left-0 right-0 h-1 bg-gray-500 rounded-t-lg"></div>
                       <div className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 pt-6">
                         <div className="flex items-center justify-between mb-3">
                           <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                             Your Local Changes
                           </span>
-                          <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded">
+                          <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-gray-900/50 text-blue-700 dark:text-gray-300 rounded">
                             Local
                           </span>
                         </div>
@@ -214,7 +214,7 @@ export default function ConflictResolutionModal({
                         <button
                           onClick={() => handleResolve(conflict.id, 'local')}
                           disabled={resolving === conflict.id || resolvingAll !== null}
-                          className="mt-4 w-full px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="mt-4 w-full px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {resolving === conflict.id ? (
                             <RefreshCw size={16} className="animate-spin" />
@@ -265,7 +265,7 @@ export default function ConflictResolutionModal({
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50">
+        <div className="p-6 border-t border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-gray-900/50">
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
             <AlertTriangle size={16} />
             <p>

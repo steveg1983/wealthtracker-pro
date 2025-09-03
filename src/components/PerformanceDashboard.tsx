@@ -114,7 +114,7 @@ export const PerformanceDashboard: React.FC = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3 mb-6">
-        <ActivityIcon className="w-8 h-8 text-blue-600" />
+        <ActivityIcon className="w-8 h-8 text-gray-600" />
         <h2 className="text-2xl font-bold">Performance Dashboard</h2>
       </div>
 
@@ -208,7 +208,7 @@ export const PerformanceDashboard: React.FC = () => {
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div 
-                  className="bg-blue-600 h-2.5 rounded-full"
+                  className="bg-gray-600 h-2.5 rounded-full"
                   style={{ width: `${Math.min(memoryUsage.percentUsed, 100)}%` }}
                 ></div>
               </div>

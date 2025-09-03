@@ -101,7 +101,7 @@ export function RealtimeStatusIndicator({
               {!connectionState.isConnected && (
                 <button
                   onClick={handleReconnect}
-                  className="mt-2 text-xs bg-blue-500 text-white px-2 py-1 rounded hover:bg-blue-600 transition-colors"
+                  className="mt-2 text-xs bg-gray-500 text-white px-2 py-1 rounded hover:bg-gray-600 transition-colors"
                 >
                   Reconnect
                 </button>
@@ -166,7 +166,7 @@ export function RealtimeStatusIndicator({
               <button
                 onClick={handleReconnect}
                 disabled={connectionState.isReconnecting}
-                className="w-full mt-2 text-xs bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="w-full mt-2 text-xs bg-gray-500 text-white px-3 py-2 rounded hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {connectionState.isReconnecting ? 'Reconnecting...' : 'Reconnect'}
               </button>

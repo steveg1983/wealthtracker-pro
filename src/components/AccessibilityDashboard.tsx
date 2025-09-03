@@ -350,7 +350,7 @@ export const AccessibilityDashboard: React.FC = () => {
                   className={`
                     py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2
                     ${activeTab === tab.id 
-                      ? 'border-blue-600 text-blue-600 dark:text-blue-400' 
+                      ? 'border-gray-600 text-gray-600 dark:text-gray-500' 
                       : `border-transparent ${accessibleColorClasses['text-muted']} hover:text-gray-700 dark:hover:text-gray-300`
                     }
                   `}

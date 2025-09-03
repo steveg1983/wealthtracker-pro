@@ -203,12 +203,12 @@ export default function ExportModal({
                             onClick={() => setSelectedFormat(format.value as any)}
                             className={`relative p-3 rounded-lg border-2 transition-all ${
                               selectedFormat === format.value
-                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                                ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                                 : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                             }`}
                           >
                             {selectedFormat === format.value && (
-                              <CheckIcon className="absolute top-2 right-2 h-4 w-4 text-blue-600 dark:text-blue-400" />
+                              <CheckIcon className="absolute top-2 right-2 h-4 w-4 text-gray-600 dark:text-gray-500" />
                             )}
                             <Icon className="h-6 w-6 text-gray-600 dark:text-gray-400 mb-1" />
                             <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -235,7 +235,7 @@ export default function ExportModal({
                           onClick={() => handleDateRangeChange(range)}
                           className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
                             dateRange === range
-                              ? 'bg-blue-600 text-white'
+                              ? 'bg-gray-600 text-white'
                               : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                           }`}
                         >
@@ -257,7 +257,7 @@ export default function ExportModal({
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           />
                         </div>
                         <div>
@@ -268,7 +268,7 @@ export default function ExportModal({
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           />
                         </div>
                       </div>
@@ -288,18 +288,33 @@ export default function ExportModal({
                         goals: 'Financial Goals',
                         charts: 'Charts & Graphs (PDF/Excel only)'
                       }).map(([key, label]) => (
-                        <label key={key} className="flex items-center">
-                          <input
-                            type="checkbox"
-                            checked={includeOptions[key as keyof typeof includeOptions]}
-                            onChange={(e) => setIncludeOptions({
-                              ...includeOptions,
-                              [key]: e.target.checked
-                            })}
-                            disabled={key === 'charts' && !['pdf', 'xlsx'].includes(selectedFormat)}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          />
-                          <span className={`ml-2 text-sm ${
+                        <label key={key} className="flex items-center cursor-pointer">
+                          <div className="relative">
+                            <input
+                              type="checkbox"
+                              checked={includeOptions[key as keyof typeof includeOptions]}
+                              onChange={(e) => setIncludeOptions({
+                                ...includeOptions,
+                                [key]: e.target.checked
+                              })}
+                              disabled={key === 'charts' && !['pdf', 'xlsx'].includes(selectedFormat)}
+                              className="sr-only"
+                            />
+                            <div className={`w-5 h-5 rounded-full border-2 ${
+                              includeOptions[key as keyof typeof includeOptions]
+                                ? 'border-gray-600 dark:border-gray-400'
+                                : 'border-gray-300 dark:border-gray-600'
+                            } ${
+                              key === 'charts' && !['pdf', 'xlsx'].includes(selectedFormat)
+                                ? 'opacity-50 cursor-not-allowed'
+                                : ''
+                            }`}>
+                              {includeOptions[key as keyof typeof includeOptions] && (
+                                <div className="w-3 h-3 rounded-full bg-gray-600 dark:bg-gray-400 m-0.5" />
+                              )}
+                            </div>
+                          </div>
+                          <span className={`ml-3 text-sm ${
                             key === 'charts' && !['pdf', 'xlsx'].includes(selectedFormat)
                               ? 'text-gray-400 dark:text-gray-600'
                               : 'text-gray-700 dark:text-gray-300'
@@ -320,7 +335,7 @@ export default function ExportModal({
                       <select
                         value={groupBy}
                         onChange={(e) => setGroupBy(e.target.value as any)}
-                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       >
                         <option value="none">No Grouping</option>
                         <option value="category">Category</option>
@@ -331,7 +346,7 @@ export default function ExportModal({
                   )}
                   
                   {/* Summary */}
-                  <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+                  <div className="bg-blue-50 dark:bg-gray-900 rounded-lg p-4">
                     <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">
                       Export Summary
                     </h4>
@@ -359,7 +374,7 @@ export default function ExportModal({
                   </button>
                   <button
                     type="button"
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 text-sm font-medium text-white bg-gray-600 rounded-lg hover:bg-gray-700 transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={handleExport}
                     disabled={isExporting || (!includeOptions.transactions && !includeOptions.accounts && !includeOptions.budgets && !includeOptions.goals)}
                   >

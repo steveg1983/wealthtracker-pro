@@ -456,7 +456,7 @@ export default function PortfolioAnalysis() {
   return (
     <div className="space-y-6">
       {/* Portfolio Overview */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-6 text-white">
+      <div className="bg-gradient-to-r from-gray-600 to-purple-600 rounded-2xl p-6 text-white">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
             <p className="text-blue-100 text-sm mb-1">Total Portfolio Value</p>
@@ -616,7 +616,7 @@ export default function PortfolioAnalysis() {
                 
                 {Math.abs(alloc.difference) > 5 && (
                   <p className={`text-xs ${
-                    alloc.difference > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-blue-600 dark:text-blue-400'
+                    alloc.difference > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-600 dark:text-gray-500'
                   }`}>
                     {alloc.difference > 0 ? 'Overweight' : 'Underweight'} by {Math.abs(alloc.difference).toFixed(1)}%
                   </p>
@@ -654,7 +654,7 @@ export default function PortfolioAnalysis() {
                             {holding.symbol}
                           </p>
                           {holding.recommendation && (
-                            <p className="text-xs text-blue-600 dark:text-blue-400">
+                            <p className="text-xs text-gray-600 dark:text-gray-500">
                               {holding.recommendation}
                             </p>
                           )}

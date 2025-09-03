@@ -271,7 +271,7 @@ export default function TopNavBar(): React.JSX.Element {
 
   return (
     <>
-    <nav className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 shadow-sm">
       <div className="w-full px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo and Brand */}
@@ -407,7 +407,7 @@ export default function TopNavBar(): React.JSX.Element {
                               </div>
                               <span className={`ml-3 font-medium transition-all duration-200 ${
                                 hoveredDropdownIndex === itemIndex 
-                                  ? 'text-blue-600 dark:text-blue-400' 
+                                  ? 'text-gray-600 dark:text-gray-500' 
                                   : 'text-gray-700 dark:text-gray-300'
                               }`}>
                                 {child.label}
@@ -506,7 +506,7 @@ export default function TopNavBar(): React.JSX.Element {
                         {notifications.length > 0 && (
                           <button
                             onClick={() => markAllAsRead()}
-                            className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                            className="text-xs text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300"
                           >
                             Mark all read
                           </button>
@@ -521,7 +521,7 @@ export default function TopNavBar(): React.JSX.Element {
                         <div 
                           key={notification.id}
                           className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 border-b border-gray-100 dark:border-gray-700 cursor-pointer transition-colors ${
-                            !notification.read ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+                            !notification.read ? 'bg-blue-50/50 dark:bg-gray-900/10' : ''
                           }`}
                           onClick={() => {
                             if (!notification.read) {
@@ -539,7 +539,7 @@ export default function TopNavBar(): React.JSX.Element {
                                 notification.type === 'success' ? 'bg-green-500' :
                                 notification.type === 'warning' ? 'bg-yellow-500' :
                                 notification.type === 'error' ? 'bg-red-500' :
-                                'bg-blue-500'
+                                'bg-gray-500'
                               }`}></div>
                             </div>
                             <div className="flex-1">
@@ -555,7 +555,7 @@ export default function TopNavBar(): React.JSX.Element {
                                 {formatDistanceToNow(new Date(notification.timestamp), { addSuffix: true })}
                               </p>
                               {notification.action && (
-                                <button className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 mt-2 font-medium">
+                                <button className="text-xs text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 mt-2 font-medium">
                                   {notification.action.label}
                                 </button>
                               )}
@@ -587,7 +587,7 @@ export default function TopNavBar(): React.JSX.Element {
                       <Link 
                         to="/notifications"
                         onClick={() => setShowNotifications(false)}
-                        className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                        className="text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 font-medium"
                       >
                         View all
                       </Link>
@@ -675,7 +675,7 @@ export default function TopNavBar(): React.JSX.Element {
                     <CogIcon className={`w-4 h-4 mr-2 transition-all duration-200 ${hoveredUserMenuIndex === 0 ? 'scale-110' : 'scale-100'}`} />
                     <span className={`font-medium transition-all duration-200 ${
                       hoveredUserMenuIndex === 0 
-                        ? 'text-blue-600 dark:text-blue-400' 
+                        ? 'text-gray-600 dark:text-gray-500' 
                         : 'text-gray-700 dark:text-gray-300'
                     }`}>
                       {t('navigation.settings')}
@@ -697,7 +697,7 @@ export default function TopNavBar(): React.JSX.Element {
                   >
                     <span className={`font-medium transition-all duration-200 ${
                       hoveredUserMenuIndex === 1 
-                        ? 'text-blue-600 dark:text-blue-400' 
+                        ? 'text-gray-600 dark:text-gray-500' 
                         : 'text-gray-700 dark:text-gray-300'
                     }`}>
                       {t('navigation.subscription')}

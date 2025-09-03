@@ -729,7 +729,7 @@ export default function BulkTransactionEdit({
                 <div className="space-y-3">
                   <button
                     onClick={() => setShowPreview(!showPreview)}
-                    className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                    className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300"
                   >
                     <EyeIcon size={16} />
                     {showPreview ? 'Hide' : 'Show'} preview of changes

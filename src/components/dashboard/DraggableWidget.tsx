@@ -61,7 +61,7 @@ export const DraggableWidget = forwardRef<HTMLDivElement, DraggableWidgetProps>(
         className={`
           bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700
           transition-all duration-200 hover:shadow-md
-          ${isEditMode ? 'ring-2 ring-blue-500 ring-opacity-50' : ''}
+          ${isEditMode ? 'ring-2 ring-gray-500 ring-opacity-50' : ''}
           ${isSortableDragging ? 'scale-105 shadow-xl z-50' : ''}
           ${className}
         `}

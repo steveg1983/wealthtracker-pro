@@ -66,7 +66,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
         <SummaryCard
           title="Assets"
           value={totals.assets}
-          color="border-l-4 border-blue-500"
+          color="border-l-4 border-gray-500"
         />
         <SummaryCard
           title="Liabilities"

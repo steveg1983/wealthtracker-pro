@@ -173,7 +173,7 @@ export function QuickActionMenu({
       >
         <button
           onClick={() => handleSelect('expense')}
-          className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors flex items-center gap-3"
+          className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-3"
         >
           <div className="w-2 h-2 rounded-full bg-red-500" />
           <span className="text-sm font-medium">Quick Expense</span>
@@ -181,7 +181,7 @@ export function QuickActionMenu({
         
         <button
           onClick={() => handleSelect('income')}
-          className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors flex items-center gap-3"
+          className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-3"
         >
           <div className="w-2 h-2 rounded-full bg-green-500" />
           <span className="text-sm font-medium">Quick Income</span>
@@ -189,9 +189,9 @@ export function QuickActionMenu({
         
         <button
           onClick={() => handleSelect('transfer')}
-          className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors flex items-center gap-3"
+          className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-3"
         >
-          <div className="w-2 h-2 rounded-full bg-blue-500" />
+          <div className="w-2 h-2 rounded-full bg-gray-500" />
           <span className="text-sm font-medium">Quick Transfer</span>
         </button>
       </div>

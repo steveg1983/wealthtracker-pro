@@ -96,7 +96,7 @@ export default function DuplicateDetectionModal({
                 </button>
                 <button
                   onClick={() => handleResolveAll('keep')}
-                  className="px-4 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                 >
                   Import All Anyway
                 </button>
@@ -139,13 +139,13 @@ export default function DuplicateDetectionModal({
                       </button>
                       <button
                         onClick={() => handleResolve('both', duplicate)}
-                        className="px-3 py-1 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                        className="px-3 py-1 text-sm text-gray-600 dark:text-gray-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                       >
                         Keep Both
                       </button>
                       <button
                         onClick={() => handleResolve('keep', duplicate)}
-                        className="px-3 py-1 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                        className="px-3 py-1 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
                       >
                         Import
                       </button>
@@ -170,7 +170,7 @@ export default function DuplicateDetectionModal({
                       <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
                         New Transaction (To Import)
                       </h4>
-                      <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                      <div className="p-3 bg-blue-50 dark:bg-gray-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                         <p className="font-medium text-gray-900 dark:text-white">
                           {duplicate.transaction.description}
                         </p>

@@ -35,7 +35,7 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
   return (
     <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
       <div className="flex items-center gap-3 mb-4">
-        <GlobeIcon size={24} className="text-blue-600 dark:text-blue-400" />
+        <GlobeIcon size={24} className="text-gray-600 dark:text-gray-500" />
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Locale & Date Format
@@ -55,7 +55,7 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
             id="locale-select"
             value={currentLocale}
             onChange={(e) => handleLocaleChange(e.target.value)}
-            className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
+            className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
           >
             {SUPPORTED_LOCALES.map((locale) => (
               <option key={locale.code} value={locale.code}>
@@ -92,7 +92,7 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
         <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
           <button
             onClick={() => setShowPreview(!showPreview)}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+            className="text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300 font-medium"
           >
             {showPreview ? 'Hide' : 'Show'} Live Preview
           </button>

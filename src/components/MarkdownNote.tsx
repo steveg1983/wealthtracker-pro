@@ -24,7 +24,7 @@ const parseMarkdown = (text: string): string => {
     .replace(/`([^`]+)`/gim, '<code class="bg-gray-100 dark:bg-gray-700 px-1 py-0.5 rounded text-sm font-mono">$1</code>')
     
     // Links
-    .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-gray-600 dark:text-gray-500 hover:underline">$1</a>')
     
     // Lists
     .replace(/^[*-] (.+)$/gim, '<li class="ml-4 mb-1">• $1</li>')

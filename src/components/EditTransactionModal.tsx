@@ -7,6 +7,7 @@ import CategoryCreationModal from './CategoryCreationModal';
 import TagSelector from './TagSelector';
 import { getCurrencySymbol } from '../utils/currency';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
+import { RadioCheckbox } from './common/RadioCheckbox';
 import { useModalForm } from '../hooks/useModalForm';
 import MarkdownEditor from './MarkdownEditor';
 import DocumentManager from './DocumentManager';
@@ -456,12 +457,10 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
 
             {/* Status */}
             <div className="md:col-span-12 space-y-3">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+              <label className="flex items-center gap-2 cursor-pointer">
+                <RadioCheckbox
                   checked={formData.cleared}
-                  onChange={(e) => updateField('cleared', e.target.checked)}
-                  className="rounded border-gray-300 dark:border-gray-600"
+                  onChange={(checked) => updateField('cleared', checked)}
                 />
                 <CheckIcon2 size={16} className="text-green-600 dark:text-green-400" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
@@ -470,20 +469,18 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
               </label>
 
               <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
+                <RadioCheckbox
                   checked={!!formData.reconciledWith && formData.reconciledWith !== 'manual'}
                   disabled
-                  className="rounded border-gray-300 dark:border-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
                 />
-                <LinkIcon size={16} className="text-blue-600 dark:text-blue-400" />
+                <LinkIcon size={16} className="text-gray-600 dark:text-gray-500" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">
                   Linked to bank statement
                 </span>
               </label>
 
               {transaction?.reconciledWith && transaction.reconciledWith !== 'manual' && (
-                <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400">
+                <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-500">
                   <LinkIcon size={16} />
                   <span>Reconciled with transaction ID: {transaction.reconciledWith}</span>
                 </div>

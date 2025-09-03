@@ -78,7 +78,7 @@ export function VirtualizedSearchResults({
   const getResultIcon = useCallback((type: string) => {
     switch (type) {
       case 'transaction':
-        return <FileTextIcon size={18} className="text-blue-500" />;
+        return <FileTextIcon size={18} className="text-gray-500" />;
       case 'account':
         return <WalletIcon size={18} className="text-green-500" />;
       case 'category':
@@ -224,7 +224,7 @@ export function VirtualizedSearchResults({
                     {result.matchedFields.map((field, idx) => (
                       <span
                         key={idx}
-                        className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded"
+                        className="text-xs px-2 py-1 bg-blue-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-500 rounded"
                       >
                         Matched: {field}
                       </span>
@@ -307,7 +307,7 @@ export function VirtualizedSearchResults({
   return (
     <div className={className}>
       {/* Search summary */}
-      <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+      <div className="px-4 py-3 bg-blue-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <SearchIcon size={18} className="text-gray-400" />
@@ -427,7 +427,7 @@ export function VirtualizedQuickSearch({
       {results.length > 10 && onSeeAll && (
         <button
           onClick={onSeeAll}
-          className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm text-primary font-medium transition-colors"
+          className="w-full px-4 py-3 bg-blue-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 text-sm text-primary font-medium transition-colors"
         >
           See all {results.length} results
         </button>

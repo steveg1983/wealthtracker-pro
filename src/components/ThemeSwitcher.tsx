@@ -49,7 +49,7 @@ export function ThemeSwitcher(): React.JSX.Element {
                   setShowDropdown(false);
                 }}
                 className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 ${
-                  !isDark ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                  !isDark ? 'text-gray-600 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'
                 }`}
               >
                 <SunIcon className="h-4 w-4" />
@@ -61,7 +61,7 @@ export function ThemeSwitcher(): React.JSX.Element {
                   setShowDropdown(false);
                 }}
                 className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 ${
-                  isDark ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                  isDark ? 'text-gray-600 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'
                 }`}
               >
                 <MoonIcon className="h-4 w-4" />
@@ -81,7 +81,7 @@ export function ThemeSwitcher(): React.JSX.Element {
                     setShowDropdown(false);
                   }}
                   className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 ${
-                    currentColor === option.id ? 'text-blue-600 dark:text-blue-400' : 'text-gray-700 dark:text-gray-300'
+                    currentColor === option.id ? 'text-gray-600 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'
                   }`}
                 >
                   <div

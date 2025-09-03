@@ -230,7 +230,7 @@ export default function FinancialPlanning() {
           <div className="space-y-6">
             {/* Quick Stats */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Retirement Plans</p>
@@ -242,11 +242,11 @@ export default function FinancialPlanning() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Active Goals</p>
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    <p className="text-2xl font-bold text-gray-600 dark:text-gray-500">
                       {financialGoals.length}
                     </p>
                   </div>
@@ -254,7 +254,7 @@ export default function FinancialPlanning() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Debt Plans</p>
@@ -266,7 +266,7 @@ export default function FinancialPlanning() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Insurance Items</p>
@@ -282,7 +282,7 @@ export default function FinancialPlanning() {
             {/* Active Plans Overview */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Retirement Plans */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <PiggyBankIcon size={20} className="text-purple-600 dark:text-purple-400" />
@@ -290,7 +290,7 @@ export default function FinancialPlanning() {
                   </h3>
                   <button
                     onClick={() => setActiveTab('retirement')}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    className="text-sm text-gray-600 dark:text-gray-500 hover:underline flex items-center gap-1"
                   >
                     View All <ArrowRightIcon size={14} />
                   </button>
@@ -332,15 +332,15 @@ export default function FinancialPlanning() {
               </div>
 
               {/* Financial Goals */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                    <TargetIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                    <TargetIcon size={20} className="text-gray-600 dark:text-gray-500" />
                     Financial Goals
                   </h3>
                   <button
                     onClick={() => setActiveTab('goals')}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    className="text-sm text-gray-600 dark:text-gray-500 hover:underline flex items-center gap-1"
                   >
                     View All <ArrowRightIcon size={14} />
                   </button>
@@ -351,7 +351,7 @@ export default function FinancialPlanning() {
                     <p className="text-gray-500 dark:text-gray-400 mb-4">No financial goals yet</p>
                     <button
                       onClick={() => setActiveTab('goals')}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                      className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
                     >
                       Create Goal
                     </button>
@@ -383,7 +383,7 @@ export default function FinancialPlanning() {
                           </div>
                           <div className="mt-2 w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                             <div
-                              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                              className="bg-gray-600 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${Math.min(progress, 100)}%` }}
                             />
                           </div>
@@ -398,7 +398,7 @@ export default function FinancialPlanning() {
             {/* Debt Plans and Insurance */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Debt Plans */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <CreditCardIcon size={20} className="text-red-600 dark:text-red-400" />
@@ -406,7 +406,7 @@ export default function FinancialPlanning() {
                   </h3>
                   <button
                     onClick={() => setActiveTab('debt')}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    className="text-sm text-gray-600 dark:text-gray-500 hover:underline flex items-center gap-1"
                   >
                     View All <ArrowRightIcon size={14} />
                   </button>
@@ -448,7 +448,7 @@ export default function FinancialPlanning() {
               </div>
 
               {/* Insurance Overview */}
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <ShieldIcon size={20} className="text-green-600 dark:text-green-400" />
@@ -456,7 +456,7 @@ export default function FinancialPlanning() {
                   </h3>
                   <button
                     onClick={() => setActiveTab('insurance')}
-                    className="text-sm text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    className="text-sm text-gray-600 dark:text-gray-500 hover:underline flex items-center gap-1"
                   >
                     View All <ArrowRightIcon size={14} />
                   </button>

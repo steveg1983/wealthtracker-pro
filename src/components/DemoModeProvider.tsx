@@ -51,7 +51,7 @@ export default function DemoModeProvider({ children }: DemoModeProviderProps): R
                 url.searchParams.delete('demo');
                 window.history.replaceState({}, '', url.toString());
               }}
-              className="text-xs px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md transition-colors"
+              className="text-xs px-3 py-1 bg-white/20 hover:bg-white/30 rounded-lg transition-colors"
             >
               Exit Demo
             </button>

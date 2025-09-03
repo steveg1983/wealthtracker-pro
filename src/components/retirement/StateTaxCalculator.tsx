@@ -238,7 +238,7 @@ export default function StateTaxCalculator() {
               </div>
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Effective Rate</p>
-                <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+                <p className="text-lg font-semibold text-gray-600 dark:text-gray-500">
                   {calculation.effectiveRate.toFixed(2)}%
                 </p>
               </div>
@@ -247,7 +247,7 @@ export default function StateTaxCalculator() {
             {/* Show/Hide Breakdown */}
             <button
               onClick={() => setShowBreakdown(!showBreakdown)}
-              className="mt-4 flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+              className="mt-4 flex items-center gap-2 text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300"
             >
               <CalculatorIcon size={14} />
               {showBreakdown ? 'Hide' : 'Show'} Tax Breakdown
@@ -273,7 +273,7 @@ export default function StateTaxCalculator() {
                         <td className="text-right py-2 text-gray-600 dark:text-gray-400">{item.deductions}</td>
                         <td className="text-right py-2 text-gray-900 dark:text-white">{item.taxableAmount}</td>
                         <td className="text-right py-2 text-red-600 dark:text-red-400">{item.tax}</td>
-                        <td className="text-right py-2 text-blue-600 dark:text-blue-400">{item.rate}</td>
+                        <td className="text-right py-2 text-gray-600 dark:text-gray-500">{item.rate}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -294,7 +294,7 @@ export default function StateTaxCalculator() {
                   key={state.state}
                   className={`p-3 rounded-lg border ${
                     state.state === selectedState
-                      ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                      ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                       : 'border-gray-200 dark:border-gray-700'
                   }`}
                 >
@@ -324,7 +324,7 @@ export default function StateTaxCalculator() {
               <h4 className="font-medium text-gray-900 dark:text-white">Compare States</h4>
               <button
                 onClick={() => setShowComparison(!showComparison)}
-                className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                className="text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300"
               >
                 {showComparison ? 'Hide' : 'Show'} Comparison
               </button>
@@ -342,7 +342,7 @@ export default function StateTaxCalculator() {
                         onClick={() => toggleCompareState(state.code)}
                         className={`px-3 py-1 text-sm rounded-lg border transition-colors ${
                           compareStates.includes(state.code)
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300'
+                            ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20 text-blue-700 dark:text-gray-300'
                             : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
                         }`}
                       >
@@ -373,7 +373,7 @@ export default function StateTaxCalculator() {
                             <tr
                               key={result.state}
                               className={`border-b border-gray-100 dark:border-gray-700 ${
-                                result.state === selectedState ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+                                result.state === selectedState ? 'bg-blue-50 dark:bg-gray-900/20' : ''
                               }`}
                             >
                               <td className="py-2 font-medium">
@@ -407,9 +407,9 @@ export default function StateTaxCalculator() {
           </div>
 
           {/* Info Note */}
-          <div className="mt-6 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          <div className="mt-6 p-3 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
             <div className="flex gap-2">
-              <InfoIcon size={16} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+              <InfoIcon size={16} className="text-gray-600 dark:text-gray-500 mt-0.5 flex-shrink-0" />
               <div className="text-sm text-blue-900 dark:text-blue-100">
                 <p className="font-medium mb-1">Important Notes:</p>
                 <ul className="space-y-0.5 text-xs">

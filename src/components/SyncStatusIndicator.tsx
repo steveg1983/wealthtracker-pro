@@ -64,7 +64,7 @@ export default function SyncStatusIndicator({
       case 'synced':
         return <Check size={16} className="text-green-600" />;
       case 'syncing':
-        return <RefreshCw size={16} className="text-blue-600 animate-spin" />;
+        return <RefreshCw size={16} className="text-gray-600 animate-spin" />;
       case 'pending':
         return <Cloud size={16} className="text-yellow-600" />;
       case 'error':
@@ -98,7 +98,7 @@ export default function SyncStatusIndicator({
       case 'synced':
         return 'text-green-600';
       case 'syncing':
-        return 'text-blue-600';
+        return 'text-gray-600';
       case 'pending':
         return 'text-yellow-600';
       case 'error':
@@ -148,7 +148,7 @@ export default function SyncStatusIndicator({
             </div>
             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
               <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gray-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${syncProgress}%` }}
               />
             </div>
@@ -229,8 +229,8 @@ export default function SyncStatusIndicator({
 
         {/* Pending Changes Indicator */}
         {pendingChanges > 0 && isOnline && (
-          <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded text-xs">
-            <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
+          <div className="mt-2 p-2 bg-blue-50 dark:bg-gray-900/20 rounded text-xs">
+            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-500">
               <RefreshCw size={12} className="animate-spin" />
               <span>{pendingChanges} pending {pendingChanges === 1 ? 'change' : 'changes'} to sync</span>
             </div>
@@ -268,7 +268,7 @@ export default function SyncStatusIndicator({
             </div>
             <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
               <div 
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gray-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${syncProgress}%` }}
               />
             </div>

@@ -282,11 +282,11 @@ export default function PortfolioOptimizer({
             onClick={() => setOptimizationTarget('sharpe')}
             className={`p-3 rounded-lg border transition-colors ${
               optimizationTarget === 'sharpe'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                 : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
             }`}
           >
-            <TargetIcon size={20} className="mx-auto mb-1 text-blue-600 dark:text-blue-400" />
+            <TargetIcon size={20} className="mx-auto mb-1 text-gray-600 dark:text-gray-500" />
             <p className="text-sm font-medium">Max Sharpe Ratio</p>
             <p className="text-xs text-gray-500 dark:text-gray-400">Best risk-adjusted returns</p>
           </button>
@@ -295,7 +295,7 @@ export default function PortfolioOptimizer({
             onClick={() => setOptimizationTarget('minRisk')}
             className={`p-3 rounded-lg border transition-colors ${
               optimizationTarget === 'minRisk'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                 : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
             }`}
           >
@@ -308,7 +308,7 @@ export default function PortfolioOptimizer({
             onClick={() => setOptimizationTarget('maxReturn')}
             className={`p-3 rounded-lg border transition-colors ${
               optimizationTarget === 'maxReturn'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20'
                 : 'border-gray-300 dark:border-gray-600 hover:border-gray-400'
             }`}
           >
@@ -336,9 +336,9 @@ export default function PortfolioOptimizer({
         </h4>
         
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+          <div className="bg-blue-50 dark:bg-gray-900/20 rounded-lg p-3">
             <p className="text-sm text-gray-600 dark:text-gray-400">Expected Return</p>
-            <p className="text-lg font-semibold text-blue-600 dark:text-blue-400">
+            <p className="text-lg font-semibold text-gray-600 dark:text-gray-500">
               {((displayPortfolio as any).return ? (displayPortfolio as any).return * 100 : (displayPortfolio as any).expectedReturn * 100).toFixed(2)}%
             </p>
           </div>
@@ -417,7 +417,7 @@ export default function PortfolioOptimizer({
       <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
         <button
           onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+          className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-500 hover:text-blue-700 dark:hover:text-gray-300"
         >
           <CalculatorIcon size={14} />
           {showAdvanced ? 'Hide' : 'Show'} Advanced Settings
@@ -450,7 +450,7 @@ export default function PortfolioOptimizer({
                 </label>
                 <button
                   onClick={addAsset}
-                  className="flex items-center gap-1 px-2 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="flex items-center gap-1 px-2 py-1 text-sm bg-gray-600 text-white rounded hover:bg-gray-700"
                 >
                   <PlusIcon size={14} />
                   Add Asset
@@ -507,9 +507,9 @@ export default function PortfolioOptimizer({
       </div>
 
       {/* Info Note */}
-      <div className="mt-6 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+      <div className="mt-6 p-3 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
         <div className="flex gap-2">
-          <InfoIcon size={14} className="text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+          <InfoIcon size={14} className="text-gray-600 dark:text-gray-500 mt-0.5 flex-shrink-0" />
           <div className="text-xs text-blue-900 dark:text-blue-100">
             <p className="font-medium mb-1">About Modern Portfolio Theory:</p>
             <ul className="space-y-0.5">

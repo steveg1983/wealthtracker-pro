@@ -249,7 +249,7 @@ export default function WorkplacePensionCalculator() {
 
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
             >
               {showAdvanced ? 'Hide' : 'Show'} Advanced Settings
             </button>
@@ -322,33 +322,33 @@ export default function WorkplacePensionCalculator() {
           {/* Results Section */}
           {results && (
             <div className="space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+              <div className="bg-blue-50 dark:bg-gray-900/20 rounded-lg p-4">
                 <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3">
                   Annual Contributions
                 </h4>
                 <div className="space-y-2">
                   <div className="flex justify-between">
-                    <span className="text-sm text-blue-700 dark:text-blue-300">Your Contribution:</span>
+                    <span className="text-sm text-blue-700 dark:text-gray-300">Your Contribution:</span>
                     <span className="font-medium text-blue-900 dark:text-blue-100">
                       {formatCurrency(results.employeeContribution)}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-blue-700 dark:text-blue-300">Employer Contribution:</span>
+                    <span className="text-sm text-blue-700 dark:text-gray-300">Employer Contribution:</span>
                     <span className="font-medium text-green-600 dark:text-green-400">
                       +{formatCurrency(results.employerContribution)}
                     </span>
                   </div>
                   {results.taxRelief > 0 && !formData.salaryExchange && (
                     <div className="flex justify-between">
-                      <span className="text-sm text-blue-700 dark:text-blue-300">Tax Relief:</span>
+                      <span className="text-sm text-blue-700 dark:text-gray-300">Tax Relief:</span>
                       <span className="font-medium text-green-600 dark:text-green-400">
                         +{formatCurrency(results.taxRelief)}
                       </span>
                     </div>
                   )}
                   <div className="flex justify-between pt-2 border-t border-blue-200 dark:border-blue-800">
-                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Total:</span>
+                    <span className="text-sm font-medium text-blue-700 dark:text-gray-300">Total:</span>
                     <span className="font-bold text-blue-900 dark:text-blue-100">
                       {formatCurrency(results.totalAnnualContribution)}
                     </span>

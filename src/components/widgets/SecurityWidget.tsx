@@ -49,7 +49,7 @@ export default function SecurityWidget({ size = 'medium' }: SecurityWidgetProps)
 
   const getSecurityStatus = () => {
     if (securityScore >= 80) return { label: 'Excellent', color: 'text-green-600 dark:text-green-400' };
-    if (securityScore >= 60) return { label: 'Good', color: 'text-blue-600 dark:text-blue-400' };
+    if (securityScore >= 60) return { label: 'Good', color: 'text-gray-600 dark:text-gray-500' };
     if (securityScore >= 40) return { label: 'Fair', color: 'text-yellow-600 dark:text-yellow-400' };
     return { label: 'Poor', color: 'text-red-600 dark:text-red-400' };
   };
@@ -111,7 +111,7 @@ export default function SecurityWidget({ size = 'medium' }: SecurityWidgetProps)
             <div 
               className={`h-2 rounded-full transition-all duration-500 ${
                 securityScore >= 80 ? 'bg-green-500' :
-                securityScore >= 60 ? 'bg-blue-500' :
+                securityScore >= 60 ? 'bg-gray-500' :
                 securityScore >= 40 ? 'bg-yellow-500' : 'bg-red-500'
               }`}
               style={{ width: `${securityScore}%` }}

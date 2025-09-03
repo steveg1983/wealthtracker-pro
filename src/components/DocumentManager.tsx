@@ -141,7 +141,7 @@ export default function DocumentManager({
 
   const getFileIcon = (mimeType: string) => {
     if (mimeType.startsWith('image/')) {
-      return <ImageIcon size={20} className="text-blue-600" />;
+      return <ImageIcon size={20} className="text-gray-600" />;
     }
     if (mimeType === 'application/pdf') {
       return <FileTextIcon size={20} className="text-red-600" />;
@@ -152,7 +152,7 @@ export default function DocumentManager({
   const getTypeColor = (type: Document['type']) => {
     switch (type) {
       case 'receipt': return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
-      case 'invoice': return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      case 'invoice': return 'bg-blue-100 text-blue-800 dark:bg-gray-900/20 dark:text-gray-500';
       case 'statement': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
       case 'contract': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
       default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400';
@@ -237,7 +237,7 @@ export default function DocumentManager({
         </div>
         <button
           onClick={() => setShowUpload(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
         >
           <UploadIcon size={16} />
           Upload Documents
@@ -255,7 +255,7 @@ export default function DocumentManager({
               placeholder="Search documents..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
             />
           </div>
 
@@ -263,7 +263,7 @@ export default function DocumentManager({
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-white"
           >
             <option value="all">All Types</option>
             <option value="receipt">Receipts</option>
@@ -282,7 +282,7 @@ export default function DocumentManager({
                   setFilterTags([...filterTags, e.target.value]);
                 }
               }}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-gray-500 dark:bg-gray-700 dark:text-white"
             >
               <option value="">Filter by tag...</option>
               {getAllTags().map(tag => (
@@ -298,7 +298,7 @@ export default function DocumentManager({
             {filterTags.map(tag => (
               <span
                 key={tag}
-                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-full text-sm"
+                className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-gray-900/20 text-blue-700 dark:text-gray-300 rounded-full text-sm"
               >
                 <TagIcon size={12} />
                 {tag}
@@ -341,7 +341,7 @@ export default function DocumentManager({
           {documents.length === 0 && (
             <button
               onClick={() => setShowUpload(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               Upload Your First Document
             </button>
@@ -434,7 +434,7 @@ export default function DocumentManager({
                       setSelectedDocument(doc);
                       setShowViewer(true);
                     }}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                    className="text-gray-600 hover:text-blue-700 text-sm font-medium"
                   >
                     View
                   </button>
@@ -642,7 +642,7 @@ export default function DocumentManager({
                   setShowViewer(false);
                   setSelectedDocument(null);
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
               >
                 Close
               </button>
@@ -710,7 +710,7 @@ export default function DocumentManager({
                 type: editingDocument.type,
                 notes: editingDocument.notes
               })}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
             >
               Save Changes
             </button>

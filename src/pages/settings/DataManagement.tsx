@@ -91,7 +91,7 @@ export default function DataManagementSettings() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <button
             onClick={() => setShowBankConnections(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
           >
             <Building2Icon size={20} />
             Manage Bank Connections
@@ -113,7 +113,7 @@ export default function DataManagementSettings() {
         {/* Migration Wizard - Full Width */}
         <button
           onClick={() => setShowMigrationWizard(true)}
-          className="w-full mb-4 px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors flex items-center justify-center gap-2 shadow-lg"
+          className="w-full mb-4 px-4 py-3 bg-gradient-to-r from-gray-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors flex items-center justify-center gap-2 shadow-lg"
         >
           <DatabaseIcon size={20} />
           <span className="font-medium">Data Migration Wizard (Mint, Quicken, YNAB, etc.)</span>

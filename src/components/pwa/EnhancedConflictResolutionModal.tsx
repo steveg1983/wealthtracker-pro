@@ -133,7 +133,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
                 isDifferent 
                   ? isConflicting 
                     ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20' 
-                    : 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-blue-900/20'
+                    : 'border-blue-300 bg-blue-50 dark:border-blue-700 dark:bg-gray-900/20'
                   : 'border-gray-200 dark:border-gray-700'
               }`}
             >
@@ -167,7 +167,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <div className={`p-2 rounded ${
                   currentSelection === 'client' && isDifferent
-                    ? 'bg-blue-100 dark:bg-blue-900/30 ring-2 ring-blue-400'
+                    ? 'bg-blue-100 dark:bg-gray-900/30 ring-2 ring-blue-400'
                     : 'bg-gray-50 dark:bg-gray-800'
                 }`}>
                   <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Your Version</div>
@@ -275,7 +275,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
             <h4 className="font-medium">Resolution Strategy</h4>
             <button
               onClick={() => setShowAdvanced(!showAdvanced)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
             >
               {showAdvanced ? 'Hide' : 'Show'} Advanced Options
             </button>
@@ -303,7 +303,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
               onClick={() => setSelectedResolution('client')}
               className={`p-3 rounded-lg border-2 transition-all ${
                 selectedResolution === 'client'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30'
+                  ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/30'
                   : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
               }`}
             >
@@ -350,14 +350,14 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
           <button
             onClick={onClose}
             disabled={isResolving}
-            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+            className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleResolve}
             disabled={isResolving}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isResolving ? (
               <>Resolving...</>

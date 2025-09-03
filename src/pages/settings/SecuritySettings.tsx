@@ -253,7 +253,7 @@ export default function SecuritySettings() {
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  <EyeIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                  <EyeIcon size={20} className="text-gray-600 dark:text-gray-500" />
                   Read-Only Mode
                 </h3>
                 <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
@@ -273,7 +273,7 @@ export default function SecuritySettings() {
             </div>
             
             {settings.readOnlyMode && (
-              <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <div className="mt-4 p-3 bg-blue-50 dark:bg-gray-900/20 rounded-lg">
                 <p className="text-sm text-blue-800 dark:text-blue-200 flex items-center gap-2">
                   <EyeIcon size={16} />
                   Read-only mode is active - no changes can be made

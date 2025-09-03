@@ -136,7 +136,7 @@ export default function BankConnectionsWidget({ size, settings }: BankConnection
             </p>
             <button
               onClick={() => navigate('/settings/data')}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
             >
               Connect a bank
             </button>
@@ -149,7 +149,7 @@ export default function BankConnectionsWidget({ size, settings }: BankConnection
         <div className="pt-3 mt-3 border-t border-gray-200 dark:border-gray-700">
           <button
             onClick={() => navigate('/settings/data')}
-            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            className="text-sm text-gray-600 dark:text-gray-500 hover:underline"
           >
             Manage connections →
           </button>

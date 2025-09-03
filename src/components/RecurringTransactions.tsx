@@ -192,7 +192,7 @@ export default function RecurringTransactions(): React.JSX.Element {
 
   const getStatusColor = (template: RecurringTemplate): string => {
     if (!template.isActive) return 'text-gray-500';
-    if (processingTemplates.has(template.id)) return 'text-blue-500';
+    if (processingTemplates.has(template.id)) return 'text-gray-500';
     
     const today = new Date();
     const nextDate = new Date(template.nextDate);
@@ -218,7 +218,7 @@ export default function RecurringTransactions(): React.JSX.Element {
         </div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+          className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center gap-2"
         >
           <Plus size={20} />
           Add Recurring
@@ -237,7 +237,7 @@ export default function RecurringTransactions(): React.JSX.Element {
           </p>
           <button
             onClick={() => setShowAddModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
           >
             Create Your First Template
           </button>
@@ -262,7 +262,7 @@ export default function RecurringTransactions(): React.JSX.Element {
                       </span>
                     )}
                     {processingTemplates.has(template.id) && (
-                      <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full">
+                      <span className="px-2 py-1 text-xs bg-blue-100 dark:bg-gray-900/30 text-gray-600 dark:text-gray-500 rounded-full">
                         Processing...
                       </span>
                     )}
@@ -354,7 +354,7 @@ export default function RecurringTransactions(): React.JSX.Element {
               >
                 Cancel
               </button>
-              <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+              <button className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
                 Save
               </button>
             </div>

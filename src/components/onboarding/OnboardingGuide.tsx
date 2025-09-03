@@ -23,7 +23,7 @@ const onboardingSteps: OnboardingStep[] = [
     id: 'connect',
     title: 'Connect your accounts',
     description: 'Use feeds to get your full financial picture with your bank accounts, credit cards, investments and more in one place automatically.',
-    icon: <BanknotesIcon className="w-12 h-12 text-blue-600" />,
+    icon: <BanknotesIcon className="w-12 h-12 text-gray-600" />,
     action: 'connect',
     actionLabel: 'START HERE',
     path: '/settings/bank-connections'
@@ -83,7 +83,7 @@ export default function OnboardingGuide({ onComplete }: OnboardingGuideProps): R
           
           <div className="text-center">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-white dark:bg-gray-800 rounded-full shadow-lg mb-4">
-              <span className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="text-2xl font-bold bg-gradient-to-r from-gray-600 to-purple-600 bg-clip-text text-transparent">
                 W
               </span>
             </div>
@@ -116,7 +116,7 @@ export default function OnboardingGuide({ onComplete }: OnboardingGuideProps): R
                       <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
                         {step.description}
                       </p>
-                      <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-colors">
+                      <button className="px-4 py-2 bg-gradient-to-r from-gray-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-colors">
                         {step.actionLabel}
                       </button>
                     </div>
@@ -152,10 +152,10 @@ export default function OnboardingGuide({ onComplete }: OnboardingGuideProps): R
         </div>
 
         {/* Progress Steps */}
-        <div className="bg-gray-50 dark:bg-gray-900 px-8 py-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="bg-blue-50 dark:bg-gray-900 px-8 py-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-center space-x-4">
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-medium">
+              <div className="w-8 h-8 rounded-full bg-gray-600 text-white flex items-center justify-center text-sm font-medium">
                 1
               </div>
               <span className="text-sm text-gray-600 dark:text-gray-400">Get started</span>

@@ -46,7 +46,7 @@ export default function SyncStatusDemo(): React.JSX.Element {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div className="min-h-screen bg-blue-50 dark:bg-gray-900 p-6">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
@@ -110,7 +110,7 @@ export default function SyncStatusDemo(): React.JSX.Element {
             <button
               onClick={() => triggerSync()}
               disabled={status === 'syncing'}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Trigger Sync
             </button>
@@ -189,11 +189,11 @@ export default function SyncStatusDemo(): React.JSX.Element {
         </div>
 
         {/* Instructions */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
+        <div className="bg-blue-50 dark:bg-gray-900/20 rounded-lg p-6 border border-blue-200 dark:border-blue-800">
           <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-200 mb-2">
             How to Test
           </h3>
-          <ul className="list-disc list-inside space-y-2 text-blue-800 dark:text-blue-300">
+          <ul className="list-disc list-inside space-y-2 text-blue-800 dark:text-gray-300">
             <li>Click "Trigger Sync" to see the progress animation</li>
             <li>Click "Simulate Change" to add pending changes</li>
             <li>Sync will randomly generate conflicts (20% chance)</li>

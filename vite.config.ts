@@ -32,7 +32,10 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       // Fix for recharts es-toolkit import issue
       // This ensures recharts gets the correct export format
-      'es-toolkit/compat/get': 'lodash-es/get'
+      'es-toolkit/compat/get': 'lodash-es/get',
+      // Fix for Sentry expecting React to be available
+      'react': path.resolve(__dirname, 'node_modules/react'),
+      'react-dom': path.resolve(__dirname, 'node_modules/react-dom')
     }
   },
   server: {
@@ -86,8 +89,19 @@ export default defineConfig({
         interop: 'esModule'
       }
     },
-    // Disable tree-shaking to fix React.Component undefined error
-    treeshake: false,
+    // Tree-shaking with Sentry fix
+    treeshake: {
+      preset: 'recommended',
+      moduleSideEffects: (id) => {
+        // Keep side effects for React and Sentry modules
+        if (id.includes('react') || id.includes('@sentry')) {
+          return true;
+        }
+        return false;
+      },
+      propertyReadSideEffects: false,
+      manualPureFunctions: ['console.log', 'console.warn', 'console.debug', 'console.info']
+    },
     // Use terser for better minification
     minify: 'terser',
     terserOptions: {

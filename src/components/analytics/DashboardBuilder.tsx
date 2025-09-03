@@ -254,9 +254,9 @@ export default function DashboardBuilder({
   }, [dashboardName, dashboardDescription, widgets, showNotification]);
   
   return (
-    <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
+    <div className="flex flex-col h-full bg-blue-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+      <div className="bg-white dark:bg-gray-800 rounded-t-lg border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <GridIcon size={24} className="text-primary" />
@@ -305,7 +305,7 @@ export default function DashboardBuilder({
                     
                     <button
                       onClick={handleSaveDashboard}
-                      className="px-3 py-1.5 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+                      className="px-3 py-1.5 bg-gray-600 text-white rounded-lg flex items-center gap-2 hover:bg-gray-700 transition-colors"
                     >
                       <SaveIcon size={16} />
                       Save
@@ -371,7 +371,7 @@ export default function DashboardBuilder({
               }}
             >
               {/* Widget Header */}
-              <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div className="px-4 py-2 bg-blue-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <h3 className="font-medium text-sm">{widget.title}</h3>
                 {isEditMode && (
                   <div className="flex items-center gap-1">
@@ -474,7 +474,7 @@ export default function DashboardBuilder({
                   <button
                     key={widget.id}
                     onClick={() => handleAddWidget(widget)}
-                    className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-center group"
+                    className="p-4 bg-blue-50 dark:bg-gray-900 rounded-lg hover:bg-blue-100 dark:hover:bg-gray-800 transition-colors text-center group"
                   >
                     <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">
                       {widget.icon}
