@@ -66,31 +66,8 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        // Fix circular dependency issues by putting React in its own chunk
-        manualChunks: (id) => {
-          if (!id.includes('node_modules')) return undefined
-          const clean = id.replace(/.*node_modules\//, '')
-          
-          // CRITICAL: Separate React completely to avoid circular dependencies
-          if (clean.startsWith('react/') || clean === 'react') return 'react-core'
-          if (clean.startsWith('react-dom/') || clean === 'react-dom') return 'react-dom'
-          if (clean.startsWith('react-is/') || clean === 'react-is') return 'react-core'
-          
-          // Other React-related libraries in separate chunk
-          if (clean.includes('react')) return 'react-libs'
-          
-          // Chart libraries often have React dependencies, keep separate
-          if (clean.includes('recharts')) return 'recharts'
-          if (clean.includes('plotly')) return 'plotly'
-          if (clean.includes('chart.js')) return 'chartjs'
-          
-          // Other vendor chunks
-          if (clean.includes('@supabase')) return 'supabase'
-          if (clean.includes('@clerk')) return 'auth'
-          if (clean.includes('xlsx') || clean.includes('jspdf') || clean.includes('html2canvas') || clean.includes('tesseract')) return 'heavy'
-          
-          return 'vendor'
-        },
+        // Use default Vite chunking to avoid circular dependencies
+        manualChunks: undefined,
         // Use content hash for better caching
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: (chunkInfo) => {
@@ -103,10 +80,13 @@ export default defineConfig({
         interop: 'esModule'
       }
     },
-    // Disable tree-shaking completely due to React bundling issues
-    treeshake: false,
-    // Disable minification to prevent React reference issues
-    minify: false,
+    // Re-enable tree-shaking with safe settings
+    treeshake: {
+      moduleSideEffects: true,
+      propertyReadSideEffects: false
+    },
+    // Enable minification but preserve React
+    minify: 'terser',
     terserOptions: {
       compress: {
         drop_console: false, // Strip specific console calls via pure_funcs below
@@ -132,7 +112,9 @@ export default defineConfig({
       },
       mangle: {
         safari10: true,
-        keep_fnames: false // Don't keep function names to save space
+        keep_fnames: false, // Don't keep function names to save space
+        // CRITICAL: Preserve React internals
+        reserved: ['React', 'ReactDOM', 'ReactDOMClient', '__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED']
       },
       format: {
         comments: false,
