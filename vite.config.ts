@@ -86,10 +86,10 @@ export default defineConfig({
         interop: 'esModule'
       }
     },
-    // Balanced tree-shaking optimizations for React compatibility
+    // Aggressive tree-shaking optimizations
     treeshake: {
       preset: 'recommended',
-      moduleSideEffects: true, // Keep module side effects for React
+      moduleSideEffects: false,
       propertyReadSideEffects: false,
       manualPureFunctions: ['console.log', 'console.warn', 'console.debug', 'console.info']
     },

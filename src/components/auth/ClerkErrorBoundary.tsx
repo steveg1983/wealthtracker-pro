@@ -1,4 +1,4 @@
-import { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { 
   AlertTriangleIcon as AlertTriangle,
   RefreshCwIcon as RefreshCw,
@@ -58,8 +58,8 @@ export class ClerkErrorBoundary extends Component<Props, State> {
     logger.error('Clerk authentication error:', error, errorInfo);
     
     // Log to error tracking service if available
-    if ((window as any).Sentry) {
-      (window as any).Sentry.captureException(error, {
+    if (window.Sentry) {
+      window.Sentry.captureException(error, {
         contexts: {
           react: {
             componentStack: errorInfo.componentStack
