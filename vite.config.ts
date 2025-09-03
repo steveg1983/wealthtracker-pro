@@ -89,18 +89,11 @@ export default defineConfig({
         interop: 'esModule'
       }
     },
-    // Tree-shaking with Sentry fix
+    // Conservative tree-shaking to preserve React and its dependencies
     treeshake: {
-      preset: 'recommended',
-      moduleSideEffects: (id) => {
-        // Keep side effects for React and Sentry modules
-        if (id.includes('react') || id.includes('@sentry')) {
-          return true;
-        }
-        return false;
-      },
-      propertyReadSideEffects: false,
-      manualPureFunctions: ['console.log', 'console.warn', 'console.debug', 'console.info']
+      preset: 'smallest',
+      moduleSideEffects: true,
+      propertyReadSideEffects: true
     },
     // Use terser for better minification
     minify: 'terser',
@@ -146,12 +139,25 @@ export default defineConfig({
   },
   // Optimize dependencies
   optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom', 'react-is'],
+    include: [
+      'react', 
+      'react-dom', 
+      'react-router-dom', 
+      'react-is',
+      'react/jsx-runtime',
+      'react/jsx-dev-runtime',
+      '@reduxjs/toolkit',
+      'react-redux'
+    ],
     // Exclude heavy libraries that are lazy-loaded
     exclude: ['xlsx', 'jspdf', 'html2canvas', 'tesseract.js'],
     esbuildOptions: {
       // Force CommonJS modules to be treated as ES modules
-      mainFields: ['module', 'main']
+      mainFields: ['module', 'main'],
+      // Ensure React is available globally for libraries that expect it
+      define: {
+        'process.env.NODE_ENV': '"production"'
+      }
     }
   }
 })
