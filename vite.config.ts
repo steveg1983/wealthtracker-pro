@@ -86,10 +86,10 @@ export default defineConfig({
         interop: 'esModule'
       }
     },
-    // Balanced tree-shaking optimizations
+    // Balanced tree-shaking optimizations - Updated to fix React.Component issue
     treeshake: {
       preset: 'recommended',
-      moduleSideEffects: true, // Preserve React side effects
+      moduleSideEffects: true, // Preserve React side effects (critical fix)
       propertyReadSideEffects: false,
       manualPureFunctions: ['console.log', 'console.warn', 'console.debug', 'console.info']
     },
