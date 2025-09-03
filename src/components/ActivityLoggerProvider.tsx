@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useActivityLogger } from '../hooks/useActivityLogger';
+import { logger } from '../services/loggingService';
 
 /**
  * Provider component that initializes activity logging throughout the app

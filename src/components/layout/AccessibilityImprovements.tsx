@@ -11,7 +11,7 @@ export function EnhancedSkipLinks() {
   return (
     <>
       <SkipLinks />
-      <style jsx>{`
+      <style>{`
         :global(.skip-link) {
           position: absolute;
           left: -10000px;
@@ -99,7 +99,7 @@ export function FocusIndicator() {
   }, []);
 
   return (
-    <style jsx global>{`
+    <style>{`
       /* Enhanced focus styles for keyboard navigation */
       .user-is-tabbing *:focus {
         outline: 3px solid #4285f4 !important;

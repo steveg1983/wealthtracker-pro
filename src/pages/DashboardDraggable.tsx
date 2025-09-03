@@ -456,7 +456,7 @@ export default function DashboardDraggable(): React.JSX.Element {
       </div>
 
 
-      <style jsx>{`
+      <style>{`
         .drag-handle {
           cursor: move;
         }

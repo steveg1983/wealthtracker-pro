@@ -13,7 +13,6 @@ import {
   AlertCircleIcon as AlertCircle
 } from './icons';
 import { logger } from '../services/loggingService';
-import { logger } from '../services/loggingService';
 
 interface AddAccountModalProps {
   isOpen: boolean;
