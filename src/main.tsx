@@ -1,5 +1,3 @@
-// Ensure React is available globally for production builds
-import './polyfills/react-compat'
 import { StrictMode } from 'react'
 // Route console.* to centralized logger in production (no-op in dev)
 import './setup/consoleToLogger'
