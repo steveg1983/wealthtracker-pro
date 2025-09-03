@@ -66,16 +66,29 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        // Simpler chunking strategy to reduce build complexity
+        // Fix circular dependency issues by putting React in its own chunk
         manualChunks: (id) => {
           if (!id.includes('node_modules')) return undefined
           const clean = id.replace(/.*node_modules\//, '')
-          // Keep React and related libraries together
-          if (clean.includes('react')) return 'react'
+          
+          // CRITICAL: Separate React completely to avoid circular dependencies
+          if (clean.startsWith('react/') || clean === 'react') return 'react-core'
+          if (clean.startsWith('react-dom/') || clean === 'react-dom') return 'react-dom'
+          if (clean.startsWith('react-is/') || clean === 'react-is') return 'react-core'
+          
+          // Other React-related libraries in separate chunk
+          if (clean.includes('react')) return 'react-libs'
+          
+          // Chart libraries often have React dependencies, keep separate
+          if (clean.includes('recharts')) return 'recharts'
+          if (clean.includes('plotly')) return 'plotly'
+          if (clean.includes('chart.js')) return 'chartjs'
+          
+          // Other vendor chunks
           if (clean.includes('@supabase')) return 'supabase'
           if (clean.includes('@clerk')) return 'auth'
-          if (clean.includes('plotly') || clean.includes('recharts') || clean.includes('chart.js')) return 'charts'
           if (clean.includes('xlsx') || clean.includes('jspdf') || clean.includes('html2canvas') || clean.includes('tesseract')) return 'heavy'
+          
           return 'vendor'
         },
         // Use content hash for better caching
