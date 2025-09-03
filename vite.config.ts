@@ -92,8 +92,8 @@ export default defineConfig({
     },
     // Disable tree-shaking completely due to React bundling issues
     treeshake: false,
-    // Use terser for better minification
-    minify: 'terser',
+    // Disable minification to prevent React reference issues
+    minify: false,
     terserOptions: {
       compress: {
         drop_console: false, // Strip specific console calls via pure_funcs below
