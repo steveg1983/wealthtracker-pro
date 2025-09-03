@@ -430,9 +430,9 @@ export default function RecurringBudgetTemplates() {
                 </select>
               </div>
 
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Template Preview</h4>
-                <p className="text-sm text-blue-800 dark:text-blue-200">
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">Template Preview</h4>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
                   This template will include {budgets.length} budget items with a total of {formatCurrency(budgets.reduce((sum, b) => sum + b.amount, 0))}
                 </p>
               </div>

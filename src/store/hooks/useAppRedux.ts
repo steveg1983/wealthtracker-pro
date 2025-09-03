@@ -182,7 +182,7 @@ export function useAppRedux() {
   
   const loadTestData = useCallback(async () => {
     // This would be implemented to load test data
-    console.log('Load test data not implemented in Redux version yet');
+    logger.warn('Load test data not implemented in Redux version yet');
   }, []);
   
   const exportData = useCallback(async () => {

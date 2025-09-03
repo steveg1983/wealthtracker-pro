@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
+import { useApp } from '../contexts/AppContextSupabase';
 import { 
   DatabaseIcon,
   TrendingUpIcon,
@@ -22,22 +23,32 @@ import SubscriptionManager from '../components/SubscriptionManager';
 import MerchantEnrichment from '../components/MerchantEnrichment';
 import SpendingPatterns from '../components/SpendingPatterns';
 import DataInsights from '../components/DataInsights';
+import DataIntelligenceVerification from '../components/DataIntelligenceVerification';
 import type { DataIntelligenceStats, SpendingInsight, Subscription } from '../services/dataIntelligenceService';
 import { logger } from '../services/loggingService';
 
-type ActiveTab = 'overview' | 'subscriptions' | 'merchants' | 'patterns' | 'insights';
+type ActiveTab = 'overview' | 'subscriptions' | 'merchants' | 'patterns' | 'insights' | 'verification';
 
 export default function DataIntelligence() {
+  const { transactions } = useApp();
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [stats, setStats] = useState<DataIntelligenceStats | null>(null);
   const [insights, setInsights] = useState<SpendingInsight[]>([]);
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [detectedSubscriptions, setDetectedSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    // Analyze transactions when they change
+    if (transactions && transactions.length > 0) {
+      analyzeTransactions();
+    }
+  }, [transactions]);
 
   const loadData = async () => {
     setIsLoading(true);
@@ -56,14 +67,37 @@ export default function DataIntelligence() {
     loadData();
   };
 
+  const analyzeTransactions = async () => {
+    if (!transactions || transactions.length === 0) return;
+    
+    try {
+      // Learn from actual transactions
+      transactions.forEach(transaction => {
+        dataIntelligenceService.learnMerchantFromTransaction(transaction);
+      });
+      
+      // Detect subscriptions from real transactions
+      const detected = dataIntelligenceService.detectSubscriptions(transactions);
+      setDetectedSubscriptions(detected);
+      
+      // Analyze spending patterns
+      const patterns = dataIntelligenceService.analyzeSpendingPatterns(transactions);
+      
+      // Generate insights
+      const newInsights = dataIntelligenceService.generateInsights(transactions);
+      setInsights(newInsights);
+      
+      // Update stats
+      setStats(dataIntelligenceService.getStats());
+    } catch (error) {
+      logger.error('Error analyzing transactions:', error);
+    }
+  };
+
   const handleRunAnalysis = async () => {
     setIsAnalyzing(true);
     try {
-      // Simulate analysis process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // In a real implementation, this would analyze transactions
-      // For now, we'll just refresh the data
+      await analyzeTransactions();
       loadData();
     } catch (error) {
       logger.error('Error running analysis:', error);
@@ -229,44 +263,84 @@ export default function DataIntelligence() {
                   )}
                 </div>
               </button>
+              <button
+                onClick={() => setActiveTab('verification')}
+                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'verification'
+                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <ShieldIcon size={16} />
+                  Verification
+                </div>
+              </button>
             </nav>
           </div>
         </div>
 
         {/* Content */}
-        {activeTab === 'overview' && stats && (
+        {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* Key Statistics */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Merchants</p>
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                      {stats.totalMerchants}
-                    </p>
-                  </div>
-                  <SearchIcon size={24} className="text-blue-500" />
-                </div>
-                <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  {stats.enrichedMerchants} enriched ({stats.categoryAccuracy.toFixed(1)}%)
-                </div>
+            {/* Empty state when no transactions */}
+            {(!transactions || transactions.length === 0) ? (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-8 text-center">
+                <DatabaseIcon size={48} className="mx-auto text-amber-500 mb-4" />
+                <h3 className="text-lg font-semibold text-amber-900 dark:text-amber-100 mb-2">
+                  No Transaction Data Available
+                </h3>
+                <p className="text-amber-700 dark:text-amber-300 mb-4">
+                  Add some transactions to start analyzing your spending patterns, detecting subscriptions, and gaining insights.
+                </p>
+                <button
+                  onClick={() => window.location.href = '/transactions'}
+                  className="px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
+                >
+                  Go to Transactions
+                </button>
               </div>
+            ) : stats ? (
+              <>
+                {/* Key Statistics */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Total Merchants</p>
+                        <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                          {stats.totalMerchants > 0 ? stats.totalMerchants : '-'}
+                        </p>
+                      </div>
+                      <SearchIcon size={24} className="text-blue-500" />
+                    </div>
+                    <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      {stats.totalMerchants > 0 
+                        ? `${stats.enrichedMerchants} enriched (${stats.categoryAccuracy.toFixed(1)}%)`
+                        : 'No merchants detected yet'
+                      }
+                    </div>
+                  </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Active Subscriptions</p>
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {stats.activeSubscriptions}
-                    </p>
+                  <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Active Subscriptions</p>
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                          {stats.activeSubscriptions + detectedSubscriptions.length}
+                        </p>
+                      </div>
+                      <CreditCardIcon size={24} className="text-green-500" />
+                    </div>
+                    <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      {detectedSubscriptions.length > 0 
+                        ? `${detectedSubscriptions.length} detected`
+                        : stats.monthlySubscriptionCost > 0 
+                          ? `${formatCurrency(stats.monthlySubscriptionCost)}/month`
+                          : 'No subscriptions found'
+                      }
+                    </div>
                   </div>
-                  <CreditCardIcon size={24} className="text-green-500" />
-                </div>
-                <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  {formatCurrency(stats.monthlySubscriptionCost)}/month
-                </div>
-              </div>
 
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
@@ -351,6 +425,29 @@ export default function DataIntelligence() {
               )}
             </div>
 
+            {/* Detected Subscriptions Alert */}
+            {detectedSubscriptions.length > 0 && (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <CheckCircleIcon size={20} className="text-green-600 dark:text-green-400" />
+                  <div className="flex-1">
+                    <p className="font-medium text-green-900 dark:text-green-100">
+                      {detectedSubscriptions.length} New Subscription{detectedSubscriptions.length > 1 ? 's' : ''} Detected!
+                    </p>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                      We found recurring payments in your transactions. Review them in the Subscriptions tab.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('subscriptions')}
+                    className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    Review
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Subscription Overview */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
@@ -368,7 +465,14 @@ export default function DataIntelligence() {
                 </div>
                 
                 <div className="space-y-3">
-                  {subscriptions.slice(0, 3).map((subscription) => {
+                  {subscriptions.length === 0 && detectedSubscriptions.length === 0 ? (
+                    <div className="text-center py-4">
+                      <CreditCardIcon size={32} className="mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm text-gray-500 dark:text-gray-400">No subscriptions detected</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">We'll analyze your transactions to find recurring payments</p>
+                    </div>
+                  ) : (
+                    [...subscriptions, ...detectedSubscriptions].slice(0, 3).map((subscription) => {
                     const daysUntilRenewal = Math.ceil(
                       (subscription.nextPaymentDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)
                     );
@@ -402,7 +506,8 @@ export default function DataIntelligence() {
                         </div>
                       </div>
                     );
-                  })}
+                  })
+                  )}
                 </div>
               </div>
 
@@ -457,6 +562,13 @@ export default function DataIntelligence() {
                 </div>
               </div>
             </div>
+              </>
+            ) : (
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-8 text-center">
+                <RefreshCwIcon size={48} className="mx-auto text-gray-400 mb-4 animate-spin" />
+                <p className="text-gray-500 dark:text-gray-400">Loading data intelligence...</p>
+              </div>
+            )}
           </div>
         )}
 
@@ -474,6 +586,10 @@ export default function DataIntelligence() {
 
         {activeTab === 'insights' && (
           <DataInsights onDataChange={handleDataChange} />
+        )}
+
+        {activeTab === 'verification' && (
+          <DataIntelligenceVerification />
         )}
       </div>
     </PageWrapper>

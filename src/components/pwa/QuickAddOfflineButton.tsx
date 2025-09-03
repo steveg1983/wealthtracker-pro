@@ -37,7 +37,7 @@ export const QuickAddOfflineButton: React.FC = () => {
         onClose={() => setShowForm(false)}
         onSuccess={() => {
           // Could show a toast notification here
-          console.log('Transaction queued for sync');
+          logger.info('Transaction queued for sync');
         }}
       />
     </>

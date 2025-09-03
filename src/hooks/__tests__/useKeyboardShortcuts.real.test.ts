@@ -1,41 +1,33 @@
 /**
- * useKeyboardShortcuts REAL DATABASE Tests
- * Tests hook with real database operations
+ * useKeyboardShortcuts REAL Tests
+ * Tests keyboard shortcut handling
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 import { useKeyboardShortcuts } from '../useKeyboardShortcuts';
-import { RealTestDatabase, RealTestProvider, testDb } from '../../test/setup/real-test-framework';
 
-describe('useKeyboardShortcuts - REAL DATABASE TESTS', () => {
-  let db: RealTestDatabase;
-
-  beforeAll(async () => {
-    db = new RealTestDatabase();
-  });
-
-  afterAll(async () => {
-    await db.cleanup();
-  });
-
-  it('works with REAL database data', async () => {
-    // Create REAL test data
-    const testData = await db.setupCompleteTestScenario();
+describe('useKeyboardShortcuts - REAL Tests', () => {
+  it('registers and handles keyboard shortcuts', () => {
+    const mockCallback = vi.fn();
     
-    const { result } = renderHook(() => useKeyboardShortcuts(), {
-      wrapper: RealTestProvider,
+    const { result } = renderHook(() => useKeyboardShortcuts());
+    
+    // Register a shortcut
+    act(() => {
+      result.current.registerShortcut('ctrl+s', mockCallback);
     });
-
-    // Test hook with REAL data
-    await act(async () => {
-      await result.current.performAction(testData.id);
+    
+    // Simulate keyboard event
+    const event = new KeyboardEvent('keydown', {
+      key: 's',
+      ctrlKey: true,
     });
-
-    // Verify REAL database changes
-    await waitFor(async () => {
-      const dbRecord = await db.getRecord('table', testData.id);
-      expect(dbRecord).toBeDefined();
+    
+    act(() => {
+      document.dispatchEvent(event);
     });
+    
+    expect(mockCallback).toHaveBeenCalled();
   });
 });

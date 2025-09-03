@@ -1,6 +1,7 @@
 import { Decimal, toDecimal } from './decimal';
 import type { DecimalInstance } from './decimal';
 import { logger } from '../services/loggingService';
+import { captureMessage } from '../lib/sentry';
 
 // Currency conversion utilities with Decimal.js
 interface ExchangeRates {
@@ -55,11 +56,11 @@ export function formatCurrency(amount: DecimalInstance | number, currency: strin
   return isNegative ? `-${symbol}${formatted}` : `${symbol}${formatted}`;
 }
 
-// Fetch exchange rates from a free API
+// Fetch exchange rates via serverless proxy first, fallback to public API
 async function fetchExchangeRates(): Promise<ExchangeRates> {
   try {
-    // Using exchangerate-api.com free tier
-    const response = await fetch('https://api.exchangerate-api.com/v4/latest/GBP');
+    // Prefer serverless endpoint for caching/observability
+    const response = await fetch('/api/exchange-rates?base=GBP');
     
     if (!response.ok) {
       throw new Error('Failed to fetch exchange rates');
@@ -68,10 +69,21 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
     const data = await response.json();
     return data.rates;
   } catch (error) {
-    logger.error('Error fetching exchange rates:', error);
+    logger.error('Error fetching exchange rates via API route (falling back):', error);
+    try { captureMessage('FX_FALLBACK_SERVERLESS_FAILURE', 'warning', { error: String(error) }); } catch {}
+    // Fallback to upstream directly
+    try {
+      const upstream = await fetch('https://api.exchangerate-api.com/v4/latest/GBP');
+      if (!upstream.ok) throw new Error('Upstream failed');
+      const data = await upstream.json();
+      return data.rates;
+    } catch (e) {
+      logger.error('Error fetching exchange rates from upstream:', e);
+      try { captureMessage('FX_FALLBACK_UPSTREAM_FAILURE', 'warning', { error: String(e) }); } catch {}
+    }
     
     // Fallback to approximate rates if API fails
-    return {
+    const fallback = {
       GBP: 1,
       USD: 1.27,
       EUR: 1.17,
@@ -83,6 +95,8 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
       INR: 105.85,
       NZD: 2.09,
     };
+    try { captureMessage('FX_USING_STATIC_FALLBACK_RATES', 'warning', { provider: 'static' }); } catch {}
+    return fallback;
   }
 }
 

@@ -350,24 +350,24 @@ export default function SubscriptionPage({
             </div>
 
             {/* Features Preview */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-300 mb-4">
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 What's Next?
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                   <CheckCircleIcon size={16} />
                   <span>Unlimited accounts & transactions</span>
                 </div>
-                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                   <CheckCircleIcon size={16} />
                   <span>Advanced analytics & reports</span>
                 </div>
-                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                   <CheckCircleIcon size={16} />
                   <span>CSV export functionality</span>
                 </div>
-                <div className="flex items-center gap-2 text-blue-800 dark:text-blue-200">
+                <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
                   <CheckCircleIcon size={16} />
                   <span>Investment portfolio tracking</span>
                 </div>

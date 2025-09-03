@@ -178,11 +178,11 @@ export default function SeasonalTrends({ className = '' }: SeasonalTrendsProps) 
       </div>
 
       {/* Insights */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
+      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
+        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
           Seasonal Insights
         </h4>
-        <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+        <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
           <li>• Your highest income typically occurs in {monthNames[highestIncomeMonth.month]}</li>
           <li>• Expenses peak in {monthNames[highestExpenseMonth.month]}</li>
           <li>• Plan ahead for high-expense months by saving during surplus periods</li>

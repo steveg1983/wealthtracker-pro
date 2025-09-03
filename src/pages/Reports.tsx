@@ -1,15 +1,18 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { PieChartIcon, TrendingUpIcon, CalendarIcon, DownloadIcon, FilterIcon, PdfIcon } from '../components/icons';
+import { PieChartIcon, TrendingUpIcon, CalendarIcon, DownloadIcon, FilterIcon, PdfIcon, ChartBarIcon } from '../components/icons';
 import { exportTransactionsToCSV, downloadCSV } from '../utils/csvExport';
 import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';
 import ScheduledReports from '../components/ScheduledReports';
+import BudgetComparison from '../components/reports/BudgetComparison';
+import FinancialReportGenerator from '../components/reports/FinancialReportGenerator';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
-import { LazyLineChart, LazyDoughnutChart } from '../components/charts/LazyChart';
+import { LineChart as LazyLineChart, PieChart as LazyDoughnutChart } from '../components/charts/LazyChart';
 import { logger } from '../services/loggingService';
 
 export default function Reports() {
   const { transactions, accounts } = useApp();
+  const [activeTab, setActiveTab] = useState<'overview' | 'budget' | 'generator'>('overview');
   const [dateRange, setDateRange] = useState<'month' | 'quarter' | 'year' | 'all' | 'custom'>('month');
   const [selectedAccount, setSelectedAccount] = useState<string>('all');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
@@ -216,6 +219,24 @@ export default function Reports() {
     }
   };
 
+  const handleBudgetExport = (data: any[]) => {
+    const csv = data.map(row => ({
+      Category: row.categoryName,
+      Budgeted: row.budgeted,
+      Actual: row.actual,
+      Variance: row.variance,
+      'Variance %': row.variancePercent.toFixed(1) + '%',
+      Status: row.status
+    }));
+    
+    const csvContent = [
+      Object.keys(csv[0]).join(','),
+      ...csv.map(row => Object.values(row).join(','))
+    ].join('\n');
+    
+    downloadCSV(csvContent, `budget-comparison-${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -223,24 +244,77 @@ export default function Reports() {
           <h1 className="text-3xl font-bold text-white">Reports</h1>
         </div>
         <div className="flex gap-2">
+          {activeTab === 'overview' ? (
+            <>
+              <button
+                onClick={exportToCSV}
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors"
+              >
+                <DownloadIcon size={20} />
+                Export CSV
+              </button>
+              <button
+                onClick={() => exportToPDF(true)}
+                disabled={isGeneratingPDF}
+                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-2xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <PdfIcon size={20} />
+                {isGeneratingPDF ? 'Generating...' : 'Export PDF'}
+              </button>
+            </>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-1 mb-6">
+        <div className="flex space-x-1">
           <button
-            onClick={exportToCSV}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-2xl hover:bg-secondary transition-colors"
+            onClick={() => setActiveTab('overview')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors ${
+              activeTab === 'overview'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
           >
-            <DownloadIcon size={20} />
-            Export CSV
+            <TrendingUpIcon size={20} />
+            Overview
           </button>
           <button
-            onClick={() => exportToPDF(true)}
-            disabled={isGeneratingPDF}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-2xl hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => setActiveTab('budget')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors ${
+              activeTab === 'budget'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
+          >
+            <ChartBarIcon size={20} />
+            Budget Comparison
+          </button>
+          <button
+            onClick={() => setActiveTab('generator')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium transition-colors ${
+              activeTab === 'generator'
+                ? 'bg-blue-600 text-white'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+            }`}
           >
             <PdfIcon size={20} />
-            {isGeneratingPDF ? 'Generating...' : 'Export PDF'}
+            Report Generator
           </button>
         </div>
       </div>
 
+      {/* Tab Content */}
+      {activeTab === 'budget' ? (
+        <BudgetComparison 
+          dateRange={dateRange === 'all' ? 'year' : dateRange === 'custom' ? 'month' : dateRange}
+          onExport={handleBudgetExport}
+        />
+      ) : activeTab === 'generator' ? (
+        <FinancialReportGenerator />
+      ) : (
+        <>
       {/* Filters */}
       <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-center">
@@ -468,6 +542,8 @@ export default function Reports() {
           <ScheduledReports />
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

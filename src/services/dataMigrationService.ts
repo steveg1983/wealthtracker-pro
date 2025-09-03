@@ -100,7 +100,7 @@ export class DataMigrationService {
   static async migrateAccounts(userId: string, accounts: Account[]): Promise<boolean> {
     if (!supabase || accounts.length === 0) return true;
 
-    console.log(`📦 Migrating ${accounts.length} accounts...`);
+    logger.info('Migrating accounts...', { count: accounts.length });
     this.migrationStatus.stats.accounts.total = accounts.length;
 
     try {
@@ -132,7 +132,7 @@ export class DataMigrationService {
       }
 
       this.migrationStatus.stats.accounts.migrated = data?.length || 0;
-      console.log(`✅ Migrated ${data?.length || 0} accounts successfully`);
+      logger.info('Migrated accounts successfully', { migrated: data?.length || 0 });
       
       // Store mapping of old IDs to new IDs for transaction migration
       const idMapping = new Map<string, string>();
@@ -159,7 +159,7 @@ export class DataMigrationService {
   static async migrateTransactions(userId: string, transactions: Transaction[]): Promise<boolean> {
     if (!supabase || transactions.length === 0) return true;
 
-    console.log(`📦 Migrating ${transactions.length} transactions...`);
+    logger.info('Migrating transactions...', { count: transactions.length });
     this.migrationStatus.stats.transactions.total = transactions.length;
 
     try {
@@ -205,11 +205,11 @@ export class DataMigrationService {
         } else {
           migrated += data?.length || 0;
           this.migrationStatus.stats.transactions.migrated = migrated;
-          console.log(`✅ Migrated batch ${i / batchSize + 1} (${data?.length} transactions)`);
+          logger.info('Migrated transactions batch', { batch: i / batchSize + 1, count: data?.length });
         }
       }
 
-      console.log(`✅ Migrated ${migrated} of ${transactions.length} transactions`);
+      logger.info('Migrated transactions summary', { migrated, total: transactions.length });
       return migrated > 0;
     } catch (error) {
       logger.error('Failed to migrate transactions:', error);
@@ -224,7 +224,7 @@ export class DataMigrationService {
   static async migrateBudgets(userId: string, budgets: Budget[]): Promise<boolean> {
     if (!supabase || budgets.length === 0) return true;
 
-    console.log(`📦 Migrating ${budgets.length} budgets...`);
+    logger.info('Migrating budgets...', { count: budgets.length });
     this.migrationStatus.stats.budgets.total = budgets.length;
 
     try {
@@ -254,7 +254,7 @@ export class DataMigrationService {
       }
 
       this.migrationStatus.stats.budgets.migrated = data?.length || 0;
-      console.log(`✅ Migrated ${data?.length || 0} budgets successfully`);
+      logger.info('Migrated budgets successfully', { migrated: data?.length || 0 });
       return true;
     } catch (error) {
       logger.error('Failed to migrate budgets:', error);
@@ -269,7 +269,7 @@ export class DataMigrationService {
   static async migrateGoals(userId: string, goals: Goal[]): Promise<boolean> {
     if (!supabase || goals.length === 0) return true;
 
-    console.log(`📦 Migrating ${goals.length} goals...`);
+    logger.info('Migrating goals...', { count: goals.length });
     this.migrationStatus.stats.goals.total = goals.length;
 
     try {
@@ -299,7 +299,7 @@ export class DataMigrationService {
       }
 
       this.migrationStatus.stats.goals.migrated = data?.length || 0;
-      console.log(`✅ Migrated ${data?.length || 0} goals successfully`);
+      logger.info('Migrated goals successfully', { migrated: data?.length || 0 });
       return true;
     } catch (error) {
       logger.error('Failed to migrate goals:', error);
@@ -319,7 +319,7 @@ export class DataMigrationService {
       };
     }
 
-    console.log('🚀 Starting data migration to Supabase...');
+    logger.info('Starting data migration to Supabase...');
     this.migrationStatus.inProgress = true;
     this.migrationStatus.error = null;
 
@@ -333,7 +333,7 @@ export class DataMigrationService {
       // Check if user already has cloud data
       const hasData = await this.hasCloudData(userId);
       if (hasData) {
-        console.log('⚠️ User already has cloud data. Skipping migration.');
+        logger.warn('User already has cloud data. Skipping migration.');
         return {
           ...this.migrationStatus,
           completed: true,
@@ -374,8 +374,8 @@ export class DataMigrationService {
       localStorage.setItem('supabaseMigrationCompleted', 'true');
       localStorage.setItem('supabaseMigrationDate', new Date().toISOString());
 
-      console.log('✅ Migration completed successfully!');
-      console.log('📊 Migration stats:', this.migrationStatus.stats);
+      logger.info('Migration completed successfully!');
+      logger.info('Migration stats', this.migrationStatus.stats);
 
       return this.migrationStatus;
     } catch (error) {

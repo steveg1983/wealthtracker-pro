@@ -6,9 +6,9 @@ export default function ImportTest() {
   
   const testImport = async (name: string, importFn: () => Promise<unknown>) => {
     try {
-      console.log(`Testing import: ${name}...`);
+      logger.info('Testing import', { name });
       await importFn();
-      console.log(`✅ ${name} imported successfully`);
+      logger.info('Imported successfully', { name });
       return true;
     } catch (error) {
       logger.error(`❌ ${name} import failed:`, error);

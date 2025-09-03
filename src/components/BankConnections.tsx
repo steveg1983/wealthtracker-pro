@@ -292,9 +292,9 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
           </div>
 
           {/* Provider Info */}
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3 text-sm">
-            <p className="text-blue-800 dark:text-blue-200">
-              <strong>Secure Connection:</strong> Your credentials are never stored. 
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 shadow-md border-l-4 border-amber-400 dark:border-amber-600 text-sm">
+            <p className="text-gray-600 dark:text-gray-400">
+              <strong className="text-gray-900 dark:text-white">Secure Connection:</strong> Your credentials are never stored. 
               Connection is established directly with your bank using OAuth.
             </p>
           </div>

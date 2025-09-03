@@ -8,29 +8,42 @@ import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import { getDefaultCategories } from '../../data/defaultCategories';
 import type { Category } from '../../types';
+import type { Database } from '../../types/supabase';
+
+type CategoryRow = Database['public']['Tables']['categories']['Row'];
+type CategoryUpdate = Database['public']['Tables']['categories']['Update'];
 import { logger } from '../loggingService';
 
 /**
- * Transform database snake_case to TypeScript camelCase
+ * Transforms database snake_case category record to TypeScript camelCase format
+ * @param {CategoryRow} dbCategory - The raw category data from database
+ * @returns {Category} Transformed category object with camelCase properties
+ * @private
  */
-function transformCategoryFromDb(dbCategory: any): Category {
+function transformCategoryFromDb(dbCategory: CategoryRow): Category {
   return {
     id: dbCategory.id,
     name: dbCategory.name,
-    type: dbCategory.type,
+    type: (dbCategory.type as any) ?? undefined,
     level: dbCategory.level,
     parentId: dbCategory.parent_id,
     color: dbCategory.color,
     icon: dbCategory.icon,
     isSystem: dbCategory.is_system,
-    isTransferCategory: dbCategory.is_transfer_category,
-    accountId: dbCategory.account_id,
+    isTransferCategory: (dbCategory as any).is_transfer_category,
+    accountId: (dbCategory as any).account_id,
     isActive: dbCategory.is_active !== false // Default to true if not set
   };
 }
 
 /**
- * Get all categories for a user
+ * Retrieves all active categories for a specific user
+ * @param {string} clerkId - The Clerk authentication ID of the user
+ * @returns {Promise<Category[]>} Array of active categories, or defaults if none exist
+ * @throws {Error} If Supabase is not configured or database query fails
+ * @example
+ * const categories = await getCategories('clerk_user_123');
+ * // Returns: [{id: 'cat-1', name: 'Food & Dining', type: 'expense', ...}]
  */
 export async function getCategories(clerkId: string): Promise<Category[]> {
   try {
@@ -41,7 +54,7 @@ export async function getCategories(clerkId: string): Promise<Category[]> {
     // Convert Clerk ID to database UUID
     const userId = await userIdService.getDatabaseUserId(clerkId);
     if (!userId) {
-      console.log('[CategoryService] No user found, returning default categories');
+      logger.info('[CategoryService] No user found, returning default categories');
       return getDefaultCategories();
     }
     
@@ -60,7 +73,7 @@ export async function getCategories(clerkId: string): Promise<Category[]> {
     
     // If no categories exist, return defaults
     if (!data || data.length === 0) {
-      console.log('[CategoryService] No categories in database, returning defaults');
+      logger.info('[CategoryService] No categories in database, returning defaults');
       return getDefaultCategories();
     }
     
@@ -69,7 +82,7 @@ export async function getCategories(clerkId: string): Promise<Category[]> {
       .map(transformCategoryFromDb)
       .filter(cat => cat.isActive !== false);
     
-    console.log(`[CategoryService] Loaded ${categories.length} categories (${data.length} total)`);
+    logger.info('[CategoryService] Categories loaded', { categories: categories.length, total: data.length });
     return categories;
     
   } catch (error) {
@@ -88,7 +101,13 @@ export async function getCategories(clerkId: string): Promise<Category[]> {
 }
 
 /**
- * Create default categories for a new user
+ * Creates default categories for a new user during onboarding
+ * @param {string} userId - The database UUID of the user
+ * @returns {Promise<void>} Resolves when categories are created successfully
+ * @throws {Error} If category creation fails
+ * @description Initializes a standard set of expense and income categories for new users
+ * @example
+ * await createDefaultCategoriesForUser('uuid-123-456');
  */
 export async function createDefaultCategoriesForUser(userId: string): Promise<void> {
   try {
@@ -162,7 +181,7 @@ export async function createDefaultCategoriesForUser(userId: string): Promise<vo
       }
     }
     
-    console.log('[CategoryService] Default categories created for user:', userId);
+    logger.info('[CategoryService] Default categories created for user', { userId });
     
   } catch (error) {
     logger.error('[CategoryService] Error creating default categories:', error);
@@ -230,16 +249,16 @@ export async function updateCategory(categoryId: string, updates: Partial<Catego
       throw new Error('Supabase not configured');
     }
     
-    const updateData: any = {};
+    const updateData: CategoryUpdate = {};
     if (updates.name !== undefined) updateData.name = updates.name;
-    if (updates.type !== undefined) updateData.type = updates.type;
+    if (updates.type !== undefined) updateData.type = updates.type as any;
     if (updates.level !== undefined) updateData.level = updates.level;
     if (updates.parentId !== undefined) updateData.parent_id = updates.parentId;
     if (updates.color !== undefined) updateData.color = updates.color;
     if (updates.icon !== undefined) updateData.icon = updates.icon;
     if (updates.isSystem !== undefined) updateData.is_system = updates.isSystem;
-    if (updates.isTransferCategory !== undefined) updateData.is_transfer_category = updates.isTransferCategory;
-    if (updates.accountId !== undefined) updateData.account_id = updates.accountId;
+    if (updates.isTransferCategory !== undefined) (updateData as any).is_transfer_category = updates.isTransferCategory;
+    if (updates.accountId !== undefined) (updateData as any).account_id = updates.accountId;
     if (updates.isActive !== undefined) updateData.is_active = updates.isActive;
     
     const { data, error } = await supabase

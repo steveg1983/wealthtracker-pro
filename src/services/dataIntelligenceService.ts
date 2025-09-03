@@ -132,9 +132,8 @@ class DataIntelligenceService {
 
   constructor() {
     this.loadData();
-    this.initializeMerchantDatabase();
     this.initializeSmartCategories();
-    this.createSampleData();
+    // NO SAMPLE DATA - only real data from actual transactions
   }
 
   private loadData() {
@@ -201,91 +200,53 @@ class DataIntelligenceService {
     }
   }
 
-  private initializeMerchantDatabase() {
-    if (this.merchants.length === 0) {
-      // Common merchant patterns for enrichment
-      const commonMerchants = [
-        {
-          patterns: ['amazon', 'amzn', 'amazon.com'],
-          name: 'Amazon',
-          category: 'Shopping',
-          industry: 'E-commerce',
-          frequency: 'monthly' as const,
-          tags: ['online', 'retail', 'marketplace']
-        },
-        {
-          patterns: ['netflix', 'netflix.com'],
-          name: 'Netflix',
-          category: 'Entertainment',
-          industry: 'Streaming',
-          frequency: 'monthly' as const,
-          tags: ['subscription', 'streaming', 'entertainment']
-        },
-        {
-          patterns: ['spotify', 'spotify.com'],
-          name: 'Spotify',
-          category: 'Entertainment',
-          industry: 'Music Streaming',
-          frequency: 'monthly' as const,
-          tags: ['subscription', 'music', 'streaming']
-        },
-        {
-          patterns: ['uber', 'uber*'],
-          name: 'Uber',
-          category: 'Transportation',
-          industry: 'Rideshare',
-          frequency: 'weekly' as const,
-          tags: ['transportation', 'rideshare', 'mobile']
-        },
-        {
-          patterns: ['starbucks', 'sbux'],
-          name: 'Starbucks',
-          category: 'Food & Dining',
-          industry: 'Coffee',
-          frequency: 'daily' as const,
-          tags: ['coffee', 'food', 'chain']
-        },
-        {
-          patterns: ['whole foods', 'wfm'],
-          name: 'Whole Foods Market',
-          category: 'Groceries',
-          industry: 'Grocery',
-          frequency: 'weekly' as const,
-          tags: ['grocery', 'organic', 'food']
-        },
-        {
-          patterns: ['target', 'target.com'],
-          name: 'Target',
-          category: 'Shopping',
-          industry: 'Retail',
-          frequency: 'monthly' as const,
-          tags: ['retail', 'department', 'shopping']
-        },
-        {
-          patterns: ['apple', 'apple.com', 'itunes'],
-          name: 'Apple',
-          category: 'Technology',
-          industry: 'Technology',
-          frequency: 'monthly' as const,
-          tags: ['technology', 'apps', 'devices']
-        }
-      ];
-
-      commonMerchants.forEach((merchant, index) => {
-        this.merchants.push({
-          id: `merchant-${index + 1}`,
-          name: merchant.name,
-          cleanName: merchant.name,
-          category: merchant.category,
-          industry: merchant.industry,
-          frequency: merchant.frequency,
-          tags: merchant.tags,
-          confidence: 0.95,
-          createdAt: new Date(),
-          lastUpdated: new Date()
-        });
-      });
+  // Learn merchants from actual transactions, not hardcoded
+  learnMerchantFromTransaction(transaction: Transaction): MerchantData | null {
+    const cleanName = this.cleanMerchantName(transaction.description);
+    
+    // Check if we already know this merchant
+    let merchant = this.merchants.find(m => 
+      m.cleanName.toLowerCase() === cleanName.toLowerCase()
+    );
+    
+    if (!merchant) {
+      // Create new merchant entry from transaction
+      const enrichment = this.performBasicEnrichment(transaction.description);
+      merchant = {
+        id: `merchant-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: cleanName,
+        cleanName: cleanName,
+        category: transaction.category || enrichment.category,
+        industry: enrichment.industry,
+        frequency: 'irregular',
+        tags: enrichment.suggestedTags,
+        confidence: enrichment.confidence,
+        avgTransactionAmount: Math.abs(transaction.amount),
+        createdAt: new Date(),
+        lastUpdated: new Date()
+      };
+      
+      this.merchants.push(merchant);
+      this.saveData();
+    } else {
+      // Update existing merchant with new transaction info
+      const transactions = this.getMerchantTransactionCount(merchant.cleanName);
+      const newAvg = merchant.avgTransactionAmount 
+        ? (merchant.avgTransactionAmount * transactions + Math.abs(transaction.amount)) / (transactions + 1)
+        : Math.abs(transaction.amount);
+      
+      merchant.avgTransactionAmount = newAvg;
+      merchant.lastUpdated = new Date();
+      this.saveData();
     }
+    
+    return merchant;
+  }
+  
+  private getMerchantTransactionCount(merchantName: string): number {
+    // In a real implementation, this would query the database
+    // For now, we'll estimate based on frequency
+    return 1;
   }
 
   private initializeSmartCategories() {
@@ -345,162 +306,7 @@ class DataIntelligenceService {
     }
   }
 
-  private createSampleData() {
-    if (this.subscriptions.length === 0) {
-      const sampleSubscriptions: Subscription[] = [
-        {
-          id: '1',
-          merchantId: 'merchant-2',
-          merchantName: 'Netflix',
-          amount: 15.99,
-          frequency: 'monthly',
-          nextPaymentDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          category: 'Entertainment',
-          status: 'active',
-          startDate: new Date('2023-06-15'),
-          description: 'Standard Plan',
-          renewalType: 'auto',
-          paymentMethod: 'Credit Card',
-          transactionIds: ['trans-netflix-1', 'trans-netflix-2'],
-          createdAt: new Date('2023-06-15'),
-          lastUpdated: new Date()
-        },
-        {
-          id: '2',
-          merchantId: 'merchant-3',
-          merchantName: 'Spotify',
-          amount: 9.99,
-          frequency: 'monthly',
-          nextPaymentDate: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000),
-          category: 'Entertainment',
-          status: 'active',
-          startDate: new Date('2023-03-10'),
-          description: 'Premium Individual',
-          renewalType: 'auto',
-          paymentMethod: 'Credit Card',
-          transactionIds: ['trans-spotify-1', 'trans-spotify-2'],
-          createdAt: new Date('2023-03-10'),
-          lastUpdated: new Date()
-        },
-        {
-          id: '3',
-          merchantId: 'merchant-8',
-          merchantName: 'Adobe Creative Cloud',
-          amount: 52.99,
-          frequency: 'monthly',
-          nextPaymentDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          category: 'Software',
-          status: 'active',
-          startDate: new Date('2023-01-01'),
-          description: 'All Apps Plan',
-          renewalType: 'auto',
-          paymentMethod: 'Credit Card',
-          transactionIds: ['trans-adobe-1', 'trans-adobe-2'],
-          createdAt: new Date('2023-01-01'),
-          lastUpdated: new Date()
-        }
-      ];
-
-      this.subscriptions = sampleSubscriptions;
-    }
-
-    if (this.spendingPatterns.length === 0) {
-      const samplePatterns: SpendingPattern[] = [
-        {
-          id: '1',
-          patternType: 'recurring',
-          category: 'Food & Dining',
-          merchant: 'Starbucks',
-          frequency: 'daily',
-          amount: 5.85,
-          variance: 1.2,
-          confidence: 0.87,
-          description: 'Daily coffee purchase at Starbucks',
-          transactions: ['trans-sb-1', 'trans-sb-2', 'trans-sb-3'],
-          detectedAt: new Date('2024-01-15'),
-          isActive: true
-        },
-        {
-          id: '2',
-          patternType: 'seasonal',
-          category: 'Shopping',
-          frequency: 'yearly',
-          amount: 250.00,
-          variance: 45.0,
-          confidence: 0.72,
-          description: 'Holiday shopping spike in December',
-          transactions: ['trans-holiday-1', 'trans-holiday-2'],
-          detectedAt: new Date('2024-01-10'),
-          isActive: true
-        },
-        {
-          id: '3',
-          patternType: 'trend',
-          category: 'Transportation',
-          merchant: 'Uber',
-          frequency: 'weekly',
-          amount: 35.00,
-          variance: 12.5,
-          confidence: 0.75,
-          description: 'Increasing ride-share usage trend',
-          transactions: ['trans-uber-1', 'trans-uber-2', 'trans-uber-3'],
-          detectedAt: new Date('2024-01-12'),
-          isActive: true
-        }
-      ];
-
-      this.spendingPatterns = samplePatterns;
-    }
-
-    if (this.insights.length === 0) {
-      const sampleInsights: SpendingInsight[] = [
-        {
-          id: '1',
-          type: 'subscription_alert',
-          title: 'Subscription Renewal Due',
-          description: 'Adobe Creative Cloud ($52.99) renews in 3 days',
-          severity: 'medium',
-          category: 'Software',
-          merchant: 'Adobe Creative Cloud',
-          amount: 52.99,
-          transactionIds: ['trans-adobe-3'],
-          actionable: true,
-          dismissed: false,
-          createdAt: new Date()
-        },
-        {
-          id: '2',
-          type: 'spending_spike',
-          title: 'Unusual Spending Detected',
-          description: 'Food & Dining spending is 40% higher than usual this month',
-          severity: 'medium',
-          category: 'Food & Dining',
-          transactionIds: ['trans-food-1', 'trans-food-2'],
-          actionable: true,
-          dismissed: false,
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
-        },
-        {
-          id: '3',
-          type: 'new_merchant',
-          title: 'New Merchant Detected',
-          description: 'First transaction with "HelloFresh" - looks like a meal kit subscription',
-          severity: 'low',
-          category: 'Groceries',
-          merchant: 'HelloFresh',
-          amount: 89.99,
-          transactionIds: ['trans-hellofresh-1'],
-          actionable: true,
-          dismissed: false,
-          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
-        }
-      ];
-
-      this.insights = sampleInsights;
-    }
-
-    this.saveData();
-  }
+  // REMOVED: No sample data - only real data from actual transactions
 
   // Merchant Enrichment
   enrichMerchant(transactionDescription: string): MerchantEnrichment {
@@ -533,34 +339,97 @@ class DataIntelligenceService {
 
   private performBasicEnrichment(description: string): MerchantEnrichment {
     const cleanDesc = description.toLowerCase();
+    const cleanName = this.cleanMerchantName(description);
     
-    // Basic patterns
+    // Comprehensive merchant patterns with better categorization
     const patterns = [
-      { pattern: /coffee|starbucks|dunkin|cafe/i, category: 'Food & Dining', industry: 'Coffee' },
-      { pattern: /gas|shell|exxon|chevron|bp|fuel/i, category: 'Transportation', industry: 'Gas Station' },
-      { pattern: /grocery|supermarket|kroger|safeway|whole foods/i, category: 'Groceries', industry: 'Grocery' },
-      { pattern: /restaurant|dining|food|pizza|burger/i, category: 'Food & Dining', industry: 'Restaurant' },
-      { pattern: /uber|lyft|taxi|ride/i, category: 'Transportation', industry: 'Rideshare' },
-      { pattern: /amazon|ebay|shopping|retail/i, category: 'Shopping', industry: 'E-commerce' },
-      { pattern: /netflix|spotify|subscription|streaming/i, category: 'Entertainment', industry: 'Streaming' }
+      // Streaming & Subscriptions
+      { pattern: /netflix|nflx/i, category: 'Entertainment', industry: 'Streaming', confidence: 0.95 },
+      { pattern: /spotify|sptfy/i, category: 'Entertainment', industry: 'Music Streaming', confidence: 0.95 },
+      { pattern: /hulu|disney\+|disney plus|paramount\+|hbo|max streaming/i, category: 'Entertainment', industry: 'Streaming', confidence: 0.9 },
+      { pattern: /apple\.com\/bill|itunes/i, category: 'Technology', industry: 'Digital Services', confidence: 0.85 },
+      { pattern: /amazon prime|amzn mktp|amazon digital/i, category: 'Shopping', industry: 'E-commerce', confidence: 0.9 },
+      { pattern: /youtube premium|youtube tv/i, category: 'Entertainment', industry: 'Streaming', confidence: 0.9 },
+      
+      // Cloud & Software
+      { pattern: /dropbox|dbx/i, category: 'Technology', industry: 'Cloud Storage', confidence: 0.9 },
+      { pattern: /adobe|creative cloud/i, category: 'Technology', industry: 'Software', confidence: 0.9 },
+      { pattern: /microsoft|msft|office 365/i, category: 'Technology', industry: 'Software', confidence: 0.9 },
+      { pattern: /google storage|google one/i, category: 'Technology', industry: 'Cloud Storage', confidence: 0.9 },
+      
+      // Food & Dining
+      { pattern: /starbucks|sbux/i, category: 'Food & Dining', industry: 'Coffee', confidence: 0.95 },
+      { pattern: /dunkin|dnkn/i, category: 'Food & Dining', industry: 'Coffee', confidence: 0.95 },
+      { pattern: /mcdonald|mcdonalds|mcd/i, category: 'Food & Dining', industry: 'Fast Food', confidence: 0.9 },
+      { pattern: /subway|chipotle|panera|wendy|burger king|taco bell|kfc/i, category: 'Food & Dining', industry: 'Fast Food', confidence: 0.85 },
+      { pattern: /doordash|uber eats|grubhub|postmates|deliveroo/i, category: 'Food & Dining', industry: 'Food Delivery', confidence: 0.9 },
+      { pattern: /coffee|cafe|espresso|latte/i, category: 'Food & Dining', industry: 'Coffee', confidence: 0.7 },
+      { pattern: /restaurant|dining|grill|kitchen|bistro|pizz/i, category: 'Food & Dining', industry: 'Restaurant', confidence: 0.75 },
+      
+      // Transportation
+      { pattern: /uber(?!\s*eats)|lyft/i, category: 'Transportation', industry: 'Rideshare', confidence: 0.9 },
+      { pattern: /shell|exxon|chevron|bp|mobil|texaco|sunoco|citgo/i, category: 'Transportation', industry: 'Gas Station', confidence: 0.9 },
+      { pattern: /parking|park/i, category: 'Transportation', industry: 'Parking', confidence: 0.8 },
+      { pattern: /tesla|supercharger|electrify|chargepoint/i, category: 'Transportation', industry: 'EV Charging', confidence: 0.85 },
+      
+      // Groceries
+      { pattern: /walmart|wal-mart|wmt/i, category: 'Groceries', industry: 'Supermarket', confidence: 0.85 },
+      { pattern: /target|tgt/i, category: 'Shopping', industry: 'Retail', confidence: 0.85 },
+      { pattern: /kroger|safeway|albertsons|publix|wegmans|trader joe|whole foods/i, category: 'Groceries', industry: 'Supermarket', confidence: 0.9 },
+      { pattern: /costco|sam'?s club|bj'?s wholesale/i, category: 'Groceries', industry: 'Warehouse Club', confidence: 0.9 },
+      { pattern: /cvs|walgreens|rite aid|pharmacy/i, category: 'Health', industry: 'Pharmacy', confidence: 0.85 },
+      
+      // Utilities & Bills
+      { pattern: /electric|power|energy|pge|con ed|duke energy/i, category: 'Utilities', industry: 'Electricity', confidence: 0.85 },
+      { pattern: /water|sewer|utility/i, category: 'Utilities', industry: 'Water', confidence: 0.8 },
+      { pattern: /gas company|natural gas/i, category: 'Utilities', industry: 'Gas', confidence: 0.85 },
+      { pattern: /comcast|xfinity|spectrum|at&t|verizon|t-mobile|sprint/i, category: 'Utilities', industry: 'Telecom', confidence: 0.9 },
+      { pattern: /insurance|geico|state farm|allstate|progressive/i, category: 'Insurance', industry: 'Insurance', confidence: 0.85 },
+      
+      // Fitness & Health
+      { pattern: /gym|fitness|planet fitness|la fitness|equinox|crossfit/i, category: 'Health', industry: 'Fitness', confidence: 0.85 },
+      { pattern: /peloton|fitbit|strava/i, category: 'Health', industry: 'Fitness Tech', confidence: 0.9 },
+      
+      // E-commerce & Shopping
+      { pattern: /amazon|amzn/i, category: 'Shopping', industry: 'E-commerce', confidence: 0.9 },
+      { pattern: /ebay/i, category: 'Shopping', industry: 'Marketplace', confidence: 0.9 },
+      { pattern: /etsy/i, category: 'Shopping', industry: 'Handmade Marketplace', confidence: 0.9 },
+      { pattern: /paypal/i, category: 'Financial', industry: 'Payment Processor', confidence: 0.85 },
+      
+      // Travel
+      { pattern: /airline|airways|delta|united|american air|southwest|jetblue/i, category: 'Travel', industry: 'Airlines', confidence: 0.85 },
+      { pattern: /hotel|marriott|hilton|hyatt|airbnb|vrbo/i, category: 'Travel', industry: 'Lodging', confidence: 0.85 },
+      { pattern: /expedia|booking\.com|priceline|kayak/i, category: 'Travel', industry: 'Travel Booking', confidence: 0.85 },
+      
+      // General patterns (lower confidence)
+      { pattern: /store|shop|mart/i, category: 'Shopping', industry: 'Retail', confidence: 0.5 },
+      { pattern: /gas|fuel/i, category: 'Transportation', industry: 'Gas Station', confidence: 0.6 },
+      { pattern: /market/i, category: 'Groceries', industry: 'Market', confidence: 0.5 }
     ];
 
-    for (const { pattern, category, industry } of patterns) {
+    // Check patterns in order of confidence
+    patterns.sort((a, b) => b.confidence - a.confidence);
+    
+    for (const { pattern, category, industry, confidence } of patterns) {
       if (pattern.test(cleanDesc)) {
         return {
           originalName: description,
-          cleanName: this.cleanMerchantName(description),
+          cleanName,
           category,
           industry,
-          confidence: 0.6,
-          suggestedTags: [category.toLowerCase(), industry.toLowerCase()]
+          confidence,
+          suggestedTags: [category.toLowerCase(), industry.toLowerCase(), cleanName.toLowerCase()]
         };
       }
     }
 
+    // If no pattern matches, try to extract useful info from the description
+    const words = cleanName.split(/\s+/);
+    const suggestedTags = words.filter(word => word.length > 3);
+    
     return {
       originalName: description,
-      cleanName: this.cleanMerchantName(description),
+      cleanName,
       category: 'Other',
       industry: 'Unknown',
       confidence: 0.3,
@@ -569,13 +438,48 @@ class DataIntelligenceService {
   }
 
   private cleanMerchantName(description: string): string {
-    // Remove common prefixes/suffixes and clean up merchant names
-    return description
-      .replace(/^(POS|DEBIT|CREDIT|PURCHASE|PAYMENT)\s+/i, '')
-      .replace(/\s+\d{2}\/\d{2}$/, '') // Remove date suffixes
-      .replace(/\s+#\d+$/, '') // Remove reference numbers
-      .replace(/\s+\*\d+$/, '') // Remove card numbers
+    // Remove common banking prefixes and clean up merchant names
+    let cleaned = description
+      .replace(/^(POS|DEBIT|CREDIT|PURCHASE|PAYMENT|CHECKCARD|CHECK CARD|VISA|MC|AMEX)\s+/gi, '')
+      .replace(/^(ACH|EFT|TRANSFER|DIRECT DEBIT|DD|RECURRING)\s+/gi, '')
+      .replace(/^(ONLINE|WEB|INTERNET|MOBILE)\s+/gi, '')
+      .replace(/\s+\d{2}\/\d{2}\/\d{2,4}(\s|$)/g, ' ') // Remove dates
+      .replace(/\s+\d{2}\/\d{2}(\s|$)/g, ' ') // Remove short dates
+      .replace(/\s+#\d+(\s|$)/g, ' ') // Remove reference numbers
+      .replace(/\s+\*+\d+(\s|$)/g, ' ') // Remove card numbers
+      .replace(/\s+[A-Z]{2}\s+\d{5}(\s|$)/g, ' ') // Remove state + zip
+      .replace(/\s+[A-Z]{2}$/, '') // Remove trailing state codes
+      .replace(/\d{10,}/, '') // Remove long numbers (transaction IDs)
+      .replace(/\s+USD(\s|$)/gi, ' ') // Remove currency codes
+      .replace(/\s+US(\s|$)/g, ' ') // Remove country codes
+      .replace(/\s{2,}/g, ' ') // Collapse multiple spaces
       .trim();
+    
+    // Extract the most likely merchant name (often the first part)
+    // Common patterns: "MERCHANT_NAME CITY STATE" or "MERCHANT_NAME 123-456"
+    const parts = cleaned.split(/\s+/);
+    
+    // If we have location info at the end (city/state pattern), remove it
+    if (parts.length > 2) {
+      // Check if last part looks like a state code
+      const lastPart = parts[parts.length - 1];
+      if (lastPart.length === 2 && /^[A-Z]{2}$/.test(lastPart)) {
+        parts.pop(); // Remove state
+        // Also remove city if it looks like one (all caps, not a known merchant)
+        const secondLast = parts[parts.length - 1];
+        if (secondLast && secondLast === secondLast.toUpperCase() && secondLast.length > 2) {
+          parts.pop();
+        }
+      }
+    }
+    
+    // Join remaining parts and do final cleanup
+    cleaned = parts.join(' ')
+      .replace(/\s+\d{3}-\d{3}-\d{4}$/, '') // Remove phone numbers
+      .replace(/\.com$/i, '') // Remove .com suffix
+      .trim();
+    
+    return cleaned || description.trim();
   }
 
   // Subscription Management
@@ -621,8 +525,11 @@ class DataIntelligenceService {
   detectSubscriptions(transactions: Transaction[]): Subscription[] {
     const potentialSubscriptions: Subscription[] = [];
     
+    // Filter to only expense transactions (negative amounts)
+    const expenses = transactions.filter(t => t.amount < 0);
+    
     // Group transactions by merchant
-    const merchantGroups = transactions.reduce((groups, transaction) => {
+    const merchantGroups = expenses.reduce((groups, transaction) => {
       const cleanMerchant = this.cleanMerchantName(transaction.description);
       if (!groups[cleanMerchant]) {
         groups[cleanMerchant] = [];
@@ -633,52 +540,98 @@ class DataIntelligenceService {
 
     // Analyze each merchant group for subscription patterns
     Object.entries(merchantGroups).forEach(([merchant, merchantTransactions]) => {
-      if (merchantTransactions.length < 2) return;
+      // Need at least 3 transactions to detect a pattern
+      if (merchantTransactions.length < 3) return;
 
       // Sort by date
       merchantTransactions.sort((a, b) => a.date.getTime() - b.date.getTime());
 
       // Check for regular intervals
       const intervals = [];
+      const amounts = merchantTransactions.map(t => Math.abs(t.amount));
+      
       for (let i = 1; i < merchantTransactions.length; i++) {
         const daysDiff = Math.round((merchantTransactions[i].date.getTime() - merchantTransactions[i-1].date.getTime()) / (1000 * 60 * 60 * 24));
         intervals.push(daysDiff);
       }
 
-      // Check if intervals are consistent (within 3 days)
+      // Calculate interval statistics
       const avgInterval = intervals.reduce((sum, interval) => sum + interval, 0) / intervals.length;
-      const isRegular = intervals.every(interval => Math.abs(interval - avgInterval) <= 3);
+      const medianInterval = [...intervals].sort((a, b) => a - b)[Math.floor(intervals.length / 2)];
+      
+      // Check amount consistency (within 20% variance)
+      const avgAmount = amounts.reduce((sum, amt) => sum + amt, 0) / amounts.length;
+      const amountVariance = amounts.map(amt => Math.abs(amt - avgAmount) / avgAmount);
+      const isAmountConsistent = amountVariance.every(variance => variance <= 0.2);
+      
+      // Use median for better interval detection (less affected by outliers)
+      const intervalTolerance = medianInterval <= 35 ? 3 : 5; // Tighter tolerance for monthly
+      const isRegular = intervals.every(interval => Math.abs(interval - medianInterval) <= intervalTolerance);
 
-      if (isRegular && avgInterval >= 7) {
+      // Determine if this looks like a subscription
+      if (isRegular && isAmountConsistent && medianInterval >= 7 && medianInterval <= 370) {
         let frequency: Subscription['frequency'] = 'monthly';
-        if (avgInterval <= 10) frequency = 'weekly';
-        else if (avgInterval <= 35) frequency = 'monthly';
-        else if (avgInterval <= 100) frequency = 'quarterly';
-        else frequency = 'yearly';
+        
+        // Better frequency detection based on median interval
+        if (medianInterval >= 7 && medianInterval <= 10) {
+          frequency = 'weekly';
+        } else if (medianInterval >= 13 && medianInterval <= 17) {
+          frequency = 'bi-weekly';
+        } else if (medianInterval >= 27 && medianInterval <= 35) {
+          frequency = 'monthly';
+        } else if (medianInterval >= 55 && medianInterval <= 65) {
+          frequency = 'bi-monthly';
+        } else if (medianInterval >= 85 && medianInterval <= 95) {
+          frequency = 'quarterly';
+        } else if (medianInterval >= 175 && medianInterval <= 190) {
+          frequency = 'semi-annually';
+        } else if (medianInterval >= 355 && medianInterval <= 370) {
+          frequency = 'yearly';
+        }
 
         const enrichment = this.enrichMerchant(merchant);
-        const avgAmount = merchantTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0) / merchantTransactions.length;
+        const lastTransaction = merchantTransactions[merchantTransactions.length - 1];
+        
+        // Calculate next payment date based on frequency
+        let nextPaymentDays = medianInterval;
+        const nextPaymentDate = new Date(lastTransaction.date);
+        nextPaymentDate.setDate(nextPaymentDate.getDate() + nextPaymentDays);
 
-        potentialSubscriptions.push({
-          id: `detected-${Date.now()}-${merchant}`,
-          merchantId: 'unknown',
-          merchantName: enrichment.cleanName,
-          amount: avgAmount,
-          frequency,
-          nextPaymentDate: new Date(merchantTransactions[merchantTransactions.length - 1].date.getTime() + avgInterval * 24 * 60 * 60 * 1000),
-          category: enrichment.category,
-          status: 'active',
-          startDate: merchantTransactions[0].date,
-          renewalType: 'auto',
-          paymentMethod: 'Unknown',
-          transactionIds: merchantTransactions.map(t => t.id),
-          createdAt: new Date(),
-          lastUpdated: new Date()
-        });
+        // Check if subscription already exists to avoid duplicates
+        const existingSubscription = this.subscriptions.find(sub => 
+          sub.merchantName.toLowerCase() === enrichment.cleanName.toLowerCase() &&
+          sub.status === 'active'
+        );
+        
+        if (!existingSubscription) {
+          potentialSubscriptions.push({
+            id: `detected-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            merchantId: merchant.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+            merchantName: enrichment.cleanName,
+            amount: avgAmount,
+            frequency,
+            nextPaymentDate,
+            category: enrichment.category || merchantTransactions[0].category || 'Other',
+            status: 'active',
+            startDate: merchantTransactions[0].date,
+            renewalType: 'auto',
+            paymentMethod: 'Unknown',
+            transactionIds: merchantTransactions.map(t => t.id),
+            confidence: isAmountConsistent ? 0.9 : 0.7, // Add confidence score
+            createdAt: new Date(),
+            lastUpdated: new Date()
+          });
+        }
       }
     });
 
-    return potentialSubscriptions;
+    // Sort by confidence and amount (most expensive first)
+    return potentialSubscriptions.sort((a, b) => {
+      const confA = (a as any).confidence || 0.5;
+      const confB = (b as any).confidence || 0.5;
+      if (confA !== confB) return confB - confA;
+      return b.amount - a.amount;
+    });
   }
 
   // Spending Pattern Analysis

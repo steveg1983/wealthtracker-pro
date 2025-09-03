@@ -10,26 +10,30 @@ interface PageWrapperProps {
 
 export default function PageWrapper({ title, headerContent, children, rightContent, reducedHeaderWidth }: PageWrapperProps): React.JSX.Element {
   return (
-    <>
-      <div className="relative mb-6">
-        <div className={`bg-secondary dark:bg-gray-700 rounded-2xl shadow p-4 relative ${reducedHeaderWidth ? 'w-[80%]' : ''}`}>
-          <h1 className="text-3xl font-bold text-white">{title}</h1>
-          {headerContent}
-          {rightContent && !reducedHeaderWidth && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 z-10">
-              {rightContent}
+    <div className="w-full">
+      <div className="bg-secondary dark:bg-gray-700 rounded-2xl shadow-lg mb-6">
+        <div className="px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <h1 className="text-2xl font-bold text-white">{title}</h1>
+              {headerContent && (
+                <div className="mt-2 text-sm text-gray-200 dark:text-gray-300">
+                  {headerContent}
+                </div>
+              )}
             </div>
-          )}
-        </div>
-        {rightContent && reducedHeaderWidth && (
-          <div className="absolute right-0 top-1/2 -translate-y-1/2">
-            {rightContent}
+            {rightContent && (
+              <div className="ml-4">
+                {rightContent}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
-      <div className="relative pb-24 lg:pb-0">
+      
+      <div className="w-full">
         {children}
       </div>
-    </>
+    </div>
   );
 }

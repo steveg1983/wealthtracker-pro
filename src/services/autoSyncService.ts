@@ -70,33 +70,33 @@ class AutoSyncService {
    */
   async initialize(userId: string): Promise<void> {
     if (this.isInitialized && this.userId === userId) {
-      console.log('[AutoSync] Already initialized for user:', userId);
+      logger.info('[AutoSync] Already initialized for user', { userId });
       return;
     }
 
-    console.log('[AutoSync] Initializing for user:', userId);
+    logger.info('[AutoSync] Initializing for user', { userId });
     this.userId = userId;
 
     try {
       // Step 1: Load local data
       const localData = await this.loadLocalData();
-      console.log('[AutoSync] Local data loaded:', {
+      logger.debug('[AutoSync] Local data loaded', {
         accounts: localData.accounts.length,
         transactions: localData.transactions.length
       });
 
       // Step 2: Check cloud data status
       const hasCloudData = await this.checkCloudData(userId);
-      console.log('[AutoSync] Cloud data exists:', hasCloudData);
+      logger.info('[AutoSync] Cloud data exists', { hasCloudData });
 
       // Step 3: Intelligent merge and sync
       if (!hasCloudData && this.hasLocalData(localData)) {
         // First time user with local data - migrate silently
-        console.log('[AutoSync] Performing silent migration...');
+        logger.info('[AutoSync] Performing silent migration...');
         await this.migrateToCloud(userId, localData);
       } else if (hasCloudData && this.hasLocalData(localData)) {
         // Both local and cloud data exist - merge intelligently
-        console.log('[AutoSync] Merging local and cloud data...');
+        logger.info('[AutoSync] Merging local and cloud data...');
         await this.mergeData(userId, localData);
       }
       // If only cloud data exists, AppContext will load it normally
@@ -108,7 +108,7 @@ class AutoSyncService {
       this.startContinuousSync();
       
       this.isInitialized = true;
-      console.log('[AutoSync] Initialization complete');
+      logger.info('[AutoSync] Initialization complete');
     } catch (error) {
       logger.error('[AutoSync] Initialization failed:', error);
       // Don't throw - app should work even if sync fails
@@ -172,7 +172,7 @@ class AutoSyncService {
   private async migrateToCloud(userId: string, localData: LocalData): Promise<void> {
     if (!supabase) return;
 
-    console.log('[AutoSync] Starting silent migration to cloud...');
+    logger.info('[AutoSync] Starting silent migration to cloud...');
 
     try {
       // Ensure user exists in database
@@ -203,7 +203,7 @@ class AutoSyncService {
         if (accountError) {
           logger.error('[AutoSync] Failed to migrate accounts:', accountError);
         } else {
-          console.log('[AutoSync] Migrated', accountsToInsert.length, 'accounts');
+          logger.info('[AutoSync] Migrated accounts', { count: accountsToInsert.length });
         }
       }
 
@@ -253,7 +253,7 @@ class AutoSyncService {
                 logger.error('[AutoSync] Failed to migrate transaction batch:', error);
               }
             }
-            console.log('[AutoSync] Migrated', transactionsToInsert.length, 'transactions');
+            logger.info('[AutoSync] Migrated transactions', { count: transactionsToInsert.length });
           }
         }
       }
@@ -262,7 +262,7 @@ class AutoSyncService {
       localStorage.setItem('autoSyncMigrationComplete', 'true');
       localStorage.setItem('autoSyncMigrationDate', new Date().toISOString());
       
-      console.log('[AutoSync] Silent migration complete');
+      logger.info('[AutoSync] Silent migration complete');
     } catch (error) {
       logger.error('[AutoSync] Migration failed:', error);
       // Don't throw - app should continue working
@@ -309,7 +309,7 @@ class AutoSyncService {
   private async mergeData(userId: string, localData: LocalData): Promise<void> {
     // For now, prefer cloud data (it's the source of truth)
     // In the future, implement proper conflict resolution
-    console.log('[AutoSync] Merge complete - using cloud as source of truth');
+    logger.info('[AutoSync] Merge complete - using cloud as source of truth');
   }
 
   /**
@@ -319,7 +319,7 @@ class AutoSyncService {
     // Mark that we're now using cloud as primary storage
     localStorage.setItem('primaryStorage', 'cloud');
     // Keep local data as cache for offline access
-    console.log('[AutoSync] Local storage converted to cache mode');
+    logger.info('[AutoSync] Local storage converted to cache mode');
   }
 
   /**
@@ -331,7 +331,7 @@ class AutoSyncService {
       this.processSyncQueue();
     }, 5000);
 
-    console.log('[AutoSync] Continuous sync started');
+    logger.info('[AutoSync] Continuous sync started');
   }
 
   /**
@@ -342,7 +342,7 @@ class AutoSyncService {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
     }
-    console.log('[AutoSync] Continuous sync stopped');
+    logger.info('[AutoSync] Continuous sync stopped');
   }
 
   /**
@@ -434,7 +434,7 @@ class AutoSyncService {
       case 'CREATE':
         // Don't create if it already has a database ID
         if (item.data.id && item.data.id.length === 36) {
-          console.log('[AutoSync] Skipping CREATE - item already has database ID:', item.data.id);
+          logger.debug('[AutoSync] Skipping CREATE - item already has database ID', { id: item.data.id });
           return;
         }
         await supabase.from(table).insert({
@@ -465,7 +465,7 @@ class AutoSyncService {
    * Handle coming online
    */
   private handleOnline(): void {
-    console.log('[AutoSync] Connection restored');
+    logger.info('[AutoSync] Connection restored');
     this.syncStatus.isOnline = true;
     this.processSyncQueue();
   }
@@ -474,7 +474,7 @@ class AutoSyncService {
    * Handle going offline
    */
   private handleOffline(): void {
-    console.log('[AutoSync] Connection lost - will sync when online');
+    logger.warn('[AutoSync] Connection lost - will sync when online');
     this.syncStatus.isOnline = false;
   }
 

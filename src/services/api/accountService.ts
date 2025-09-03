@@ -2,10 +2,17 @@ import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseC
 import type { Account } from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { logger } from '../loggingService';
+import type { Database } from '../../types/supabase';
 
 export class AccountService {
   /**
-   * Get all accounts for a user
+   * Retrieves all active accounts for a specific user
+   * @param {string} userId - The unique identifier of the user
+   * @returns {Promise<Account[]>} Array of active accounts for the user
+   * @throws {Error} If there's an error fetching accounts from the database
+   * @example
+   * const accounts = await AccountService.getAccounts('user-123');
+   * // Returns: [{id: 'acc-1', name: 'Checking', balance: 1000, ...}]
    */
   static async getAccounts(userId: string): Promise<Account[]> {
     if (!isSupabaseConfigured()) {
@@ -37,7 +44,18 @@ export class AccountService {
   }
 
   /**
-   * Create a new account
+   * Creates a new financial account for a user
+   * @param {string} userId - The unique identifier of the user
+   * @param {Omit<Account, 'id' | 'created_at' | 'updated_at'>} account - Account data without system fields
+   * @returns {Promise<Account>} The newly created account with all fields populated
+   * @throws {Error} If account creation fails or validation errors occur
+   * @example
+   * const newAccount = await AccountService.createAccount('user-123', {
+   *   name: 'Savings Account',
+   *   type: 'savings',
+   *   balance: 5000,
+   *   currency: 'GBP'
+   * });
    */
   static async createAccount(userId: string, account: Omit<Account, 'id' | 'created_at' | 'updated_at'>): Promise<Account> {
     if (!isSupabaseConfigured()) {
@@ -63,11 +81,11 @@ export class AccountService {
       
       // Map account type properly (current -> checking for UK compatibility)
       const mappedType = accountType === 'current' ? 'checking' : accountType;
-      
-      const accountData: any = {
+
+      const accountData: Database['public']['Tables']['accounts']['Insert'] = {
         user_id: userId,
         name: account.name,
-        type: mappedType || 'checking',
+        type: (mappedType as any) || 'checking',
         currency: account.currency || 'GBP',
         balance: account.balance || 0,
         initial_balance: account.initialBalance || account.balance || 0,
@@ -77,7 +95,7 @@ export class AccountService {
         color: account.color || null
       };
 
-      console.log('Creating account with data:', accountData);
+      logger.info('Creating account', accountData);
 
       const { data, error } = await supabase!
         .from('accounts')
@@ -90,7 +108,7 @@ export class AccountService {
         throw new Error(handleSupabaseError(error));
       }
 
-      console.log('Account created successfully:', data);
+      logger.info('Account created successfully');
       return data;
     } catch (error) {
       logger.error('AccountService.createAccount error:', error);
@@ -99,7 +117,16 @@ export class AccountService {
   }
 
   /**
-   * Update an account
+   * Updates an existing account with partial data
+   * @param {string} id - The unique identifier of the account to update
+   * @param {Partial<Account>} updates - Partial account data to update
+   * @returns {Promise<Account>} The updated account with all fields
+   * @throws {Error} If account not found or update fails
+   * @example
+   * const updated = await AccountService.updateAccount('acc-123', {
+   *   balance: 2500,
+   *   name: 'Primary Checking'
+   * });
    */
   static async updateAccount(id: string, updates: Partial<Account>): Promise<Account> {
     if (!isSupabaseConfigured()) {
@@ -142,7 +169,13 @@ export class AccountService {
   }
 
   /**
-   * Delete an account (soft delete - marks as inactive)
+   * Soft deletes an account by marking it as inactive
+   * @param {string} id - The unique identifier of the account to delete
+   * @returns {Promise<void>} Resolves when deletion is successful
+   * @throws {Error} If account not found or deletion fails
+   * @description Performs a soft delete by setting is_active to false, preserving data for audit trails
+   * @example
+   * await AccountService.deleteAccount('acc-123');
    */
   static async deleteAccount(id: string): Promise<void> {
     if (!isSupabaseConfigured()) {
@@ -170,7 +203,15 @@ export class AccountService {
   }
 
   /**
-   * Get account by ID
+   * Retrieves a single account by its unique identifier
+   * @param {string} id - The unique identifier of the account
+   * @returns {Promise<Account | null>} The account if found, null otherwise
+   * @throws {Error} If there's a database error (other than not found)
+   * @example
+   * const account = await AccountService.getAccountById('acc-123');
+   * if (account) {
+ *   logger.info(`Account balance: ${account.balance}`);
+   * }
    */
   static async getAccountById(id: string): Promise<Account | null> {
     if (!isSupabaseConfigured()) {
@@ -237,7 +278,7 @@ export class AccountService {
    */
   static async recalculateBalance(accountId: string): Promise<number> {
     if (!isSupabaseConfigured()) {
-      const transactions = await storageAdapter.get<any[]>(STORAGE_KEYS.TRANSACTIONS) || [];
+      const transactions = await storageAdapter.get<Array<Pick<{ account_id: string; amount: number }, 'account_id' | 'amount'>>>(STORAGE_KEYS.TRANSACTIONS) || [];
       const accountTransactions = transactions.filter(t => t.account_id === accountId);
       const balance = accountTransactions.reduce((sum, t) => sum + t.amount, 0);
       
@@ -305,7 +346,7 @@ export class AccountService {
    */
   static subscribeToAccounts(
     userId: string,
-    callback: (payload: any) => void
+    callback: (payload: unknown) => void
   ): () => void {
     if (!isSupabaseConfigured()) {
       return () => {}; // No-op unsubscribe

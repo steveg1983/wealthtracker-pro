@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { ResponsiveTable } from './common/ResponsiveTable';
 import type { Budget } from '../types';
 
@@ -9,7 +9,7 @@ interface MobileBudgetTableProps {
   currentPeriod: string;
 }
 
-export default function MobileBudgetTable({
+const MobileBudgetTable = memo(function MobileBudgetTable({
   budgets,
   formatCurrency,
   onBudgetClick,
@@ -106,4 +106,6 @@ export default function MobileBudgetTable({
       mobileCardClassName="px-4 py-2"
     />
   );
-}
+});
+
+export default MobileBudgetTable;

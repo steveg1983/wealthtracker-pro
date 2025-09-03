@@ -44,7 +44,7 @@ export async function createAccount(
   clerkId: string, 
   account: Omit<Account, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<Account> {
-  console.log('[SimpleAccountService] Creating account for Clerk ID:', clerkId);
+logger.info('[SimpleAccountService] Creating account for Clerk ID', { clerkId });
   
   // Use centralized userIdService for ID conversion
   let userId = await userIdService.getDatabaseUserId(clerkId);
@@ -69,9 +69,9 @@ export async function createAccount(
         throw new Error('Failed to get or create database user');
       }
       
-      console.log('[SimpleAccountService] Created user via userIdService:', userId);
+      logger.info('[SimpleAccountService] Created user via userIdService', { userId });
     } else {
-      console.log('[SimpleAccountService] Using existing user:', userId);
+      logger.info('[SimpleAccountService] Using existing user', { userId });
     }
     
     // Now create the account with the proper user_id (UUID)
@@ -88,7 +88,7 @@ export async function createAccount(
       color: account.color || null
     };
     
-    console.log('[SimpleAccountService] Creating account with data:', accountData);
+    logger.info('[SimpleAccountService] Creating account with data', accountData);
     
     const { data, error } = await supabase
       .from('accounts')
@@ -112,7 +112,7 @@ export async function createAccount(
       throw new Error('Account creation returned no data');
     }
     
-    console.log('[SimpleAccountService] Account created successfully:', data);
+    logger.info('[SimpleAccountService] Account created successfully');
     
     // Create a transfer category for this account
     try {
@@ -151,7 +151,7 @@ export async function createAccount(
         logger.error('[SimpleAccountService] Failed to create transfer category:', categoryError);
         // Don't fail the account creation if category creation fails
       } else {
-        console.log('[SimpleAccountService] Transfer category created:', categoryData);
+        logger.info('[SimpleAccountService] Transfer category created', categoryData);
       }
     } catch (categoryError) {
       logger.error('[SimpleAccountService] Error creating transfer category:', categoryError);
@@ -209,7 +209,7 @@ export async function getAccounts(userIdParam: string): Promise<Account[]> {
       // This is a Clerk ID, convert it
       userId = await userIdService.getDatabaseUserId(userIdParam);
       if (!userId) {
-        console.log('[SimpleAccountService] No user found for Clerk ID:', userIdParam);
+        logger.warn('[SimpleAccountService] No user found for Clerk ID', { clerkId: userIdParam });
         return [];
       }
     }
@@ -231,7 +231,7 @@ export async function getAccounts(userIdParam: string): Promise<Account[]> {
     
   } catch (error) {
     // Fallback to localStorage
-    console.log('[SimpleAccountService] Using localStorage fallback');
+    logger.info('[SimpleAccountService] Using localStorage fallback');
     const accounts = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS);
     return accounts || [];
   }
@@ -299,7 +299,7 @@ export async function deleteAccount(accountId: string): Promise<void> {
         logger.error('[SimpleAccountService] Error soft-deleting transfer category:', categoryError);
         // Continue with account deletion even if category update fails
       } else {
-        console.log('[SimpleAccountService] Transfer category soft-deleted for account:', accountId);
+        logger.info('[SimpleAccountService] Transfer category soft-deleted for account', { accountId });
       }
     } catch (categoryError) {
       logger.error('[SimpleAccountService] Error handling transfer category:', categoryError);
@@ -347,7 +347,7 @@ export async function subscribeToAccountChanges(
     return () => {}; // No-op for localStorage
   }
 
-  console.log('[SimpleAccountService] Setting up real-time subscription for Clerk user:', clerkId);
+logger.info('[SimpleAccountService] Setting up real-time subscription', { clerkId });
 
   // Use centralized userIdService for ID conversion
   try {
@@ -358,7 +358,7 @@ export async function subscribeToAccountChanges(
       return () => {};
     }
 
-    console.log('[SimpleAccountService] Database user ID:', dbUserId);
+    logger.info('[SimpleAccountService] Database user ID', { dbUserId });
 
     // Subscribe to account changes for this specific user
     const channel = supabase
@@ -372,33 +372,23 @@ export async function subscribeToAccountChanges(
           filter: `user_id=eq.${dbUserId}` // Use database user ID for filter
         },
         (payload) => {
-          console.log('🔔 [SimpleAccountService] Real-time update received!');
-          console.log('   Event type:', payload.eventType);
-          console.log('   Table:', payload.table);
-          console.log('   Schema:', payload.schema);
-          console.log('   Old record:', payload.old);
-          console.log('   New record:', payload.new);
-          console.log('   Commit timestamp:', payload.commit_timestamp);
-          console.log('   Full payload:', payload);
+          logger.debug('[SimpleAccountService] Realtime update', payload);
           callback(payload);
         }
       )
       .subscribe((status, error) => {
-        console.log(`📡 [SimpleAccountService] Subscription status: ${status}`);
+        logger.info('[SimpleAccountService] Subscription status', { status });
         if (error) {
           logger.error('❌ [SimpleAccountService] Subscription error:', error);
         }
         if (status === 'SUBSCRIBED') {
-          console.log('✅ [SimpleAccountService] Successfully subscribed!');
-          console.log('   Channel:', `accounts-${dbUserId}`);
-          console.log('   Filter:', `user_id=eq.${dbUserId}`);
-          console.log('   Database user ID:', dbUserId);
+          logger.info('[SimpleAccountService] Subscribed', { channel: `accounts-${dbUserId}`, filter: `user_id=eq.${dbUserId}`, dbUserId });
           
           // Log all current subscriptions
           const allChannels = supabase.getChannels();
-          console.log(`📊 [SimpleAccountService] Total active channels: ${allChannels.length}`);
+          logger.info('[SimpleAccountService] Total active channels', { count: allChannels.length });
           allChannels.forEach((ch, idx) => {
-            console.log(`   ${idx + 1}. ${ch.topic} - State: ${ch.state}`);
+            logger.debug('[SimpleAccountService] Channel', { index: idx + 1, topic: ch.topic, state: ch.state });
           });
         } else if (status === 'CHANNEL_ERROR') {
           logger.error('❌ [SimpleAccountService] Channel error - check if realtime is enabled in Supabase');
@@ -407,13 +397,13 @@ export async function subscribeToAccountChanges(
         } else if (status === 'TIMED_OUT') {
           logger.error('⏱️ [SimpleAccountService] Subscription timed out');
         } else if (status === 'CLOSED') {
-          console.log('🔒 [SimpleAccountService] Channel closed');
+          logger.info('[SimpleAccountService] Channel closed');
         }
       });
 
     // Return unsubscribe function
     return () => {
-      console.log('[SimpleAccountService] Unsubscribing from real-time updates');
+      logger.info('[SimpleAccountService] Unsubscribing from real-time updates');
       supabase.removeChannel(channel);
     };
   } catch (error) {

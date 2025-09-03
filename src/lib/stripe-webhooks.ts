@@ -29,7 +29,7 @@ export async function processWebhookEvent(
   event: Stripe.Event
 ): Promise<WebhookHandlerResult> {
   try {
-    console.log(`Processing webhook event: ${event.type}`);
+    logger.info('Processing webhook event', { type: event.type });
 
     switch (event.type) {
       case 'checkout.session.completed':
@@ -55,7 +55,7 @@ export async function processWebhookEvent(
         return await handlePaymentMethodDetached(event);
       
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        logger.warn('Unhandled Stripe event type', { type: event.type });
         return { success: true, message: 'Event type not handled' };
     }
   } catch (error) {
@@ -354,7 +354,7 @@ async function sendSubscriptionEmail(
   type: 'welcome' | 'canceled' | 'payment_failed'
 ): Promise<void> {
   // Integration with email service (SendGrid, AWS SES, etc.)
-  console.log(`Would send ${type} email to ${email}`);
+  logger.info('Would send email', { type, email });
   
   // In production, you would:
   // 1. Use an email service API

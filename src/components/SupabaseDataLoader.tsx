@@ -60,7 +60,7 @@ export function SupabaseDataLoader({ children }: SupabaseDataLoaderProps) {
         dispatch(loadAllData())
           .unwrap()
           .then(() => {
-            console.log('✅ Data loaded successfully from Supabase');
+            logger.info('Data loaded successfully from Supabase');
             setDataLoaded(true);
           })
           .catch((error) => {

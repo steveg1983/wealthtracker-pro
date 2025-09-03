@@ -1,5 +1,7 @@
 import React, { useEffect, useRef } from 'react';
-import { X } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { XIcon as X } from '../icons';
+import { logger } from '../../services/loggingService';
 
 interface ModalProps {
   isOpen: boolean;
@@ -22,6 +24,8 @@ export function Modal({
 }: ModalProps): React.JSX.Element | null {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
+  
+  logger.debug('Modal rendering', { isOpen, title });
   
   useEffect(() => {
     if (isOpen) {
@@ -93,35 +97,29 @@ export function Modal({
     full: 'max-w-full mx-4'
   };
 
-  return (
+  return createPortal(
     <>
-      {/* Backdrop with blur and fade animation */}
+      {/* Backdrop */}
       <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-in fade-in duration-200"
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
         onClick={onClose}
         aria-hidden="true"
       />
       
-      {/* Professional Modal Container - Perfect centering with flexbox */}
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 lg:p-8 pointer-events-none">
+      {/* Modal Container - Centered with fixed positioning */}
+      <div className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] w-full ${sizeClasses[size]} px-4`}>
         <div 
           ref={modalRef}
           className={`
-            relative
             bg-white dark:bg-gray-900 
             rounded-2xl 
             shadow-2xl 
             w-full 
-            ${sizeClasses[size]}
-            max-h-[calc(100vh-2rem)]
-            sm:max-h-[calc(100vh-3rem)]
-            lg:max-h-[calc(100vh-4rem)]
+            max-h-[85vh]
             flex 
             flex-col
             overflow-hidden
-            animate-in zoom-in-95 slide-in-from-bottom-4 duration-300
             border border-gray-200/50 dark:border-gray-700/50
-            pointer-events-auto
           `}
           role="dialog"
           aria-modal="true"
@@ -171,7 +169,8 @@ export function Modal({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 

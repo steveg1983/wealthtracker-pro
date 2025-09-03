@@ -49,18 +49,18 @@ class UserIdService {
     // Check cache first
     const cached = this.cache.get(clerkId);
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      console.log('[UserIdService] Using cached database ID for Clerk ID:', clerkId);
+      logger.debug('[UserIdService] Using cached database ID for Clerk ID', { clerkId });
       return cached.databaseId;
     }
 
     // If not using Supabase, return null (localStorage mode)
     if (!isSupabaseConfigured() || !supabase) {
-      console.log('[UserIdService] Supabase not configured, using localStorage mode');
+      logger.info('[UserIdService] Supabase not configured, using localStorage mode');
       return null;
     }
 
     try {
-      console.log('[UserIdService] Fetching database ID for Clerk ID:', clerkId);
+      logger.info('[UserIdService] Fetching database ID for Clerk ID', { clerkId });
       
       // Query the users table to get the database ID
       const { data: user, error } = await supabase
@@ -71,7 +71,7 @@ class UserIdService {
 
       if (error) {
         if (error.code === 'PGRST116') { // Not found
-          console.log('[UserIdService] User not found for Clerk ID:', clerkId);
+          logger.info('[UserIdService] User not found for Clerk ID', { clerkId });
           return null;
         }
         logger.error('[UserIdService] Error fetching user:', error);
@@ -79,7 +79,7 @@ class UserIdService {
       }
 
       if (!user) {
-        console.log('[UserIdService] No user found for Clerk ID:', clerkId);
+      logger.info('[UserIdService] No user found for Clerk ID', { clerkId });
         return null;
       }
 
@@ -90,7 +90,7 @@ class UserIdService {
         timestamp: Date.now()
       });
 
-      console.log('[UserIdService] Found database ID:', user.id, 'for Clerk ID:', clerkId);
+      logger.info('[UserIdService] Found database ID', { databaseId: user.id, clerkId });
       return user.id;
     } catch (error) {
       logger.error('[UserIdService] Failed to get database user ID:', error);
@@ -120,7 +120,7 @@ class UserIdService {
       this.currentDatabaseId = fetchedId;
     }
 
-    console.log('[UserIdService] Current user set - Clerk ID:', clerkId, 'Database ID:', this.currentDatabaseId);
+    logger.info('[UserIdService] Current user set', { clerkId, databaseId: this.currentDatabaseId });
   }
 
   /**
@@ -157,7 +157,7 @@ class UserIdService {
     this.cache.clear();
     this.currentClerkId = null;
     this.currentDatabaseId = null;
-    console.log('[UserIdService] Cache cleared');
+    logger.info('[UserIdService] Cache cleared');
   }
 
   /**
@@ -181,7 +181,7 @@ class UserIdService {
       
       if (!databaseId) {
         // User doesn't exist, create them
-        console.log('[UserIdService] User not found, creating new user');
+        logger.info('[UserIdService] User not found, creating new user');
         const user = await UserService.getOrCreateUser(clerkId, email, firstName, lastName);
         
         if (user) {
@@ -200,7 +200,7 @@ class UserIdService {
       if (databaseId) {
         this.currentClerkId = clerkId;
         this.currentDatabaseId = databaseId;
-        console.log('[UserIdService] Current user set - Clerk ID:', clerkId, 'Database ID:', databaseId);
+        logger.info('[UserIdService] Current user set', { clerkId, databaseId });
       }
       
       return databaseId;
@@ -214,11 +214,10 @@ class UserIdService {
    * Debug function to log current state
    */
   debug(): void {
-    console.log('[UserIdService] Debug Info:');
-    console.log('  Current Clerk ID:', this.currentClerkId);
-    console.log('  Current Database ID:', this.currentDatabaseId);
-    console.log('  Cache size:', this.cache.size);
-    console.log('  Cache entries:', Array.from(this.cache.entries()).map(([key, value]) => ({
+    logger.info('[UserIdService] Debug Info');
+    logger.info('Current IDs', { clerkId: this.currentClerkId, databaseId: this.currentDatabaseId });
+    logger.info('Cache size', { size: this.cache.size });
+    logger.info('Cache entries', Array.from(this.cache.entries()).map(([key, value]) => ({
       clerkId: key,
       databaseId: value.databaseId,
       age: Math.round((Date.now() - value.timestamp) / 1000) + 's'

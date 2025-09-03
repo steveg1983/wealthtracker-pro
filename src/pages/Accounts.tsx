@@ -12,6 +12,7 @@ import { EditIcon, DeleteIcon, SettingsIcon, WalletIcon, PiggyBankIcon, CreditCa
 import { IconButton } from '../components/icons/IconButton';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import PageWrapper from '../components/PageWrapper';
+import PageWrapperNew from '../components/PageWrapperNew';
 import { calculateTotalBalance } from '../utils/calculations-decimal';
 import { toDecimal } from '../utils/decimal';
 import { SkeletonCard } from '../components/loading/Skeleton';
@@ -161,42 +162,33 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
 
 
   return (
-    <PageWrapper 
+    <PageWrapperNew 
       title="Accounts"
       rightContent={
-        <div 
+        <button
           onClick={() => setIsAddModalOpen(true)}
-          className="cursor-pointer"
-          title="Add Account"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
+          style={{ backgroundColor: '#D9E1F2' }}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#C5D3E8'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#D9E1F2'}
         >
           <svg
-            width="48"
-            height="48"
-            viewBox="0 0 48 48"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
             xmlns="http://www.w3.org/2000/svg"
-            className="transition-all duration-200 hover:scale-110 drop-shadow-lg hover:drop-shadow-xl"
-            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1))' }}
           >
-            <circle
-              cx="24"
-              cy="24"
-              r="24"
-              fill="#D9E1F2"
-              className="transition-all duration-200"
-              onMouseEnter={(e) => e.currentTarget.setAttribute('fill', '#C5D3E8')}
-              onMouseLeave={(e) => e.currentTarget.setAttribute('fill', '#D9E1F2')}
+            <path 
+              d="M12 5v14M5 12h14" 
+              stroke="#1F2937" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
             />
-            <g transform="translate(12, 12)">
-              <path 
-                d="M12 5v14M5 12h14" 
-                stroke="#1F2937" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round"
-              />
-            </g>
           </svg>
-        </div>
+          <span className="text-sm font-medium text-gray-900">Add Account</span>
+        </button>
       }
     >
 
@@ -479,6 +471,6 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         }}
       />
       
-    </PageWrapper>
+    </PageWrapperNew>
   );}
   

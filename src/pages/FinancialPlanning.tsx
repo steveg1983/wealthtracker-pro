@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { financialPlanningService } from '../services/financialPlanningService';
+import { useApp } from '../contexts/AppContextSupabase';
+import { useRegionalSettings, useRegionalCurrency } from '../hooks/useRegionalSettings';
+import { taxDataService, UKTaxYear } from '../services/taxDataService';
+import TaxYearSelector from '../components/financial/TaxYearSelector';
 import { 
   CalculatorIcon,
   PiggyBankIcon,
   TrendingUpIcon,
   HomeIcon,
-  GraduationCapIcon,
   CreditCardIcon,
   TargetIcon,
   ShieldIcon,
@@ -18,26 +21,29 @@ import {
 } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import RetirementPlanner from '../components/RetirementPlanner';
-import MortgageCalculator from '../components/MortgageCalculator';
-import CollegePlanner from '../components/CollegePlanner';
+import MortgageCalculatorNew from '../components/MortgageCalculatorNew';
 import DebtPayoffPlanner from '../components/DebtPayoffPlanner';
 import FinancialGoalTracker from '../components/FinancialGoalTracker';
 import InsurancePlanner from '../components/InsurancePlanner';
 import NetWorthProjector from '../components/NetWorthProjector';
-import type { RetirementPlan, MortgageCalculation, CollegePlan, DebtPayoffPlan, FinancialGoal, InsuranceNeed } from '../services/financialPlanningService';
+import TaxCalculator from '../components/TaxCalculator';
+import type { RetirementPlan, MortgageCalculation, DebtPayoffPlan, FinancialGoal, InsuranceNeed } from '../services/financialPlanningService';
 import { logger } from '../services/loggingService';
 
-type ActiveTab = 'overview' | 'retirement' | 'mortgage' | 'college' | 'debt' | 'goals' | 'insurance' | 'networth';
+type ActiveTab = 'overview' | 'tax' | 'retirement' | 'mortgage' | 'debt' | 'goals' | 'insurance' | 'networth';
 
 export default function FinancialPlanning() {
+  const { accounts, transactions, budgets } = useApp();
+  const regionalSettings = useRegionalSettings();
+  const { formatCurrency: formatRegionalCurrency, currencySymbol } = useRegionalCurrency();
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
   const [retirementPlans, setRetirementPlans] = useState<RetirementPlan[]>([]);
   const [mortgageCalculations, setMortgageCalculations] = useState<MortgageCalculation[]>([]);
-  const [collegePlans, setCollegePlans] = useState<CollegePlan[]>([]);
   const [debtPlans, setDebtPlans] = useState<DebtPayoffPlan[]>([]);
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
   const [insuranceNeeds, setInsuranceNeeds] = useState<InsuranceNeed[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedTaxYear, setSelectedTaxYear] = useState<UKTaxYear>(taxDataService.getSelectedUKTaxYear());
 
   useEffect(() => {
     loadData();
@@ -48,7 +54,6 @@ export default function FinancialPlanning() {
     try {
       setRetirementPlans(financialPlanningService.getRetirementPlans());
       setMortgageCalculations(financialPlanningService.getMortgageCalculations());
-      setCollegePlans(financialPlanningService.getCollegePlans());
       setDebtPlans(financialPlanningService.getDebtPlans());
       setFinancialGoals(financialPlanningService.getFinancialGoals());
       setInsuranceNeeds(financialPlanningService.getInsuranceNeeds());
@@ -64,16 +69,12 @@ export default function FinancialPlanning() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
+    return formatRegionalCurrency(amount, { decimals: 0 });
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
+    const format = regionalSettings.region === 'UK' ? 'en-GB' : 'en-US';
+    return date.toLocaleDateString(format, {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
@@ -113,127 +114,112 @@ export default function FinancialPlanning() {
 
   return (
     <PageWrapper title="Financial Planning">
-      <div className="max-w-7xl mx-auto">
+      <div>
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-800 dark:to-indigo-800 rounded-2xl p-6 mb-6 text-white shadow-lg">
+        <div 
+          className="rounded-2xl p-4 mb-6 text-gray-600 dark:text-gray-300 shadow-lg"
+          style={{
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(147, 51, 234, 0.15) 100%)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(59, 130, 246, 0.1)'
+          }}
+        >
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Financial Planning</h1>
-              <p className="text-purple-100">
-                Plan for retirement, calculate mortgages, and achieve your financial goals
-              </p>
-            </div>
-            <CalculatorIcon size={48} className="text-white/80" />
+            <p className="text-lg">
+              Plan for retirement, calculate mortgages, and achieve your financial goals
+            </p>
+            {regionalSettings.region === 'UK' && (
+              <TaxYearSelector 
+                value={selectedTaxYear}
+                onChange={setSelectedTaxYear}
+              />
+            )}
           </div>
         </div>
 
         {/* Tab Navigation */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-6">
           <div className="border-b border-gray-200 dark:border-gray-700">
-            <nav className="flex space-x-8 overflow-x-auto">
+            <nav className="flex justify-center gap-8 px-6 py-2 overflow-x-auto">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-2 px-4 my-1 border-b-2 font-medium text-sm whitespace-nowrap rounded-t-lg transition-all ${
                   activeTab === 'overview'
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                    ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <BarChart3Icon size={16} />
-                  Overview
-                </div>
+                Overview
+              </button>
+              <button
+                onClick={() => setActiveTab('tax')}
+                className={`py-2 px-4 my-1 border-b-2 font-medium text-sm whitespace-nowrap rounded-t-lg transition-all ${
+                  activeTab === 'tax'
+                    ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                }`}
+              >
+                Tax Calculator
               </button>
               <button
                 onClick={() => setActiveTab('retirement')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-2 px-4 my-1 border-b-2 font-medium text-sm whitespace-nowrap rounded-t-lg transition-all ${
                   activeTab === 'retirement'
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                    ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <PiggyBankIcon size={16} />
-                  Retirement
-                </div>
+                Retirement
               </button>
               <button
                 onClick={() => setActiveTab('mortgage')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-2 px-4 my-1 border-b-2 font-medium text-sm whitespace-nowrap rounded-t-lg transition-all ${
                   activeTab === 'mortgage'
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                    ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <HomeIcon size={16} />
-                  Mortgage
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab('college')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
-                  activeTab === 'college'
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <GraduationCapIcon size={16} />
-                  College
-                </div>
+                Mortgage
               </button>
               <button
                 onClick={() => setActiveTab('debt')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-2 px-4 my-1 border-b-2 font-medium text-sm whitespace-nowrap rounded-t-lg transition-all ${
                   activeTab === 'debt'
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                    ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <CreditCardIcon size={16} />
-                  Debt Payoff
-                </div>
+                Debt Payoff
               </button>
               <button
                 onClick={() => setActiveTab('goals')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-2 px-4 my-1 border-b-2 font-medium text-sm whitespace-nowrap rounded-t-lg transition-all ${
                   activeTab === 'goals'
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                    ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <TargetIcon size={16} />
-                  Goals
-                </div>
+                Goals
               </button>
               <button
                 onClick={() => setActiveTab('insurance')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-2 px-4 my-1 border-b-2 font-medium text-sm whitespace-nowrap rounded-t-lg transition-all ${
                   activeTab === 'insurance'
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                    ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <ShieldIcon size={16} />
-                  Insurance
-                </div>
+                Insurance
               </button>
               <button
                 onClick={() => setActiveTab('networth')}
-                className={`py-4 px-6 border-b-2 font-medium text-sm whitespace-nowrap ${
+                className={`py-2 px-4 my-1 border-b-2 font-medium text-sm whitespace-nowrap rounded-t-lg transition-all ${
                   activeTab === 'networth'
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
+                    ? 'border-[var(--color-primary)] text-[var(--color-primary)] bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <TrendingUpIcon size={16} />
-                  Net Worth
-                </div>
+                Net Worth
               </button>
             </nav>
           </div>
@@ -516,16 +502,15 @@ export default function FinancialPlanning() {
           </div>
         )}
 
+        {activeTab === 'tax' && (
+          <TaxCalculator />
+        )}
         {activeTab === 'retirement' && (
           <RetirementPlanner onDataChange={handleDataChange} />
         )}
 
         {activeTab === 'mortgage' && (
-          <MortgageCalculator onDataChange={handleDataChange} />
-        )}
-
-        {activeTab === 'college' && (
-          <CollegePlanner onDataChange={handleDataChange} />
+          <MortgageCalculatorNew />
         )}
 
         {activeTab === 'debt' && (

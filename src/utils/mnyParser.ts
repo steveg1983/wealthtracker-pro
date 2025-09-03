@@ -40,7 +40,7 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const uint8Array = new Uint8Array(arrayBuffer);
   const dataView = new DataView(arrayBuffer);
   
-  console.log('Parsing Microsoft Money .mny file, size:', arrayBuffer.byteLength);
+  logger.info('Parsing Microsoft Money .mny file', { size: arrayBuffer.byteLength });
   
   // Try to extract structured data that could be transactions
   const potentialRecords: Array<Record<string, unknown>> = [];
@@ -96,12 +96,12 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
     
     // Progress
     if (offset % (1024 * 1024) === 0 && offset > 0) {
-      console.log(`Scanned ${(offset / (1024 * 1024)).toFixed(1)}MB...`);
+      logger.debug('Scan progress', { mb: Number((offset / (1024 * 1024)).toFixed(1)) });
       await new Promise(resolve => setTimeout(resolve, 0));
     }
   }
   
-  console.log(`Extracted ${potentialRecords.length} potential records`);
+  logger.info('Extracted potential records', { count: potentialRecords.length });
   
   if (potentialRecords.length > 10) {
     // We found structured data - let user map it
@@ -228,13 +228,13 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const uint8Array = new Uint8Array(arrayBuffer);
   const dataView = new DataView(arrayBuffer);
   
-  console.log('Parsing Microsoft Money .mbf backup file, size:', arrayBuffer.byteLength);
+  logger.info('Parsing Microsoft Money .mbf backup file', { size: arrayBuffer.byteLength });
   
   // Check file header to understand format
   const header = Array.from(uint8Array.slice(0, 64))
     .map(b => b.toString(16).padStart(2, '0'))
     .join(' ');
-  console.log('MBF file header:', header);
+  logger.debug('MBF file header', header);
   
   // Check if file appears to be compressed or encrypted
   let textFound = 0;
@@ -246,7 +246,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   }
   
   const textPercentage = (textFound / Math.min(10000, arrayBuffer.byteLength)) * 100;
-  console.log(`Readable text percentage in first 10KB: ${textPercentage.toFixed(1)}%`);
+  logger.debug('Readable text percentage', { percent: Number(textPercentage.toFixed(1)) });
   
   // Try to extract structured data
   const potentialRecords: Array<Record<string, unknown>> = [];
@@ -258,7 +258,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const recordSizes = [128, 256, 512, 1024]; // Common record sizes
   
   for (const recordSize of recordSizes) {
-    console.log(`Trying record size: ${recordSize} bytes`);
+    logger.debug('Trying record size', { bytes: recordSize });
     const testRecords: Array<Record<string, unknown>> = [];
     
     for (let offset = 0; offset < Math.min(50000, arrayBuffer.byteLength) && testRecords.length < 100; offset += recordSize) {
@@ -323,7 +323,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
     
     // If this record size found good data, use it
     if (testRecords.length > 10) {
-      console.log(`Found ${testRecords.length} records with size ${recordSize}`);
+      logger.debug('Found records of size', { size: recordSize, count: testRecords.length });
       potentialRecords.push(...testRecords);
       break;
     }
@@ -331,7 +331,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   
   // Approach 2: Look for specific MBF patterns
   if (potentialRecords.length < 10) {
-    console.log('Trying pattern-based extraction...');
+    logger.debug('Trying pattern-based extraction...');
     
     // MBF might use different date encoding
     for (let i = 0; i < Math.min(arrayBuffer.byteLength - 100, 100000); i++) {
@@ -397,7 +397,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
     }
   }
   
-  console.log(`Extracted ${potentialRecords.length} potential records from MBF file`);
+  logger.info('Extracted potential records from MBF', { count: potentialRecords.length });
   
   if (potentialRecords.length > 10) {
     return {

@@ -60,7 +60,7 @@ class PushNotificationService {
 
       // Check current permission status
       const permission = await this.getPermissionState();
-      console.log('Push notification permission:', permission);
+      logger.info('Push notification permission', { permission });
 
     } catch (error) {
       logger.error('Failed to initialize push notifications:', error);

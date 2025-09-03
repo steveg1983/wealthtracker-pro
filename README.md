@@ -1,86 +1,91 @@
-# React + TypeScript + Vite
+# WealthTracker Web App
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Production‑grade personal finance tracker built with React, TypeScript, and Vite. Integrates Clerk (auth), Supabase (data + realtime), Stripe (subscriptions), and ships as a PWA with offline support and an update flow.
 
-## Getting Started
+**Stack**
+- React 18, TypeScript, Redux Toolkit
+- Vite 7, Vitest, Playwright (optional)
+- Supabase (`@supabase/supabase-js`), Clerk, Stripe
+- Sentry (optional), TailwindCSS
 
-### Running the Development Server
+## Setup
 
-**Important:** After restarting your computer, you need to start the development server to access the app:
+1) Install dependencies
+- Use Node 18+ and npm
+- Run: `npm install`
 
-```bash
-npm run dev
-```
+2) Environment variables
+- Copy `.env.example` to `.env.local` and fill values.
+- For production, use `.env.production.example` as a guide and set real values in your hosting provider (do not commit secrets).
 
-The app will be available at:
-- http://localhost:5173
-- http://127.0.0.1:5173 (if localhost doesn't work)
+Required (minimum):
+- `VITE_CLERK_PUBLISHABLE_KEY`
+- `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`
+- `VITE_STRIPE_PUBLISHABLE_KEY` (for subscription UI)
 
-If you cannot access the app via localhost, make sure the development server is running by checking for the "VITE v7.x.x ready" message in your terminal.
+Serverless (Stripe webhook):
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
+- Optional price mapping: `PRICE_IDS_PRO`, `PRICE_IDS_BUSINESS` (comma-separated)
 
-Currently, two official plugins are available:
+Related docs:
+- `SUPABASE_SETUP.md:1`
+- `STRIPE_WEBHOOK_SETUP.md:1`
+- `PWA_IMPLEMENTATION.md:1`
+- `ENABLE_REALTIME_SUPABASE.md:1`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Run
 
-## Expanding the ESLint configuration
+- Dev: `npm run dev` → app at http://localhost:5173
+- Lint: `npm run lint`
+- Unit tests: `npm run test` (UI: `npm run test:ui`)
+- E2E (Playwright): `npm run test:e2e`
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## Build & Preview
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- Build: `npm run build`
+- Preview: `npm run preview` (serves built assets)
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+Optional: generate a SW precache manifest after build
+- `npm run build:with-sw-manifest` → creates `dist/precache-manifest.json` and the service worker will precache these assets on install.
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+## Deploy
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+- Vercel: deploy the repo; configure env vars in Vercel. The app routes are SPA‑rewritten by `vercel.json:1`. The Stripe webhook lives at `api/stripe-webhook.ts:1`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Security & Privacy
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
- 
+- CSP is applied in dev via middleware and can be applied in prod via server middleware. See `src/security/csp.ts:1`.
+- Production CSP avoids `'unsafe-eval'`; development relaxes as needed for DX.
+- Centralized logging: `src/services/loggingService.ts:1` (suppressed in production except warnings/errors).
+- Never commit secrets. `.env.*` files are ignored; use `.env.production.example` as reference only.
+
+## Exchange Rates
+
+- Client requests FX rates via the serverless endpoint: `/api/exchange-rates?base=GBP`.
+- The endpoint caches responses with `s-maxage=3600, stale-while-revalidate=86400` and falls back client-side to the upstream provider if unavailable.
+
+## PWA & Updates
+
+- Service worker registration is in `src/utils/serviceWorkerRegistration.ts:1`.
+- Update banner is shown by `src/components/ServiceWorkerUpdateNotification.tsx:1` (wired in `src/components/Layout.tsx:848`). Choosing “Update Now” activates the new SW and reloads.
+
+## Realtime
+
+- Supabase Realtime subscriptions are exposed in `src/services/supabaseService.ts:293`. Ensure you clean up subscriptions when components unmount.
+
+## Notable Scripts
+
+- `build:production`: build with compression
+- `build:with-sw-manifest`: build and generate a SW precache manifest
+- `perf:test`: build + bundle check + Lighthouse
+- `test:coverage`: vitest coverage
+- `bundle:report`: visualizer report to `bundle-stats.html`
+- `bundle:summary`: print summary from `bundle-size-report.json`
+- `deps:usage`: print usage counts for chart/icon libraries
+- `clean:artifacts`: remove `dist/`, `coverage/`, and `playwright-report/`
+
+## Contributing
+
+- Keep types strict. Prefer DTOs and validation at module boundaries.
+- Use the logger instead of raw `console.*` in production paths.

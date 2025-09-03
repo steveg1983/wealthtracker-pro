@@ -22,7 +22,7 @@ class AutomaticBackupService {
     const config = this.getBackupConfig();
     
     if (!config.enabled) {
-      console.log('[AutomaticBackup] Backups disabled');
+      logger.info('[AutomaticBackup] Backups disabled');
       return;
     }
 
@@ -37,7 +37,7 @@ class AutomaticBackupService {
         if (status.state === 'granted') {
           await this.registerPeriodicSync();
         } else {
-          console.log('[AutomaticBackup] Periodic sync permission not granted');
+          logger.warn('[AutomaticBackup] Periodic sync permission not granted');
           // Fall back to regular scheduling
           this.setupFallbackScheduler();
         }
@@ -62,7 +62,7 @@ class AutomaticBackupService {
       await (registration as any).periodicSync.register('automatic-backup', {
         minInterval,
       });
-      console.log('[AutomaticBackup] Periodic sync registered');
+      logger.info('[AutomaticBackup] Periodic sync registered');
     } catch (error) {
       logger.error('[AutomaticBackup] Failed to register periodic sync:', error);
       throw error;
@@ -110,7 +110,7 @@ class AutomaticBackupService {
     }
 
     try {
-      console.log('[AutomaticBackup] Starting backup...');
+      logger.info('[AutomaticBackup] Starting backup...');
       
       // Get all data for backup
       const data = await this.collectBackupData();
@@ -145,7 +145,7 @@ class AutomaticBackupService {
       // Send notification
       this.sendBackupNotification(true);
       
-      console.log('[AutomaticBackup] Backup completed successfully');
+      logger.info('[AutomaticBackup] Backup completed successfully');
     } catch (error) {
       logger.error('[AutomaticBackup] Backup failed:', error);
       
@@ -325,7 +325,7 @@ class AutomaticBackupService {
   ): Promise<void> {
     // This would integrate with cloud storage APIs
     // For now, we'll just log the intention
-    console.log(`[AutomaticBackup] Would sync ${backupFiles.length} files to ${provider}`);
+    logger.info('[AutomaticBackup] Would sync to provider', { files: backupFiles.length, provider });
     
     // In a real implementation, this would:
     // 1. Authenticate with the cloud provider

@@ -648,7 +648,7 @@ export default function CategoriesSettings() {
           </div>
         </div>
       ) : (
-        <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6">
+        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600 mb-6">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             <p className="mb-2">💡 <strong>Tip:</strong></p>
             <ul className="list-disc list-inside space-y-1 ml-2">

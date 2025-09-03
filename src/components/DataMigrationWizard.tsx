@@ -1,20 +1,20 @@
 import React, { useState, useCallback } from 'react';
 import { 
-  Upload, 
-  FileText, 
-  CheckCircle, 
-  AlertCircle, 
-  ArrowRight, 
-  ArrowLeft,
-  Download,
-  Database,
-  Shield,
-  Zap,
-  CreditCard,
-  TrendingUp,
-  Users,
-  X
-} from 'lucide-react';
+  UploadIcon as Upload,
+  FileTextIcon as FileText,
+  CheckCircleIcon as CheckCircle,
+  AlertCircleIcon as AlertCircle,
+  ArrowRightIcon as ArrowRight,
+  ArrowLeftIcon as ArrowLeft,
+  DownloadIcon as Download,
+  DatabaseIcon as Database,
+  ShieldIcon as Shield,
+  ZapIcon as Zap,
+  CreditCardIcon as CreditCard,
+  TrendingUpIcon as TrendingUp,
+  UsersIcon as Users,
+  XIcon as X
+} from './icons';
 import { useDropzone } from 'react-dropzone';
 
 export type MigrationSource = 'mint' | 'quicken' | 'ynab' | 'personalcapital' | 'excel' | 'csv' | 'other';

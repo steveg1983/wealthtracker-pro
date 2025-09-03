@@ -248,8 +248,8 @@ export default function AdvancedAnalytics() {
           <div className="space-y-4">
             {predictions.length > 0 ? (
               <>
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-4">
-                  <p className="text-sm text-blue-800 dark:text-blue-200">
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 mb-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     <strong>Next Month Forecast:</strong> Based on your spending patterns, 
                     we predict your expenses for each category next month.
                   </p>

@@ -56,7 +56,7 @@ export function useUserId(): UseUserIdReturn {
       
       // If not cached or different user, fetch it
       if (!dbId || userIdService.getCurrentClerkId() !== clerkId) {
-        console.log('[useUserId] Fetching database ID for Clerk ID:', clerkId);
+        logger.info('[useUserId] Fetching database ID for Clerk ID', { clerkId });
         
         // For logged-in users with email, ensure they exist in database
         if (user?.emailAddresses?.[0]?.emailAddress) {
@@ -82,7 +82,7 @@ export function useUserId(): UseUserIdReturn {
       if (!dbId) {
         logger.warn('[useUserId] No database ID found for Clerk ID:', clerkId);
       } else {
-        console.log('[useUserId] Database ID resolved:', dbId);
+        logger.info('[useUserId] Database ID resolved', { dbId });
       }
     } catch (err) {
       logger.error('[useUserId] Error fetching database ID:', err);

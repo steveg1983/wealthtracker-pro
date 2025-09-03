@@ -30,7 +30,7 @@ export function parseQIF(content: string): ParsedData {
   let currentAccountName = '';
   let currentAccountType = 'checking';
   
-  console.log('Enhanced QIF parsing - looking for multiple accounts');
+  logger.info('Enhanced QIF parsing - looking for multiple accounts');
   
   // First pass - look for explicit account definitions
   let i = 0;
@@ -77,7 +77,7 @@ export function parseQIF(content: string): ParsedData {
           type: accountType,
           balance: balance
         });
-        console.log('Found account:', accountName, 'Type:', accountType);
+        logger.debug('Found account', { accountName, accountType });
       }
     } else if (line.startsWith('!Type:')) {
       // This might indicate the account type for following transactions
@@ -183,7 +183,7 @@ export function parseQIF(content: string): ParsedData {
         transactionCount++;
         
         if (transactionCount % 100 === 0) {
-          console.log(`Processed ${transactionCount} transactions...`);
+          logger.debug('QIF processed transactions', { count: transactionCount });
         }
       }
       currentTransaction = {};
@@ -225,7 +225,7 @@ export function parseQIF(content: string): ParsedData {
   // If we only found one generic account but have many transactions, 
   // try to extract more accounts from transaction patterns
   if (accountsMap.size <= 1 && transactions.length > 10) {
-    console.log('Only one account found, analyzing transactions for more accounts...');
+    logger.info('Only one account found, analyzing transactions for more accounts...');
     
     // Look for patterns in payees that might indicate accounts
     transactions.forEach(t => {
@@ -270,7 +270,7 @@ export function parseQIF(content: string): ParsedData {
     });
   }
   
-  console.log(`Final result: ${accountsMap.size} accounts and ${transactions.length} transactions`);
+  logger.info('QIF parse final result', { accounts: accountsMap.size, transactions: transactions.length });
   
   return {
     accounts: Array.from(accountsMap.values()),

@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { 
-  FileText, 
-  Download, 
-  Calendar,
-  Filter,
-  CheckCircle,
-  Settings,
-  FileSpreadsheet,
-  FilePlus,
-  Eye,
-  X,
-  ChevronDown,
-  TrendingUp,
-  DollarSign,
-  PieChart,
-  Receipt
-} from 'lucide-react';
+  FileTextIcon as FileText,
+  DownloadIcon as Download,
+  CalendarIcon as Calendar,
+  FilterIcon as Filter,
+  CheckCircleIcon as CheckCircle,
+  SettingsIcon as Settings,
+  FileTextIcon as FileSpreadsheet,
+  FileTextIcon as FilePlus,
+  EyeIcon as Eye,
+  XIcon as X,
+  ChevronDownIcon as ChevronDown,
+  TrendingUpIcon as TrendingUp,
+  DollarSignIcon as DollarSign,
+  PieChartIcon as PieChart,
+  ReceiptIcon as Receipt
+} from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths } from 'date-fns';
 import { jsPDF } from 'jspdf';

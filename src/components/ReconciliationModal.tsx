@@ -197,10 +197,10 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
 
         {/* Match Confidence (if applicable) */}
         {match && (
-          <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="mb-6 bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
             <div className="flex items-center gap-2">
-              <AlertCircleIcon className="text-blue-600 dark:text-blue-400" size={20} />
-              <p className="text-sm text-blue-800 dark:text-blue-200">
+              <AlertCircleIcon className="text-amber-600 dark:text-amber-400" size={20} />
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 This match has a <span className="font-semibold">{match.confidence}%</span> confidence score.
                 {match.matchType === 'exact' && ' The descriptions match exactly.'}
                 {match.matchType === 'fuzzy' && ' The descriptions are similar.'}

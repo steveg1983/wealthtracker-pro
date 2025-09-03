@@ -2,14 +2,15 @@ import { useEffect, useCallback, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { syncService, SyncStatus, SyncConflict } from '../services/syncService';
 import { Transaction, Account, Budget, Goal } from '../types';
+import type { EntityType, SyncEventPayload } from '../types/sync-types';
 
 interface DataSyncHook {
   syncStatus: SyncStatus;
   conflicts: SyncConflict[];
   forceSync: () => void;
-  resolveConflict: (conflictId: string, resolution: 'local' | 'remote' | 'merge', mergedData?: any) => void;
+  resolveConflict: (conflictId: string, resolution: 'local' | 'remote' | 'merge', mergedData?: unknown) => void;
   clearSyncQueue: () => void;
-  queueChange: (type: 'CREATE' | 'UPDATE' | 'DELETE', entity: string, entityId: string, data: any) => void;
+  queueChange: (type: 'CREATE' | 'UPDATE' | 'DELETE', entity: EntityType, entityId: string, data: unknown) => void;
 }
 
 export function useDataSync(): DataSyncHook {
@@ -51,7 +52,7 @@ export function useDataSync(): DataSyncHook {
 
   // Listen for remote updates
   useEffect(() => {
-    const handleRemoteCreate = async (event: any) => {
+    const handleRemoteCreate = async (event: SyncEventPayload) => {
       const { entity, data } = event;
       
       switch (entity) {
@@ -65,21 +66,21 @@ export function useDataSync(): DataSyncHook {
       }
     };
 
-    const handleRemoteUpdate = async (event: any) => {
+    const handleRemoteUpdate = async (event: SyncEventPayload) => {
       const { entity, entityId, data } = event;
       
       switch (entity) {
         case 'transaction':
-          await updateTransaction(entityId, data);
+          await updateTransaction(entityId, data as Partial<Transaction>);
           break;
         case 'account':
-          await updateAccount(entityId, data);
+          await updateAccount(entityId, data as Partial<Account>);
           break;
         // Add more entities as needed
       }
     };
 
-    const handleRemoteDelete = async (event: any) => {
+    const handleRemoteDelete = async (event: SyncEventPayload) => {
       const { entity, entityId } = event;
       
       switch (entity) {
@@ -93,16 +94,16 @@ export function useDataSync(): DataSyncHook {
       }
     };
 
-    const handleRemoteMerge = async (event: any) => {
+    const handleRemoteMerge = async (event: SyncEventPayload) => {
       const { entity, entityId, data } = event;
       
       // Handle merged data
       switch (entity) {
         case 'transaction':
-          await updateTransaction(entityId, data);
+          await updateTransaction(entityId, data as Partial<Transaction>);
           break;
         case 'account':
-          await updateAccount(entityId, data);
+          await updateAccount(entityId, data as Partial<Account>);
           break;
         // Add more entities as needed
       }
@@ -124,11 +125,12 @@ export function useDataSync(): DataSyncHook {
   // Queue local changes for sync
   const queueChange = useCallback((
     type: 'CREATE' | 'UPDATE' | 'DELETE',
-    entity: string,
+    entity: EntityType,
     entityId: string,
-    data: any
+    data: unknown
   ) => {
-    syncService.queueOperation(type, entity as any, entityId, data);
+    // Sync service expects strongly typed entity; we keep data as unknown here and validate server-side
+    syncService.queueOperation(type, entity, entityId, data as any);
   }, []);
 
   // Auto-queue local changes
@@ -193,7 +195,7 @@ export function useAutoSync(
     // Set up mutation observers or other change detection
     // This is a simplified implementation
     
-    let previousData: any[] = [];
+    let previousData: Array<{ id: string }> = [];
     
     switch (entityType) {
       case 'transaction':
@@ -212,7 +214,7 @@ export function useAutoSync(
 
     // Check for changes periodically
     const interval = setInterval(() => {
-      let currentData: any[] = [];
+      let currentData: Array<{ id: string }> = [];
       
       switch (entityType) {
         case 'transaction':
@@ -244,16 +246,12 @@ export function useAutoSync(
 }
 
 // Helper function to detect changes
-function detectChanges(oldData: any[], newData: any[]): Array<{
+function detectChanges<T extends { id: string }>(oldData: T[], newData: T[]): Array<{
   type: 'CREATE' | 'UPDATE' | 'DELETE';
   id: string;
-  data: any;
+  data: T | null;
 }> {
-  const changes: Array<{
-    type: 'CREATE' | 'UPDATE' | 'DELETE';
-    id: string;
-    data: any;
-  }> = [];
+  const changes: Array<{ type: 'CREATE' | 'UPDATE' | 'DELETE'; id: string; data: T | null; }> = [];
 
   const oldMap = new Map(oldData.map(item => [item.id, item]));
   const newMap = new Map(newData.map(item => [item.id, item]));

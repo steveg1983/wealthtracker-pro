@@ -8,7 +8,7 @@ const ENABLE_ERROR_TRACKING = import.meta.env.VITE_ENABLE_ERROR_TRACKING === 'tr
 
 export function initSentry() {
   if (!ENABLE_ERROR_TRACKING || !SENTRY_DSN) {
-    console.log('Sentry error tracking is disabled');
+    logger.info('Sentry error tracking is disabled');
     return;
   }
 
@@ -38,7 +38,7 @@ export function initSentry() {
       
       // Don't send events in development unless explicitly enabled
       if (APP_ENV === 'development' && !import.meta.env.VITE_SENTRY_SEND_IN_DEV) {
-        console.log('Sentry event captured (not sent in dev):', event, hint);
+        logger.info('Sentry event captured (not sent in dev)', { event, hint });
         return null;
       }
       
@@ -99,7 +99,7 @@ export function captureException(error: Error, context?: Record<string, any>) {
 
 export function captureMessage(message: string, level: Sentry.SeverityLevel = 'info', context?: Record<string, any>) {
   if (!ENABLE_ERROR_TRACKING) {
-    console.log(`[${level}] ${message}`, context);
+    logger.info(message, { level, context });
     return;
   }
   

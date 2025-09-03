@@ -95,14 +95,14 @@ export default function NotificationSettings({ isOpen, onClose }: NotificationSe
           <div className="space-y-6">
             {/* Permission Request */}
             {!hasPermission && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
                 <div className="flex items-start gap-3">
-                  <AlertCircleIcon size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+                  <AlertCircleIcon size={20} className="text-amber-600 dark:text-amber-400 mt-0.5" />
                   <div className="flex-1">
-                    <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                    <h3 className="font-medium text-gray-900 dark:text-white mb-1">
                       Enable Notifications
                     </h3>
-                    <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                       Allow notifications to receive budget alerts and bill reminders
                     </p>
                     <button

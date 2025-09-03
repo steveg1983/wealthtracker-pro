@@ -7,12 +7,28 @@ import { supabase } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import type { Goal } from '../../types';
+import type { Database } from '../../types/supabase';
+
+type GoalRow = Database['public']['Tables']['goals']['Row'] & {
+  // Project-specific extensions
+  account_id?: string | null;
+  icon?: string | null;
+  color?: string | null;
+};
+type GoalUpdate = Database['public']['Tables']['goals']['Update'] & {
+  account_id?: string | null;
+  icon?: string | null;
+  color?: string | null;
+};
 import { logger } from '../loggingService';
 
 /**
- * Transform database snake_case to TypeScript camelCase
+ * Transforms database snake_case goal record to TypeScript camelCase format
+ * @param {GoalRow} dbGoal - The raw goal data from database
+ * @returns {Goal} Transformed goal object with camelCase properties and calculated progress
+ * @private
  */
-function transformGoalFromDb(dbGoal: any): Goal {
+function transformGoalFromDb(dbGoal: GoalRow): Goal {
   return {
     id: dbGoal.id,
     name: dbGoal.name,
@@ -24,14 +40,14 @@ function transformGoalFromDb(dbGoal: any): Goal {
       : 0,
     targetDate: dbGoal.target_date,
     category: dbGoal.category,
-    priority: dbGoal.priority || 'medium',
-    status: dbGoal.status || 'active',
-    accountId: dbGoal.account_id,
-    autoContribute: dbGoal.auto_contribute || false,
+    priority: (dbGoal.priority as any) || 'medium',
+    status: (dbGoal.status as any) || 'active',
+    accountId: (dbGoal.account_id as string | null) || undefined,
+    autoContribute: (dbGoal.auto_contribute as boolean | undefined) || false,
     contributionAmount: dbGoal.contribution_amount,
     contributionFrequency: dbGoal.contribution_frequency,
-    icon: dbGoal.icon,
-    color: dbGoal.color,
+    icon: (dbGoal.icon as string | null) || undefined,
+    color: (dbGoal.color as string | null) || undefined,
     createdAt: dbGoal.created_at,
     updatedAt: dbGoal.updated_at,
     completedAt: dbGoal.completed_at
@@ -39,10 +55,13 @@ function transformGoalFromDb(dbGoal: any): Goal {
 }
 
 /**
- * Transform TypeScript to database format
+ * Transforms TypeScript camelCase goal to database snake_case format
+ * @param {Partial<Goal>} goal - The goal data in TypeScript format
+ * @returns {GoalUpdate} Transformed goal object for database operations
+ * @private
  */
-function transformGoalToDb(goal: Partial<Goal>): any {
-  const dbGoal: any = {};
+function transformGoalToDb(goal: Partial<Goal>): GoalUpdate {
+  const dbGoal: GoalUpdate = {};
   
   if (goal.name !== undefined) dbGoal.name = goal.name;
   if (goal.description !== undefined) dbGoal.description = goal.description;
@@ -50,21 +69,27 @@ function transformGoalToDb(goal: Partial<Goal>): any {
   if (goal.currentAmount !== undefined) dbGoal.current_amount = goal.currentAmount;
   if (goal.targetDate !== undefined) dbGoal.target_date = goal.targetDate;
   if (goal.category !== undefined) dbGoal.category = goal.category;
-  if (goal.priority !== undefined) dbGoal.priority = goal.priority;
-  if (goal.status !== undefined) dbGoal.status = goal.status;
-  if (goal.accountId !== undefined) dbGoal.account_id = goal.accountId;
+  if (goal.priority !== undefined) dbGoal.priority = goal.priority as any;
+  if (goal.status !== undefined) dbGoal.status = goal.status as any;
+  if (goal.accountId !== undefined) dbGoal.account_id = goal.accountId as any;
   if (goal.autoContribute !== undefined) dbGoal.auto_contribute = goal.autoContribute;
   if (goal.contributionAmount !== undefined) dbGoal.contribution_amount = goal.contributionAmount;
   if (goal.contributionFrequency !== undefined) dbGoal.contribution_frequency = goal.contributionFrequency;
-  if (goal.icon !== undefined) dbGoal.icon = goal.icon;
-  if (goal.color !== undefined) dbGoal.color = goal.color;
+  if (goal.icon !== undefined) (dbGoal as any).icon = goal.icon;
+  if (goal.color !== undefined) (dbGoal as any).color = goal.color;
   if (goal.completedAt !== undefined) dbGoal.completed_at = goal.completedAt;
   
   return dbGoal;
 }
 
 /**
- * Get all goals for a user
+ * Retrieves all goals for a specific user
+ * @param {string} clerkId - The Clerk authentication ID of the user
+ * @returns {Promise<Goal[]>} Array of goals sorted by creation date (newest first)
+ * @throws {Error} If Supabase is not configured or database query fails
+ * @example
+ * const goals = await getGoals('clerk_user_123');
+ * // Returns: [{id: 'goal-1', name: 'Emergency Fund', targetAmount: 10000, ...}]
  */
 export async function getGoals(clerkId: string): Promise<Goal[]> {
   try {
@@ -75,7 +100,7 @@ export async function getGoals(clerkId: string): Promise<Goal[]> {
     // Convert Clerk ID to database UUID
     const userId = await userIdService.getDatabaseUserId(clerkId);
     if (!userId) {
-      console.log('[GoalService] No user found, returning empty array');
+      logger.info('[GoalService] No user found, returning empty array');
       return [];
     }
     
@@ -103,7 +128,15 @@ export async function getGoals(clerkId: string): Promise<Goal[]> {
 }
 
 /**
- * Get a single goal by ID
+ * Retrieves a single goal by its unique identifier
+ * @param {string} goalId - The unique identifier of the goal
+ * @returns {Promise<Goal | null>} The goal if found, null otherwise
+ * @throws {Error} If database query fails
+ * @example
+ * const goal = await getGoal('goal-123');
+ * if (goal) {
+ *   logger.info(`Progress: ${goal.progress}%`);
+ * }
  */
 export async function getGoal(goalId: string): Promise<Goal | null> {
   try {
@@ -132,7 +165,18 @@ export async function getGoal(goalId: string): Promise<Goal | null> {
 }
 
 /**
- * Create a new goal
+ * Creates a new financial goal for a user
+ * @param {string} clerkId - The Clerk authentication ID of the user
+ * @param {Omit<Goal, 'id' | 'progress' | 'createdAt' | 'updatedAt'>} goal - Goal data without system fields
+ * @returns {Promise<Goal>} The newly created goal with all fields populated
+ * @throws {Error} If user not found or goal creation fails
+ * @example
+ * const newGoal = await createGoal('clerk_user_123', {
+ *   name: 'New Car',
+ *   targetAmount: 25000,
+ *   targetDate: '2025-12-31',
+ *   category: 'savings'
+ * });
  */
 export async function createGoal(
   clerkId: string,
@@ -165,7 +209,7 @@ export async function createGoal(
       throw error;
     }
     
-    console.log('[GoalService] Goal created successfully:', data);
+    logger.info('[GoalService] Goal created successfully');
     return transformGoalFromDb(data);
     
   } catch (error) {
@@ -275,7 +319,7 @@ export async function deleteGoal(goalId: string): Promise<void> {
       throw error;
     }
     
-    console.log('[GoalService] Goal deleted successfully');
+    logger.info('[GoalService] Goal deleted successfully');
     
   } catch (error) {
     logger.error('[GoalService] Error deleting goal, falling back to localStorage:', error);
@@ -397,7 +441,7 @@ export function calculateMonthlyContribution(goal: Goal): number {
  */
 export async function subscribeToGoalChanges(
   clerkId: string,
-  callback: (payload: any) => void
+  callback: (payload: unknown) => void
 ): Promise<() => void> {
   if (!supabase) {
     return () => {}; // No-op for localStorage
@@ -422,7 +466,7 @@ export async function subscribeToGoalChanges(
           filter: `user_id=eq.${dbUserId}`
         },
         (payload) => {
-          console.log('🔔 [GoalService] Real-time update received:', payload);
+          logger.debug('[GoalService] Real-time update received', payload);
           callback(payload);
         }
       )
@@ -444,11 +488,11 @@ export async function migrateGoalsToSupabase(clerkId: string): Promise<void> {
     const localGoals = await storageAdapter.get<Goal[]>(STORAGE_KEYS.GOALS);
     
     if (!localGoals || localGoals.length === 0) {
-      console.log('[GoalService] No local goals to migrate');
+      logger.info('[GoalService] No local goals to migrate');
       return;
     }
     
-    console.log(`[GoalService] Migrating ${localGoals.length} goals to Supabase`);
+    logger.info('[GoalService] Migrating goals to Supabase', { count: localGoals.length });
     
     for (const goal of localGoals) {
       try {
@@ -462,7 +506,7 @@ export async function migrateGoalsToSupabase(clerkId: string): Promise<void> {
     
     // Clear localStorage after successful migration
     await storageAdapter.remove(STORAGE_KEYS.GOALS);
-    console.log('[GoalService] Migration completed');
+    logger.info('[GoalService] Migration completed');
     
   } catch (error) {
     logger.error('[GoalService] Migration failed:', error);

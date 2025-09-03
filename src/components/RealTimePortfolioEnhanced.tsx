@@ -51,7 +51,7 @@ export default function RealTimePortfolioEnhanced({
     enabled: true,
     onUpdate: (update) => {
       // Optional: Add animation or notification for price updates
-      console.log(`Price updated for ${update.symbol}: ${update.quote.price}`);
+      logger.debug('Price updated', { symbol: update.symbol, price: update.quote.price });
     }
   });
 

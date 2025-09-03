@@ -382,17 +382,17 @@ export default function Reconciliation() {
           </div>
         ) : (
           <>
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 mb-6">
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-4 mb-6 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
               <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                     Reconciliation Summary
                   </h3>
-                  <p className="text-blue-700 dark:text-blue-300 mt-1">
+                  <p className="text-gray-600 dark:text-gray-400 mt-1">
                     You have {totalUnreconciledCount} transactions to reconcile across {accountSummaries.length} accounts
                   </p>
                 </div>
-                <div className="text-3xl font-bold text-blue-900 dark:text-blue-100">
+                <div className="text-3xl font-bold text-gray-900 dark:text-white">
                   {totalUnreconciledCount}
                 </div>
               </div>

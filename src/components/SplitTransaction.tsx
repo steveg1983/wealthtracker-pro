@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Scissors, 
-  Plus, 
-  Trash2, 
-  Calculator,
-  Check,
-  AlertCircle,
-  DollarSign,
-  Tag
-} from 'lucide-react';
+  ScissorsIcon as Scissors,
+  PlusIcon as Plus,
+  DeleteIcon as Trash2,
+  CalculatorIcon as Calculator,
+  CheckIcon as Check,
+  AlertCircleIcon as AlertCircle,
+  DollarSignIcon as DollarSign,
+  TagIcon as Tag
+} from './icons';
 import { Transaction } from '../types';
 import { useApp } from '../contexts/AppContextSupabase';
 import { formatCurrency } from '../utils/formatters';

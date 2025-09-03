@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
@@ -30,7 +30,7 @@ interface PortfolioManagerProps {
   onUpdate: (holdings: StockHolding[]) => void;
 }
 
-export default function PortfolioManager({ accountId, holdings, onUpdate }: PortfolioManagerProps) {
+const PortfolioManager = memo(function PortfolioManager({ accountId, holdings, onUpdate }: PortfolioManagerProps) {
   const { formatCurrency } = useCurrencyDecimal();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState<StockHolding | null>(null);
@@ -339,4 +339,6 @@ export default function PortfolioManager({ accountId, holdings, onUpdate }: Port
       </Modal>
     </div>
   );
-}
+});
+
+export default PortfolioManager;

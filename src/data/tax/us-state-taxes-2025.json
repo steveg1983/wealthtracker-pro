@@ -1,0 +1,802 @@
+{
+  "metadata": {
+    "year": 2025,
+    "lastUpdated": "2025-01-01",
+    "source": "State Department of Revenue websites",
+    "notes": "State tax rates and rules for 2025 tax year"
+  },
+  "states": {
+    "AL": {
+      "name": "Alabama",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 500, "rate": 0.02 },
+          { "min": 500, "max": 3000, "rate": 0.04 },
+          { "min": 3000, "max": null, "rate": 0.05 }
+        ],
+        "standardDeduction": { "single": 2500, "married": 7500 },
+        "personalExemption": 1500
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Social Security benefits exempt"
+    },
+    "AK": {
+      "name": "Alaska",
+      "incomeTax": {
+        "type": "none",
+        "rate": 0
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "No state income tax"
+    },
+    "AZ": {
+      "name": "Arizona",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.025,
+        "standardDeduction": { "single": 13850, "married": 27700 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 2500,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Flat tax rate of 2.5%"
+    },
+    "AR": {
+      "name": "Arkansas",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 4999, "rate": 0.02 },
+          { "min": 5000, "max": 9999, "rate": 0.04 },
+          { "min": 10000, "max": 14299, "rate": 0.059 }
+        ],
+        "standardDeduction": { "single": 2200, "married": 4400 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 6000,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "$6,000 retirement income exclusion"
+    },
+    "CA": {
+      "name": "California",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 10099, "rate": 0.01 },
+          { "min": 10100, "max": 23942, "rate": 0.02 },
+          { "min": 23943, "max": 37788, "rate": 0.04 },
+          { "min": 37789, "max": 52455, "rate": 0.06 },
+          { "min": 52456, "max": 66295, "rate": 0.08 },
+          { "min": 66296, "max": 338639, "rate": 0.093 },
+          { "min": 338640, "max": 406364, "rate": 0.103 },
+          { "min": 406365, "max": 677275, "rate": 0.113 },
+          { "min": 677276, "max": null, "rate": 0.123 }
+        ],
+        "standardDeduction": { "single": 5202, "married": 10404 },
+        "personalExemption": 154
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "High tax rates, Social Security exempt"
+    },
+    "CO": {
+      "name": "Colorado",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.044,
+        "standardDeduction": { "single": 13850, "married": 27700 }
+      },
+      "socialSecurityTaxed": true,
+      "pensionExclusion": 24000,
+      "retirementIncomeTaxed": true,
+      "retirementDeduction": { "age55to64": 20000, "age65plus": 24000 },
+      "additionalNotes": "Retirement income deduction for 55+"
+    },
+    "CT": {
+      "name": "Connecticut",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 10000, "rate": 0.03 },
+          { "min": 10000, "max": 50000, "rate": 0.05 },
+          { "min": 50000, "max": 100000, "rate": 0.055 },
+          { "min": 100000, "max": 200000, "rate": 0.06 },
+          { "min": 200000, "max": 250000, "rate": 0.065 },
+          { "min": 250000, "max": 500000, "rate": 0.069 },
+          { "min": 500000, "max": null, "rate": 0.0699 }
+        ],
+        "personalExemption": 15000
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityExemption": { "single": 75000, "married": 100000 },
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "SS taxed above income thresholds"
+    },
+    "DE": {
+      "name": "Delaware",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 2000, "rate": 0 },
+          { "min": 2000, "max": 5000, "rate": 0.022 },
+          { "min": 5000, "max": 10000, "rate": 0.039 },
+          { "min": 10000, "max": 20000, "rate": 0.048 },
+          { "min": 20000, "max": 25000, "rate": 0.052 },
+          { "min": 25000, "max": 60000, "rate": 0.0555 },
+          { "min": 60000, "max": null, "rate": 0.066 }
+        ],
+        "standardDeduction": { "single": 3250, "married": 6500 },
+        "personalExemption": 110
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": { "under60": 2000, "age60plus": 12500 },
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Pension exclusion increases at age 60"
+    },
+    "FL": {
+      "name": "Florida",
+      "incomeTax": {
+        "type": "none",
+        "rate": 0
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "No state income tax - retirement friendly"
+    },
+    "GA": {
+      "name": "Georgia",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.0549,
+        "standardDeduction": { "single": 5400, "married": 7100 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": { "age62to64": 35000, "age65plus": 65000 },
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Generous retirement income exclusion for 65+"
+    },
+    "HI": {
+      "name": "Hawaii",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 2400, "rate": 0.014 },
+          { "min": 2400, "max": 4800, "rate": 0.032 },
+          { "min": 4800, "max": 9600, "rate": 0.055 },
+          { "min": 9600, "max": 14400, "rate": 0.064 },
+          { "min": 14400, "max": 19200, "rate": 0.068 },
+          { "min": 19200, "max": 24000, "rate": 0.072 },
+          { "min": 24000, "max": 36000, "rate": 0.076 },
+          { "min": 36000, "max": 48000, "rate": 0.079 },
+          { "min": 48000, "max": 150000, "rate": 0.0825 },
+          { "min": 150000, "max": 175000, "rate": 0.09 },
+          { "min": 175000, "max": 200000, "rate": 0.10 },
+          { "min": 200000, "max": null, "rate": 0.11 }
+        ],
+        "standardDeduction": { "single": 2200, "married": 4400 },
+        "personalExemption": 1144
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "High tax rates, employer pensions exempt"
+    },
+    "ID": {
+      "name": "Idaho",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.058,
+        "standardDeduction": { "single": 13850, "married": 27700 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Flat tax rate of 5.8%"
+    },
+    "IL": {
+      "name": "Illinois",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.0495,
+        "personalExemption": 2425
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "All retirement income exempt from state tax"
+    },
+    "IN": {
+      "name": "Indiana",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.0323,
+        "personalExemption": 1000
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Low flat tax rate of 3.23%"
+    },
+    "IA": {
+      "name": "Iowa",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.039,
+        "standardDeduction": { "single": 2130, "married": 5240 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "Retirement income exempt starting 2023"
+    },
+    "KS": {
+      "name": "Kansas",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 15000, "rate": 0.031 },
+          { "min": 15000, "max": 30000, "rate": 0.0525 },
+          { "min": 30000, "max": null, "rate": 0.057 }
+        ],
+        "standardDeduction": { "single": 3500, "married": 8000 }
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityExemption": { "agi": 75000 },
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "SS taxed if AGI over $75,000"
+    },
+    "KY": {
+      "name": "Kentucky",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.045,
+        "standardDeduction": { "single": 3290, "married": 6580 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 31110,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "$31,110 pension exclusion"
+    },
+    "LA": {
+      "name": "Louisiana",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 12500, "rate": 0.0185 },
+          { "min": 12500, "max": 50000, "rate": 0.035 },
+          { "min": 50000, "max": null, "rate": 0.0425 }
+        ],
+        "standardDeduction": 0,
+        "personalExemption": { "single": 4500, "married": 9000, "dependent": 1000 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 6000,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "$6,000 retirement income exclusion"
+    },
+    "ME": {
+      "name": "Maine",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 24500, "rate": 0.058 },
+          { "min": 24500, "max": 58050, "rate": 0.0675 },
+          { "min": 58050, "max": null, "rate": 0.0715 }
+        ],
+        "standardDeduction": { "single": 13850, "married": 27700 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 10000,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "$10,000 pension deduction"
+    },
+    "MD": {
+      "name": "Maryland",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 1000, "rate": 0.02 },
+          { "min": 1000, "max": 2000, "rate": 0.03 },
+          { "min": 2000, "max": 3000, "rate": 0.04 },
+          { "min": 3000, "max": 100000, "rate": 0.0475 },
+          { "min": 100000, "max": 125000, "rate": 0.05 },
+          { "min": 125000, "max": 150000, "rate": 0.0525 },
+          { "min": 150000, "max": 250000, "rate": 0.055 },
+          { "min": 250000, "max": null, "rate": 0.0575 }
+        ],
+        "standardDeduction": { "single": 2400, "married": 4850 },
+        "personalExemption": 3200
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": { "age65plus": 34300 },
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Pension exclusion for 65+, plus local taxes"
+    },
+    "MA": {
+      "name": "Massachusetts",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.05,
+        "personalExemption": { "single": 4400, "married": 8800 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Flat 5% on most income, 12% on short-term gains"
+    },
+    "MI": {
+      "name": "Michigan",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.0425,
+        "personalExemption": 5400
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": { "single": 20000, "married": 40000 },
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Pension deduction varies by birth year"
+    },
+    "MN": {
+      "name": "Minnesota",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 30070, "rate": 0.0535 },
+          { "min": 30070, "max": 98760, "rate": 0.068 },
+          { "min": 98760, "max": 183340, "rate": 0.0785 },
+          { "min": 183340, "max": null, "rate": 0.0985 }
+        ],
+        "standardDeduction": { "single": 13825, "married": 27650 }
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityExemption": { "single": 25000, "married": 32000 },
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "SS taxed above income thresholds"
+    },
+    "MS": {
+      "name": "Mississippi",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.05,
+        "standardDeduction": { "single": 2300, "married": 4600 },
+        "personalExemption": { "single": 6000, "married": 12000 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "Retirement income exempt"
+    },
+    "MO": {
+      "name": "Missouri",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 1121, "rate": 0.015 },
+          { "min": 1121, "max": 2242, "rate": 0.02 },
+          { "min": 2242, "max": 3363, "rate": 0.025 },
+          { "min": 3363, "max": 4484, "rate": 0.03 },
+          { "min": 4484, "max": 5605, "rate": 0.035 },
+          { "min": 5605, "max": 6726, "rate": 0.04 },
+          { "min": 6726, "max": 7847, "rate": 0.045 },
+          { "min": 7847, "max": 8968, "rate": 0.05 },
+          { "min": 8968, "max": null, "rate": 0.054 }
+        ],
+        "standardDeduction": { "single": 13850, "married": 27700 }
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityExemption": { "single": 85000, "married": 100000 },
+      "pensionExclusion": { "single": 6000, "married": 12000 },
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "SS taxed above AGI thresholds"
+    },
+    "MT": {
+      "name": "Montana",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 3100, "rate": 0.01 },
+          { "min": 3100, "max": 5500, "rate": 0.02 },
+          { "min": 5500, "max": 8400, "rate": 0.03 },
+          { "min": 8400, "max": 11300, "rate": 0.04 },
+          { "min": 11300, "max": 14500, "rate": 0.05 },
+          { "min": 14500, "max": 18700, "rate": 0.06 },
+          { "min": 18700, "max": null, "rate": 0.0675 }
+        ],
+        "standardDeduction": { "single": 5050, "married": 10100 },
+        "personalExemption": 2960
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityExemption": { "single": 25000, "married": 32000 },
+      "pensionExclusion": 4620,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Partial SS taxation above thresholds"
+    },
+    "NE": {
+      "name": "Nebraska",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 3700, "rate": 0.0246 },
+          { "min": 3700, "max": 22170, "rate": 0.0351 },
+          { "min": 22170, "max": 35730, "rate": 0.0501 },
+          { "min": 35730, "max": null, "rate": 0.0664 }
+        ],
+        "standardDeduction": { "single": 7850, "married": 15700 }
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityExemption": { "single": 43000, "married": 58000 },
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "SS taxed above AGI thresholds"
+    },
+    "NV": {
+      "name": "Nevada",
+      "incomeTax": {
+        "type": "none",
+        "rate": 0
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "No state income tax"
+    },
+    "NH": {
+      "name": "New Hampshire",
+      "incomeTax": {
+        "type": "interest_dividends",
+        "rate": 0.03,
+        "exemption": { "single": 2400, "married": 4800 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "Only taxes interest and dividends (phasing out by 2027)"
+    },
+    "NJ": {
+      "name": "New Jersey",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 20000, "rate": 0.014 },
+          { "min": 20000, "max": 35000, "rate": 0.0175 },
+          { "min": 35000, "max": 40000, "rate": 0.035 },
+          { "min": 40000, "max": 75000, "rate": 0.05525 },
+          { "min": 75000, "max": 125000, "rate": 0.0637 },
+          { "min": 125000, "max": 500000, "rate": 0.0897 },
+          { "min": 500000, "max": 1000000, "rate": 0.1075 },
+          { "min": 1000000, "max": null, "rate": 0.1175 }
+        ],
+        "personalExemption": 1000
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": { "single": 100000, "married": 150000 },
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Large pension exclusion for moderate incomes"
+    },
+    "NM": {
+      "name": "New Mexico",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 5500, "rate": 0.017 },
+          { "min": 5500, "max": 11000, "rate": 0.032 },
+          { "min": 11000, "max": 16000, "rate": 0.047 },
+          { "min": 16000, "max": 210000, "rate": 0.049 },
+          { "min": 210000, "max": null, "rate": 0.059 }
+        ],
+        "standardDeduction": { "single": 13850, "married": 27700 }
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityExemption": { "single": 100000, "married": 150000 },
+      "pensionExclusion": 8000,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "SS taxed above high income thresholds"
+    },
+    "NY": {
+      "name": "New York",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 8500, "rate": 0.04 },
+          { "min": 8500, "max": 11700, "rate": 0.045 },
+          { "min": 11700, "max": 13900, "rate": 0.0525 },
+          { "min": 13900, "max": 80650, "rate": 0.055 },
+          { "min": 80650, "max": 215400, "rate": 0.06 },
+          { "min": 215400, "max": 1077550, "rate": 0.0685 },
+          { "min": 1077550, "max": 5000000, "rate": 0.0965 },
+          { "min": 5000000, "max": 25000000, "rate": 0.103 },
+          { "min": 25000000, "max": null, "rate": 0.109 }
+        ],
+        "standardDeduction": { "single": 8000, "married": 16050 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 20000,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "$20,000 pension exclusion for 59.5+"
+    },
+    "NC": {
+      "name": "North Carolina",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.0475,
+        "standardDeduction": { "single": 12750, "married": 25500 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Flat tax rate of 4.75%"
+    },
+    "ND": {
+      "name": "North Dakota",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 44725, "rate": 0.011 },
+          { "min": 44725, "max": 103975, "rate": 0.0204 },
+          { "min": 103975, "max": null, "rate": 0.0225 }
+        ],
+        "standardDeduction": { "single": 13850, "married": 27700 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 5000,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Low tax rates"
+    },
+    "OH": {
+      "name": "Ohio",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 26050, "rate": 0 },
+          { "min": 26050, "max": 46100, "rate": 0.02765 },
+          { "min": 46100, "max": 92150, "rate": 0.03226 },
+          { "min": 92150, "max": 115300, "rate": 0.03688 },
+          { "min": 115300, "max": null, "rate": 0.0399 }
+        ]
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "Retirement income exempt, first $26,050 tax-free"
+    },
+    "OK": {
+      "name": "Oklahoma",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 1000, "rate": 0.0025 },
+          { "min": 1000, "max": 2500, "rate": 0.0075 },
+          { "min": 2500, "max": 3750, "rate": 0.0175 },
+          { "min": 3750, "max": 4900, "rate": 0.0275 },
+          { "min": 4900, "max": 7200, "rate": 0.0375 },
+          { "min": 7200, "max": null, "rate": 0.0475 }
+        ],
+        "standardDeduction": { "single": 6350, "married": 12700 },
+        "personalExemption": 1000
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 10000,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "$10,000 retirement income exclusion"
+    },
+    "OR": {
+      "name": "Oregon",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 3750, "rate": 0.0475 },
+          { "min": 3750, "max": 9450, "rate": 0.0675 },
+          { "min": 9450, "max": 125000, "rate": 0.0875 },
+          { "min": 125000, "max": null, "rate": 0.099 }
+        ],
+        "standardDeduction": { "single": 2635, "married": 5270 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "High tax rates, no sales tax"
+    },
+    "PA": {
+      "name": "Pennsylvania",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.0307
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "All retirement income exempt"
+    },
+    "RI": {
+      "name": "Rhode Island",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 73450, "rate": 0.0375 },
+          { "min": 73450, "max": 166950, "rate": 0.0475 },
+          { "min": 166950, "max": null, "rate": 0.0599 }
+        ],
+        "standardDeduction": { "single": 10200, "married": 20450 },
+        "personalExemption": 4700
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityExemption": { "single": 95800, "married": 119750 },
+      "pensionExclusion": 20000,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "SS taxed above income thresholds"
+    },
+    "SC": {
+      "name": "South Carolina",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 3200, "rate": 0 },
+          { "min": 3200, "max": 6410, "rate": 0.03 },
+          { "min": 6410, "max": 9620, "rate": 0.04 },
+          { "min": 9620, "max": null, "rate": 0.06 }
+        ],
+        "standardDeduction": { "single": 13850, "married": 27700 }
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": { "under65": 3000, "age65plus": 10000 },
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Retirement deduction increases at 65"
+    },
+    "SD": {
+      "name": "South Dakota",
+      "incomeTax": {
+        "type": "none",
+        "rate": 0
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "No state income tax"
+    },
+    "TN": {
+      "name": "Tennessee",
+      "incomeTax": {
+        "type": "none",
+        "rate": 0
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "No state income tax (interest/dividends tax repealed)"
+    },
+    "TX": {
+      "name": "Texas",
+      "incomeTax": {
+        "type": "none",
+        "rate": 0
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "No state income tax"
+    },
+    "UT": {
+      "name": "Utah",
+      "incomeTax": {
+        "type": "flat",
+        "rate": 0.0465,
+        "personalExemption": { "single": 1803, "married": 3606 }
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityCredit": 450,
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "retirementCredit": { "single": 450, "married": 900 },
+      "additionalNotes": "Retirement tax credit available"
+    },
+    "VT": {
+      "name": "Vermont",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 45400, "rate": 0.0335 },
+          { "min": 45400, "max": 110050, "rate": 0.066 },
+          { "min": 110050, "max": 229550, "rate": 0.076 },
+          { "min": 229550, "max": null, "rate": 0.0875 }
+        ],
+        "standardDeduction": { "single": 7600, "married": 15200 },
+        "personalExemption": 4850
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityExemption": { "single": 50000, "married": 65000 },
+      "pensionExclusion": 0,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "SS taxed above income thresholds"
+    },
+    "VA": {
+      "name": "Virginia",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 3000, "rate": 0.02 },
+          { "min": 3000, "max": 5000, "rate": 0.03 },
+          { "min": 5000, "max": 17000, "rate": 0.05 },
+          { "min": 17000, "max": null, "rate": 0.0575 }
+        ],
+        "standardDeduction": { "single": 4500, "married": 9000 },
+        "personalExemption": 930
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": { "age65plus": 12000 },
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Age deduction for 65+"
+    },
+    "WA": {
+      "name": "Washington",
+      "incomeTax": {
+        "type": "none",
+        "rate": 0
+      },
+      "capitalGainsTax": {
+        "rate": 0.07,
+        "exemption": 250000
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "No income tax, but 7% capital gains tax over $250k"
+    },
+    "WV": {
+      "name": "West Virginia",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 10000, "rate": 0.03 },
+          { "min": 10000, "max": 25000, "rate": 0.04 },
+          { "min": 25000, "max": 40000, "rate": 0.045 },
+          { "min": 40000, "max": 60000, "rate": 0.06 },
+          { "min": 60000, "max": null, "rate": 0.065 }
+        ]
+      },
+      "socialSecurityTaxed": true,
+      "socialSecurityExemption": { "single": 50000, "married": 100000 },
+      "pensionExclusion": 8000,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Phasing out SS tax by 2026"
+    },
+    "WI": {
+      "name": "Wisconsin",
+      "incomeTax": {
+        "type": "progressive",
+        "brackets": [
+          { "min": 0, "max": 13810, "rate": 0.0354 },
+          { "min": 13810, "max": 27630, "rate": 0.0465 },
+          { "min": 27630, "max": 304170, "rate": 0.0530 },
+          { "min": 304170, "max": null, "rate": 0.0765 }
+        ],
+        "standardDeduction": { "single": 12760, "married": 23620 },
+        "personalExemption": 700
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": 5000,
+      "retirementIncomeTaxed": true,
+      "additionalNotes": "Some retirement income exclusions"
+    },
+    "WY": {
+      "name": "Wyoming",
+      "incomeTax": {
+        "type": "none",
+        "rate": 0
+      },
+      "socialSecurityTaxed": false,
+      "pensionExclusion": null,
+      "retirementIncomeTaxed": false,
+      "additionalNotes": "No state income tax"
+    }
+  }
+}

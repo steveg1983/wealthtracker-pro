@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Bell, 
-  TrendingUp, 
-  CreditCard, 
-  Target, 
-  PiggyBank,
-  AlertCircle,
-  CheckCircle,
-  Info,
-  DollarSign,
-  Clock,
-  X
-} from 'lucide-react';
+  BellIcon as Bell,
+  TrendingUpIcon as TrendingUp,
+  CreditCardIcon as CreditCard,
+  TargetIcon as Target,
+  PiggyBankIcon as PiggyBank,
+  AlertCircleIcon as AlertCircle,
+  CheckCircleIcon as CheckCircle,
+  InfoIcon as Info,
+  DollarSignIcon as DollarSign,
+  ClockIcon as Clock,
+  XIcon as X
+} from './icons';
 import { useActivityTracking, ActivityItem } from '../hooks/useActivityTracking';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';

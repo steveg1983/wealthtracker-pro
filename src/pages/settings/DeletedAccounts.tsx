@@ -25,11 +25,11 @@ export default function DeletedAccounts() {
     const fetchDeletedAccounts = async () => {
       // Wait for database ID to be available
       if (!databaseId || userIdLoading) {
-        console.log('[DeletedAccounts] Waiting for database ID...');
+        logger.info('[DeletedAccounts] Waiting for database ID...');
         return;
       }
       
-      console.log('[DeletedAccounts] Fetching deleted accounts for database ID:', databaseId);
+      logger.info('[DeletedAccounts] Fetching deleted accounts', { databaseId });
       setLoading(true);
       try {
         // Now fetch deleted accounts using the database user ID directly
@@ -43,9 +43,9 @@ export default function DeletedAccounts() {
         if (error) {
           logger.error('[DeletedAccounts] Error fetching deleted accounts:', error);
         } else {
-          console.log('[DeletedAccounts] Found deleted accounts:', data?.length || 0);
+          logger.info('[DeletedAccounts] Found deleted accounts', { count: data?.length || 0 });
           if (data && data.length > 0) {
-            console.log('[DeletedAccounts] Deleted accounts data:', data);
+            logger.debug('[DeletedAccounts] Deleted accounts data', data);
           }
           // Transform account types for UK users (checking -> current)
           const transformedAccounts = (data || []).map(account => ({
@@ -120,9 +120,9 @@ export default function DeletedAccounts() {
       )}
 
       {/* Info Section */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-6">
+      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 shadow-md border-l-4 border-amber-400 dark:border-amber-600 mb-6">
         <div className="flex items-start gap-3">
-          <ArchiveIcon size={24} className="text-blue-600 dark:text-blue-400 mt-1" />
+          <ArchiveIcon size={24} className="text-amber-600 dark:text-amber-400 mt-1" />
           <div>
             <h3 className="font-semibold text-gray-900 dark:text-white mb-2">About Deleted Accounts</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400">

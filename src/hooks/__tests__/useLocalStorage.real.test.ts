@@ -1,41 +1,31 @@
 /**
- * useLocalStorage REAL DATABASE Tests
- * Tests hook with real database operations
+ * useLocalStorage REAL Tests
+ * Tests local storage operations
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 import { useLocalStorage } from '../useLocalStorage';
-import { RealTestDatabase, RealTestProvider, testDb } from '../../test/setup/real-test-framework';
 
-describe('useLocalStorage - REAL DATABASE TESTS', () => {
-  let db: RealTestDatabase;
-
-  beforeAll(async () => {
-    db = new RealTestDatabase();
-  });
-
-  afterAll(async () => {
-    await db.cleanup();
-  });
-
-  it('works with REAL database data', async () => {
-    // Create REAL test data
-    const testData = await db.setupCompleteTestScenario();
+describe('useLocalStorage - REAL Tests', () => {
+  it('persists data to real localStorage', () => {
+    const { result } = renderHook(() => 
+      useLocalStorage('test-key', 'initial-value')
+    );
     
-    const { result } = renderHook(() => useLocalStorage(), {
-      wrapper: RealTestProvider,
+    expect(result.current[0]).toBe('initial-value');
+    
+    // Update value
+    act(() => {
+      result.current[1]('updated-value');
     });
-
-    // Test hook with REAL data
-    await act(async () => {
-      await result.current.performAction(testData.id);
-    });
-
-    // Verify REAL database changes
-    await waitFor(async () => {
-      const dbRecord = await db.getRecord('table', testData.id);
-      expect(dbRecord).toBeDefined();
-    });
+    
+    expect(result.current[0]).toBe('updated-value');
+    
+    // Verify it's in localStorage
+    expect(localStorage.getItem('test-key')).toBe('"updated-value"');
+    
+    // Clean up
+    localStorage.removeItem('test-key');
   });
 });

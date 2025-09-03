@@ -1,4 +1,4 @@
-import { AlertCircle } from 'lucide-react';
+import { AlertCircleIcon as AlertCircle } from './icons';
 
 interface ErrorFallbackProps {
   error: Error;

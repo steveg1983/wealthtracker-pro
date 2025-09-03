@@ -8,6 +8,7 @@ import RealTimePortfolio from '../components/RealTimePortfolio';
 import RealTimePortfolioEnhanced from '../components/RealTimePortfolioEnhanced';
 import PortfolioManager from '../components/PortfolioManager';
 import StockWatchlist from '../components/StockWatchlist';
+import PortfolioOptimizer from '../components/investments/PortfolioOptimizer';
 // Use optimized lazy-loaded charts to reduce bundle size
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -23,7 +24,7 @@ export default function Investments() {
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | '1Y' | 'ALL'>('1Y');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [showAddInvestmentModal, setShowAddInvestmentModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'portfolio' | 'manage'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'watchlist' | 'portfolio' | 'optimize' | 'manage'>('overview');
   const [managingAccountId, setManagingAccountId] = useState<string | null>(null);
   const [portfolioSummary, setPortfolioSummary] = useState<PortfolioSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -270,6 +271,17 @@ export default function Investments() {
           Portfolio
         </button>
         <button
+          onClick={() => setActiveTab('optimize')}
+          className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+            activeTab === 'optimize'
+              ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <TrendingUpIcon size={16} />
+          Optimize
+        </button>
+        <button
           onClick={() => setActiveTab('manage')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
             activeTab === 'manage'
@@ -513,12 +525,12 @@ export default function Investments() {
         </div>
 
         {/* Investment Tips */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
+        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-6 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
           <div className="flex items-start gap-3">
-            <AlertCircleIcon className="text-blue-600 dark:text-blue-400 mt-1" size={20} />
+            <AlertCircleIcon className="text-amber-600 dark:text-amber-400 mt-1" size={20} />
             <div>
-              <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">Investment Tips</h3>
-              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Investment Tips</h3>
+              <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                 <li>• Add investment accounts to track your portfolio</li>
                 <li>• Record investment transactions with appropriate categories</li>
                 <li>• Review your asset allocation regularly</li>
@@ -603,6 +615,21 @@ export default function Investments() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Optimize Tab */}
+      {activeTab === 'optimize' && (
+        <div className="space-y-6">
+          <PortfolioOptimizer
+            portfolioValue={totalValue}
+            currentAllocations={
+              portfolioSummary?.assetAllocation?.reduce((acc, asset) => {
+                acc[asset.category] = asset.percentage / 100;
+                return acc;
+              }, {} as Record<string, number>) || {}
+            }
+          />
         </div>
       )}
       

@@ -351,7 +351,7 @@ export class TransactionService {
    */
   static subscribeToTransactions(
     userId: string,
-    callback: (payload: any) => void
+    callback: (payload: unknown) => void
   ): () => void {
     if (!isSupabaseConfigured()) {
       return () => {}; // No-op unsubscribe

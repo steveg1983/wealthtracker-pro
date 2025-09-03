@@ -18,6 +18,13 @@ export default defineConfig({
       '**/*.spec.ts',
       '**/*.spec.tsx'
     ],
+    // Include real tests - we want to run them!
+    include: [
+      '**/*.test.ts',
+      '**/*.test.tsx',
+      '**/*.real.test.ts',
+      '**/*.real.test.tsx'
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html', 'lcov'],

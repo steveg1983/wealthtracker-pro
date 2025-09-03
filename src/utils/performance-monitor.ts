@@ -158,29 +158,27 @@ export class PerformanceMonitor {
     console.group('📊 Performance Metrics');
     
     if (metrics.domContentLoaded) {
-      console.log(`DOM Content Loaded: ${metrics.domContentLoaded.toFixed(2)}ms`);
+      logger.info('Performance DOM Content Loaded', { ms: Number(metrics.domContentLoaded.toFixed(2)) });
     }
     if (metrics.loadComplete) {
-      console.log(`Page Load Complete: ${metrics.loadComplete.toFixed(2)}ms`);
+      logger.info('Performance Page Load Complete', { ms: Number(metrics.loadComplete.toFixed(2)) });
     }
     if (metrics.firstContentfulPaint) {
-      console.log(`First Contentful Paint: ${metrics.firstContentfulPaint.toFixed(2)}ms`);
+      logger.info('Performance FCP', { ms: Number(metrics.firstContentfulPaint.toFixed(2)) });
     }
     if (metrics.largestContentfulPaint) {
-      console.log(`Largest Contentful Paint: ${metrics.largestContentfulPaint.toFixed(2)}ms`);
+      logger.info('Performance LCP', { ms: Number(metrics.largestContentfulPaint.toFixed(2)) });
     }
-    
-    console.log('\n📦 Resource Metrics:');
-    console.log(`Total Resources: ${metrics.totalResources}`);
-    console.log(`JS Size: ${this.formatBytes(metrics.jsSize || 0)}`);
-    console.log(`CSS Size: ${this.formatBytes(metrics.cssSize || 0)}`);
-    console.log(`Image Size: ${this.formatBytes(metrics.imageSize || 0)}`);
-    console.log(`Total Size: ${this.formatBytes(metrics.totalResourceSize || 0)}`);
-    
+    logger.info('Resource Metrics', {
+      totalResources: metrics.totalResources,
+      jsSize: this.formatBytes(metrics.jsSize || 0),
+      cssSize: this.formatBytes(metrics.cssSize || 0),
+      imageSize: this.formatBytes(metrics.imageSize || 0),
+      totalSize: this.formatBytes(metrics.totalResourceSize || 0)
+    });
     if (metrics.customMetrics && Object.keys(metrics.customMetrics).length > 0) {
-      console.log('\n⏱️ Custom Metrics:');
       Object.entries(metrics.customMetrics).forEach(([name, duration]) => {
-        console.log(`${name}: ${duration.toFixed(2)}ms`);
+        logger.info('Custom metric', { name, ms: Number(duration.toFixed(2)) });
       });
     }
     
@@ -218,7 +216,7 @@ export function measureComponentRender(componentName: string): { start: () => vo
 
 export function reportWebVitals(metric: any): void {
   // Send to analytics or logging service
-  console.log('Web Vital:', metric.name, metric.value);
+  logger.info('Web Vital', { name: metric.name, value: metric.value });
   
   // Thresholds based on Core Web Vitals
   const thresholds: Record<string, { good: number; needsImprovement: number }> = {
@@ -238,6 +236,6 @@ export function reportWebVitals(metric: any): void {
       rating = 'needs improvement';
     }
     
-    console.log(`${metric.name} rating: ${rating}`);
+    logger.info('Web Vital rating', { name: metric.name, rating });
   }
 }

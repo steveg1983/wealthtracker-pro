@@ -268,6 +268,292 @@ class ExportService {
     return nextRun;
   }
 
+  // Comprehensive Report Generation Methods
+  async generatePDFReport(exportData: any, options: ExportOptions): Promise<void> {
+    // Lazy load jsPDF
+    if (!jsPDF) {
+      const module = await import('jspdf');
+      jsPDF = module.jsPDF;
+    }
+    
+    const doc = new jsPDF();
+    let yPosition = 20;
+    
+    // Title
+    doc.setFontSize(20);
+    doc.text(exportData.reportTitle || 'Financial Report', 20, yPosition);
+    yPosition += 10;
+    
+    // Date range
+    doc.setFontSize(10);
+    doc.text(`Period: ${new Date(exportData.dateRange.start).toLocaleDateString()} - ${new Date(exportData.dateRange.end).toLocaleDateString()}`, 20, yPosition);
+    yPosition += 10;
+    
+    // Executive Summary
+    if (exportData.summary) {
+      yPosition += 10;
+      doc.setFontSize(14);
+      doc.text('Executive Summary', 20, yPosition);
+      yPosition += 8;
+      
+      doc.setFontSize(10);
+      const summaryItems = [
+        `Net Worth: $${exportData.summary.netWorth.toLocaleString()}`,
+        `Total Assets: $${exportData.summary.totalAssets.toLocaleString()}`,
+        `Total Liabilities: $${exportData.summary.totalLiabilities.toLocaleString()}`,
+        `Monthly Income: $${exportData.summary.monthlyIncome.toLocaleString()}`,
+        `Monthly Expenses: $${exportData.summary.monthlyExpenses.toLocaleString()}`,
+        `Cash Flow: $${exportData.summary.cashFlow.toLocaleString()}`,
+        `Savings Rate: ${exportData.summary.savingsRate.toFixed(1)}%`
+      ];
+      
+      summaryItems.forEach(item => {
+        doc.text(item, 30, yPosition);
+        yPosition += 6;
+      });
+    }
+    
+    // Add sections
+    exportData.sections.forEach((section: any) => {
+      if (yPosition > 250) {
+        doc.addPage();
+        yPosition = 20;
+      }
+      
+      yPosition += 10;
+      doc.setFontSize(14);
+      doc.text(section.title, 20, yPosition);
+      yPosition += 8;
+      
+      // Add section content based on type
+      if (section.id === 'budgets' && exportData.data.budgetPerformance) {
+        doc.setFontSize(10);
+        exportData.data.budgetPerformance.forEach((budget: any) => {
+          if (yPosition > 270) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          doc.text(`${budget.categoryId}: $${budget.spent.toFixed(2)} / $${budget.amount.toFixed(2)} (${budget.percentUsed.toFixed(0)}%)`, 30, yPosition);
+          yPosition += 6;
+        });
+      }
+      
+      if (section.id === 'goals' && exportData.data.goalProgress) {
+        doc.setFontSize(10);
+        exportData.data.goalProgress.forEach((goal: any) => {
+          if (yPosition > 270) {
+            doc.addPage();
+            yPosition = 20;
+          }
+          doc.text(`${goal.name}: ${goal.progress.toFixed(0)}% complete`, 30, yPosition);
+          yPosition += 6;
+        });
+      }
+    });
+    
+    // Save the PDF
+    doc.save(`${exportData.reportTitle.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+  }
+
+  async generateExcelReport(exportData: any, options: ExportOptions): Promise<void> {
+    // Create Excel workbook with multiple sheets
+    const workbook = await this.createComprehensiveExcelWorkbook(exportData, options);
+    this.downloadExcel(workbook, exportData.reportTitle);
+  }
+  
+  private async createComprehensiveExcelWorkbook(exportData: any, options: ExportOptions): Promise<any> {
+    // Dynamically import xlsx library
+    const XLSX = await import('xlsx');
+    const workbook = XLSX.utils.book_new();
+    
+    // Summary Sheet
+    const summaryData = [
+      ['Financial Report'],
+      [`Generated: ${new Date().toLocaleString()}`],
+      [`Period: ${new Date(exportData.dateRange.start).toLocaleDateString()} - ${new Date(exportData.dateRange.end).toLocaleDateString()}`],
+      [],
+      ['EXECUTIVE SUMMARY'],
+      ['Metric', 'Value'],
+      ['Net Worth', exportData.summary.netWorth],
+      ['Total Assets', exportData.summary.totalAssets],
+      ['Total Liabilities', exportData.summary.totalLiabilities],
+      ['Monthly Income', exportData.summary.monthlyIncome],
+      ['Monthly Expenses', exportData.summary.monthlyExpenses],
+      ['Cash Flow', exportData.summary.cashFlow],
+      ['Savings Rate %', exportData.summary.savingsRate]
+    ];
+    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+    
+    // Budget Performance Sheet
+    if (exportData.data.budgetPerformance && exportData.data.budgetPerformance.length > 0) {
+      const budgetData = [
+        ['BUDGET PERFORMANCE'],
+        [],
+        ['Category', 'Budget', 'Spent', 'Remaining', '% Used', 'Status']
+      ];
+      
+      exportData.data.budgetPerformance.forEach((budget: any) => {
+        budgetData.push([
+          budget.categoryId,
+          budget.amount,
+          budget.spent,
+          budget.remaining,
+          budget.percentUsed,
+          budget.isOverBudget ? 'OVER BUDGET' : 'On Track'
+        ]);
+      });
+      
+      const budgetSheet = XLSX.utils.aoa_to_sheet(budgetData);
+      XLSX.utils.book_append_sheet(workbook, budgetSheet, 'Budgets');
+    }
+    
+    // Goals Sheet
+    if (exportData.data.goalProgress && exportData.data.goalProgress.length > 0) {
+      const goalsData = [
+        ['FINANCIAL GOALS'],
+        [],
+        ['Goal Name', 'Target Amount', 'Current Amount', 'Remaining', 'Progress %', 'Status']
+      ];
+      
+      exportData.data.goalProgress.forEach((goal: any) => {
+        goalsData.push([
+          goal.name,
+          goal.targetAmount,
+          goal.currentAmount || 0,
+          goal.remaining,
+          goal.progress,
+          goal.isCompleted ? 'COMPLETED' : 'In Progress'
+        ]);
+      });
+      
+      const goalsSheet = XLSX.utils.aoa_to_sheet(goalsData);
+      XLSX.utils.book_append_sheet(workbook, goalsSheet, 'Goals');
+    }
+    
+    // Transactions Sheet
+    if (options.includeTransactions && exportData.data.filteredTransactions) {
+      const transactionData = [
+        ['TRANSACTIONS'],
+        [],
+        ['Date', 'Description', 'Category', 'Amount', 'Type', 'Account']
+      ];
+      
+      exportData.data.filteredTransactions.forEach((transaction: any) => {
+        transactionData.push([
+          new Date(transaction.date).toLocaleDateString(),
+          transaction.description,
+          transaction.categoryId || 'Uncategorized',
+          Math.abs(transaction.amount),
+          transaction.type,
+          transaction.accountId || ''
+        ]);
+      });
+      
+      const transactionSheet = XLSX.utils.aoa_to_sheet(transactionData);
+      XLSX.utils.book_append_sheet(workbook, transactionSheet, 'Transactions');
+    }
+    
+    // Category Analysis Sheet
+    if (exportData.data.filteredTransactions) {
+      const categoryTotals: Record<string, { count: number; total: number }> = {};
+      
+      exportData.data.filteredTransactions.forEach((transaction: any) => {
+        const category = transaction.categoryId || 'Uncategorized';
+        if (!categoryTotals[category]) {
+          categoryTotals[category] = { count: 0, total: 0 };
+        }
+        categoryTotals[category].count++;
+        categoryTotals[category].total += Math.abs(transaction.amount);
+      });
+      
+      const categoryData = [
+        ['SPENDING BY CATEGORY'],
+        [],
+        ['Category', 'Transaction Count', 'Total Amount', 'Average']
+      ];
+      
+      Object.entries(categoryTotals).forEach(([category, data]) => {
+        categoryData.push([
+          category,
+          data.count,
+          data.total,
+          data.total / data.count
+        ]);
+      });
+      
+      const categorySheet = XLSX.utils.aoa_to_sheet(categoryData);
+      XLSX.utils.book_append_sheet(workbook, categorySheet, 'Categories');
+    }
+    
+    return workbook;
+  }
+  
+  private downloadExcel(workbook: any, filename: string): void {
+    import('xlsx').then(XLSX => {
+      const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${filename.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
+      link.click();
+    });
+  }
+
+  async generateCSVReport(exportData: any, options: ExportOptions): Promise<void> {
+    // Create CSV content
+    let csvContent = 'Financial Report\n';
+    csvContent += `Generated: ${new Date().toLocaleString()}\n`;
+    csvContent += `Period: ${new Date(exportData.dateRange.start).toLocaleDateString()} - ${new Date(exportData.dateRange.end).toLocaleDateString()}\n\n`;
+    
+    // Summary section
+    csvContent += 'SUMMARY\n';
+    csvContent += 'Metric,Value\n';
+    csvContent += `Net Worth,$${exportData.summary.netWorth.toLocaleString()}\n`;
+    csvContent += `Total Assets,$${exportData.summary.totalAssets.toLocaleString()}\n`;
+    csvContent += `Total Liabilities,$${exportData.summary.totalLiabilities.toLocaleString()}\n`;
+    csvContent += `Monthly Income,$${exportData.summary.monthlyIncome.toLocaleString()}\n`;
+    csvContent += `Monthly Expenses,$${exportData.summary.monthlyExpenses.toLocaleString()}\n`;
+    csvContent += `Cash Flow,$${exportData.summary.cashFlow.toLocaleString()}\n`;
+    csvContent += `Savings Rate,${exportData.summary.savingsRate.toFixed(1)}%\n\n`;
+    
+    // Budget Performance
+    if (exportData.data.budgetPerformance && exportData.data.budgetPerformance.length > 0) {
+      csvContent += 'BUDGET PERFORMANCE\n';
+      csvContent += 'Category,Budget,Spent,Remaining,% Used\n';
+      exportData.data.budgetPerformance.forEach((budget: any) => {
+        csvContent += `${budget.categoryId},$${budget.amount.toFixed(2)},$${budget.spent.toFixed(2)},$${budget.remaining.toFixed(2)},${budget.percentUsed.toFixed(0)}%\n`;
+      });
+      csvContent += '\n';
+    }
+    
+    // Goal Progress
+    if (exportData.data.goalProgress && exportData.data.goalProgress.length > 0) {
+      csvContent += 'GOAL PROGRESS\n';
+      csvContent += 'Goal,Target,Current,Remaining,Progress\n';
+      exportData.data.goalProgress.forEach((goal: any) => {
+        csvContent += `${goal.name},$${goal.targetAmount},$${goal.currentAmount || 0},$${goal.remaining.toFixed(2)},${goal.progress.toFixed(0)}%\n`;
+      });
+      csvContent += '\n';
+    }
+    
+    // Transactions
+    if (options.includeTransactions && exportData.data.filteredTransactions) {
+      csvContent += 'TRANSACTIONS\n';
+      csvContent += 'Date,Description,Category,Amount,Type\n';
+      exportData.data.filteredTransactions.forEach((transaction: any) => {
+        csvContent += `${new Date(transaction.date).toLocaleDateString()},${transaction.description},${transaction.categoryId || 'Uncategorized'},$${Math.abs(transaction.amount)},${transaction.type}\n`;
+      });
+    }
+    
+    // Download CSV
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `${exportData.reportTitle.replace(/[^a-z0-9]/gi, '_')}.csv`;
+    link.click();
+  }
+
   // Export Functions
   async exportToCSV(
     data: Transaction[] | Account[] | Investment[],
@@ -558,7 +844,7 @@ class ExportService {
       // 2. Send email via email service (SendGrid, Mailgun, etc.)
       // 3. Update the lastRun and nextRun dates
 
-      console.log(`Sending scheduled report "${report.name}" to ${report.email}`);
+      logger.info('Sending scheduled report', { name: report.name, email: report.email });
       
       // Update the report
       report.lastRun = new Date();
@@ -725,8 +1011,8 @@ NEWFILEUID:${now}
     return typeMap[type] || 'CHECKING';
   }
 
-  // Enhanced export method with new formats
-  async exportData(
+  // Export to Excel format
+  async exportToExcel(
     data: {
       transactions?: Transaction[];
       accounts?: Account[];
@@ -734,37 +1020,156 @@ NEWFILEUID:${now}
       budgets?: Budget[];
     },
     options: ExportOptions
-  ): Promise<string | Uint8Array> {
-    const { format } = options;
+  ): Promise<Uint8Array> {
+    // For now, export as CSV with multiple sheets simulated
+    // In production, would use a library like xlsx or exceljs
+    let excelContent = '';
+    
+    // Sheet 1: Accounts
+    if (data.accounts && options.includeAccounts) {
+      excelContent += 'Sheet: Accounts\n';
+      excelContent += 'Name,Type,Balance,Currency\n';
+      data.accounts.forEach(account => {
+        excelContent += `${account.name},${account.type},${account.balance},${account.currency || 'USD'}\n`;
+      });
+      excelContent += '\n';
+    }
+    
+    // Sheet 2: Transactions
+    if (data.transactions && options.includeTransactions) {
+      const filteredTransactions = data.transactions.filter(t => 
+        t.date >= options.startDate && t.date <= options.endDate
+      );
+      
+      excelContent += 'Sheet: Transactions\n';
+      excelContent += 'Date,Description,Category,Amount,Type,Account\n';
+      filteredTransactions.forEach(transaction => {
+        const date = new Date(transaction.date).toLocaleDateString();
+        excelContent += `${date},${transaction.description},${transaction.category},${transaction.amount},${transaction.type},${transaction.accountId}\n`;
+      });
+      excelContent += '\n';
+    }
+    
+    // Sheet 3: Budgets
+    if (data.budgets && options.includeBudgets) {
+      excelContent += 'Sheet: Budgets\n';
+      excelContent += 'Category,Budgeted,Spent,Remaining,Period\n';
+      data.budgets.forEach(budget => {
+        const spent = budget.spent || 0;
+        const remaining = budget.budgeted - spent;
+        excelContent += `${budget.category},${budget.budgeted},${spent},${remaining},${budget.period}\n`;
+      });
+      excelContent += '\n';
+    }
+    
+    // Sheet 4: Investments
+    if (data.investments && options.includeInvestments) {
+      excelContent += 'Sheet: Investments\n';
+      excelContent += 'Symbol,Name,Quantity,Purchase Price,Current Value,Gain/Loss\n';
+      data.investments.forEach(investment => {
+        const currentValue = investment.currentValue || 0;
+        const costBasis = investment.costBasis || (investment.quantity * investment.purchasePrice);
+        const gainLoss = currentValue - costBasis;
+        excelContent += `${investment.symbol},${investment.name},${investment.quantity},${investment.purchasePrice},${currentValue},${gainLoss}\n`;
+      });
+    }
+    
+    // Convert string to Uint8Array
+    const encoder = new TextEncoder();
+    return encoder.encode(excelContent);
+  }
 
+  // Enhanced export method with new formats
+  async exportData(
+    data: {
+      transactions?: Transaction[];
+      accounts?: Account[];
+      investments?: Investment[];
+      budgets?: Budget[];
+      goals?: any[];
+      metadata?: any;
+    },
+    options: ExportOptions
+  ): Promise<void> {
+    const { format } = options;
+    let exportContent: string | Uint8Array;
+    let filename: string;
+    let mimeType: string;
+
+    // Generate export content based on format
     switch (format) {
       case 'csv':
-        return this.exportToCSV(data, options);
+        const dataArray = data.transactions || data.accounts || [];
+        exportContent = await this.exportToCSV(dataArray, options);
+        filename = `export-${new Date().toISOString().split('T')[0]}.csv`;
+        mimeType = 'text/csv';
+        break;
       
       case 'pdf':
-        return await this.exportToPDF(data, options);
+        exportContent = await this.exportToPDF(data, options);
+        filename = `financial-report-${new Date().toISOString().split('T')[0]}.pdf`;
+        mimeType = 'application/pdf';
+        break;
       
       case 'xlsx':
-        return await this.exportToExcel(data, options);
+        exportContent = await this.exportToExcel(data, options);
+        filename = `financial-data-${new Date().toISOString().split('T')[0]}.xlsx`;
+        mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        break;
       
       case 'json':
-        return JSON.stringify(data, null, 2);
+        exportContent = JSON.stringify(data, null, 2);
+        filename = `backup-${new Date().toISOString().split('T')[0]}.json`;
+        mimeType = 'application/json';
+        break;
       
       case 'qif':
         if (!data.transactions || !data.accounts) {
           throw new Error('QIF export requires transactions and accounts data');
         }
-        return this.exportToQIF({ transactions: data.transactions, accounts: data.accounts });
+        exportContent = this.exportToQIF({ transactions: data.transactions, accounts: data.accounts });
+        filename = `transactions-${new Date().toISOString().split('T')[0]}.qif`;
+        mimeType = 'application/x-qif';
+        break;
       
       case 'ofx':
         if (!data.transactions || !data.accounts) {
           throw new Error('OFX export requires transactions and accounts data');
         }
-        return this.exportToOFX({ transactions: data.transactions, accounts: data.accounts });
+        exportContent = this.exportToOFX({ transactions: data.transactions, accounts: data.accounts });
+        filename = `transactions-${new Date().toISOString().split('T')[0]}.ofx`;
+        mimeType = 'application/x-ofx';
+        break;
       
       default:
         throw new Error(`Unsupported export format: ${format}`);
     }
+
+    // Create blob and download
+    const blob = exportContent instanceof Uint8Array 
+      ? new Blob([exportContent], { type: mimeType })
+      : new Blob([exportContent], { type: mimeType });
+    
+    // Create download link
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    // Log export for analytics
+    logger.info('Data exported', {
+      format,
+      filename,
+      recordCount: data.metadata?.recordCount || {},
+      dateRange: options.startDate && options.endDate ? {
+        start: options.startDate.toISOString(),
+        end: options.endDate.toISOString()
+      } : undefined
+    });
   }
 }
 

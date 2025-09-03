@@ -40,9 +40,14 @@ export abstract class BaseService {
   /**
    * Log service activities for debugging
    */
-  protected log(message: string, data?: JsonValue): void {
+  protected async log(message: string, data?: JsonValue): Promise<void> {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[${this.serviceName}] ${message}`, data || '');
+      try {
+        const { logger } = await import('../loggingService');
+        logger.info(`[${this.serviceName}] ${message}`, data || '');
+      } catch {
+        // no-op if logger import fails
+      }
     }
   }
 

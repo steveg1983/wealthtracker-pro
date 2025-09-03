@@ -6,12 +6,12 @@ export function useOnlineStatus(): boolean {
   useEffect(() => {
     const handleOnline = (): void => {
       setIsOnline(true);
-      console.log('Connection restored');
+      logger.info('Connection restored');
     };
 
     const handleOffline = (): void => {
       setIsOnline(false);
-      console.log('Connection lost');
+      logger.warn('Connection lost');
     };
 
     window.addEventListener('online', handleOnline);

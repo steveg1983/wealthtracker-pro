@@ -1,3 +1,5 @@
+import { logger } from '../services/loggingService';
+
 /**
  * Dynamic Import Utilities
  * Lazy load heavy dependencies only when needed
@@ -21,7 +23,6 @@ export async function importPDFLibraries() {
     const [jsPDF, html2canvas] = await Promise.all([
       import('jspdf'),
       import('html2canvas')
-import { logger } from '../services/loggingService';
     ]);
     moduleCache.set('pdf-libs', { jsPDF, html2canvas });
   }
@@ -116,7 +117,7 @@ export async function measureImport<T>(
     try {
       const result = await importFn();
       const end = performance.now();
-      console.log(`✅ Loaded ${name} in ${(end - start).toFixed(2)}ms`);
+      logger.info(`Loaded module`, { name, ms: Number((end - start).toFixed(2)) });
       return result;
     } catch (error) {
       const end = performance.now();

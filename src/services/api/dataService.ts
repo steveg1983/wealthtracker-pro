@@ -34,11 +34,11 @@ export class DataService {
   static async initialize(clerkId: string, email: string, firstName?: string, lastName?: string): Promise<void> {
     if (isSupabaseConfigured()) {
       try {
-        console.log('[DataService] Initializing for Clerk ID:', clerkId);
+        logger.info('[DataService] Initializing for Clerk ID', { clerkId });
         // Delegate to userIdService for user creation and ID management
         const databaseId = await userIdService.ensureUserExists(clerkId, email, firstName, lastName);
         if (databaseId) {
-          console.log('[DataService] User initialized with database ID:', databaseId);
+          logger.info('[DataService] User initialized with database ID', { databaseId });
         } else {
           logger.warn('[DataService] No database ID returned from userIdService');
         }
@@ -462,8 +462,8 @@ export class DataService {
    * Subscribe to real-time updates
    */
   static subscribeToUpdates(callbacks: {
-    onAccountUpdate?: (payload: any) => void;
-    onTransactionUpdate?: (payload: any) => void;
+    onAccountUpdate?: (payload: unknown) => void;
+    onTransactionUpdate?: (payload: unknown) => void;
   }): () => void {
     const userId = userIdService.getCurrentDatabaseUserId();
     if (!userId || !isSupabaseConfigured()) {

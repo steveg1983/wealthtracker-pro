@@ -1,5 +1,10 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home, Chrome } from 'lucide-react';
+import { 
+  AlertTriangleIcon as AlertTriangle,
+  RefreshCwIcon as RefreshCw,
+  HomeIcon as Home,
+  ChromeIcon as Chrome
+} from '../icons';
 import { handleClerkSafariError } from '../../utils/clerkSafarifix';
 import { isSafari } from '../../utils/safariCompat';
 import { logger } from '../../services/loggingService';

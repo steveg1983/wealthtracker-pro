@@ -27,13 +27,12 @@ import EnhancedNotificationBell from './EnhancedNotificationBell';
 import { NavigationBadge } from './ActivityBadge';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
-import { RealtimeStatusDot } from './RealtimeStatusIndicator';
 import MobileBottomNav from './MobileBottomNav';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import ErrorBoundary from './ErrorBoundary';
 import { FloatingActionButton } from './FloatingActionButton';
 import DemoModeIndicator from './DemoModeIndicator';
-import SyncStatusIndicator from './SyncStatusIndicator';
+import RealtimeAlerts from './RealtimeAlerts';
 
 interface SidebarLinkProps {
   to: string;
@@ -548,7 +547,6 @@ export default function Layout(): React.JSX.Element {
           <h1 className="text-lg font-bold text-gray-900 dark:text-white" id="mobile-app-title">Wealth Tracker</h1>
           
           <div className="flex items-center gap-2">
-            <SyncStatusIndicator variant="compact" className="mr-1" />
             <EnhancedNotificationBell />
             <button
               onClick={openSearch}
@@ -573,7 +571,6 @@ export default function Layout(): React.JSX.Element {
       
       {/* Desktop Notification Bell, User Profile and Theme Switcher */}
       <div className="hidden md:flex items-center gap-3 fixed top-4 right-4 z-30" role="toolbar" aria-label="User tools">
-        <SyncStatusIndicator variant="compact" />
         <EnhancedNotificationBell />
         <RealtimeStatusDot />
         <UserButton 
@@ -906,6 +903,15 @@ export default function Layout(): React.JSX.Element {
       
       {/* Keyboard Sequence Indicator */}
       <KeyboardSequenceIndicator activeSequence={activeSequence} />
+      
+      {/* Real-time Alerts */}
+      <RealtimeAlerts 
+        position="top-right"
+        maxAlerts={3}
+        autoDismissSeconds={30}
+        showPortfolioChange={true}
+        showAnomalies={true}
+      />
       
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />

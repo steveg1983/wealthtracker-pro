@@ -319,12 +319,12 @@ export default function SpendingAlerts() {
             </p>
           </div>
           
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
             <div className="flex items-center gap-2 mb-1">
-              <InfoIcon size={16} className="text-blue-500" />
-              <span className="text-xs text-blue-700 dark:text-blue-300">Unread</span>
+              <InfoIcon size={16} className="text-amber-600 dark:text-amber-400" />
+              <span className="text-xs text-gray-900 dark:text-white">Unread</span>
             </div>
-            <p className="text-xl font-semibold text-blue-900 dark:text-blue-100">
+            <p className="text-xl font-semibold text-gray-900 dark:text-white">
               {alertStats.unreadAlerts}
             </p>
           </div>

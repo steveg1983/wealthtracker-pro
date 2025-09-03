@@ -152,7 +152,7 @@ class ScheduledReportService {
     }
   ): Promise<void> {
     try {
-      console.log(`[ScheduledReports] Running report: ${scheduledReport.reportName}`);
+      logger.info('[ScheduledReports] Running report', { report: scheduledReport.reportName });
       
       // Get the custom report configuration
       const customReports = customReportService.getCustomReports();
@@ -207,7 +207,7 @@ class ScheduledReportService {
         format: scheduledReport.deliveryFormat
       });
       
-      console.log(`[ScheduledReports] Report completed: ${scheduledReport.reportName}`);
+      logger.info('[ScheduledReports] Report completed', { report: scheduledReport.reportName });
     } catch (error) {
       logger.error(`[ScheduledReports] Report failed: ${scheduledReport.reportName}`, error);
       

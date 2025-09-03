@@ -4,13 +4,12 @@ import { CloudIcon, DatabaseIcon, WifiOffIcon } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 
 export default function DataSourceIndicator(): React.JSX.Element | null {
+  const { isSyncing, syncError, lastSyncTime } = useApp();
+  const dataSource = getDataSource();
   // Only show in development or if explicitly enabled
   if (!FEATURES.showDataSource && !import.meta.env.DEV) {
     return null;
   }
-
-  const dataSource = getDataSource();
-  const { isSyncing, syncError, lastSyncTime } = useApp() as any;
   
   // Check if we're online
   const isOnline = navigator.onLine;

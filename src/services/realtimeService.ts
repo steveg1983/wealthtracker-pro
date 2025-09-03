@@ -75,7 +75,7 @@ class RealtimeService {
     this.handleConnectionChange(true);
     
     // We'll monitor connection through subscription events instead
-    console.log('Realtime monitoring initialized');
+    logger.info('Realtime monitoring initialized');
   }
 
   /**
@@ -128,7 +128,7 @@ class RealtimeService {
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
     
     this.reconnectTimeout = setTimeout(() => {
-      console.log(`Attempting to reconnect (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+      logger.info('Realtime attempting to reconnect', { attempt: this.reconnectAttempts + 1, max: this.maxReconnectAttempts });
       this.reconnectAttempts++;
       
       // Attempt to reconnect by re-establishing subscriptions
@@ -164,7 +164,7 @@ class RealtimeService {
   private reestablishSubscription(table: string, userId: string): void {
     // This would need to be enhanced based on specific subscription requirements
     // For now, we'll let the application re-subscribe when needed
-    console.log(`Re-establishing subscription for ${table}:${userId}`);
+    logger.info('Re-establishing subscription', { table, userId });
   }
 
   /**
@@ -213,12 +213,12 @@ class RealtimeService {
             schema: payload.schema,
           };
           
-          console.log('Accounts real-time event:', event);
+          logger.debug('Accounts real-time event', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        console.log(`Accounts subscription status: ${status}`);
+        logger.info('Accounts subscription status', { status });
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -277,12 +277,12 @@ class RealtimeService {
             schema: payload.schema,
           };
           
-          console.log('Transactions real-time event:', event);
+          logger.debug('Transactions real-time event', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        console.log(`Transactions subscription status: ${status}`);
+        logger.info('Transactions subscription status', { status });
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -341,12 +341,12 @@ class RealtimeService {
             schema: payload.schema,
           };
           
-          console.log('Budgets real-time event:', event);
+          logger.debug('Budgets real-time event', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        console.log(`Budgets subscription status: ${status}`);
+        logger.info('Budgets subscription status', { status });
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -405,12 +405,12 @@ class RealtimeService {
             schema: payload.schema,
           };
           
-          console.log('Goals real-time event:', event);
+          logger.debug('Goals real-time event', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        console.log(`Goals subscription status: ${status}`);
+        logger.info('Goals subscription status', { status });
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
@@ -431,7 +431,7 @@ class RealtimeService {
     if (channel) {
       channel.unsubscribe();
       this.subscriptions.delete(subscriptionKey);
-      console.log(`Unsubscribed from: ${subscriptionKey}`);
+      logger.info('Unsubscribed', { subscriptionKey });
     }
   }
 
@@ -441,7 +441,7 @@ class RealtimeService {
   unsubscribeAll(): void {
     this.subscriptions.forEach((channel, key) => {
       channel.unsubscribe();
-      console.log(`Unsubscribed from: ${key}`);
+      logger.info('Unsubscribed', { key });
     });
     this.subscriptions.clear();
 

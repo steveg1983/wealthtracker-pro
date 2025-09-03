@@ -380,7 +380,7 @@ export default function MobileFeatures() {
         isOpen={showQuickCapture}
         onClose={() => setShowQuickCapture(false)}
         onExpenseCreated={(expense) => {
-          console.log('Expense created:', expense);
+          logger.info('Expense created', { expense });
           // Refresh data
           loadData();
         }}

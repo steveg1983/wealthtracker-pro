@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Calendar, 
-  Repeat, 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Play, 
-  Pause,
-  Clock,
-  AlertCircle,
-  Check
-} from 'lucide-react';
+  CalendarIcon as Calendar,
+  Repeat as Repeat,
+  PlusIcon as Plus,
+  EditIcon as Edit2,
+  DeleteIcon as Trash2,
+  PlayIcon as Play,
+  PauseIcon as Pause,
+  ClockIcon as Clock,
+  AlertCircleIcon as AlertCircle,
+  CheckIcon as Check
+} from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
+import { toMoney } from '../types/money';
 import { Transaction } from '../types';
 import { format, addDays, addWeeks, addMonths, addYears, isBefore, isAfter } from 'date-fns';
 import { formatCurrency } from '../utils/formatters';
@@ -89,13 +90,14 @@ export default function RecurringTransactions(): React.JSX.Element {
 
     try {
       // Create transaction from template
+      const normalized = toMoney(template.amount);
       const transaction: Omit<Transaction, 'id'> = {
         date: template.nextDate,
         description: template.description,
-        amount: template.amount,
+        amount: Number(normalized),
         category: template.category,
         accountId: template.accountId,
-        type: parseFloat(template.amount) > 0 ? 'income' : 'expense',
+        type: Number(normalized) > 0 ? 'income' : 'expense',
         reconciled: false,
         tags: template.tags,
         notes: `Recurring: ${template.name}${template.notes ? '\n' + template.notes : ''}`

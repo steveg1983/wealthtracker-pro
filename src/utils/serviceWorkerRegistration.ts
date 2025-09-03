@@ -1,4 +1,5 @@
 import { logger } from '../services/loggingService';
+import { captureMessage } from '../lib/sentry';
 // Service Worker Registration with enhanced update handling
 
 const isLocalhost = Boolean(
@@ -49,9 +50,7 @@ export function register(config?: Config): void {
 
         // Add some additional logging to localhost
         navigator.serviceWorker.ready.then(() => {
-          console.log(
-            'This web app is being served cache-first by a service worker.'
-          );
+          logger.info('App is being served cache-first by a service worker.');
         });
       } else {
         // Is not localhost. Just register service worker
@@ -91,19 +90,19 @@ function registerValidSW(swUrl: string, config?: Config): void {
               // At this point, the updated precached content has been fetched,
               // but the previous service worker will still serve the older
               // content until all client tabs are closed.
-              console.log(
-                'New content is available and will be used when all tabs are closed.'
-              );
+              logger.info('New content is available and will be used when all tabs are closed.');
 
               // Execute callback
+              try { captureMessage('SW_UPDATE_AVAILABLE', 'info'); } catch {}
               if (config && config.onUpdate) {
                 config.onUpdate(registration);
               }
             } else {
               // At this point, everything has been precached.
-              console.log('Content is cached for offline use.');
+              logger.info('Content is cached for offline use.');
 
               // Execute callback
+              try { captureMessage('SW_CACHED_OFFLINE', 'info'); } catch {}
               if (config && config.onSuccess) {
                 config.onSuccess(registration);
               }
@@ -118,13 +117,13 @@ function registerValidSW(swUrl: string, config?: Config): void {
         
         switch (type) {
           case 'sync-success':
-            console.log('Data synced successfully:', data);
+            logger.info('Data synced successfully:', data);
             break;
           case 'accounts-updated':
-            console.log('Accounts updated in background:', data);
+            logger.info('Accounts updated in background:', data);
             break;
           case 'sync-status':
-            console.log('Sync status:', data);
+            logger.info('Sync status:', data);
             break;
         }
       });
@@ -158,7 +157,7 @@ function checkValidServiceWorker(swUrl: string, config?: Config): void {
       }
     })
     .catch(() => {
-      console.log('No internet connection found. App is running in offline mode.');
+      logger.warn('No internet connection found. App is running in offline mode.');
     });
 }
 
@@ -205,7 +204,7 @@ export function clearCaches(): Promise<void> {
     return caches.keys().then((names) => {
       return Promise.all(names.map(name => caches.delete(name)));
     }).then(() => {
-      console.log('All caches cleared');
+      logger.info('All caches cleared');
     });
   }
   return Promise.resolve();

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Shield, 
-  Download, 
-  Calendar, 
-  AlertTriangle, 
-  CheckCircle,
-  X,
-  Clock,
-  Cloud,
-  Settings
-} from 'lucide-react';
+  ShieldIcon as Shield,
+  DownloadIcon as Download,
+  CalendarIcon as Calendar,
+  AlertTriangleIcon as AlertTriangle,
+  CheckCircleIcon as CheckCircle,
+  XIcon as X,
+  ClockIcon as Clock,
+  CloudIcon as Cloud,
+  SettingsIcon as Settings
+} from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { exportService } from '../services/exportService';
 import { format, differenceInDays, addDays } from 'date-fns';

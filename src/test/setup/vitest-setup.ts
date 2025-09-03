@@ -1,12 +1,17 @@
 /**
  * Vitest Setup
- * Global test configuration for PROPER testing
+ * Global test configuration for REAL testing
+ * Following principle: "If it's not tested against real infrastructure, it's not tested"
  */
 
+import './test-env'; // Must be first to set environment variables
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
 import { afterEach, beforeAll, afterAll, vi } from 'vitest';
 import './mock-indexeddb';
+// NO MORE MOCKS - Using real Supabase and Clerk connections
+// import '../mocks/supabase'; // REMOVED - Using real database
+// import '../mocks/clerk';    // REMOVED - Using real auth
 
 // Cleanup after each test
 afterEach(() => {
@@ -22,14 +27,9 @@ afterEach(() => {
 // Setup before all tests
 beforeAll(() => {
   // Mock console methods to reduce noise in tests
-  global.console = {
-    ...console,
-    error: vi.fn(),
-    warn: vi.fn(),
-    // Keep log and debug for debugging
-    log: console.log,
-    debug: console.debug,
-  };
+  // Note: Individual tests can spy on these if needed
+  vi.spyOn(console, 'error').mockImplementation(() => {});
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
 
   // Mock window.matchMedia for responsive tests
   Object.defineProperty(window, 'matchMedia', {

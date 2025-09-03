@@ -18,7 +18,7 @@ export default function RealtimeDebugger() {
     const setupDebugger = async () => {
       // Use the database ID from hook
       setDbUserId(databaseId);
-      console.log('🔍 [RealtimeDebugger] Database user ID:', databaseId);
+      logger.info('[RealtimeDebugger] Database user ID', { databaseId });
 
       // Set up direct subscription for debugging
       const channel = supabase
@@ -32,7 +32,7 @@ export default function RealtimeDebugger() {
             filter: `user_id=eq.${databaseId}`
             },
             (payload) => {
-              console.log('🎯 [RealtimeDebugger] Event received:', payload);
+              logger.debug('[RealtimeDebugger] Event received', payload);
               setEvents(prev => [{
                 time: new Date().toISOString(),
                 type: payload.eventType,
@@ -42,7 +42,7 @@ export default function RealtimeDebugger() {
             }
           )
           .subscribe((status, error) => {
-            console.log('📡 [RealtimeDebugger] Status:', status);
+            logger.info('[RealtimeDebugger] Status', { status });
             setStatus(status);
             if (error) {
               logger.error('❌ [RealtimeDebugger] Error:', error);
@@ -50,7 +50,7 @@ export default function RealtimeDebugger() {
           });
 
       return () => {
-        console.log('🔚 [RealtimeDebugger] Cleaning up');
+        logger.info('[RealtimeDebugger] Cleaning up');
         supabase.removeChannel(channel);
       };
     };

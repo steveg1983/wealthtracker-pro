@@ -93,7 +93,7 @@ class OfflineService {
   private setupEventListeners(): void {
     // Listen for online/offline events
     window.addEventListener('online', () => {
-      console.log('Back online - starting sync');
+      logger.info('Back online - starting sync');
       this.syncOfflineData();
     });
 
@@ -219,7 +219,7 @@ class OfflineService {
       // Sort by timestamp to maintain order
       queue.sort((a, b) => a.timestamp - b.timestamp);
       
-      console.log(`Syncing ${queue.length} offline items`);
+      logger.info('Syncing offline items', { count: queue.length });
       
       for (const item of queue) {
         try {

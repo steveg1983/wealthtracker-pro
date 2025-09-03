@@ -10,6 +10,16 @@ export const generateNonce = (): string => {
   return btoa(String.fromCharCode(...array));
 };
 
+// Helper to detect development mode (browser + Safari-safe)
+const isDevMode = (() => {
+  try {
+    // @ts-ignore - Safari compatibility
+    return typeof import.meta !== 'undefined' && import.meta.env?.MODE !== 'production';
+  } catch {
+    return false;
+  }
+})();
+
 // CSP directives configuration
 export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
   const directives: Record<string, string[]> = {
@@ -25,7 +35,7 @@ export const getCSPDirectives = (nonce?: string): Record<string, string[]> => {
       'https:', // For CDNs in production
       // @ts-ignore - Safari compatibility
       (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'development') ? "'unsafe-inline'" : '', // Only for dev
-      "'unsafe-eval'", // Required for React lazy loading and service worker
+      isDevMode ? "'unsafe-eval'" : '', // Avoid unsafe-eval in production
     ].filter(Boolean),
     
     // Styles: self, inline (for styled components), and trusted CDNs

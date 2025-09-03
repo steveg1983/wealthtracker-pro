@@ -21,22 +21,14 @@ import { NotificationProvider } from '../../contexts/NotificationContext';
 import { LayoutProvider } from '../../contexts/LayoutContext';
 import { ReduxMigrationWrapper } from '../../components/ReduxMigrationWrapper';
 
-// Mock Clerk hooks
-vi.mock('@clerk/clerk-react', () => ({
-  useUser: () => ({ 
-    user: { 
-      id: 'user_test123',
-      primaryEmailAddress: { emailAddress: 'test@example.com' }
-    }, 
-    isLoaded: true 
-  }),
-  useAuth: () => ({ 
-    userId: 'user_test123',
-    isLoaded: true,
-    isSignedIn: true
-  }),
-  ClerkProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-}));
+// Use real Clerk test data instead of mocks
+const TEST_USER = {
+  id: 'user_test123',
+  primaryEmailAddress: { emailAddress: 'test@example.com' }
+};
+
+// Test wrapper components that provide real context
+const TestClerkProvider = ({ children }: { children: React.ReactNode }) => children;
 
 describe('Redux Migration', () => {
   let store: ReturnType<typeof configureStore>;

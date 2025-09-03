@@ -168,17 +168,17 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
             </div>
             
             {/* Info Box */}
-            <div className="mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+            <div className="mt-6 bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
               <div className="flex items-start gap-3">
-                <InfoIcon className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+                <InfoIcon className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
                 <div className="text-sm">
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-1">
+                  <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
                     About QIF Files
                   </h4>
-                  <p className="text-blue-800 dark:text-blue-200 mb-2">
+                  <p className="text-gray-600 dark:text-gray-400 mb-2">
                     QIF (Quicken Interchange Format) is a simple text format for financial data.
                   </p>
-                  <ul className="text-blue-700 dark:text-blue-300 space-y-1">
+                  <ul className="text-gray-600 dark:text-gray-400 space-y-1">
                     <li>• Widely supported by UK banks and financial software</li>
                     <li>• Simple format but no unique transaction IDs</li>
                     <li>• Requires manual account selection</li>

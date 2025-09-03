@@ -54,7 +54,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
 
   // Parse OFX file format
   const parseOFX = (content: string): ParsedData => {
-    console.log('Using OFX parser');
+    logger.info('Using OFX parser');
     const transactions: ParsedTransaction[] = [];
     const accountsMap = new Map<string, ParsedAccount>();
     
@@ -121,14 +121,13 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     setParsing(true);
     
     const fileName = selectedFile.name.toLowerCase();
-    console.log('Processing file:', fileName);
-    console.log('File size:', selectedFile.size, 'bytes');
+    logger.info('Processing file for import', { fileName, size: selectedFile.size });
     
     try {
       let parsed: ParsedData | null = null;
       
       if (fileName.endsWith('.mny')) {
-        console.log('Detected MNY file');
+        logger.info('Detected MNY file');
         setMessage('Parsing Money database file... This may take a moment...');
         const arrayBuffer = await selectedFile.arrayBuffer();
         parsed = await parseMNY(arrayBuffer);
@@ -141,7 +140,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           return;
         }
       } else if (fileName.endsWith('.mbf')) {
-        console.log('Detected MBF backup file');
+        logger.info('Detected MBF backup file');
         setMessage('Parsing Money backup file... This may take a moment...');
         const arrayBuffer = await selectedFile.arrayBuffer();
         parsed = await parseMBF(arrayBuffer);
@@ -154,16 +153,15 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           return;
         }
       } else if (fileName.endsWith('.qif')) {
-        console.log('Detected QIF file');
+        logger.info('Detected QIF file');
         setMessage('Parsing QIF file...');
         const content = await selectedFile.text();
-        console.log('QIF file content length:', content.length);
-        console.log('First 200 chars:', content.substring(0, 200));
+        logger.debug('QIF content snippet', { length: content.length, snippet: content.substring(0, 200) });
         
         // Use the enhanced QIF parser
         parsed = enhancedParseQIF(content);
       } else if (fileName.endsWith('.ofx')) {
-        console.log('Detected OFX file');
+        logger.info('Detected OFX file');
         setMessage('Parsing OFX file...');
         const content = await selectedFile.text();
         parsed = parseOFX(content);
@@ -172,7 +170,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
       }
       
       if (parsed) {
-        console.log('Parse complete:', parsed.accounts.length, 'accounts,', parsed.transactions.length, 'transactions');
+        logger.info('Parse complete', { accounts: parsed.accounts.length, transactions: parsed.transactions.length });
         setPreview(parsed);
         if (parsed.warning) {
           setMessage(parsed.warning);
@@ -193,7 +191,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
   };
 
   const handleMappingComplete = (mapping: FieldMapping, data: Array<Record<string, unknown>>) => {
-    console.log('Applying mapping to data...');
+    logger.info('Applying import mapping to data');
     const result = applyMappingToData(data, mapping);
     
     setPreview({
@@ -241,7 +239,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
     
     setImporting(true);
     try {
-      console.log('Starting import of', preview.accounts.length, 'accounts and', preview.transactions.length, 'transactions');
+      logger.info('Starting import', { accounts: preview.accounts.length, transactions: preview.transactions.length });
       
       // Import accounts first
       const accountMap = new Map<string, string>();
@@ -252,7 +250,7 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
         );
         
         if (existingAccount) {
-          console.log('Account already exists:', account.name);
+          logger.info('Account already exists', { name: account.name });
           accountMap.set(account.name, existingAccount.id);
           continue;
         }
@@ -265,14 +263,14 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
           institution: 'Imported',
           lastUpdated: new Date()
         };
-        console.log('Adding account:', newAccount);
+        logger.info('Adding account', newAccount);
         addAccount(newAccount);
         accountMap.set(account.name, `imported-${Date.now()}`);
       }
       
       // Import transactions
       const defaultAccountId = accounts[0]?.id || 'default';
-      console.log('Importing', preview.transactions.length, 'transactions');
+      logger.info('Importing transactions', { count: preview.transactions.length });
       
       for (const transaction of preview.transactions) {
         addTransaction({
@@ -320,11 +318,11 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               <li><strong>MBF</strong> - Microsoft Money backup files (with manual mapping)</li>
             </ul>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600 mb-4">
               <div className="flex items-start gap-2">
-                <InfoIcon className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
-                <div className="text-sm text-blue-800 dark:text-blue-200">
-                  <p className="font-semibold mb-1">Money File Import:</p>
+                <InfoIcon className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="font-semibold text-gray-900 dark:text-white mb-1">Money File Import:</p>
                   <p>For Money .mny or .mbf files, we'll show you the data and let you tell us what each column represents.</p>
                 </div>
               </div>
@@ -468,9 +466,9 @@ export default function ImportDataModal({ isOpen, onClose }: ImportDataModalProp
               Would you like to:
             </p>
             <div className="space-y-3 mb-6">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="font-medium text-blue-800 dark:text-blue-200">Clear test data first (Recommended)</p>
-                <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+              <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg">
+                <p className="font-medium text-gray-900 dark:text-white">Clear test data first (Recommended)</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                   Remove all test data and start fresh with your real bank data
                 </p>
               </div>

@@ -1,5 +1,10 @@
 import React, { useState } from 'react';
-import { AlertTriangle, Check, X, Info } from 'lucide-react';
+import { 
+  AlertTriangleIcon as AlertTriangle,
+  CheckIcon as Check,
+  XIcon as X,
+  InfoIcon as Info
+} from './icons';
 import { Transaction } from '../types';
 import { DuplicateMatch, DuplicateDetectionService } from '../services/duplicateDetectionService';
 import { formatCurrency } from '../utils/formatters';

@@ -270,11 +270,80 @@ class DashboardWidgetService {
   }
 
   /**
-   * Save a layout preset
+   * Save a complete dashboard layout
    */
   async saveLayout(
+    userId: string,
+    layout: {
+      name: string;
+      layoutConfig: any;
+      widgets: any[];
+    }
+  ): Promise<void> {
+    try {
+      // Save to database
+      const { error } = await supabase
+        .from('dashboard_layouts')
+        .upsert({
+          user_id: userId,
+          name: layout.name,
+          layout_config: layout.layoutConfig,
+          widgets: layout.widgets,
+          is_active: true,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,is_active'
+        });
+
+      if (error) {
+        logger.error('Error saving layout to database:', error);
+        // Fall back to localStorage
+        localStorage.setItem('dashboardV2Layouts', JSON.stringify(layout));
+      }
+    } catch (error) {
+      logger.error('Error saving layout:', error);
+      localStorage.setItem('dashboardV2Layouts', JSON.stringify(layout));
+    }
+  }
+
+  /**
+   * Get the active dashboard layout
+   */
+  async getLayout(userId: string): Promise<any> {
+    try {
+      // Get from database
+      const { data, error } = await supabase
+        .from('dashboard_layouts')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .single();
+
+      if (!error && data) {
+        return {
+          id: data.id,
+          name: data.name,
+          layoutConfig: data.layout_config,
+          widgets: data.widgets
+        };
+      }
+
+      // Fall back to localStorage
+      const saved = localStorage.getItem('dashboardV2Layouts');
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      logger.error('Error getting layout:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Save a layout as a preset
+   */
+  async saveLayoutPreset(
     clerkId: string,
     name: string,
+    layoutConfig: any,
     widgets: WidgetConfig[]
   ): Promise<DashboardLayout> {
     try {
@@ -286,8 +355,10 @@ class DashboardWidgetService {
         .insert({
           user_id: userId,
           name,
+          layout_config: layoutConfig,
           widgets,
-          is_default: false
+          is_default: false,
+          is_active: false
         })
         .select()
         .single();

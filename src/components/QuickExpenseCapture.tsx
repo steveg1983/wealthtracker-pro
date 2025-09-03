@@ -270,14 +270,14 @@ export default function QuickExpenseCapture({ isOpen, onClose, onExpenseCreated 
       
       {/* Location Info */}
       {selectedMerchant && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
           <div className="flex items-center gap-3">
-            <MapPinIcon size={20} className="text-blue-600 dark:text-blue-400" />
+            <MapPinIcon size={20} className="text-amber-600 dark:text-amber-400" />
             <div>
-              <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              <p className="text-sm font-medium text-gray-900 dark:text-white">
                 {selectedMerchant.name}
               </p>
-              <p className="text-xs text-blue-700 dark:text-blue-300">
+              <p className="text-xs text-gray-600 dark:text-gray-400">
                 {selectedMerchant.address}
               </p>
             </div>
@@ -406,8 +406,8 @@ export default function QuickExpenseCapture({ isOpen, onClose, onExpenseCreated 
       </div>
       
       {mobileService.isOffline() && (
-        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-700 dark:text-blue-300 text-sm">
-          <ClockIcon size={16} className="inline mr-2" />
+        <div className="p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl text-gray-600 dark:text-gray-400 text-sm shadow-md border-l-4 border-amber-400 dark:border-amber-600">
+          <ClockIcon size={16} className="inline mr-2 text-amber-600 dark:text-amber-400" />
           Will sync automatically when you're back online
         </div>
       )}

@@ -79,7 +79,7 @@ class SyncService {
     // Only initialize if we have a backend URL configured
     const syncUrl = import.meta.env.VITE_SYNC_URL;
     if (!syncUrl) {
-      console.log('Sync service: No backend URL configured, running in offline mode');
+      logger.info('Sync service: No backend URL configured, running in offline mode');
       return;
     }
 
@@ -119,7 +119,7 @@ class SyncService {
     if (!this.socket) return;
 
     this.socket.on('connect', () => {
-      console.log('Sync service connected');
+      logger.info('Sync service connected');
       this.syncStatus.isConnected = true;
       this.reconnectAttempts = 0;
       this.emit('status-changed', this.syncStatus);
@@ -127,7 +127,7 @@ class SyncService {
     });
 
     this.socket.on('disconnect', () => {
-      console.log('Sync service disconnected');
+      logger.info('Sync service disconnected');
       this.syncStatus.isConnected = false;
       this.emit('status-changed', this.syncStatus);
     });
@@ -155,7 +155,7 @@ class SyncService {
     this.reconnectAttempts++;
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       const delay = this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts);
-      console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      logger.info('Sync service reconnecting', { delay, attempt: this.reconnectAttempts, max: this.maxReconnectAttempts });
       setTimeout(() => this.connect(), delay);
     } else {
       logger.error('Max reconnection attempts reached, running in offline mode');
@@ -303,7 +303,7 @@ class SyncService {
 
     if (!requiresUser && analysis.canAutoResolve) {
       // Auto-resolve with merged data
-      console.log(`Auto-resolving conflict for ${conflict.localOperation.entity} with ${analysis.confidence}% confidence`);
+      logger.info('Auto-resolving conflict', { entity: conflict.localOperation.entity, confidence: analysis.confidence });
       
       if (analysis.mergedData) {
         // Apply the merged data

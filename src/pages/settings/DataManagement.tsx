@@ -348,7 +348,7 @@ export default function DataManagementSettings() {
           isOpen={showMigrationWizard}
           onClose={() => setShowMigrationWizard(false)}
           onComplete={(data) => {
-            console.log('Migration completed:', data);
+            logger.info('Migration completed', data);
             setShowMigrationWizard(false);
           }}
         />

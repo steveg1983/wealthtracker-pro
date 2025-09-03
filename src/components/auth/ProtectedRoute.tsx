@@ -1,6 +1,6 @@
 import { useAuth, useUser, useSession } from '@clerk/clerk-react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { ReactNode, useEffect, useState } from 'react';
+import { ReactNode, useEffect, useState, useCallback } from 'react';
 import { Skeleton } from '../loading/Skeleton';
 import StripeService from '../../services/stripeService';
 import { AlertCircleIcon, LockIcon } from '../icons';
@@ -37,8 +37,16 @@ export function ProtectedRoute({
     new URLSearchParams(window.location.search).get('demo') === 'true'
   );
 
-  // Show loading state while Clerk is initializing (skip in test mode or demo mode)
-  if (!isLoaded && !isTestMode && !isDemoMode) {
+  // Check if we're in development mode on localhost
+  const isDevelopmentMode = typeof window !== 'undefined' && (
+    window.location.hostname === 'localhost' || 
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.startsWith('192.168.') ||
+    import.meta.env.DEV === true
+  );
+
+  // Show loading state while Clerk is initializing (skip in test mode, demo mode, or development)
+  if (!isLoaded && !isTestMode && !isDemoMode && !isDevelopmentMode) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -50,21 +58,15 @@ export function ProtectedRoute({
     );
   }
 
-  // Redirect to home if not signed in (unless in test mode or demo mode)
-  if (!isSignedIn && !isTestMode && !isDemoMode) {
+  // Redirect to home if not signed in (unless in test mode, demo mode, or development)
+  if (!isSignedIn && !isTestMode && !isDemoMode && !isDevelopmentMode) {
     // Store the attempted location for redirect after login
     sessionStorage.setItem('redirectAfterLogin', location.pathname);
     return <Navigate to={fallbackPath} replace />;
   }
 
   // Check subscription status if premium is required
-  useEffect(() => {
-    if (requirePremium && isSignedIn && session) {
-      checkSubscriptionStatus();
-    }
-  }, [requirePremium, isSignedIn, session]);
-
-  const checkSubscriptionStatus = async () => {
+  const checkSubscriptionStatus = useCallback(async () => {
     if (!session) return;
     
     setIsCheckingSubscription(true);
@@ -79,10 +81,16 @@ export function ProtectedRoute({
     } finally {
       setIsCheckingSubscription(false);
     }
-  };
+  }, [session]);
+
+  useEffect(() => {
+    if (requirePremium && isSignedIn) {
+      checkSubscriptionStatus();
+    }
+  }, [requirePremium, isSignedIn, checkSubscriptionStatus]);
 
   // Check for premium features
-  if (requirePremium && !isTestMode && !isDemoMode) {
+  if (requirePremium && !isTestMode && !isDemoMode && !isDevelopmentMode) {
     if (isCheckingSubscription) {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -150,7 +158,7 @@ export function ProtectedRoute({
   // Check role requirements
   if (requiredRole && user) {
     const userRole = user.publicMetadata?.role as string;
-    if (userRole !== requiredRole && !isTestMode && !isDemoMode) {
+    if (userRole !== requiredRole && !isTestMode && !isDemoMode && !isDevelopmentMode) {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-xl shadow-lg p-8">
@@ -178,7 +186,17 @@ export function ProtectedRoute({
     }
   }
   
-  return <>{children}</>;
+  // Show development mode banner only on localhost
+  return (
+    <>
+      {isDevelopmentMode && (
+        <div className="bg-amber-500 text-white text-xs py-2 px-2 text-center relative z-50 mb-2">
+          Development Mode - Authentication Bypassed
+        </div>
+      )}
+      {children}
+    </>
+  );
 }
 
 // Higher-order component for protecting routes

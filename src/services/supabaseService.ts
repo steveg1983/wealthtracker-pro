@@ -10,6 +10,10 @@
 import { supabase } from '../lib/supabase';
 import type { Account, Transaction, Budget, Goal } from '../types';
 import { logger } from './loggingService';
+import { 
+  AccountCreateSchema, TransactionCreateSchema, BudgetCreateSchema, GoalCreateSchema,
+  type AccountCreate, type TransactionCreate, type BudgetCreate, type GoalCreate
+} from '../types/schemas';
 
 export class SupabaseService {
   /**
@@ -55,18 +59,24 @@ export class SupabaseService {
     return data || [];
   }
 
-  static async createAccount(userId: string, account: Partial<Account>) {
+  static async createAccount(userId: string, account: Partial<Account> | AccountCreate) {
     if (!supabase) return null;
+
+    const parsed = AccountCreateSchema.safeParse(account);
+    if (!parsed.success) {
+      logger.error('Invalid account payload', parsed.error);
+      return null;
+    }
     
     const { data, error } = await supabase
       .from('accounts')
       .insert({
         user_id: userId,
-        name: account.name,
-        type: account.type,
-        balance: account.balance || 0,
-        currency: account.currency || 'USD',
-        institution: account.institution,
+        name: parsed.data.name,
+        type: parsed.data.type,
+        balance: parsed.data.balance ?? 0,
+        currency: parsed.data.currency ?? 'USD',
+        institution: parsed.data.institution,
         is_active: true,
       })
       .select()
@@ -135,21 +145,27 @@ export class SupabaseService {
     return data || [];
   }
 
-  static async createTransaction(userId: string, transaction: Partial<Transaction>) {
+  static async createTransaction(userId: string, transaction: Partial<Transaction> | TransactionCreate) {
     if (!supabase) return null;
+
+    const parsed = TransactionCreateSchema.safeParse(transaction);
+    if (!parsed.success) {
+      logger.error('Invalid transaction payload', parsed.error);
+      return null;
+    }
     
     const { data, error } = await supabase
       .from('transactions')
       .insert({
         user_id: userId,
-        account_id: transaction.accountId,
-        date: transaction.date,
-        description: transaction.description,
-        amount: transaction.amount,
-        type: transaction.type,
-        category: transaction.category,
-        notes: transaction.notes,
-        tags: transaction.tags,
+        account_id: parsed.data.accountId,
+        date: parsed.data.date,
+        description: parsed.data.description,
+        amount: parsed.data.amount,
+        type: parsed.data.type,
+        category: parsed.data.category,
+        notes: parsed.data.notes,
+        tags: parsed.data.tags,
       })
       .select()
       .single();
@@ -217,18 +233,24 @@ export class SupabaseService {
     return data || [];
   }
 
-  static async createBudget(userId: string, budget: Partial<Budget>) {
+  static async createBudget(userId: string, budget: Partial<Budget> | BudgetCreate) {
     if (!supabase) return null;
+
+    const parsed = BudgetCreateSchema.safeParse(budget);
+    if (!parsed.success) {
+      logger.error('Invalid budget payload', parsed.error);
+      return null;
+    }
     
     const { data, error } = await supabase
       .from('budgets')
       .insert({
         user_id: userId,
-        name: budget.name,
-        category: budget.category,
-        amount: budget.amount,
-        period: budget.period || 'monthly',
-        start_date: budget.startDate,
+        name: parsed.data.name,
+        category: parsed.data.category,
+        amount: parsed.data.amount,
+        period: parsed.data.period ?? 'monthly',
+        start_date: parsed.data.startDate,
         is_active: true,
       })
       .select()
@@ -262,19 +284,25 @@ export class SupabaseService {
     return data || [];
   }
 
-  static async createGoal(userId: string, goal: Partial<Goal>) {
+  static async createGoal(userId: string, goal: Partial<Goal> | GoalCreate) {
     if (!supabase) return null;
+
+    const parsed = GoalCreateSchema.safeParse(goal);
+    if (!parsed.success) {
+      logger.error('Invalid goal payload', parsed.error);
+      return null;
+    }
     
     const { data, error } = await supabase
       .from('goals')
       .insert({
         user_id: userId,
-        name: goal.name,
-        description: goal.description,
-        target_amount: goal.targetAmount,
-        current_amount: goal.currentAmount || 0,
-        target_date: goal.targetDate,
-        category: goal.category,
+        name: parsed.data.name,
+        description: parsed.data.description,
+        target_amount: parsed.data.targetAmount,
+        current_amount: parsed.data.currentAmount ?? 0,
+        target_date: parsed.data.targetDate,
+        category: parsed.data.category,
       })
       .select()
       .single();
@@ -290,7 +318,7 @@ export class SupabaseService {
   /**
    * Real-time Subscriptions
    */
-  static subscribeToAccounts(userId: string, callback: (payload: any) => void) {
+  static subscribeToAccounts(userId: string, callback: (payload: unknown) => void) {
     if (!supabase) return null;
     
     return supabase
@@ -308,7 +336,7 @@ export class SupabaseService {
       .subscribe();
   }
 
-  static subscribeToTransactions(userId: string, callback: (payload: any) => void) {
+  static subscribeToTransactions(userId: string, callback: (payload: unknown) => void) {
     if (!supabase) return null;
     
     return supabase

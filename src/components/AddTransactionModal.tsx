@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, memo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { PlusIcon } from '../components/icons';
 import CategoryCreationModal from './CategoryCreationModal';
@@ -29,7 +29,7 @@ interface FormData {
   notes: string;
 }
 
-export default function AddTransactionModal({ isOpen, onClose }: AddTransactionModalProps): React.JSX.Element {
+const AddTransactionModal = memo(function AddTransactionModal({ isOpen, onClose }: AddTransactionModalProps): React.JSX.Element {
   const { accounts, addTransaction, categories, getSubCategories, getDetailCategories } = useApp();
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
@@ -385,4 +385,6 @@ export default function AddTransactionModal({ isOpen, onClose }: AddTransactionM
         />
     </>
   );
-}
+});
+
+export default AddTransactionModal;

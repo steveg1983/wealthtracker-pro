@@ -46,7 +46,7 @@ class SecureStorageAdapter implements StorageAdapter {
   }
 
   private async migrateFromLocalStorage(): Promise<void> {
-    console.log('Starting migration from localStorage to encrypted IndexedDB...');
+    logger.info('Starting migration from localStorage to encrypted IndexedDB...');
     
     const keysToMigrate: string[] = [
       STORAGE_KEYS.ACCOUNTS,
@@ -78,7 +78,7 @@ class SecureStorageAdapter implements StorageAdapter {
 
     try {
       await encryptedStorage.migrateFromLocalStorage(keysToMigrate);
-      console.log('Migration completed successfully');
+      logger.info('Migration completed successfully');
       this.migrationCompleted = true;
     } catch (error) {
       logger.error('Migration failed:', error);

@@ -47,6 +47,11 @@ const CACHEABLE_API_ROUTES = [
   '/api/goals'
 ];
 
+// Feature flag: disable Service Worker background sync to `/api/*` endpoints.
+// Supabase mode does not use these routes; leaving them enabled can cause
+// unnecessary network noise or failures when no API server is present.
+const ENABLE_API_BACKGROUND_SYNC = false;
+
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing service worker v4-dev-fix...');
@@ -59,14 +64,39 @@ self.addEventListener('install', (event) => {
   // Skip waiting to activate immediately
   self.skipWaiting();
   
-  event.waitUntil(
-    caches.open(CACHE_NAMES.static)
-      .then(cache => {
-        console.log('[SW] Caching static assets');
-        return cache.addAll(STATIC_CACHE_URLS);
-      })
-      .then(() => self.skipWaiting())
-  );
+  event.waitUntil((async () => {
+    const staticCache = await caches.open(CACHE_NAMES.static);
+    try {
+      console.log('[SW] Caching static assets');
+      await staticCache.addAll(STATIC_CACHE_URLS);
+    } catch (e) {
+      console.warn('[SW] Failed to cache static assets:', e);
+    }
+
+    // Try to precache built assets via manifest if present (post-build script writes it)
+    try {
+      const resp = await fetch('/precache-manifest.json', { cache: 'no-store' });
+      if (resp.ok) {
+        const manifest = await resp.json();
+        if (Array.isArray(manifest.files)) {
+          await Promise.all(
+            manifest.files.map(async (u) => {
+              try {
+                await staticCache.add(new Request('/' + u.replace(/^\//, '')));
+              } catch (err) {
+                console.warn('[SW] Failed to precache:', u, err);
+              }
+            })
+          );
+          console.log('[SW] Precached', manifest.files.length, 'assets');
+        }
+      }
+    } catch (e) {
+      // Manifest not found (dev) or fetch failed; proceed without precache
+    }
+
+    self.skipWaiting();
+  })());
 });
 
 // Activate event - clean up old caches
@@ -295,6 +325,10 @@ async function cacheUrls(urls) {
 
 // Background sync for offline actions
 self.addEventListener('sync', (event) => {
+  if (!ENABLE_API_BACKGROUND_SYNC) {
+    // Background sync to /api is disabled; skip handling.
+    return;
+  }
   console.log('[SW] Background sync event:', event.tag);
   
   if (event.tag === 'sync-data') {
@@ -439,6 +473,7 @@ function openDB() {
 
 // Periodic background sync
 self.addEventListener('periodicsync', (event) => {
+  if (!ENABLE_API_BACKGROUND_SYNC) return;
   if (event.tag === 'update-accounts') {
     event.waitUntil(syncAccounts());
   }

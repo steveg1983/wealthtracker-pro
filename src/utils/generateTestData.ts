@@ -160,7 +160,8 @@ export function generateTestData() {
   
   const totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
   
-  console.log('Test data generation:', {
+  import { logger } from '../services/loggingService';
+  logger.info('Test data generation', {
     startDate: startDate.toDateString(),
     endDate: endDate.toDateString(),
     daysDiff: daysDiff,
@@ -550,8 +551,8 @@ export function generateTestData() {
   // Sort transactions by date (newest first)
   transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
   
-  console.log(`Generated ${transactions.length} transactions`);
-  console.log(`Date range: ${transactions[transactions.length - 1].date.toDateString()} to ${transactions[0].date.toDateString()}`);
+  logger.info('Generated transactions', { count: transactions.length });
+  logger.info('Date range', { start: transactions[transactions.length - 1].date.toDateString(), end: transactions[0].date.toDateString() });
 
   // Budgets
   const budgets = [

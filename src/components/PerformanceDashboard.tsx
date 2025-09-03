@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePerformanceMonitoring } from '../hooks/usePerformanceMonitoring';
 import { Card } from './common/Card';
 import ActivityIcon from './icons/ActivityIcon';
-import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { AlertCircleIcon as AlertCircle, CheckCircleIcon as CheckCircle, XCircleIcon as XCircle } from './icons';
 import { logger } from '../services/loggingService';
 
 interface WebVitalScore {

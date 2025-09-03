@@ -1,7 +1,8 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { logger } from './services/loggingService';
 
 export default function SimpleApp() {
-  console.log('SimpleApp rendering');
+  logger.debug('SimpleApp rendering');
   
   return (
     <Router>

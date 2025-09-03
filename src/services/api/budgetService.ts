@@ -7,55 +7,80 @@ import { supabase } from './supabaseClient';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 import { userIdService } from '../userIdService';
 import type { Budget } from '../../types';
+import type { Database } from '../../types/supabase';
+
+type BudgetRow = Database['public']['Tables']['budgets']['Row'] & {
+  // Project-specific columns not present in generated types
+  spent?: number;
+  notes?: string | null;
+  rollover?: boolean;
+};
+type BudgetUpdate = Database['public']['Tables']['budgets']['Update'] & {
+  spent?: number;
+  notes?: string | null;
+  rollover?: boolean;
+};
 import { logger } from '../loggingService';
 
 /**
- * Transform database snake_case to TypeScript camelCase
+ * Transforms database snake_case budget record to TypeScript camelCase format
+ * @param {BudgetRow} dbBudget - The raw budget data from database
+ * @returns {Budget} Transformed budget object with camelCase properties
+ * @private
  */
-function transformBudgetFromDb(dbBudget: any): Budget {
+function transformBudgetFromDb(dbBudget: BudgetRow): Budget {
   return {
     id: dbBudget.id,
     name: dbBudget.name,
     amount: dbBudget.amount,
     period: dbBudget.period,
-    categoryId: dbBudget.category_id,
-    spent: dbBudget.spent || 0,
+    categoryId: dbBudget.category_id as any,
+    spent: (dbBudget.spent as number | undefined) || 0,
     startDate: dbBudget.start_date,
     endDate: dbBudget.end_date,
     isActive: dbBudget.is_active !== false,
-    rollover: dbBudget.rollover || false,
+    rollover: (dbBudget.rollover as boolean | undefined) || false,
     rolloverAmount: dbBudget.rollover_amount || 0,
     alertThreshold: dbBudget.alert_threshold || 80,
-    notes: dbBudget.notes,
+    notes: (dbBudget.notes as string | null) || undefined,
     createdAt: dbBudget.created_at,
     updatedAt: dbBudget.updated_at
   };
 }
 
 /**
- * Transform TypeScript to database format
+ * Transforms TypeScript camelCase budget to database snake_case format
+ * @param {Partial<Budget>} budget - The budget data in TypeScript format
+ * @returns {BudgetUpdate} Transformed budget object for database operations
+ * @private
  */
-function transformBudgetToDb(budget: Partial<Budget>): any {
-  const dbBudget: any = {};
+function transformBudgetToDb(budget: Partial<Budget>): BudgetUpdate {
+  const dbBudget: BudgetUpdate = {};
   
   if (budget.name !== undefined) dbBudget.name = budget.name;
   if (budget.amount !== undefined) dbBudget.amount = budget.amount;
-  if (budget.period !== undefined) dbBudget.period = budget.period;
-  if (budget.categoryId !== undefined) dbBudget.category_id = budget.categoryId;
-  if (budget.spent !== undefined) dbBudget.spent = budget.spent;
+  if (budget.period !== undefined) dbBudget.period = budget.period as any;
+  if (budget.categoryId !== undefined) dbBudget.category_id = budget.categoryId as any;
+  if (budget.spent !== undefined) (dbBudget as any).spent = budget.spent;
   if (budget.startDate !== undefined) dbBudget.start_date = budget.startDate;
   if (budget.endDate !== undefined) dbBudget.end_date = budget.endDate;
   if (budget.isActive !== undefined) dbBudget.is_active = budget.isActive;
-  if (budget.rollover !== undefined) dbBudget.rollover = budget.rollover;
+  if (budget.rollover !== undefined) (dbBudget as any).rollover = budget.rollover;
   if (budget.rolloverAmount !== undefined) dbBudget.rollover_amount = budget.rolloverAmount;
   if (budget.alertThreshold !== undefined) dbBudget.alert_threshold = budget.alertThreshold;
-  if (budget.notes !== undefined) dbBudget.notes = budget.notes;
+  if (budget.notes !== undefined) (dbBudget as any).notes = budget.notes;
   
   return dbBudget;
 }
 
 /**
- * Get all budgets for a user
+ * Retrieves all active budgets for a specific user
+ * @param {string} clerkId - The Clerk authentication ID of the user
+ * @returns {Promise<Budget[]>} Array of active budgets for the user
+ * @throws {Error} If Supabase is not configured or database query fails
+ * @example
+ * const budgets = await getBudgets('clerk_user_123');
+ * // Returns: [{id: 'budget-1', name: 'Groceries', amount: 500, ...}]
  */
 export async function getBudgets(clerkId: string): Promise<Budget[]> {
   try {
@@ -66,7 +91,7 @@ export async function getBudgets(clerkId: string): Promise<Budget[]> {
     // Convert Clerk ID to database UUID
     const userId = await userIdService.getDatabaseUserId(clerkId);
     if (!userId) {
-      console.log('[BudgetService] No user found, returning empty array');
+      logger.info('[BudgetService] No user found, returning empty array');
       return [];
     }
     
@@ -94,7 +119,15 @@ export async function getBudgets(clerkId: string): Promise<Budget[]> {
 }
 
 /**
- * Get a single budget by ID
+ * Retrieves a single budget by its unique identifier
+ * @param {string} budgetId - The unique identifier of the budget
+ * @returns {Promise<Budget | null>} The budget if found, null otherwise
+ * @throws {Error} If database query fails
+ * @example
+ * const budget = await getBudget('budget-123');
+ * if (budget) {
+ *   logger.info(`Budget amount: ${budget.amount}`);
+ * }
  */
 export async function getBudget(budgetId: string): Promise<Budget | null> {
   try {
@@ -123,7 +156,18 @@ export async function getBudget(budgetId: string): Promise<Budget | null> {
 }
 
 /**
- * Create a new budget
+ * Creates a new budget for a user
+ * @param {string} clerkId - The Clerk authentication ID of the user
+ * @param {Omit<Budget, 'id' | 'spent' | 'createdAt' | 'updatedAt'>} budget - Budget data without system fields
+ * @returns {Promise<Budget>} The newly created budget with all fields populated
+ * @throws {Error} If user not found or budget creation fails
+ * @example
+ * const newBudget = await createBudget('clerk_user_123', {
+ *   name: 'Monthly Groceries',
+ *   amount: 500,
+ *   period: 'monthly',
+ *   categoryId: 'cat-food-123'
+ * });
  */
 export async function createBudget(
   clerkId: string,
@@ -156,7 +200,7 @@ export async function createBudget(
       throw error;
     }
     
-    console.log('[BudgetService] Budget created successfully:', data);
+    logger.info('[BudgetService] Budget created successfully');
     return transformBudgetFromDb(data);
     
   } catch (error) {
@@ -180,7 +224,16 @@ export async function createBudget(
 }
 
 /**
- * Update a budget
+ * Updates an existing budget with partial data
+ * @param {string} budgetId - The unique identifier of the budget to update
+ * @param {Partial<Budget>} updates - Partial budget data to update
+ * @returns {Promise<Budget>} The updated budget with all fields
+ * @throws {Error} If budget not found or update fails
+ * @example
+ * const updated = await updateBudget('budget-123', {
+ *   amount: 600,
+ *   alertThreshold: 90
+ * });
  */
 export async function updateBudget(
   budgetId: string,
@@ -247,7 +300,7 @@ export async function deleteBudget(budgetId: string): Promise<void> {
       throw error;
     }
     
-    console.log('[BudgetService] Budget deleted successfully');
+    logger.info('[BudgetService] Budget deleted successfully');
     
   } catch (error) {
     logger.error('[BudgetService] Error deleting budget, falling back to localStorage:', error);
@@ -313,7 +366,7 @@ export function shouldAlertBudget(budget: Budget): boolean {
  */
 export async function subscribeToBudgetChanges(
   clerkId: string,
-  callback: (payload: any) => void
+  callback: (payload: unknown) => void
 ): Promise<() => void> {
   if (!supabase) {
     return () => {}; // No-op for localStorage
@@ -338,7 +391,7 @@ export async function subscribeToBudgetChanges(
           filter: `user_id=eq.${dbUserId}`
         },
         (payload) => {
-          console.log('🔔 [BudgetService] Real-time update received:', payload);
+          logger.debug('[BudgetService] Real-time update received', payload);
           callback(payload);
         }
       )
@@ -360,11 +413,11 @@ export async function migrateBudgetsToSupabase(clerkId: string): Promise<void> {
     const localBudgets = await storageAdapter.get<Budget[]>(STORAGE_KEYS.BUDGETS);
     
     if (!localBudgets || localBudgets.length === 0) {
-      console.log('[BudgetService] No local budgets to migrate');
+      logger.info('[BudgetService] No local budgets to migrate');
       return;
     }
     
-    console.log(`[BudgetService] Migrating ${localBudgets.length} budgets to Supabase`);
+    logger.info('[BudgetService] Migrating budgets to Supabase', { count: localBudgets.length });
     
     for (const budget of localBudgets) {
       try {
@@ -378,7 +431,7 @@ export async function migrateBudgetsToSupabase(clerkId: string): Promise<void> {
     
     // Clear localStorage after successful migration
     await storageAdapter.remove(STORAGE_KEYS.BUDGETS);
-    console.log('[BudgetService] Migration completed');
+    logger.info('[BudgetService] Migration completed');
     
   } catch (error) {
     logger.error('[BudgetService] Migration failed:', error);

@@ -17,11 +17,23 @@ function mapStripeStatus(stripeStatus: Stripe.Subscription.Status): string {
 }
 
 function getPlanFromSubscription(subscription: Stripe.Subscription): 'free' | 'pro' | 'business' {
-  const priceId = subscription.items.data[0]?.price.id
+  const priceId = subscription.items.data[0]?.price?.id || ''
+
+  // Allow overriding price ID mappings via env (comma-separated)
+  const envPro = (process.env.PRICE_IDS_PRO || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+  const envBusiness = (process.env.PRICE_IDS_BUSINESS || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+
   const PRICE_IDS = {
-    pro: ['price_pro_monthly', 'price_pro_yearly'],
-    business: ['price_business_monthly', 'price_business_yearly']
+    pro: envPro.length ? envPro : ['price_pro_monthly', 'price_pro_yearly'],
+    business: envBusiness.length ? envBusiness : ['price_business_monthly', 'price_business_yearly'],
   }
+
   if (PRICE_IDS.pro.includes(priceId)) return 'pro'
   if (PRICE_IDS.business.includes(priceId)) return 'business'
   return 'free'
@@ -55,8 +67,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: 'Stripe env vars not set' })
     }
 
-    // Use project Stripe type's expected apiVersion
-    const stripe = new Stripe(stripeSecret, { apiVersion: '2025-07-30.basil' as any })
+    // Align on a stable API version used elsewhere in the project
+    const stripe = new Stripe(stripeSecret, { apiVersion: '2023-10-16' })
     const rawBody = (await buffer(req)).toString()
     const sig = req.headers['stripe-signature'] as string
     let event: Stripe.Event

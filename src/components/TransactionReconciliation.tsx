@@ -362,21 +362,21 @@ export default function TransactionReconciliation({
 
             {/* Results */}
             {results && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
-                <h4 className="font-medium text-blue-900 dark:text-blue-300 mb-2">
+              <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 mb-6 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">
                   Reconciliation Results
                 </h4>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
-                    <span className="text-blue-700 dark:text-blue-400">Matched:</span>
+                    <span className="text-gray-600 dark:text-gray-400">Matched:</span>
                     <span className="ml-2 font-medium">{results.matched}</span>
                   </div>
                   <div>
-                    <span className="text-blue-700 dark:text-blue-400">Suggestions:</span>
+                    <span className="text-gray-600 dark:text-gray-400">Suggestions:</span>
                     <span className="ml-2 font-medium">{results.suggestions}</span>
                   </div>
                   <div>
-                    <span className="text-blue-700 dark:text-blue-400">Unmatched:</span>
+                    <span className="text-gray-600 dark:text-gray-400">Unmatched:</span>
                     <span className="ml-2 font-medium">{results.unmatched}</span>
                   </div>
                 </div>

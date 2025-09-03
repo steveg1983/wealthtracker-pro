@@ -8,7 +8,8 @@ export default function RealtimeSyncTest() {
   const [dbUserId, setDbUserId] = useState<string | null>(null);
 
   const addStatus = (message: string) => {
-    console.log(`[RealtimeSyncTest] ${message}`);
+    // Use console-like output in UI; log via logger for dev traces
+    try { const { logger } = require('../services/loggingService'); logger.info('[RealtimeSyncTest]', message); } catch {}
     setTestStatus(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
   };
 
@@ -51,7 +52,7 @@ export default function RealtimeSyncTest() {
           },
           (payload) => {
             addStatus(`🎯 REALTIME EVENT RECEIVED: ${payload.eventType}`);
-            console.log('Full payload:', payload);
+            try { const { logger } = require('../services/loggingService'); logger.debug('[RealtimeSyncTest] payload', payload); } catch {}
           }
         )
         .subscribe((status, error) => {

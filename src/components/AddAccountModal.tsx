@@ -2,7 +2,17 @@ import { useEffect, useState } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
-import { Building2, Wallet, CreditCard, TrendingUp, PiggyBank, Banknote, Package, AlertCircle } from 'lucide-react';
+import { 
+  BuildingIcon as Building2,
+  WalletIcon as Wallet,
+  CreditCardIcon as CreditCard,
+  TrendingUpIcon as TrendingUp,
+  PiggyBankIcon as PiggyBank,
+  BanknoteIcon as Banknote,
+  PackageIcon as Package,
+  AlertCircleIcon as AlertCircle
+} from './icons';
+import { logger } from '../services/loggingService';
 import { logger } from '../services/loggingService';
 
 interface AddAccountModalProps {
@@ -163,7 +173,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
     setError(null);
     
     try {
-      console.log('[AddAccountModal] Submitting account:', formData);
+      logger.info('[AddAccountModal] Submitting account:', formData);
       
       // Validate the form data
       if (!formData.name.trim()) {
@@ -209,7 +219,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
       
       const result = await addAccount(accountData);
       
-      console.log('[AddAccountModal] Account added successfully:', result);
+      logger.info('[AddAccountModal] Account added successfully:', result);
       
       // Reset form and close modal only after successful creation
       setFormData({
@@ -239,6 +249,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
   const selectedType = accountTypes.find(t => t.value === formData.type);
   const selectedCurrency = currencies.find(c => c.value === formData.currency);
 
+  // Force refresh
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Add New Account" size="lg">
       <form onSubmit={handleSubmit}>

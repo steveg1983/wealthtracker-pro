@@ -16,7 +16,7 @@ export function initializeAppData() {
     
     // If no data exists, generate test data
     if (!hasAccounts && !hasTransactions && !hasBudgets) {
-      console.log('No existing data found, generating test data...');
+      logger.info('No existing data found, generating test data...');
       const testData = generateTestData();
       
       // Save to localStorage with error handling

@@ -35,7 +35,7 @@ class MockSyncServer {
 
     const port = process.env.VITE_SYNC_PORT || 3001;
     httpServer.listen(port, () => {
-      console.log(`Mock sync server running on port ${port}`);
+      console.log(`Mock sync server running on port ${port}`); // keep raw console in mock
     });
   }
 

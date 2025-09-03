@@ -112,12 +112,12 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
             </div>
           </div>
           
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
             <div className="flex items-center gap-2 mb-1">
-              <TargetIcon size={16} className="text-blue-600 dark:text-blue-400" />
-              <span className="text-xs text-blue-800 dark:text-blue-200">Goals</span>
+              <TargetIcon size={16} className="text-amber-600 dark:text-amber-400" />
+              <span className="text-xs text-gray-900 dark:text-white">Goals</span>
             </div>
-            <div className="text-sm font-bold text-blue-900 dark:text-blue-100">
+            <div className="text-sm font-bold text-gray-900 dark:text-white">
               {financialGoals.length} Active
             </div>
           </div>

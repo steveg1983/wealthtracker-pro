@@ -119,10 +119,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSyncError(null);
 
       try {
-        console.log('[AppContext] Initializing with user:', user?.id);
+        logger.debug('[AppContext] Initializing with user:', { userId: user?.id });
         // Initialize DataService with user info
         if (user) {
-          console.log('[AppContext] User found, initializing services');
+          logger.debug('[AppContext] User found, initializing services');
           
           // Initialize userIdService first - this is now the single source of truth
           const databaseId = await userIdService.ensureUserExists(
@@ -133,7 +133,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
           
           if (databaseId) {
-            console.log('[AppContext] Database user ID resolved:', databaseId);
+            logger.debug('[AppContext] Database user ID resolved');
             
             // Initialize AutoSync with the database ID ready
             await AutoSyncService.initialize(user.id);
@@ -145,11 +145,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               user.lastName || undefined
             );
             
-            console.log('[AppContext] Loading app data...');
+            logger.debug('[AppContext] Loading app data...');
             
             // Use the database ID we just got - no need to fetch it again!
             const accounts = await SimpleAccountService.getAccounts(databaseId);
-            console.log('[AppContext] Accounts loaded:', accounts.length);
+            logger.debug('[AppContext] Accounts loaded', { count: accounts.length });
             setAccounts(accounts);
           } else {
             logger.warn('[AppContext] Failed to resolve database user ID - no data will be loaded');
@@ -157,7 +157,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         } else {
           // No user logged in
-          console.log('[AppContext] No user logged in');
+          logger.debug('[AppContext] No user logged in');
           setAccounts([]);
         }
         
@@ -186,7 +186,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (lastUpdateRef.current && 
                 lastUpdateRef.current.type === updateType && 
                 now - lastUpdateRef.current.timestamp < 1000) {
-              console.log(`[AppContext] Skipping duplicate ${updateType} update`);
+              logger.debug(`[AppContext] Skipping duplicate ${updateType} update`);
               return;
             }
             
@@ -206,19 +206,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const unsubscribeAccountsPromise = SimpleAccountService.subscribeToAccountChanges(
             user.id,
             async (payload) => {
-              console.log('[AppContext] Real-time account update received:', payload);
-              console.log('[AppContext] Update type:', payload.eventType);
+              logger.debug('[AppContext] Real-time account update received:', payload);
+              logger.debug('[AppContext] Update type:', payload.eventType);
               
               // Handle different event types
               if (payload.eventType === 'UPDATE' && payload.new && !payload.new.is_active) {
-                console.log('[AppContext] Account was soft-deleted (is_active = false)');
+                logger.info('[AppContext] Account was soft-deleted (is_active = false)');
               }
               
               debouncedUpdate('account', async () => {
-                console.log('[AppContext] Reloading accounts after real-time update');
+                logger.debug('[AppContext] Reloading accounts after real-time update');
                 // Reload accounts when any change happens
                 const updatedAccounts = await SimpleAccountService.getAccounts(user.id);
-                console.log('[AppContext] Updated accounts:', updatedAccounts.length, 'accounts');
+                logger.debug('[AppContext] Updated accounts:', { count: updatedAccounts.length });
                 setAccounts(updatedAccounts);
                 setLastSyncTime(new Date());
                 
@@ -237,7 +237,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // Don't subscribe to accounts here - already handled by SimpleAccountService above
             // This prevents duplicate subscriptions and duplicate real-time events
             onTransactionUpdate: async (payload) => {
-              console.log('[AppContext] Transaction update:', payload);
+              logger.debug('[AppContext] Transaction update:', payload);
               
               debouncedUpdate('transaction', async () => {
                 // Reload transactions when any change happens
@@ -300,7 +300,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Account operations
   const addAccount = useCallback(async (account: Omit<Account, 'id'> & { initialBalance?: number }) => {
     try {
-      console.log('[AppContext] Adding account:', account);
+      logger.info('[AppContext] Adding account:', account);
       
       if (!user?.id) {
         throw new Error('User not authenticated');
@@ -315,7 +315,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       // Create in database directly and wait for response
       const newAccount = await SimpleAccountService.createAccount(user.id, accountToCreate);
-      console.log('[AppContext] Account created:', newAccount);
+      logger.info('[AppContext] Account created:', newAccount);
       
       // Add to state
       setAccounts(prev => [...prev, newAccount]);
@@ -337,7 +337,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         id: `transfer-${newAccount.id}`
       };
       setCategories(prev => [...prev, newCategory]);
-      console.log('[AppContext] Transfer category created for account:', newCategory);
+      logger.info('[AppContext] Transfer category created for account', newCategory);
       
       // Don't queue for sync - it's already in the database!
       // AutoSyncService is for offline-created items only
@@ -446,10 +446,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             return acc;
           }));
           
-          console.log('[AppContext] Linked transfer created:', {
-            original: updatedOriginal,
-            linked: newLinkedTransaction
-          });
+          logger.info('[AppContext] Linked transfer created:', { original: updatedOriginal, linked: newLinkedTransaction });
         }
       }
     } catch (error) {

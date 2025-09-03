@@ -37,7 +37,7 @@ if ('serviceWorker' in navigator) {
       // Only unregister if it's not our current service worker
       if (!registration.active?.scriptURL.includes('sw.js')) {
         registration.unregister();
-        console.log('[ServiceWorker] Unregistered old:', registration.scope);
+        logger.info('[ServiceWorker] Unregistered old', { scope: registration.scope });
       }
     }
   });
@@ -67,7 +67,7 @@ try {
   if (!root) {
     logger.error('Root element not found!');
   } else {
-    console.log('Starting React app...');
+    logger.info('Starting React app...');
     createRoot(root).render(
       <StrictMode>
         <ClerkErrorBoundary>
@@ -88,7 +88,7 @@ try {
         </ClerkErrorBoundary>
       </StrictMode>,
     );
-    console.log('React app rendered');
+    logger.debug('React app rendered');
   }
 } catch (error) {
   logger.error('Error rendering app:', error);
@@ -100,7 +100,7 @@ let swRegistration: ServiceWorkerRegistration | null = null;
 serviceWorkerRegistration.register({
   onSuccess: async (registration) => {
     swRegistration = registration;
-    console.log('Service Worker registered successfully');
+    logger.info('Service Worker registered successfully');
     
     // Store registration globally for React components to access
     (window as any).swRegistration = registration;
@@ -108,14 +108,14 @@ serviceWorkerRegistration.register({
     // Initialize push notifications
     try {
       await pushNotificationService.initialize();
-      console.log('Push notifications initialized');
+      logger.info('Push notifications initialized');
     } catch (error) {
       logger.error('Failed to initialize push notifications:', error);
     }
   },
   onUpdate: (registration) => {
     swRegistration = registration;
-    console.log('New app version available');
+    logger.info('New app version available');
     
     // Store registration globally for React components to access
     (window as any).swRegistration = registration;

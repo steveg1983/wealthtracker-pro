@@ -1,41 +1,44 @@
 /**
- * useErrorHandler REAL DATABASE Tests
- * Tests hook with real database operations
+ * useErrorHandler REAL Tests
+ * Tests error handling with real scenarios
  */
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { renderHook, waitFor, act } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
 import { useErrorHandler } from '../useErrorHandler';
-import { RealTestDatabase, RealTestProvider, testDb } from '../../test/setup/real-test-framework';
 
-describe('useErrorHandler - REAL DATABASE TESTS', () => {
-  let db: RealTestDatabase;
-
-  beforeAll(async () => {
-    db = new RealTestDatabase();
-  });
-
-  afterAll(async () => {
-    await db.cleanup();
-  });
-
-  it('works with REAL database data', async () => {
-    // Create REAL test data
-    const testData = await db.setupCompleteTestScenario();
+describe('useErrorHandler - REAL Tests', () => {
+  it('handles real errors correctly', () => {
+    const { result } = renderHook(() => useErrorHandler());
     
-    const { result } = renderHook(() => useErrorHandler(), {
-      wrapper: RealTestProvider,
-    });
-
-    // Test hook with REAL data
-    await act(async () => {
-      await result.current.performAction(testData.id);
-    });
-
-    // Verify REAL database changes
-    await waitFor(async () => {
-      const dbRecord = await db.getRecord('table', testData.id);
-      expect(dbRecord).toBeDefined();
-    });
+    // Test error handling
+    const testError = new Error('Real test error');
+    const testContext = { userId: 'test-123', action: 'test-action' };
+    
+    // Should not throw when handling error
+    expect(() => {
+      act(() => {
+        result.current.handleError(testError, testContext);
+      });
+    }).not.toThrow();
+    
+    // Verify functions exist
+    expect(result.current.handleError).toBeDefined();
+    expect(result.current.handleAsyncError).toBeDefined();
+  });
+  
+  it('handles async errors and returns null on failure', async () => {
+    const { result } = renderHook(() => useErrorHandler());
+    
+    // Test with failing promise
+    const failingPromise = Promise.reject(new Error('Async error'));
+    
+    const value = await result.current.handleAsyncError(failingPromise);
+    expect(value).toBeNull();
+    
+    // Test with successful promise
+    const successPromise = Promise.resolve('success');
+    const successValue = await result.current.handleAsyncError(successPromise);
+    expect(successValue).toBe('success');
   });
 });

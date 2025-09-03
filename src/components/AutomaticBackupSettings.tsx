@@ -418,14 +418,14 @@ export default function AutomaticBackupSettings() {
       </div>
 
       {/* Information Panel */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-800">
+      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
         <div className="flex items-start gap-3">
-          <AlertCircleIcon size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+          <AlertCircleIcon size={20} className="text-amber-600 dark:text-amber-400 mt-0.5" />
           <div>
-            <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+            <h3 className="font-medium text-gray-900 dark:text-white mb-2">
               About Automatic Backups
             </h3>
-            <ul className="space-y-1 text-sm text-blue-700 dark:text-blue-300">
+            <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
               <li>• Backups run automatically at your scheduled time</li>
               <li>• Your data is stored locally in your browser's storage</li>
               <li>• Encrypted backups add an extra layer of security</li>

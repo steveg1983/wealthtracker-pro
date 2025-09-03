@@ -62,7 +62,7 @@ export default function BalanceReconciliationModal({
               </p>
               {/* Debug info */}
               {(() => {
-                console.log('BalanceReconciliationModal Debug:', {
+                logger.debug('BalanceReconciliationModal Debug:', {
                   accountName,
                   currentBalance,
                   calculatedBalance,

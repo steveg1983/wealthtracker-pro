@@ -113,7 +113,7 @@ export const registerServiceWorkerSafari = async () => {
       scope: '/'
     });
     
-    console.log('Service Worker registered for Safari:', registration);
+    logger.info('Service Worker registered for Safari');
     return registration;
   } catch (e) {
     logger.warn('Service Worker registration failed in Safari:', e);
@@ -140,7 +140,7 @@ export const initSafariCompat = async () => {
     return { safari: false, indexedDB: true };
   }
   
-  console.log('Safari detected, applying compatibility fixes...');
+  logger.info('Safari detected, applying compatibility fixes...');
   
   // Apply polyfills
   ensureRandomUUID();

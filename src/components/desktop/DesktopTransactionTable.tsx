@@ -42,7 +42,7 @@ export const DesktopTransactionTable: React.FC<DesktopTransactionTableProps> = (
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left">
-                <input type="checkbox" className="rounded" />
+                <input type="checkbox" className="rounded text-slate-500 focus:ring-slate-400 accent-slate-500 flex-shrink-0" />
               </th>
               <th className="px-6 py-3 text-left">Date</th>
               <th className="px-6 py-3 text-left">Description</th>
@@ -56,7 +56,7 @@ export const DesktopTransactionTable: React.FC<DesktopTransactionTableProps> = (
             {transactions.map(transaction => (
               <tr key={transaction.id} className="border-t hover:bg-gray-50">
                 <td className="px-6 py-4">
-                  <input type="checkbox" className="rounded" />
+                  <input type="checkbox" className="rounded text-slate-500 focus:ring-slate-400 accent-slate-500 flex-shrink-0" />
                 </td>
                 <td className="px-6 py-4">{new Date(transaction.date).toLocaleDateString()}</td>
                 <td className="px-6 py-4">{transaction.description}</td>

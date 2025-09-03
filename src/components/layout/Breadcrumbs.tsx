@@ -60,7 +60,7 @@ export function Breadcrumbs() {
   });
 
   return (
-    <nav aria-label="Breadcrumb" className="hidden sm:block mb-4">
+    <nav aria-label="Breadcrumb" className="hidden sm:block">
       <ol className="flex items-center space-x-2 text-sm">
         {breadcrumbs.map((crumb, index) => {
           const isLast = index === breadcrumbs.length - 1;

@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         clerkUser.fullName || undefined
       ).then(success => {
         if (success) {
-          console.log('User synced with Supabase');
+          logger.info('User synced with Supabase');
         } else {
           logger.warn('Failed to sync user with Supabase');
         }

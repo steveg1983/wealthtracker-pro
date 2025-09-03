@@ -37,7 +37,7 @@ export default function ThemeSettings() {
     
     // Set up theme change callback
     themeSchedulingService.setThemeChangeCallback((theme) => {
-      console.log(`Theme changed to: ${theme}`);
+      logger.info('Theme changed', { theme });
       loadData(); // Refresh data after theme changes
     });
 

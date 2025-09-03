@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { 
-  Cloud, 
-  CloudOff, 
-  RefreshCw, 
-  AlertTriangle, 
-  Check,
-  X,
-  Loader2,
-  GitBranch,
-  Clock,
-  Zap
-} from 'lucide-react';
+  CloudIcon as Cloud,
+  CloudOffIcon as CloudOff,
+  RefreshCwIcon as RefreshCw,
+  AlertTriangleIcon as AlertTriangle,
+  CheckIcon as Check,
+  XIcon as X,
+  Loader2Icon as Loader2,
+  GitBranchIcon as GitBranch,
+  ClockIcon as Clock,
+  ZapIcon as Zap
+} from './icons';
 import { useDataSync } from '../hooks/useDataSync';
 import { formatDistanceToNow } from 'date-fns';
 import { SyncConflict } from '../services/syncService';

@@ -13,7 +13,7 @@ import BudgetRollover from '../components/BudgetRollover';
 import SpendingAlerts from '../components/SpendingAlerts';
 import ZeroBasedBudgeting from '../components/ZeroBasedBudgeting';
 import type { Budget } from '../types';
-import PageWrapper from '../components/PageWrapper';
+import PageWrapperNew from '../components/PageWrapperNew';
 import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations-decimal';
 import { toDecimal } from '../utils/decimal';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
@@ -178,7 +178,7 @@ export default function Budget() {
   }, [budgets, transactions, categories, checkEnhancedBudgetAlerts]);
 
   return (
-    <PageWrapper 
+    <PageWrapperNew 
       title="Budget"
       rightContent={
         <div 
@@ -464,6 +464,6 @@ export default function Budget() {
         onClose={handleModalClose}
         budget={editingBudget || undefined}
       />
-    </PageWrapper>
+    </PageWrapperNew>
   );
 }

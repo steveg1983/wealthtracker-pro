@@ -7,14 +7,8 @@ interface LocaleSelectorProps {
 }
 
 const SUPPORTED_LOCALES = [
-  { code: 'en-US', name: 'English (United States)', dateFormat: 'mm/dd/yyyy', example: '12/31/2024' },
-  { code: 'en-GB', name: 'English (United Kingdom)', dateFormat: 'dd/mm/yyyy', example: '31/12/2024' },
-  { code: 'en-AU', name: 'English (Australia)', dateFormat: 'dd/mm/yyyy', example: '31/12/2024' },
-  { code: 'en-CA', name: 'English (Canada)', dateFormat: 'yyyy-mm-dd', example: '2024-12-31' },
-  { code: 'en-IE', name: 'English (Ireland)', dateFormat: 'dd/mm/yyyy', example: '31/12/2024' },
-  { code: 'en-NZ', name: 'English (New Zealand)', dateFormat: 'dd/mm/yyyy', example: '31/12/2024' },
-  { code: 'en-IN', name: 'English (India)', dateFormat: 'dd/mm/yyyy', example: '31/12/2024' },
-  { code: 'en-ZA', name: 'English (South Africa)', dateFormat: 'dd/mm/yyyy', example: '31/12/2024' },
+  { code: 'en-US', name: 'English (United States)', dateFormat: 'mm/dd/yyyy' },
+  { code: 'en-GB', name: 'English (United Kingdom)', dateFormat: 'dd/mm/yyyy' },
 ];
 
 export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps): React.JSX.Element {
@@ -79,17 +73,17 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
             </span>
           </div>
           
-          <div className="grid grid-cols-2 gap-4">
+          <div className="flex items-start gap-6">
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Format Pattern</p>
-              <p className="text-sm font-mono text-gray-900 dark:text-white bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-600">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Date Format</p>
+              <p className="text-sm font-mono text-gray-900 dark:text-white bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 inline-block">
                 {currentLocaleInfo.dateFormat}
               </p>
             </div>
             <div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Example</p>
-              <p className="text-sm font-mono text-gray-900 dark:text-white bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-600">
-                {currentLocaleInfo.example}
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Language</p>
+              <p className="text-sm font-mono text-gray-900 dark:text-white bg-white dark:bg-gray-800 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 inline-block">
+                {currentLocaleInfo.name}
               </p>
             </div>
           </div>
@@ -135,17 +129,17 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
           )}
         </div>
 
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
           <div className="flex gap-2">
             <div className="flex-shrink-0 mt-0.5">
-              <svg className="h-4 w-4 text-blue-600 dark:text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+              <svg className="h-4 w-4 text-amber-600 dark:text-amber-400" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
             </div>
-            <div className="text-sm text-blue-800 dark:text-blue-200">
-              <p className="font-medium mb-1">Note</p>
-              <p className="text-xs">
-                Date format will be applied throughout the application. 
+            <div className="text-sm">
+              <p className="font-medium mb-1 text-gray-900 dark:text-white">Note</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400">
+                Date format and regional language settings will be applied throughout the application. 
                 The page will reload to apply your changes.
               </p>
             </div>

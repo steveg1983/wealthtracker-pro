@@ -23,6 +23,7 @@ dist-ssr
 *.sln
 *.sw?
 .env
+.env.*
 *.tar.gz
 
 # Sentry
@@ -32,6 +33,8 @@ dist-ssr
 # Testing
 coverage/
 *.coverage
+playwright-report/
+src/pages/coverage/
 
 # Claude Config Manager Extension - Security Rules
 # Prevents accidental commit of private conversation data

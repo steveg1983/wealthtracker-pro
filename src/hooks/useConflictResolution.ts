@@ -32,7 +32,7 @@ export function useConflictResolution() {
     let autoResolvedCount = 0;
 
     const handleConflictDetected = ({ conflict, analysis }: any) => {
-      console.log('Conflict detected:', conflict.entity, analysis);
+      logger.warn('Conflict detected', { entity: conflict.entity, analysis });
       
       // Check if it requires user intervention
       if (ConflictResolutionService.requiresUserIntervention(analysis)) {
@@ -54,7 +54,7 @@ export function useConflictResolution() {
 
     const handleConflictAutoResolved = ({ conflict, analysis, resolution }: any) => {
       autoResolvedCount++;
-      console.log(`Auto-resolved conflict #${autoResolvedCount} for ${conflict.entity} (${analysis.confidence}% confidence)`);
+      logger.info('Auto-resolved conflict', { count: autoResolvedCount, entity: conflict.entity, confidence: analysis.confidence });
       
       setConflictState(prev => ({
         ...prev,
@@ -63,7 +63,7 @@ export function useConflictResolution() {
       
       // Show toast notification (if you have a notification system)
       const message = `Automatically merged ${conflict.entity} changes (${analysis.confidence}% confidence)`;
-      console.log('✅', message);
+      logger.info(message);
     };
 
     const handleStatusChanged = (status: any) => {

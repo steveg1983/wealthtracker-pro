@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { enhancedEncryption } from '../../security/encryption-enhanced';
 import { sanitizeText } from '../../security/xss-protection';
-import { EyeIcon, EyeOffIcon, LockIcon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon, LockIcon } from '../icons';
 import { logger } from '../../services/loggingService';
 
 interface SecureFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange'> {

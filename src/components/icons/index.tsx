@@ -5,6 +5,7 @@
  */
 
 import React from 'react';
+import { logger } from '../../services/loggingService';
 import {
   IconHome,
   IconSettings,
@@ -143,6 +144,20 @@ import {
   IconArrowsLeftRight,
   IconCirclePlus,
   IconPalette,
+  // Added for lucide consolidation
+  IconCloud,
+  IconCloudOff,
+  IconBolt,
+  IconLoader2,
+  IconGitBranch,
+  IconBrandChrome,
+  IconCrown,
+  IconCurrencyPound,
+  IconPackage,
+  IconHeart,
+  IconPill,
+  IconPlayerPause,
+  IconScissors,
 } from '@tabler/icons-react';
 
 // Common props interface
@@ -159,7 +174,8 @@ export interface IconProps {
 }
 
 // Log to verify new icons are loaded
-console.log('[PROFESSIONAL ICONS] Loading new Tabler icons system...');
+// Use centralized logger to avoid noisy console in production
+logger.debug('[PROFESSIONAL ICONS] Loading professional icon system');
 
 // Professional icon wrapper for consistent styling
 const createIconComponent = (TablerIcon: any, displayName: string) => {
@@ -292,6 +308,8 @@ export const CameraIcon = createIconComponent(IconCamera, 'CameraIcon');
 // Theme Icons
 export const MoonIcon = createIconComponent(IconMoon, 'MoonIcon');
 export const SunIcon = createIconComponent(IconSun, 'SunIcon');
+export const PalmtreeIcon = createIconComponent(IconSun, 'PalmtreeIcon'); // Using Sun as vacation/retirement icon
+export const RingIcon = createIconComponent(IconCircleDot, 'RingIcon'); // Using CircleDot as wedding ring icon
 export const PaletteIcon = createIconComponent(IconPalette, 'PaletteIcon');
 
 // Communication Icons
@@ -326,6 +344,7 @@ export const DeselectAllIcon = createIconComponent(IconDeselect, 'DeselectAllIco
 export const UnlinkIcon = createIconComponent(IconUnlink, 'UnlinkIcon');
 export const WrenchIcon = createIconComponent(IconTool, 'WrenchIcon');
 export const UndoIcon = createIconComponent(IconArrowBack, 'UndoIcon');
+export const ScissorsIcon = createIconComponent(IconScissors, 'ScissorsIcon');
 
 // Status Icons
 export const ActivityIcon = createIconComponent(IconActivity, 'ActivityIcon');
@@ -337,6 +356,7 @@ export const LightbulbIcon = createIconComponent(IconBulb, 'LightbulbIcon');
 // Document Icons
 export const PdfIcon = createIconComponent(IconFileTypePdf, 'PdfIcon');
 export const PaperclipIcon = createIconComponent(IconPaperclip, 'PaperclipIcon');
+export const ReceiptIcon = createIconComponent(IconReceipt, 'ReceiptIcon');
 
 // Editor Icons
 export const BoldIcon = createIconComponent(IconBold, 'BoldIcon');
@@ -349,6 +369,21 @@ export const CodeIcon = createIconComponent(IconCode, 'CodeIcon');
 // Toggle Icons
 export const ToggleLeftIcon = createIconComponent(IconToggleLeft, 'ToggleLeftIcon');
 export const ToggleRightIcon = createIconComponent(IconToggleRight, 'ToggleRightIcon');
+
+// Cloud/Sync & Misc wrappers to align with lucide usage
+export const CloudIcon = createIconComponent(IconCloud, 'CloudIcon');
+export const CloudOffIcon = createIconComponent(IconCloudOff, 'CloudOffIcon');
+export const ZapIcon = createIconComponent(IconBolt, 'ZapIcon');
+export const Loader2Icon = createIconComponent(IconLoader2, 'Loader2Icon');
+export const GitBranchIcon = createIconComponent(IconGitBranch, 'GitBranchIcon');
+export const ChromeIcon = createIconComponent(IconBrandChrome, 'ChromeIcon');
+export const ExternalLinkIcon = createIconComponent(IconExternalLink, 'ExternalLinkIcon');
+export const CrownIcon = createIconComponent(IconCrown, 'CrownIcon');
+export const PoundSterlingIcon = createIconComponent(IconCurrencyPound, 'PoundSterlingIcon');
+export const PackageIcon = createIconComponent(IconPackage, 'PackageIcon');
+export const HeartIcon = createIconComponent(IconHeart, 'HeartIcon');
+export const PillIcon = createIconComponent(IconPill, 'PillIcon');
+export const PauseIcon = createIconComponent(IconPlayerPause, 'PauseIcon');
 
 // Window Icons
 export const MaximizeIcon = createIconComponent(IconMaximize, 'MaximizeIcon');

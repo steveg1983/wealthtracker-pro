@@ -90,9 +90,11 @@ export default defineConfig({
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: false, // Keep console for accessibility
+        drop_console: false, // Strip specific console calls via pure_funcs below
         drop_debugger: true,
-        pure_funcs: ['console.debug'],
+        // Remove non-critical console in production bundles while keeping warn/error
+        // This keeps accessibility/error logs visible but drops noisy logs
+        pure_funcs: ['console.debug', 'console.info', 'console.log'],
         passes: 2, // Balance between compression and build time
         inline: 2, // Inline functions
         // Safe optimizations only for financial app

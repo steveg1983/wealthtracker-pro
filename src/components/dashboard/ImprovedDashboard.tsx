@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect, lazy, Suspense, memo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   TrendingUpIcon, 
@@ -22,7 +22,19 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { formatCurrency } from '../../utils/currency';
 import { preserveDemoParam } from '../../utils/navigation';
 import AddTransactionModal from '../AddTransactionModal';
-import { PieChart, BarChart, ResponsiveContainer } from '../charts/ChartJsCharts';
+import { useTranslation } from '../../hooks/useTranslation';
+import { 
+  PieChart as RcPieChart,
+  BarChart as RcBarChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Pie,
+  Bar,
+  Cell
+} from '../charts/OptimizedCharts';
 import { SkeletonCard } from '../loading/Skeleton';
 
 /**
@@ -33,9 +45,10 @@ import { SkeletonCard } from '../loading/Skeleton';
  * 3. Actionable insights - every section leads somewhere
  * 4. Mobile-optimized - works great on all screen sizes
  */
-export function ImprovedDashboard() {
+export const ImprovedDashboard = memo(function ImprovedDashboard() {
   const { accounts, transactions, budgets } = useApp();
   const { formatCurrency: formatCurrencyWithSymbol, displayCurrency } = useCurrencyDecimal();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
   const [showAccountSettings, setShowAccountSettings] = useState(false);
@@ -213,7 +226,7 @@ export function ImprovedDashboard() {
       <div className="bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <h2 className="text-lg sm:text-xl opacity-90 font-medium">Your Net Worth</h2>
+            <h2 className="text-lg sm:text-xl opacity-90 font-medium">{t('dashboard.yourNetWorth', 'Your Net Worth')}</h2>
             <div className="mt-2 flex items-baseline gap-3">
               <span className="text-3xl sm:text-4xl lg:text-5xl font-bold">
                 {formatCurrencyWithSymbol(metrics.netWorth)}
@@ -235,7 +248,7 @@ export function ImprovedDashboard() {
             </div>
             {metrics.netWorthChange !== 0 && (
               <p className="mt-3 opacity-80 text-sm sm:text-base">
-                vs last month: {formatCurrencyWithSymbol(metrics.netWorthChange)}
+                {t('dashboard.vsLastMonth', 'vs last month')}: {formatCurrencyWithSymbol(metrics.netWorthChange)}
               </p>
             )}
           </div>
@@ -245,13 +258,13 @@ export function ImprovedDashboard() {
         {/* Quick stats */}
         <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/20">
           <div>
-            <p className="text-sm opacity-70">Assets</p>
+            <p className="text-sm opacity-70">{t('dashboard.assets', 'Assets')}</p>
             <p className="text-xl font-semibold text-green-300">
               {formatCurrencyWithSymbol(metrics.totalAssets)}
             </p>
           </div>
           <div>
-            <p className="text-sm opacity-70">Liabilities</p>
+            <p className="text-sm opacity-70">{t('dashboard.liabilities', 'Liabilities')}</p>
             <p className="text-xl font-semibold text-red-300">
               {formatCurrencyWithSymbol(metrics.totalLiabilities)}
             </p>
@@ -262,13 +275,13 @@ export function ImprovedDashboard() {
       {/* Secondary Focus: This Month's Performance */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          This Month's Performance
+          {t('dashboard.thisMonthPerformance', "This Month's Performance")}
         </h3>
         
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="flex items-center justify-between p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Income</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('transactions.income', 'Income')}</p>
               <p className="text-xl font-bold text-green-600 dark:text-green-400">
                 {formatCurrencyWithSymbol(metrics.monthlyIncome)}
               </p>
@@ -278,7 +291,7 @@ export function ImprovedDashboard() {
           
           <div className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Expenses</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('transactions.expenses', 'Expenses')}</p>
               <p className="text-xl font-bold text-red-600 dark:text-red-400">
                 {formatCurrencyWithSymbol(metrics.monthlyExpenses)}
               </p>
@@ -288,12 +301,12 @@ export function ImprovedDashboard() {
           
           <div className="flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Saved</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{t('dashboard.saved', 'Saved')}</p>
               <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
                 {formatCurrencyWithSymbol(metrics.monthlySavings)}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {metrics.savingsRate.toFixed(1)}% rate
+                {metrics.savingsRate.toFixed(1)}% {t('dashboard.rate', 'rate')}
               </p>
             </div>
             <TargetIcon size={24} className="text-blue-500" />
@@ -306,9 +319,9 @@ export function ImprovedDashboard() {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6" data-testid="budget-status">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <PieChartIcon size={24} className="text-gray-500" />
-            Budget Status
+            {t('dashboard.budgetStatus', 'Budget Status')}
             <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-              ({metrics.overallBudgetPercent.toFixed(0)}% used)
+              ({metrics.overallBudgetPercent.toFixed(0)}% {t('dashboard.used', 'used')})
             </span>
           </h3>
           
@@ -532,19 +545,23 @@ export function ImprovedDashboard() {
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart 
-                data={netWorthData}
-                dataKey="netWorth"
-                fill="#8B5CF6"
-                label="Net Worth"
-                formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
-                contentStyle={chartStyles.tooltip}
-                tickFormatter={(value: number) => {
+              <RcBarChart data={netWorthData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis tickFormatter={(value: number) => {
                   if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
                   if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-                  return value.toString();
-                }}
-              />
+                  return String(value);
+                }} />
+                <Tooltip 
+                  contentStyle={chartStyles.tooltip} 
+                  formatter={(value: number) => [
+                    formatCurrencyWithSymbol(Number(value), displayCurrency),
+                    'Net Worth'
+                  ]}
+                />
+                <Bar dataKey="netWorth" fill="#8B5CF6" radius={[4,4,0,0]} />
+              </RcBarChart>
             </ResponsiveContainer>
           )}
         </div>
@@ -562,16 +579,30 @@ export function ImprovedDashboard() {
           </p>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart
-                data={pieData}
-                innerRadius={true}
-                colors={COLORS}
-                onClick={(clickedData: any) => {
-                  navigate(`/transactions?account=${clickedData.id}`);
-                }}
-                formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
-                contentStyle={chartStyles.pieTooltip}
-              />
+              <RcPieChart>
+                <Tooltip 
+                  contentStyle={chartStyles.pieTooltip}
+                  formatter={(value: number) => [
+                    formatCurrencyWithSymbol(Number(value), displayCurrency),
+                    ''
+                  ]}
+                />
+                <Pie 
+                  data={pieData} 
+                  dataKey="value" 
+                  nameKey="name" 
+                  innerRadius="60%"
+                  onClick={(data: any) => {
+                    if (data?.payload?.id) {
+                      navigate(`/transactions?account=${data.payload.id}`);
+                    }
+                  }}
+                >
+                  {pieData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+              </RcPieChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -679,4 +710,4 @@ export function ImprovedDashboard() {
       />
     </div>
   );
-}
+});

@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, X, ExternalLink, Chrome, Globe } from 'lucide-react';
+import { 
+  AlertTriangleIcon as AlertTriangle,
+  XIcon as X,
+  ExternalLinkIcon as ExternalLink,
+  ChromeIcon as Chrome,
+  GlobeIcon as Globe
+} from './icons';
 import { shouldShowSafariWarning, dismissSafariWarning, initClerkSafariCompat } from '../utils/clerkSafarifix';
 
 export default function SafariWarning(): React.JSX.Element | null {

@@ -55,7 +55,7 @@ export const initClerkSafariCompat = async () => {
     return { compatible: true };
   }
 
-  console.log('🦁 Safari detected - checking Clerk compatibility...');
+  logger.info('Safari detected - checking Clerk compatibility...');
 
   const results = {
     safari: true,
@@ -119,7 +119,7 @@ const applySafariFixes = () => {
     window.addEventListener('storage', (e) => {
       // Sync Clerk session across tabs in Safari
       if (e.key?.includes('clerk') || e.key?.includes('__session')) {
-        console.log('Safari: Syncing Clerk session across tabs');
+        logger.info('Safari: Syncing Clerk session across tabs');
         // Force a session refresh
         window.location.reload();
       }
@@ -158,7 +158,7 @@ const polyfillSafari = () => {
     // Request storage access for third-party contexts
     document.hasStorageAccess().then(hasAccess => {
       if (!hasAccess) {
-        console.log('Requesting storage access for Safari...');
+        logger.info('Requesting storage access for Safari...');
         return document.requestStorageAccess();
       }
     }).catch(error => {

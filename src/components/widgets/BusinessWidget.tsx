@@ -131,16 +131,16 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
         </div>
 
         {/* Net Profit */}
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-blue-800 dark:text-blue-200">Net Profit</span>
-            <span className="text-xs text-blue-700 dark:text-blue-300">
+            <span className="text-xs text-gray-900 dark:text-white">Net Profit</span>
+            <span className="text-xs text-gray-600 dark:text-gray-400">
               {formatPercentage(metrics.profitMargin)} margin
             </span>
           </div>
           <div className={`text-lg font-bold ${
             metrics.netProfit >= 0 
-              ? 'text-blue-900 dark:text-blue-100' 
+              ? 'text-gray-900 dark:text-white' 
               : 'text-red-900 dark:text-red-100'
           }`}>
             {formatCurrency(metrics.netProfit)}

@@ -16,6 +16,7 @@ import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ActivityLoggerProvider } from './components/ActivityLoggerProvider';
 import Layout from './components/Layout';
+import LayoutNew from './components/LayoutNew';
 import PageLoader from './components/PageLoader';
 import { merchantLogoService } from './services/merchantLogoService';
 import { performanceService } from './services/performanceService';
@@ -32,12 +33,16 @@ import SafariWarning from './components/SafariWarning';
 import { isDemoMode, initializeDemoData } from './utils/demoData';
 import DebugInfo from './components/DebugInfo';
 import { DebugErrorBoundary } from './components/DebugErrorBoundary';
+import { logger } from './services/loggingService';
 
 // Lazy load all pages for code splitting with preload support
 // Using webpack magic comments for better chunk naming and preloading hints
 const Login = lazyWithPreload(() => import(/* webpackChunkName: "login" */ './pages/Login'));
 const Welcome = lazyWithPreload(() => import(/* webpackChunkName: "welcome" */ './pages/Welcome'));
 const Dashboard = lazyWithPreload(() => import(/* webpackChunkName: "dashboard", webpackPreload: true */ './pages/Dashboard'));
+const DashboardNew = lazyWithPreload(() => import(/* webpackChunkName: "dashboard-new" */ './pages/DashboardNew'));
+const DashboardDraggable = lazyWithPreload(() => import(/* webpackChunkName: "dashboard-draggable" */ './pages/DashboardDraggable'));
+const DashboardV2 = lazyWithPreload(() => import(/* webpackChunkName: "dashboard-v2", webpackPreload: true */ './pages/DashboardV2'));
 const Accounts = lazyWithPreload(() => import(/* webpackChunkName: "accounts", webpackPreload: true */ './pages/Accounts'));
 const Transactions = lazyWithPreload(() => import(/* webpackChunkName: "transactions", webpackPreload: true */ './pages/Transactions'));
 const TransactionsComparison = lazyWithPreload(() => import(/* webpackChunkName: "transactions-comparison" */ './pages/TransactionsComparison'));
@@ -49,7 +54,6 @@ const Analytics = lazyWithPreload(() => import(/* webpackChunkName: "analytics" 
 const AdvancedAnalytics = lazyWithPreload(() => import(/* webpackChunkName: "advanced-analytics" */ './pages/AdvancedAnalytics'));
 const AIFeatures = lazyWithPreload(() => import(/* webpackChunkName: "ai-features" */ './pages/AIFeatures'));
 const CustomReports = lazyWithPreload(() => import(/* webpackChunkName: "custom-reports" */ './pages/CustomReports'));
-const TaxPlanning = lazyWithPreload(() => import(/* webpackChunkName: "tax-planning" */ './pages/TaxPlanning'));
 const SettingsPage = lazyWithPreload(() => import(/* webpackChunkName: "settings" */ './pages/Settings'));
 const AppSettings = lazyWithPreload(() => import(/* webpackChunkName: "app-settings" */ './pages/settings/AppSettings'));
 const DataManagement = lazyWithPreload(() => import(/* webpackChunkName: "data-management" */ './pages/settings/DataManagement'));
@@ -64,9 +68,7 @@ const AccessibilityDashboard = lazyWithPreload(() => import(/* webpackChunkName:
 const AccountTransactions = lazyWithPreload(() => import(/* webpackChunkName: "account-transactions" */ './pages/AccountTransactions'));
 const FinancialSummaries = lazyWithPreload(() => import(/* webpackChunkName: "financial-summaries" */ './pages/FinancialSummaries'));
 const EnhancedInvestments = lazyWithPreload(() => import(/* webpackChunkName: "enhanced-investments" */ './pages/EnhancedInvestments'));
-const HouseholdManagement = lazyWithPreload(() => import(/* webpackChunkName: "household" */ './pages/HouseholdManagement'));
 const MobileFeatures = lazyWithPreload(() => import(/* webpackChunkName: "mobile-features" */ './pages/MobileFeatures'));
-const BusinessFeatures = lazyWithPreload(() => import(/* webpackChunkName: "business-features" */ './pages/BusinessFeatures'));
 const FinancialPlanning = lazyWithPreload(() => import(/* webpackChunkName: "financial-planning" */ './pages/FinancialPlanning'));
 const DataIntelligence = lazyWithPreload(() => import(/* webpackChunkName: "data-intelligence" */ './pages/DataIntelligence'));
 const ExportManager = lazyWithPreload(() => import(/* webpackChunkName: "export-manager" */ './pages/ExportManager'));
@@ -75,6 +77,7 @@ const EnhancedImport = lazyWithPreload(() => import(/* webpackChunkName: "enhanc
 const Documents = lazyWithPreload(() => import(/* webpackChunkName: "documents" */ './pages/Documents'));
 const OCRTest = lazyWithPreload(() => import(/* webpackChunkName: "ocr-test" */ './components/OCRTest'));
 const OpenBanking = lazyWithPreload(() => import(/* webpackChunkName: "open-banking" */ './pages/OpenBanking'));
+const BankConnections = lazyWithPreload(() => import(/* webpackChunkName: "bank-connections" */ './components/BankConnections'));
 const Performance = lazyWithPreload(() => import(/* webpackChunkName: "performance" */ './pages/Performance'));
 const Subscription = lazyWithPreload(() => import(/* webpackChunkName: "subscription" */ './pages/Subscription'));
 const TransferCenter = lazyWithPreload(() => import(/* webpackChunkName: "transfer-center" */ './pages/TransferCenter'));
@@ -86,11 +89,11 @@ function App(): React.JSX.Element {
       // Check Safari compatibility first
       const safariCompat = await initSafariCompat();
       if (safariCompat.safari) {
-        console.log('Safari compatibility mode:', safariCompat);
+        logger.info('Safari compatibility mode:', safariCompat);
         
         // Apply Clerk-specific Safari fixes
         const clerkCompat = await initClerkSafariCompat();
-        console.log('Clerk Safari compatibility:', clerkCompat);
+        logger.info('Clerk Safari compatibility:', clerkCompat);
       }
     };
     
@@ -99,11 +102,11 @@ function App(): React.JSX.Element {
     // Initialize demo mode if requested
     if (isDemoMode()) {
       initializeDemoData();
-      console.log('🎭 Demo mode activated - Using sample data for UI/UX testing');
+      logger.info('🎭 Demo mode activated - Using sample data for UI/UX testing');
     }
     
     // Simplified storage check - don't auto-clear
-    console.log('App starting with clean storage');
+    logger.info('App starting with clean storage');
     
     // Preload common merchant logos in the background
     merchantLogoService.preloadCommonLogos();
@@ -154,7 +157,7 @@ function App(): React.JSX.Element {
                         } />
                         
                         {/* Main app routes */}
-                        <Route path="/" element={<Layout />}>
+                        <Route path="/" element={<LayoutNew />}>
                           {/* Public welcome page */}
                           <Route index element={
                             <Suspense fallback={<PageLoader />}>
@@ -165,7 +168,7 @@ function App(): React.JSX.Element {
                           {/* Protected routes - all financial data pages */}
                           <Route path="dashboard" element={
                             <ProtectedSuspense>
-                              <Dashboard />
+                              <DashboardV2 />
                             </ProtectedSuspense>
                           } />
                           <Route path="accounts" element={
@@ -240,29 +243,14 @@ function App(): React.JSX.Element {
                               <CustomReports />
                             </ProtectedSuspense>
                           } />
-                          <Route path="tax-planning" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <TaxPlanning />
-                            </ProtectedSuspense>
-                          } />
                           <Route path="summaries" element={
                             <ProtectedSuspense>
                               <FinancialSummaries />
                             </ProtectedSuspense>
                           } />
-                          <Route path="household" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <HouseholdManagement />
-                            </ProtectedSuspense>
-                          } />
                           <Route path="mobile-features" element={
                             <ProtectedSuspense>
                               <MobileFeatures />
-                            </ProtectedSuspense>
-                          } />
-                          <Route path="business-features" element={
-                            <ProtectedSuspense requirePremium={true}>
-                              <BusinessFeatures />
                             </ProtectedSuspense>
                           } />
                           <Route path="financial-planning" element={
@@ -339,6 +327,11 @@ function App(): React.JSX.Element {
                     <Route path="tags" element={
                       <Suspense fallback={<PageLoader />}>
                         <Tags />
+                      </Suspense>
+                    } />
+                    <Route path="bank-connections" element={
+                      <Suspense fallback={<PageLoader />}>
+                        <BankConnections />
                       </Suspense>
                     } />
                     <Route path="notifications" element={

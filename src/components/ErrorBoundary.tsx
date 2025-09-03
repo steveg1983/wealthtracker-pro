@@ -94,7 +94,7 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
   handlePopState = () => {
     // Reset error state when user navigates with browser back/forward buttons
     if (this.state.hasError) {
-      console.log('ErrorBoundary: Resetting due to navigation');
+      logger.info('ErrorBoundary: Resetting due to navigation');
       // Use setTimeout to ensure this happens after the URL has changed
       setTimeout(() => {
         this.setState({ hasError: false, error: undefined, errorInfo: undefined });

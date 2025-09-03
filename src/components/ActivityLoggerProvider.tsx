@@ -10,7 +10,7 @@ export function ActivityLoggerProvider({ children }: { children: React.ReactNode
 
   // Log app startup
   useEffect(() => {
-    console.log('Activity logging initialized');
+    logger.info('Activity logging initialized');
   }, []);
 
   return <>{children}</>;

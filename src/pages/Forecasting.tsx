@@ -583,18 +583,18 @@ export default function Forecasting() {
       )}
 
       {/* Feature Info */}
-      <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-6">
+      <div className="mt-8 bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-6 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
         <div className="flex items-start gap-3">
-          <AlertCircleIcon className="text-blue-600 dark:text-blue-400 mt-1" size={20} />
+          <AlertCircleIcon className="text-amber-600 dark:text-amber-400 mt-1" size={20} />
           <div>
-            <h3 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
               About Financial Forecasting & Budgeting
             </h3>
-            <p className="text-sm text-blue-800 dark:text-blue-200 mb-3">
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
               Our forecasting engine analyzes your transaction history to identify patterns and predict future cash flow. 
               Combined with comprehensive budgeting tools, you can plan and track your finances effectively.
             </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-blue-700 dark:text-blue-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400">
               <div>
                 <h4 className="font-medium mb-1">Budgeting Features:</h4>
                 <ul className="space-y-1">

@@ -238,7 +238,7 @@ export class MerchantLogoService {
             img.onload = () => {
               clearTimeout(timeout);
               // Logo loaded successfully
-              console.log(`Successfully loaded ${attemptCount === 0 ? 'logo' : 'favicon'} for ${domain}`);
+              logger.info('Loaded merchant branding', { type: attemptCount === 0 ? 'logo' : 'favicon', domain });
               this.logoCache.set(domain, currentUrl);
               this.saveCachedLogos();
               resolve(currentUrl);

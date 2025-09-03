@@ -68,7 +68,7 @@ export default function HelpTooltip({
           className={`absolute z-50 ${getPositionClasses()} pointer-events-none`}
           style={{ minWidth: '250px', maxWidth: '350px' }}
         >
-          <div className="bg-gray-900 dark:bg-gray-800 text-white rounded-lg shadow-xl p-3 pointer-events-auto">
+          <div className="bg-amber-50 dark:bg-amber-900/20 text-gray-900 dark:text-gray-100 rounded-lg shadow-xl p-3 pointer-events-auto border-l-4 border-amber-400 dark:border-amber-600">
             <div className="flex items-start justify-between gap-2 mb-2">
               <h4 className="font-semibold text-sm">{title}</h4>
               {!showOnHover && (
@@ -81,12 +81,12 @@ export default function HelpTooltip({
                 </button>
               )}
             </div>
-            <div className="text-xs text-gray-300 leading-relaxed">
+            <div className="text-xs text-gray-700 dark:text-gray-200 leading-relaxed">
               {content}
             </div>
             {/* Arrow */}
             <div className={`absolute ${getArrowClasses()}`}>
-              <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-900 dark:border-t-gray-800" />
+              <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-amber-50 dark:border-t-amber-900/20" />
             </div>
           </div>
         </div>

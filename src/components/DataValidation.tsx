@@ -309,7 +309,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       const expenseTotal = accountTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
       const transferTotal = accountTransactions.filter(t => t.type === 'transfer').reduce((s, t) => s + t.amount, 0);
       
-      console.log(`Account: ${account.name}`, {
+      logger.debug('DataValidation account', {
         transactionCount: accountTransactions.length,
         income: incomeTotal,
         expenses: expenseTotal,
@@ -508,7 +508,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       const currentOpeningBalance = account?.openingBalance || 0;
       const newOpeningBalance = currentOpeningBalance + difference;
 
-      console.log('Updating opening balance:', {
+      logger.debug('Updating opening balance', {
         account: accountName,
         currentOpeningBalance,
         difference,
@@ -535,7 +535,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       let adjustmentCategory = categories.find(c => c.id === 'account-adjustments');
       
       if (!adjustmentCategory) {
-        console.log('Account Adjustments category not found, creating it...');
+        logger.info('Account Adjustments category not found, creating it...');
         
         // First check if the parent category exists
         const adjustmentParent = categories.find(c => c.id === 'sub-adjustments');
@@ -568,9 +568,9 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
       
       const categoryToUse = adjustmentCategory?.id || adjustmentCategory?.name || 'Account Adjustments';
       
-      console.log('Categories available:', categories.length, 'categories');
-      console.log('Adjustment category:', adjustmentCategory);
-      console.log('Using category:', categoryToUse);
+      logger.debug('Categories available', { count: categories.length });
+      logger.debug('Adjustment category', adjustmentCategory);
+      logger.debug('Using category', categoryToUse);
 
       // Create adjustment transaction
       const adjustmentType = difference > 0 ? 'income' : 'expense';
@@ -586,7 +586,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
         cleared: true
       };
 
-      console.log('Creating adjustment transaction:', {
+      logger.debug('Creating adjustment transaction', {
         account: accountName,
         accountId,
         difference,
@@ -599,11 +599,11 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
 
       // Check current transactions before adding
       const transactionsBefore = transactions.filter(t => t.accountId === accountId);
-      console.log(`Before: Account ${accountName} has ${transactionsBefore.length} transactions`);
+      logger.debug('Transactions before adjustment', { accountName, count: transactionsBefore.length });
 
       try {
         addTransaction(newTransaction);
-        console.log('Transaction added successfully');
+        logger.info('Transaction added successfully');
         
         // Add a delay to ensure state updates
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -868,4 +868,3 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
     </>
   );
 }
-

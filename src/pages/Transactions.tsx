@@ -6,6 +6,8 @@ import { useLayout } from '../contexts/LayoutContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { lazy, Suspense } from 'react';
+import { useDeviceType } from '../hooks/useDeviceType';
+import { useTranslation } from '../hooks/useTranslation';
 
 // Lazy load heavy modals to improve initial page load
 const EditTransactionModal = lazy(() => import('../components/EditTransactionModal'));
@@ -30,7 +32,9 @@ const Transactions = React.memo(function Transactions() {
   const { compactView, setCompactView, currency: displayCurrency } = usePreferences();
   const { isWideView, setIsWideView } = useLayout();
   const { formatCurrency } = useCurrencyDecimal();
+  const { t } = useTranslation();
   const [searchParams] = useSearchParams();
+  const { isMobile, isTablet, isDesktop } = useDeviceType();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [viewingTransaction, setViewingTransaction] = useState<Transaction | null>(null);
@@ -405,11 +409,11 @@ const Transactions = React.memo(function Transactions() {
 
   return (
     <PageWrapper 
-      title="Transactions"
+      title={t('navigation.transactions')}
       headerContent={
         filteredAccount && (
           <p className="text-sm text-white/80 mt-1 ml-4">
-            Showing transactions for: <span className="font-semibold">{filteredAccount.name}</span>
+            {t('transactions.showingTransactionsFor', 'Showing transactions for')}: <span className="font-semibold">{filteredAccount.name}</span>
           </p>
         )
       }
@@ -468,7 +472,7 @@ const Transactions = React.memo(function Transactions() {
           <div 
             onClick={() => setIsWideView(!isWideView)}
             className="cursor-pointer"
-            title={isWideView ? "Switch to standard width" : "Switch to wide view"}
+            title={isWideView ? t('transactions.switchToStandardWidth', 'Switch to standard width') : t('transactions.switchToWideView', 'Switch to wide view')}
           >
             <svg
               width="48"
@@ -515,7 +519,7 @@ const Transactions = React.memo(function Transactions() {
           <div 
             onClick={() => setIsModalOpen(true)}
             className="cursor-pointer"
-            title="Add Transaction"
+            title={t('transactions.addTransaction')}
           >
             <svg
               width="48"
@@ -556,7 +560,7 @@ const Transactions = React.memo(function Transactions() {
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Income</p>
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">{t('transactions.income')}</p>
               <p className="text-lg md:text-xl font-bold text-green-600 dark:text-green-400">{formatCurrency(totals.income, displayCurrency)}</p>
             </div>
             <TrendingUpIcon className="text-green-500" size={20} />
@@ -565,7 +569,7 @@ const Transactions = React.memo(function Transactions() {
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Expenses</p>
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">{t('transactions.expenses')}</p>
               <p className="text-lg md:text-xl font-bold text-red-600 dark:text-red-400">{formatCurrency(totals.expense, displayCurrency)}</p>
             </div>
             <TrendingDownIcon className="text-red-500" size={20} />
@@ -574,7 +578,7 @@ const Transactions = React.memo(function Transactions() {
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl p-3 md:p-4 rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">Net</p>
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400">{t('transactions.net', 'Net')}</p>
               <p className={`text-lg md:text-xl font-bold ${totals.net.greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                 {formatCurrency(totals.net, displayCurrency)}
               </p>
@@ -594,7 +598,7 @@ const Transactions = React.memo(function Transactions() {
               <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
               <input
                 type="text"
-                placeholder="Search transactions..."
+                placeholder={t('transactions.searchTransactions')}
                 value={searchQuery}
                 onChange={(e) => handleFilterChange(setSearchQuery)(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-sm md:text-base bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
@@ -694,24 +698,46 @@ const Transactions = React.memo(function Transactions() {
         </div>
       ) : (
         <>
-          {/* Mobile Swipeable List View with Infinite Scroll */}
+          {/* Mobile Card View */}
           <div className="lg:hidden bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden mb-4">
             {isLoading ? (
-              <SkeletonList items={5} className="p-4" />
+              <div className="space-y-3 p-4">
+                {[...Array(5)].map((_, index) => (
+                  <div key={index} className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg p-4 border border-white/20 dark:border-gray-700/50">
+                    <div className="animate-pulse">
+                      <div className="flex justify-between items-start gap-2 mb-2">
+                        <div className="flex-1">
+                          <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4 mb-2"></div>
+                          <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2"></div>
+                        </div>
+                        <div className="h-5 bg-gray-300 dark:bg-gray-600 rounded w-20"></div>
+                      </div>
+                      <div className="flex justify-between items-center mt-3">
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/3"></div>
+                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <Suspense fallback={<SkeletonList items={5} className="p-4" />}>
-                <InfiniteScrollTransactionList
-                  transactions={filteredAndSortedTransactions} // Use all filtered transactions, not paginated
-                  accounts={accounts}
-                  formatCurrency={formatCurrency}
-                  onEdit={handleEdit}
-                  onDelete={handleDelete}
-                  onView={handleView}
-                  selectedTransactions={selectedTransactions}
-                  onSelectionChange={bulkSelectMode ? setSelectedTransactions : undefined}
-                  itemsPerBatch={20}
-                />
-              </Suspense>
+              <div className="space-y-3 p-4">
+                {paginatedTransactions.map((transaction) => {
+                  const account = accounts.find(a => a.id === transaction.accountId);
+                  const categoryPath = getCategoryPath(transaction.category);
+                  
+                  return (
+                    <TransactionCard
+                      key={transaction.id}
+                      transaction={transaction}
+                      account={account}
+                      categoryDisplay={categoryPath}
+                      formatCurrency={formatCurrency}
+                      onClick={() => handleView(transaction)}
+                    />
+                  );
+                })}
+              </div>
             )}
           </div>
           
@@ -737,7 +763,7 @@ const Transactions = React.memo(function Transactions() {
                   </tbody>
                 </table>
               </div>
-            ) : (transactionsPerPage > 20 || showAllTransactions) && filteredAndSortedTransactions.length > 20 ? (
+            ) : (transactionsPerPage > 20 || showAllTransactions) && filteredAndSortedTransactions.length > 20 && !isMobile ? (
               <div className="relative" style={{ height: '600px' }}>
                 <Suspense fallback={<div className="p-4">Loading transactions...</div>}>
                   <VirtualizedTransactionList
@@ -749,7 +775,27 @@ const Transactions = React.memo(function Transactions() {
                   />
                 </Suspense>
               </div>
+            ) : isMobile ? (
+              // Mobile card view
+              <div className="space-y-3 p-4">
+                {paginatedTransactions.map((transaction) => {
+                  const account = accounts.find(a => a.id === transaction.accountId);
+                  const categoryPath = getCategoryPath(transaction.category);
+                  
+                  return (
+                    <TransactionCard
+                      key={transaction.id}
+                      transaction={transaction}
+                      account={account}
+                      categoryDisplay={categoryPath}
+                      formatCurrency={formatCurrency}
+                      onClick={() => handleView(transaction)}
+                    />
+                  );
+                })}
+              </div>
             ) : (
+              // Desktop table view
               <div className={isWideView ? '' : 'overflow-x-auto'} role="region" aria-label="Transactions table">
                 <table className="w-full" style={{ tableLayout: 'fixed' }} role="table" aria-label="Financial transactions">
                 <caption className="sr-only">List of financial transactions with sortable columns. Use arrow keys to navigate and Enter to sort.</caption>

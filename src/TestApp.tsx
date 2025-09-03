@@ -1,5 +1,5 @@
 export default function TestApp() {
-  console.log('TestApp component rendering');
+  logger.debug('TestApp component rendering');
   return (
     <div style={{ 
       padding: '20px', 

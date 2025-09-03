@@ -190,12 +190,12 @@ export default function EnvelopeBudgeting() {
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+          <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
             <div className="flex items-center gap-2 mb-2">
-              <PiggyBankIcon className="text-blue-600" size={20} />
-              <span className="text-sm font-medium text-blue-800 dark:text-blue-300">Total Budgeted</span>
+              <PiggyBankIcon className="text-amber-600 dark:text-amber-400" size={20} />
+              <span className="text-sm font-medium text-gray-900 dark:text-white">Total Budgeted</span>
             </div>
-            <span className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+            <span className="text-2xl font-bold text-gray-900 dark:text-white">
               {formatCurrency(totalBudgeted)}
             </span>
           </div>

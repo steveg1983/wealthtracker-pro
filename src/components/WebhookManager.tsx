@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Webhook, 
-  CheckCircle, 
-  XCircle, 
-  AlertCircle, 
-  RefreshCw,
-  Clock,
-  Activity,
-  Zap
-} from 'lucide-react';
+  LinkIcon as Webhook,
+  CheckCircleIcon as CheckCircle,
+  XCircleIcon as XCircle,
+  AlertCircleIcon as AlertCircle,
+  RefreshCwIcon as RefreshCw,
+  ClockIcon as Clock,
+  ActivityIcon as Activity,
+  ZapIcon as Zap
+} from './icons';
 import { formatDistanceToNow } from 'date-fns';
 import { logger } from '../services/loggingService';
 
@@ -96,7 +96,7 @@ export default function WebhookManager(): React.JSX.Element {
 
   const retryWebhook = async (eventId: string) => {
     // In production, this would trigger a webhook retry
-    console.log('Retrying webhook:', eventId);
+    logger.info('Retrying webhook:', eventId);
     
     // Update UI to show processing
     setEvents(prev => prev.map(e => 

@@ -155,7 +155,7 @@ class PerformanceService {
 
     // Log to console in development
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[Performance] ${name}: ${metric.value}ms (${rating})`);
+      logger.info('[Performance] metric', { name, value: metric.value, rating });
     }
 
     // Send metric to analytics if configured
@@ -191,7 +191,7 @@ class PerformanceService {
       const usedMemoryMB = Math.round(memory.usedJSHeapSize / 1048576);
       const totalMemoryMB = Math.round(memory.totalJSHeapSize / 1048576);
       
-      console.log(`[Performance] Memory: ${usedMemoryMB}MB / ${totalMemoryMB}MB`);
+      logger.info('[Performance] Memory', { usedMB: usedMemoryMB, totalMB: totalMemoryMB });
     }
 
     // Frame rate monitoring
@@ -267,7 +267,7 @@ class PerformanceService {
     const totalSize = scriptSizes.reduce((sum, s) => sum + s.size, 0);
     const totalSizeMB = (totalSize / 1048576).toFixed(2);
     
-    console.log(`[Performance] Total JS bundle size: ${totalSizeMB}MB`);
+    logger.info('[Performance] Total JS bundle size', { totalMB: totalSizeMB });
     
     // Warn if bundle is too large
     if (totalSize > 5 * 1048576) { // 5MB

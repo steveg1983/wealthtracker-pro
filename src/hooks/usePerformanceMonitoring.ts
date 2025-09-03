@@ -33,7 +33,7 @@ export const usePerformanceMonitoring = () => {
       const entries = entryList.getEntries();
       const lastEntry = entries[entries.length - 1] as any;
       metrics.lcp = lastEntry.renderTime || lastEntry.loadTime;
-      console.log('LCP:', metrics.lcp);
+      logger.info('LCP', metrics.lcp);
     });
 
     // Observe First Input Delay
@@ -41,7 +41,7 @@ export const usePerformanceMonitoring = () => {
       const entries = entryList.getEntries();
       entries.forEach((entry: any) => {
         metrics.fid = entry.processingStart - entry.startTime;
-        console.log('FID:', metrics.fid);
+        logger.info('FID', metrics.fid);
       });
     });
 
@@ -54,7 +54,7 @@ export const usePerformanceMonitoring = () => {
         }
       });
       metrics.cls = cls;
-      console.log('CLS:', metrics.cls);
+      logger.info('CLS', metrics.cls);
     });
 
     // Observe Interaction to Next Paint
@@ -62,7 +62,7 @@ export const usePerformanceMonitoring = () => {
       const entries = entryList.getEntries();
       entries.forEach((entry: any) => {
         metrics.inp = entry.duration;
-        console.log('INP:', metrics.inp);
+        logger.info('INP', metrics.inp);
       });
     });
 
@@ -80,7 +80,7 @@ export const usePerformanceMonitoring = () => {
     paintEntries.forEach((entry) => {
       if (entry.name === 'first-contentful-paint') {
         metrics.fcp = entry.startTime;
-        console.log('FCP:', metrics.fcp);
+        logger.info('FCP', metrics.fcp);
       }
     });
 
@@ -89,7 +89,7 @@ export const usePerformanceMonitoring = () => {
     if (navigationEntries.length > 0) {
       const navEntry = navigationEntries[0];
       metrics.ttfb = navEntry.responseStart - navEntry.requestStart;
-      console.log('TTFB:', metrics.ttfb);
+      logger.info('TTFB', metrics.ttfb);
     }
 
     return metrics;
@@ -126,7 +126,7 @@ export const usePerformanceMonitoring = () => {
       start: 0,
       duration: value
     });
-    console.log(`Custom metric ${name}:`, value);
+    logger.info('Custom metric', { name, value });
   }, []);
 
   // Track component render time
@@ -141,7 +141,7 @@ export const usePerformanceMonitoring = () => {
         performance.mark(endMark);
         performance.measure(measureName, startMark, endMark);
         const measure = performance.getEntriesByName(measureName)[0];
-        console.log(`${componentName} render time:`, measure.duration);
+        logger.info('Component render time', { componentName, ms: measure.duration });
         return measure.duration;
       }
     };
@@ -240,9 +240,9 @@ export const usePerformanceMonitoring = () => {
         const bundleInfo = getBundleSize();
         const memoryInfo = getMemoryUsage();
         
-        console.log('Navigation Timing:', navTiming);
-        console.log('Bundle Size:', bundleInfo);
-        console.log('Memory Usage:', memoryInfo);
+        logger.info('Navigation Timing', navTiming);
+        logger.info('Bundle Size', bundleInfo);
+        logger.info('Memory Usage', memoryInfo);
       });
     }
   }, [trackWebVitals, trackLongTasks, getNavigationTiming, getBundleSize, getMemoryUsage]);

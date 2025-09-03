@@ -2,10 +2,42 @@
 @import './styles/borders.css';
 /* Import accessibility color overrides */
 @import './styles/accessibility-colors.css';
+/* Import dashboard animations */
+@import './styles/dashboard-animations.css';
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Center checkbox and radio button content */
+input[type="checkbox"],
+input[type="radio"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+}
+
+/* Ensure proper alignment of checkbox/radio with text */
+input[type="checkbox"].accent-slate-500,
+input[type="radio"].accent-slate-500 {
+  transform: translateY(-1px);
+}
+
+/* Fix icon centering in buttons */
+button[class*="p-1"],
+button[class*="p-2"],
+button[class*="p-3"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Ensure icons are properly centered */
+button > svg {
+  margin: auto;
+  display: block;
+}
 
 /* Pull to Refresh Styles */
 .pull-to-refresh {

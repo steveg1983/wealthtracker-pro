@@ -216,7 +216,7 @@ export function useBatchOperations({
       label: 'Categorize',
       action: async () => {
         // This would open a category picker modal
-        console.log('Open category picker');
+        logger.info('Open category picker');
       },
       variant: 'primary'
     },
@@ -225,7 +225,7 @@ export function useBatchOperations({
       label: 'Add Tags',
       action: async () => {
         // This would open a tag picker modal
-        console.log('Open tag picker');
+        logger.info('Open tag picker');
       },
       variant: 'primary'
     },

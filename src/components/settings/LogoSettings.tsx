@@ -14,17 +14,17 @@ export default function LogoSettings() {
           Merchant Logo Settings
         </h3>
         
-        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600 mb-6">
           <div className="flex items-start gap-3">
-            <InfoIcon className="text-blue-600 dark:text-blue-400 mt-0.5" size={20} />
+            <InfoIcon className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
             <div className="text-sm">
-              <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-1">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
                 About Merchant Logos
               </h4>
-              <p className="text-blue-800 dark:text-blue-200 mb-2">
+              <p className="text-gray-600 dark:text-gray-400 mb-2">
                 WealthTracker can display real company logos for recognized merchants in your transactions.
               </p>
-              <ul className="text-blue-700 dark:text-blue-300 space-y-1">
+              <ul className="text-gray-600 dark:text-gray-400 space-y-1">
                 <li>• Logos are fetched from Clearbit's free API</li>
                 <li>• No personal data is shared - only company domains</li>
                 <li>• Logos are cached locally for better performance</li>

@@ -184,17 +184,17 @@ export default function BillNegotiator() {
         >
           <div className="space-y-6">
             {/* Summary */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-blue-800 dark:text-blue-200">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   Potential Monthly Savings
                 </span>
-                <span className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                <span className="text-lg font-bold text-gray-900 dark:text-white">
                   {formatCurrency(selectedBill.potentialSavings)}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-blue-800 dark:text-blue-200">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
                   Success Rate
                 </span>
                 <span className={`font-medium ${getSuccessRateColor(selectedBill.successRate)}`}>

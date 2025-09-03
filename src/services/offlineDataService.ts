@@ -350,7 +350,7 @@ if (typeof window !== 'undefined') {
   
   // Set up online/offline listeners
   window.addEventListener('online', () => {
-    console.log('Back online, triggering sync...');
+    logger.info('Back online, triggering sync...');
     offlineDataService.triggerSync();
   });
 

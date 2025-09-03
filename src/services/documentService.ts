@@ -128,7 +128,7 @@ class DocumentService {
       const count = await indexedDBService.count('documents');
       if (count > 0) {
         localStorage.removeItem(this.storageKey);
-        console.log('Documents migrated to IndexedDB');
+        logger.info('Documents migrated to IndexedDB');
       }
     }
   }

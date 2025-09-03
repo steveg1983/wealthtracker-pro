@@ -1,4 +1,6 @@
 // Environment variable checker for debugging
+import { logger } from '../services/loggingService';
+
 export function checkEnvironmentVariables() {
   const envVars = {
     VITE_CLERK_PUBLISHABLE_KEY: import.meta.env.VITE_CLERK_PUBLISHABLE_KEY,
@@ -10,16 +12,16 @@ export function checkEnvironmentVariables() {
     DEV: import.meta.env.DEV,
   };
 
-  console.log('Environment Variables Check:');
+  logger.info('Environment Variables Check:');
   Object.entries(envVars).forEach(([key, value]) => {
     if (value) {
       // Don't log full keys for security, just first few chars
       const displayValue = typeof value === 'string' && value.length > 10 
         ? `${value.substring(0, 10)}...` 
         : value;
-      console.log(`✅ ${key}: ${displayValue}`);
+      logger.info('Env ok', { key, value: displayValue });
     } else {
-      console.log(`❌ ${key}: Not set`);
+      logger.warn('Env missing', { key });
     }
   });
 

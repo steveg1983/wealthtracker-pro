@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, memo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { supabase } from '../lib/supabase';
@@ -6,20 +6,27 @@ import { useAuth } from '../contexts/AuthContext';
 import PageWrapper from '../components/PageWrapper';
 import { SkeletonCard } from '../components/loading/Skeleton';
 import { logger } from '../services/loggingService';
+import { useTranslation } from '../hooks/useTranslation';
 
 // Lazy load only modals and heavy features for better performance
 const TestDataWarningModal = lazy(() => import('../components/TestDataWarningModal'));
 const OnboardingModal = lazy(() => import('../components/OnboardingModal'));
 const ImprovedDashboard = lazy(() => import('../components/dashboard/ImprovedDashboard').then(module => ({ default: module.ImprovedDashboard })));
+const EnhancedDraggableDashboard = lazy(() => import('../components/dashboard/EnhancedDraggableDashboard'));
 
 
-export default function Dashboard() {
+const Dashboard = memo(function Dashboard() {
   const { accounts, hasTestData, clearAllData } = useApp();
   const { firstName, setFirstName, setCurrency } = usePreferences();
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [supabaseConnected, setSupabaseConnected] = useState(false);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [useDraggableDashboard, setUseDraggableDashboard] = useState(() => {
+    // Check if user prefers draggable dashboard
+    return localStorage.getItem('preferDraggableDashboard') === 'true';
+  });
   
   // Check Supabase connection and migration status
   useEffect(() => {
@@ -34,7 +41,7 @@ export default function Dashboard() {
           
           setSupabaseConnected(!error);
           if (!error) {
-            console.log('✅ Supabase connected successfully');
+            logger.info('Supabase connected successfully');
             
             // Silent auto-migration - no user interaction needed
             // Migration happens automatically in AppContextSupabase
@@ -90,10 +97,26 @@ export default function Dashboard() {
   };
 
   return (
-    <PageWrapper title="Dashboard">
-      {/* Render the consolidated dashboard */}
+    <PageWrapper title={t('navigation.dashboard')}>
+      {/* Dashboard Type Toggle */}
+      <div className="flex justify-end mb-4">
+        <button
+          onClick={() => {
+            const newValue = !useDraggableDashboard;
+            setUseDraggableDashboard(newValue);
+            localStorage.setItem('preferDraggableDashboard', String(newValue));
+          }}
+          className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+        >
+          {useDraggableDashboard 
+            ? t('dashboard.switchToStandard', 'Switch to Standard Dashboard')
+            : t('dashboard.switchToCustomizable', 'Switch to Customizable Dashboard')}
+        </button>
+      </div>
+      
+      {/* Render the appropriate dashboard */}
       <Suspense fallback={<SkeletonCard className="h-96" />}>
-        <ImprovedDashboard />
+        {useDraggableDashboard ? <EnhancedDraggableDashboard /> : <ImprovedDashboard />}
       </Suspense>
       
       {/* Test Data Warning Modal */}
@@ -113,4 +136,6 @@ export default function Dashboard() {
       />
     </PageWrapper>
   );
-}
+});
+
+export default Dashboard;

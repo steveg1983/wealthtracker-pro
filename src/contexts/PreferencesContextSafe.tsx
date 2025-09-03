@@ -36,7 +36,7 @@ interface PreferencesContextType {
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
 
 export function PreferencesProvider({ children }: { children: ReactNode }) {
-  console.log('PreferencesProvider initializing...');
+  logger.debug('PreferencesProvider initializing...');
   
   // Use simple defaults without localStorage for testing
   const [compactView, setCompactView] = useState(true); // Default to compact view
@@ -56,7 +56,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
   const actualTheme = 'light'; // Simplified for testing
 
-  console.log('PreferencesProvider state initialized');
+  logger.debug('PreferencesProvider state initialized');
 
   const value = {
     compactView,
@@ -82,7 +82,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     setEnableGoalCelebrations,
   };
 
-  console.log('PreferencesProvider rendering with value:', value);
+  logger.debug('PreferencesProvider rendering', value);
 
   return (
     <PreferencesContext.Provider value={value}>

@@ -208,11 +208,11 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
       )}
 
       {/* Info Section */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6">
-        <h4 className="font-semibold text-blue-900 dark:text-blue-300 mb-2">
+      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
+        <h4 className="font-semibold text-gray-900 dark:text-white mb-2">
           How It Works
         </h4>
-        <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-400">
+        <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
           <li>• Your bank credentials are never stored in the app</li>
           <li>• Connections are secured using bank-level encryption</li>
           <li>• Transactions sync automatically every 24 hours</li>

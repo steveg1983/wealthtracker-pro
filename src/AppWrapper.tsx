@@ -39,7 +39,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryS
 }
 
 export default function AppWrapper(): React.JSX.Element {
-  console.log('AppWrapper rendering...');
+  logger.debug('AppWrapper rendering...');
   
   return (
     <AppErrorBoundary>

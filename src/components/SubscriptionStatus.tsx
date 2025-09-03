@@ -1,5 +1,13 @@
 import React from 'react';
-import { Check, X, AlertCircle, CreditCard, Crown, Zap, Users } from 'lucide-react';
+import { 
+  CheckIcon as Check,
+  XIcon as X,
+  AlertCircleIcon as AlertCircle,
+  CreditCardIcon as CreditCard,
+  CrownIcon as Crown,
+  ZapIcon as Zap,
+  UsersIcon as Users
+} from './icons';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { formatDistanceToNow } from 'date-fns';
 import { logger } from '../services/loggingService';

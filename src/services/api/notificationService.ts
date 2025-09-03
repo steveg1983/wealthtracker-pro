@@ -184,7 +184,7 @@ export class NotificationServiceAPI {
    */
   static subscribeToNotifications(
     userId: string,
-    onUpdate: (payload: any) => void
+    onUpdate: (payload: unknown) => void
   ): () => void {
     if (!supabase) return () => {};
 

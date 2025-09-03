@@ -416,14 +416,14 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
       </div>
 
       {/* Insights */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-6">
+      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-6 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
         <div className="flex items-start gap-3">
-          <InfoIcon size={24} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+          <InfoIcon size={24} className="text-amber-600 dark:text-amber-400 mt-0.5" />
           <div>
-            <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
               Allocation Insights
             </h3>
-            <ul className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
+            <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
               {allocations.length > 0 && (
                 <>
                   <li>• Your portfolio is spread across {allocations.length} different {groupBy === 'assetClass' ? 'asset classes' : groupBy === 'account' ? 'accounts' : 'securities'}</li>

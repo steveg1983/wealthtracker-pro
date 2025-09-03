@@ -174,7 +174,7 @@ class OfflineStorageService {
 
     try {
       const operations = await this.getPendingOperations();
-      console.log(`[OfflineStorage] Syncing ${operations.length} operations`);
+      logger.info('[OfflineStorage] Syncing operations', { count: operations.length });
 
       for (const operation of operations) {
         try {

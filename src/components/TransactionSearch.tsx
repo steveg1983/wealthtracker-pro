@@ -1,5 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Search, X, Filter, Calendar, DollarSign, Tag, FileText } from 'lucide-react';
+import { 
+  SearchIcon as Search,
+  XIcon as X,
+  FilterIcon as Filter,
+  CalendarIcon as Calendar,
+  DollarSignIcon as DollarSign,
+  TagIcon as Tag,
+  FileTextIcon as FileText
+} from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Transaction } from '../types';
 import { debounce } from 'lodash';

@@ -83,6 +83,18 @@ import { describe, it, expect, vi } from 'vitest';
 // Always use --run flag
 ```
 
+### 7. Testing Excellence - Real Tests, Not Mocks
+**CRITICAL PRINCIPLE**: "If it's not tested against real infrastructure, it's not tested."
+- NO mocked external services - use real test databases
+- NO vi.mock() for Supabase, Clerk, or APIs
+- ALL tests must run against real infrastructure
+- Test with real data, real auth, real databases
+- Only mock browser APIs and event handlers
+
+**📚 Testing Documentation**:
+- See `docs/TESTING_TRANSFORMATION_REPORT.md` for complete mock-to-real migration details
+- See `docs/TEST_COMPATIBILITY_REPORT.md` for test patterns and best practices
+
 #### ID Management (Critical)
 ```typescript
 // NEVER mix Clerk IDs with DB queries

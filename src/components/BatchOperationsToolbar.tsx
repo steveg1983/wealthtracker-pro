@@ -75,7 +75,7 @@ export function BatchOperationsToolbar({
   );
 
   return (
-    <div className={`bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 ${className}`}>
+    <div className={`bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600 ${className}`}>
       <div className="flex items-center justify-between flex-wrap gap-4">
         {/* Selection Info */}
         <div className="flex items-center gap-4">

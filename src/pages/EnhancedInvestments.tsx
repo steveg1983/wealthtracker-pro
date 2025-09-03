@@ -45,9 +45,9 @@ export default function EnhancedInvestments() {
 
   const renderRebalancing = () => (
     <div className="space-y-6">
-      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Portfolio Rebalancing</h3>
-        <p className="text-sm text-blue-700 dark:text-blue-200">
+      <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
+        <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Portfolio Rebalancing</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
           Keep your portfolio aligned with your target asset allocation.
         </p>
       </div>
@@ -466,12 +466,12 @@ export default function EnhancedInvestments() {
 
       {/* Insights */}
       {insights.length > 0 && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 mb-6">
+        <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 mb-6 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
           <div className="flex items-start gap-3">
-            <InfoIcon size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
+            <InfoIcon size={20} className="text-amber-600 dark:text-amber-400 mt-0.5" />
             <div className="space-y-2">
               {insights.map((insight, index) => (
-                <p key={index} className="text-sm text-blue-800 dark:text-blue-200">
+                <p key={index} className="text-sm text-gray-600 dark:text-gray-400">
                   {insight}
                 </p>
               ))}

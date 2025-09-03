@@ -433,7 +433,7 @@ export async function migrateFromLocalStorage<T = JsonValue>(
     }
 
     // Keep localStorage as backup for now
-    console.log(`Migrated ${items.length} items from localStorage to IndexedDB`);
+    logger.info('Migrated items from localStorage to IndexedDB', { count: items.length });
   } catch (error) {
     logger.error(`Failed to migrate ${localStorageKey}:`, error);
   }

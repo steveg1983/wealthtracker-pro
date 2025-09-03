@@ -33,7 +33,7 @@ export function useAccessibilityAudit(options: UseAccessibilityAuditOptions = {}
       // Log results in development
       if (process.env.NODE_ENV === 'development') {
         console.group('🔍 Accessibility Audit Results');
-        console.log(`Found ${auditResults.length} issues`);
+        logger.info('Accessibility audit results', { issues: auditResults.length });
         
         const errors = auditResults.filter(i => i.type === 'error');
         const warnings = auditResults.filter(i => i.type === 'warning');
@@ -87,7 +87,7 @@ export function useAccessibilityAudit(options: UseAccessibilityAuditOptions = {}
         // Ctrl/Cmd + Shift + A for Accessibility audit
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
           e.preventDefault();
-          console.log('🔍 Running accessibility audit...');
+          logger.info('Running accessibility audit...');
           runAudit();
         }
       };
