@@ -70,7 +70,8 @@ export default defineConfig({
         manualChunks: (id) => {
           if (!id.includes('node_modules')) return undefined
           const clean = id.replace(/.*node_modules\//, '')
-          if (clean.startsWith('react/') || clean === 'react' || clean.startsWith('react-dom/')) return 'react'
+          // Keep React and related libraries together
+          if (clean.includes('react')) return 'react'
           if (clean.includes('@supabase')) return 'supabase'
           if (clean.includes('@clerk')) return 'auth'
           if (clean.includes('plotly') || clean.includes('recharts') || clean.includes('chart.js')) return 'charts'
@@ -89,12 +90,8 @@ export default defineConfig({
         interop: 'esModule'
       }
     },
-    // Conservative tree-shaking to preserve React and its dependencies
-    treeshake: {
-      preset: 'smallest',
-      moduleSideEffects: true,
-      propertyReadSideEffects: true
-    },
+    // Disable tree-shaking completely due to React bundling issues
+    treeshake: false,
     // Use terser for better minification
     minify: 'terser',
     terserOptions: {
