@@ -152,11 +152,11 @@ function analyzeBundle() {
     console.log('  • Analyze bundle composition with webpack-bundle-analyzer');
   }
   
-  if (jsFiles.length > 10) {
+  if (js.length > 10) {
     console.log('  • Consider combining smaller JS chunks');
   }
   
-  if (cssFiles.length > 5) {
+  if (css.length > 5) {
     console.log('  • Consider CSS optimization and combining');
   }
 

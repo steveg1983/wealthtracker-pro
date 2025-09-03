@@ -15,7 +15,7 @@ export default defineConfig({
       // implement node event listeners here
       on('task', {
         log(message) {
-          console.log(message);
+          // Task logging handled internally
           return null;
         },
       });

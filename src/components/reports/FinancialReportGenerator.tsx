@@ -210,8 +210,7 @@ export default function FinancialReportGenerator(): React.JSX.Element {
           break;
       }
       
-      // Show success message
-      console.log('Report generated successfully');
+      // Report generated successfully
     } catch (error) {
       console.error('Error generating report:', error);
     } finally {
