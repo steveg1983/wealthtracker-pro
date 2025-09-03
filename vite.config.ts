@@ -32,10 +32,7 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
       // Fix for recharts es-toolkit import issue
       // This ensures recharts gets the correct export format
-      'es-toolkit/compat/get': 'lodash-es/get',
-      // Fix for Sentry expecting React to be available
-      'react': path.resolve(__dirname, 'node_modules/react'),
-      'react-dom': path.resolve(__dirname, 'node_modules/react-dom')
+      'es-toolkit/compat/get': 'lodash-es/get'
     }
   },
   server: {
@@ -66,8 +63,50 @@ export default defineConfig({
     },
     rollupOptions: {
       output: {
-        // Use default Vite chunking to avoid circular dependencies
-        manualChunks: undefined,
+        // Enterprise-grade chunking strategy for optimal performance
+        manualChunks: (id) => {
+          if (!id.includes('node_modules')) return undefined
+          
+          const module = id.replace(/.*node_modules\//, '').replace(/\/.*/, '')
+          
+          // Core React ecosystem
+          if (['react', 'react-dom', 'react-router-dom', 'react-is'].includes(module)) {
+            return 'react-vendor'
+          }
+          
+          // State management
+          if (['@reduxjs', 'react-redux'].some(lib => module.startsWith(lib))) {
+            return 'state-management'
+          }
+          
+          // UI components
+          if (['@radix-ui', '@headlessui', '@tabler'].some(lib => module.startsWith(lib))) {
+            return 'ui-components'
+          }
+          
+          // Authentication & backend
+          if (['@clerk', '@supabase'].some(lib => module.startsWith(lib))) {
+            return 'auth-services'
+          }
+          
+          // Charts - separate heavy libraries
+          if (module === 'recharts') return 'charts-recharts'
+          if (module.includes('plotly')) return 'charts-plotly'
+          if (module.includes('chart.js') || module === 'react-chartjs-2') return 'charts-other'
+          
+          // Heavy libraries
+          if (module === 'xlsx') return 'heavy-xlsx'
+          if (['jspdf', 'html2canvas'].includes(module)) return 'heavy-pdf'
+          if (module.includes('tesseract')) return 'heavy-ocr'
+          
+          // Utilities
+          if (['date-fns', 'decimal.js', 'clsx', 'tailwind-merge'].includes(module)) {
+            return 'utils'
+          }
+          
+          // Default vendor chunk for everything else
+          return 'vendor'
+        },
         // Use content hash for better caching
         entryFileNames: 'assets/[name]-[hash].js',
         chunkFileNames: (chunkInfo) => {
@@ -112,9 +151,7 @@ export default defineConfig({
       },
       mangle: {
         safari10: true,
-        keep_fnames: false, // Don't keep function names to save space
-        // CRITICAL: Preserve React internals
-        reserved: ['React', 'ReactDOM', 'ReactDOMClient', '__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED']
+        keep_fnames: false // Don't keep function names to save space
       },
       format: {
         comments: false,

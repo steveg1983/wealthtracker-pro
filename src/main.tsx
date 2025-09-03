@@ -1,5 +1,3 @@
-// Import React fix first to ensure React is available globally in production
-import './lib/react-fix'
 import { StrictMode } from 'react'
 // Route console.* to centralized logger in production (no-op in dev)
 import './setup/consoleToLogger'
