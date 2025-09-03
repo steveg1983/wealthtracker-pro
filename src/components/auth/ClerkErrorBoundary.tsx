@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { Component, ErrorInfo, ReactNode } from 'react';
 import { 
   AlertTriangleIcon as AlertTriangle,
   RefreshCwIcon as RefreshCw,
@@ -58,8 +58,8 @@ export class ClerkErrorBoundary extends Component<Props, State> {
     logger.error('Clerk authentication error:', error, errorInfo);
     
     // Log to error tracking service if available
-    if (window.Sentry) {
-      window.Sentry.captureException(error, {
+    if ((window as any).Sentry) {
+      (window as any).Sentry.captureException(error, {
         contexts: {
           react: {
             componentStack: errorInfo.componentStack
@@ -122,7 +122,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
             {/* Header */}
             <div className={`px-6 py-4 ${
@@ -162,7 +162,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
                         href="https://www.google.com/chrome/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 px-3 py-2 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/40 transition-colors text-sm"
+                        className="flex items-center gap-2 px-3 py-2 bg-blue-100 dark:bg-gray-900/30 text-blue-700 dark:text-gray-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/40 transition-colors text-sm"
                       >
                         <Chrome size={16} />
                         Chrome
@@ -202,7 +202,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
               <div className="flex flex-col gap-2 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <button
                   onClick={this.handleReload}
-                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                  className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <RefreshCw size={18} />
                   Try Again
