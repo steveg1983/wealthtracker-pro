@@ -155,7 +155,7 @@ export class PerformanceMonitor {
 
   logMetrics(): void {
     const metrics = this.getMetrics();
-    console.group('📊 Performance Metrics');
+    logger.info('📊 Performance Metrics', { type: 'performance-start' });
     
     if (metrics.domContentLoaded) {
       logger.info('Performance DOM Content Loaded', { ms: Number(metrics.domContentLoaded.toFixed(2)) });
@@ -182,7 +182,7 @@ export class PerformanceMonitor {
       });
     }
     
-    console.groupEnd();
+    logger.info('📊 Performance Metrics', { type: 'performance-end' });
   }
 
   private formatBytes(bytes: number): string {

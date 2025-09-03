@@ -69,5 +69,12 @@ export default tseslint.config([
     rules: {
       'no-console': 'off'
     }
+  },
+  // Allow console in scripts and debug tools
+  {
+    files: ['scripts/**/*.{ts,tsx}', 'src/hooks/useAccessibilityAudit.tsx'],
+    rules: {
+      'no-console': 'off'
+    }
   }
 ])

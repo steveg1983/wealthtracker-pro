@@ -96,7 +96,7 @@ function registerValidSW(swUrl: string, config?: Config): void {
               try { 
                 captureMessage('SW_UPDATE_AVAILABLE', 'info'); 
               } catch {
-                // Sentry not available, ignore
+                // Sentry not available, continue without logging
               }
               if (config && config.onUpdate) {
                 config.onUpdate(registration);
@@ -109,7 +109,7 @@ function registerValidSW(swUrl: string, config?: Config): void {
               try { 
                 captureMessage('SW_CACHED_OFFLINE', 'info'); 
               } catch {
-                // Sentry not available, ignore
+                // Sentry not available, continue without logging
               }
               if (config && config.onSuccess) {
                 config.onSuccess(registration);

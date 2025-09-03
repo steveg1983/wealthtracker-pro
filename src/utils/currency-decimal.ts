@@ -70,7 +70,9 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
     return data.rates;
   } catch (error) {
     logger.error('Error fetching exchange rates via API route (falling back):', error);
-    try { captureMessage('FX_FALLBACK_SERVERLESS_FAILURE', 'warning', { error: String(error) }); } catch {}
+    try { captureMessage('FX_FALLBACK_SERVERLESS_FAILURE', 'warning', { error: String(error) }); } catch {
+      // Sentry not available, continue without logging
+    }
     // Fallback to upstream directly
     try {
       const upstream = await fetch('https://api.exchangerate-api.com/v4/latest/GBP');
@@ -79,7 +81,9 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
       return data.rates;
     } catch (e) {
       logger.error('Error fetching exchange rates from upstream:', e);
-      try { captureMessage('FX_FALLBACK_UPSTREAM_FAILURE', 'warning', { error: String(e) }); } catch {}
+      try { captureMessage('FX_FALLBACK_UPSTREAM_FAILURE', 'warning', { error: String(e) }); } catch {
+        // Sentry not available, continue without logging
+      }
     }
     
     // Fallback to approximate rates if API fails
@@ -95,7 +99,9 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
       INR: 105.85,
       NZD: 2.09,
     };
-    try { captureMessage('FX_USING_STATIC_FALLBACK_RATES', 'warning', { provider: 'static' }); } catch {}
+    try { captureMessage('FX_USING_STATIC_FALLBACK_RATES', 'warning', { provider: 'static' }); } catch {
+      // Sentry not available, continue without logging
+    }
     return fallback;
   }
 }
