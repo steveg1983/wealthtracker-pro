@@ -422,12 +422,13 @@ class InvestmentService {
           updates.costBasis = investment.costBasis + transaction.totalAmount;
           break;
           
-        case 'sell':
+        case 'sell': {
           updates.quantity = Math.max(0, investment.quantity - transaction.quantity);
           // Adjust cost basis proportionally
           const sellRatio = transaction.quantity / investment.quantity;
           updates.costBasis = investment.costBasis * (1 - sellRatio);
           break;
+        }
           
         case 'split':
           // Stock split - adjust quantity
