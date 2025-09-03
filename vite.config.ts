@@ -57,6 +57,10 @@ export default defineConfig({
   build: {
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
+    commonjsOptions: {
+      transformMixedEsModules: true,
+      strictRequires: 'auto'
+    },
     rollupOptions: {
       output: {
         // Simpler chunking strategy to reduce build complexity
@@ -76,7 +80,10 @@ export default defineConfig({
           const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop()?.split('.')[0] : 'chunk';
           return `assets/${facadeModuleId}-[hash].js`;
         },
-        assetFileNames: 'assets/[name]-[hash].[ext]'
+        assetFileNames: 'assets/[name]-[hash].[ext]',
+        // Add format configuration to handle module.exports
+        format: 'es',
+        interop: 'esModule'
       }
     },
     // Aggressive tree-shaking optimizations
