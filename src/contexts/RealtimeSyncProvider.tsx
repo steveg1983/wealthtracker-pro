@@ -93,12 +93,12 @@ export function RealtimeSyncProvider({
 
   // These would need state management to be fully functional
   const setEnabled = useCallback((enabled: boolean) => {
-    console.info('Setting real-time sync enabled', { enabled });
+    logger.info('Setting real-time sync enabled', { enabled });
     // Would need to implement state management here
   }, []);
 
   const setNotificationsEnabled = useCallback((enabled: boolean) => {
-    console.info('Setting real-time sync notifications enabled', { enabled });
+    logger.info('Setting real-time sync notifications enabled', { enabled });
     // Would need to implement state management here
   }, []);
   

@@ -1,4 +1,5 @@
-# Files where console.log is allowed (setup/mock/script files)
+# Files where console.log is allowed (setup/mock/script/debug files)
 src/setup/consoleToLogger.ts
 src/mocks/syncServer.ts
 scripts/seed-test-data.ts
+src/hooks/useAccessibilityAudit.tsx

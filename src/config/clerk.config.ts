@@ -115,8 +115,8 @@ export function getClerkPublishableKey(): string {
   
   if (!key) {
     logger.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
-    console.info('Please add it to your .env.local file');
-    console.info('Get your key from: https://dashboard.clerk.com/apps/[your-app]/api-keys');
+    logger.info('Please add it to your .env.local file');
+    logger.info('Get your key from: https://dashboard.clerk.com/apps/[your-app]/api-keys');
   }
   
   return key || '';
