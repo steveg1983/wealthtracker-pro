@@ -139,7 +139,7 @@ const WidgetContent = memo(({ widget, metrics, accounts, transactions, budgets, 
         </div>
       );
       
-    case 'accounts':
+    case 'accounts': {
       const visibleAccounts = widget.isCompact ? accounts.slice(0, 3) : accounts.slice(0, 5);
       return (
         <div className="space-y-3">
@@ -162,14 +162,12 @@ const WidgetContent = memo(({ widget, metrics, accounts, transactions, budgets, 
           </button>
         </div>
       );
+    }
       
-    case 'transactions':
-      const recentTransactions = useMemo(() => 
-        transactions
+    case 'transactions': {
+      const recentTransactions = transactions
           .sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime())
-          .slice(0, widget.isCompact ? 3 : 5),
-        [transactions, widget.isCompact]
-      );
+          .slice(0, widget.isCompact ? 3 : 5);
       
       return (
         <div className="space-y-3">
@@ -192,13 +190,11 @@ const WidgetContent = memo(({ widget, metrics, accounts, transactions, budgets, 
           </button>
         </div>
       );
+    }
       
-    case 'budgets':
-      const activeBudgets = useMemo(() => budgets.filter((b: any) => b.isActive), [budgets]);
-      const overBudget = useMemo(() => 
-        activeBudgets.filter((b: any) => (b.spent || 0) > b.amount),
-        [activeBudgets]
-      );
+    case 'budgets': {
+      const activeBudgets = budgets.filter((b: any) => b.isActive);
+      const overBudget = activeBudgets.filter((b: any) => (b.spent || 0) > b.amount);
       
       return (
         <div className="space-y-4">
@@ -222,6 +218,7 @@ const WidgetContent = memo(({ widget, metrics, accounts, transactions, budgets, 
           </button>
         </div>
       );
+    }
       
     case 'savingsGoals':
       return <SavingsGoalsWidget isCompact={widget.isCompact} />;
