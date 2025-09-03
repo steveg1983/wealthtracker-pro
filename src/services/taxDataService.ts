@@ -417,7 +417,7 @@ class TaxDataService {
     }
     
     // Add state tax if provided
-    let stateTax = 0;
+    const stateTax = 0;
     if (state && state in US_FINANCIAL_CONSTANTS) {
       // Simplified state tax calculation
       // In production, would need full state tax tables

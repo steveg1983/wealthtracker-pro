@@ -593,7 +593,7 @@ class DataIntelligenceService {
         const lastTransaction = merchantTransactions[merchantTransactions.length - 1];
         
         // Calculate next payment date based on frequency
-        let nextPaymentDays = medianInterval;
+        const nextPaymentDays = medianInterval;
         const nextPaymentDate = new Date(lastTransaction.date);
         nextPaymentDate.setDate(nextPaymentDate.getDate() + nextPaymentDays);
 

@@ -190,7 +190,7 @@ class USRetirementService {
     const limits = this.constants.retirement401k.contributionLimits;
     
     // Determine catch-up eligibility and amount
-    let catchUpEligible = currentAge >= 50;
+    const catchUpEligible = currentAge >= 50;
     let catchUpAmount = 0;
     let employeeLimit = limits.employee.regular;
     
@@ -373,7 +373,7 @@ class USRetirementService {
     
     // Base premiums
     let partBPremium = medicare.partB.standardPremium;
-    let partAPremium = medicare.partA.premium; // Usually $0 with 40 quarters
+    const partAPremium = medicare.partA.premium; // Usually $0 with 40 quarters
     const partDPremium = medicare.partD.averagePremium;
     
     // Apply IRMAA (Income-Related Monthly Adjustment Amount) for Part B

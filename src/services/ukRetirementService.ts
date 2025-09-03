@@ -213,7 +213,7 @@ class UKRetirementService {
     const isaLimits = this.constants.isa;
     
     // Cap contribution at annual limit
-    let actualContribution = Math.min(
+    const actualContribution = Math.min(
       annualContribution,
       type === 'lifetime' ? isaLimits.lifetimeISA.annualLimit : isaLimits.annual.total
     );

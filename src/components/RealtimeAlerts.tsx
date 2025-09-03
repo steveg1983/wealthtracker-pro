@@ -4,7 +4,14 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, TrendingUp, TrendingDown, X, ChevronRight, Activity } from 'lucide-react';
+import { 
+  AlertCircleIcon as AlertCircle, 
+  TrendingUpIcon as TrendingUp, 
+  TrendingDownIcon as TrendingDown, 
+  XIcon as X, 
+  ChevronRightIcon as ChevronRight, 
+  ActivityIcon as Activity 
+} from './icons';
 import { useRealtimeSyncContext } from '../contexts/RealtimeSyncProvider';
 import { formatCurrency } from '../utils/formatters';
 import type { SpendingAnomaly } from '../services/advancedAnalyticsService';

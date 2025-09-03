@@ -140,14 +140,16 @@ export default function EnhancedExportManager(): React.JSX.Element {
     switch (options.dateRange) {
       case 'thisMonth':
         return { start: startOfMonth(now), end: endOfMonth(now) };
-      case 'lastMonth':
+      case 'lastMonth': {
         const lastMonth = subMonths(now, 1);
         return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+      }
       case 'thisYear':
         return { start: startOfYear(now), end: endOfYear(now) };
-      case 'lastYear':
+      case 'lastYear': {
         const lastYear = new Date(now.getFullYear() - 1, 0, 1);
         return { start: startOfYear(lastYear), end: endOfYear(lastYear) };
+      }
       case 'custom':
         return {
           start: options.startDate ? new Date(options.startDate) : now,

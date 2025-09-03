@@ -195,7 +195,7 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
     }
     
     // Sort debts based on strategy
-    let sortedDebts = [...selectedDebts];
+    const sortedDebts = [...selectedDebts];
     if (strategy === 'avalanche') {
       // Highest interest rate first
       sortedDebts.sort((a, b) => b.apr - a.apr);
@@ -209,7 +209,7 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
     
     // Simulate payoff month by month
     const projections: PayoffStrategy['projections'] = [];
-    let currentBalances = Object.fromEntries(
+    const currentBalances = Object.fromEntries(
       sortedDebts.map(d => [d.account.id, d.balance])
     );
     let month = 0;

@@ -9,7 +9,10 @@ export default function RealtimeSyncTest() {
 
   const addStatus = (message: string) => {
     // Use console-like output in UI; log via logger for dev traces
-    try { const { logger } = require('../services/loggingService'); logger.info('[RealtimeSyncTest]', message); } catch {}
+    // Dynamic import for optional logging service
+    import('../services/loggingService')
+      .then(({ logger }) => logger.info('[RealtimeSyncTest]', message))
+      .catch(() => { /* Logging service not available */ });
     setTestStatus(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
   };
 
@@ -52,7 +55,10 @@ export default function RealtimeSyncTest() {
           },
           (payload) => {
             addStatus(`🎯 REALTIME EVENT RECEIVED: ${payload.eventType}`);
-            try { const { logger } = require('../services/loggingService'); logger.debug('[RealtimeSyncTest] payload', payload); } catch {}
+            // Dynamic import for optional logging service
+            import('../services/loggingService')
+              .then(({ logger }) => logger.debug('[RealtimeSyncTest] payload', payload))
+              .catch(() => { /* Logging service not available */ });
           }
         )
         .subscribe((status, error) => {

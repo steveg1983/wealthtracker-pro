@@ -98,7 +98,7 @@ export default function BillReminderWidget({
       const lastPaidDate = new Date(lastTransaction.date);
       
       // Calculate next due date
-      let nextDueDate = new Date(lastPaidDate);
+      const nextDueDate = new Date(lastPaidDate);
       switch (frequency) {
         case 'weekly':
           nextDueDate.setDate(nextDueDate.getDate() + 7);

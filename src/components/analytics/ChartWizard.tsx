@@ -321,7 +321,7 @@ export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps
 
     // Transform data based on chart type
     let traces: any[] = [];
-    let layout: any = {
+    const layout: any = {
       title: chartTitle || `${chart.name} Analysis`,
       showlegend: true,
       hovermode: 'closest',

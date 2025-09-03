@@ -414,7 +414,7 @@ class InvestmentService {
   ): Promise<void> {
     try {
       const investment = await this.getInvestment(clerkId, transaction.investmentId);
-      let updates: Partial<Investment> = {};
+      const updates: Partial<Investment> = {};
 
       switch (transaction.transactionType) {
         case 'buy':

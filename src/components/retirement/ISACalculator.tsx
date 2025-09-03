@@ -99,7 +99,7 @@ export default function ISACalculator() {
     // Adjust if over limit
     let adjustedCash = cashISAAmount;
     let adjustedStocks = stocksISAAmount;
-    let adjustedLifetime = actualLifetimeISA;
+    const adjustedLifetime = actualLifetimeISA;
     
     if (totalContribution > ISA_ANNUAL_LIMIT) {
       const excess = totalContribution - ISA_ANNUAL_LIMIT;

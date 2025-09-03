@@ -93,7 +93,11 @@ function registerValidSW(swUrl: string, config?: Config): void {
               logger.info('New content is available and will be used when all tabs are closed.');
 
               // Execute callback
-              try { captureMessage('SW_UPDATE_AVAILABLE', 'info'); } catch {}
+              try { 
+                captureMessage('SW_UPDATE_AVAILABLE', 'info'); 
+              } catch {
+                // Sentry not available, ignore
+              }
               if (config && config.onUpdate) {
                 config.onUpdate(registration);
               }
@@ -102,7 +106,11 @@ function registerValidSW(swUrl: string, config?: Config): void {
               logger.info('Content is cached for offline use.');
 
               // Execute callback
-              try { captureMessage('SW_CACHED_OFFLINE', 'info'); } catch {}
+              try { 
+                captureMessage('SW_CACHED_OFFLINE', 'info'); 
+              } catch {
+                // Sentry not available, ignore
+              }
               if (config && config.onSuccess) {
                 config.onSuccess(registration);
               }

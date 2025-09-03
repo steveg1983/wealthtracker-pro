@@ -214,7 +214,7 @@ class UKMortgageService {
     additionalProperty: boolean = false
   ): StampDutyCalculation {
     const regionalData = this.constants.stampDuty[region];
-    let thresholds = regionalData.residential.thresholds;
+    const thresholds = regionalData.residential.thresholds;
     let totalTax = 0;
     const breakdown: Array<{ band: string; amount: number; rate: number }> = [];
     

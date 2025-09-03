@@ -47,7 +47,7 @@ export default function TaxCalculator(): React.JSX.Element {
     });
     
     // Adjust NI if over pension age (UK only)
-    let adjustedResult = { ...taxResult };
+    const adjustedResult = { ...taxResult };
     if (region === 'UK' && overPensionAge) {
       adjustedResult.nationalInsurance = 0; // No NI if over state pension age
       adjustedResult.total = adjustedResult.incomeTax;
