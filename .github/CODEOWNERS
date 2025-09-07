@@ -1,0 +1,24 @@
+# CODEOWNERS — critical paths
+# Use real GitHub teams (@org/team) or users (@username)
+
+# GitHub configuration and workflows
+.github/** @steveg1983
+.github/workflows/** @steveg1983
+
+# Infrastructure files
+Dockerfile @steveg1983
+nginx* @steveg1983
+vercel.json @steveg1983
+
+# Security-related files
+src/security/** @steveg1983
+src/services/loggingService.ts @steveg1983
+
+# Database and backend services
+src/services/**/supabase* @steveg1983
+src/services/supabaseService.ts @steveg1983
+src/lib/supabase.ts @steveg1983
+src/services/api/supabaseClient.ts @steveg1983
+
+# Default: all files require maintainer approval
+* @steveg1983
