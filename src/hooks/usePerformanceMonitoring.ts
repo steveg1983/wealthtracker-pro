@@ -23,48 +23,137 @@ interface ResourceTiming {
   type: string;
 }
 
+interface LayoutShift extends PerformanceEntry {
+  value: number;
+  hadRecentInput: boolean;
+}
+
+interface PerformanceLongTaskTiming extends PerformanceEntry {
+  duration: number;
+  startTime: number;
+}
+
 export const usePerformanceMonitoring = () => {
   // Track Core Web Vitals
   const trackWebVitals = useCallback(() => {
-    const metrics: PerformanceMetrics = {};
-
-    // Observe Largest Contentful Paint
-    const lcpObserver = new PerformanceObserver((entryList) => {
-      const entries = entryList.getEntries();
-      const lastEntry = entries[entries.length - 1] as any;
-      metrics.lcp = lastEntry.renderTime || lastEntry.loadTime;
-      logger.info('LCP', metrics.lcp);
-    });
-
-    // Observe First Input Delay
-    const fidObserver = new PerformanceObserver((entryList) => {
-      const entries = entryList.getEntries();
-      entries.forEach((entry: any) => {
-        metrics.fid = entry.processingStart - entry.startTime;
-        logger.info('FID', metrics.fid);
+    try {
+      logger.debug('Initializing performance monitoring', {
+        componentName: 'usePerformanceMonitoring'
       });
-    });
+      
+      const metrics: PerformanceMetrics = {};
 
-    // Observe Cumulative Layout Shift
-    const clsObserver = new PerformanceObserver((entryList) => {
-      let cls = 0;
-      entryList.getEntries().forEach((entry: any) => {
-        if (!entry.hadRecentInput) {
-          cls += entry.value;
+      // Observe Largest Contentful Paint
+      try {
+        const lcpObserver = new PerformanceObserver((entryList) => {
+          try {
+            const entries = entryList.getEntries();
+            if (entries.length > 0) {
+              const lastEntry = entries[entries.length - 1] as PerformanceEntry & { renderTime?: number; loadTime?: number };
+              metrics.lcp = lastEntry.renderTime || lastEntry.loadTime;
+              logger.info('LCP measured:', metrics.lcp, 'usePerformanceMonitoring');
+            }
+          } catch (error) {
+            logger.error('Error processing LCP entry:', error, 'usePerformanceMonitoring');
+          }
+        });
+
+        
+        if ('observe' in lcpObserver) {
+          lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
         }
-      });
-      metrics.cls = cls;
-      logger.info('CLS', metrics.cls);
-    });
+      } catch (error) {
+        logger.error('Failed to setup LCP observer:', error, 'usePerformanceMonitoring');
+      }
 
-    // Observe Interaction to Next Paint
-    const inpObserver = new PerformanceObserver((entryList) => {
-      const entries = entryList.getEntries();
-      entries.forEach((entry: any) => {
-        metrics.inp = entry.duration;
-        logger.info('INP', metrics.inp);
-      });
-    });
+      // Observe First Input Delay
+      try {
+        const fidObserver = new PerformanceObserver((entryList) => {
+          try {
+            const entries = entryList.getEntries();
+            entries.forEach((entry) => {
+              try {
+                const fidEntry = entry as PerformanceEventTiming;
+                if (fidEntry.processingStart && fidEntry.startTime) {
+                  metrics.fid = fidEntry.processingStart - fidEntry.startTime;
+                  logger.info('FID measured:', metrics.fid, 'usePerformanceMonitoring');
+                }
+              } catch (entryError) {
+                logger.error('Error processing FID entry:', entryError, 'usePerformanceMonitoring');
+              }
+            });
+          } catch (error) {
+            logger.error('Error processing FID entries:', error, 'usePerformanceMonitoring');
+          }
+        });
+        
+        if ('observe' in fidObserver) {
+          fidObserver.observe({ type: 'first-input', buffered: true });
+        }
+      } catch (error) {
+        logger.error('Failed to setup FID observer:', error, 'usePerformanceMonitoring');
+      }
+
+      // Observe Cumulative Layout Shift
+      try {
+        const clsObserver = new PerformanceObserver((entryList) => {
+          try {
+            let cls = 0;
+            entryList.getEntries().forEach((entry) => {
+              try {
+                const layoutEntry = entry as LayoutShift;
+                if (typeof layoutEntry.value === 'number' && !layoutEntry.hadRecentInput) {
+                  cls += layoutEntry.value;
+                }
+              } catch (entryError) {
+                logger.error('Error processing CLS entry:', entryError, 'usePerformanceMonitoring');
+              }
+            });
+            metrics.cls = cls;
+            logger.info('CLS measured:', metrics.cls, 'usePerformanceMonitoring');
+          } catch (error) {
+            logger.error('Error processing CLS entries:', error, 'usePerformanceMonitoring');
+          }
+        });
+        
+        if ('observe' in clsObserver) {
+          clsObserver.observe({ type: 'layout-shift', buffered: true });
+        }
+      } catch (error) {
+        logger.error('Failed to setup CLS observer:', error, 'usePerformanceMonitoring');
+      }
+
+      // Observe Interaction to Next Paint
+      try {
+        const inpObserver = new PerformanceObserver((entryList) => {
+          try {
+            const entries = entryList.getEntries();
+            entries.forEach((entry) => {
+              try {
+                const inpEntry = entry as PerformanceEventTiming;
+                if (typeof inpEntry.duration === 'number') {
+                  metrics.inp = inpEntry.duration;
+                  logger.info('INP measured:', metrics.inp, 'usePerformanceMonitoring');
+                }
+              } catch (entryError) {
+                logger.error('Error processing INP entry:', entryError, 'usePerformanceMonitoring');
+              }
+            });
+          } catch (error) {
+            logger.error('Error processing INP entries:', error, 'usePerformanceMonitoring');
+          }
+        });
+        
+        if ('observe' in inpObserver) {
+          inpObserver.observe({ type: 'event', buffered: true });
+        }
+      } catch (error) {
+        logger.error('Failed to setup INP observer:', error, 'usePerformanceMonitoring');
+      }
+      
+    } catch (error) {
+      logger.error('Failed to initialize performance monitoring:', error, 'usePerformanceMonitoring');
+    }
 
     try {
       lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
@@ -151,11 +240,12 @@ export const usePerformanceMonitoring = () => {
   const trackLongTasks = useCallback(() => {
     if ('PerformanceObserver' in window) {
       const observer = new PerformanceObserver((list) => {
-        list.getEntries().forEach((entry: any) => {
+        list.getEntries().forEach((entry) => {
+          const longTask = entry as PerformanceLongTaskTiming;
           logger.warn('Long task detected:', {
-            duration: entry.duration,
-            startTime: entry.startTime,
-            attribution: entry.attribution
+            duration: longTask.duration,
+            startTime: longTask.startTime,
+            attribution: (entry as any)?.attribution
           });
         });
       });
@@ -171,7 +261,14 @@ export const usePerformanceMonitoring = () => {
   // Memory usage tracking
   const getMemoryUsage = useCallback(() => {
     if ('memory' in performance) {
-      const memory = (performance as any).memory;
+      const memory = (performance as Performance & { 
+        memory?: {
+          usedJSHeapSize: number;
+          totalJSHeapSize: number;
+          jsHeapSizeLimit: number;
+        }
+      }).memory;
+      if (!memory) return null;
       return {
         usedJSHeapSize: memory.usedJSHeapSize,
         totalJSHeapSize: memory.totalJSHeapSize,
@@ -204,7 +301,7 @@ export const usePerformanceMonitoring = () => {
   }, []);
 
   // Send metrics to analytics
-  const sendMetrics = useCallback((metrics: any) => {
+  const sendMetrics = useCallback((metrics: Record<string, unknown>) => {
     // In production, send to analytics service
     if (process.env.NODE_ENV === 'production') {
       // Example: send to Google Analytics

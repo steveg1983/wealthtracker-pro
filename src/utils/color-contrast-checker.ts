@@ -256,7 +256,14 @@ export function auditColorContrast() {
 }
 
 // Development helper
+declare global {
+  interface Window {
+    ColorContrastChecker?: typeof ColorContrastChecker;
+    auditColorContrast?: typeof auditColorContrast;
+  }
+}
+
 if (process.env.NODE_ENV === 'development') {
-  (window as any).ColorContrastChecker = ColorContrastChecker;
-  (window as any).auditColorContrast = auditColorContrast;
+  window.ColorContrastChecker = ColorContrastChecker;
+  window.auditColorContrast = auditColorContrast;
 }
