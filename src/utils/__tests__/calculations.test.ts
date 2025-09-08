@@ -102,7 +102,7 @@ describe('Calculation Utilities', () => {
 
   describe('calculateBudgetUsage', () => {
     it('calculates budget usage correctly', () => {
-      const budget = createMockBudget({ category: 'groceries', amount: 500 });
+      const budget = createMockBudget({ categoryId: 'groceries', amount: 500 });
       const transactions = [
         createMockTransaction({ category: 'groceries', amount: 150, type: 'expense' }),
         createMockTransaction({ category: 'groceries', amount: 100, type: 'expense' }),
@@ -112,7 +112,7 @@ describe('Calculation Utilities', () => {
     });
 
     it('returns 0 when no matching transactions', () => {
-      const budget = createMockBudget({ category: 'groceries', amount: 500 });
+      const budget = createMockBudget({ categoryId: 'groceries', amount: 500 });
       const transactions = [
         createMockTransaction({ category: 'utilities', amount: 50, type: 'expense' })
       ];
@@ -120,7 +120,7 @@ describe('Calculation Utilities', () => {
     });
 
     it('ignores income transactions', () => {
-      const budget = createMockBudget({ category: 'groceries', amount: 500 });
+      const budget = createMockBudget({ categoryId: 'groceries', amount: 500 });
       const transactions = [
         createMockTransaction({ category: 'groceries', amount: 150, type: 'income' }),
         createMockTransaction({ category: 'groceries', amount: 100, type: 'expense' })
@@ -131,7 +131,7 @@ describe('Calculation Utilities', () => {
 
   describe('calculateBudgetProgress', () => {
     it('calculates budget progress percentage correctly', () => {
-      const budget = createMockBudget({ category: 'groceries', amount: 500 });
+      const budget = createMockBudget({ categoryId: 'groceries', amount: 500 });
       const transactions = [
         createMockTransaction({ category: 'groceries', amount: 250, type: 'expense' })
       ];
@@ -139,7 +139,7 @@ describe('Calculation Utilities', () => {
     });
 
     it('handles overspending', () => {
-      const budget = createMockBudget({ category: 'groceries', amount: 500 });
+      const budget = createMockBudget({ categoryId: 'groceries', amount: 500 });
       const transactions = [
         createMockTransaction({ category: 'groceries', amount: 600, type: 'expense' })
       ];
@@ -147,7 +147,7 @@ describe('Calculation Utilities', () => {
     });
 
     it('returns 0 when budget amount is 0', () => {
-      const budget = createMockBudget({ category: 'groceries', amount: 0 });
+      const budget = createMockBudget({ categoryId: 'groceries', amount: 0 });
       const transactions = [
         createMockTransaction({ category: 'groceries', amount: 100, type: 'expense' })
       ];

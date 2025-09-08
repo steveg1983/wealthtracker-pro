@@ -359,7 +359,7 @@ describe('Financial Calculations', () => {
       const daysPassed = 20; // Assuming we're 20 days into the month
       
       const averageSpending = calculateAverageSpending(
-        mockTransactions.filter(t => t.category === budget.category),
+        mockTransactions.filter(t => t.category === (budget as any).categoryId),
         daysPassed
       );
       
@@ -521,9 +521,9 @@ describe('Financial Calculations', () => {
 
     it('handles missing or undefined values gracefully', () => {
       const malformedTransactions = [
-        createMockTransaction({ amount: undefined as any }),
-        createMockTransaction({ type: undefined as any }),
-        createMockTransaction({ date: undefined as any }),
+        createMockTransaction({ amount: undefined as unknown as number }),
+        createMockTransaction({ type: undefined as unknown as 'income' | 'expense' }),
+        createMockTransaction({ date: undefined as unknown as Date }),
       ];
 
       // Should not throw errors

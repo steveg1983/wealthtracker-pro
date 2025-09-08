@@ -171,10 +171,10 @@ const TestBudgetManager = () => {
   const [budgets, setBudgets] = React.useState<Budget[]>([]);
   const [spending, setSpending] = React.useState<Record<string, number>>({});
 
-  const addBudget = (category: string, amount: number) => {
+  const addBudget = (categoryId: string, amount: number) => {
     const newBudget: Budget = {
       id: Date.now().toString(),
-      category,
+      categoryId,
       amount,
       period: 'monthly',
       createdAt: new Date(),
@@ -183,10 +183,10 @@ const TestBudgetManager = () => {
     setBudgets([...budgets, newBudget]);
   };
 
-  const recordSpending = (category: string, amount: number) => {
+  const recordSpending = (categoryId: string, amount: number) => {
     setSpending(prev => ({
       ...prev,
-      [category]: (prev[category] || 0) + amount,
+      [categoryId]: (prev[categoryId] || 0) + amount,
     }));
   };
 
@@ -207,18 +207,18 @@ const TestBudgetManager = () => {
       </button>
       <div data-testid="budgets-list">
         {budgets.map(budget => {
-          const spent = spending[budget.category] || 0;
+          const spent = spending[(budget as any).categoryId] || 0;
           const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
           const remaining = Math.max(0, budget.amount - spent);
           
           return (
-            <div key={budget.id} data-testid={`budget-${budget.category}`}>
-              <div>{budget.category}: £{budget.amount}/month</div>
+            <div key={budget.id} data-testid={`budget-${(budget as any).categoryId}`}>
+              <div>{(budget as any).categoryId}: £{budget.amount}/month</div>
               <div>Spent: £{spent.toFixed(2)} ({percentage.toFixed(0)}%)</div>
               <div>Remaining: £{remaining.toFixed(2)}</div>
               <button 
-                onClick={() => recordSpending(budget.category, 50)}
-                data-testid={`spend-${budget.category}`}
+                onClick={() => recordSpending((budget as any).categoryId, 50)}
+                data-testid={`spend-${(budget as any).categoryId}`}
               >
                 Spend £50
               </button>

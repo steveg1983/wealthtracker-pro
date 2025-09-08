@@ -58,7 +58,7 @@ export const createMockAccount = (overrides: Partial<Account> = {}): Account => 
 export const createMockBudget = (overrides: Partial<Budget> = {}): Budget => ({
   id: 'test-budget-' + Math.random().toString(36).substr(2, 9),
   name: 'Test Budget',
-  category: 'groceries',
+  categoryId: 'groceries',
   amount: 500,
   period: 'monthly',
   startDate: new Date('2025-01-01'),
@@ -149,14 +149,14 @@ export const mockBudgets: Budget[] = [
   createMockBudget({
     id: 'budget-1',
     name: 'Groceries Budget',
-    category: 'groceries',
+    categoryId: 'groceries',
     amount: 600,
     spent: 250,
   }),
   createMockBudget({
     id: 'budget-2',
     name: 'Entertainment Budget',
-    category: 'entertainment',
+    categoryId: 'entertainment',
     amount: 200,
     spent: 150,
   }),
@@ -225,7 +225,7 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
     budgets?: Budget[];
     goals?: Goal[];
   };
-  wrapper?: React.ComponentType<any>;
+  wrapper?: React.ComponentType<unknown>;
 }
 
 export const renderWithProviders = (
