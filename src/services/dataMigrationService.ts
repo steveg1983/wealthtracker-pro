@@ -143,7 +143,7 @@ export class DataMigrationService {
       });
       
       // Store mapping for transaction migration
-      (window as any).__accountIdMapping = idMapping;
+      (window as Window & { __accountIdMapping?: Map<string, string> }).__accountIdMapping = idMapping;
       
       return true;
     } catch (error) {
@@ -164,7 +164,7 @@ export class DataMigrationService {
 
     try {
       // Get account ID mapping
-      const idMapping = (window as any).__accountIdMapping as Map<string, string>;
+      const idMapping = (window as Window & { __accountIdMapping?: Map<string, string> }).__accountIdMapping;
       if (!idMapping) {
         logger.error('Account ID mapping not found');
         return false;
@@ -230,8 +230,8 @@ export class DataMigrationService {
     try {
       const budgetsToInsert = budgets.map(budget => ({
         user_id: userId,
-        name: budget.name || budget.category,
-        category: budget.category,
+        name: budget.name || (budget as any).categoryId || (budget as any).category,
+        category_id: (budget as any).categoryId || (budget as any).category,
         amount: budget.amount,
         period: budget.period || 'monthly',
         start_date: budget.startDate || new Date().toISOString().split('T')[0],
