@@ -12,7 +12,10 @@ const ENABLE_COMPRESS = process.env.ENABLE_ASSET_COMPRESSION !== 'false'
 export default defineConfig({
   plugins: (
     () => {
-      const plugins = [react()]
+      const plugins = [react({ 
+        jsxRuntime: 'automatic',
+        jsxImportSource: 'react'
+      })]
       // Compress only during build, and only if enabled
       if (ENABLE_COMPRESS) {
         plugins.push(
@@ -57,55 +60,97 @@ export default defineConfig({
   build: {
     sourcemap: false,
     chunkSizeWarningLimit: 1000,
+    // World-class optimizations
+    reportCompressedSize: true,
     commonjsOptions: {
       transformMixedEsModules: true,
       strictRequires: 'auto'
     },
     rollupOptions: {
       output: {
-        // Enterprise-grade chunking strategy for optimal performance
+        // Aggressive chunking strategy to reduce bundle sizes
         manualChunks: (id) => {
           if (!id.includes('node_modules')) return undefined
           
-          const module = id.replace(/.*node_modules\//, '').replace(/\/.*/, '')
+          const module = id.replace(/.*node_modules\//, '').split('/')[0]
           
-          // Core React ecosystem
-          if (['react', 'react-dom', 'react-router-dom', 'react-is'].includes(module)) {
-            return 'react-vendor'
+          // Core React - absolutely minimal
+          if (['react', 'react-dom'].includes(module)) {
+            return 'react-core'
           }
           
-          // State management
-          if (['@reduxjs', 'react-redux'].some(lib => module.startsWith(lib))) {
-            return 'state-management'
+          // React ecosystem
+          if (['react-router-dom', 'react-is', 'react-redux'].includes(module)) {
+            return 'react-ecosystem'
           }
           
-          // UI components
-          if (['@radix-ui', '@headlessui', '@tabler'].some(lib => module.startsWith(lib))) {
-            return 'ui-components'
+          // Redux
+          if (module.startsWith('@reduxjs')) {
+            return 'redux'
           }
           
-          // Authentication & backend
-          if (['@clerk', '@supabase'].some(lib => module.startsWith(lib))) {
-            return 'auth-services'
+          // Clerk auth (large library)
+          if (module.startsWith('@clerk')) {
+            return 'clerk'
           }
           
-          // Charts - separate heavy libraries
-          if (module === 'recharts') return 'charts-recharts'
-          if (module.includes('plotly')) return 'charts-plotly'
-          if (module.includes('chart.js') || module === 'react-chartjs-2') return 'charts-other'
-          
-          // Heavy libraries
-          if (module === 'xlsx') return 'heavy-xlsx'
-          if (['jspdf', 'html2canvas'].includes(module)) return 'heavy-pdf'
-          if (module.includes('tesseract')) return 'heavy-ocr'
-          
-          // Utilities
-          if (['date-fns', 'decimal.js', 'clsx', 'tailwind-merge'].includes(module)) {
-            return 'utils'
+          // Supabase (large library)
+          if (module.startsWith('@supabase')) {
+            return 'supabase'
           }
           
-          // Default vendor chunk for everything else
-          return 'vendor'
+          // UI libraries by size
+          if (module.startsWith('@radix-ui')) return 'radix-ui'
+          if (module.startsWith('@headlessui')) return 'headless-ui'
+          if (module.startsWith('@tabler')) return 'tabler-icons'
+          
+          // Charts - each in separate chunk
+          if (module === 'recharts') return 'recharts'
+          if (module === 'd3-scale' || module === 'd3-shape' || module.startsWith('d3-')) return 'd3'
+          // Disallow chunk rules for banned chart libs (plotly/chartjs)
+          
+          // Heavy libraries - always separate
+          if (module === 'xlsx' || module === 'sheetjs-style') return 'xlsx'
+          if (module === 'jspdf') return 'jspdf'
+          if (module === 'html2canvas') return 'html2canvas'
+          if (module.includes('tesseract')) return 'tesseract'
+          
+          // Date utilities
+          if (module === 'date-fns') return 'date-fns'
+          
+          // Math libraries
+          if (module === 'decimal.js' || module === 'decimal.js-light') return 'decimal'
+          
+          // Form libraries
+          if (module === 'react-hook-form') return 'react-hook-form'
+          
+          // DnD
+          if (module.includes('dnd-kit')) return 'dnd-kit'
+          
+          // Stripe
+          if (module.startsWith('@stripe')) return 'stripe'
+          
+          // PDF reader
+          if (module === 'pdf-parse' || module.includes('pdf')) return 'pdf-libs'
+          
+          // Sentry
+          if (module.startsWith('@sentry')) return 'sentry'
+          
+          // Plaid
+          if (module.includes('plaid')) return 'plaid'
+          
+          // Small utilities bundled together
+          if (['clsx', 'tailwind-merge', 'class-variance-authority'].includes(module)) {
+            return 'class-utils'
+          }
+          
+          // Lodash and similar
+          if (module.includes('lodash') || module === 'es-toolkit') {
+            return 'lodash-utils'
+          }
+          
+          // All other small vendor libraries
+          return 'vendor-misc'
         },
         // Use content hash for better caching
         entryFileNames: 'assets/[name]-[hash].js',
@@ -113,10 +158,7 @@ export default defineConfig({
           const facadeModuleId = chunkInfo.facadeModuleId ? chunkInfo.facadeModuleId.split('/').pop()?.split('.')[0] : 'chunk';
           return `assets/${facadeModuleId}-[hash].js`;
         },
-        assetFileNames: 'assets/[name]-[hash].[ext]',
-        // Add format configuration to handle module.exports
-        format: 'es',
-        interop: 'esModule'
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     },
     // Re-enable tree-shaking with safe settings
@@ -124,7 +166,7 @@ export default defineConfig({
       moduleSideEffects: true,
       propertyReadSideEffects: false
     },
-    // Enable minification but preserve React
+    // Enable minification but preserve React (single source of truth)
     minify: 'terser',
     terserOptions: {
       compress: {
@@ -159,8 +201,6 @@ export default defineConfig({
       }
     },
     target: 'es2022', // Use more modern JavaScript for smaller bundles
-    // Report compressed size
-    reportCompressedSize: true,
     // CSS code splitting
     cssCodeSplit: true,
     // Asset inlining threshold (inline small assets)
@@ -183,9 +223,12 @@ export default defineConfig({
     esbuildOptions: {
       // Force CommonJS modules to be treated as ES modules
       mainFields: ['module', 'main'],
-      // Ensure React is available globally for libraries that expect it
+      // Ensure proper JSX runtime detection
+      jsx: 'automatic',
+      jsxImportSource: 'react',
+      // Define process.env properly for different environments
       define: {
-        'process.env.NODE_ENV': '"production"'
+        'process.env.NODE_ENV': process.env.NODE_ENV === 'production' ? '"production"' : '"development"'
       }
     }
   }
