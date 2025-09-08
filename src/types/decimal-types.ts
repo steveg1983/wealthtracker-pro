@@ -70,11 +70,16 @@ export interface DecimalTransaction {
   };
 }
 
+/**
+ * DecimalBudget represents a budget for decimal-based calculations.
+ * Note: `category` holds the categoryId string of the budget's category.
+ */
 export interface DecimalBudget {
   id: string;
+  /** categoryId string of the associated category */
   category: string;
   amount: DecimalInstance;
-  period: 'monthly' | 'weekly' | 'yearly';
+  period: 'monthly' | 'weekly' | 'yearly' | 'quarterly';
   isActive: boolean;
   createdAt: Date;
 }
