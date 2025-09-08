@@ -91,7 +91,7 @@ class SharedFinanceService {
     try {
       const budgetsData = localStorage.getItem(this.BUDGETS_KEY);
       if (budgetsData) {
-        this.sharedBudgets = JSON.parse(budgetsData).map((b: any) => ({
+        this.sharedBudgets = JSON.parse(budgetsData).map((b: SharedBudget) => ({
           ...b,
           createdAt: new Date(b.createdAt),
           updatedAt: b.updatedAt ? new Date(b.updatedAt) : undefined,
@@ -101,12 +101,12 @@ class SharedFinanceService {
 
       const goalsData = localStorage.getItem(this.GOALS_KEY);
       if (goalsData) {
-        this.sharedGoals = JSON.parse(goalsData).map((g: any) => ({
+        this.sharedGoals = JSON.parse(goalsData).map((g: SharedGoal) => ({
           ...g,
           createdAt: new Date(g.createdAt),
           targetDate: new Date(g.targetDate),
           lastModifiedAt: g.lastModifiedAt ? new Date(g.lastModifiedAt) : undefined,
-          contributors: g.contributors.map((c: any) => ({
+          contributors: g.contributors.map((c: GoalContributor) => ({
             ...c,
             lastContribution: c.lastContribution ? new Date(c.lastContribution) : undefined
           }))
@@ -115,7 +115,7 @@ class SharedFinanceService {
 
       const approvalsData = localStorage.getItem(this.APPROVALS_KEY);
       if (approvalsData) {
-        this.approvals = JSON.parse(approvalsData).map((a: any) => ({
+        this.approvals = JSON.parse(approvalsData).map((a: BudgetApproval) => ({
           ...a,
           requestedAt: new Date(a.requestedAt),
           reviewedAt: a.reviewedAt ? new Date(a.reviewedAt) : undefined
@@ -124,7 +124,7 @@ class SharedFinanceService {
 
       const activitiesData = localStorage.getItem(this.ACTIVITIES_KEY);
       if (activitiesData) {
-        this.activities = JSON.parse(activitiesData).map((a: any) => ({
+        this.activities = JSON.parse(activitiesData).map((a: SharedFinanceActivity) => ({
           ...a,
           timestamp: new Date(a.timestamp)
         }));
@@ -181,10 +181,10 @@ class SharedFinanceService {
       'budget_created',
       sharedBudget.id,
       'budget',
-      budget.name || `${budget.category} Budget`,
+      budget.name || 'Budget',
       createdBy,
       createdByName,
-      `Created shared budget for ${budget.category}`,
+      `Created shared budget for ${(budget as any).categoryId || ''}`,
       budget.amount
     );
 
@@ -231,7 +231,7 @@ class SharedFinanceService {
       'budget_modified',
       budgetId,
       'budget',
-      budget.name || `${budget.category} Budget`,
+      budget.name || 'Budget',
       updatedBy,
       updatedByName,
       'Updated shared budget',
@@ -388,7 +388,7 @@ class SharedFinanceService {
 
     transactions
       .filter(t => 
-        t.category === budget.category &&
+        t.category === ((budget as any).categoryId || (budget as any).category) &&
         t.type === 'expense' &&
         new Date(t.date) >= startOfPeriod &&
         new Date(t.date) <= endOfPeriod
@@ -517,15 +517,15 @@ class SharedFinanceService {
     if (currentSpending > budget.amount && !budget.isExceeded) {
       budget.isExceeded = true;
       this.logActivity(
-        'budget_exceeded',
-        budgetId,
-        'budget',
-        budget.name || `${budget.category} Budget`,
-        memberId,
-        memberName,
-        `Budget exceeded! Spent ${currentSpending} of ${budget.amount}`,
-        currentSpending
-      );
+      'budget_exceeded',
+      budgetId,
+      'budget',
+      budget.name || 'Budget',
+      memberId,
+      memberName,
+      `Budget exceeded! Spent ${currentSpending} of ${budget.amount}`,
+      currentSpending
+    );
       this.saveData();
       return true;
     }

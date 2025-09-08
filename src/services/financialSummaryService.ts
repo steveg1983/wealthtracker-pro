@@ -198,8 +198,9 @@ class FinancialSummaryService {
 
     // Budget performance
     const budgetPerformance = budgets.map(budget => {
+      const categoryId = (budget as any).categoryId || (budget as any).category;
       const budgetTransactions = periodTransactions.filter(t => 
-        t.type === 'expense' && t.category === budget.category
+        t.type === 'expense' && t.category === categoryId
       );
       const spent = budgetTransactions.reduce(
         (sum, t) => sum.plus(toDecimal(t.amount)), 

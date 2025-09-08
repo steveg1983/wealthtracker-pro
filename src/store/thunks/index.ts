@@ -1,7 +1,7 @@
 import { createAsyncThunk } from '@reduxjs/toolkit';
 import { AppDispatch, RootState } from '../index';
 import Decimal from 'decimal.js';
-import type { Transaction } from '../../types';
+import type { Transaction, Budget } from '../../types';
 import { 
   addTransaction as addTransactionAction,
   updateTransaction as updateTransactionAction,
@@ -89,7 +89,7 @@ export const addTransaction = createAsyncThunk<
       // Update budget spent
       if (transactionData.type === 'expense' && transactionData.category) {
         const budgets = state.budgets.budgets.filter(b => 
-          b.category === transactionData.category &&
+          b.categoryId === transactionData.category &&
           isTransactionInBudgetPeriod(transactionData.date, b)
         );
         
@@ -204,7 +204,7 @@ export const deleteTransaction = createAsyncThunk<
       // Recalculate affected budgets
       if (transaction.type === 'expense' && transaction.category) {
         const budgets = stateAfter.budgets.budgets.filter(b => 
-          b.category === transaction.category &&
+          b.categoryId === transaction.category &&
           isTransactionInBudgetPeriod(transaction.date, b)
         );
         
@@ -251,11 +251,11 @@ function calculateAccountBalance(
 
 function calculateBudgetSpent(
   transactions: Transaction[],
-  budget: any
+  budget: Budget
 ): number {
   const budgetTransactions = transactions.filter(t =>
     t.type === 'expense' &&
-    t.category === budget.category &&
+    t.category === budget.categoryId &&
     isTransactionInBudgetPeriod(t.date, budget)
   );
   
@@ -266,7 +266,7 @@ function calculateBudgetSpent(
 
 function isTransactionInBudgetPeriod(
   transactionDate: Date | string,
-  budget: any
+  budget: Budget
 ): boolean {
   const date = new Date(transactionDate);
   const now = new Date();
@@ -275,6 +275,20 @@ function isTransactionInBudgetPeriod(
     case 'monthly':
       return date.getMonth() === now.getMonth() && 
              date.getFullYear() === now.getFullYear();
+    case 'weekly': {
+      // Define week as Monday 00:00:00 to Sunday 23:59:59 local time
+      const startOfWeek = new Date(now);
+      startOfWeek.setHours(0, 0, 0, 0);
+      // JS getDay(): 0=Sun,1=Mon,...6=Sat; compute days since Monday
+      const daysSinceMonday = (now.getDay() + 6) % 7;
+      startOfWeek.setDate(now.getDate() - daysSinceMonday);
+
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + 6);
+      endOfWeek.setHours(23, 59, 59, 999);
+
+      return date >= startOfWeek && date <= endOfWeek;
+    }
     case 'quarterly': {
       const quarter = Math.floor(date.getMonth() / 3);
       const currentQuarter = Math.floor(now.getMonth() / 3);
@@ -327,7 +341,7 @@ function recalculateAffectedBudgets(
   // Check old transaction's budget
   if (oldTransaction.type === 'expense' && oldTransaction.category) {
     const oldBudgets = state.budgets.budgets.filter(b => 
-      b.category === oldTransaction.category &&
+      b.categoryId === oldTransaction.category &&
       isTransactionInBudgetPeriod(oldTransaction.date, b)
     );
     oldBudgets.forEach(b => affectedBudgetIds.add(b.id));
@@ -336,7 +350,7 @@ function recalculateAffectedBudgets(
   // Check new transaction's budget
   if (newTransaction.type === 'expense' && newTransaction.category) {
     const newBudgets = state.budgets.budgets.filter(b => 
-      b.category === newTransaction.category &&
+      b.categoryId === newTransaction.category &&
       isTransactionInBudgetPeriod(newTransaction.date, b)
     );
     newBudgets.forEach(b => affectedBudgetIds.add(b.id));

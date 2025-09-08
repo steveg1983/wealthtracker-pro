@@ -11,7 +11,7 @@ export interface SearchResult {
   data: Account | Transaction | Budget | Goal | { id: string; name: string };
   score: number;
   matches: string[];
-  icon?: React.ComponentType<any>;
+  icon?: React.ComponentType<{ className?: string }>;
 }
 
 export function useGlobalSearch(query: string): {
@@ -120,7 +120,8 @@ export function useGlobalSearch(query: string): {
     // Search budgets
     budgets.forEach(budget => {
       try {
-        const categoryScore = calculateScore(getCategoryName(budget.category), searchTerms);
+        const categoryId = (budget as any).categoryId || (budget as any).category;
+        const categoryScore = calculateScore(getCategoryName(categoryId), searchTerms);
         const amountScore = calculateScore(budget.amount?.toString() || '', searchTerms);
         const periodScore = calculateScore(budget.period, searchTerms);
         
@@ -132,7 +133,7 @@ export function useGlobalSearch(query: string): {
           results.push({
             id: budget.id,
             type: 'budget',
-            title: `${getCategoryName(budget.category)} Budget`,
+            title: `${getCategoryName(categoryId)} Budget`,
             description: `${budget.period} budget - ${amount} GBP`,
             data: budget,
             score: totalScore,

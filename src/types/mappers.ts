@@ -8,9 +8,9 @@ export function accountToDTO(a: Account): AccountDTO {
   return {
     ...a,
     lastUpdated: toISOString(a.lastUpdated),
-    openingBalanceDate: toISOString(a.openingBalanceDate as any),
-    updatedAt: toISOString((a as any).updatedAt),
-    createdAt: toISOString((a as any).createdAt),
+    openingBalanceDate: toISOString(a.openingBalanceDate),
+    updatedAt: toISOString(a.updatedAt),
+    createdAt: toISOString(a.createdAt),
   }
 }
 
@@ -29,8 +29,8 @@ export function transactionToDTO(t: Transaction): TransactionDTO {
   return {
     ...t,
     date: toISOString(t.date)!,
-    reconciledDate: toISOString(t.reconciledDate as any),
-    updatedAt: toISOString((t as any).updatedAt),
+    reconciledDate: toISOString(t.reconciledDate),
+    updatedAt: toISOString(t.updatedAt),
   }
 }
 
@@ -54,13 +54,18 @@ export function budgetToDTO(b: Budget): BudgetDTO {
   return {
     ...b,
     createdAt: toISOString(b.createdAt)!,
-    updatedAt: toISOString(b.updatedAt as any),
+    updatedAt: toISOString(b.updatedAt),
   }
 }
 
 export function budgetFromDTO(b: BudgetDTO): Budget {
+  // Compatibility shim: Handle both 'category' and 'categoryId' fields
+  // This resolves the DTO/Domain shape drift identified in quality audit
+  const categoryId = (b as any).categoryId ?? (b as any).category;
+  
   return {
     ...b,
+    categoryId, // Ensure we always use categoryId in the domain model
     createdAt: toDate(b.createdAt) || new Date(),
     updatedAt: b.updatedAt ? new Date(b.updatedAt) : undefined,
   }
@@ -74,7 +79,7 @@ export function goalToDTO(g: Goal): GoalDTO {
   return {
     ...g,
     createdAt: toISOString(g.createdAt)!,
-    updatedAt: toISOString(g.updatedAt as any),
+    updatedAt: toISOString(g.updatedAt),
     targetDate: toISOString(g.targetDate)!,
   }
 }

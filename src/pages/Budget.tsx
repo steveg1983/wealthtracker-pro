@@ -46,6 +46,8 @@ export default function Budget() {
         // Convert to decimal for calculations
         const decimalBudget = {
           ...budget,
+          // Decimal helpers expect 'category' field (id). Map from categoryId.
+          category: (budget as any).category ?? budget.categoryId,
           amount: toDecimal(budget.amount),
           spent: toDecimal(0)
         };
@@ -104,7 +106,7 @@ export default function Budget() {
     const alerts = budgetsWithSpent
       .filter(budget => budget.isActive)
       .map(budget => {
-        const category = categories.find(c => c.id === budget.category);
+        const category = categories.find(c => c.id === budget.categoryId);
         if (budget.percentage >= 100) {
           return {
             budgetId: budget.id,
@@ -348,7 +350,7 @@ export default function Budget() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {budget.category}
+                  {categories.find(c => c.id === budget.categoryId)?.name || budget.categoryId}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {budget.period === 'monthly' ? 'Monthly' : 'Yearly'} budget
