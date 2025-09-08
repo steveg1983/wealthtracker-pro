@@ -42,6 +42,7 @@
     "bundle:check": "node scripts/bundle-size-check.js",
     "bundle:report": "node scripts/bundle-size-check.js --report",
     "bundle:summary": "node scripts/print-bundle-summary.mjs",
+    "cleanup:backups": "bash scripts/remove-logging-backups.sh",
     "deps:usage": "node scripts/deps-usage.mjs",
     "lighthouse": "lhci autorun",
     "lighthouse:collect": "lhci collect",
@@ -49,6 +50,7 @@
     "test:analyze": "node scripts/test-coverage-analysis.js",
     "test:generate": "node scripts/generate-test-templates.js high-priority",
     "test:generate:single": "node scripts/generate-test-templates.js single",
+    "typecheck:strict": "tsc -p tsconfig.strict.json --noEmit",
     "deploy": "./deploy.sh",
     "deploy:prod": "./deploy.sh prod",
     "vercel:login": "vercel login",
@@ -78,7 +80,7 @@
     "@types/uuid": "^10.0.0",
     "ag-grid-community": "^34.1.2",
     "ag-grid-react": "^34.1.2",
-    "chart.js": "^4.5.0",
+    
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "decimal.js": "^10.6.0",
@@ -92,9 +94,9 @@
     "jspdf-autotable": "^5.0.2",
     "lodash-es": "^4.17.21",
     "ml-matrix": "^6.12.1",
-    "plotly.js": "^3.1.0",
+    
     "react": "^18.3.1",
-    "react-chartjs-2": "^5.3.0",
+    
     "react-circular-progressbar": "^2.2.0",
     "react-dom": "^18.3.1",
     "react-dropzone": "^14.3.8",
@@ -102,7 +104,7 @@
     "react-hot-toast": "^2.6.0",
     "react-is": "^18.3.1",
     "react-markdown": "^10.1.0",
-    "react-plotly.js": "^2.6.0",
+    
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.6.3",
     "react-virtualized-auto-sizer": "^1.0.26",
@@ -116,7 +118,7 @@
     "tailwind-scrollbar": "^3.1.0",
     "tesseract.js": "^6.0.1",
     "uuid": "^11.1.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "xlsx": "0.20.3",
     "zod": "^4.0.5"
   },
   "devDependencies": {
