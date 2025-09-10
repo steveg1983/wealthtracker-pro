@@ -1,4 +1,5 @@
 // QIF file parser optimized for Microsoft Money exports
+import { logger } from '../services/loggingService';
 
 export interface ParsedAccount {
   name: string;

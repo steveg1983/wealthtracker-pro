@@ -16,7 +16,8 @@ export default defineConfig({
       '**/dist/**',
       '**/e2e/**',
       '**/*.spec.ts',
-      '**/*.spec.tsx'
+      '**/*.spec.tsx',
+      '**/backups/**'
     ],
     // Include real tests - we want to run them!
     include: [

@@ -34,9 +34,11 @@ async function getCurrentDatabaseUserId(): Promise<string | null> {
   let clerkId: string | null = null;
   
   // In the browser environment, we can access the global Clerk instance
-  if (typeof window !== 'undefined' && window.Clerk) {
-    const user = window.Clerk.user;
-    clerkId = user?.id || null;
+  if (typeof window !== 'undefined') {
+    const ClerkAny = (window as any).Clerk;
+    if (ClerkAny && ClerkAny.user) {
+      clerkId = ClerkAny.user.id || null;
+    }
   }
   
   // Fallback for SSR or when Clerk is not available
@@ -164,7 +166,7 @@ export const updateAccountInSupabase = createAsyncThunk(
         await storageAdapter.set('accounts', cachedAccounts);
         
         // Track for later sync
-        const offlineUpdates = await storageAdapter.get<any[]>('offline_account_updates') || [];
+        const offlineUpdates = await storageAdapter.get<unknown[]>('offline_account_updates') || [];
         await storageAdapter.set('offline_account_updates', [...offlineUpdates, { id, updates }]);
         
         return updatedAccount;
@@ -316,7 +318,7 @@ export const updateTransactionInSupabase = createAsyncThunk(
         await storageAdapter.set('transactions', cachedTransactions);
         
         // Track for later sync
-        const offlineUpdates = await storageAdapter.get<any[]>('offline_transaction_updates') || [];
+        const offlineUpdates = await storageAdapter.get<unknown[]>('offline_transaction_updates') || [];
         await storageAdapter.set('offline_transaction_updates', [...offlineUpdates, { id, updates }]);
         
         return updatedTransaction;

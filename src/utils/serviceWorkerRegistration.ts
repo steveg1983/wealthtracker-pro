@@ -1,5 +1,6 @@
 import { logger } from '../services/loggingService';
 import { captureMessage } from '../lib/sentry';
+import { TIME } from '../constants';
 // Service Worker Registration with enhanced update handling
 
 const isLocalhost = Boolean(
@@ -19,16 +20,24 @@ interface Config {
 
 // Store registration for external access
 let swRegistration: ServiceWorkerRegistration | null = null;
+// Store interval and event listeners for cleanup
+let updateCheckInterval: NodeJS.Timeout | null = null;
+let messageListener: ((event: MessageEvent) => void) | null = null;
+let offlineListener: (() => void) | null = null;
+let onlineListener: (() => void) | null = null;
+let controllerChangeListener: (() => void) | null = null;
 
 export function register(config?: Config): void {
-  if ('serviceWorker' in navigator) {
+  if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
     // The URL constructor is available in all browsers that support SW.
     // Safari compatibility: use fallback for import.meta.env
     let baseUrl = '/';
     try {
-      // @ts-expect-error - Safari might not support import.meta.env
-      if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) {
-        baseUrl = import.meta.env.BASE_URL;
+      // Safari guard: import.meta may be undefined
+      // Access import.meta safely with proper feature detection
+      const metaEnv = (import.meta as any)?.env;
+      if (metaEnv?.BASE_URL) {
+        baseUrl = metaEnv.BASE_URL;
       }
     } catch {
       logger.warn('Failed to access import.meta.env.BASE_URL, using default');
@@ -58,12 +67,14 @@ export function register(config?: Config): void {
       }
     });
 
-    // Set up online/offline event listeners
+    // Set up online/offline event listeners with cleanup references
     if (config?.onOffline) {
-      window.addEventListener('offline', config.onOffline);
+      offlineListener = config.onOffline;
+      window.addEventListener('offline', offlineListener);
     }
     if (config?.onOnline) {
-      window.addEventListener('online', config.onOnline);
+      onlineListener = config.onOnline;
+      window.addEventListener('online', onlineListener);
     }
   }
 }
@@ -74,10 +85,14 @@ function registerValidSW(swUrl: string, config?: Config): void {
     .then((registration) => {
       swRegistration = registration;
       
+      // Clear any existing interval before setting new one
+      if (updateCheckInterval) {
+        clearInterval(updateCheckInterval);
+      }
       // Check for updates periodically
-      setInterval(() => {
+      updateCheckInterval = setInterval(() => {
         registration.update();
-      }, 60 * 60 * 1000); // Check every hour
+      }, TIME.HOUR); // Check every hour using enterprise constant
       
       registration.onupdatefound = () => {
         const installingWorker = registration.installing;
@@ -119,8 +134,12 @@ function registerValidSW(swUrl: string, config?: Config): void {
         };
       };
       
+      // Clear any existing message listener before adding new one
+      if (messageListener) {
+        navigator.serviceWorker.removeEventListener('message', messageListener);
+      }
       // Handle messages from service worker
-      navigator.serviceWorker.addEventListener('message', (event) => {
+      messageListener = (event: MessageEvent) => {
         const { type, data } = event.data;
         
         switch (type) {
@@ -134,7 +153,8 @@ function registerValidSW(swUrl: string, config?: Config): void {
             logger.info('Sync status:', data);
             break;
         }
-      });
+      };
+      navigator.serviceWorker.addEventListener('message', messageListener);
     })
     .catch((error) => {
       logger.error('Error during service worker registration:', error);
@@ -170,10 +190,38 @@ function checkValidServiceWorker(swUrl: string, config?: Config): void {
 }
 
 export function unregister(): void {
+  // Clean up all tracked resources
+  if (updateCheckInterval) {
+    clearInterval(updateCheckInterval);
+    updateCheckInterval = null;
+  }
+  
+  if (messageListener) {
+    navigator.serviceWorker.removeEventListener('message', messageListener);
+    messageListener = null;
+  }
+  
+  if (offlineListener) {
+    window.removeEventListener('offline', offlineListener);
+    offlineListener = null;
+  }
+  
+  if (onlineListener) {
+    window.removeEventListener('online', onlineListener);
+    onlineListener = null;
+  }
+  
+  if (controllerChangeListener) {
+    navigator.serviceWorker.removeEventListener('controllerchange', controllerChangeListener);
+    controllerChangeListener = null;
+  }
+  
+  // Unregister the service worker
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.ready
       .then((registration) => {
         registration.unregister();
+        swRegistration = null;
       })
       .catch((error) => {
         logger.error(error.message);
@@ -199,10 +247,16 @@ export function skipWaiting(): void {
   if (swRegistration?.waiting) {
     swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
     
+    // Clear any existing controllerchange listener before adding new one
+    if (controllerChangeListener) {
+      navigator.serviceWorker.removeEventListener('controllerchange', controllerChangeListener);
+    }
+    
     // Reload the page when the new service worker is activated
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
+    controllerChangeListener = () => {
       window.location.reload();
-    });
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', controllerChangeListener);
   }
 }
 
@@ -219,7 +273,7 @@ export function clearCaches(): Promise<void> {
 }
 
 // Get sync status from service worker
-export function getSyncStatus(): Promise<any> {
+export function getSyncStatus(): Promise<unknown> {
   return new Promise((resolve, reject) => {
     if (!navigator.serviceWorker.controller) {
       reject(new Error('No active service worker'));

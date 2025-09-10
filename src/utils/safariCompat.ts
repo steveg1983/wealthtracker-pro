@@ -10,7 +10,7 @@ export const isSafari = () => {
 export const getEnvVar = (key: string, defaultValue: string = '') => {
   // Safari might have issues with import.meta.env
   try {
-    // @ts-expect-error
+    // Access guarded for Safari; import.meta may be undefined
     if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
       return import.meta.env[key];
     }
@@ -59,7 +59,7 @@ export const checkIndexedDBSupport = async (): Promise<boolean> => {
 export class SafariStorageFallback {
   private prefix = 'wt_fallback_';
   
-  async setItem(key: string, value: any): Promise<void> {
+  async setItem(key: string, value: unknown): Promise<void> {
     try {
       localStorage.setItem(this.prefix + key, JSON.stringify(value));
     } catch (e) {
@@ -67,7 +67,7 @@ export class SafariStorageFallback {
     }
   }
   
-  async getItem(key: string): Promise<any> {
+  async getItem(key: string): Promise<unknown> {
     try {
       const item = localStorage.getItem(this.prefix + key);
       return item ? JSON.parse(item) : null;
@@ -121,16 +121,19 @@ export const registerServiceWorkerSafari = async () => {
   }
 };
 
+// Type for UUID template literal
+type UUID = `${string}-${string}-${string}-${string}-${string}`;
+
 // Polyfill for crypto.randomUUID if not available (older Safari)
 export const ensureRandomUUID = () => {
   if (!crypto.randomUUID) {
-    crypto.randomUUID = function randomUUID() {
-      return (
-        '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c: any) =>
-          (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
-        )
+    // Fallback implementation for older Safari
+    crypto.randomUUID = function randomUUID(): UUID {
+      const s = '10000000-1000-4000-8000-100000000000'.replace(/[018]/g, (c) =>
+        ((Number(c) ^ (crypto.getRandomValues(new Uint8Array(1))[0] & 15)) >> (Number(c) / 4)).toString(16)
       );
-    };
+      return s as UUID;
+    } as () => UUID;
   }
 };
 

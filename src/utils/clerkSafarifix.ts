@@ -134,16 +134,15 @@ const applySafariFixes = () => {
 const polyfillSafari = () => {
   // Ensure Promise.allSettled exists (Safari < 13)
   if (!Promise.allSettled) {
-    Promise.allSettled = function(promises: Promise<any>[]) {
+    Promise.allSettled = function<T>(promises: Array<Promise<T>>): Promise<PromiseSettledResult<T>[]> {
       return Promise.all(
         promises.map(p => 
-          Promise.resolve(p).then(
-            value => ({ status: 'fulfilled', value }),
-            reason => ({ status: 'rejected', reason })
-          )
+          Promise.resolve(p)
+            .then((value): PromiseFulfilledResult<T> => ({ status: 'fulfilled' as const, value }))
+            .catch((reason): PromiseRejectedResult => ({ status: 'rejected' as const, reason }))
         )
       );
-    };
+    } as any;
   }
 
   // Ensure queueMicrotask exists (Safari < 12.1)
@@ -168,8 +167,8 @@ const polyfillSafari = () => {
 };
 
 // Error handler specifically for Clerk errors in Safari
-export const handleClerkSafariError = (error: any): { message: string; solution: string } => {
-  const errorStr = error?.message || error?.toString() || '';
+export const handleClerkSafariError = (error: unknown): { message: string; solution: string } => {
+  const errorStr = (error instanceof Error ? error.message : String(error)) || '';
   
   if (errorStr.includes('localStorage') || errorStr.includes('sessionStorage')) {
     return {

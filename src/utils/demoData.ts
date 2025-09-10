@@ -4,6 +4,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '../services/loggingService';
 
 // Check if we're in demo mode
 export const isDemoMode = (): boolean => {
@@ -173,7 +174,7 @@ export const generateDemoTransactions = (count: number = 50) => {
     date.setDate(date.getDate() - daysAgo);
     
     const isExpense = Math.random() > 0.2; // 80% expenses, 20% income
-    const amount = isExpense 
+    const amount: string = isExpense 
       ? -(Math.random() * 500 + 10).toFixed(2) // Expenses: -$10 to -$510
       : (Math.random() * 3000 + 1000).toFixed(2); // Income: $1000 to $4000
     
@@ -196,7 +197,7 @@ export const generateDemoTransactions = (count: number = 50) => {
       category,
       categoryName,
       accountId: demoAccounts[Math.floor(Math.random() * demoAccounts.length)].id,
-      type: parseFloat(amount) < 0 ? 'expense' : 'income',
+      type: parseFloat(String(amount)) < 0 ? 'expense' : 'income',
       isRecurring: Math.random() > 0.9,
       isPending: Math.random() > 0.95,
       tags: Math.random() > 0.7 ? ['tagged'] : [],

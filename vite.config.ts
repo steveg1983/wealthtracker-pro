@@ -19,8 +19,8 @@ export default defineConfig({
       // Compress only during build, and only if enabled
       if (ENABLE_COMPRESS) {
         plugins.push(
-          compression({ algorithm: 'gzip', threshold: 1024, deleteOriginalAssets: false, apply: 'build' }) as any,
-          compression({ algorithm: 'brotliCompress', threshold: 1024, deleteOriginalAssets: false, apply: 'build' }) as any,
+          compression({ algorithms: ['gzip'], threshold: 1024, deleteOriginalAssets: false }) as any,
+          compression({ algorithms: ['brotliCompress'], threshold: 1024, deleteOriginalAssets: false }) as any,
         )
       }
       // Bundle analyzer gated by env flag
@@ -67,6 +67,10 @@ export default defineConfig({
       strictRequires: 'auto'
     },
     rollupOptions: {
+      treeshake: {
+        moduleSideEffects: true,
+        propertyReadSideEffects: false
+      },
       output: {
         // Aggressive chunking strategy to reduce bundle sizes
         manualChunks: (id) => {
@@ -160,11 +164,6 @@ export default defineConfig({
         },
         assetFileNames: 'assets/[name]-[hash].[ext]'
       }
-    },
-    // Re-enable tree-shaking with safe settings
-    treeshake: {
-      moduleSideEffects: true,
-      propertyReadSideEffects: false
     },
     // Enable minification but preserve React (single source of truth)
     minify: 'terser',

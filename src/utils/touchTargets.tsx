@@ -1,3 +1,5 @@
+import React from 'react';
+
 /**
  * Touch target React components
  * Components for ensuring minimum touch target sizes for mobile usability
@@ -25,12 +27,14 @@ export default function TouchTarget({
 }: TouchTargetProps): React.JSX.Element {
   const touchClasses = useTouchTarget(className);
   
-  const props = {
+  const baseProps = {
     className: touchClasses,
     onClick: disabled ? undefined : onClick,
-    disabled,
-    type: Component === 'button' ? 'button' as const : undefined
   };
   
-  return <Component {...props}>{children}</Component>;
+  const props = Component === 'button' 
+    ? { ...baseProps, type: 'button' as const, disabled }
+    : baseProps;
+  
+  return React.createElement(Component, props, children);
 }

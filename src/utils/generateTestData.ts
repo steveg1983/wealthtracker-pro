@@ -1,3 +1,5 @@
+import { logger } from '../services/loggingService';
+
 export function generateTestData() {
   const today = new Date();
   
@@ -159,8 +161,6 @@ export function generateTestData() {
   const daysDiff = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
   
   const totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
-  
-  import { logger } from '../services/loggingService';
   logger.info('Test data generation', {
     startDate: startDate.toDateString(),
     endDate: endDate.toDateString(),
