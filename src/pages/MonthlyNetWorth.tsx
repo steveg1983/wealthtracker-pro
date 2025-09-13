@@ -39,7 +39,7 @@ export default function MonthlyNetWorth() {
             }]);
             return {
               ...account,
-              convertedBalance
+              convertedBalance: convertedBalance.toNumber()
             };
           })
         );

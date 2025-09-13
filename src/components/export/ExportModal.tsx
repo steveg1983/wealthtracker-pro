@@ -71,11 +71,12 @@ export default function ExportModal({
         setStartDate(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
         setEndDate(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]);
         break;
-      case 'quarter':
+      case 'quarter': {
         const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
         setStartDate(quarterStart.toISOString().split('T')[0]);
         setEndDate(new Date(quarterStart.getFullYear(), quarterStart.getMonth() + 3, 0).toISOString().split('T')[0]);
         break;
+      }
       case 'year':
         setStartDate(new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]);
         setEndDate(new Date(now.getFullYear(), 11, 31).toISOString().split('T')[0]);

@@ -25,8 +25,8 @@ export function useDataSync(): DataSyncHook {
     addAccount,
     updateAccount,
     deleteAccount,
-    dispatch
   } = useApp();
+  const dispatch = (useApp() as any).dispatch;
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(syncService.getStatus());
   const [conflicts, setConflicts] = useState<SyncConflict[]>(syncService.getConflicts());

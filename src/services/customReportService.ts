@@ -4,6 +4,38 @@ import Decimal from 'decimal.js';
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, subYears, parseISO, format } from 'date-fns';
 import { logger } from './loggingService';
 
+// Re-export types for convenience
+export type { ReportComponent } from '../components/CustomReportBuilder';
+export type ReportComponentType = 
+  | 'chart' 
+  | 'table' 
+  | 'summary' 
+  | 'kpi' 
+  | 'text'
+  | 'summary-stats'
+  | 'line-chart'
+  | 'pie-chart'
+  | 'bar-chart'
+  | 'text-block'
+  | 'category-breakdown'
+  | 'date-comparison'
+  | 'account-summary'
+  | 'transaction-list'
+  | 'budget-progress'
+  | 'goal-tracker';
+
+export interface ReportFilters {
+  dateRange: 'custom' | 'thisMonth' | 'lastMonth' | 'thisQuarter' | 'lastQuarter' | 'thisYear' | 'lastYear';
+  customStartDate?: string;
+  customEndDate?: string;
+  accounts?: string[];
+  categories?: string[];
+  tags?: string[];
+  transactionTypes?: ('income' | 'expense')[];
+  minAmount?: number;
+  maxAmount?: number;
+}
+
 class CustomReportService {
   private readonly STORAGE_KEY = 'money_management_custom_reports';
 
@@ -186,7 +218,7 @@ class CustomReportService {
       .reduce((sum, t) => sum.plus(Math.abs(t.amount)), new Decimal(0));
     
     const netIncome = income.minus(expenses);
-    const savingsRate = income.gt(0) ? netIncome.div(income).mul(100) : new Decimal(0);
+    const savingsRate = income.gt(0) ? netIncome.div(income).times(100) : new Decimal(0);
 
     const stats: Record<string, any> = {
       income: income.toNumber(),
@@ -215,7 +247,7 @@ class CustomReportService {
     config: any
   ): any {
     // Group transactions by month
-    const monthlyData = new Map<string, { income: Decimal; expenses: Decimal }>();
+    const monthlyData = new Map<string, { income: InstanceType<typeof Decimal>; expenses: InstanceType<typeof Decimal> }>();
     
     transactions.forEach(t => {
       const monthKey = format(new Date(t.date), 'yyyy-MM');
@@ -263,7 +295,7 @@ class CustomReportService {
     config: any
   ): any {
     // Group expenses by category
-    const categoryTotals = new Map<string, Decimal>();
+    const categoryTotals = new Map<string, InstanceType<typeof Decimal>>();
     
     transactions
       .filter(t => t.type === 'expense')
@@ -303,7 +335,7 @@ class CustomReportService {
     config: any
   ): any {
     // Similar to line chart but with bar format
-    const monthlyExpenses = new Map<string, Decimal>();
+    const monthlyExpenses = new Map<string, InstanceType<typeof Decimal>>();
     
     transactions
       .filter(t => t.type === 'expense')
@@ -342,6 +374,10 @@ class CustomReportService {
         const aVal = a[config.sortBy as keyof Transaction];
         const bVal = b[config.sortBy as keyof Transaction];
         
+        if (aVal === undefined || bVal === undefined) {
+          return 0;
+        }
+        
         if (config.sortOrder === 'desc') {
           return aVal > bVal ? -1 : 1;
         } else {
@@ -374,8 +410,8 @@ class CustomReportService {
   ): any {
     // Group by category with budget comparison
     const categoryData = new Map<string, {
-      actual: Decimal;
-      budget: Decimal;
+      actual: InstanceType<typeof Decimal>;
+      budget: InstanceType<typeof Decimal>;
       count: number;
     }>();
 
@@ -396,20 +432,20 @@ class CustomReportService {
 
     // Add budget data
     budgets.forEach(budget => {
-      const current = categoryData.get(budget.category) || {
+      const current = categoryData.get(budget.categoryId) || {
         actual: new Decimal(0),
         budget: new Decimal(0),
         count: 0
       };
       current.budget = new Decimal(budget.amount);
-      categoryData.set(budget.category, current);
+      categoryData.set(budget.categoryId, current);
     });
 
     // Convert to array format
     return Array.from(categoryData.entries()).map(([categoryId, data]) => {
       const category = categories.find(c => c.id === categoryId);
       const variance = data.budget.gt(0) 
-        ? data.actual.minus(data.budget).div(data.budget).mul(100)
+        ? data.actual.minus(data.budget).div(data.budget).times(100)
         : new Decimal(0);
 
       return {

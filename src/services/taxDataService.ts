@@ -677,7 +677,7 @@ class TaxDataService {
         
         if (region === 'US') {
           const tolerance = 0.01; // Allow 1 cent tolerance for rounding
-          const actualTax = result.federal;
+          const actualTax = 'federal' in result ? result.federal : 0;
           const expectedTax = testCase.expectedTax;
           
           if (Math.abs(actualTax - expectedTax) > tolerance) {
@@ -691,8 +691,8 @@ class TaxDataService {
           }
         } else {
           const tolerance = 1; // Allow £1 tolerance for rounding
-          const actualTax = result.incomeTax;
-          const actualNI = result.nationalInsurance;
+          const actualTax = 'incomeTax' in result ? result.incomeTax : 0;
+          const actualNI = 'nationalInsurance' in result ? result.nationalInsurance : 0;
           const expectedTax = testCase.expectedTax;
           const expectedNI = testCase.expectedNI || 0;
           

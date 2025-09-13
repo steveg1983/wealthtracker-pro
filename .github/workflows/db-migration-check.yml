@@ -1,0 +1,38 @@
+name: DB Migration Policy
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  ensure-migration:
+    name: Ensure migration accompanies DB changes
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine changed files
+        id: diff
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.sha }}"
+          git fetch origin "$BASE" --depth=1 || true
+          CHANGED=$(git diff --name-only "$BASE" "$HEAD")
+          echo "changed<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Enforce migration policy
+        run: |
+          echo "Changed files:\n${{ steps.diff.outputs.changed }}"
+          DB_TOUCHED=$(echo "${{ steps.diff.outputs.changed }}" | rg -n "^supabase/" | rg -v "^supabase/migrations/" | wc -l || true)
+          MIG_ADDED=$(echo "${{ steps.diff.outputs.changed }}" | rg -n "^supabase/migrations/.*\.sql$" | wc -l || true)
+          if [ "$DB_TOUCHED" -gt 0 ] && [ "$MIG_ADDED" -lt 1 ]; then
+            echo "DB or Supabase files changed without a new migration in supabase/migrations/." >&2
+            echo "Add a migration or explain with justification in the PR body (and label 'db-no-migration-justified')." >&2
+            exit 1
+          fi
+

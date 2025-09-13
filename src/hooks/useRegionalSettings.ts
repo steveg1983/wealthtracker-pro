@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 
+export type Region = 'UK' | 'US';
+
 interface RegionalSettings {
-  region: 'UK' | 'US';
+  region: Region;
   currency: 'GBP' | 'USD';
   dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY';
   timezone: string;

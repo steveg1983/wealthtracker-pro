@@ -179,7 +179,7 @@ export default function RealtimeAlerts({
                 </div>
                 {anomaly.amount && (
                   <div className="text-sm font-semibold mt-1">
-                    {formatCurrency(anomaly.amount)}
+                    {formatCurrency(anomaly.amount.toNumber())}
                   </div>
                 )}
               </div>
@@ -218,7 +218,7 @@ export default function RealtimeAlerts({
       )}
       
       {/* Connection status indicator */}
-      {syncContext?.connectionState && (
+      {syncContext && syncContext.connectionState && (
         <div className="flex items-center gap-2 px-3 py-2 text-xs 
           bg-gray-100 dark:bg-gray-800 rounded-lg">
           <div className={`w-2 h-2 rounded-full ${

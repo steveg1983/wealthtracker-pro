@@ -52,3 +52,31 @@ export const handleSupabaseError = (error: any): string => {
   }
   return 'An unexpected error occurred';
 };
+
+// Apply a custom JWT (Clerk → Supabase) for all future requests
+export function setSupabaseAuthToken(token: string): void {
+  if (!supabase) return;
+  try {
+    // For PostgREST
+    // Set auth token via headers instead
+    (supabase as any).rest.headers['Authorization'] = `Bearer ${token}`;
+    // For Realtime (optional)
+    if ((supabase as any).realtime?.setAuth) (supabase as any).realtime.setAuth(token);
+    logger.info('Supabase auth token applied');
+  } catch (error) {
+    logger.error('Failed to apply Supabase auth token', error);
+  }
+}
+
+export function clearSupabaseAuthToken(): void {
+  if (!supabase) return;
+  try {
+    // Clear auth header; we do not manage GoTrue sessions here
+    // Clear auth token via headers instead
+    (supabase as any).rest.headers['Authorization'] = '';
+    if ((supabase as any).realtime?.setAuth) (supabase as any).realtime.setAuth('');
+    logger.info('Supabase auth token cleared');
+  } catch (error) {
+    logger.error('Failed to clear Supabase auth token', error);
+  }
+}

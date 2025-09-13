@@ -17,6 +17,7 @@ export function useCurrencyDecimal(): {
   convertAndSum: (amounts: Array<{ amount: DecimalInstance | number; currency: string }>) => Promise<DecimalInstance>;
   displayCurrency: string;
   getCurrencySymbol: (currency: string) => string;
+  currencySymbol: string;
 } {
   const { currency: displayCurrency } = usePreferences();
 
@@ -67,12 +68,15 @@ export function useCurrencyDecimal(): {
     }
   }, [displayCurrency]);
 
+  const currencySymbol = useMemo(() => getCurrencySymbol(displayCurrency), [displayCurrency]);
+
   return useMemo(() => ({
     formatCurrency,
     convertAndFormat,
     convert,
     convertAndSum,
     displayCurrency,
-    getCurrencySymbol
-  }), [formatCurrency, convertAndFormat, convert, convertAndSum, displayCurrency]);
+    getCurrencySymbol,
+    currencySymbol
+  }), [formatCurrency, convertAndFormat, convert, convertAndSum, displayCurrency, currencySymbol]);
 }

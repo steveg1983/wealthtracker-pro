@@ -290,7 +290,7 @@ class SyncService {
 
   private handleConflict(conflict: SyncConflict): void {
     // Use intelligent conflict resolution
-    const analysis = ConflictResolutionService.analyzeConflict(
+    const serviceAnalysis = ConflictResolutionService.analyzeConflict(
       conflict.localOperation.entity,
       conflict.localOperation.data,
       conflict.remoteOperation.data,
@@ -298,19 +298,33 @@ class SyncService {
       conflict.remoteOperation.timestamp
     );
 
+    // Map to sync-types ConflictAnalysis format
+    const analysis: ConflictAnalysis = {
+      severity: serviceAnalysis.confidence >= 80 ? 'low' : serviceAnalysis.confidence >= 50 ? 'medium' : 'high',
+      canAutoResolve: serviceAnalysis.canAutoResolve,
+      suggestedResolution: serviceAnalysis.suggestedResolution === 'merge' ? 'merge' :
+                          serviceAnalysis.suggestedResolution === 'client' ? 'local' :
+                          serviceAnalysis.suggestedResolution === 'server' ? 'remote' : null,
+      conflictingFields: serviceAnalysis.conflictingFields,
+      mergeStrategy: serviceAnalysis.canAutoResolve ? 'combine' : 'manual'
+    };
+
+    // Keep reference to merged data for later use
+    const mergedData = serviceAnalysis.mergedData;
+
     // Check if we need user intervention
-    const requiresUser = ConflictResolutionService.requiresUserIntervention(analysis);
+    const requiresUser = ConflictResolutionService.requiresUserIntervention(serviceAnalysis);
 
     if (!requiresUser && analysis.canAutoResolve) {
       // Auto-resolve with merged data
-      logger.info('Auto-resolving conflict', { entity: conflict.localOperation.entity, confidence: analysis.confidence });
+      logger.info('Auto-resolving conflict', { entity: conflict.localOperation.entity, confidence: serviceAnalysis.confidence });
       
-      if (analysis.mergedData) {
+      if (mergedData) {
         // Apply the merged data
         this.applyMergedData(
           conflict.localOperation.entity,
           conflict.localOperation.entityId,
-          analysis.mergedData
+          mergedData
         );
         
         // Update vector clock
@@ -321,24 +335,20 @@ class SyncService {
         );
       }
       
-      // Emit resolution event
-      this.emit('conflict-auto-resolved', {
-        conflict,
-        analysis,
-        resolution: 'merge'
-      });
+      // Emit resolution event with conflict directly
+      this.emit('conflict-auto-resolved', conflict);
     } else {
       // Requires user intervention
       this.conflicts.push(conflict);
       this.syncStatus.conflicts = this.conflicts;
       this.emit('status-changed', this.syncStatus);
-      this.emit('conflict-detected', { conflict, analysis });
+      this.emit('conflict-detected', conflict);
       
       // If we have a suggested resolution with high confidence, apply it
-      if (analysis.confidence >= 50 && analysis.suggestedResolution !== 'manual') {
+      if (serviceAnalysis.confidence >= 50 && serviceAnalysis.suggestedResolution !== 'manual') {
         const resolution = this.autoResolveConflict(conflict, analysis);
         if (resolution) {
-          this.resolveConflict(conflict.id, resolution, analysis.mergedData);
+          this.resolveConflict(conflict.id, resolution, mergedData);
         }
       }
     }
@@ -347,13 +357,14 @@ class SyncService {
   private autoResolveConflict(conflict: SyncConflict, analysis?: ConflictAnalysis): 'local' | 'remote' | 'merge' | null {
     // If we have analysis, use it
     if (analysis && analysis.suggestedResolution) {
-      switch (analysis.suggestedResolution) {
-        case 'client':
+      const resolution = analysis.suggestedResolution;
+      switch (resolution) {
+        case 'local':
           return 'local';
-        case 'server':
+        case 'remote':
           return 'remote';
         case 'merge':
-          return analysis.mergedData ? 'merge' : null;
+          return 'merge';
         default:
           return null;
       }
@@ -416,7 +427,8 @@ class SyncService {
     this.emit(`remote-${operation.type.toLowerCase()}`, {
       entity: operation.entity,
       entityId: operation.entityId,
-      data: operation.data
+      data: operation.data,
+      type: operation.type
     });
   }
 
@@ -428,7 +440,8 @@ class SyncService {
     this.emit('remote-merge', {
       entity,
       entityId,
-      data
+      data,
+      type: 'MERGE'
     });
   }
 

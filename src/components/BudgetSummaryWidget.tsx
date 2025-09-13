@@ -36,7 +36,7 @@ export default function BudgetSummaryWidget(): React.JSX.Element {
   
   // Find budgets that are over 80% spent
   const warningBudgets = activeBudgets.filter(budget => {
-    const categoryId = (budget as any).categoryId || budget.category;
+    const categoryId = budget.categoryId;
     const spent = monthlySpending[categoryId] || 0;
     const percentage = (spent / budget.amount) * 100;
     return percentage >= 80;
@@ -84,7 +84,7 @@ export default function BudgetSummaryWidget(): React.JSX.Element {
       
       <div className="space-y-3">
         {activeBudgets.slice(0, 3).map(budget => {
-          const categoryId = (budget as any).categoryId || budget.category;
+          const categoryId = budget.categoryId;
           const spent = monthlySpending[categoryId] || 0;
           const percentage = Math.min((spent / budget.amount) * 100, 100);
           

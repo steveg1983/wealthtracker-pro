@@ -27,13 +27,10 @@ function transformAccountFromDb(dbAccount: any): Account {
     currency: dbAccount.currency,
     institution: dbAccount.institution || '',
     isActive: dbAccount.is_active,
-    initialBalance: dbAccount.initial_balance,
     openingBalance: dbAccount.initial_balance,
-    createdAt: dbAccount.created_at,
-    updatedAt: dbAccount.updated_at,
-    lastUpdated: dbAccount.updated_at || dbAccount.created_at,
-    icon: dbAccount.icon,
-    color: dbAccount.color,
+    createdAt: new Date(dbAccount.created_at as string),
+    updatedAt: new Date(dbAccount.updated_at as string),
+    lastUpdated: new Date((dbAccount.updated_at || dbAccount.created_at) as string)
   };
 }
 
@@ -81,11 +78,11 @@ logger.info('[SimpleAccountService] Creating account for Clerk ID', { clerkId })
       type: account.type === 'current' ? 'checking' : account.type, // Map UK to US terms
       currency: account.currency || 'GBP',
       balance: account.balance || 0,
-      initial_balance: account.initialBalance || account.balance || 0,
+      initial_balance: account.balance || 0,
       is_active: account.isActive !== false,
       institution: account.institution || null,
-      icon: account.icon || null,
-      color: account.color || null
+      icon: null,
+      color: null
     };
     
     logger.info('[SimpleAccountService] Creating account with data', accountData);
@@ -167,8 +164,8 @@ logger.info('[SimpleAccountService] Creating account for Clerk ID', { clerkId })
     const localAccount: Account = {
       ...account,
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     
     const accounts = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS) || [];
@@ -385,11 +382,13 @@ logger.info('[SimpleAccountService] Setting up real-time subscription', { clerkI
           logger.info('[SimpleAccountService] Subscribed', { channel: `accounts-${dbUserId}`, filter: `user_id=eq.${dbUserId}`, dbUserId });
           
           // Log all current subscriptions
-          const allChannels = supabase.getChannels();
-          logger.info('[SimpleAccountService] Total active channels', { count: allChannels.length });
-          allChannels.forEach((ch, idx) => {
-            logger.debug('[SimpleAccountService] Channel', { index: idx + 1, topic: ch.topic, state: ch.state });
-          });
+          if (supabase) {
+            const allChannels = supabase.getChannels();
+            logger.info('[SimpleAccountService] Total active channels', { count: allChannels.length });
+            allChannels.forEach((ch, idx) => {
+              logger.debug('[SimpleAccountService] Channel', { index: idx + 1, topic: ch.topic, state: ch.state });
+            });
+          }
         } else if (status === 'CHANNEL_ERROR') {
           logger.error('❌ [SimpleAccountService] Channel error - check if realtime is enabled in Supabase');
           logger.error('   You may need to enable realtime for the accounts table in Supabase dashboard');
@@ -404,7 +403,9 @@ logger.info('[SimpleAccountService] Setting up real-time subscription', { clerkI
     // Return unsubscribe function
     return () => {
       logger.info('[SimpleAccountService] Unsubscribing from real-time updates');
-      supabase.removeChannel(channel);
+      if (supabase) {
+        supabase.removeChannel(channel);
+      }
     };
   } catch (error) {
     logger.error('[SimpleAccountService] Error setting up subscription:', error);

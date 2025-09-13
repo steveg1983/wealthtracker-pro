@@ -13,7 +13,7 @@ import { supabase } from '../lib/supabase';
 import { storageAdapter, STORAGE_KEYS } from './storageAdapter';
 import { userIdService } from './userIdService';
 import type { Account, Transaction, Budget, Goal, Category } from '../types';
-import type { EntityType, SyncData, OfflineQueueItem } from '../types/sync-types';
+import type { EntityType, SyncData, OfflineQueueItem, SyncOperation } from '../types/sync-types';
 import { logger } from './loggingService';
 
 // Use the properly typed OfflineQueueItem from sync-types
@@ -81,8 +81,8 @@ class AutoSyncService {
       // Step 1: Load local data
       const localData = await this.loadLocalData();
       logger.debug('[AutoSync] Local data loaded', {
-        accounts: localData.accounts.length,
-        transactions: localData.transactions.length
+        accounts: localData.accounts?.length || 0,
+        transactions: localData.transactions?.length || 0
       });
 
       // Step 2: Check cloud data status
@@ -90,14 +90,14 @@ class AutoSyncService {
       logger.info('[AutoSync] Cloud data exists', { hasCloudData });
 
       // Step 3: Intelligent merge and sync
-      if (!hasCloudData && this.hasLocalData(localData)) {
+      if (!hasCloudData && this.hasLocalData(localData as any)) {
         // First time user with local data - migrate silently
         logger.info('[AutoSync] Performing silent migration...');
-        await this.migrateToCloud(userId, localData);
-      } else if (hasCloudData && this.hasLocalData(localData)) {
+        await this.migrateToCloud(userId, localData as any);
+      } else if (hasCloudData && this.hasLocalData(localData as any)) {
         // Both local and cloud data exist - merge intelligently
         logger.info('[AutoSync] Merging local and cloud data...');
-        await this.mergeData(userId, localData);
+        await this.mergeData(userId, localData as any);
       }
       // If only cloud data exists, AppContext will load it normally
 
@@ -134,7 +134,7 @@ class AutoSyncService {
         .eq('user_id', databaseUserId)
         .limit(1);
 
-      return accounts && accounts.length > 0;
+      return !!(accounts && accounts.length > 0);
     } catch (error) {
       logger.error('[AutoSync] Error checking cloud data:', error);
       return false;
@@ -160,10 +160,10 @@ class AutoSyncService {
    * Check if there's any local data
    */
   private hasLocalData(data: LocalData): boolean {
-    return data.accounts.length > 0 || 
-           data.transactions.length > 0 || 
-           data.budgets.length > 0 || 
-           data.goals.length > 0;
+    return (data.accounts?.length || 0) > 0 || 
+           (data.transactions?.length || 0) > 0 || 
+           (data.budgets?.length || 0) > 0 || 
+           (data.goals?.length || 0) > 0;
   }
 
   /**
@@ -182,7 +182,7 @@ class AutoSyncService {
       }
 
       // Migrate accounts first (other entities depend on them)
-      if (localData.accounts.length > 0) {
+      if (localData.accounts && localData.accounts.length > 0) {
         const accountsToInsert = localData.accounts.map((account: Account) => ({
           user_id: dbUserId,
           name: account.name,
@@ -191,7 +191,7 @@ class AutoSyncService {
           currency: account.currency || 'GBP',
           institution: account.institution || null,
           is_active: account.isActive !== false,
-          initial_balance: account.initialBalance || account.balance || 0,
+          initial_balance: account.balance || 0,
           created_at: account.createdAt || new Date().toISOString(),
           updated_at: account.updatedAt || new Date().toISOString()
         }));
@@ -208,7 +208,7 @@ class AutoSyncService {
       }
 
       // Migrate transactions
-      if (localData.transactions.length > 0) {
+      if (localData.transactions && localData.transactions.length > 0) {
         // Get the mapping of local account IDs to cloud account IDs
         const { data: cloudAccounts } = await supabase
           .from('accounts')
@@ -218,7 +218,7 @@ class AutoSyncService {
         if (cloudAccounts) {
           const accountMap = new Map(
             cloudAccounts.map(acc => [
-              localData.accounts.find((la: Account) => la.name === acc.name)?.id,
+              localData.accounts?.find((la: Account) => la.name === acc.name)?.id,
               acc.id
             ])
           );
@@ -353,14 +353,23 @@ class AutoSyncService {
     entity: T,
     data: SyncData<T>
   ): void {
-    const item: SyncQueueItem = {
+    const operation: SyncOperation<T> = {
       id: crypto.randomUUID(),
       type,
       entity,
+      entityId: data.id || crypto.randomUUID(),
       data,
       timestamp: Date.now(),
-      retries: 0,
-      status: 'pending'
+      clientId: this.userId || 'unknown',
+      version: 1
+    };
+
+    const item: SyncQueueItem = {
+      id: crypto.randomUUID(),
+      operation,
+      timestamp: Date.now(),
+      status: 'pending',
+      retries: 0
     };
 
     this.syncQueue.push(item);
@@ -396,13 +405,13 @@ class AutoSyncService {
         // Remove completed items from queue
         this.syncQueue = this.syncQueue.filter(i => i.id !== item.id);
       } catch (error) {
-        logger.error('[AutoSync] Sync failed for item:', item, error);
+        logger.error('[AutoSync] Sync failed for item', { item, error });
         item.status = 'pending';
         item.retries++;
 
         // Remove item if too many retries
         if (item.retries > 3) {
-          this.syncStatus.syncErrors.push(`Failed to sync ${item.entity}: ${error}`);
+          this.syncStatus.syncErrors.push(`Failed to sync ${item.operation.entity}: ${error instanceof Error ? error.message : String(error)}`);
           this.syncQueue = this.syncQueue.filter(i => i.id !== item.id);
         }
       }
@@ -428,17 +437,17 @@ class AutoSyncService {
       throw new Error('User not found');
     }
 
-    const table = `${item.entity}s`; // e.g., 'accounts', 'transactions'
+    const table = `${item.operation.entity}s`; // e.g., 'accounts', 'transactions'
     
-    switch (item.type) {
+    switch (item.operation.type) {
       case 'CREATE':
         // Don't create if it already has a database ID
-        if (item.data.id && item.data.id.length === 36) {
-          logger.debug('[AutoSync] Skipping CREATE - item already has database ID', { id: item.data.id });
+        if (item.operation.data.id && item.operation.data.id.length === 36) {
+          logger.debug('[AutoSync] Skipping CREATE - item already has database ID', { id: item.operation.data.id });
           return;
         }
         await supabase.from(table).insert({
-          ...item.data,
+          ...item.operation.data,
           user_id: databaseUserId
         });
         break;
@@ -446,17 +455,17 @@ class AutoSyncService {
       case 'UPDATE':
         await supabase
           .from(table)
-          .update(item.data)
-          .eq('id', item.data.id)
-          .eq('user_id', user.id);
+          .update(item.operation.data)
+          .eq('id', item.operation.data.id)
+          .eq('user_id', databaseUserId);
         break;
       
       case 'DELETE':
         await supabase
           .from(table)
           .delete()
-          .eq('id', item.data.id)
-          .eq('user_id', user.id);
+          .eq('id', item.operation.data.id)
+          .eq('user_id', databaseUserId);
         break;
     }
   }

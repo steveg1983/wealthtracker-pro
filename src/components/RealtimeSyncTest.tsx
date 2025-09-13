@@ -27,6 +27,11 @@ export default function RealtimeSyncTest() {
       return;
     }
 
+    if (!supabase) {
+      addStatus('Supabase is not configured');
+      return;
+    }
+
     const runTest = async () => {
       addStatus(`Starting test for Clerk user: ${clerkId}`);
       addStatus(`Using database ID: ${databaseId}`);
@@ -34,7 +39,7 @@ export default function RealtimeSyncTest() {
       setDbUserId(databaseId);
 
       // Step 2: Check current channels
-      const channels = supabase.getChannels();
+      const channels = supabase?.getChannels() || [];
       addStatus(`Active channels: ${channels.length}`);
       channels.forEach(ch => {
         addStatus(`  - ${ch.topic}: ${ch.state}`);
@@ -43,7 +48,7 @@ export default function RealtimeSyncTest() {
       // Step 3: Set up subscription
       addStatus('Setting up realtime subscription...');
       
-      const channel = supabase
+      const channel = supabase!
         .channel(`test-accounts-${databaseId}`)
         .on(
           'postgres_changes',
@@ -73,7 +78,7 @@ export default function RealtimeSyncTest() {
         addStatus('Creating test account...');
         
         const testAccount = {
-          user_id: dbUser.id,
+          user_id: dbUserId,
           name: `Test Account ${Date.now()}`,
           type: 'savings',
           currency: 'GBP',
@@ -82,7 +87,7 @@ export default function RealtimeSyncTest() {
           is_active: true
         };
 
-        const { data, error } = await supabase
+        const { data, error } = await supabase!
           .from('accounts')
           .insert(testAccount)
           .select()
@@ -97,7 +102,7 @@ export default function RealtimeSyncTest() {
           // Delete after 5 seconds
           setTimeout(async () => {
             addStatus('Deleting test account...');
-            const { error: deleteError } = await supabase
+            const { error: deleteError } = await supabase!
               .from('accounts')
               .delete()
               .eq('id', data.id);
@@ -114,7 +119,7 @@ export default function RealtimeSyncTest() {
       // Cleanup
       return () => {
         addStatus('Cleaning up subscription...');
-        supabase.removeChannel(channel);
+        supabase?.removeChannel(channel);
       };
     };
 
@@ -125,7 +130,7 @@ export default function RealtimeSyncTest() {
     <div className="fixed top-20 right-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-md max-h-96 overflow-y-auto z-50 border-2 border-gray-500">
       <h3 className="font-bold text-sm mb-2 text-gray-600">🧪 Realtime Sync Test</h3>
       <div className="text-xs space-y-1 font-mono">
-        <div>Clerk ID: {user?.id?.slice(0, 10)}...</div>
+        <div>Clerk ID: {clerkId?.slice(0, 10)}...</div>
         <div>DB ID: {dbUserId?.slice(0, 10)}...</div>
         <div className="mt-2 border-t pt-2">
           {testStatus.map((status, i) => (

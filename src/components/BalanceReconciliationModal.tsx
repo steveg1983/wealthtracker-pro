@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logger } from '../services/loggingService';
 import { Modal } from './common/Modal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { 

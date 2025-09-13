@@ -264,7 +264,7 @@ class PredictiveLoadingService {
   /**
    * Preload a resource
    */
-  private async preload(prediction: Prediction) {
+  async preload(prediction: Prediction) {
     const key = `${prediction.type}:${prediction.target}`;
     
     // Check if already loading or loaded

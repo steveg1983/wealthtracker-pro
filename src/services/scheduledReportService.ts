@@ -24,7 +24,7 @@ export interface ScheduledCustomReport {
 
 class ScheduledReportService {
   private readonly STORAGE_KEY = 'money_management_scheduled_custom_reports';
-  private checkInterval: NodeJS.Timer | null = null;
+  private checkInterval: ReturnType<typeof setInterval> | null = null;
 
   // Initialize the service
   initialize(): void {
@@ -163,12 +163,10 @@ class ScheduledReportService {
       }
 
       // If data not provided, get from localStorage
-      if (!data) {
-        data = this.getDataFromStorage();
-      }
+      const effectiveData = data ?? this.getDataFromStorage();
 
       // Generate report data
-      const reportData = await customReportService.generateReportData(customReport, data);
+      const reportData = await customReportService.generateReportData(customReport, effectiveData);
       
       // Export in the requested format
       let exportResult: any;
@@ -179,11 +177,11 @@ class ScheduledReportService {
           break;
         
         case 'csv':
-          exportResult = await this.exportToCSV(reportData, data);
+          exportResult = await this.exportToCSV(reportData, effectiveData);
           break;
         
         case 'excel':
-          exportResult = await this.exportToExcel(reportData, data);
+          exportResult = await this.exportToExcel(reportData, effectiveData);
           break;
         
         case 'email':
@@ -234,48 +232,40 @@ class ScheduledReportService {
 
   // Export to PDF
   private async exportToPDF(reportData: any, customReport: CustomReport): Promise<Blob> {
-    const { generatePDFReport } = await import('../utils/pdfExport');
-    
-    // Format data for PDF generation
-    const pdfData = {
-      title: customReport.name,
-      dateRange: `${format(reportData.dateRange.startDate, 'MMM d, yyyy')} - ${format(reportData.dateRange.endDate, 'MMM d, yyyy')}`,
-      components: reportData.data,
-      customReport
-    };
-    
-    // Generate PDF (this would need to be enhanced to handle custom components)
-    const pdfBlob = await generatePDFReport(pdfData, []);
-    return pdfBlob;
+    // Use exportService to generate a PDF as Uint8Array and wrap in Blob
+    const bytes = await exportService.exportToPDF(
+      { transactions: [], accounts: [], investments: [], budgets: [] },
+      {
+        startDate: reportData.dateRange.startDate,
+        endDate: reportData.dateRange.endDate,
+        format: 'pdf',
+        includeCharts: true,
+        includeTransactions: false,
+        includeAccounts: false,
+        includeInvestments: false,
+        includeBudgets: false,
+        customTitle: customReport.name,
+        groupBy: 'none'
+      }
+    );
+    return new Blob([bytes], { type: 'application/pdf' });
   }
 
   // Export to CSV
   private async exportToCSV(reportData: any, data: any): Promise<string> {
-    // Use existing export service
-    const csvData = await exportService.exportData(
-      {
-        transactions: data.transactions,
-        accounts: data.accounts,
-        investments: [],
-        budgets: data.budgets
-      },
-      {
-        startDate: reportData.dateRange.startDate,
-        endDate: reportData.dateRange.endDate,
-        format: 'csv',
-        includeTransactions: true,
-        includeAccounts: true,
-        includeBudgets: true
-      }
-    );
-    
-    return csvData;
+    const source = (data.transactions && data.transactions.length > 0)
+      ? data.transactions
+      : (data.accounts || []);
+    return exportService.exportToCSV(source, {
+      startDate: reportData.dateRange.startDate,
+      endDate: reportData.dateRange.endDate,
+      groupBy: 'none'
+    });
   }
 
   // Export to Excel
   private async exportToExcel(reportData: any, data: any): Promise<ArrayBuffer> {
-    // Use existing export service
-    const excelData = await exportService.exportData(
+    const bytes = await exportService.exportToExcel(
       {
         transactions: data.transactions,
         accounts: data.accounts,
@@ -286,13 +276,15 @@ class ScheduledReportService {
         startDate: reportData.dateRange.startDate,
         endDate: reportData.dateRange.endDate,
         format: 'xlsx',
+        includeCharts: false,
         includeTransactions: true,
         includeAccounts: true,
-        includeBudgets: true
+        includeInvestments: false,
+        includeBudgets: true,
+        groupBy: 'none'
       }
     );
-    
-    return excelData;
+    return bytes.buffer;
   }
 
   // Notify email ready (placeholder for email functionality)

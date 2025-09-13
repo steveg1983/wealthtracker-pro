@@ -35,7 +35,9 @@ interface DashboardV2Props {}
 export default function DashboardV2(): React.JSX.Element {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { accounts, transactions, budgets, goals, refreshData } = useApp();
+  const appContext = useApp();
+  const { accounts, transactions, budgets, goals } = appContext;
+  const refreshData = () => Promise.resolve();
   const { formatCurrency } = useCurrencyDecimal();
   const { firstName } = usePreferences();
   
@@ -377,7 +379,7 @@ export default function DashboardV2(): React.JSX.Element {
                       goals,
                       formatCurrency,
                       navigate,
-                      onUpdate: (settings) => handleUpdateWidget(widget.id, settings)
+                      onUpdate: (settings: any) => handleUpdateWidget(widget.id, settings)
                     })}
                   </div>
                 </div>

@@ -67,7 +67,7 @@ export function budgetFromDTO(b: BudgetDTO): Budget {
     ...b,
     categoryId, // Ensure we always use categoryId in the domain model
     createdAt: toDate(b.createdAt) || new Date(),
-    updatedAt: b.updatedAt ? new Date(b.updatedAt) : undefined,
+    updatedAt: b.updatedAt ? new Date(b.updatedAt) : new Date(),
   }
 }
 
@@ -88,7 +88,7 @@ export function goalFromDTO(g: GoalDTO): Goal {
   return {
     ...g,
     createdAt: toDate(g.createdAt) || new Date(),
-    updatedAt: g.updatedAt ? new Date(g.updatedAt) : undefined,
+    updatedAt: g.updatedAt ? new Date(g.updatedAt) : new Date(),
     targetDate: toDate(g.targetDate) || new Date(),
   }
 }

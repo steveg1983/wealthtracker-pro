@@ -52,6 +52,9 @@ export interface TransactionAlertConfig {
   duplicateDetectionEnabled: boolean;
   merchantAlertEnabled: boolean;
   foreignTransactionEnabled: boolean;
+  // Optional experimental flags used by implementation
+  recurringDetectionEnabled?: boolean;
+  merchantChangeAlerts?: boolean;
 }
 
 export interface GoalCelebrationConfig {
@@ -59,6 +62,11 @@ export interface GoalCelebrationConfig {
   enableCompletionCelebration: boolean;
   enableMilestoneNotifications: boolean;
   enableProgressReminders: boolean;
+  // Optional additional toggles used by implementation
+  enableMilestones?: boolean;
+  enableStreaks?: boolean;
+  enableBadges?: boolean;
+  enableSoundEffects?: boolean;
 }
 
 class NotificationService {
@@ -74,16 +82,20 @@ class NotificationService {
     largeTransactionThreshold: 500,
     unusualSpendingEnabled: true,
     duplicateDetectionEnabled: true,
+    merchantAlertEnabled: false,
+    foreignTransactionEnabled: false,
     recurringDetectionEnabled: true,
     merchantChangeAlerts: true
   };
   private goalCelebrationConfig: GoalCelebrationConfig = {
-    enableMilestones: true,
     milestonePercentages: [25, 50, 75, 100],
+    enableCompletionCelebration: true,
+    enableMilestoneNotifications: true,
+    enableProgressReminders: true,
+    enableMilestones: true,
     enableStreaks: true,
     enableBadges: true,
-    enableSoundEffects: false,
-    enableProgressReminders: true
+    enableSoundEffects: false
   };
 
   constructor() {
@@ -323,12 +335,12 @@ class NotificationService {
           percentage_spent: percentage, 
           amount_spent: spent,
           budget_amount: budget.amount,
-          category: budget.category,
+          category: budget.categoryId,
           period: budget.period
         })) {
-          const category = categories.find(c => c.name === budget.category);
+          const category = categories.find(c => c.name === budget.categoryId);
           const notification = this.createNotificationFromRule(rule, {
-            categoryName: budget.category,
+            categoryName: budget.categoryId,
             categoryColor: category?.color || '#6B7280',
             percentage: Math.round(percentage),
             spent,
@@ -506,7 +518,7 @@ class NotificationService {
     return transactions
       .filter(transaction => {
         const transactionDate = new Date(transaction.date);
-        return transaction.category === budget.category &&
+        return transaction.category === budget.categoryId &&
                transaction.type === 'expense' &&
                transactionDate >= startDate &&
                transactionDate <= endDate;

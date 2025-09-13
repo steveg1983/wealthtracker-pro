@@ -307,7 +307,7 @@ const Forecasting = memo(function Forecasting() {
         <BudgetModal
           isOpen={state.isModalOpen}
           onClose={handleModalClose}
-          budget={state.editingBudget}
+          budget={state.editingBudget || undefined}
         />
       )}
     </PageWrapper>

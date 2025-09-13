@@ -2,11 +2,13 @@ import { memo, useEffect } from 'react';
 import { PieChartIcon } from '../../icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { preserveDemoParam } from '../../../utils/navigation';
-import { logger } from '../../services/loggingService';
+import { logger } from '../../../services/loggingService';
 
 interface BudgetStatus {
   id: string;
   category: string;
+  name?: string;
+  categoryId?: string;
   amount: number;
   spent: number;
   percentUsed: number;
@@ -40,7 +42,7 @@ export const BudgetStatusSection = memo(function BudgetStatusSection({
   const navigate = useNavigate();
   const location = useLocation();
 
-  if (budgetStatus.length === 0) return null;
+  if (budgetStatus.length === 0) return <></>;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6" data-testid="budget-status">
@@ -57,7 +59,7 @@ export const BudgetStatusSection = memo(function BudgetStatusSection({
           <div key={budget.id} className="space-y-2">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium text-gray-700 dark:text-gray-300">
-                {budget.name || (budget as any).categoryId || budget.category}
+                {budget.name || budget.categoryId || budget.category}
               </span>
               <span className={`font-medium ${
                 budget.isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'

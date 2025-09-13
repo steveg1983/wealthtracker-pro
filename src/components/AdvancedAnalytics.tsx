@@ -59,8 +59,10 @@ export default function AdvancedAnalytics() {
     analyzeData();
   }, [analyzeData]);
 
-  const getSeverityColor = (severity: 'low' | 'medium' | 'high') => {
+  const getSeverityColor = (severity: 'low' | 'medium' | 'high' | 'critical') => {
     switch (severity) {
+      case 'critical':
+        return 'text-red-800 dark:text-red-300 bg-red-100 dark:bg-red-900/30';
       case 'high':
         return 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20';
       case 'medium':

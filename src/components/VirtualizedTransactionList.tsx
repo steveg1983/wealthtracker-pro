@@ -307,11 +307,11 @@ export const VirtualizedTransactionList = memo(function VirtualizedTransactionLi
                 ref={(list) => {
                   // Handle both refs
                   if (list) {
-                    listRef.current = list;
+                    (listRef as React.MutableRefObject<any>).current = list;
                     if (typeof ref === 'function') {
                       ref(list);
                     } else if (ref) {
-                      ref.current = list;
+                      (ref as React.MutableRefObject<any>).current = list;
                     }
                   }
                 }}

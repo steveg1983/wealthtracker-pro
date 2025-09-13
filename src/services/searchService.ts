@@ -35,7 +35,7 @@ export interface SearchResult<T> {
   matches: Array<{
     field: string;
     value: string;
-    indices: Array<[number, number]>;
+    indices: ReadonlyArray<[number, number]>;
   }>;
 }
 
@@ -236,7 +236,7 @@ class SearchService {
     }
 
     if (options.recurring !== undefined) {
-      filtered = filtered.filter(t => t.recurring === options.recurring);
+      filtered = filtered.filter(t => t.isRecurring === options.recurring);
     }
 
     return filtered;
@@ -339,7 +339,7 @@ class SearchService {
         matches: (r.matches || []).map(m => ({
           field: m.key || '',
           value: m.value || '',
-          indices: m.indices || []
+          indices: (m.indices || []) as Array<[number, number]>
         }))
       }));
     }
@@ -353,7 +353,7 @@ class SearchService {
         matches: (r.matches || []).map(m => ({
           field: m.key || '',
           value: m.value || '',
-          indices: m.indices || []
+          indices: (m.indices || []) as Array<[number, number]>
         }))
       }));
     }
@@ -367,7 +367,7 @@ class SearchService {
         matches: (r.matches || []).map(m => ({
           field: m.key || '',
           value: m.value || '',
-          indices: m.indices || []
+          indices: (m.indices || []) as Array<[number, number]>
         }))
       }));
     }
@@ -381,7 +381,7 @@ class SearchService {
         matches: (r.matches || []).map(m => ({
           field: m.key || '',
           value: m.value || '',
-          indices: m.indices || []
+          indices: (m.indices || []) as Array<[number, number]>
         }))
       }));
     }

@@ -26,7 +26,7 @@ import {
   ZapIcon
 } from './icons';
 import type { Account } from '../types';
-import type { FinancialPlan } from '../services/financialPlanningService';
+import type { FinancialPlan, FinancialPlanCreate } from '../types/financial-plans';
 
 interface DebtPayoffPlannerProps {
   onDataChange: () => void;
@@ -63,7 +63,7 @@ interface PayoffStrategy {
 
 export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerProps): React.JSX.Element {
   const { accounts, transactions } = useApp();
-  const { user } = useAuth();
+  const { userId } = useAuth();
   const { formatCurrency } = useRegionalCurrency();
   const [debtAccounts, setDebtAccounts] = useState<DebtAccount[]>([]);
   const [strategy, setStrategy] = useState<'avalanche' | 'snowball' | 'custom'>('avalanche');
@@ -147,18 +147,18 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
 
   // Load saved plan
   useEffect(() => {
-    if (user?.id) {
+    if (userId) {
       loadSavedPlan();
     }
-  }, [user?.id]);
+  }, [userId]);
 
   const loadSavedPlan = async () => {
-    if (!user?.id) return;
+    if (!userId) return;
     
     setIsLoading(true);
     try {
-      const plans = await financialPlanningService.getFinancialPlans(user.id, {
-        type: 'debt'
+      const plans = await financialPlanningService.getFinancialPlans(userId, {
+        plan_type: 'investment' // Using investment for debt plans
       });
       
       if (plans && plans.length > 0) {
@@ -342,15 +342,15 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
 
   // Save plan
   const savePlan = async () => {
-    if (!user?.id) return;
+    if (!userId) return;
     
     const projection = calculatePayoffProjection();
     
     try {
-      const planData = {
+      const planData: FinancialPlanCreate = {
         name: `${strategy.charAt(0).toUpperCase() + strategy.slice(1)} Debt Payoff Plan`,
-        type: 'debt' as const,
-        status: 'active' as const,
+        plan_type: 'investment',
+        user_id: userId,
         data: {
           strategy,
           extraPayment,
@@ -364,18 +364,22 @@ export default function DebtPayoffPlanner({ onDataChange }: DebtPayoffPlannerPro
             isSelected: d.isSelected
           })),
           projection
-        }
+        },
+        region: 'US',
+        currency: 'USD',
+        is_active: true,
+        is_favorite: false
       };
       
       if (savedPlan) {
         await financialPlanningService.updateFinancialPlan(
-          user.id,
+          userId,
           savedPlan.id,
           planData
         );
       } else {
         const newPlan = await financialPlanningService.createFinancialPlan(
-          user.id,
+          userId,
           planData
         );
         setSavedPlan(newPlan);

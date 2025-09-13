@@ -40,7 +40,7 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
   const investmentData = useMemo(() => {
     // Get investment accounts
     const investmentAccounts = accounts.filter(acc => 
-      acc.type === 'investment' || acc.type === 'retirement'
+      acc.type === 'investment' || acc.type === 'asset'
     );
 
     // Calculate total portfolio value
@@ -150,8 +150,8 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
       {
         label: 'Portfolio Value',
         data: investmentData.chartData,
-        borderColor: investmentData.yearChange.isPositive() ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)',
-        backgroundColor: investmentData.yearChange.isPositive() 
+        borderColor: investmentData.yearChange.gt(0) ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)',
+        backgroundColor: investmentData.yearChange.gt(0) 
           ? 'rgba(34, 197, 94, 0.1)' 
           : 'rgba(239, 68, 68, 0.1)',
         fill: true,
@@ -173,15 +173,15 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
         </div>
         <div className="flex items-center gap-3 mt-2">
           <div className={`flex items-center gap-1 ${
-            investmentData.dayChange.isPositive() ? 'text-green-600' : 'text-red-600'
+            investmentData.dayChange.gt(0) ? 'text-green-600' : 'text-red-600'
           }`}>
-            {investmentData.dayChange.isPositive() ? (
+            {investmentData.dayChange.gt(0) ? (
               <TrendingUpIcon size={14} />
             ) : (
               <TrendingDownIcon size={14} />
             )}
             <span className="text-sm font-medium">
-              {investmentData.dayChange.isPositive() ? '+' : ''}{formatCurrency(investmentData.dayChange.toNumber())}
+              {investmentData.dayChange.gt(0) ? '+' : ''}{formatCurrency(investmentData.dayChange.toNumber())}
             </span>
           </div>
           <span className="text-xs text-gray-400">Today</span>

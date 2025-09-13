@@ -62,7 +62,7 @@ export function BudgetProvider({ children, initialBudgets = [] }: BudgetProvider
   };
 
   const getBudgetByCategory = (category: string) => {
-    return budgets.find(budget => budget.category === category && budget.isActive !== false);
+    return budgets.find(budget => budget.categoryId === category && budget.isActive !== false);
   };
 
   return (

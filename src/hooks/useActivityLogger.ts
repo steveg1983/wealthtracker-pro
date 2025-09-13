@@ -27,7 +27,7 @@ export function useActivityLogger() {
         title: 'New Transaction',
         description: latest.description,
         category: latest.category,
-        amount: parseFloat(latest.amount),
+        amount: latest.amount,
         actionUrl: '/transactions'
       });
     }
@@ -64,10 +64,10 @@ export function useActivityLogger() {
     // Check for budget alerts
     budgets.forEach(budget => {
       const spent = Math.abs(transactions
-        .filter(t => t.category === budget.category && parseFloat(t.amount) < 0)
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0));
+        .filter(t => t.category === budget.categoryId && t.amount < 0)
+        .reduce((sum, t) => sum + t.amount, 0));
       
-      const percentage = (spent / parseFloat(budget.amount)) * 100;
+      const percentage = (spent / budget.amount) * 100;
       const alertKey = `budget_alert_${budget.id}_${new Date().getMonth()}`;
       const alreadyAlerted = localStorage.getItem(alertKey);
 
@@ -75,7 +75,7 @@ export function useActivityLogger() {
         logActivity({
           type: 'budget',
           title: 'Budget Alert',
-          description: `${budget.category} budget is ${percentage.toFixed(0)}% spent`,
+          description: `${budget.categoryId} budget is ${percentage.toFixed(0)}% spent`,
           actionUrl: '/budget'
         });
         localStorage.setItem(alertKey, 'true');
@@ -83,7 +83,7 @@ export function useActivityLogger() {
         logActivity({
           type: 'budget',
           title: 'Budget Warning',
-          description: `${budget.category} budget is ${percentage.toFixed(0)}% spent`,
+          description: `${budget.categoryId} budget is ${percentage.toFixed(0)}% spent`,
           actionUrl: '/budget'
         });
         localStorage.setItem(alertKey, '75');
@@ -94,7 +94,7 @@ export function useActivityLogger() {
   // Track goal progress
   useEffect(() => {
     goals.forEach(goal => {
-      const percentage = (parseFloat(goal.currentAmount) / parseFloat(goal.targetAmount)) * 100;
+      const percentage = (goal.currentAmount / goal.targetAmount) * 100;
       const milestoneKey = `goal_milestone_${goal.id}`;
       const lastMilestone = parseInt(localStorage.getItem(milestoneKey) || '0');
       

@@ -4,29 +4,33 @@
 import { isLocalhost } from '../config/environment';
 import { logger } from './loggingService';
 
-export enum ErrorSeverity {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical'
-}
+export const ErrorSeverity = {
+  LOW: 'low' as const,
+  MEDIUM: 'medium' as const,
+  HIGH: 'high' as const,
+  CRITICAL: 'critical' as const
+};
 
-export enum ErrorCategory {
-  NETWORK = 'network',
-  VALIDATION = 'validation',
-  STORAGE = 'storage',
-  CALCULATION = 'calculation',
-  AUTHENTICATION = 'authentication',
-  AUTHORIZATION = 'authorization',
-  INTEGRATION = 'integration',
-  UNKNOWN = 'unknown'
-}
+export type ErrorSeverityType = typeof ErrorSeverity[keyof typeof ErrorSeverity];
+
+export const ErrorCategory = {
+  NETWORK: 'network' as const,
+  VALIDATION: 'validation' as const,
+  STORAGE: 'storage' as const,
+  CALCULATION: 'calculation' as const,
+  AUTHENTICATION: 'authentication' as const,
+  AUTHORIZATION: 'authorization' as const,
+  INTEGRATION: 'integration' as const,
+  UNKNOWN: 'unknown' as const
+};
+
+export type ErrorCategoryType = typeof ErrorCategory[keyof typeof ErrorCategory];
 
 export interface AppError {
   id: string;
   message: string;
-  category: ErrorCategory;
-  severity: ErrorSeverity;
+  category: ErrorCategoryType;
+  severity: ErrorSeverityType;
   timestamp: Date;
   context?: Record<string, unknown>;
   stack?: string;
@@ -41,7 +45,7 @@ export interface ErrorHandler {
 
 class ErrorHandlingService {
   private errors: AppError[] = [];
-  private handlers: Map<ErrorCategory, ErrorHandler[]> = new Map();
+  private handlers: Map<ErrorCategoryType, ErrorHandler[]> = new Map();
   private maxErrors = 100; // Keep last 100 errors in memory
   private storageKey = 'wealthtracker_error_log';
 
@@ -103,8 +107,8 @@ class ErrorHandlingService {
   handleError(
     error: Error | string,
     options: {
-      category?: ErrorCategory;
-      severity?: ErrorSeverity;
+      category?: ErrorCategoryType;
+      severity?: ErrorSeverityType;
       context?: Record<string, unknown>;
       userMessage?: string;
       recoverable?: boolean;
@@ -147,7 +151,7 @@ class ErrorHandlingService {
   }
 
   // Categorize error based on type and message
-  private categorizeError(error: Error | string): ErrorCategory {
+  private categorizeError(error: Error | string): ErrorCategoryType {
     const message = error instanceof Error ? error.message : error;
     const lowerMessage = message.toLowerCase();
 
@@ -171,7 +175,7 @@ class ErrorHandlingService {
   }
 
   // Get user-friendly error message
-  private getUserMessage(error: Error | string, category?: ErrorCategory): string {
+  private getUserMessage(error: Error | string, category?: ErrorCategoryType): string {
     const baseMessage = error instanceof Error ? error.message : error;
 
     // Check for specific API connection errors
@@ -210,7 +214,7 @@ class ErrorHandlingService {
   }
 
   // Register error handler for specific category
-  registerHandler(category: ErrorCategory, handler: ErrorHandler) {
+  registerHandler(category: ErrorCategoryType, handler: ErrorHandler) {
     if (!this.handlers.has(category)) {
       this.handlers.set(category, []);
     }
@@ -223,7 +227,7 @@ class ErrorHandlingService {
   }
 
   // Get errors by category
-  getErrorsByCategory(category: ErrorCategory): AppError[] {
+  getErrorsByCategory(category: ErrorCategoryType): AppError[] {
     return this.errors.filter(err => err.category === category);
   }
 
@@ -279,8 +283,8 @@ class ErrorHandlingService {
   wrapAsync<T extends (...args: unknown[]) => Promise<unknown>>(
     fn: T,
     options: {
-      category?: ErrorCategory;
-      severity?: ErrorSeverity;
+      category?: ErrorCategoryType;
+      severity?: ErrorSeverityType;
       userMessage?: string;
       fallback?: unknown;
     } = {}

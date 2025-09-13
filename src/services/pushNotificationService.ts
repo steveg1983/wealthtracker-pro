@@ -3,10 +3,14 @@
  * Manages push notification subscriptions and interactions
  */
 
+import React from 'react';
+
 import { serviceWorkerRegistration } from '../utils/serviceWorkerRegistration';
 import { logger } from './loggingService';
 
-interface NotificationOptions {
+type NotificationAction = { action: string; title: string; icon?: string };
+
+interface PushNotificationOptions {
   title: string;
   body: string;
   icon?: string;
@@ -245,7 +249,7 @@ class PushNotificationService {
   /**
    * Show local notification (for testing or fallback)
    */
-  async showNotification(options: NotificationOptions): Promise<void> {
+  async showNotification(options: PushNotificationOptions): Promise<void> {
     if (!this.registration) {
       throw new Error('Service worker not registered');
     }
@@ -254,7 +258,8 @@ class PushNotificationService {
       throw new Error('Notification permission not granted');
     }
 
-    await this.registration.showNotification(options.title, {
+    type SWNotificationOptions = NotificationOptions & { actions?: NotificationAction[] };
+    const swOptions: SWNotificationOptions = {
       body: options.body,
       icon: options.icon || '/icon-192.png',
       badge: options.badge || '/badge-72.png',
@@ -262,7 +267,8 @@ class PushNotificationService {
       data: options.data,
       actions: options.actions,
       requireInteraction: options.requireInteraction
-    });
+    };
+    await this.registration.showNotification(options.title, swOptions);
   }
 
   /**
@@ -302,7 +308,7 @@ class PushNotificationService {
   /**
    * Handle notification types
    */
-  static getNotificationConfig(type: string, data: any): NotificationOptions {
+  static getNotificationConfig(type: string, data: any): PushNotificationOptions {
     switch (type) {
       case 'budget-alert':
         return {

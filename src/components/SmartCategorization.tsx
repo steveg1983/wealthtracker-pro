@@ -12,7 +12,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { smartCategorizationService } from '../services/smartCategorizationService';
 import type { Transaction, Category } from '../types';
 
-interface CategorizationSuggestion {
+export interface CategorizationSuggestion {
   categoryId: string;
   confidence: number;
   reason: string;
@@ -356,7 +356,7 @@ export function BulkCategorization({
     };
 
     // Process in chunks of 10
-    const chunks = [];
+    const chunks: Transaction[][] = [];
     for (let i = 0; i < transactions.length; i += 10) {
       chunks.push(transactions.slice(i, i + 10));
     }

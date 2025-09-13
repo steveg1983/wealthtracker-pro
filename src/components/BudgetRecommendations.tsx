@@ -101,7 +101,9 @@ export const BudgetRecommendations = memo(function BudgetRecommendations() {
           amount: recommendation.recommendedBudget,
           period: 'monthly',
           rollover: false,
-          notifications: true
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
         });
         logger.info('Created new budget', { categoryId: recommendation.categoryId });
       }
@@ -133,7 +135,9 @@ export const BudgetRecommendations = memo(function BudgetRecommendations() {
           amount,
           period: 'monthly',
           rollover: false,
-          notifications: true
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
         });
       }
     });
@@ -185,10 +189,10 @@ export const BudgetRecommendations = memo(function BudgetRecommendations() {
       />
 
       <SummaryCards
-        totalCategories={analysis.totalCategories}
+        totalCategories={analysis.totalCategories ?? 0}
         needsOptimization={analysis.recommendations.length}
-        potentialSavings={analysis.potentialSavings}
-        optimizationScore={analysis.optimizationScore}
+        potentialSavings={analysis.potentialSavings ?? analysis.totalPotentialSavings}
+        optimizationScore={analysis.optimizationScore ?? analysis.score}
         formatCurrency={formatCurrency}
       />
 

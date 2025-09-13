@@ -99,10 +99,12 @@ const generateDemoBudgets = (): Budget[] => [
     amount: 500,
     spent: 423.50,
     period: 'monthly',
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
-    category: 'Groceries',
-    isActive: true
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
+    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString(),
+    categoryId: 'Groceries',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date()
   },
   {
     id: 'demo-budget-2',
@@ -110,10 +112,12 @@ const generateDemoBudgets = (): Budget[] => [
     amount: 300,
     spent: 256.75,
     period: 'monthly',
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
-    category: 'Dining',
-    isActive: true
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
+    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString(),
+    categoryId: 'Dining',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date()
   },
   {
     id: 'demo-budget-3',
@@ -121,10 +125,12 @@ const generateDemoBudgets = (): Budget[] => [
     amount: 200,
     spent: 189.99,
     period: 'monthly',
-    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0),
-    category: 'Entertainment',
-    isActive: true
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString(),
+    endDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString(),
+    categoryId: 'Entertainment',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date()
   }
 ];
 
@@ -137,7 +143,12 @@ const generateDemoGoals = (): Goal[] => [
     targetDate: new Date(new Date().setMonth(new Date().getMonth() + 6)),
     category: 'savings',
     priority: 'high',
-    description: 'Build 6-month emergency fund'
+    description: 'Build 6-month emergency fund',
+    type: 'savings',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    progress: 65
   },
   {
     id: 'demo-goal-2',
@@ -147,7 +158,12 @@ const generateDemoGoals = (): Goal[] => [
     targetDate: new Date(new Date().setMonth(new Date().getMonth() + 4)),
     category: 'travel',
     priority: 'medium',
-    description: 'Summer vacation to Europe'
+    description: 'Summer vacation to Europe',
+    type: 'savings',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    progress: 41.67
   },
   {
     id: 'demo-goal-3',
@@ -157,7 +173,12 @@ const generateDemoGoals = (): Goal[] => [
     targetDate: new Date(new Date().setMonth(new Date().getMonth() + 8)),
     category: 'savings',
     priority: 'low',
-    description: 'Save for car down payment'
+    description: 'Save for car down payment',
+    type: 'savings',
+    isActive: true,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    progress: 40
   }
 ];
 

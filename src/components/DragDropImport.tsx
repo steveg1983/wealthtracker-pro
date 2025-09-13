@@ -1,12 +1,11 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
-  UploadCloudIcon,
-  FileIcon,
+  UploadIcon,
+  FileTextIcon,
   CheckCircleIcon,
   XCircleIcon,
   AlertCircleIcon,
   RefreshCwIcon,
-  FileTextIcon,
   DownloadIcon,
   SparklesIcon
 } from './icons';
@@ -174,8 +173,8 @@ export function DragDropImport({
         }));
       } else if (format === 'qif') {
         // Use existing QIF import service
-        const transactions = await importService.importQIF(text);
-        await importTransactions(transactions);
+        const result = await importService.importQIF(text);
+        await importTransactions(result.transactions);
       } else if (format === 'unknown') {
         throw new Error('Unsupported file format. Please use CSV, QIF, or OFX files.');
       }
@@ -208,7 +207,7 @@ export function DragDropImport({
         
         // Add default values
         const newTransaction: Partial<Transaction> = {
-          date: transaction.date || new Date().toISOString().split('T')[0],
+          date: transaction.date instanceof Date ? transaction.date : new Date(transaction.date || Date.now()),
           description: transaction.description || 'Imported transaction',
           amount: transaction.amount || 0,
           type: transaction.type || (transaction.amount! >= 0 ? 'income' : 'expense'),
@@ -274,7 +273,7 @@ export function DragDropImport({
     if (!previewData) return;
     
     const transactions: Partial<Transaction>[] = previewData.rows.map(row => ({
-      date: previewData.mappings.date !== undefined ? row[previewData.mappings.date] : new Date().toISOString().split('T')[0],
+      date: previewData.mappings.date !== undefined ? new Date(row[previewData.mappings.date]) : new Date(),
       description: previewData.mappings.description !== undefined ? row[previewData.mappings.description] : 'Imported',
       amount: previewData.mappings.amount !== undefined ? parseFloat(row[previewData.mappings.amount]) : 0,
       type: 'expense', // Will be determined by amount
@@ -313,7 +312,7 @@ export function DragDropImport({
       case 'importing':
         return <RefreshCwIcon size={48} className="text-gray-500 animate-spin" />;
       default:
-        return <UploadCloudIcon size={48} className="text-gray-400" />;
+        return <UploadIcon size={48} className="text-gray-400" />;
     }
   };
 
@@ -331,7 +330,7 @@ export function DragDropImport({
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
         >
-          <UploadCloudIcon size={20} />
+          <UploadIcon size={20} />
           Import File
         </button>
       </div>
@@ -388,11 +387,11 @@ export function DragDropImport({
                   CSV
                 </div>
                 <div className="flex items-center gap-1">
-                  <FileIcon size={16} />
+                  <FileTextIcon size={16} />
                   QIF
                 </div>
                 <div className="flex items-center gap-1">
-                  <FileIcon size={16} />
+                  <FileTextIcon size={16} />
                   OFX/QFX
                 </div>
               </div>

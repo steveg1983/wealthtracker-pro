@@ -121,9 +121,10 @@ class OfflineService {
     const tx = this.db!.transaction(['transactions', 'offlineQueue'], 'readwrite');
     
     // Save to local store
+    const syncStatus: 'pending' | 'synced' = isOffline ? 'pending' : 'synced';
     await tx.objectStore('transactions').put({
       ...transaction,
-      syncStatus: isOffline ? 'pending' : 'synced',
+      syncStatus,
     });
 
     // If offline, add to queue
@@ -160,10 +161,11 @@ class OfflineService {
     const existing = await tx.objectStore('transactions').get(id);
     
     if (existing) {
+      const syncStatus2: 'pending' | 'synced' = isOffline ? 'pending' : 'synced';
       const updated = {
         ...existing,
         ...updates,
-        syncStatus: isOffline ? 'pending' : 'synced',
+        syncStatus: syncStatus2,
       };
       
       await tx.objectStore('transactions').put(updated);
@@ -295,7 +297,7 @@ class OfflineService {
     
     // Emit conflict event
     window.dispatchEvent(new CustomEvent('offline-sync-conflict', {
-      detail: { entity: item.entity, data: item.data }
+      detail: { entity: item.entity as 'transaction' | 'account' | 'budget' | 'goal', data: item.data }
     }));
   }
 
@@ -316,7 +318,7 @@ class OfflineService {
       await this.db!.put('offlineQueue', {
         id: `resolved-${conflictId}`,
         type: 'update',
-        entity: conflict.entity,
+        entity: conflict.entity as 'transaction' | 'account' | 'budget' | 'goal',
         data: conflict.localData,
         timestamp: Date.now(),
         retries: 0,
@@ -356,7 +358,9 @@ class OfflineService {
   async clearOfflineData(): Promise<void> {
     if (!this.db) await this.init();
     
-    const stores: Array<keyof OfflineDB> = ['transactions', 'accounts', 'budgets', 'goals', 'offlineQueue', 'conflicts'];
+    const stores: Array<'transactions' | 'accounts' | 'budgets' | 'goals' | 'offlineQueue' | 'conflicts'> = [
+      'transactions', 'accounts', 'budgets', 'goals', 'offlineQueue', 'conflicts'
+    ];
     
     const tx = this.db!.transaction(stores, 'readwrite');
     

@@ -32,7 +32,7 @@ export default function SavingsGoalsWidget({ isCompact = false }: SavingsGoalsWi
     const today = new Date();
     
     const activeGoals = goals
-      .filter(goal => !goal.isCompleted)
+      .filter(goal => !goal.completedAt)
       .map(goal => {
         const progress = (goal.currentAmount / goal.targetAmount) * 100;
         const remaining = goal.targetAmount - goal.currentAmount;
@@ -48,7 +48,7 @@ export default function SavingsGoalsWidget({ isCompact = false }: SavingsGoalsWi
         const recentSavings = transactions
           .filter(t => 
             new Date(t.date) >= thirtyDaysAgo &&
-            t.categoryId === 'savings' // Assuming savings category
+            t.category === 'savings' // Assuming savings category
           )
           .reduce((sum, t) => sum + Math.abs(t.amount), 0);
         

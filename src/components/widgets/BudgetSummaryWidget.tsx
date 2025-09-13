@@ -57,7 +57,7 @@ export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWid
       
       // Aggregate spending across all categories in this budget
       const categorySpending = summary.budgetsByCategory
-        .filter(bs => bs.categoryId === budget.category)
+        .filter(bs => bs.categoryId === budget.categoryId)
         .reduce((sum, bs) => sum + bs.spentAmount, 0);
       
       const spent = toDecimal(categorySpending);

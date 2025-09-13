@@ -1,0 +1,441 @@
+/**
+ * Professional Icon System Export
+ * Refactored to use modular architecture for better maintainability
+ * Each icon category is in its own module for single responsibility
+ */
+
+import { logger } from '../../services/loggingService';
+
+// Log to verify new icons are loaded
+logger.debug('[PROFESSIONAL ICONS] Loading professional icon system');
+
+// Export utilities
+export { IconProps, IconButton, IconBase } from './iconUtils';
+
+// Export navigation icons
+export {
+  HomeIcon,
+  SettingsIcon,
+  Settings2Icon,
+  MenuIcon,
+  ExternalLinkIcon,
+  ChevronRightIcon,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  ChevronUpIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ArrowUpRightIcon,
+  ArrowDownRightIcon,
+  ArrowRightLeftIcon,
+  UndoIcon,
+} from './navigationIcons';
+
+// Export financial icons
+export {
+  WalletIcon,
+  CreditCardIcon,
+  BanknoteIcon,
+  PiggyBankIcon,
+  DollarSignIcon,
+  PoundSterlingIcon,
+  ReceiptIcon,
+  BankIcon,
+  LandmarkIcon,
+  BuildingIcon,
+  Building2Icon,
+  BriefcaseIcon,
+} from './financialIcons';
+
+// Export chart icons
+export {
+  BarChart3Icon,
+  LineChartIcon,
+  PieChartIcon,
+  TrendingUpIcon,
+  TrendingDownIcon,
+  TargetIcon,
+  GoalIcon,
+} from './chartIcons';
+
+// Export action icons
+export {
+  PlusIcon,
+  EditIcon,
+  DeleteIcon,
+  XIcon,
+  CheckIcon,
+  CheckIcon2,
+  SaveIcon,
+  SendIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  PlusCircleIcon,
+  DownloadIcon,
+  UploadIcon,
+  CopyIcon,
+  RefreshCwIcon,
+  RepeatIcon,
+  LinkIcon,
+  UnlinkIcon,
+  ScissorsIcon,
+  TrashIcon,
+  PencilIcon,
+  Edit2Icon,
+  Trash2Icon,
+} from './actionIcons';
+
+// Export UI icons
+export {
+  SearchIcon,
+  FilterIcon,
+  SortIcon,
+  EyeIcon,
+  EyeOffIcon,
+  GripVerticalIcon,
+  AlertCircleIcon,
+  AlertTriangleIcon,
+  InfoIcon,
+  BellIcon,
+  BellOffIcon,
+  MaximizeIcon,
+  MinimizeIcon,
+  ExpandIcon,
+  ShrinkIcon,
+  LayersIcon,
+  GridIcon,
+  Loader2Icon,
+  ActivityIcon,
+  LoadingIcon,
+  WifiIcon,
+  WifiOffIcon,
+  MoonIcon,
+  SunIcon,
+  PaletteIcon,
+  ToggleLeftIcon,
+  ToggleRightIcon,
+  CircleDotIcon,
+  MinusIcon,
+  MagicWandIcon,
+  VolumeIcon,
+  LightbulbIcon,
+  Maximize2Icon,
+  Minimize2Icon,
+} from './uiIcons';
+
+// Import remaining icons from other modules (to be created)
+import {
+  IconDatabase,
+  IconTags,
+  IconTag,
+  IconHash,
+  IconAdjustments,
+  IconCalendar,
+  IconClock,
+  IconCalendarEvent,
+  IconHistory,
+  IconUser,
+  IconUsers,
+  IconUserCircle,
+  IconLogin,
+  IconLogout,
+  IconLock,
+  IconLockOpen,
+  IconShield,
+  IconKey,
+  IconKeyboard,
+  IconFileText,
+  IconFolder,
+  IconArchive,
+  IconDeviceDesktop,
+  IconWorld,
+  IconMail,
+  IconPhone,
+  IconMapPin,
+  IconCar,
+  IconSchool,
+  IconStar,
+  IconAward,
+  IconCalculator,
+  IconPlayerPlay,
+  IconPlayerStop,
+  IconPlayerPause,
+  IconGitMerge,
+  IconGitBranch,
+  IconSelectAll,
+  IconDeselect,
+  IconTool,
+  IconFileTypePdf,
+  IconFingerprint,
+  IconCamera,
+  IconBold,
+  IconItalic,
+  IconList,
+  IconQuote,
+  IconPhoto,
+  IconCode,
+  IconPaperclip,
+  IconCloud,
+  IconCloudOff,
+  IconBolt,
+  IconBrandChrome,
+  IconCrown,
+  IconPackage,
+  IconHeart,
+  IconPill,
+} from '@tabler/icons-react';
+
+import { createIconComponent } from './iconUtils';
+import { memo } from 'react';
+
+// Create remaining icon components
+const DatabaseIcon = memo(createIconComponent(IconDatabase, 'DatabaseIcon'));
+const TagIcon = memo(createIconComponent(IconTag, 'TagIcon'));
+const HashIcon = memo(createIconComponent(IconHash, 'HashIcon'));
+const FolderIcon = memo(createIconComponent(IconFolder, 'FolderIcon'));
+const ArchiveIcon = memo(createIconComponent(IconArchive, 'ArchiveIcon'));
+const FileTextIcon = memo(createIconComponent(IconFileText, 'FileTextIcon'));
+const CalendarIcon = memo(createIconComponent(IconCalendar, 'CalendarIcon'));
+const ClockIcon = memo(createIconComponent(IconClock, 'ClockIcon'));
+const UserIcon = memo(createIconComponent(IconUser, 'UserIcon'));
+const UsersIcon = memo(createIconComponent(IconUsers, 'UsersIcon'));
+const LockIcon = memo(createIconComponent(IconLock, 'LockIcon'));
+const UnlockIcon = memo(createIconComponent(IconLockOpen, 'UnlockIcon'));
+const ShieldIcon = memo(createIconComponent(IconShield, 'ShieldIcon'));
+const KeyIcon = memo(createIconComponent(IconKey, 'KeyIcon'));
+const KeyboardIcon = memo(createIconComponent(IconKeyboard, 'KeyboardIcon'));
+const FingerprintIcon = memo(createIconComponent(IconFingerprint, 'FingerprintIcon'));
+const MonitorIcon = memo(createIconComponent(IconDeviceDesktop, 'MonitorIcon'));
+const ComputerIcon = memo(createIconComponent(IconDeviceDesktop, 'ComputerIcon'));
+const PhoneIcon = memo(createIconComponent(IconPhone, 'PhoneIcon'));
+const CameraIcon = memo(createIconComponent(IconCamera, 'CameraIcon'));
+const PalmtreeIcon = memo(createIconComponent(IconSun, 'PalmtreeIcon'));
+const RingIcon = memo(createIconComponent(IconCircleDot, 'RingIcon'));
+const GraduationCapIcon = memo(createIconComponent(IconSchool, 'GraduationCapIcon'));
+const CarIcon = memo(createIconComponent(IconCar, 'CarIcon'));
+const MapPinIcon = memo(createIconComponent(IconMapPin, 'MapPinIcon'));
+const GlobeIcon = memo(createIconComponent(IconWorld, 'GlobeIcon'));
+const StarIcon = memo(createIconComponent(IconStar, 'StarIcon'));
+const CalculatorIcon = memo(createIconComponent(IconCalculator, 'CalculatorIcon'));
+const PlayIcon = memo(createIconComponent(IconPlayerPlay, 'PlayIcon'));
+const StopIcon = memo(createIconComponent(IconPlayerStop, 'StopIcon'));
+const PauseIcon = memo(createIconComponent(IconPlayerPause, 'PauseIcon'));
+const MergeIcon = memo(createIconComponent(IconGitMerge, 'MergeIcon'));
+const GitBranchIcon = memo(createIconComponent(IconGitBranch, 'GitBranchIcon'));
+const SelectAllIcon = memo(createIconComponent(IconSelectAll, 'SelectAllIcon'));
+const DeselectAllIcon = memo(createIconComponent(IconDeselect, 'DeselectAllIcon'));
+const WrenchIcon = memo(createIconComponent(IconTool, 'WrenchIcon'));
+const PdfIcon = memo(createIconComponent(IconFileTypePdf, 'PdfIcon'));
+const PaperclipIcon = memo(createIconComponent(IconPaperclip, 'PaperclipIcon'));
+const MailIcon = memo(createIconComponent(IconMail, 'MailIcon'));
+const BoldIcon = memo(createIconComponent(IconBold, 'BoldIcon'));
+const ItalicIcon = memo(createIconComponent(IconItalic, 'ItalicIcon'));
+const ListIcon = memo(createIconComponent(IconList, 'ListIcon'));
+const QuoteIcon = memo(createIconComponent(IconQuote, 'QuoteIcon'));
+const ImageIcon = memo(createIconComponent(IconPhoto, 'ImageIcon'));
+const CodeIcon = memo(createIconComponent(IconCode, 'CodeIcon'));
+const CloudIcon = memo(createIconComponent(IconCloud, 'CloudIcon'));
+const CloudOffIcon = memo(createIconComponent(IconCloudOff, 'CloudOffIcon'));
+const ZapIcon = memo(createIconComponent(IconBolt, 'ZapIcon'));
+const ChromeIcon = memo(createIconComponent(IconBrandChrome, 'ChromeIcon'));
+const CrownIcon = memo(createIconComponent(IconCrown, 'CrownIcon'));
+const PackageIcon = memo(createIconComponent(IconPackage, 'PackageIcon'));
+const HeartIcon = memo(createIconComponent(IconHeart, 'HeartIcon'));
+const PillIcon = memo(createIconComponent(IconPill, 'PillIcon'));
+const LeafIcon = memo(createIconComponent(IconBulb, 'LeafIcon'));
+
+// Export remaining icons
+export {
+  DatabaseIcon,
+  TagIcon,
+  HashIcon,
+  FolderIcon,
+  ArchiveIcon,
+  FileTextIcon,
+  CalendarIcon,
+  ClockIcon,
+  UserIcon,
+  UsersIcon,
+  LockIcon,
+  UnlockIcon,
+  ShieldIcon,
+  KeyIcon,
+  KeyboardIcon,
+  FingerprintIcon,
+  MonitorIcon,
+  ComputerIcon,
+  PhoneIcon,
+  CameraIcon,
+  PalmtreeIcon,
+  RingIcon,
+  GraduationCapIcon,
+  CarIcon,
+  MapPinIcon,
+  GlobeIcon,
+  StarIcon,
+  CalculatorIcon,
+  PlayIcon,
+  StopIcon,
+  PauseIcon,
+  MergeIcon,
+  GitBranchIcon,
+  SelectAllIcon,
+  DeselectAllIcon,
+  WrenchIcon,
+  PdfIcon,
+  PaperclipIcon,
+  MailIcon,
+  BoldIcon,
+  ItalicIcon,
+  ListIcon,
+  QuoteIcon,
+  ImageIcon,
+  CodeIcon,
+  CloudIcon,
+  CloudOffIcon,
+  ZapIcon,
+  ChromeIcon,
+  CrownIcon,
+  PackageIcon,
+  HeartIcon,
+  PillIcon,
+  LeafIcon,
+};
+
+// Export aliases for backward compatibility
+export const Tag = TagIcon;
+export const Check = CheckIcon;
+export const BarChart3 = BarChart3Icon;
+export const PiggyBank = PiggyBankIcon;
+export const Wallet = WalletIcon;
+export const Home = HomeIcon;
+export const Search = SearchIcon;
+export const Calendar = CalendarIcon;
+export const FileText = FileTextIcon;
+export const Target = TargetIcon;
+export const Link = LinkIcon;
+export const Clock = ClockIcon;
+export const Database = DatabaseIcon;
+export const Download = DownloadIcon;
+export const Eye = EyeIcon;
+export const EyeOff = EyeOffIcon;
+export const Filter = FilterIcon;
+export const Globe = GlobeIcon;
+export const Goal = GoalIcon;
+export const GripVertical = GripVerticalIcon;
+export const Info = InfoIcon;
+export const Landmark = LandmarkIcon;
+export const LineChart = LineChartIcon;
+export const Menu = MenuIcon;
+export const Monitor = MonitorIcon;
+export const Moon = MoonIcon;
+export const Palette = PaletteIcon;
+export const PieChart = PieChartIcon;
+export const RefreshCw = RefreshCwIcon;
+export const Repeat = RepeatIcon;
+export const Settings2 = Settings2Icon;
+export const Sun = SunIcon;
+export const Upload = UploadIcon;
+export const XCircle = XCircleIcon;
+export const Calculator = CalculatorIcon;
+export const AlertTriangle = AlertTriangleIcon;
+export const ArrowRight = ArrowRightIcon;
+export const ArrowRightLeft = ArrowRightLeftIcon;
+export const ArrowUpRight = ArrowUpRightIcon;
+export const ArrowDownRight = ArrowDownRightIcon;
+export const Banknote = BanknoteIcon;
+export const ChevronUp = ChevronUpIcon;
+export const PlusCircle = PlusCircleIcon;
+export const Settings = SettingsIcon;
+export const X = XIcon;
+export const ArrowLeft = ArrowLeftIcon;
+export const Maximize2 = MaximizeIcon;
+export const ChevronRight = ChevronRightIcon;
+export const TrendingUp = TrendingUpIcon;
+export const TrendingDown = TrendingDownIcon;
+export const AlertCircle = AlertCircleIcon;
+export const CheckCircle = CheckCircleIcon;
+export const CreditCard = CreditCardIcon;
+export const Hash = HashIcon;
+export const Lock = LockIcon;
+export const Unlock = UnlockIcon;
+export const WifiOff = WifiOffIcon;
+export const Computer = ComputerIcon;
+export const Keyboard = ComputerIcon;
+export const Minus = MinusIcon;
+export const DollarSign = DollarSignIcon;
+export const Save = SaveIcon;
+export const Layers = LayersIcon;
+export const Grid = GridIcon;
+export const MagicWand = MagicWandIcon;
+export const Bell = BellIcon;
+export const Volume = VolumeIcon;
+export const BellOff = BellOffIcon;
+export const Copy = CopyIcon;
+export const Play = PlayIcon;
+export const Stop = StopIcon;
+export const Merge = MergeIcon;
+export const SelectAll = SelectAllIcon;
+export const DeselectAll = DeselectAllIcon;
+export const Unlink = UnlinkIcon;
+export const Wrench = WrenchIcon;
+export const Folder = FolderIcon;
+export const Undo = UndoIcon;
+export const Wifi = WifiIcon;
+export const Pdf = PdfIcon;
+export const Key = KeyIcon;
+export const Phone = PhoneIcon;
+export const Leaf = LeafIcon;
+export const Shield = ShieldIcon;
+export const Fingerprint = FingerprintIcon;
+export const User = UserIcon;
+export const Users = UsersIcon;
+export const Loading = LoadingIcon;
+export const Camera = CameraIcon;
+export const MapPin = MapPinIcon;
+export const Car = CarIcon;
+export const Briefcase = BriefcaseIcon;
+export const Send = SendIcon;
+export const GraduationCap = GraduationCapIcon;
+export const Building = BuildingIcon;
+export const Sort = SortIcon;
+export const Star = StarIcon;
+export const Mail = MailIcon;
+export const Bold = BoldIcon;
+export const Italic = ItalicIcon;
+export const List = ListIcon;
+export const Quote = QuoteIcon;
+export const Image = ImageIcon;
+export const Code = CodeIcon;
+export const Bank = BankIcon;
+export const Paperclip = PaperclipIcon;
+export const ToggleLeft = ToggleLeftIcon;
+export const ToggleRight = ToggleRightIcon;
+
+// Export default icons for components using default imports
+export default {
+  ActivityIcon,
+  WifiIcon,
+  LeafIcon,
+  ShieldIcon,
+  FingerprintIcon,
+  UserIcon,
+  UsersIcon,
+  LoadingIcon,
+  CameraIcon,
+  MapPinIcon,
+  CarIcon,
+  BriefcaseIcon,
+  SendIcon,
+  GraduationCapIcon,
+  BuildingIcon,
+  SortIcon,
+  StarIcon,
+  MailIcon,
+  BankIcon,
+  PdfIcon,
+};
+
+// Force cache bust

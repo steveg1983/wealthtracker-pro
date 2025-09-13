@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
+import { logger } from '../services/loggingService';
 
 interface PreferencesContextType {
   compactView: boolean;
@@ -54,7 +55,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     darkStartTime: '18:00'
   });
 
-  const actualTheme = 'light'; // Simplified for testing
+  const actualTheme: 'light' | 'dark' = 'light'; // Simplified for testing
 
   logger.debug('PreferencesProvider state initialized');
 

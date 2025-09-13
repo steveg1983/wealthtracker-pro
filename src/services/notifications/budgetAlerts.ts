@@ -44,7 +44,7 @@ export class BudgetAlerts {
 
       // Check projected overspend
       if (this.config.enableProjectedOverspend) {
-        const projectedAlert = this.checkProjectedOverspend(budget, spent, percentage);
+        const projectedAlert = this.checkProjectedOverspend(budget, spent, percentage, categories);
         if (projectedAlert) {
           notifications.push(projectedAlert);
         }
@@ -116,7 +116,8 @@ export class BudgetAlerts {
   private checkProjectedOverspend(
     budget: Budget,
     spent: number,
-    percentage: number
+    percentage: number,
+    categories: Category[]
   ): Notification | null {
     const now = new Date();
     const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -239,9 +240,9 @@ export class BudgetAlerts {
         case 'equals':
           return value === condition.value;
         case 'greater_than':
-          return value > condition.value;
+          return condition.value != null && value > condition.value;
         case 'less_than':
-          return value < condition.value;
+          return condition.value != null && value < condition.value;
         case 'contains':
           return String(value).includes(String(condition.value));
         case 'percentage_of':

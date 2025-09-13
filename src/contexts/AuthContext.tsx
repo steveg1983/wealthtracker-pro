@@ -12,6 +12,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useUser, useAuth as useClerkAuth, useSession } from '@clerk/clerk-react';
 import { AuthService, AuthUser } from '../services/authService';
 import { syncClerkUser } from '../lib/supabase';
+import { setSupabaseAuthToken, clearSupabaseAuthToken } from '../services/api/supabaseClient';
 import { setSentryUser, clearSentryUser } from '../lib/sentry';
 import { logger } from '../services/loggingService';
 
@@ -50,18 +51,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         username: clerkUser.username || clerkUser.fullName || undefined
       });
       
-      // Sync user with Supabase
-      syncClerkUser(
-        clerkUser.id,
-        clerkUser.primaryEmailAddress?.emailAddress || '',
-        clerkUser.fullName || undefined
-      ).then(success => {
-        if (success) {
-          logger.info('User synced with Supabase');
-        } else {
-          logger.warn('Failed to sync user with Supabase');
+      // Sync user profile and obtain a Supabase JWT (Clerk→Supabase)
+      (async () => {
+        try {
+          // 1) Ensure user profile exists in DB (legacy compatibility)
+          await syncClerkUser(
+            clerkUser.id,
+            clerkUser.primaryEmailAddress?.emailAddress || '',
+            clerkUser.fullName || undefined
+          );
+
+          // 2) Get Clerk session token to authorize our serverless exchange
+          const clerkToken = await getToken().catch(() => null);
+          const resp = await fetch('/api/supabase-token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(clerkToken ? { Authorization: `Bearer ${clerkToken}` } : {}),
+            },
+            credentials: 'include',
+          });
+
+          if (!resp.ok) {
+            const text = await resp.text();
+            logger.warn('Failed to obtain Supabase JWT', { status: resp.status, body: text });
+            return;
+          }
+          const { token } = await resp.json();
+          if (token) {
+            setSupabaseAuthToken(token);
+            logger.info('Supabase JWT applied for RLS');
+          }
+        } catch (error) {
+          logger.error('AuthContext: error during Supabase token setup', error);
         }
-      });
+      })();
     } else if (isLoaded && !clerkUser) {
       setAuthUser(null);
       setSecurityScore(0);
@@ -75,6 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = async () => {
     await clerkSignOut();
     setAuthUser(null);
+    clearSupabaseAuthToken();
     
     // Clear Sentry user context
     clearSentryUser();
@@ -83,6 +108,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshSession = async () => {
     if (session) {
       await session.reload();
+      // Re-apply Supabase JWT after session refresh
+      try {
+        const clerkToken = await getToken().catch(() => null);
+        const resp = await fetch('/api/supabase-token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(clerkToken ? { Authorization: `Bearer ${clerkToken}` } : {}),
+          },
+          credentials: 'include',
+        });
+        if (resp.ok) {
+          const { token } = await resp.json();
+          if (token) setSupabaseAuthToken(token);
+        }
+      } catch (error) {
+        logger.error('AuthContext: failed to refresh Supabase JWT', error);
+      }
     }
   };
 

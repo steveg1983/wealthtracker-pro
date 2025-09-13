@@ -43,9 +43,9 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
   const { 
     transactions, 
     accounts, 
-    categories,
-    showToast 
+    categories
   } = useApp();
+  const showToast = (useApp() as any).showToast;
   
   const [isCommandMode, setIsCommandMode] = useState(false);
   const [commandBuffer, setCommandBuffer] = useState('');

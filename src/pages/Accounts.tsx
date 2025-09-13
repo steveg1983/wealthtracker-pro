@@ -39,7 +39,18 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const decimalAccounts = useMemo(() => accounts.map(a => ({
     ...a,
     balance: toDecimal(a.balance),
-    initialBalance: a.openingBalance ? toDecimal(a.openingBalance) : undefined
+    openingBalance: a.openingBalance ? toDecimal(a.openingBalance) : undefined,
+    lastUpdated: a.updatedAt || new Date(),
+    holdings: a.holdings ? a.holdings.map(h => ({
+      ...h,
+      shares: toDecimal(h.shares),
+      value: toDecimal(h.value),
+      averageCost: h.averageCost ? toDecimal(h.averageCost) : undefined,
+      currentPrice: h.currentPrice ? toDecimal(h.currentPrice) : undefined,
+      marketValue: h.marketValue ? toDecimal(h.marketValue) : undefined,
+      gain: h.gain ? toDecimal(h.gain) : undefined,
+      gainPercent: h.gainPercent ? toDecimal(h.gainPercent) : undefined
+    })) : undefined
   })), [accounts]);
   
   // Group accounts by type (memoized)
@@ -464,7 +475,14 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
       <AccountSettingsModal
         isOpen={!!settingsAccountId}
         onClose={() => setSettingsAccountId(null)}
-        account={accounts.find(a => a.id === settingsAccountId) || null}
+        account={(() => {
+          const found = accounts.find(a => a.id === settingsAccountId);
+          if (!found) return null;
+          return {
+            ...found,
+            type: found.type as "current" | "savings" | "credit" | "loan" | "investment" | "assets" | "other"
+          };
+        })()}
         onSave={(accountId, updates) => {
           updateAccount(accountId, updates);
           setSettingsAccountId(null);

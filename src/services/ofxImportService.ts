@@ -357,7 +357,7 @@ export class OFXImportService {
       ].filter(Boolean).join('\n');
       
       const transaction: Omit<Transaction, 'id'> = {
-        date: ofxTrx.datePosted,
+        date: new Date(ofxTrx.datePosted),
         description,
         amount,
         type,
@@ -365,7 +365,7 @@ export class OFXImportService {
         category: '',
         cleared: true, // OFX transactions are already cleared
         notes,
-        recurring: false
+        isRecurring: false
       };
       
       // Auto-categorize if enabled

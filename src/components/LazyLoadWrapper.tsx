@@ -10,7 +10,7 @@ interface LazyLoadWrapperProps {
 
 export const LazyLoadWrapper: React.FC<LazyLoadWrapperProps> = ({
   children,
-  fallback = <SkeletonCard height={200} />,
+  fallback = <SkeletonCard className="h-[200px]" />,
   threshold = 0.1,
   rootMargin = '50px'
 }) => {

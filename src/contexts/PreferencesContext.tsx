@@ -44,6 +44,16 @@ interface PreferencesContextType {
   // Goal celebrations
   enableGoalCelebrations: boolean;
   setEnableGoalCelebrations: (value: boolean) => void;
+  // Additional features
+  showTaxPlanning: boolean;
+  setShowTaxPlanning: (value: boolean) => void;
+  showHousehold: boolean;
+  setShowHousehold: (value: boolean) => void;
+  showBusinessFeatures: boolean;
+  setShowBusinessFeatures: (value: boolean) => void;
+  // Preferences object for backward compatibility
+  preferences: Record<string, any>;
+  updatePreferences: (updates: Record<string, any>) => void;
 }
 
 const PreferencesContext = createContext<PreferencesContextType | undefined>(undefined);
@@ -211,6 +221,36 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     }
   });
 
+  const [showTaxPlanning, setShowTaxPlanning] = useState((): boolean => {
+    try {
+      const saved = localStorage.getItem('money_management_show_tax_planning');
+      return saved !== 'false'; // Default to true
+    } catch (error) {
+      logger.error('Error reading showTaxPlanning from localStorage:', error);
+      return true;
+    }
+  });
+
+  const [showHousehold, setShowHousehold] = useState((): boolean => {
+    try {
+      const saved = localStorage.getItem('money_management_show_household');
+      return saved !== 'false'; // Default to true
+    } catch (error) {
+      logger.error('Error reading showHousehold from localStorage:', error);
+      return true;
+    }
+  });
+
+  const [showBusinessFeatures, setShowBusinessFeatures] = useState((): boolean => {
+    try {
+      const saved = localStorage.getItem('money_management_show_business_features');
+      return saved !== 'false'; // Default to true
+    } catch (error) {
+      logger.error('Error reading showBusinessFeatures from localStorage:', error);
+      return true;
+    }
+  });
+
   const [themeSchedule, setThemeSchedule] = useState((): { enabled: boolean; lightStartTime: string; darkStartTime: string } => {
     try {
       const saved = localStorage.getItem('money_management_theme_schedule');
@@ -231,6 +271,67 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       };
     }
   });
+
+  // Create preferences object for backward compatibility
+  const preferences = {
+    compactView,
+    currency,
+    theme,
+    colorTheme,
+    firstName,
+    showBudget,
+    showGoals,
+    showAnalytics,
+    showInvestments,
+    showEnhancedInvestments,
+    showAIAnalytics,
+    showFinancialPlanning,
+    showDataIntelligence,
+    showSummaries,
+    showTaxPlanning,
+    showHousehold,
+    showBusinessFeatures,
+    enableGoalCelebrations,
+    themeSchedule,
+    budgetAlertThreshold: 80,
+    largeTextMode: false,
+    highContrastBorders: false,
+    enhancedFocusIndicators: true,
+    showSkipLinks: true,
+    tabFocusHighlighting: true,
+    announceRouteChanges: true,
+    liveRegions: true,
+    reduceMotion: false,
+    disableAutoplay: false
+  };
+
+  const updatePreferences = (updates: Record<string, any>): void => {
+    Object.entries(updates).forEach(([key, value]) => {
+      switch(key) {
+        case 'compactView': setCompactView(value as boolean); break;
+        case 'currency': setCurrency(value as string); break;
+        case 'theme': setTheme(value as 'light' | 'dark' | 'auto' | 'scheduled'); break;
+        case 'colorTheme': setColorTheme(value as 'blue' | 'green' | 'red' | 'pink'); break;
+        case 'firstName': setFirstName(value as string); break;
+        case 'showBudget': setShowBudget(value as boolean); break;
+        case 'showGoals': setShowGoals(value as boolean); break;
+        case 'showAnalytics': setShowAnalytics(value as boolean); break;
+        case 'showInvestments': setShowInvestments(value as boolean); break;
+        case 'showEnhancedInvestments': setShowEnhancedInvestments(value as boolean); break;
+        case 'showAIAnalytics': setShowAIAnalytics(value as boolean); break;
+        case 'showFinancialPlanning': setShowFinancialPlanning(value as boolean); break;
+        case 'showDataIntelligence': setShowDataIntelligence(value as boolean); break;
+        case 'showSummaries': setShowSummaries(value as boolean); break;
+        case 'showTaxPlanning': setShowTaxPlanning(value as boolean); break;
+        case 'showHousehold': setShowHousehold(value as boolean); break;
+        case 'showBusinessFeatures': setShowBusinessFeatures(value as boolean); break;
+        case 'enableGoalCelebrations': setEnableGoalCelebrations(value as boolean); break;
+        case 'themeSchedule': setThemeSchedule(value); break;
+      }
+    });
+  };
+
+  // Moved to before preferences object
 
   const [actualTheme, setActualTheme] = useState<'light' | 'dark'>('light');
 
@@ -339,6 +440,9 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       localStorage.setItem('money_management_show_financial_planning', showFinancialPlanning.toString());
       localStorage.setItem('money_management_show_data_intelligence', showDataIntelligence.toString());
       localStorage.setItem('money_management_show_summaries', showSummaries.toString());
+      localStorage.setItem('money_management_show_tax_planning', showTaxPlanning.toString());
+      localStorage.setItem('money_management_show_household', showHousehold.toString());
+      localStorage.setItem('money_management_show_business_features', showBusinessFeatures.toString());
       localStorage.setItem('money_management_theme_schedule', JSON.stringify(themeSchedule));
       localStorage.setItem('money_management_goal_celebrations', enableGoalCelebrations.toString());
     };
@@ -347,7 +451,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
     const timeoutId = setTimeout(savePreferences, 300);
     
     return (): void => clearTimeout(timeoutId);
-  }, [compactView, currency, theme, colorTheme, firstName, showBudget, showGoals, showAnalytics, showInvestments, showEnhancedInvestments, showAIAnalytics, showFinancialPlanning, showDataIntelligence, showSummaries, themeSchedule, enableGoalCelebrations]);
+  }, [compactView, currency, theme, colorTheme, firstName, showBudget, showGoals, showAnalytics, showInvestments, showEnhancedInvestments, showAIAnalytics, showFinancialPlanning, showDataIntelligence, showSummaries, showTaxPlanning, showHousehold, showBusinessFeatures, themeSchedule, enableGoalCelebrations]);
 
   return (
     <PreferencesContext.Provider value={{
@@ -382,8 +486,16 @@ export function PreferencesProvider({ children }: { children: ReactNode }): Reac
       setShowDataIntelligence,
       showSummaries,
       setShowSummaries,
+      showTaxPlanning,
+      setShowTaxPlanning,
+      showHousehold,
+      setShowHousehold,
+      showBusinessFeatures,
+      setShowBusinessFeatures,
       enableGoalCelebrations,
       setEnableGoalCelebrations,
+      preferences,
+      updatePreferences,
     }}>
       {children}
     </PreferencesContext.Provider>

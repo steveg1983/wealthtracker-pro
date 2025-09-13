@@ -20,7 +20,7 @@ export default function SafariWarning(): React.JSX.Element | null {
         setCompatInfo(compat);
         
         // Only show if there are actual issues
-        if (compat.warnings && compat.warnings.length > 0) {
+        if ('warnings' in compat && compat.warnings && compat.warnings.length > 0) {
           setShow(true);
         }
       }

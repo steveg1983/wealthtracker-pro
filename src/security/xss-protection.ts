@@ -34,7 +34,8 @@ const MARKDOWN_CONFIG: DOMPurify.Config = {
  */
 export const sanitizeHTML = (dirty: string, config: DOMPurify.Config = DEFAULT_CONFIG): string => {
   if (!dirty) return '';
-  return DOMPurify.sanitize(dirty, config);
+  const sanitized = DOMPurify.sanitize(dirty, config as any);
+  return typeof sanitized === 'string' ? sanitized : sanitized.toString();
 };
 
 /**
@@ -43,7 +44,8 @@ export const sanitizeHTML = (dirty: string, config: DOMPurify.Config = DEFAULT_C
  */
 export const sanitizeText = (dirty: string): string => {
   if (!dirty) return '';
-  return DOMPurify.sanitize(dirty, STRICT_CONFIG);
+  const sanitized = DOMPurify.sanitize(dirty, STRICT_CONFIG as any);
+  return typeof sanitized === 'string' ? sanitized : sanitized.toString();
 };
 
 /**
@@ -55,7 +57,7 @@ export const sanitizeMarkdown = (dirty: string): string => {
   if (!dirty) return '';
   
   // First, sanitize any embedded HTML/scripts in the markdown
-  let safe = DOMPurify.sanitize(dirty, STRICT_CONFIG);
+  let safe = String(DOMPurify.sanitize(dirty, STRICT_CONFIG as any));
   
   // Then remove dangerous markdown patterns
   // Match markdown links with better handling of nested parentheses
@@ -302,8 +304,9 @@ if (typeof window !== 'undefined') {
   const isDevelopment = typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'development';
   if (isDevelopment) {
     DOMPurify.addHook('beforeSanitizeElements', (node, data, config) => {
-      if (data && data.tagName && ['script', 'iframe', 'object', 'embed'].includes(data.tagName)) {
-        logger.warn('DOMPurify blocked dangerous element:', data.tagName);
+      const elementData = data as any;
+      if (elementData && elementData.tagName && ['script', 'iframe', 'object', 'embed'].includes(elementData.tagName)) {
+        logger.warn('DOMPurify blocked dangerous element:', elementData.tagName);
       }
     });
   }

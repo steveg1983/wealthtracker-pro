@@ -9,7 +9,7 @@
  * - Session management
  */
 
-import { User } from '@clerk/clerk-react';
+import type { UserResource } from '@clerk/types';
 
 export interface AuthUser {
   id: string;
@@ -27,16 +27,18 @@ export class AuthService {
   /**
    * Convert Clerk user to our app user format
    */
-  static mapClerkUser(clerkUser: User): AuthUser {
+  static mapClerkUser(clerkUser: UserResource): AuthUser {
     return {
       id: clerkUser.id,
       email: clerkUser.primaryEmailAddress?.emailAddress || '',
       name: clerkUser.fullName || undefined,
       imageUrl: clerkUser.imageUrl,
-      createdAt: new Date(clerkUser.createdAt),
-      lastSignIn: new Date(clerkUser.lastSignInAt || clerkUser.createdAt),
+      createdAt: clerkUser.createdAt ? new Date(clerkUser.createdAt) : new Date(),
+      lastSignIn: clerkUser.lastSignInAt 
+        ? new Date(clerkUser.lastSignInAt) 
+        : (clerkUser.createdAt ? new Date(clerkUser.createdAt) : new Date()),
       emailVerified: clerkUser.primaryEmailAddress?.verification?.status === 'verified',
-      hasPasskey: clerkUser.passkeyUsernames?.length > 0,
+      hasPasskey: false, // passkeyUsernames not available in UserResource
       hasMFA: clerkUser.totpEnabled || clerkUser.backupCodeEnabled || clerkUser.twoFactorEnabled
     };
   }

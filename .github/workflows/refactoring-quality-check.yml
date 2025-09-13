@@ -1,0 +1,184 @@
+name: Refactoring Quality Check
+
+on:
+  push:
+    paths:
+      - 'src/components/**/*-refactored.tsx'
+      - 'src/hooks/**/*.ts'
+      - 'src/services/**/*.ts'
+  pull_request:
+    paths:
+      - 'src/components/**/*-refactored.tsx'
+      - 'src/hooks/**/*.ts'
+      - 'src/services/**/*.ts'
+
+jobs:
+  quality-check:
+    name: Excellence Standards Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Check for 'any' types
+        id: check-any-types
+        run: |
+          echo "Checking for 'any' types in refactored components..."
+          ANY_COUNT=$(grep -r ": any" src/components/*-refactored.tsx 2>/dev/null | wc -l || echo 0)
+          if [ "$ANY_COUNT" -gt 0 ]; then
+            echo "❌ Found $ANY_COUNT 'any' types in refactored components"
+            grep -rn ": any" src/components/*-refactored.tsx 2>/dev/null || true
+            echo "any_types_found=true" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "✅ No 'any' types found"
+            echo "any_types_found=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Check for console statements
+        id: check-console
+        run: |
+          echo "Checking for console statements..."
+          CONSOLE_COUNT=$(grep -r "console\." src/components/*-refactored.tsx 2>/dev/null | wc -l || echo 0)
+          if [ "$CONSOLE_COUNT" -gt 0 ]; then
+            echo "❌ Found $CONSOLE_COUNT console statements"
+            grep -rn "console\." src/components/*-refactored.tsx 2>/dev/null || true
+            echo "console_found=true" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "✅ No console statements found"
+            echo "console_found=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Check component sizes
+        id: check-sizes
+        run: |
+          echo "Checking component sizes..."
+          LARGE_FILES=""
+          for file in $(find src/components -name "*-refactored.tsx" -type f 2>/dev/null); do
+            LINES=$(wc -l < "$file")
+            if [ "$LINES" -gt 200 ]; then
+              LARGE_FILES="$LARGE_FILES\n$(basename $file): $LINES lines"
+            fi
+          done
+          
+          if [ -n "$LARGE_FILES" ]; then
+            echo "❌ Found components larger than 200 lines:"
+            echo -e "$LARGE_FILES"
+            echo "large_files_found=true" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "✅ All components are under 200 lines"
+            echo "large_files_found=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Check for React.memo usage
+        id: check-memo
+        run: |
+          echo "Checking React.memo usage..."
+          MISSING_MEMO=""
+          for file in $(find src/components -name "*-refactored.tsx" -type f 2>/dev/null); do
+            if ! grep -q "React.memo\|memo(" "$file"; then
+              MISSING_MEMO="$MISSING_MEMO\n$(basename $file)"
+            fi
+          done
+          
+          if [ -n "$MISSING_MEMO" ]; then
+            echo "⚠️  Components missing React.memo:"
+            echo -e "$MISSING_MEMO"
+            echo "missing_memo=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ All components use React.memo"
+            echo "missing_memo=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Check JSDoc coverage
+        id: check-jsdoc
+        run: |
+          echo "Checking JSDoc documentation..."
+          MISSING_DOCS=""
+          for file in $(find src/components -name "*-refactored.tsx" -type f 2>/dev/null); do
+            if ! grep -q "@component\|@description" "$file"; then
+              MISSING_DOCS="$MISSING_DOCS\n$(basename $file)"
+            fi
+          done
+          
+          if [ -n "$MISSING_DOCS" ]; then
+            echo "⚠️  Components missing JSDoc:"
+            echo -e "$MISSING_DOCS"
+            echo "missing_docs=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ All components have JSDoc"
+            echo "missing_docs=false" >> $GITHUB_OUTPUT
+          fi
+          
+      - name: Run TypeScript type check
+        run: npx tsc --noEmit
+        
+      - name: Run ESLint
+        run: npm run lint -- --ext .tsx src/components/*-refactored.tsx
+        
+      - name: Generate Quality Report
+        if: always()
+        run: |
+          cat > quality-report.md << EOF
+          # Refactoring Quality Report
+          
+          ## Results
+          - Any Types: ${{ steps.check-any-types.outputs.any_types_found == 'true' && '❌ Found' || '✅ None' }}
+          - Console Statements: ${{ steps.check-console.outputs.console_found == 'true' && '❌ Found' || '✅ None' }}
+          - Large Files: ${{ steps.check-sizes.outputs.large_files_found == 'true' && '❌ Found' || '✅ None' }}
+          - React.memo: ${{ steps.check-memo.outputs.missing_memo == 'true' && '⚠️ Missing' || '✅ Complete' }}
+          - JSDoc: ${{ steps.check-jsdoc.outputs.missing_docs == 'true' && '⚠️ Missing' || '✅ Complete' }}
+          
+          ## Excellence Standards
+          This codebase maintains Apple/Google/Microsoft quality standards.
+          EOF
+          
+      - name: Upload Quality Report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: quality-report
+          path: quality-report.md
+          
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const anyTypes = '${{ steps.check-any-types.outputs.any_types_found }}' === 'true';
+            const console = '${{ steps.check-console.outputs.console_found }}' === 'true';
+            const largeFiles = '${{ steps.check-sizes.outputs.large_files_found }}' === 'true';
+            const missingMemo = '${{ steps.check-memo.outputs.missing_memo }}' === 'true';
+            const missingDocs = '${{ steps.check-jsdoc.outputs.missing_docs }}' === 'true';
+            
+            const status = (!anyTypes && !console && !largeFiles) ? '✅' : '❌';
+            const message = `## ${status} Refactoring Quality Check
+            
+            | Check | Status |
+            |-------|--------|
+            | No \`any\` types | ${anyTypes ? '❌ Failed' : '✅ Passed'} |
+            | No console statements | ${console ? '❌ Failed' : '✅ Passed'} |
+            | Components < 200 lines | ${largeFiles ? '❌ Failed' : '✅ Passed'} |
+            | React.memo usage | ${missingMemo ? '⚠️ Warning' : '✅ Passed'} |
+            | JSDoc coverage | ${missingDocs ? '⚠️ Warning' : '✅ Passed'} |
+            
+            ${(anyTypes || console || largeFiles) ? '### Action Required\nPlease fix the issues above to maintain excellence standards.' : '### Excellence Standards Met! 🎉'}`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: message
+            });

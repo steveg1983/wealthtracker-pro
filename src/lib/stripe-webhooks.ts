@@ -82,7 +82,7 @@ async function handleCheckoutSessionCompleted(
   // Update user's subscription in database
   // Resolve the user by the client reference (assumed Clerk ID) then update by user ID
   let userId: string | null = null;
-  if (session.client_reference_id) {
+  if (session.client_reference_id && supabase) {
     const { data: user } = await supabase
       .from('users')
       .select('id')
@@ -91,7 +91,7 @@ async function handleCheckoutSessionCompleted(
     userId = user?.id ?? null;
   }
 
-  const { error } = userId
+  const { error } = userId && supabase
     ? await supabase
         .from('users')
         .update({
@@ -128,9 +128,13 @@ async function handleSubscriptionUpdate(
   const tier = getPlanFromSubscription(subscription);
 
   // Find user by Stripe customer ID
+  if (!supabase) {
+    return { success: false, error: 'Supabase not configured' };
+  }
+  
   const { data: user, error: userError } = await supabase
     .from('users')
-    .select('id')
+    .select('id, user_id')
     .eq('stripe_customer_id', subscription.customer as string)
     .single();
 
@@ -166,10 +170,14 @@ async function handleSubscriptionDeleted(
 ): Promise<WebhookHandlerResult> {
   const subscription = event.data.object;
 
+  if (!supabase) {
+    return { success: false, error: 'Supabase not configured' };
+  }
+
   // Find user
   const { data: user, error: userError } = await supabase
     .from('users')
-    .select('id, email')
+    .select('id, email, user_id')
     .eq('stripe_customer_id', subscription.customer as string)
     .single();
 
@@ -206,13 +214,18 @@ async function handleSubscriptionDeleted(
 async function handleInvoicePaid(
   event: Stripe.InvoicePaidEvent
 ): Promise<WebhookHandlerResult> {
-  const invoice = event.data.object;
+  const invoice = event.data.object as Stripe.Invoice & { subscription?: string | Stripe.Subscription };
 
   if (!invoice.subscription) {
     return { success: true, message: 'One-time payment, no subscription to update' };
   }
 
   // Record payment in database
+  if (!supabase) {
+    logger.warn('Supabase not configured, skipping payment recording');
+    return { success: true, message: 'Payment processed (no database)' };
+  }
+  
   const { error } = await supabase
     .from('payments')
     .insert({
@@ -239,10 +252,15 @@ async function handlePaymentFailed(
 ): Promise<WebhookHandlerResult> {
   const invoice = event.data.object;
 
+  if (!supabase) {
+    logger.warn('Supabase not configured, skipping payment failed handling');
+    return { success: true, message: 'Payment failed noted (no database)' };
+  }
+
   // Find user
   const { data: user, error: userError } = await supabase
     .from('users')
-    .select('id, email')
+    .select('id, email, user_id')
     .eq('stripe_customer_id', invoice.customer as string)
     .single();
 
@@ -279,6 +297,11 @@ async function handlePaymentMethodAttached(
   event: Stripe.PaymentMethodAttachedEvent
 ): Promise<WebhookHandlerResult> {
   const paymentMethod = event.data.object;
+
+  if (!supabase) {
+    logger.warn('Supabase not configured, skipping payment method attachment');
+    return { success: true, message: 'Payment method attached (no database)' };
+  }
 
   // Update user's default payment method
   // Optional: store limited payment method info on users if columns exist.
@@ -369,6 +392,11 @@ async function logSubscriptionEvent(
   data: any
 ): Promise<void> {
   try {
+    if (!supabase) {
+      logger.warn('Supabase not configured, skipping event logging');
+      return;
+    }
+    
     await supabase.from('subscription_events').insert({
       user_id: userId,
       event_type: eventType,

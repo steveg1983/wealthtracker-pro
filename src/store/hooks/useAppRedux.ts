@@ -4,15 +4,21 @@ import { selectAccounts } from '../selectors/accountsSelectors';
 import { selectTransactions } from '../selectors/transactionsSelectors';
 import { selectBudgets } from '../selectors/budgetsSelectors';
 import { selectGoals } from '../selectors/goalsSelectors';
+
+// Re-export hooks for modules that import them from here
+export { useAppDispatch, useAppSelector };
 import {
   addTransaction as addTransactionThunk,
   updateTransaction as updateTransactionThunk,
   deleteTransaction as deleteTransactionThunk,
   loadAllData
 } from '../thunks';
+import { setTransactions } from '../slices/transactionsSlice';
 import { saveTags } from '../slices/tagsSlice';
 import type { BackupData } from '../../utils/backupRestore';
+import { logger } from '../../services/loggingService';
 import { 
+  setAccounts,
   addAccount as addAccountAction,
   updateAccount as updateAccountAction,
   deleteAccount as deleteAccountAction,
@@ -21,28 +27,30 @@ import {
   deleteAccountFromSupabase
 } from '../slices/accountsSlice';
 import {
+  setBudgets,
   addBudget as addBudgetAction,
   updateBudget as updateBudgetAction,
   deleteBudget as deleteBudgetAction,
   createBudgetInSupabase
 } from '../slices/budgetsSlice';
 import {
+  setCategories,
   addCategory as addCategoryAction,
   updateCategory as updateCategoryAction,
-  deleteCategory as deleteCategoryAction,
-  saveCategories
+  deleteCategory as deleteCategoryAction
 } from '../slices/categoriesSlice';
 import {
+  setGoals,
   addGoal as addGoalAction,
   updateGoal as updateGoalAction,
   deleteGoal as deleteGoalAction,
   createGoalInSupabase
 } from '../slices/goalsSlice';
 import {
+  setRecurringTransactions,
   addRecurringTransaction as addRecurringTransactionAction,
   updateRecurringTransaction as updateRecurringTransactionAction,
-  deleteRecurringTransaction as deleteRecurringTransactionAction,
-  saveRecurringTransactions
+  deleteRecurringTransaction as deleteRecurringTransactionAction
 } from '../slices/recurringTransactionsSlice';
 import type { Account, Transaction, Budget, Category, Goal, RecurringTransaction } from '../../types';
 
@@ -97,7 +105,7 @@ export function useAppRedux() {
   }, [dispatch]);
   
   // Budget methods (now using Supabase for creation)
-  const addBudget = useCallback(async (budget: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addBudget = useCallback(async (budget: Omit<Budget, 'id' | 'createdAt' | 'spent'>) => {
     await dispatch(createBudgetInSupabase(budget));
   }, [dispatch]);
   
@@ -115,13 +123,15 @@ export function useAppRedux() {
   const addCategory = useCallback(async (category: Omit<Category, 'id'>) => {
     dispatch(addCategoryAction(category));
     const newCategories = [...categories, { ...category, id: crypto.randomUUID() }];
-    await dispatch(saveCategories(newCategories));
+    // TODO: Implement saveCategories thunk
+    // await dispatch(saveCategories(newCategories));
   }, [dispatch, categories]);
   
   const updateCategory = useCallback(async (id: string, updates: Partial<Category>) => {
     dispatch(updateCategoryAction({ id, updates }));
-    const updatedCategories = categories.map(c => c.id === id ? { ...c, ...updates } : c);
-    await dispatch(saveCategories(updatedCategories));
+    // TODO: Implement saveCategories thunk
+    // const updatedCategories = categories.map(c => c.id === id ? { ...c, ...updates } : c);
+    // await dispatch(saveCategories(updatedCategories)); */
   }, [dispatch, categories]);
   
   const deleteCategory = useCallback(async (id: string) => {
@@ -129,11 +139,12 @@ export function useAppRedux() {
     const updatedCategories = categories
       .filter(c => c.id !== id)
       .map(c => c.parentId === id ? { ...c, parentId: undefined } : c);
-    await dispatch(saveCategories(updatedCategories));
+    // TODO: Implement saveCategories thunk
+    // await dispatch(saveCategories(updatedCategories)); */
   }, [dispatch, categories]);
   
   // Goal methods (now using Supabase for creation)
-  const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'createdAt' | 'currentAmount'>) => {
     await dispatch(createGoalInSupabase(goal));
   }, [dispatch]);
   
@@ -151,32 +162,35 @@ export function useAppRedux() {
   const addRecurringTransaction = useCallback(async (recurring: Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt'>) => {
     dispatch(addRecurringTransactionAction(recurring));
     const newRecurring = [...recurringTransactions, { ...recurring, id: crypto.randomUUID(), createdAt: new Date(), updatedAt: new Date() }];
-    await dispatch(saveRecurringTransactions(newRecurring));
+    // TODO: Implement saveRecurringTransactions thunk
+    // await dispatch(saveRecurringTransactions(newRecurring));
   }, [dispatch, recurringTransactions]);
   
   const updateRecurringTransaction = useCallback(async (id: string, updates: Partial<RecurringTransaction>) => {
     dispatch(updateRecurringTransactionAction({ id, updates }));
     const updatedRecurring = recurringTransactions.map(r => r.id === id ? { ...r, ...updates, updatedAt: new Date() } : r);
-    await dispatch(saveRecurringTransactions(updatedRecurring));
+    // TODO: Implement saveRecurringTransactions thunk
+    // await dispatch(saveRecurringTransactions(updatedRecurring));
   }, [dispatch, recurringTransactions]);
   
   const deleteRecurringTransaction = useCallback(async (id: string) => {
     dispatch(deleteRecurringTransactionAction(id));
     const filteredRecurring = recurringTransactions.filter(r => r.id !== id);
-    await dispatch(saveRecurringTransactions(filteredRecurring));
+    // TODO: Implement saveRecurringTransactions thunk
+    // await dispatch(saveRecurringTransactions(filteredRecurring));
   }, [dispatch, recurringTransactions]);
   
   // Data management methods
   const clearAllData = useCallback(async () => {
     // Clear all data from Redux and storage
     await Promise.all([
-      dispatch(saveAccounts([])),
-      dispatch(saveTransactions([])),
-      dispatch(saveBudgets([])),
-      dispatch(saveCategories([])),
-      dispatch(saveGoals([])),
+      dispatch(setAccounts([])),
+      dispatch(setTransactions([])),
+      dispatch(setBudgets([])),
+      dispatch(setCategories([])),
+      dispatch(setGoals([])),
       dispatch(saveTags([])),
-      dispatch(saveRecurringTransactions([]))
+      dispatch(setRecurringTransactions([]))
     ]);
   }, [dispatch]);
   
@@ -202,13 +216,13 @@ export function useAppRedux() {
   const importData = useCallback(async (data: BackupData) => {
     // Import data to Redux
     await Promise.all([
-      data.accounts && dispatch(saveAccounts(data.accounts)),
-      data.transactions && dispatch(saveTransactions(data.transactions)),
-      data.budgets && dispatch(saveBudgets(data.budgets)),
-      data.categories && dispatch(saveCategories(data.categories)),
-      data.goals && dispatch(saveGoals(data.goals)),
+      data.accounts && dispatch(setAccounts(data.accounts)),
+      data.transactions && dispatch(setTransactions(data.transactions)),
+      data.budgets && dispatch(setBudgets(data.budgets)),
+      data.categories && dispatch(setCategories(data.categories)),
+      data.goals && dispatch(setGoals(data.goals)),
       data.tags && dispatch(saveTags(data.tags)),
-      data.recurringTransactions && dispatch(saveRecurringTransactions(data.recurringTransactions))
+      data.recurringTransactions && dispatch(setRecurringTransactions(data.recurringTransactions))
     ]);
   }, [dispatch]);
   

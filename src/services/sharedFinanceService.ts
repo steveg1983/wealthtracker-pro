@@ -13,6 +13,7 @@ export interface SharedBudget extends Budget {
   approvalThreshold: number;
   lastModifiedBy?: string;
   lastModifiedAt?: Date;
+  isExceeded?: boolean; // Runtime property for tracking exceeded state
 }
 
 export interface BudgetAllocation {
@@ -33,6 +34,7 @@ export interface SharedGoal extends Goal {
   approvalRequired: boolean;
   lastModifiedBy?: string;
   lastModifiedAt?: Date;
+  isDeleted?: boolean; // Runtime property for soft delete
 }
 
 export interface GoalContributor {
@@ -281,7 +283,7 @@ class SharedFinanceService {
       contributors,
       isHouseholdGoal,
       approvalRequired: false,
-      isCompleted: false
+      completedAt: undefined
     };
 
     this.sharedGoals.push(sharedGoal);
@@ -322,9 +324,8 @@ class SharedFinanceService {
     goal.progress = (totalCurrent / goal.targetAmount) * 100;
 
     // Check if goal is achieved
-    if (totalCurrent >= goal.targetAmount && !goal.isCompleted) {
-      goal.isCompleted = true;
-      goal.completedAt = new Date();
+    if (totalCurrent >= goal.targetAmount && !goal.completedAt) {
+      goal.completedAt = new Date().toISOString();
       this.logActivity(
         'goal_achieved',
         goalId,

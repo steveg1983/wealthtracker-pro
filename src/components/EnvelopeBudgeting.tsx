@@ -111,7 +111,9 @@ export default function EnvelopeBudgeting() {
       categoryId: newEnvelope.categoryIds[0], // Use first category
       amount: parseFloat(newEnvelope.budgetedAmount),
       period: 'monthly' as const,
-      isActive: true
+      isActive: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
     addBudget(newBudget);

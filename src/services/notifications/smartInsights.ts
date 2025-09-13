@@ -370,7 +370,7 @@ export class SmartInsights {
       const monthTransactions = transactions.filter(t => 
         t.type === 'expense' &&
         t.category === ((budget as any).categoryId || (budget as any).category) &&
-        t.date.startsWith(monthStr)
+        (typeof t.date === 'string' ? t.date : t.date.toISOString()).startsWith(monthStr)
       );
       
       const spent = monthTransactions.reduce((sum, t) => sum + t.amount, 0);

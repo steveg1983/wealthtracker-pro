@@ -119,7 +119,7 @@ export function QuickFiltersAndSearch({
       id: 'today',
       name: 'Today',
       icon: <CalendarIcon size={16} />,
-      filter: (t) => {
+      filter: (t: Transaction) => {
         const today = new Date();
         const tDate = new Date(t.date);
         return tDate.toDateString() === today.toDateString();
@@ -130,7 +130,7 @@ export function QuickFiltersAndSearch({
       id: 'week',
       name: 'This Week',
       icon: <ClockIcon size={16} />,
-      filter: (t) => {
+      filter: (t: Transaction) => {
         const now = new Date();
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         return new Date(t.date) >= weekAgo;
@@ -141,7 +141,7 @@ export function QuickFiltersAndSearch({
       id: 'month',
       name: 'This Month',
       icon: <CalendarIcon size={16} />,
-      filter: (t) => {
+      filter: (t: Transaction) => {
         const now = new Date();
         const tDate = new Date(t.date);
         return tDate.getMonth() === now.getMonth() && 
@@ -198,7 +198,7 @@ export function QuickFiltersAndSearch({
           const query = search.query.toLowerCase();
           if (!t.description.toLowerCase().includes(query) &&
               !t.category?.toLowerCase().includes(query) &&
-              !t.note?.toLowerCase().includes(query)) {
+              !t.notes?.toLowerCase().includes(query)) {
             return false;
           }
         }
@@ -266,7 +266,7 @@ export function QuickFiltersAndSearch({
       const q = query.toLowerCase();
       return t.description.toLowerCase().includes(q) ||
              t.category?.toLowerCase().includes(q) ||
-             t.note?.toLowerCase().includes(q) ||
+             t.notes?.toLowerCase().includes(q) ||
              t.accountId.toLowerCase().includes(q);
     };
     

@@ -45,8 +45,8 @@ const recurringTransactionsSlice = createSlice({
       const newRecurring: RecurringTransaction = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        createdAt: new Date(getCurrentISOString()),
+        updatedAt: new Date(getCurrentISOString()),
       };
       state.recurringTransactions.push(newRecurring);
     },
@@ -56,7 +56,7 @@ const recurringTransactionsSlice = createSlice({
         state.recurringTransactions[index] = {
           ...state.recurringTransactions[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString(),
+          updatedAt: new Date(getCurrentISOString()),
         };
       }
     },
@@ -66,8 +66,11 @@ const recurringTransactionsSlice = createSlice({
     updateLastProcessed: (state, action: PayloadAction<{ id: string; lastProcessed: Date }>) => {
       const recurring = state.recurringTransactions.find((r: RecurringTransaction) => r.id === action.payload.id);
       if (recurring) {
-        recurring.lastProcessed = toISOString(action.payload.lastProcessed);
-        recurring.updatedAt = getCurrentISOString();
+        const isoString = toISOString(action.payload.lastProcessed);
+        if (isoString) {
+          recurring.lastProcessed = new Date(isoString);
+        }
+        recurring.updatedAt = new Date(getCurrentISOString());
       }
     },
   },

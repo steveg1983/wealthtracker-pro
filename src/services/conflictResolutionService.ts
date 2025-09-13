@@ -21,6 +21,12 @@ export interface ConflictAnalysis {
   suggestedResolution: 'merge' | 'client' | 'server' | 'manual';
   mergedData?: any;
   confidence: number; // 0-100 confidence in auto-resolution
+  clientData: Record<string, any>;
+  serverData: Record<string, any>;
+  metadata?: {
+    clientTimestamp?: string;
+    serverTimestamp?: string;
+  };
 }
 
 export interface MergeStrategy {
@@ -90,6 +96,12 @@ export class ConflictResolutionService {
         suggestedResolution: 'merge',
         mergedData: clientData,
         confidence: 100,
+        clientData,
+        serverData,
+        metadata: {
+          clientTimestamp: new Date(clientTimestamp).toISOString(),
+          serverTimestamp: new Date(serverTimestamp).toISOString()
+        }
       };
     }
 
@@ -170,7 +182,7 @@ export class ConflictResolutionService {
         
         // Check if we can auto-resolve this conflict
         const rule = this.getMergeRule(entityType, field);
-        if (!rule || rule.strategy === 'manual') {
+        if (!rule) {
           canAutoResolve = false;
           confidence = 0;
         } else {
@@ -207,6 +219,12 @@ export class ConflictResolutionService {
       canAutoResolve,
       suggestedResolution,
       confidence,
+      clientData,
+      serverData,
+      metadata: {
+        clientTimestamp: new Date(clientTimestamp).toISOString(),
+        serverTimestamp: new Date(serverTimestamp).toISOString()
+      }
     };
   }
 

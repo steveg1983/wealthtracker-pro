@@ -22,7 +22,9 @@ export function useFormattedDate(date: Date | string, locale: string = 'en-US'):
     // Limit cache size to prevent memory issues
     if (dateCache.size > 1000) {
       const firstKey = dateCache.keys().next().value;
-      dateCache.delete(firstKey);
+      if (firstKey !== undefined) {
+        dateCache.delete(firstKey);
+      }
     }
     
     dateCache.set(dateKey, formatted);

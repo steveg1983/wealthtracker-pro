@@ -163,7 +163,7 @@ export default function DataImportExport() {
         const csvHeaders = ['Date', 'Description', 'Amount', 'Type', 'Category', 'Account'];
         const csvRows = data.transactions.map(t => {
           const account = accounts.find(a => a.id === t.accountId);
-          const category = categories.find(c => c.id === t.categoryId);
+          const category = categories.find(c => c.id === t.category);
           return [
             t.date,
             `"${t.description}"`,

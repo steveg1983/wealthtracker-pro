@@ -47,7 +47,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
     return transactions
       .filter(t => t.accountId === account.id)
       .reduce((sum, t) => {
-        if (account.type === 'liability') {
+        if (account.type === 'credit' || account.type === 'loan') {
           return sum - t.amount; // Liabilities are negative
         }
         return sum + t.amount;

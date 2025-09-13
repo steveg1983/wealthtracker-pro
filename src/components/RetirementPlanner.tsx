@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { financialPlanningService } from '../services/financialPlanningService';
 import { useRegionalSettings, useRegionalCurrency } from '../hooks/useRegionalSettings';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth } from '../contexts/AuthContext';
 import { useRealFinancialData } from '../hooks/useRealFinancialData';
 import Decimal from 'decimal.js';
 import StatePensionCalculator from './retirement/StatePensionCalculator';
@@ -97,7 +97,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
     setIsLoading(true);
     try {
       const retirementPlans = await financialPlanningService.getFinancialPlans(user.id, {
-        type: 'retirement'
+        plan_type: 'retirement'
       });
       setPlans(retirementPlans || []);
       if (retirementPlans && retirementPlans.length > 0 && !selectedPlan) {
@@ -186,7 +186,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
     setShowCreateModal(true);
   };
 
-  const handleEditPlan = (plan: RetirementPlan) => {
+  const handleEditPlan = (plan: FinancialPlan) => {
     setEditingPlan(plan);
     setShowCreateModal(true);
   };
@@ -212,7 +212,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
   };
 
   const formatCurrency = (amount: number) => {
-    return formatRegionalCurrency(amount, { decimals: 0 });
+    return formatRegionalCurrency(amount);
   };
 
   const formatPercentage = (value: number) => {
@@ -692,10 +692,11 @@ function RetirementPlanModal({ plan, onClose, onSave }: RetirementPlanModalProps
   const { formatCurrency: formatRegionalCurrency } = useRegionalCurrency();
   const financialData = useRealFinancialData();
   const { accounts } = useApp();
+  const { user } = useAuth();
   
-  // Calculate total retirement savings from accounts
+  // Calculate total retirement savings from investment accounts
   const totalRetirementSavings = accounts
-    .filter(acc => acc.type === 'retirement' || acc.type === 'investment')
+    .filter(acc => acc.type === 'investment')
     .reduce((sum, acc) => sum + (acc.balance || 0), 0);
   
   const [formData, setFormData] = useState({
@@ -706,7 +707,7 @@ function RetirementPlanModal({ plan, onClose, onSave }: RetirementPlanModalProps
     monthlyContribution: plan?.data?.monthlyContribution || 0,
     expectedReturn: plan?.data?.expectedReturn || 0.07,
     inflationRate: plan?.data?.inflationRate || 0.025,
-    targetRetirementIncome: plan?.data?.targetRetirementIncome || financialData.monthlyIncome.toNumber() || 0
+    targetRetirementIncome: plan?.data?.targetRetirementIncome || financialData?.monthlyIncome?.toNumber() || 0
   });
   
   // Calculate inflation-adjusted target income
@@ -717,9 +718,13 @@ function RetirementPlanModal({ plan, onClose, onSave }: RetirementPlanModalProps
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
+      user_id: user?.id || '',
       name: formData.name,
-      type: 'retirement',
-      status: 'active',
+      plan_type: 'retirement',
+      region: 'US',
+      currency: 'USD',
+      is_active: true,
+      is_favorite: false,
       data: {
         currentAge: formData.currentAge,
         retirementAge: formData.retirementAge,
@@ -879,7 +884,7 @@ function RetirementPlanModal({ plan, onClose, onSave }: RetirementPlanModalProps
               {formData.targetRetirementIncome > 0 && yearsToRetirement > 0 && (
                 <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
                   Equivalent to <span className="font-semibold text-gray-700 dark:text-gray-300">
-                    {formatRegionalCurrency(futureValueOfTargetIncome, { decimals: 0 })}
+                    {formatRegionalCurrency(Math.round(futureValueOfTargetIncome))}
                   </span> in {formData.retirementAge - formData.currentAge} years
                   ({(formData.inflationRate * 100).toFixed(1)}% inflation)
                 </p>

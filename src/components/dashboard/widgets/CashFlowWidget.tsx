@@ -99,63 +99,6 @@ export default function CashFlowWidget({ isCompact = false }: CashFlowWidgetProp
     };
   }, [transactions]);
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: !isCompact,
-        position: 'bottom' as const
-      },
-      tooltip: {
-        callbacks: {
-          label: (context: any) => {
-            return `${context.dataset.label}: ${formatCurrency(context.parsed.y)}`;
-          }
-        }
-      }
-    },
-    scales: {
-      x: {
-        display: !isCompact,
-        grid: {
-          display: false
-        }
-      },
-      y: {
-        display: !isCompact,
-        grid: {
-          color: 'rgba(0, 0, 0, 0.05)'
-        },
-        ticks: {
-          callback: (value: any) => {
-            return formatCurrency(value);
-          }
-        }
-      }
-    }
-  };
-
-  const chartData = {
-    labels: cashFlowData.weeklyData.map(d => d.label),
-    datasets: [
-      {
-        label: 'Income',
-        data: cashFlowData.weeklyData.map(d => d.income),
-        backgroundColor: 'rgba(34, 197, 94, 0.8)',
-        borderColor: 'rgb(34, 197, 94)',
-        borderWidth: 1
-      },
-      {
-        label: 'Expenses',
-        data: cashFlowData.weeklyData.map(d => d.expenses),
-        backgroundColor: 'rgba(239, 68, 68, 0.8)',
-        borderColor: 'rgb(239, 68, 68)',
-        borderWidth: 1
-      }
-    ]
-  };
-
   return (
     <div className="space-y-4">
       {/* Monthly Summary */}
@@ -225,7 +168,17 @@ export default function CashFlowWidget({ isCompact = false }: CashFlowWidgetProp
             Weekly Comparison
           </div>
           <div className="h-32">
-            <Bar data={chartData} options={chartOptions} />
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={cashFlowData.weeklyData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="label" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="income" fill="rgba(34, 197, 94, 0.8)" />
+                <Bar dataKey="expenses" fill="rgba(239, 68, 68, 0.8)" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}

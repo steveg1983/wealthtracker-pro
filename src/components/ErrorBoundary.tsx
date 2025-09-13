@@ -29,7 +29,7 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    logger.error('Error caught by boundary:', error, errorInfo);
+    logger.error('Error caught by boundary:', error, errorInfo.componentStack ?? '');
     this.setState({ errorInfo });
     
     // Report to Sentry

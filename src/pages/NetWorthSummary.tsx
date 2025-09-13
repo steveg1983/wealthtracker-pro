@@ -51,7 +51,7 @@ export default function NetWorthSummary() {
             }]);
             return {
               ...account,
-              convertedBalance
+              convertedBalance: convertedBalance.toNumber()
             };
           })
         );

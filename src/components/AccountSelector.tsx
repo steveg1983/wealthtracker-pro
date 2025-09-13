@@ -6,11 +6,13 @@ import type { Account } from '../types';
 
 interface AccountSelectorProps {
   selectedAccountIds: string[];
-  onSelectionChange: (accountIds: string[], totalAmount: number) => void;
+  onSelectionChange: (accountIds: string[], totalAmount?: number) => void;
   label?: string;
   helpText?: string;
   maxSelection?: number;
   accountTypes?: ('checking' | 'savings' | 'current' | 'investment')[];
+  multiSelect?: boolean;
+  showBalances?: boolean;
 }
 
 export default function AccountSelector({

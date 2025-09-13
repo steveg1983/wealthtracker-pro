@@ -86,7 +86,7 @@ export function clearSentryUser() {
 
 export function captureException(error: Error, context?: Record<string, any>) {
   if (!ENABLE_ERROR_TRACKING) {
-    logger.error('Error captured:', error, context);
+    logger.error('Error captured:', error, context ? JSON.stringify(context) : undefined);
     return;
   }
   

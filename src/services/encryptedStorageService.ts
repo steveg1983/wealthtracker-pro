@@ -75,7 +75,7 @@ class EncryptedStorageService {
 
     // Encrypt if requested
     if (encrypted) {
-      processedData = this.encrypt(value);
+      processedData = this.encrypt(value as JsonValue);
     } else if (shouldCompress) {
       processedData = this.compress(JSON.stringify(value));
     }
@@ -114,7 +114,8 @@ class EncryptedStorageService {
 
       // Decrypt if encrypted
       if (storedData.encrypted && typeof data === 'string') {
-        data = this.decrypt(data);
+        const decrypted = this.decrypt(data);
+        return (typeof decrypted === 'object' ? decrypted : JSON.parse(String(decrypted))) as T;
       } else if (storedData.compressed && typeof data === 'string') {
         data = JSON.parse(this.decompress(data));
       }
@@ -176,7 +177,7 @@ class EncryptedStorageService {
       })
     );
 
-    await indexedDBService.putBulk(this.storeName, processedItems);
+    await indexedDBService.putBulk(this.storeName, processedItems as unknown as Array<{ key: string; value: Record<string, unknown> }>);
   }
 
   // Migrate data from localStorage to encrypted IndexedDB
@@ -238,7 +239,7 @@ class EncryptedStorageService {
     for (const key of keys) {
       const data = await this.getItem(key);
       if (data !== null) {
-        exportedData[key] = data;
+        exportedData[key] = data as JsonValue;
       }
     }
 
@@ -290,6 +291,7 @@ export const STORAGE_KEYS = {
   GOALS: 'wealthtracker_goals',
   TAGS: 'wealthtracker_tags',
   RECURRING: 'wealthtracker_recurring',
+  RECURRING_TRANSACTIONS: 'wealthtracker_recurring', // Alias for backward compatibility
   CATEGORIES: 'wealthtracker_categories',
   PREFERENCES: 'wealthtracker_preferences',
   THEME: 'money_management_theme',

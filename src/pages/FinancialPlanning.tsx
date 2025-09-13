@@ -33,7 +33,7 @@ import { logger } from '../services/loggingService';
 type ActiveTab = 'overview' | 'tax' | 'retirement' | 'mortgage' | 'debt' | 'goals' | 'insurance' | 'networth';
 
 export default function FinancialPlanning() {
-  const { accounts, transactions, budgets } = useApp();
+  const { accounts, transactions, budgets, user } = useApp();
   const regionalSettings = useRegionalSettings();
   const { formatCurrency: formatRegionalCurrency, currencySymbol } = useRegionalCurrency();
   const [activeTab, setActiveTab] = useState<ActiveTab>('overview');
@@ -52,11 +52,32 @@ export default function FinancialPlanning() {
   const loadData = async () => {
     setIsLoading(true);
     try {
-      setRetirementPlans(financialPlanningService.getRetirementPlans());
-      setMortgageCalculations(financialPlanningService.getMortgageCalculations());
-      setDebtPlans(financialPlanningService.getDebtPlans());
-      setFinancialGoals(financialPlanningService.getFinancialGoals());
-      setInsuranceNeeds(financialPlanningService.getInsuranceNeeds());
+      const userId = user?.id || 'demo-user';
+      const [mortgages, retirements, debts, goals, insurance] = await Promise.all([
+        financialPlanningService.getMortgageCalculations(userId),
+        Promise.resolve(financialPlanningService.getRetirementPlans()),
+        Promise.resolve(financialPlanningService.getDebtPlans()),
+        financialPlanningService.getFinancialPlans(userId),
+        Promise.resolve(financialPlanningService.getInsuranceNeeds())
+      ]);
+      setMortgageCalculations(mortgages);
+      setRetirementPlans(retirements);
+      setDebtPlans(debts);
+      // Map FinancialPlan to FinancialGoal format
+      const mappedGoals: FinancialGoal[] = goals.map(plan => ({
+        id: plan.id,
+        name: plan.name,
+        targetAmount: plan.data?.target_amount || 0,
+        currentSavings: plan.data?.current_amount || 0,
+        targetDate: plan.data?.target_date ? plan.data.target_date : new Date().toISOString(),
+        monthlyContribution: 0,
+        priority: 'medium' as const,
+        category: plan.plan_type,
+        isCompleted: false,
+        createdAt: plan.created_at instanceof Date ? plan.created_at.toISOString() : new Date().toISOString()
+      }));
+      setFinancialGoals(mappedGoals);
+      setInsuranceNeeds(insurance);
     } catch (error) {
       logger.error('Error loading financial planning data:', error);
     } finally {
@@ -69,7 +90,7 @@ export default function FinancialPlanning() {
   };
 
   const formatCurrency = (amount: number) => {
-    return formatRegionalCurrency(amount, { decimals: 0 });
+    return formatRegionalCurrency(amount);
   };
 
   const formatDate = (date: Date) => {
@@ -82,12 +103,24 @@ export default function FinancialPlanning() {
   };
 
   const getGoalStatusColor = (goal: FinancialGoal) => {
-    const projection = financialPlanningService.calculateGoalProjection(goal);
+    const projection = financialPlanningService.calculateGoalProjection(
+      goal.targetAmount,
+      goal.currentSavings,
+      goal.monthlyContribution,
+      0.07,
+      5
+    );
     return projection.onTrack ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400';
   };
 
   const getGoalStatusIcon = (goal: FinancialGoal) => {
-    const projection = financialPlanningService.calculateGoalProjection(goal);
+    const projection = financialPlanningService.calculateGoalProjection(
+      goal.targetAmount,
+      goal.currentSavings,
+      goal.monthlyContribution,
+      0.07,
+      5
+    );
     return projection.onTrack ? (
       <CheckCircleIcon size={16} className="text-green-500" />
     ) : (
@@ -96,7 +129,9 @@ export default function FinancialPlanning() {
   };
 
   const getInsuranceCoverageStatus = (need: InsuranceNeed) => {
-    const coverageRatio = need.currentCoverage / need.recommendedCoverage;
+    const currentCoverage = need.currentCoverage || need.coverageAmount || 0;
+    const recommendedCoverage = need.recommendedCoverage || need.coverageAmount || 1;
+    const coverageRatio = currentCoverage / recommendedCoverage;
     if (coverageRatio >= 0.9) return { status: 'adequate', color: 'text-green-600 dark:text-green-400' };
     if (coverageRatio >= 0.5) return { status: 'low', color: 'text-yellow-600 dark:text-yellow-400' };
     return { status: 'critical', color: 'text-red-600 dark:text-red-400' };
@@ -314,14 +349,18 @@ export default function FinancialPlanning() {
                         <div key={plan.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                           <div>
                             <p className="font-medium text-gray-900 dark:text-white">{plan.name}</p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {projection.yearsToRetirement} years to retirement
-                            </p>
+                            {projection && (
+                              <p className="text-sm text-gray-600 dark:text-gray-400">
+                                {projection.yearsToRetirement} years to retirement
+                              </p>
+                            )}
                           </div>
                           <div className="text-right">
-                            <p className="font-semibold text-purple-600 dark:text-purple-400">
-                              {formatCurrency(projection.totalSavingsAtRetirement)}
-                            </p>
+                            {projection && (
+                              <p className="font-semibold text-purple-600 dark:text-purple-400">
+                                {formatCurrency(projection.totalSavingsAtRetirement)}
+                              </p>
+                            )}
                             <p className="text-sm text-gray-500 dark:text-gray-400">projected</p>
                           </div>
                         </div>
@@ -359,7 +398,13 @@ export default function FinancialPlanning() {
                 ) : (
                   <div className="space-y-3">
                     {financialGoals.slice(0, 3).map((goal) => {
-                      const projection = financialPlanningService.calculateGoalProjection(goal);
+                      const projection = financialPlanningService.calculateGoalProjection(
+                        goal.targetAmount,
+                        goal.currentSavings,
+                        goal.monthlyContribution,
+                        0.07,
+                        5
+                      );
                       const progress = (goal.currentSavings / goal.targetAmount) * 100;
                       
                       return (
@@ -370,7 +415,7 @@ export default function FinancialPlanning() {
                               {getGoalStatusIcon(goal)}
                             </div>
                             <span className={`text-sm font-medium ${getGoalStatusColor(goal)}`}>
-                              {formatDate(goal.targetDate)}
+                              {formatDate(new Date(goal.targetDate))}
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
@@ -425,7 +470,12 @@ export default function FinancialPlanning() {
                 ) : (
                   <div className="space-y-3">
                     {debtPlans.slice(0, 3).map((plan) => {
-                      const projection = financialPlanningService.calculateDebtPayoff(plan);
+                      const projection = financialPlanningService.calculateDebtPayoff(
+                        plan.currentBalance,
+                        plan.interestRate,
+                        plan.minimumPayment,
+                        plan.additionalPayment || 0
+                      );
                       return (
                         <div key={plan.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                           <div>
@@ -481,7 +531,7 @@ export default function FinancialPlanning() {
                           <div>
                             <p className="font-medium text-gray-900 dark:text-white capitalize">{need.type} Insurance</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {formatCurrency(need.currentCoverage)} / {formatCurrency(need.recommendedCoverage)}
+                              {formatCurrency(need.currentCoverage || need.coverageAmount || 0)} / {formatCurrency(need.recommendedCoverage || need.coverageAmount || 0)}
                             </p>
                           </div>
                           <div className="text-right">
@@ -522,7 +572,7 @@ export default function FinancialPlanning() {
         )}
 
         {activeTab === 'insurance' && (
-          <InsurancePlanner onDataChange={handleDataChange} />
+          <InsurancePlanner />
         )}
 
         {activeTab === 'networth' && (

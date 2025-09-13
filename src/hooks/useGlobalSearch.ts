@@ -84,7 +84,7 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        logger.error('Error searching account:', account.id, error);
+        logger.error('Error searching account: ' + account.id, error);
       }
     });
 
@@ -113,7 +113,7 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        logger.error('Error searching transaction:', transaction.id, error);
+        logger.error('Error searching transaction: ' + transaction.id, error);
       }
     });
 
@@ -141,7 +141,7 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        logger.error('Error searching budget:', budget.id, error);
+        logger.error('Error searching budget: ' + budget.id, error);
       }
     });
 
@@ -172,7 +172,7 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        logger.error('Error searching goal:', goal.id, error);
+        logger.error('Error searching goal: ' + goal.id, error);
       }
     });
 

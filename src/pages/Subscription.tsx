@@ -8,7 +8,7 @@ import PageWrapper from '../components/PageWrapper';
 
 export default function Subscription(): React.JSX.Element {
   return (
-    <PageWrapper title="Subscription" description="Manage your WealthTracker subscription">
+    <PageWrapper title="Subscription">
       <SubscriptionPage />
     </PageWrapper>
   );

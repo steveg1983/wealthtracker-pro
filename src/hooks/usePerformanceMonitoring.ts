@@ -36,12 +36,12 @@ interface PerformanceLongTaskTiming extends PerformanceEntry {
 export const usePerformanceMonitoring = () => {
   // Track Core Web Vitals
   const trackWebVitals = useCallback(() => {
+    const metrics: PerformanceMetrics = {};
+    
     try {
       logger.debug('Initializing performance monitoring', {
         componentName: 'usePerformanceMonitoring'
       });
-      
-      const metrics: PerformanceMetrics = {};
 
       // Observe Largest Contentful Paint
       try {
@@ -153,15 +153,6 @@ export const usePerformanceMonitoring = () => {
       
     } catch (error) {
       logger.error('Failed to initialize performance monitoring:', error, 'usePerformanceMonitoring');
-    }
-
-    try {
-      lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
-      fidObserver.observe({ type: 'first-input', buffered: true });
-      clsObserver.observe({ type: 'layout-shift', buffered: true });
-      inpObserver.observe({ type: 'event', buffered: true, durationThreshold: 40 });
-    } catch (error) {
-      logger.warn('Performance monitoring not supported:', error);
     }
 
     // Get First Contentful Paint
@@ -305,8 +296,8 @@ export const usePerformanceMonitoring = () => {
     // In production, send to analytics service
     if (process.env.NODE_ENV === 'production') {
       // Example: send to Google Analytics
-      if (typeof gtag !== 'undefined') {
-        gtag('event', 'performance', {
+      if (typeof (window as any).gtag !== 'undefined') {
+        (window as any).gtag('event', 'performance', {
           event_category: 'Web Vitals',
           ...metrics
         });

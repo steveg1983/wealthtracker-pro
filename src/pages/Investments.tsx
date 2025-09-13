@@ -375,7 +375,7 @@ export default function Investments() {
               <XAxis dataKey="month" stroke="#9CA3AF" />
               <YAxis 
                 stroke="#9CA3AF" 
-                tickFormatter={(value) => {
+                tickFormatter={(value: number) => {
                   const formatted = formatCurrency(value);
                   if (value >= 1000) {
                     return `${formatted.charAt(0)}${(value / 1000).toFixed(0)}k`;
@@ -571,9 +571,9 @@ export default function Investments() {
                 <RealTimePortfolioEnhanced
                   holdings={investmentAccounts.flatMap(acc => 
                     (acc.holdings || []).map(h => ({
-                      symbol: h.symbol || h.ticker,
+                      symbol: h.ticker,
                       shares: toDecimal(h.shares),
-                      averageCost: toDecimal(h.averageCost || h.costBasis / h.shares || h.value / h.shares),
+                      averageCost: toDecimal(h.averageCost || (h.costBasis ? h.costBasis / h.shares : h.value / h.shares)),
                       costBasis: toDecimal(h.costBasis || h.shares * (h.averageCost || h.value / h.shares))
                     }))
                   )}
@@ -599,9 +599,9 @@ export default function Investments() {
                   {account.holdings && account.holdings.length > 0 ? (
                     <RealTimePortfolioEnhanced
                       holdings={account.holdings.map(h => ({
-                        symbol: h.symbol || h.ticker,
+                        symbol: h.ticker,
                         shares: toDecimal(h.shares),
-                        averageCost: toDecimal(h.averageCost || h.costBasis / h.shares || h.value / h.shares),
+                        averageCost: toDecimal(h.averageCost || (h.costBasis ? h.costBasis / h.shares : h.value / h.shares)),
                         costBasis: toDecimal(h.costBasis || h.shares * (h.averageCost || h.value / h.shares))
                       }))}
                       baseCurrency={account.currency}
@@ -622,9 +622,9 @@ export default function Investments() {
       {activeTab === 'optimize' && (
         <div className="space-y-6">
           <PortfolioOptimizer
-            portfolioValue={totalValue}
+            portfolioValue={portfolioValue}
             currentAllocations={
-              portfolioSummary?.assetAllocation?.reduce((acc, asset) => {
+              portfolioSummary?.assetAllocation?.reduce((acc: Record<string, number>, asset: any) => {
                 acc[asset.category] = asset.percentage / 100;
                 return acc;
               }, {} as Record<string, number>) || {}
@@ -694,7 +694,7 @@ export default function Investments() {
                             lastUpdated: new Date()
                           }))
                         };
-                        updateAccount(updatedAccount);
+                        updateAccount(account.id, updatedAccount);
                       }}
                     />
                   </div>
@@ -730,27 +730,6 @@ export default function Investments() {
         <AddInvestmentModal
           isOpen={showAddInvestmentModal}
           onClose={() => setShowAddInvestmentModal(false)}
-          onAdd={async (investment: any) => {
-            try {
-              await investmentService.createInvestment(user.id, {
-                symbol: investment.ticker,
-                name: investment.name,
-                quantity: investment.shares,
-                costBasis: investment.purchasePrice * investment.shares,
-                purchasePrice: investment.purchasePrice,
-                purchaseDate: new Date(investment.purchaseDate),
-                assetType: investment.type as any,
-                accountId: investment.accountId,
-                currency: 'USD'
-              });
-              
-              // Reload portfolio data
-              await loadPortfolioData();
-              setShowAddInvestmentModal(false);
-            } catch (error) {
-              logger.error('Failed to add investment:', error);
-            }
-          }}
         />
       )}
     </PageWrapper>

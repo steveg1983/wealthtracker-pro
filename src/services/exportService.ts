@@ -3,7 +3,7 @@ let jsPDF: typeof import('jspdf').jsPDF | null = null;
 const html2canvas: typeof import('html2canvas').default | null = null;
 import type { Transaction, Account, Category, Investment, Budget } from '../types';
 import type { ExportableData, GroupedData, ChartData, SavedReport, SavedTemplate } from '../types/export';
-import { Decimal } from 'decimal.js';
+import Decimal from 'decimal.js';
 import { logger } from './loggingService';
 
 export interface ExportOptions {
@@ -333,7 +333,7 @@ class ExportService {
             doc.addPage();
             yPosition = 20;
           }
-          doc.text(`${budget.categoryId}: $${budget.spent.toFixed(2)} / $${budget.amount.toFixed(2)} (${budget.percentUsed.toFixed(0)}%)`, 30, yPosition);
+          doc.text(`${budget.categoryIdId}: $${budget.spent.toFixed(2)} / $${budget.amount.toFixed(2)} (${budget.percentUsed.toFixed(0)}%)`, 30, yPosition);
           yPosition += 6;
         });
       }
@@ -395,7 +395,7 @@ class ExportService {
       
       exportData.data.budgetPerformance.forEach((budget: any) => {
         budgetData.push([
-          budget.categoryId,
+          budget.categoryIdId,
           budget.amount,
           budget.spent,
           budget.remaining,
@@ -476,9 +476,9 @@ class ExportService {
       Object.entries(categoryTotals).forEach(([category, data]) => {
         categoryData.push([
           category,
-          data.count,
-          data.total,
-          data.total / data.count
+          data.count.toString(),
+          data.total.toString(),
+          (data.total / data.count).toString()
         ]);
       });
       
@@ -522,7 +522,7 @@ class ExportService {
       csvContent += 'BUDGET PERFORMANCE\n';
       csvContent += 'Category,Budget,Spent,Remaining,% Used\n';
       exportData.data.budgetPerformance.forEach((budget: any) => {
-        csvContent += `${budget.categoryId},$${budget.amount.toFixed(2)},$${budget.spent.toFixed(2)},$${budget.remaining.toFixed(2)},${budget.percentUsed.toFixed(0)}%\n`;
+        csvContent += `${budget.categoryIdId},$${budget.amount.toFixed(2)},$${budget.spent.toFixed(2)},$${budget.remaining.toFixed(2)},${budget.percentUsed.toFixed(0)}%\n`;
       });
       csvContent += '\n';
     }
@@ -562,14 +562,15 @@ class ExportService {
     const { startDate, endDate, groupBy = 'none' } = options;
 
     // Filter by date if specified
-    let filteredData = data;
+    let filteredData: Transaction[] | Account[] | Investment[] = data;
     if (startDate && endDate) {
-      filteredData = data.filter(item => {
+      filteredData = data.filter((item: any) => {
         const itemDate = 'date' in item ? item.date : 
                         'createdAt' in item ? item.createdAt :
-                        new Date();
+                        undefined;
+        if (!itemDate) return false;
         return itemDate >= startDate && itemDate <= endDate;
-      });
+      }) as Transaction[] | Account[] | Investment[];
     }
 
     // Group data if specified
@@ -585,7 +586,7 @@ class ExportService {
         Count: Array.isArray(items) ? items.length : 1,
         Total: this.calculateGroupTotal(items)
       }));
-      return this.arrayToCSV(summaryRows);
+      return this.arrayToCSV(summaryRows as any[]);
     }
   }
 
@@ -644,13 +645,13 @@ class ExportService {
 
     // Add charts if requested
     if (options.includeCharts) {
-      await this.addChartsToPDF(doc, data, yPosition);
+      await this.addChartsToPDF(doc, data as ChartData, yPosition);
     }
 
-    return doc.output('arraybuffer');
+    return new Uint8Array(doc.output('arraybuffer'));
   }
 
-  private async addAccountsSummaryToPDF(doc: jsPDF, accounts: Account[], yPosition: number): Promise<number> {
+  private async addAccountsSummaryToPDF(doc: any, accounts: Account[], yPosition: number): Promise<number> {
     doc.setFontSize(16);
     doc.text('Accounts Summary', 20, yPosition);
     yPosition += 10;
@@ -669,7 +670,7 @@ class ExportService {
   }
 
   private async addTransactionsSummaryToPDF(
-    doc: jsPDF, 
+    doc: any, 
     transactions: Transaction[], 
     yPosition: number, 
     options: ExportOptions
@@ -702,7 +703,7 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addInvestmentsSummaryToPDF(doc: jsPDF, investments: Investment[], yPosition: number): Promise<number> {
+  private async addInvestmentsSummaryToPDF(doc: any, investments: Investment[], yPosition: number): Promise<number> {
     doc.setFontSize(16);
     doc.text('Investments Summary', 20, yPosition);
     yPosition += 10;
@@ -712,7 +713,7 @@ class ExportService {
       const currentValue = new Decimal(investment.currentValue || 0);
       const costBasis = new Decimal(investment.costBasis || investment.quantity * investment.purchasePrice);
       const gainLoss = currentValue.minus(costBasis);
-      const gainLossPercent = costBasis.gt(0) ? gainLoss.div(costBasis).mul(100) : new Decimal(0);
+      const gainLossPercent = costBasis.gt(0) ? gainLoss.div(costBasis).times(100) : new Decimal(0);
 
       doc.text(
         `${investment.symbol}: ${this.formatCurrency(currentValue.toNumber())} (${gainLoss.gte(0) ? '+' : ''}${gainLossPercent.toFixed(2)}%)`,
@@ -725,7 +726,7 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addBudgetsSummaryToPDF(doc: jsPDF, budgets: Budget[], yPosition: number): Promise<number> {
+  private async addBudgetsSummaryToPDF(doc: any, budgets: Budget[], yPosition: number): Promise<number> {
     doc.setFontSize(16);
     doc.text('Budget Summary', 20, yPosition);
     yPosition += 10;
@@ -733,12 +734,12 @@ class ExportService {
     doc.setFontSize(10);
     budgets.forEach(budget => {
       const spent = new Decimal(budget.spent || 0);
-      const budgeted = new Decimal(budget.budgeted);
+      const budgeted = new Decimal(budget.budgeted || budget.amount || 0);
       const remaining = budgeted.minus(spent);
-      const percentSpent = budgeted.gt(0) ? spent.div(budgeted).mul(100) : new Decimal(0);
+      const percentSpent = budgeted.gt(0) ? spent.div(budgeted).times(100) : new Decimal(0);
 
       doc.text(
-        `${budget.category}: ${this.formatCurrency(spent.toNumber())} / ${this.formatCurrency(budgeted.toNumber())} (${percentSpent.toFixed(1)}%)`,
+        `${budget.categoryId}: ${this.formatCurrency(spent.toNumber())} / ${this.formatCurrency(budgeted.toNumber())} (${percentSpent.toFixed(1)}%)`,
         20,
         yPosition
       );
@@ -748,7 +749,7 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addChartsToPDF(doc: jsPDF, data: ChartData, yPosition: number): Promise<void> {
+  private async addChartsToPDF(doc: any, data: ChartData, yPosition: number): Promise<void> {
     // This would capture chart elements from the DOM and add them to PDF
     // For now, we'll add a placeholder
     doc.setFontSize(14);
@@ -805,7 +806,7 @@ class ExportService {
       headers.join(','),
       ...data.map(row => 
         headers.map(header => {
-          const value = row[header];
+          const value = (row as any)[header];
           // Escape commas and quotes in CSV
           if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
             return `"${value.replace(/"/g, '""')}"`;
@@ -892,8 +893,8 @@ class ExportService {
           qifContent += `P${transaction.description || ''}\n`;
           qifContent += `L${transaction.category || 'Uncategorized'}\n`;
           
-          if (transaction.note) {
-            qifContent += `M${transaction.note}\n`;
+          if (transaction.notes) {
+            qifContent += `M${transaction.notes}\n`;
           }
           
           qifContent += '^\n';
@@ -962,7 +963,7 @@ NEWFILEUID:${now}
 <TRNAMT>${amount}
 <FITID>${transaction.id}
 <NAME>${transaction.description || ''}
-<MEMO>${transaction.note || ''}
+<MEMO>${transaction.notes || ''}
 </STMTTRN>
 `;
       }
@@ -1056,8 +1057,9 @@ NEWFILEUID:${now}
       excelContent += 'Category,Budgeted,Spent,Remaining,Period\n';
       data.budgets.forEach(budget => {
         const spent = budget.spent || 0;
-        const remaining = budget.budgeted - spent;
-        excelContent += `${budget.category},${budget.budgeted},${spent},${remaining},${budget.period}\n`;
+        const budgeted = budget.budgeted || 0;
+        const remaining = budgeted - spent;
+        excelContent += `${budget.categoryId},${budgeted},${spent},${remaining},${budget.period}\n`;
       });
       excelContent += '\n';
     }

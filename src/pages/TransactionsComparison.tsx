@@ -7,6 +7,7 @@ import AddTransactionModal from '../components/AddTransactionModal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useAppSelector } from '../store';
 import { PlusIcon } from '../components/icons';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 /**
  * Page that allows comparing Context API vs Redux implementations
@@ -17,7 +18,8 @@ export default function TransactionsComparison() {
   const [showAddModal, setShowAddModal] = useState(false);
   
   // Get data from both sources for comparison
-  const contextTransactions = useApp().transactions;
+  const { transactions: contextTransactions } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
   const reduxTransactions = useAppSelector(state => state.transactions.transactions);
   
   const transactionCountMatch = contextTransactions.length === reduxTransactions.length;
@@ -25,9 +27,7 @@ export default function TransactionsComparison() {
   return (
     <PageWrapper
       title="Transactions"
-      subtitle="Compare Context API vs Redux implementations"
-      icon={<BarChart3Icon size={24} />}
-      actions={
+      rightContent={
         <div className="flex items-center gap-4">
           {/* Toggle Switch */}
           <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
@@ -102,7 +102,10 @@ export default function TransactionsComparison() {
               <strong>Context Mode:</strong> This is the original implementation using Context API.
             </p>
           </div>
-          <VirtualizedTransactionList />
+          <VirtualizedTransactionList 
+            transactions={contextTransactions}
+            formatCurrency={formatCurrency}
+          />
         </div>
       )}
 
@@ -110,7 +113,6 @@ export default function TransactionsComparison() {
       <AddTransactionModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onSave={() => setShowAddModal(false)}
       />
     </PageWrapper>
   );

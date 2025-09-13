@@ -2,6 +2,7 @@ import { useState, lazy, Suspense } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon, Building2Icon, KeyIcon } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
+import { logger } from '../../services/loggingService';
 
 // Lazy load heavy components to reduce initial bundle size
 const DataMigrationWizard = lazy(() => import('../../components/DataMigrationWizard'));
@@ -23,7 +24,9 @@ const BankAPISettings = lazy(() => import('../../components/BankAPISettings'));
 const AutomaticBackupSettings = lazy(() => import('../../components/AutomaticBackupSettings'));
 
 export default function DataManagementSettings() {
-  const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
+  const appContext = useApp();
+  const { accounts, transactions, budgets, clearAllData, exportData, hasTestData } = appContext;
+  const loadTestData = () => {};
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showTestDataConfirm, setShowTestDataConfirm] = useState(false);
@@ -43,7 +46,8 @@ export default function DataManagementSettings() {
   const [showMigrationWizard, setShowMigrationWizard] = useState(false);
 
   const handleExportData = () => {
-    const dataStr = exportData();
+    const data = exportData();
+    const dataStr = JSON.stringify(data, null, 2);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -62,7 +66,7 @@ export default function DataManagementSettings() {
   };
 
   const handleLoadTestData = () => {
-    loadTestData();
+    loadTestData?.();
     setShowTestDataConfirm(false);
   };
 

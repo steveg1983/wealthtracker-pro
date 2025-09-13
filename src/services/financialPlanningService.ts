@@ -26,6 +26,31 @@ import type {
   SavedCalculationUpdate
 } from '../types/financial-plans';
 
+import type {
+  SavedFinancialGoal,
+  SavedDebtPlan,
+  SavedInsuranceNeed
+} from '../types/financial-planning';
+
+// Re-export types with aliases for backward compatibility
+export type { 
+  SavedFinancialGoal as FinancialGoal,
+  SavedDebtPlan as DebtPayoffPlan,
+  SavedInsuranceNeed as InsuranceNeed
+} from '../types/financial-planning';
+
+// Re-export financial plan types
+export type {
+  FinancialPlan,
+  FinancialPlanCreate,
+  FinancialPlanUpdate,
+  FinancialPlanFilters,
+  MortgageCalculation,
+  RetirementPlan,
+  InvestmentPlan,
+  SavedCalculation
+} from '../types/financial-plans';
+
 export class FinancialPlanningService {
   /**
    * SAVED CALCULATIONS - Quick storage for any calculator results
@@ -432,14 +457,102 @@ export class FinancialPlanningService {
     return [];
   }
 
-  static calculateRetirementProjection() {
+
+  static calculateRetirementProjection(plan: any) {
     console.warn('Using deprecated method. Functionality moved to retirement calculators');
-    return null;
+    // Return minimal object for backward compatibility
+    return {
+      yearsToRetirement: 0,
+      totalSavingsAtRetirement: 0,
+      monthlyIncomeInRetirement: 0,
+      savingsShortfall: 0,
+      onTrack: false
+    };
   }
 
   static calculateMortgage() {
     console.warn('Using deprecated method. Functionality moved to mortgage calculators');
     return null;
+  }
+
+  static calculateGoalProjection(
+    targetAmount: number,
+    initialAmount: number = 0,
+    monthlyContribution: number = 0,
+    annualReturn: number = 0.07,
+    timeHorizon: number = 5
+  ) {
+    console.warn('Using deprecated method. Functionality moved to goal calculators');
+    // Simple compound interest calculation for backward compatibility
+    const monthlyRate = annualReturn / 12;
+    const months = timeHorizon * 12;
+    
+    // Future value of current amount
+    const futureValue = initialAmount * Math.pow(1 + monthlyRate, months);
+    
+    // Future value of monthly contributions
+    const contributionsFV = monthlyContribution * 
+      ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+    
+    const projectedValue = futureValue + contributionsFV;
+    const shortfall = Math.max(0, targetAmount - projectedValue);
+    
+    return {
+      projectedValue,
+      shortfall,
+      onTrack: projectedValue >= targetAmount,
+      monthsToGoal: months,
+      requiredMonthly: shortfall > 0 ? 
+        shortfall / ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate) : 
+        0
+    };
+  }
+
+  static getDebtPlans(): SavedDebtPlan[] {
+    console.warn('Using deprecated method. Consider using getFinancialPlans with plan_type filter');
+    return [];
+  }
+
+  static getInsuranceNeeds(): SavedInsuranceNeed[] {
+    console.warn('Using deprecated method. Insurance needs should be fetched from database');
+    return [];
+  }
+
+  static getFinancialPlansSync(): SavedFinancialGoal[] {
+    console.warn('Using deprecated synchronous method. Use async getFinancialPlans with clerkUserId');
+    return [];
+  }
+
+  static calculateDebtPayoff(
+    principal: number,
+    interestRate: number,
+    minimumPayment: number,
+    extraPayment: number = 0
+  ) {
+    const monthlyRate = interestRate / 12;
+    const totalPayment = minimumPayment + extraPayment;
+    
+    if (totalPayment <= principal * monthlyRate) {
+      return {
+        monthsToPayoff: Infinity,
+        totalInterest: Infinity,
+        totalPayment: Infinity
+      };
+    }
+    
+    const monthsToPayoff = Math.ceil(
+      Math.log(totalPayment / (totalPayment - principal * monthlyRate)) / 
+      Math.log(1 + monthlyRate)
+    );
+    
+    const totalPayment_ = monthsToPayoff * totalPayment;
+    const totalInterest = totalPayment_ - principal;
+    
+    return {
+      monthsToPayoff,
+      totalInterest,
+      totalPayment: totalPayment_
+    };
   }
 }
 

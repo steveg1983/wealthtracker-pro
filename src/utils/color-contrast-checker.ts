@@ -9,7 +9,7 @@ interface RGB {
   b: number;
 }
 
-interface ContrastResult {
+export interface ContrastResult {
   ratio: number;
   passes: {
     normal: {

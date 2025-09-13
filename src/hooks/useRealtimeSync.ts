@@ -54,7 +54,7 @@ interface UseRealtimeSyncOptions {
   };
 }
 
-interface UseRealtimeSyncReturn {
+export interface UseRealtimeSyncReturn {
   /**
    * Current connection state
    */
@@ -136,7 +136,8 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions = {}): UseRealti
 
   // Accounts event handler
   const handleAccountsEvent: RealtimeCallback<Account> = useCallback((event) => {
-    if (isEchoUpdate(event.new?.updated_at ? new Date(event.new.updated_at).getTime() : undefined)) {
+    const updatedAt = (event.new as any)?.updated_at || event.new?.updatedAt;
+    if (isEchoUpdate(updatedAt ? new Date(updatedAt).getTime() : undefined)) {
       return;
     }
 
@@ -172,7 +173,8 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions = {}): UseRealti
 
   // Transactions event handler
   const handleTransactionsEvent: RealtimeCallback<Transaction> = useCallback((event) => {
-    if (isEchoUpdate(event.new?.updated_at ? new Date(event.new.updated_at).getTime() : undefined)) {
+    const updatedAt = (event.new as any)?.updated_at || event.new?.updatedAt;
+    if (isEchoUpdate(updatedAt ? new Date(updatedAt).getTime() : undefined)) {
       return;
     }
 
@@ -207,7 +209,8 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions = {}): UseRealti
 
   // Budgets event handler
   const handleBudgetsEvent: RealtimeCallback<Budget> = useCallback((event) => {
-    if (isEchoUpdate(event.new?.updated_at ? new Date(event.new.updated_at).getTime() : undefined)) {
+    const updatedAt = (event.new as any)?.updated_at || event.new?.updatedAt;
+    if (isEchoUpdate(updatedAt ? new Date(updatedAt).getTime() : undefined)) {
       return;
     }
 
@@ -242,7 +245,8 @@ export function useRealtimeSync(options: UseRealtimeSyncOptions = {}): UseRealti
 
   // Goals event handler
   const handleGoalsEvent: RealtimeCallback<Goal> = useCallback((event) => {
-    if (isEchoUpdate(event.new?.updated_at ? new Date(event.new.updated_at).getTime() : undefined)) {
+    const updatedAt = (event.new as any)?.updated_at || event.new?.updatedAt;
+    if (isEchoUpdate(updatedAt ? new Date(updatedAt).getTime() : undefined)) {
       return;
     }
 

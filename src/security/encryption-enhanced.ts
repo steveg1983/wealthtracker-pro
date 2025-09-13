@@ -121,10 +121,11 @@ class EnhancedEncryptionService {
       
       if (!gl) return 'no-webgl';
 
-      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+      const webgl = gl as WebGLRenderingContext;
+      const debugInfo = webgl.getExtension('WEBGL_debug_renderer_info');
       if (debugInfo) {
-        const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
-        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        const vendor = webgl.getParameter((debugInfo as any).UNMASKED_VENDOR_WEBGL);
+        const renderer = webgl.getParameter((debugInfo as any).UNMASKED_RENDERER_WEBGL);
         return `${vendor}::${renderer}`;
       }
       

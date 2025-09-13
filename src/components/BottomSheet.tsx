@@ -208,7 +208,7 @@ export function BottomSheet({
         {/* Drag Handle */}
         {showHandle && (
           <div 
-            ref={dragHandleRef}
+            ref={dragHandleRef as React.RefObject<HTMLDivElement>}
             className="flex justify-center py-3 cursor-grab active:cursor-grabbing"
           >
             <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-600 rounded-full" />

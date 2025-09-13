@@ -233,7 +233,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
       isOpen={isOpen}
       onClose={onClose}
       title="Resolve Data Sync Conflict"
-      maxWidth="max-w-3xl"
+      size="xl"
     >
       <div className="space-y-6">
         {/* Smart Resolution Header */}

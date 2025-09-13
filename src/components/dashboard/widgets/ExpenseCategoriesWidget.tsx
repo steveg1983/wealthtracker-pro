@@ -3,15 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
 import { PieChartIcon, TrendingUpIcon, TrendingDownIcon } from '../../icons';
-import { Doughnut } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend
-} from 'chart.js';
-
-ChartJS.register(ArcElement, Tooltip, Legend);
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 interface ExpenseCategoriesWidgetProps {
   isCompact?: boolean;
@@ -53,7 +45,7 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
     const categoryTotals = new Map<string, { current: number; previous: number }>();
     
     thisMonthExpenses.forEach(t => {
-      const category = t.categoryId || 'Uncategorized';
+      const category = t.category || 'Uncategorized';
       const existing = categoryTotals.get(category) || { current: 0, previous: 0 };
       categoryTotals.set(category, {
         ...existing,
@@ -62,7 +54,7 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
     });
 
     lastMonthExpenses.forEach(t => {
-      const category = t.categoryId || 'Uncategorized';
+      const category = t.category || 'Uncategorized';
       const existing = categoryTotals.get(category) || { current: 0, previous: 0 };
       categoryTotals.set(category, {
         ...existing,
@@ -142,38 +134,28 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
     );
   }
 
-  const chartData = {
-    labels: categoryData.categories.map(cat => cat.name),
-    datasets: [
-      {
-        data: categoryData.categories.map(cat => cat.amount),
-        backgroundColor: categoryData.categories.map(cat => cat.color),
-        borderColor: categoryData.categories.map(cat => cat.color),
-        borderWidth: 1
-      }
-    ]
+  // Prepare data for Recharts
+  const pieChartData = categoryData.categories.map(cat => ({
+    name: cat.name,
+    value: cat.amount,
+    percentage: cat.percentage
+  }));
+
+  // Custom label for tooltip
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      const data = payload[0];
+      return (
+        <div className="bg-white dark:bg-gray-800 p-2 rounded shadow-lg border border-gray-200 dark:border-gray-700">
+          <p className="font-medium">{data.name}</p>
+          <p className="text-sm">{formatCurrency(data.value)}</p>
+          <p className="text-xs text-gray-500">{data.payload.percentage.toFixed(1)}%</p>
+        </div>
+      );
+    }
+    return null;
   };
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false
-      },
-      tooltip: {
-        callbacks: {
-          label: (context: any) => {
-            const label = context.label || '';
-            const value = formatCurrency(context.raw);
-            const percentage = categoryData.categories[context.dataIndex].percentage.toFixed(1);
-            return `${label}: ${value} (${percentage}%)`;
-          }
-        }
-      }
-    },
-    cutout: '60%'
-  };
 
   return (
     <div className="space-y-4">
@@ -195,7 +177,24 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
       <div className="flex gap-4">
         {/* Donut Chart */}
         <div className="w-32 h-32 flex-shrink-0">
-          <Doughnut data={chartData} options={chartOptions} />
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={pieChartData}
+                cx="50%"
+                cy="50%"
+                innerRadius={25}
+                outerRadius={45}
+                paddingAngle={2}
+                dataKey="value"
+              >
+                {categoryData.categories.map((cat, index) => (
+                  <Cell key={`cell-${index}`} fill={cat.color} />
+                ))}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Legend */}

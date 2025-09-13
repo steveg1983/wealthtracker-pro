@@ -80,7 +80,7 @@ export function useServiceWorker() {
 
     // Get initial sync status
     getSyncStatus().then(status => {
-      setState(prev => ({ ...prev, syncStatus: status }));
+      setState(prev => ({ ...prev, syncStatus: status as ServiceWorkerState['syncStatus'] }));
     }).catch(() => {
       // Service worker not ready yet
     });
@@ -106,7 +106,7 @@ export function useServiceWorker() {
   const refreshSyncStatus = useCallback(async () => {
     try {
       const status = await getSyncStatus();
-      setState(prev => ({ ...prev, syncStatus: status }));
+      setState(prev => ({ ...prev, syncStatus: status as ServiceWorkerState['syncStatus'] }));
     } catch (error) {
       logger.error('Failed to get sync status:', error);
     }

@@ -1,6 +1,8 @@
 // Isolated module for recharts child components
 // This file is lazy-loaded separately to keep recharts out of the main bundle
 
+import * as RechartsComponents from 'recharts';
+
 export {
   ResponsiveContainer,
   Tooltip,
@@ -41,3 +43,5 @@ export const CHART_COLORS = [
   '#f97316', // Orange
   '#84cc16', // Lime
 ];
+// Default export for dynamic imports
+export default RechartsComponents;

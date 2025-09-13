@@ -7,7 +7,7 @@ export default function DiagnosticReport() {
   
   useEffect(() => {
     // Check localStorage
-    const localStorageKeys = [];
+    const localStorageKeys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key) localStorageKeys.push(key);

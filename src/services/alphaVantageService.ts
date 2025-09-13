@@ -9,6 +9,7 @@ import type { DecimalInstance } from '../types/decimal-types';
 
 export interface StockQuote {
   symbol: string;
+  name?: string;
   price: DecimalInstance;
   change: DecimalInstance;
   changePercent: number;

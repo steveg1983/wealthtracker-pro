@@ -15,7 +15,7 @@ import type { BaseWidgetProps } from '../../types/widget-types';
 interface InvestmentEnhancementWidgetProps extends BaseWidgetProps {}
 
 export default function InvestmentEnhancementWidget({ size = 'medium' }: InvestmentEnhancementWidgetProps) {
-  const { investments, transactions } = useApp();
+  const { investments = [], transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   

@@ -175,7 +175,7 @@ export const generateDemoTransactions = (count: number = 50) => {
     
     const isExpense = Math.random() > 0.2; // 80% expenses, 20% income
     const amount: string = isExpense 
-      ? -(Math.random() * 500 + 10).toFixed(2) // Expenses: -$10 to -$510
+      ? (-(Math.random() * 500 + 10)).toFixed(2) // Expenses: -$10 to -$510
       : (Math.random() * 3000 + 1000).toFixed(2); // Income: $1000 to $4000
     
     // Get expense categories or income category

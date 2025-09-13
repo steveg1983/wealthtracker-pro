@@ -1,6 +1,6 @@
 import { encryptedStorage, STORAGE_KEYS } from './encryptedStorageService';
 import { indexedDBService } from './indexedDBService';
-import type { ExportableData } from '../types/export';
+import type { ExportedData } from '../types/storage';
 
 // Re-export STORAGE_KEYS for external use
 export { STORAGE_KEYS } from './encryptedStorageService';
@@ -206,12 +206,12 @@ class SecureStorageAdapter implements StorageAdapter {
   }
 
   // Export data for backup
-  async exportData(): Promise<ExportableData> {
+  async exportData(): Promise<ExportedData> {
     return await encryptedStorage.exportData();
   }
 
   // Import data from backup
-  async importData(data: ExportableData): Promise<void> {
+  async importData(data: ExportedData): Promise<void> {
     await encryptedStorage.importData(data, { encrypted: true });
   }
 

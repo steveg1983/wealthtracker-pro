@@ -33,6 +33,8 @@ export default function DeletedAccounts() {
       setLoading(true);
       try {
         // Now fetch deleted accounts using the database user ID directly
+        if (!supabase) throw new Error("Supabase not configured");
+
         const { data, error } = await supabase
           .from('accounts')
           .select('*')
@@ -68,6 +70,9 @@ export default function DeletedAccounts() {
   const handleRestore = async (accountId: string) => {
     setRestoringId(accountId);
     try {
+      if (!supabase) {
+        throw new Error('Supabase client not initialized');
+      }
       // Update in database
       const { error } = await supabase
         .from('accounts')

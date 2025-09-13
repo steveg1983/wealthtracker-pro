@@ -423,11 +423,16 @@ class EnhancedCsvImportService {
               }
             } else if (mapping.targetField === 'date' && !mapping.transform) {
               // Apply date parsing for date fields without transform
-              transaction.date = this.parseDate(value);
+              transaction.date = new Date(this.parseDate(value));
             } else if (mapping.transform) {
-              transaction[mapping.targetField as keyof Transaction] = mapping.transform(value);
+              const transformed = mapping.transform(value);
+              if (transformed !== undefined) {
+                transaction[mapping.targetField as keyof Transaction] = transformed as any;
+              }
             } else {
-              transaction[mapping.targetField as keyof Transaction] = value as JsonValue;
+              if (value !== undefined) {
+                transaction[mapping.targetField as keyof Transaction] = value as any;
+              }
             }
           }
         }
@@ -596,11 +601,16 @@ class EnhancedCsvImportService {
             if (mapping.targetField === 'amount' && !mapping.transform) {
               transaction.amount = this.parseAmount(value);
             } else if (mapping.targetField === 'date' && !mapping.transform) {
-              transaction.date = this.parseDate(value);
+              transaction.date = new Date(this.parseDate(value));
             } else if (mapping.transform) {
-              transaction[mapping.targetField as keyof Transaction] = mapping.transform(value);
+              const transformed = mapping.transform(value);
+              if (transformed !== undefined) {
+                transaction[mapping.targetField as keyof Transaction] = transformed as any;
+              }
             } else {
-              transaction[mapping.targetField as keyof Transaction] = value as JsonValue;
+              if (value !== undefined) {
+                transaction[mapping.targetField as keyof Transaction] = value as any;
+              }
             }
           }
         }
@@ -1100,6 +1110,51 @@ class EnhancedCsvImportService {
     };
     
     return bankMappings[bank.toLowerCase()] || [];
+  }
+
+  /**
+   * Import CSV data
+   */
+  async importCsv(
+    content: string,
+    mappings: ColumnMapping[],
+    type: 'transaction' | 'account'
+  ): Promise<ImportResult> {
+    const parsed = this.parseCSV(content);
+    
+    if (type === 'transaction') {
+      return this.importTransactions(
+        content,
+        mappings,
+        [],
+        new Map(),
+        {
+          skipDuplicates: true,
+          duplicateThreshold: 90,
+          categories: [],
+          autoCategorize: true,
+          categoryConfidenceThreshold: 0.7
+        }
+      );
+    } else {
+      // For accounts, return a simplified result
+      return {
+        success: 0,
+        failed: 0,
+        duplicates: 0,
+        items: [],
+        errors: []
+      };
+    }
+  }
+
+  /**
+   * Parser property for backward compatibility
+   */
+  get parser() {
+    return {
+      parseCSV: this.parseCSV.bind(this)
+    };
   }
 }
 

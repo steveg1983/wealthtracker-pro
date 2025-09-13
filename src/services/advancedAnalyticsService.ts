@@ -19,11 +19,13 @@ import type {
 
 export interface SpendingAnomaly {
   id: string;
+  transactionId?: string;
   date: Date;
   description: string;
   amount: DecimalInstance;
   category: string;
-  severity: 'low' | 'medium' | 'high';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  type?: 'unusual_amount' | 'unusual_frequency' | 'duplicate_charge' | 'new_merchant';
   reason: string;
   percentageAboveNormal: number;
 }
@@ -200,7 +202,7 @@ class AdvancedAnalyticsService {
     // 1. Identify unused subscriptions
     const subscriptions = this.detectSubscriptions(transactions);
     subscriptions.forEach(sub => {
-      if (sub.unusedMonths > 2) {
+      if (sub.unusedMonths !== undefined && sub.unusedMonths > 2 && sub.monthlyAmount !== undefined) {
         opportunities.push({
           id: `opp-sub-${sub.merchant}`,
           type: 'subscription',
@@ -217,7 +219,7 @@ class AdvancedAnalyticsService {
     // 2. Identify high spending categories
     const categorySpending = this.analyzeCategorySpending(transactions);
     categorySpending.forEach((data, category) => {
-      if (data.trend === 'increasing' && data.percentageOfIncome > 15) {
+      if (data.trend === 'increasing' && data.percentageOfIncome !== undefined && data.percentageOfIncome > 15 && data.monthlyAverage !== undefined) {
         opportunities.push({
           id: `opp-cat-${category}`,
           type: 'category',
@@ -248,7 +250,7 @@ class AdvancedAnalyticsService {
     // 4. Merchant-specific opportunities
     const merchantAnalysis = this.analyzeMerchantSpending(transactions);
     merchantAnalysis.forEach((data, merchant) => {
-      if (data.averageTransaction.greaterThan(50) && data.frequency > 4) {
+      if (data.averageTransaction !== undefined && data.averageTransaction.greaterThan(50) && data.monthlyTotal !== undefined) {
         opportunities.push({
           id: `opp-merchant-${merchant}`,
           type: 'merchant',
@@ -307,7 +309,7 @@ class AdvancedAnalyticsService {
     // 3. Budget performance
     budgets.forEach(budget => {
       const performance = this.analyzeBudgetPerformance(budget, transactions);
-      if (performance.consistentlyUnder && performance.averageUsage < 80) {
+      if (performance.consistentlyUnder && performance.averageUsage !== undefined && performance.averageUsage < 80) {
         insights.push({
           id: `insight-budget-${budget.id}`,
           type: 'budget',
@@ -343,7 +345,7 @@ class AdvancedAnalyticsService {
         id: `insight-seasonal-${pattern.category}`,
         type: 'spending',
         title: `${pattern.category} Seasonal Pattern`,
-        description: pattern.description,
+        description: pattern.description || '',
         impact: 'neutral',
         priority: 'low',
         actionable: true,
@@ -379,7 +381,7 @@ class AdvancedAnalyticsService {
           category: bill.category,
           negotiationTips: this.getNegotiationTips(bill.category),
           successRate: this.getSuccessRate(bill.category),
-          lastTransactionDate: bill.lastDate
+          lastTransactionDate: bill.lastDate || new Date()
         };
         
         suggestions.push(suggestion);
@@ -674,7 +676,13 @@ class AdvancedAnalyticsService {
         
         if (daysDiff >= 25 && daysDiff <= 35) {
           subscriptions.push({
+            id: `sub-${trans[0].description.replace(/\s+/g, '-').toLowerCase()}`,
             merchant: trans[0].description,
+            amount: toDecimal(trans[0].amount),
+            frequency: 'monthly',
+            category: trans[0].category,
+            lastChargeDate: new Date(trans[trans.length - 1].date),
+            isActive: true,
             monthlyAmount: toDecimal(trans[0].amount),
             unusedMonths: 0, // Would need more logic to detect usage
             transactionIds: trans.map(t => t.id)
@@ -756,16 +764,25 @@ class AdvancedAnalyticsService {
         ? recentMonthlyAvg.dividedBy(monthlyIncome).times(100).toNumber()
         : 0;
       
+      const totalSpent = recentTrans.reduce((sum, t) => 
+        sum.plus(toDecimal(Math.abs(t.amount))), toDecimal(0)
+      );
+      const averageTransaction = recentTrans.length > 0 
+        ? totalSpent.dividedBy(recentTrans.length)
+        : toDecimal(0);
+      const percentageOfTotal = 100; // Will be calculated later when we have all categories
+      
       categoryStats.set(category, {
-        category,
-        monthlyAverage: recentMonthlyAvg,
-        trend,
-        percentageIncrease,
-        percentageOfIncome,
+        categoryId: category,
+        categoryName: category, // Using category as name for now
+        totalSpent,
+        averageTransaction,
         transactionCount: recentTrans.length,
-        lastTransaction: recentTrans.length > 0 
-          ? new Date(recentTrans[recentTrans.length - 1].date)
-          : new Date()
+        trend,
+        percentageOfTotal,
+        percentageOfIncome,
+        percentageIncrease,
+        monthlyAverage: recentMonthlyAvg
       });
     });
     
@@ -823,14 +840,22 @@ class AdvancedAnalyticsService {
       
       // If we have multiple different merchants in the same category
       if (merchants.size >= 2) {
-        const merchantList = Array.from(merchants.keys());
-        const totalMonthly = Array.from(merchants.values())
-          .reduce((sum, trans) => {
-            const monthlyAmount = trans.length > 0
-              ? toDecimal(Math.abs(trans[0].amount))
-              : toDecimal(0);
-            return sum.plus(monthlyAmount);
-          }, toDecimal(0));
+        // Create service objects with merchant details
+        const merchantServices = Array.from(merchants.entries()).map(([merchant, transactions]) => {
+          const sortedTransactions = transactions.sort((a, b) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+          const lastTransaction = sortedTransactions[0];
+          
+          return {
+            merchant,
+            amount: toDecimal(Math.abs(lastTransaction.amount)),
+            lastDate: new Date(lastTransaction.date)
+          };
+        });
+        
+        const totalMonthly = merchantServices
+          .reduce((sum, service) => sum.plus(service.amount), toDecimal(0));
         
         // Create recommendations based on service type
         let recommendation = '';
@@ -858,11 +883,13 @@ class AdvancedAnalyticsService {
         }
         
         duplicateServices.push({
-          category: category.replace('_', ' '),
-          services: merchantList.slice(0, 3), // Limit to top 3
-          totalMonthlyCost: totalMonthly,
+          type: category.replace('_', ' '),
+          services: merchantServices.slice(0, 3), // Limit to top 3
           potentialSavings: totalMonthly.times(0.5), // Assume 50% savings possible
-          recommendation
+          category: category,
+          transactionIds: merchantServices.flatMap((s, idx) => 
+            merchants.get(s.merchant)?.map(t => t.id) || []
+          ).slice(0, 10) // Limit transaction IDs
         });
       }
     });
@@ -877,22 +904,54 @@ class AdvancedAnalyticsService {
 
   private calculateSpendingVelocity(transactions: Transaction[]): SpendingVelocity {
     // Simplified implementation
-    return { isAccelerating: false, percentageIncrease: 0 };
+    return { 
+      isAccelerating: false, 
+      percentageIncrease: 0,
+      daily: new Decimal(0),
+      weekly: new Decimal(0),
+      monthly: new Decimal(0),
+      trend: 'stable' as const,
+      projectedMonthly: new Decimal(0)
+    };
   }
 
   private analyzeSavingsBehavior(transactions: Transaction[], accounts: Account[]): SavingsBehavior {
     // Simplified implementation
-    return { consistentSaving: false, averagePercentage: 0 };
+    return { 
+      consistentSaving: false, 
+      averagePercentage: 0,
+      monthlySavingsRate: 0,
+      averageMonthlySavings: toDecimal(0),
+      savingsStreak: 0,
+      totalSaved: toDecimal(0),
+      savingsTrend: 'stable' as const
+    };
   }
 
   private analyzeBudgetPerformance(budget: Budget, transactions: Transaction[]): BudgetPerformance {
     // Simplified implementation
-    return { consistentlyUnder: false, averageUsage: 0 };
+    return { 
+      consistentlyUnder: false, 
+      averageUsage: 0,
+      budgetId: budget.id,
+      adherenceRate: 0,
+      overBudgetMonths: 0,
+      underBudgetMonths: 0,
+      averageUtilization: 0,
+      trend: 'stable' as const
+    };
   }
 
   private analyzeIncomeStability(transactions: Transaction[]): IncomeStability {
     // Simplified implementation
-    return { isIrregular: false };
+    return { 
+      isIrregular: false,
+      isStable: true,
+      variabilityPercentage: 0,
+      averageMonthlyIncome: toDecimal(0),
+      incomeStreams: 1,
+      primaryIncomePercentage: 100
+    };
   }
 
   private detectSeasonalPatterns(transactions: Transaction[]): SeasonalPattern[] {
@@ -940,6 +999,62 @@ class AdvancedAnalyticsService {
     };
     
     return rates[category] || 50;
+  }
+
+  /**
+   * Predict future spending based on historical data
+   */
+  predictSpending(transactions: Transaction[]): SpendingPrediction[] {
+    const predictions: SpendingPrediction[] = [];
+    const today = new Date();
+    const lookbackDate = subMonths(today, 6);
+    
+    // Filter to recent expense transactions
+    const expenses = transactions.filter(t => 
+      t.type === 'expense' && 
+      new Date(t.date) >= lookbackDate
+    );
+    
+    // Group by category
+    const categoryGroups = new Map<string, Transaction[]>();
+    expenses.forEach(t => {
+      const category = t.category || 'Uncategorized';
+      if (!categoryGroups.has(category)) {
+        categoryGroups.set(category, []);
+      }
+      categoryGroups.get(category)!.push(t);
+    });
+    
+    // Generate predictions for each category
+    categoryGroups.forEach((txns, category) => {
+      if (txns.length < 3) return; // Need minimum data
+      
+      // Calculate monthly averages
+      const monthlyTotals = new Map<string, number>();
+      txns.forEach(t => {
+        const monthKey = `${new Date(t.date).getFullYear()}-${new Date(t.date).getMonth()}`;
+        const current = monthlyTotals.get(monthKey) || 0;
+        monthlyTotals.set(monthKey, current + Math.abs(t.amount));
+      });
+      
+      const monthlyValues = Array.from(monthlyTotals.values());
+      const avgMonthly = monthlyValues.reduce((sum, val) => sum + val, 0) / monthlyValues.length;
+      
+      // Simple trend calculation
+      const recentAvg = monthlyValues.slice(-2).reduce((sum, val) => sum + val, 0) / 2;
+      const trend = recentAvg > avgMonthly ? 'increasing' : recentAvg < avgMonthly ? 'decreasing' : 'stable';
+      
+      predictions.push({
+        category,
+        predictedAmount: new Decimal(avgMonthly * 1.05), // Simple 5% buffer
+        confidence: Math.min(90, 50 + (txns.length * 2)), // Higher confidence with more data
+        trend,
+        monthlyAverage: new Decimal(avgMonthly),
+        recommendation: trend === 'increasing' ? 'Consider setting a budget limit' : 'Maintain current spending'
+      });
+    });
+    
+    return predictions;
   }
 }
 

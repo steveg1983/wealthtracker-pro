@@ -61,6 +61,7 @@ export default function Forecasting() {
         // Convert to decimal for calculations
         const decimalBudget = {
           ...budget,
+          category: budget.categoryId,  // Map categoryId to category for DecimalBudget
           amount: toDecimal(budget.amount),
           spent: toDecimal(0)
         };
@@ -119,7 +120,7 @@ export default function Forecasting() {
     const alerts = budgetsWithSpent
       .filter(budget => budget.isActive)
       .map(budget => {
-        const category = categories.find(c => c.id === budget.category);
+        const category = categories.find(c => c.id === budget.categoryId);
         if (budget.percentage >= 100) {
           return {
             budgetId: budget.id,
@@ -404,7 +405,7 @@ export default function Forecasting() {
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="font-semibold text-gray-900 dark:text-white">
-                            {categories.find(c => c.id === budget.category)?.name || 'Unknown Category'}
+                            {categories.find(c => c.id === budget.categoryId)?.name || 'Unknown Category'}
                           </h3>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             {budget.period === 'monthly' ? 'Monthly' : budget.period === 'weekly' ? 'Weekly' : 'Yearly'} Budget
@@ -412,17 +413,17 @@ export default function Forecasting() {
                         </div>
                         <div className="flex items-center gap-1">
                           <IconButton
-                            icon={EditIcon}
+                            icon={<EditIcon className="w-4 h-4" />}
                             onClick={() => handleEdit(budget)}
                             className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                            ariaLabel="Edit budget"
+                            aria-label="Edit budget"
                             title="Edit budget"
                           />
                           <IconButton
-                            icon={DeleteIcon}
+                            icon={<DeleteIcon className="w-4 h-4" />}
                             onClick={() => deleteBudget(budget.id)}
                             className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-red-600 dark:text-red-400"
-                            ariaLabel="Delete budget"
+                            aria-label="Delete budget"
                             title="Delete budget"
                           />
                           <button
@@ -625,7 +626,7 @@ export default function Forecasting() {
         <BudgetModal
           isOpen={isModalOpen}
           onClose={handleModalClose}
-          budget={editingBudget}
+          budget={editingBudget || undefined}
         />
       )}
     </PageWrapper>

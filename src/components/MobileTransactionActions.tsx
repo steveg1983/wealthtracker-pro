@@ -4,12 +4,12 @@ import {
   EditIcon, 
   DeleteIcon, 
   CopyIcon, 
-  ShareIcon, 
+  SendIcon as ShareIcon, 
   TagIcon, 
   CalendarIcon,
   CheckCircleIcon,
   FolderIcon,
-  MoreVerticalIcon
+  GripVerticalIcon as MoreVerticalIcon
 } from './icons';
 import type { Transaction } from '../types';
 
@@ -86,8 +86,7 @@ export function MobileTransactionActions({
     icon: <DeleteIcon size={20} />,
     label: 'Delete',
     description: 'Remove this transaction',
-    onClick: () => deleteSheet.open(),
-    danger: true
+    onClick: () => deleteSheet.open()
   });
 
   // Share options
@@ -147,7 +146,7 @@ export function MobileTransactionActions({
               {transaction.description}
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {transaction.amount} • {transaction.date}
+              {transaction.amount} • {transaction.date instanceof Date ? transaction.date.toLocaleDateString() : transaction.date}
             </p>
           </div>
 
@@ -202,7 +201,7 @@ export function TransactionDetailsSheet({
   const details = [
     { label: 'Description', value: transaction.description },
     { label: 'Amount', value: formatCurrency(transaction.amount) },
-    { label: 'Date', value: transaction.date },
+    { label: 'Date', value: transaction.date instanceof Date ? transaction.date.toLocaleDateString() : String(transaction.date) },
     { label: 'Category', value: transaction.category },
     { label: 'Account', value: transaction.accountId },
     { label: 'Status', value: transaction.cleared ? 'Cleared' : 'Pending' }

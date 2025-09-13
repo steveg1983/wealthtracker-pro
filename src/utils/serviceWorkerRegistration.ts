@@ -305,3 +305,16 @@ export function enableOfflineMode(): void {
     navigator.serviceWorker.controller.postMessage({ type: 'ENABLE_OFFLINE_MODE' });
   }
 }
+
+// Aggregated export for compatibility with services expecting a single object
+export const serviceWorkerRegistration = {
+  register,
+  unregister,
+  getRegistration,
+  checkForUpdates,
+  skipWaiting,
+  clearCaches,
+  getSyncStatus,
+  forceSyncData,
+  enableOfflineMode,
+};

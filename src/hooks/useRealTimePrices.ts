@@ -70,12 +70,16 @@ export function useRealTimePrices({
     }, 60000); // Check every minute
 
     // Handle errors
-    const handleError = ({ symbol, error }: { symbol: string; error: Error }) => {
-      setError(`Failed to fetch price for ${symbol}: ${error.message}`);
+    const handleError = (data: any) => {
+      if (data && typeof data === 'object' && 'symbol' in data && 'error' in data) {
+        setError(`Failed to fetch price for ${data.symbol}: ${data.error.message}`);
+      } else {
+        setError('Failed to fetch price');
+      }
       setIsLoading(false);
     };
 
-    realTimePriceService.on('error', handleError);
+    realTimePriceService.on('error', handleError as any);
 
     // Set loading to false after initial fetch attempt
     const loadingTimeout = setTimeout(() => {
@@ -88,7 +92,7 @@ export function useRealTimePrices({
       }
       clearInterval(marketStatusInterval);
       clearTimeout(loadingTimeout);
-      realTimePriceService.off('error', handleError);
+      realTimePriceService.off('error', handleError as any);
     };
   }, [symbols, enabled, handlePriceUpdate]);
 

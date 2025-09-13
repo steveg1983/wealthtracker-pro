@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import Decimal from 'decimal.js';
 import ukMortgageConstants from '../data/uk-mortgage-constants-2025.json';
 
 export interface UKMortgageCalculation {
@@ -82,7 +82,7 @@ class UKMortgageService {
       totalPayments
     );
     
-    const totalPayment = new Decimal(monthlyPayment).mul(totalPayments).toNumber();
+    const totalPayment = new Decimal(monthlyPayment).times(totalPayments).toNumber();
     const totalInterest = new Decimal(totalPayment).minus(loanAmount).toNumber();
     
     // Affordability stress test
@@ -219,7 +219,7 @@ class UKMortgageService {
     const breakdown: Array<{ band: string; amount: number; rate: number }> = [];
     
     // Handle first-time buyer relief
-    if (firstTimeBuyer && region === 'england') {
+    if (firstTimeBuyer && region === 'england' && 'firstTimeBuyer' in regionalData.residential) {
       const ftbData = regionalData.residential.firstTimeBuyer;
       if (propertyPrice <= ftbData.reliefThreshold) {
         return {
@@ -231,7 +231,7 @@ class UKMortgageService {
           additionalProperty,
           region
         };
-      } else if (propertyPrice <= ftbData.zeroRateThreshold) {
+      } else if ('zeroRateThreshold' in ftbData && propertyPrice <= ftbData.zeroRateThreshold) {
         const taxableAmount = propertyPrice - ftbData.reliefThreshold;
         totalTax = taxableAmount * 0.05;
         breakdown.push({ 
@@ -259,7 +259,7 @@ class UKMortgageService {
       
       if (propertyPrice > min) {
         const taxableAmount = Math.min(propertyPrice, max) - min;
-        const tax = new Decimal(taxableAmount).mul(rate).toNumber();
+        const tax = new Decimal(taxableAmount).times(rate).toNumber();
         
         if (tax > 0) {
           breakdown.push({
@@ -275,7 +275,7 @@ class UKMortgageService {
     // Add surcharge for additional properties
     if (additionalProperty) {
       const surcharge = new Decimal(propertyPrice)
-        .mul(regionalData.additionalProperty.surcharge)
+        .times(regionalData.additionalProperty.surcharge)
         .toNumber();
       totalTax += surcharge;
       breakdown.push({
@@ -332,7 +332,7 @@ class UKMortgageService {
     
     // Calculate year 6 interest on equity loan
     const year6Interest = new Decimal(equityLoan)
-      .mul(htb.year6Rate)
+      .times(htb.year6Rate)
       .div(12)
       .toNumber();
     
@@ -401,9 +401,9 @@ class UKMortgageService {
     
     const rate = new Decimal(monthlyRate);
     const n = totalPayments;
-    const factor = rate.mul(rate.plus(1).pow(n)).div(rate.plus(1).pow(n).minus(1));
+    const factor = rate.times(rate.plus(1).pow(n)).div(rate.plus(1).pow(n).minus(1));
     
-    return new Decimal(principal).mul(factor).toNumber();
+    return new Decimal(principal).times(factor).toNumber();
   }
 
   /**
@@ -420,9 +420,9 @@ class UKMortgageService {
     
     const rate = new Decimal(monthlyRate);
     const n = totalPayments;
-    const factor = rate.plus(1).pow(n).minus(1).div(rate.mul(rate.plus(1).pow(n)));
+    const factor = rate.plus(1).pow(n).minus(1).div(rate.times(rate.plus(1).pow(n)));
     
-    return new Decimal(monthlyPayment).mul(factor).toNumber();
+    return new Decimal(monthlyPayment).times(factor).toNumber();
   }
 
   /**

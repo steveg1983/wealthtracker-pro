@@ -4,6 +4,30 @@ import compression from 'vite-plugin-compression2'
 import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
 
+// Lightweight dev-only CSP plugin to catch violations locally (no TS imports in config)
+function devCSPPlugin() {
+  return {
+    name: 'dev-csp-header',
+    configureServer(server: any) {
+      server.middlewares.use((_req: any, res: any, next: any) => {
+        const csp = [
+          "default-src 'self'",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https:",
+          "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+          "img-src 'self' data: blob: https:",
+          "font-src 'self' data: https://fonts.gstatic.com",
+          "connect-src 'self' https: ws: wss:",
+          "object-src 'none'",
+          "frame-ancestors 'none'",
+          "base-uri 'self'",
+        ].join('; ')
+        res.setHeader('Content-Security-Policy', csp)
+        next()
+      })
+    },
+  }
+}
+
 // Feature flags (read at config time in Node)
 const ANALYZE = !!process.env.ANALYZE_BUNDLE
 const ENABLE_COMPRESS = process.env.ENABLE_ASSET_COMPRESSION !== 'false'
@@ -26,6 +50,10 @@ export default defineConfig({
       // Bundle analyzer gated by env flag
       if (ANALYZE) {
         plugins.push(visualizer({ open: true, filename: 'bundle-stats.html', gzipSize: true, brotliSize: true }) as any)
+      }
+      // Dev CSP header to surface violations during development
+      if (process.env.ENABLE_DEV_CSP !== 'false') {
+        plugins.push(devCSPPlugin() as any)
       }
       return plugins
     }

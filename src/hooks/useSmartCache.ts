@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import smartCache from '../services/smartCacheService';
+import type { PreferenceValue, FilterConfig } from '../types/cache-types';
 
 interface UseCachedDataOptions<T> {
   key: string;
@@ -97,13 +98,19 @@ export function useCachedData<T>({
 /**
  * Hook for caching user preferences
  */
-export function useCachedPreference<T>(
+export function useCachedPreference<T extends PreferenceValue>(
   key: string,
   defaultValue: T
 ): [T, (value: T) => void] {
-  const [value, setValue] = useState<T>(() => {
-    return smartCache.getPreference(key, defaultValue) ?? defaultValue;
-  });
+  const [value, setValue] = useState<T>(defaultValue);
+
+  useEffect(() => {
+    smartCache.getPreference(key, defaultValue).then(cached => {
+      if (cached !== undefined) {
+        setValue(cached);
+      }
+    });
+  }, [key, defaultValue]);
 
   const updateValue = useCallback((newValue: T) => {
     setValue(newValue);
@@ -117,11 +124,17 @@ export function useCachedPreference<T>(
  * Hook for caching filter state
  */
 export function useCachedFilters(page: string) {
-  const [filters, setFilters] = useState(() => {
-    return smartCache.getCachedFilters(page) || {};
-  });
+  const [filters, setFilters] = useState<FilterConfig>({});
 
-  const updateFilters = useCallback((newFilters: any) => {
+  useEffect(() => {
+    smartCache.getCachedFilters(page).then(cached => {
+      if (cached) {
+        setFilters(cached);
+      }
+    });
+  }, [page]);
+
+  const updateFilters = useCallback((newFilters: FilterConfig) => {
     setFilters(newFilters);
     smartCache.cacheFilters(page, newFilters);
   }, [page]);

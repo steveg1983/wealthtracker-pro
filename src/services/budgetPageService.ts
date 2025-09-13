@@ -170,7 +170,7 @@ class BudgetPageService {
             percentage: Math.round(budget.percentage),
             spent: budget.spent,
             budget: budget.amount,
-            period: budget.period,
+            period: budget.period as string,
             type: 'danger' as const
           };
         } else if (budget.percentage >= alertThreshold) {
@@ -180,13 +180,13 @@ class BudgetPageService {
             percentage: Math.round(budget.percentage),
             spent: budget.spent,
             budget: budget.amount,
-            period: budget.period,
+            period: budget.period as string,
             type: 'warning' as const
           };
         }
         return null;
       })
-      .filter((alert): alert is BudgetAlert => alert !== null);
+      .filter((alert): alert is BudgetAlert => alert !== null) as BudgetAlert[];
   }
 
   getProgressColor(percentage: number): string {

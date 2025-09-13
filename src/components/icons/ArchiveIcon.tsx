@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconProps } from './types';
+import { IconProps } from './IconBase';
 
 export function ArchiveIcon({ size = 24, className = '' }: IconProps): React.JSX.Element {
   return (

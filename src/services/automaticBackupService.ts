@@ -1,5 +1,4 @@
-import { exportService } from './exportService';
-import type { ExportOptions } from '../types/export';
+import { exportService, type ExportOptions } from './exportService';
 import { logger } from './loggingService';
 
 export interface BackupConfig {
@@ -27,7 +26,7 @@ class AutomaticBackupService {
     }
 
     // Register periodic background sync if available
-    if ('periodicSync' in self.registration) {
+    if ('serviceWorker' in navigator && 'periodicSync' in (self as any)) {
       try {
         // Request permission for periodic background sync
         const status = await navigator.permissions.query({
@@ -222,20 +221,17 @@ class AutomaticBackupService {
       includeAccounts: true,
       includeInvestments: true,
       includeBudgets: true,
+      includeCharts: false,
       format: 'csv',
     };
     
-    const csvData = await exportService.exportData(
-      {
-        transactions: data.transactions || [],
-        accounts: data.accounts || [],
-        investments: data.investments || [],
-        budgets: data.budgets || [],
-      },
+    // exportData returns void, need to use exportToCSV instead
+    const csvData = await exportService.exportToCSV(
+      data.transactions || data.accounts || data.investments || [],
       options
     );
     
-    const blob = new Blob([csvData], { type: 'text/csv' });
+    const blob = new Blob([csvData || ''], { type: 'text/csv' });
     const filename = `wealthtracker-backup-${new Date().toISOString().split('T')[0]}.csv`;
     
     return { format: 'csv', data: blob, filename };
@@ -542,6 +538,39 @@ class AutomaticBackupService {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
+  }
+
+  async restoreFromBackup(backupId: number): Promise<void> {
+    try {
+      const db = await this.openBackupDB();
+      const transaction = db.transaction(['backups'], 'readonly');
+      const store = transaction.objectStore('backups');
+      const request = store.get(backupId);
+      
+      return new Promise((resolve, reject) => {
+        request.onsuccess = () => {
+          const backup = request.result;
+          if (!backup) {
+            reject(new Error('Backup not found'));
+            return;
+          }
+          
+          // Parse and restore the backup data
+          const data = JSON.parse(backup.data);
+          
+          // Store in localStorage for the app to pick up
+          localStorage.setItem('money_management_restore_data', JSON.stringify(data));
+          localStorage.setItem('money_management_restore_timestamp', Date.now().toString());
+          
+          logger.info('[AutomaticBackup] Backup restored successfully');
+          resolve();
+        };
+        request.onerror = () => reject(request.error);
+      });
+    } catch (error) {
+      logger.error('[AutomaticBackup] Failed to restore backup:', error);
+      throw error;
+    }
   }
 }
 

@@ -27,6 +27,10 @@ interface SubscriptionContextType {
   tier: SubscriptionTier;
   limits: FeatureLimits;
   usage: SubscriptionUsage | null;
+  subscriptionTier?: SubscriptionTier;
+  billingCycle?: 'monthly' | 'yearly';
+  nextBillingDate?: Date | string;
+  cancelAtPeriodEnd?: boolean;
   
   // Loading states
   isLoading: boolean;
@@ -40,6 +44,9 @@ interface SubscriptionContextType {
   // Actions
   refreshSubscription: () => Promise<void>;
   updateUsage: (usage: Partial<SubscriptionUsage>) => void;
+  updateSubscription?: (tier: SubscriptionTier) => Promise<void>;
+  cancelSubscription?: () => Promise<void>;
+  reactivateSubscription?: () => Promise<void>;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);

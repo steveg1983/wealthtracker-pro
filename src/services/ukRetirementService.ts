@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import Decimal from 'decimal.js';
 import ukRetirementConstants from '../data/uk-retirement-constants-2025-26.json';
 import { taxDataService } from './taxDataService';
 
@@ -84,7 +84,7 @@ class UKRetirementService {
     } else if (qualifyingYears >= minYears) {
       // Pro-rata calculation
       weeklyAmount = new Decimal(fullPension.weekly)
-        .mul(qualifyingYears)
+        .times(qualifyingYears)
         .div(fullYears)
         .toNumber();
     }
@@ -95,10 +95,10 @@ class UKRetirementService {
       const weeksDeferred = deferYears * 52;
       const increaseRate = this.constants.statePension.deferral.increasePerWeek;
       const totalIncrease = new Decimal(1).plus(
-        new Decimal(increaseRate).mul(weeksDeferred)
+        new Decimal(increaseRate).times(weeksDeferred)
       );
       
-      const increasedWeekly = new Decimal(weeklyAmount).mul(totalIncrease).toNumber();
+      const increasedWeekly = new Decimal(weeklyAmount).times(totalIncrease).toNumber();
       deferralOptions = {
         weeksDeferral: weeksDeferred,
         increasedWeekly,
@@ -154,18 +154,18 @@ class UKRetirementService {
     
     // Calculate contributions on qualifying earnings
     const employeeContribution = new Decimal(qualifyingEarnings)
-      .mul(employeeRate)
+      .times(employeeRate)
       .div(12)
       .toNumber();
     
     const employerContribution = new Decimal(qualifyingEarnings)
-      .mul(employerRate)
+      .times(employerRate)
       .div(12)
       .toNumber();
     
     // Calculate tax relief (basic rate assumed, should check actual rate)
     const taxRelief = new Decimal(employeeContribution)
-      .mul(this.constants.workplacePension.taxRelief.basicRate)
+      .times(this.constants.workplacePension.taxRelief.basicRate)
       .toNumber();
     
     const totalMonthlyContribution = employeeContribution + employerContribution + taxRelief;
@@ -178,11 +178,11 @@ class UKRetirementService {
     
     // Future value of current pot
     const currentPotFV = new Decimal(currentPot)
-      .mul(new Decimal(1 + monthlyGrowth).pow(monthsToRetirement));
+      .times(new Decimal(1 + monthlyGrowth).pow(monthsToRetirement));
     
     // Future value of monthly contributions
     const contributionsFV = new Decimal(totalMonthlyContribution)
-      .mul(new Decimal(1 + monthlyGrowth).pow(monthsToRetirement).minus(1))
+      .times(new Decimal(1 + monthlyGrowth).pow(monthsToRetirement).minus(1))
       .div(monthlyGrowth);
     
     const projectedPot = currentPotFV.plus(contributionsFV).toNumber();
@@ -239,7 +239,7 @@ class UKRetirementService {
     // Calculate tax saved (what would have been paid on equivalent taxable investment)
     const totalContributed = actualContribution * yearsToTarget + currentValue;
     const totalGrowth = futureValue - totalContributed - (governmentBonus * yearsToTarget);
-    const taxSaved = new Decimal(totalGrowth).mul(marginalTaxRate).toNumber();
+    const taxSaved = new Decimal(totalGrowth).times(marginalTaxRate).toNumber();
     
     return {
       type,
@@ -270,7 +270,7 @@ class UKRetirementService {
     
     // Calculate tax relief
     const taxRelief = new Decimal(actualMonthlyContribution)
-      .mul(marginalTaxRate)
+      .times(marginalTaxRate)
       .toNumber();
     
     const totalMonthlyContribution = actualMonthlyContribution + taxRelief;
@@ -393,9 +393,9 @@ class UKRetirementService {
         weekly: totalAnnualIncome / 52
       },
       taxOnRetirement: {
-        incomeTax: taxResult.incomeTax,
+        incomeTax: 'incomeTax' in taxResult ? taxResult.incomeTax : taxResult.total,
         effectiveRate: taxResult.effectiveRate,
-        netIncome: totalAnnualIncome - taxResult.incomeTax
+        netIncome: totalAnnualIncome - ('incomeTax' in taxResult ? taxResult.incomeTax : taxResult.total)
       }
     };
   }
@@ -411,10 +411,10 @@ class UKRetirementService {
   ): number {
     // FV = PV(1 + r)^n + PMT * [((1 + r)^n - 1) / r]
     const futureValueCurrent = new Decimal(currentValue)
-      .mul(new Decimal(1 + growthRate).pow(years));
+      .times(new Decimal(1 + growthRate).pow(years));
     
     const futureValueContributions = new Decimal(annualContribution)
-      .mul(new Decimal(1 + growthRate).pow(years).minus(1))
+      .times(new Decimal(1 + growthRate).pow(years).minus(1))
       .div(growthRate);
     
     return futureValueCurrent.plus(futureValueContributions).toNumber();
@@ -464,10 +464,11 @@ class UKRetirementService {
         taxYear: '2025-26'
       });
       
+      const ni = 'nationalInsurance' in result ? result.nationalInsurance : 0;
       return {
-        weeklyContribution: result.nationalInsurance / 52,
-        annualContribution: result.nationalInsurance,
-        creditsEarned: annualIncome >= ni.class1.primaryThreshold
+        weeklyContribution: ni / 52,
+        annualContribution: ni,
+        creditsEarned: annualIncome >= 6396 // UK NI lower earnings limit
       };
     }
   }

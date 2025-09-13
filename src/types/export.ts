@@ -17,7 +17,7 @@ export interface ExportableInvestment extends Omit<Investment, 'currentValue'> {
   totalReturn?: number;
 }
 
-export interface ExportableBudget extends Budget {
+export interface ExportableBudget extends Omit<Budget, 'spent'> {
   spent?: number;
   remaining?: number;
   percentUsed?: number;

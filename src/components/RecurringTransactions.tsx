@@ -92,13 +92,12 @@ export default function RecurringTransactions(): React.JSX.Element {
       // Create transaction from template
       const normalized = toMoney(template.amount);
       const transaction: Omit<Transaction, 'id'> = {
-        date: template.nextDate,
+        date: new Date(template.nextDate),
         description: template.description,
         amount: Number(normalized),
         category: template.category,
         accountId: template.accountId,
         type: Number(normalized) > 0 ? 'income' : 'expense',
-        reconciled: false,
         tags: template.tags,
         notes: `Recurring: ${template.name}${template.notes ? '\n' + template.notes : ''}`
       };

@@ -32,8 +32,8 @@ export class BudgetProgressService {
       .filter(t => 
         t.category === (budget as any).categoryId &&
         t.type === 'expense' &&
-        new Date(t.date) >= new Date(budget.startDate) &&
-        new Date(t.date) <= new Date(budget.endDate)
+        (budget.startDate ? new Date(t.date) >= new Date(budget.startDate) : true) &&
+        (budget.endDate ? new Date(t.date) <= new Date(budget.endDate) : true)
       )
       .reduce((sum, t) => sum + Math.abs(t.amount), 0);
   }
@@ -43,8 +43,8 @@ export class BudgetProgressService {
    */
   static calculateVelocity(budget: Budget, spent: number): SpendingVelocity {
     const now = new Date();
-    const start = new Date(budget.startDate);
-    const end = new Date(budget.endDate);
+    const start = budget.startDate ? new Date(budget.startDate) : new Date();
+    const end = budget.endDate ? new Date(budget.endDate) : new Date(now.getFullYear(), now.getMonth() + 1, 0);
     
     // Calculate days
     const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
@@ -188,5 +188,60 @@ export class BudgetProgressService {
       percentage,
       velocity
     };
+  }
+
+  /**
+   * Get relevant transactions for a budget
+   */
+  static getRelevantTransactions(
+    transactions: Transaction[],
+    budget: Budget
+  ): Transaction[] {
+    return transactions.filter(t => {
+      if (t.category !== (budget as any).categoryId || t.type !== 'expense') {
+        return false;
+      }
+      const transactionDate = new Date(t.date);
+      const startDate = budget.startDate ? new Date(budget.startDate) : new Date(0);
+      const endDate = budget.endDate ? new Date(budget.endDate) : new Date();
+      return transactionDate >= startDate && transactionDate <= endDate;
+    });
+  }
+
+  /**
+   * Get budget status
+   */
+  static getStatus(budget: Budget, spent: number): string {
+    const percentage = this.calculatePercentage(spent, budget.amount);
+    if (percentage >= 100) return 'exceeded';
+    if (percentage >= 90) return 'warning';
+    if (percentage >= 75) return 'caution';
+    return 'good';
+  }
+
+  /**
+   * Generate budget insights
+   */
+  static generateInsights(
+    budget: Budget,
+    spent: number,
+    velocity: SpendingVelocity
+  ): string[] {
+    const insights: string[] = [];
+    const percentage = this.calculatePercentage(spent, budget.amount);
+
+    if (percentage >= 100) {
+      insights.push(`You've exceeded your budget by ${((spent - budget.amount) / budget.amount * 100).toFixed(1)}%`);
+    } else if (velocity.willExceed) {
+      insights.push(`At current pace, you'll exceed budget by ${velocity.daysRemaining} days`);
+    } else if (velocity.isOnTrack) {
+      insights.push('Spending is on track with your budget');
+    }
+
+    if (velocity.recommendedDailyLimit > 0) {
+      insights.push(`Try to limit daily spending to ${velocity.recommendedDailyLimit.toFixed(2)} for the rest of the period`);
+    }
+
+    return insights;
   }
 }

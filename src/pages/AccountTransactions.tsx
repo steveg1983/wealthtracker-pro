@@ -101,8 +101,11 @@ export default function AccountTransactions() {
       });
   }, [account, transactions, searchTerm, dateFrom, dateTo, typeFilter, sortField, sortDirection, categories]);
   
+  // Type for transaction with balance
+  type TransactionWithBalance = Transaction & { balance: number };
+
   // Calculate running balance
-  const transactionsWithBalance = useMemo(() => {
+  const transactionsWithBalance = useMemo((): TransactionWithBalance[] => {
     if (!account) return [];
     
     
@@ -276,8 +279,8 @@ export default function AccountTransactions() {
         description: quickAddForm.description,
         amount: Math.abs(amount), // Positive amount for receiving account
         type: 'transfer',
-        transfer_account_id: account.id, // Reference back to the source account
         accountId: quickAddForm.category, // Target account receives the transfer
+        category: 'Transfer',
         tags: quickAddForm.tags,
         notes: quickAddForm.notes,
         cleared: false
@@ -318,12 +321,12 @@ export default function AccountTransactions() {
   };
 
   // Define table columns for VirtualizedTable
-  const columns: Column<Transaction & { balance: number }>[] = useMemo(() => [
+  const columns = useMemo((): Column<TransactionWithBalance>[] => [
     {
       key: 'date',
       header: 'Date',
       width: '120px',
-      accessor: (transaction) => (
+      accessor: (transaction: TransactionWithBalance) => (
         <span className="text-gray-900 dark:text-white">
           {new Date(transaction.date).toLocaleDateString('en-GB')}
         </span>
@@ -334,7 +337,7 @@ export default function AccountTransactions() {
       key: 'reconciled',
       header: 'R',
       width: '40px',
-      accessor: (transaction) => (
+      accessor: (transaction: TransactionWithBalance) => (
         transaction.cleared ? (
           <span className="text-green-600 dark:text-green-400">✓</span>
         ) : null
@@ -346,7 +349,7 @@ export default function AccountTransactions() {
       key: 'description',
       header: 'Description',
       width: '300px',
-      accessor: (transaction) => (
+      accessor: (transaction: TransactionWithBalance) => (
         <span className="text-gray-900 dark:text-white">
           {transaction.description}
         </span>
@@ -357,7 +360,7 @@ export default function AccountTransactions() {
       key: 'category',
       header: 'Category',
       width: '200px',
-      accessor: (transaction) => (
+      accessor: (transaction: TransactionWithBalance) => (
         <span className="text-gray-600 dark:text-gray-400">
           {getCategoryName(transaction.category)}
         </span>
@@ -367,7 +370,7 @@ export default function AccountTransactions() {
       key: 'tags',
       header: 'Tags',
       width: '200px',
-      accessor: (transaction) => (
+      accessor: (transaction: TransactionWithBalance) => (
         <div className="flex flex-wrap gap-1">
           {transaction.tags?.map((tag: string, idx: number) => (
             <span
@@ -384,7 +387,7 @@ export default function AccountTransactions() {
       key: 'amount',
       header: 'Amount',
       width: '150px',
-      accessor: (transaction) => (
+      accessor: (transaction: TransactionWithBalance) => (
         <span className={`font-medium ${
           transaction.amount > 0
             ? 'text-green-600 dark:text-green-400' 
@@ -403,7 +406,7 @@ export default function AccountTransactions() {
       key: 'balance',
       header: 'Balance',
       width: '150px',
-      accessor: (transaction) => (
+      accessor: (transaction: TransactionWithBalance) => (
         <span className={`font-medium ${
           transaction.balance < 0 
             ? 'text-red-600 dark:text-red-400' 
@@ -629,9 +632,9 @@ export default function AccountTransactions() {
       >
         <VirtualizedTable
           items={transactionsWithBalance}
-          columns={columns}
-          getItemKey={(transaction) => transaction.id}
-          onRowClick={handleTransactionClick}
+          columns={columns as Column<unknown>[]}
+          getItemKey={(item: any) => item.id}
+          onRowClick={(item: any) => handleTransactionClick(item as Transaction)}
           rowHeight={compactView ? 48 : 64}
           selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : new Set()}
           onSort={(column, direction) => {
@@ -646,8 +649,8 @@ export default function AccountTransactions() {
           threshold={50}
           className="virtualized-table bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
-          rowClassName={(transaction, index) => {
-            const isSelected = selectedTransactionId === transaction.id;
+          rowClassName={(item: any) => {
+            const isSelected = selectedTransactionId === item.id;
             return isSelected ? 'selected-transaction-row' : '';
           }}
         />

@@ -125,7 +125,7 @@ export default function SpendingAlerts() {
       const endDate = new Date(currentYear, currentMonth + 1, 0);
       
       budgets.forEach(budget => {
-        if (mutedCategories.includes(budget.category)) return;
+        if (mutedCategories.includes(budget.categoryId)) return;
         
         const decimalBudget = decimalBudgets.find((db: DecimalBudget) => db.id === budget.id);
         if (!decimalBudget || !budget.isActive) return;
@@ -136,7 +136,7 @@ export default function SpendingAlerts() {
         
         alertConfigs.forEach(config => {
           if (!config.enabled) return;
-          if (config.categories.length > 0 && !config.categories.includes(budget.category)) return;
+          if (config.categories.length > 0 && !config.categories.includes(budget.categoryId)) return;
           
           // Check if we already have this alert
           const existingAlert = alerts.find(a => 
@@ -153,10 +153,10 @@ export default function SpendingAlerts() {
           
           if (percentage >= config.thresholds.critical) {
             alertType = 'critical';
-            message = `Critical: ${budget.category} has reached ${percentage.toFixed(0)}% of budget!`;
+            message = `Critical: ${budget.categoryId} has reached ${percentage.toFixed(0)}% of budget!`;
           } else if (percentage >= config.thresholds.warning) {
             alertType = 'warning';
-            message = `Warning: ${budget.category} is at ${percentage.toFixed(0)}% of budget`;
+            message = `Warning: ${budget.categoryId} is at ${percentage.toFixed(0)}% of budget`;
           }
           
           if (alertType && !existingAlert) {
@@ -164,7 +164,7 @@ export default function SpendingAlerts() {
               id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
               configId: config.id,
               budgetId: budget.id,
-              category: budget.category,
+              category: budget.categoryId,
               type: alertType,
               percentage,
               spent,

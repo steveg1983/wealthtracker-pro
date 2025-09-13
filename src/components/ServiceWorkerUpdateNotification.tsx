@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { skipWaiting } from '../utils/serviceWorkerRegistration';
 import { RefreshCwIcon, XIcon } from './icons';
+import { logger } from '../services/loggingService';
 
 interface ServiceWorkerUpdateNotificationProps {
   registration: ServiceWorkerRegistration | null;

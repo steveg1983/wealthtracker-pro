@@ -184,7 +184,7 @@ export class QIFImportService {
       description = description || 'QIF Transaction';
       
       const transaction: Omit<Transaction, 'id'> = {
-        date: qifTrx.date,
+        date: new Date(qifTrx.date),
         description,
         amount,
         type,
@@ -192,7 +192,7 @@ export class QIFImportService {
         category: qifTrx.category || '',
         cleared: qifTrx.cleared || false,
         notes: qifTrx.checkNumber ? `Check #: ${qifTrx.checkNumber}` : undefined,
-        recurring: false
+        isRecurring: false
       };
       
       // Auto-categorize if enabled and no category is set

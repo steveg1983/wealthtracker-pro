@@ -58,6 +58,7 @@ import type {
   BudgetInsight,
   VelocityData 
 } from './budget/progress/types';
+import type { SpendingVelocity } from '../services/budgetProgressService';
 import type { Budget, Transaction } from '../types';
 import { logger } from '../services/loggingService';
 
@@ -88,45 +89,66 @@ export const VisualBudgetProgress = memo(function VisualBudgetProgress({
     return BudgetProgressService.getRelevantTransactions(txns, budget);
   }, [transactions, allTransactions, budget]);
 
+  // Calculate spending velocity
+  const spendingVelocity = useMemo(() => {
+    const spent = BudgetProgressService.calculateSpending(relevantTransactions, budget);
+    return BudgetProgressService.calculateVelocity(budget, spent);
+  }, [relevantTransactions, budget]);
+
   // Calculate metrics
   const metrics = useMemo<BudgetMetrics>(() => {
-    const spent = BudgetProgressService.calculateSpent(relevantTransactions);
+    const spent = BudgetProgressService.calculateSpending(relevantTransactions, budget);
     const remaining = Math.max(0, budget.amount - spent);
     const percentage = (spent / budget.amount) * 100;
     
-    // Calculate velocity
-    const velocity = BudgetProgressService.calculateVelocity(
-      spent,
-      budget.amount,
-      budget.period,
-      new Date(budget.startDate),
-      budget.endDate ? new Date(budget.endDate) : undefined
-    );
+    // Determine status based on percentage
+    const status: 'under' | 'warning' | 'over' = 
+      percentage >= 100 ? 'over' :
+      percentage >= 80 ? 'warning' :
+      'under';
     
-    // Determine status
-    const status = BudgetProgressService.getStatus(percentage);
-    const projectedStatus = BudgetProgressService.getStatus(
-      (velocity.projectedTotal / budget.amount) * 100
-    );
+    // Project status based on velocity
+    const projectedStatus: 'under' | 'warning' | 'over' = 
+      spendingVelocity.projectedTotal >= budget.amount ? 'over' :
+      spendingVelocity.projectedTotal >= budget.amount * 0.9 ? 'warning' :
+      'under';
+    
+    // Convert SpendingVelocity to VelocityData
+    const velocityData: VelocityData = {
+      dailyAverage: spendingVelocity.dailyAverage,
+      projectedTotal: spendingVelocity.projectedTotal,
+      trend: 'stable', // Default as stable, could be calculated based on historical data
+      daysRemaining: spendingVelocity.daysRemaining,
+      recommendedDailyBudget: spendingVelocity.recommendedDailyLimit,
+      isOnTrack: spendingVelocity.isOnTrack
+    };
     
     return {
       spent,
       remaining,
       percentage,
-      velocity,
+      velocity: velocityData,
       status,
       projectedStatus
     };
-  }, [relevantTransactions, budget]);
+  }, [relevantTransactions, budget, spendingVelocity]);
+
+  // Determine status
+  const status = BudgetProgressService.getStatus(budget, metrics.spent);
+  const projectedStatus = BudgetProgressService.getStatus(budget, spendingVelocity.projectedTotal);
 
   // Generate insights
   const insights = useMemo<BudgetInsight[]>(() => {
-    return BudgetProgressService.generateInsights(
+    const insightStrings = BudgetProgressService.generateInsights(
       budget,
-      metrics,
-      relevantTransactions
+      metrics.spent,
+      spendingVelocity
     );
-  }, [budget, metrics, relevantTransactions]);
+    return insightStrings.map(message => ({
+      type: 'info' as const,
+      message
+    }));
+  }, [budget, metrics]);
 
   // Get category if needed
   const budgetCategory = useMemo(() => {
@@ -165,10 +187,11 @@ export const VisualBudgetProgress = memo(function VisualBudgetProgress({
       
       <BudgetProgressBar
         percentage={metrics.percentage}
-        status={metrics.status}
-        animated
-        showLabel
-        height="md"
+        velocity={spendingVelocity}
+        spent={metrics.spent}
+        amount={budget.amount}
+        formatCurrency={formatCurrency}
+        showDetails={true}
       />
       
       {showDetails && isExpanded && (
@@ -178,7 +201,7 @@ export const VisualBudgetProgress = memo(function VisualBudgetProgress({
               icon={<DollarSignIcon size={16} />}
               label="Spent"
               value={formatCurrency(metrics.spent)}
-              color={`text-${metrics.status === 'over' ? 'red' : 'gray'}-900`}
+              color={`text-${status === 'over' ? 'red' : 'gray'}-900`}
             />
             <MetricCard
               icon={<DollarSignIcon size={16} />}

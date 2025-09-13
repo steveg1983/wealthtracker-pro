@@ -10,7 +10,7 @@ export default function RealtimeDebugger() {
   const [dbUserId, setDbUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isLoading || !databaseId) return;
+    if (isLoading || !databaseId || !supabase) return;
 
     // Expose supabase to window for debugging
     (window as any).supabase = supabase;
@@ -21,6 +21,7 @@ export default function RealtimeDebugger() {
       logger.info('[RealtimeDebugger] Database user ID', { databaseId });
 
       // Set up direct subscription for debugging
+      if (!supabase) return;
       const channel = supabase
         .channel(`debug-accounts-${databaseId}`)
         .on(
@@ -51,7 +52,9 @@ export default function RealtimeDebugger() {
 
       return () => {
         logger.info('[RealtimeDebugger] Cleaning up');
-        supabase.removeChannel(channel);
+        if (supabase) {
+          supabase.removeChannel(channel);
+        }
       };
     };
 

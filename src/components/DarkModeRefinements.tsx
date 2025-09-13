@@ -7,7 +7,8 @@ import {
   ClockIcon,
   PaletteIcon,
   ContrastIcon,
-  SettingsIcon
+  SettingsIcon,
+  XIcon
 } from './icons';
 
 interface DarkModeSettings {

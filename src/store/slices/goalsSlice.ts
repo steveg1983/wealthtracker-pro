@@ -38,8 +38,8 @@ const goalsSlice = createSlice({
       const newGoal: Goal = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        createdAt: new Date(getCurrentISOString()),
+        updatedAt: new Date(getCurrentISOString()),
       };
       state.goals.push(serializeForRedux(newGoal) as any);
     },
@@ -49,7 +49,7 @@ const goalsSlice = createSlice({
         state.goals[index] = serializeForRedux({
           ...state.goals[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString(),
+          updatedAt: new Date(getCurrentISOString()),
         }) as any;
       }
     },
@@ -60,7 +60,7 @@ const goalsSlice = createSlice({
       const goal = state.goals.find(g => g.id === action.payload.id);
       if (goal) {
         goal.currentAmount = action.payload.currentAmount;
-        goal.updatedAt = getCurrentISOString();
+        goal.updatedAt = new Date(getCurrentISOString());
       }
     },
   },

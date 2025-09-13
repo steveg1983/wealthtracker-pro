@@ -23,6 +23,9 @@ export interface BudgetAnalysis {
   recommendations: BudgetRecommendation[];
   insights: BudgetInsight[];
   score: number; // 0-100 budget health score
+  totalCategories?: number;
+  optimizationScore?: number;
+  potentialSavings?: number; // Alias for totalPotentialSavings
 }
 
 export interface BudgetInsight {
@@ -103,7 +106,7 @@ class BudgetRecommendationService {
       const spending = categorySpending.get(category.id);
       if (!spending || spending.months.length < 3) return; // Need at least 3 months of data
       
-      const currentBudget = budgets.find(b => b.category === category.id);
+      const currentBudget = budgets.find(b => b.categoryId === category.id);
       const recommendation = this.generateRecommendation(
         category,
         spending,
@@ -383,12 +386,12 @@ class BudgetRecommendationService {
 
     // Check for significant overspending
     budgets.forEach(budget => {
-      const category = categories.find(c => c.id === budget.category);
+      const category = categories.find(c => c.id === budget.categoryId);
       if (!category) return;
       
       const currentMonthSpending = transactions
         .filter(t => 
-          t.category === budget.category &&
+          t.category === budget.categoryId &&
           t.type === 'expense' &&
           new Date(t.date) >= currentMonth
         )
@@ -430,7 +433,7 @@ class BudgetRecommendationService {
 
     // Check for good budget adherence
     const wellManagedBudgets = budgets.filter(budget => {
-      const rec = recommendations.find(r => r.categoryId === budget.category);
+      const rec = recommendations.find(r => r.categoryId === budget.categoryId);
       return rec && Math.abs(rec.recommendedBudget - budget.amount) / budget.amount < 0.1;
     });
     
@@ -464,7 +467,7 @@ class BudgetRecommendationService {
     
     // Deduct points for poorly aligned budgets
     budgets.forEach(budget => {
-      const rec = recommendations.find(r => r.categoryId === budget.category);
+      const rec = recommendations.find(r => r.categoryId === budget.categoryId);
       if (rec) {
         const difference = Math.abs(rec.recommendedBudget - budget.amount) / budget.amount;
         if (difference > 0.3) {
@@ -479,7 +482,7 @@ class BudgetRecommendationService {
     budgets.forEach(budget => {
       const currentSpending = transactions
         .filter(t => 
-          t.category === budget.category &&
+          t.category === budget.categoryId &&
           t.type === 'expense' &&
           new Date(t.date) >= currentMonth
         )

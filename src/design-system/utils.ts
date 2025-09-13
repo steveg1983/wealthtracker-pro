@@ -11,7 +11,7 @@ export function applyTheme(theme: Theme): void {
   // Apply color tokens
   Object.entries(theme.colors).forEach(([category, values]) => {
     Object.entries(values).forEach(([key, value]) => {
-      root.style.setProperty(`--color-${category}-${key}`, value);
+      root.style.setProperty(`--color-${category}-${key}`, String(value));
     });
   });
   

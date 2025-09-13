@@ -32,7 +32,7 @@ export function useSpendingAlerts() {
       const endDate = new Date(currentYear, currentMonth + 1, 0);
       
       budgets.forEach(budget => {
-        const categoryId = (budget as any).categoryId || budget.category;
+        const categoryId = budget.categoryId;
         if (mutedCategories.includes(categoryId)) return;
         
         const decimalBudget = decimalBudgets.find((db: DecimalBudget) => db.id === budget.id);

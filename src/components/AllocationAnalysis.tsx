@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { portfolioRebalanceService } from '../services/portfolioRebalanceService';
 import type { AssetAllocation } from '../services/portfolioRebalanceService';
 import type { Investment } from '../types';
@@ -39,8 +38,7 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
   const [showTargets, setShowTargets] = useState(true);
   
   const { accounts } = useApp();
-  const { formatCurrency } = useCurrencyDecimal();
-  const { currencySymbol } = useCurrencyDecimal();
+  const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
 
   // Extract investments from accounts with holdings
   const investments = useMemo(() => {

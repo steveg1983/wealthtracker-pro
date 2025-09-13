@@ -58,7 +58,7 @@ const getNavigationItems = (t: (key: string) => string): MenuItem[] => [
       { label: t('navigation.accounts'), path: '/accounts', icon: <BuildingLibraryIcon className="w-4 h-4" /> },
       { label: t('navigation.transactions'), path: '/transactions', icon: <BanknotesIcon className="w-4 h-4" /> },
       { label: t('navigation.transferCenter'), path: '/transfer-center', icon: <ArrowTrendingUpIcon className="w-4 h-4" /> },
-      { divider: true },
+      { label: '', divider: true },
       { label: t('navigation.bankConnections'), path: '/settings/bank-connections', icon: <CreditCardIcon className="w-4 h-4" /> },
       { label: t('navigation.importData'), path: '/import', icon: <DocumentTextIcon className="w-4 h-4" /> },
       { label: t('navigation.exportData'), path: '/export', icon: <DocumentChartBarIcon className="w-4 h-4" /> }
@@ -71,7 +71,7 @@ const getNavigationItems = (t: (key: string) => string): MenuItem[] => [
       { label: t('navigation.budget'), path: '/budget', icon: <CalculatorIcon className="w-4 h-4" /> },
       { label: t('navigation.goals'), path: '/goals', icon: <FlagIcon className="w-4 h-4" /> },
       { label: t('navigation.financialPlanning'), path: '/financial-planning', icon: <ChartPieIcon className="w-4 h-4" /> },
-      { divider: true },
+      { label: '', divider: true },
       { label: t('navigation.forecasting'), path: '/forecasting', icon: <ArrowTrendingUpIcon className="w-4 h-4" /> },
       { label: t('navigation.scenarios'), path: '/scenarios', icon: <SparklesIcon className="w-4 h-4" /> }
     ]
@@ -83,7 +83,7 @@ const getNavigationItems = (t: (key: string) => string): MenuItem[] => [
       { label: t('navigation.reports'), path: '/analytics', icon: <DocumentChartBarIcon className="w-4 h-4" /> },
       { label: t('navigation.customReports'), path: '/custom-reports', icon: <DocumentTextIcon className="w-4 h-4" /> },
       { label: t('navigation.advancedAnalytics'), path: '/advanced-analytics', icon: <ChartBarIcon className="w-4 h-4" /> },
-      { divider: true },
+      { label: '', divider: true },
       { label: t('navigation.cashFlow'), path: '/cash-flow', icon: <BanknotesIcon className="w-4 h-4" /> },
       { label: t('navigation.netWorth'), path: '/net-worth', icon: <CurrencyDollarIcon className="w-4 h-4" /> }
     ]
@@ -98,7 +98,7 @@ const getNavigationItems = (t: (key: string) => string): MenuItem[] => [
 export default function TopNavBar(): React.JSX.Element {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, signOut } = useAuth();
+  const { userId, signOut, user } = useAuth() as any;
   const { t } = useTranslation();
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -375,9 +375,9 @@ export default function TopNavBar(): React.JSX.Element {
                     />
                     
                     {/* Menu Items */}
-                    {item.children.map((child, index) => {
+                    {item.children?.map((child, index) => {
                       // Track the actual item index (skip dividers)
-                      const itemIndex = item.children.slice(0, index).filter(c => !c.divider).length;
+                      const itemIndex = item.children?.slice(0, index).filter(c => !c.divider).length || 0;
                       
                       return (
                         <React.Fragment key={index}>
@@ -741,7 +741,6 @@ export default function TopNavBar(): React.JSX.Element {
         setShowAddTransactionModal(false);
         setPreSelectedAccountId(undefined); // Clear pre-selection after closing
       }}
-      preSelectedAccountId={preSelectedAccountId}
     />
 
     <CategoryCreationModal

@@ -472,6 +472,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 <RadioCheckbox
                   checked={!!formData.reconciledWith && formData.reconciledWith !== 'manual'}
                   disabled
+                  onChange={() => {}}
                 />
                 <LinkIcon size={16} className="text-gray-600 dark:text-gray-500" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">

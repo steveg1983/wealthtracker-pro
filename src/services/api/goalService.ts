@@ -14,6 +14,10 @@ type GoalRow = Database['public']['Tables']['goals']['Row'] & {
   account_id?: string | null;
   icon?: string | null;
   color?: string | null;
+  type?: string | null;
+  is_active?: boolean | null;
+  linked_account_ids?: string[] | null;
+  achieved?: boolean | null;
 };
 type GoalUpdate = Database['public']['Tables']['goals']['Update'] & {
   account_id?: string | null;
@@ -32,25 +36,26 @@ function transformGoalFromDb(dbGoal: GoalRow): Goal {
   return {
     id: dbGoal.id,
     name: dbGoal.name,
-    description: dbGoal.description,
+    type: (dbGoal.type as any) || 'custom',
+    description: dbGoal.description || undefined,
     targetAmount: dbGoal.target_amount,
     currentAmount: dbGoal.current_amount || 0,
     progress: dbGoal.current_amount && dbGoal.target_amount 
       ? (dbGoal.current_amount / dbGoal.target_amount) * 100 
       : 0,
-    targetDate: dbGoal.target_date,
-    category: dbGoal.category,
+    targetDate: new Date(dbGoal.target_date as string),
+    isActive: (dbGoal.is_active as boolean | undefined) !== false,
+    linkedAccountIds: (dbGoal.linked_account_ids as string[] | undefined) || [],
+    achieved: (dbGoal.achieved as boolean | undefined) || false,
+    category: dbGoal.category || undefined,
     priority: (dbGoal.priority as any) || 'medium',
     status: (dbGoal.status as any) || 'active',
     accountId: (dbGoal.account_id as string | null) || undefined,
     autoContribute: (dbGoal.auto_contribute as boolean | undefined) || false,
-    contributionAmount: dbGoal.contribution_amount,
-    contributionFrequency: dbGoal.contribution_frequency,
-    icon: (dbGoal.icon as string | null) || undefined,
-    color: (dbGoal.color as string | null) || undefined,
-    createdAt: dbGoal.created_at,
-    updatedAt: dbGoal.updated_at,
-    completedAt: dbGoal.completed_at
+    contributionAmount: dbGoal.contribution_amount || undefined,
+    contributionFrequency: dbGoal.contribution_frequency || undefined,
+    createdAt: new Date(dbGoal.created_at as string),
+    updatedAt: new Date(dbGoal.updated_at as string)
   };
 }
 
@@ -67,14 +72,14 @@ function transformGoalToDb(goal: Partial<Goal>): GoalUpdate {
   if (goal.description !== undefined) dbGoal.description = goal.description;
   if (goal.targetAmount !== undefined) dbGoal.target_amount = goal.targetAmount;
   if (goal.currentAmount !== undefined) dbGoal.current_amount = goal.currentAmount;
-  if (goal.targetDate !== undefined) dbGoal.target_date = goal.targetDate;
+  if (goal.targetDate !== undefined) dbGoal.target_date = typeof goal.targetDate === 'string' ? goal.targetDate : goal.targetDate.toISOString();
   if (goal.category !== undefined) dbGoal.category = goal.category;
   if (goal.priority !== undefined) dbGoal.priority = goal.priority as any;
   if (goal.status !== undefined) dbGoal.status = goal.status as any;
   if (goal.accountId !== undefined) dbGoal.account_id = goal.accountId as any;
   if (goal.autoContribute !== undefined) dbGoal.auto_contribute = goal.autoContribute;
   if (goal.contributionAmount !== undefined) dbGoal.contribution_amount = goal.contributionAmount;
-  if (goal.contributionFrequency !== undefined) dbGoal.contribution_frequency = goal.contributionFrequency;
+  if (goal.contributionFrequency !== undefined) dbGoal.contribution_frequency = goal.contributionFrequency as any;
   if (goal.icon !== undefined) (dbGoal as any).icon = goal.icon;
   if (goal.color !== undefined) (dbGoal as any).color = goal.color;
   if (goal.completedAt !== undefined) dbGoal.completed_at = goal.completedAt;
@@ -222,8 +227,8 @@ export async function createGoal(
       progress: goal.currentAmount && goal.targetAmount 
         ? (goal.currentAmount / goal.targetAmount) * 100 
         : 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     
     const goals = await storageAdapter.get<Goal[]>(STORAGE_KEYS.GOALS) || [];
@@ -278,7 +283,7 @@ export async function updateGoal(
       const updatedGoal = { 
         ...goals[index], 
         ...updates,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date()
       };
       
       // Update progress

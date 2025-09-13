@@ -365,7 +365,9 @@ export class StripeService {
           currentPeriodStart: data.data.currentPeriodStart,
           currentPeriodEnd: data.data.currentPeriodEnd,
           trialEnd: data.data.trialEnd,
-          cancelAtPeriodEnd: data.data.cancelAtPeriodEnd
+          cancelAtPeriodEnd: data.data.cancelAtPeriodEnd,
+          createdAt: new Date(),
+          updatedAt: new Date()
         };
       }
       return null;

@@ -8,7 +8,7 @@ export function useErrorHandler(): {
 } {
   const handleError = useCallback((error: Error, context?: Record<string, any>) => {
     captureException(error, context);
-    logger.error('Error handled:', error, context);
+    logger.error('Error handled:', error, context ? JSON.stringify(context) : undefined);
   }, []);
 
   const handleAsyncError = useCallback(async <T,>(

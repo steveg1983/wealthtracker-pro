@@ -52,6 +52,23 @@ class RealtimeService {
   private reconnectDelay = 1000; // Start with 1 second
   private isInitialized = false;
 
+  // Type guards for realtime payloads
+  private isAccount(record: any): record is Account {
+    return !!record && typeof record.id === 'string' && typeof record.name === 'string' && typeof record.balance !== 'undefined' && typeof record.type === 'string';
+  }
+
+  private isTransaction(record: any): record is Transaction {
+    return !!record && typeof record.id === 'string' && record.date && typeof record.amount === 'number' && typeof record.description === 'string' && typeof record.accountId === 'string';
+  }
+
+  private isBudget(record: any): record is Budget {
+    return !!record && typeof record.id === 'string' && typeof record.categoryId === 'string' && typeof record.amount === 'number' && typeof record.period === 'string';
+  }
+
+  private isGoal(record: any): record is Goal {
+    return !!record && typeof record.id === 'string' && typeof record.name === 'string' && typeof record.type === 'string' && typeof record.targetAmount === 'number';
+  }
+
   /**
    * Initialize the real-time service
    */
@@ -207,8 +224,8 @@ class RealtimeService {
         (payload) => {
           const event: RealtimeEvent<Account> = {
             eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old,
+            new: this.isAccount(payload.new) ? payload.new : null,
+            old: this.isAccount(payload.old) ? payload.old : null,
             table: payload.table,
             schema: payload.schema,
           };
@@ -271,8 +288,8 @@ class RealtimeService {
         (payload) => {
           const event: RealtimeEvent<Transaction> = {
             eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old,
+            new: this.isTransaction(payload.new) ? payload.new : null,
+            old: this.isTransaction(payload.old) ? payload.old : null,
             table: payload.table,
             schema: payload.schema,
           };
@@ -335,8 +352,8 @@ class RealtimeService {
         (payload) => {
           const event: RealtimeEvent<Budget> = {
             eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old,
+            new: this.isBudget(payload.new) ? payload.new : null,
+            old: this.isBudget(payload.old) ? payload.old : null,
             table: payload.table,
             schema: payload.schema,
           };
@@ -394,13 +411,13 @@ class RealtimeService {
           event: '*',
           schema: 'public',
           table: 'goals',
-          filter: `user_id=eq.${userId}`,
+          filter: `user_id=eq.${dbUserId}`,
         },
         (payload) => {
           const event: RealtimeEvent<Goal> = {
             eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old,
+            new: this.isGoal(payload.new) ? payload.new : null,
+            old: this.isGoal(payload.old) ? payload.old : null,
             table: payload.table,
             schema: payload.schema,
           };

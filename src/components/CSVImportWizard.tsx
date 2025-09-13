@@ -23,6 +23,16 @@ interface CSVImportWizardProps {
   type: 'transaction' | 'account';
 }
 
+interface LocalImportResult {
+  totalRows?: number;
+  successCount: number;
+  errorCount: number;
+  errors: string[];
+  importedItems: any[];
+  success?: number; // Alias for successCount for compatibility
+  duplicates?: number; // Number of duplicate items skipped
+}
+
 type WizardStep = 'upload' | 'mapping' | 'preview' | 'result';
 
 export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWizardProps): React.JSX.Element {
@@ -34,7 +44,7 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [selectedProfile, setSelectedProfile] = useState<ImportProfile | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [importResult, setImportResult] = useState<LocalImportResult | null>(null);
   const [showDuplicates, setShowDuplicates] = useState(true);
   const [duplicateThreshold, setDuplicateThreshold] = useState(90);
 
@@ -176,18 +186,39 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
           }
         }
         
-        setImportResult(result);
+        // Map ImportResult to LocalImportResult
+        const localResult: LocalImportResult = {
+          totalRows: result.items.length,
+          successCount: result.items.length - result.errors.length,
+          errorCount: result.errors.length,
+          errors: result.errors.map(e => `Row ${e.row}: ${e.error}`),
+          importedItems: result.items,
+          success: result.items.length - result.errors.length,
+          duplicates: 0
+        };
+        setImportResult(localResult);
       } else {
         // Import accounts
-        const result: ImportResult = {
-          totalRows: mappedData.length,
+        const result: LocalImportResult = {
+          totalRows: data.length,
           successCount: 0,
           errorCount: 0,
           errors: [],
-          importedItems: []
+          importedItems: [],
+          success: 0,
+          duplicates: 0
         };
         
-        for (const item of mappedData) {
+        // Map CSV rows to objects using column mappings
+        for (const row of data) {
+          const item: Record<string, string> = {};
+          mappings.forEach(mapping => {
+            const columnIndex = headers.indexOf(mapping.sourceColumn);
+            if (columnIndex !== -1) {
+              item[mapping.targetField] = row[columnIndex];
+            }
+          });
+          
           try {
             // Validate required fields
             if (!item.name || !item.type) {
@@ -205,17 +236,18 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
               continue;
             }
             
-            // Create the account
+            // Create the account (balance is not accepted by addAccount)
             await addAccount({
               name: String(item.name),
               type: accountType as any,
-              balance: parseFloat(String(item.balance || 0)),
               currency: String(item.currency || 'GBP'),
               institution: item.institution ? String(item.institution) : '',
-              isActive: true
+              isActive: true,
+              lastUpdated: new Date()
             });
             
             result.successCount++;
+            result.success = result.successCount;
             result.importedItems.push(item);
           } catch (error) {
             result.errorCount++;
@@ -698,12 +730,12 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
               <div className="grid grid-cols-3 gap-4 mb-6">
                 <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 text-center">
                   <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                    {importResult.success}
+                    {importResult.success ?? importResult.successCount}
                   </p>
                   <p className="text-sm text-green-800 dark:text-green-300">Imported</p>
                 </div>
                 
-                {importResult.duplicates > 0 && (
+                {(importResult.duplicates ?? 0) > 0 && (
                   <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4 text-center">
                     <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
                       {importResult.duplicates}
@@ -712,10 +744,10 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
                   </div>
                 )}
                 
-                {importResult.failed > 0 && (
+                {importResult.errorCount > 0 && (
                   <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4 text-center">
                     <p className="text-3xl font-bold text-red-600 dark:text-red-400">
-                      {importResult.failed}
+                      {importResult.errorCount}
                     </p>
                     <p className="text-sm text-red-800 dark:text-red-300">Failed</p>
                   </div>
@@ -729,9 +761,9 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
                     Import Errors
                   </h4>
                   <ul className="text-sm text-red-800 dark:text-red-200 space-y-1">
-                    {importResult.errors.slice(0, 5).map((error: { row: number; error: string }, index: number) => (
+                    {importResult.errors.slice(0, 5).map((error: string, index: number) => (
                       <li key={index}>
-                        Row {error.row}: {error.error}
+                        {error}
                       </li>
                     ))}
                     {importResult.errors.length > 5 && (

@@ -73,7 +73,7 @@ export default function BudgetVsActualWidget({
       // Filter transactions for this budget's category and period
       const categoryTransactions = transactions.filter(t => {
         const transDate = new Date(t.date);
-        return t.category === budget.category &&
+        return t.category === budget.categoryId &&
                t.type === 'expense' &&
                transDate >= periodDates.startDate &&
                transDate <= periodDates.endDate;
@@ -84,7 +84,7 @@ export default function BudgetVsActualWidget({
       const percentUsed = budget.amount > 0 ? (actual / budget.amount) * 100 : 0;
       
       comparisons.push({
-        category: budget.category,
+        category: budget.categoryId,
         budgeted: budget.amount,
         actual,
         variance,

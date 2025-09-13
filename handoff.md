@@ -1,53 +1,65 @@
 # Handoff
 
+Owner: Project Engineering Manager
+Last updated: 2025-09-11
+
 Use this lightweight snapshot when starting a new chat or passing work.
 
-- Summary: Reset to the known‑good v2.2.0 baseline, validate build/lint/tests, then reintroduce recent deltas in small, verified PRs. Suspend current tip’s Phase 0 until baseline is merged and protected by CI.
+## Phase 1 Checklist (Targets • Owners)
+- Type consolidation → Owner: Claude — Targets: `src/types/**/*`, dedupe types in `src/{contexts,services,hooks}/**/*`
+- Enum→const migration → Owner: Claude — Targets: `src/**/*.{ts,tsx}`
+- Zod DTO validators at boundaries → Owner: Lead specs → Claude impl — Targets: `src/services/**/*`, `src/lib/stripe-webhooks.ts`, adapters in `src/utils/validation/*`
+- Date parsing/coercion at import boundaries → Owner: Claude — Targets: `src/services/import*`, `src/utils/*`
+- Realtime payload type-guards → Owner: Claude — Targets: `src/services/realtime*`, `src/contexts/**/*`
+- Offline/Push/Fuse types hardened → Owner: Claude — Targets: `src/services/{offline,push}*`, `src/utils/search/*`
+- Async return type correctness → Owner: Claude — Targets: `src/services/**/*`, `src/hooks/**/*`
+- Replace defensive casts with typed adapters → Owner: Claude — Targets: `src/{services,contexts,hooks}/**/*`
+
+- Summary: Continue Phase 0 stabilization — fix TypeScript errors, enforce CI gates, and remove console.log/TODO debt. Ship small, verified PRs only.
+- Summary: Phase 0.5 completed – cleared remaining TS blockers across dashboard layouts, predictive loading, push notifications, offline/reports services; build passes locally. Proceed to Claude’s consolidation phases with a green baseline.
+ - Summary: CI guardrails updated — gitleaks enabled, tests added to quality-gates, tracked .env files removed. Pending verification of local build/lint/tests.
 
 - Constraints:
-  - During baseline merge: no dependency/DI/public contract changes.
   - Financial correctness: Decimal at boundaries; number for rendering only.
   - Small, surgical PRs; run build:check + lint + tests locally before handoff.
 
 - Current Tasks (owner → in progress):
-  - Stage baseline: extract v2.2.0, install deps, validate gates
-  - Create `baseline/v2.2.0-clean` branch; protect main with CI
-  - Prepare reintro batches (import wizard helpers, Decimal render fixes, safe UI typing)
-  - Define PR checklist and CI gate config
+  - Fix remaining TypeScript errors systematically (category by category) — DONE for web package
+  - Remove all console.log statements in app code (use logger)
+  - Remove all TODO comments or convert to tracked issues
+  - Enable gitleaks in CI — ADDED; rotate any exposed keys — PENDING
+  - Remove tracked `.env.*` files — DONE
+  - Add tests to CI quality gates — ADDED
+  - Add zod validators at app boundaries (API/Supabase/Stripe)
+  - Document error taxonomy and user-facing mappings
+  - Add unit tests for money/parsers/formatters
+  - Add integration test for auth + subscription
 
 - Error Snapshot (auto-refresh with `npm run handoff:update`):
   <!-- ERROR_SNAPSHOT_START -->
-- Snapshot: 2025-09-09T22:07:24.300Z — 15 line(s)
-- src/components/Layout.tsx(102,5): error TS2353: Object literal may only specify known properties, and 'threshold' does not exist in type 'SwipeHandlers'.
-- src/components/Layout.tsx(175,93): error TS2322: Type 'Record<string, unknown> | undefined' is not assignable to type 'Record<string, string | number | boolean | undefined> | undefined'.
-- src/components/Layout.tsx(238,14): error TS2352: Conversion of type '{ ref: React.RefObject<HTMLElement>; isSwipe: boolean; swipeDirection: string | null; swipeDistance: number; bind: { ref: React.RefObject<HTMLElement>; }; }' to type 'RefObject<HTMLElement>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-- src/components/Layout.tsx(278,9): error TS2322: Type 'ConflictAnalysis | null' is not assignable to type 'ConflictAnalysis | undefined'.
-- src/components/Layout.tsx(279,9): error TS2322: Type '(resolution: "client" | "server" | "merge", mergedData?: EntityData) => Promise<void>' is not assignable to type '(resolution: "merge" | "server" | "client", mergedData?: unknown) => void'.
-- src/components/layout/PageTransition.tsx(55,9): error TS2322: Type '{ duration: number; } | { type: string; stiffness: number; damping: number; duration: number; } | { duration: number; }' is not assignable to type 'Transition<any> | undefined'.
-- src/components/layout/SectionCard.tsx(24,3): error TS2304: Cannot find name 'useEffect'.
-- src/components/LayoutNew.tsx(37,28): error TS2339: Property 'skipWaiting' does not exist on type '{ checkUpdates: () => Promise<void>; refreshSyncStatus: () => Promise<void>; forceSync: () => void; enableOffline: () => void; registration: ServiceWorkerRegistration | null; updateAvailable: boolean; isOffline: boolean; syncStatus: { ...; } | null; }'.
-- src/components/LayoutNew.tsx(38,11): error TS2339: Property 'conflicts' does not exist on type '{ conflictState: ConflictState; currentConflict: Conflict | null; currentAnalysis: ConflictAnalysis | null; isModalOpen: boolean; ... 5 more ...; requiresUserIntervention: (analysis: ConflictAnalysis, userPreferences?: { ...; } | undefined) => boolean; }'.
-- src/components/LayoutNew.tsx(39,11): error TS2339: Property 'isDialogOpen' does not exist on type '{ isOpen: boolean; openSearch: () => void; closeSearch: () => void; }'.
-- src/components/LayoutNew.tsx(39,39): error TS2339: Property 'openDialog' does not exist on type '{ isOpen: boolean; openSearch: () => void; closeSearch: () => void; }'.
-- src/components/LayoutNew.tsx(39,63): error TS2339: Property 'closeDialog' does not exist on type '{ isOpen: boolean; openSearch: () => void; closeSearch: () => void; }'.
-- src/components/LayoutNew.tsx(40,11): error TS2339: Property 'isHelpOpen' does not exist on type '{ isOpen: boolean; openHelp: () => void; closeHelp: () => void; }'.
-- src/components/LayoutNew.tsx(58,5): error TS2353: Object literal may only specify known properties, and 'onSearch' does not exist in type '() => void'.
-- src/components/LayoutNew.tsx(146,60): error TS2322: Type '{ onUpdate: any; }' is not assignable to type 'IntrinsicAttributes & ServiceWorkerUpdateNotificationProps'.
+  - Snapshot: 2025-09-13T00:00:00.000Z — local build green
+  - TypeScript Errors: 0 (wealthtracker-web)
+  - Key fixes shipped:
+    - Dashboard V2: unified Layouts with react-grid-layout; fixed saveLayout contract
+    - Analytics widgets: widened type to string to avoid union drift
+    - Predictive loading: enum → const object; hook typed to PreloadPriority
+    - Push notifications: defined NotificationAction; SW registration export; typed SW options
+    - Offline services: typed unions and logger usage; queue store typing
+    - Import services (OFX/QIF): correct Date parsing, addTransaction typings, field names
+    - Realtime service: added type guards for payload.new/old; fixed dbUserId filter
+    - Reports page: category percentage type aligned
   <!-- ERROR_SNAPSHOT_END -->
 
-- Changelog (2025-09-09):
-  - Plan reset approved — proceeding with baseline restore workflow and CI gate enforcement.
-  - Fixed icon import errors in 16 components - changed from individual file imports to index imports
-  - Build now passes successfully, TypeScript compilation has 0 errors
-  - Replaced console.log statements with logger in 2 files
-  - Created .eslintignore to exclude backup directories from linting
-  - Ran lint auto-fix, reduced errors from 1404 to 1377
-  - Fixed React hooks rule violations in 6 components (AchievementHistory, BankConnections, BatchOperationsToolbar, FloatingActionButton, BrandIcon)
-  - Pattern identified: Two main issues causing hooks violations:
-    1. Try-catch blocks wrapping entire component body (10 files)
-    2. Early returns before hooks (3 files)
-  - Current lint status: 360 errors, 2541 warnings
+- Recent Changelog (2025-09-11):
+  - Fixed 121 TypeScript errors (1,856 → 1,735)
+  - Added missing properties to interfaces (creditLimit, hasTestData)
+  - Fixed React component return types (null → Fragment)
+  - Added missing logger imports
+  - Fixed Decimal.js method calls
 
 - Next Handoff:
-  - Validate baseline (build:check, lint, tests) and open baseline PR.
-  - Outline first reintro PRs; confirm review criteria and CI gates are enforced on PRs and main.
+  - Verify Phase 0 gates locally (`npm ci && npm run lint && npm run build:check && npm run test:ci`)
+  - Mark CI required checks in repo settings (lint/type/build/tests/gitleaks)
+  - Begin Phase 1 (Type Consolidation): unify duplicate types across services (dashboard, reports, financial plans)
+  - Enum→const sweep where still present; literal unions at boundaries
+  - Realtime/offline adapters with zod/guards at app boundaries

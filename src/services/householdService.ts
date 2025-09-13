@@ -204,14 +204,16 @@ class HouseholdService {
   ): HouseholdInvite {
     if (!this.household) throw new Error('No household exists');
     
+    const household = this.household; // Store in local variable for type narrowing
+    
     // Check if already a member
-    if (this.household.members.some(m => m.email === email)) {
+    if (household.members.some(m => m.email === email)) {
       throw new Error('User is already a member');
     }
     
     // Check for existing pending invite
     const existingInvite = this.invites.find(
-      i => i.email === email && i.status === 'pending' && i.householdId === this.household.id
+      i => i.email === email && i.status === 'pending' && i.householdId === household.id
     );
     if (existingInvite) {
       throw new Error('An invitation is already pending for this email');
@@ -219,7 +221,7 @@ class HouseholdService {
 
     const invite: HouseholdInvite = {
       id: this.generateId(),
-      householdId: this.household.id,
+      householdId: household.id,
       email,
       role,
       invitedBy,

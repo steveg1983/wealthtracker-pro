@@ -1,10 +1,11 @@
-import React, { lazy, Suspense, useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { useMobileOptimizations } from '../hooks/useMobileOptimizations';
 import { SkeletonCard } from './loading/Skeleton';
+import { formatCurrency } from '../utils/formatters';
 import type { Account, Transaction } from '../types';
 
 // Lazy load heavy chart components
-const ChartComponents = lazy(() => import('./DashboardCharts'));
+const ChartComponents = lazy(() => import('./dashboard/improved/DashboardCharts').then(m => ({ default: m.DashboardCharts })));
 
 interface MobileDashboardProps {
   accounts: Account[];
@@ -104,11 +105,23 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
       {showCharts && (
         <Suspense fallback={
           <div className="space-y-4">
-            <SkeletonCard height={200} />
-            <SkeletonCard height={200} />
+            <SkeletonCard className="h-[200px]" />
+            <SkeletonCard className="h-[200px]" />
           </div>
         }>
-          <ChartComponents accounts={accounts} transactions={transactions} />
+          <ChartComponents 
+            netWorthData={[]}
+            pieData={accounts.map(acc => ({
+              name: acc.name,
+              value: acc.balance,
+              id: acc.id
+            }))}
+            netWorth={totals.netWorthValue}
+            chartStyles={{}}
+            formatCurrency={formatCurrency}
+            displayCurrency="USD"
+            onAccountClick={() => {}}
+          />
         </Suspense>
       )}
     </div>

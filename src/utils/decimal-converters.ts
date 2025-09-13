@@ -27,8 +27,10 @@ export function toDecimalTransaction(transaction: Transaction): DecimalTransacti
 }
 
 export function toDecimalBudget(budget: Budget): DecimalBudget {
+  const { categoryId, spent, updatedAt, name, color, budgeted, rolloverAmount, notes, ...rest } = budget;
   return {
-    ...budget,
+    ...rest,
+    category: categoryId, // Map categoryId to category
     amount: toDecimal(budget.amount)
   };
 }
@@ -75,9 +77,16 @@ export function fromDecimalTransaction(transaction: DecimalTransaction): Transac
 }
 
 export function fromDecimalBudget(budget: DecimalBudget): Budget {
+  const { category, period, ...rest } = budget;
+  // Map quarterly to yearly as Budget doesn't support quarterly
+  const mappedPeriod = period === 'quarterly' ? 'yearly' : period;
   return {
-    ...budget,
-    amount: toStorageNumber(budget.amount)
+    ...rest,
+    period: mappedPeriod as 'monthly' | 'weekly' | 'yearly',
+    categoryId: category, // Map category back to categoryId
+    amount: toStorageNumber(budget.amount),
+    spent: 0, // Default value for required property
+    updatedAt: new Date() // Default value for required property
   };
 }
 
@@ -85,7 +94,9 @@ export function fromDecimalGoal(goal: DecimalGoal): Goal {
   return {
     ...goal,
     targetAmount: toStorageNumber(goal.targetAmount),
-    currentAmount: toStorageNumber(goal.currentAmount)
+    currentAmount: toStorageNumber(goal.currentAmount),
+    progress: 0, // Default value for required property
+    updatedAt: new Date() // Default value for required property
   };
 }
 

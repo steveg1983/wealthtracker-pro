@@ -263,7 +263,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
       isOpen={isOpen}
       onClose={onClose}
       title="Resolve Sync Conflict"
-      maxWidth="max-w-2xl"
+      size="lg"
     >
       <div className="space-y-6">
         {/* Warning Header */}

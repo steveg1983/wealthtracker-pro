@@ -38,8 +38,8 @@ const budgetsSlice = createSlice({
       const newBudget: Budget = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        createdAt: new Date(getCurrentISOString()),
+        updatedAt: new Date(getCurrentISOString()),
       };
       state.budgets.push(serializeForRedux(newBudget) as any);
     },
@@ -60,7 +60,7 @@ const budgetsSlice = createSlice({
       const budget = state.budgets.find(b => b.id === action.payload.id);
       if (budget) {
         budget.spent = action.payload.spent;
-        budget.updatedAt = getCurrentISOString();
+        budget.updatedAt = new Date(getCurrentISOString());
       }
     },
   },
@@ -88,7 +88,7 @@ const budgetsSlice = createSlice({
         state.loading = false;
         // Remove any temporary budget with the same category
         state.budgets = state.budgets.filter(budget => 
-          !(budget.id.startsWith('temp-') && budget.category === action.payload.category)
+          !(budget.id.startsWith('temp-') && budget.categoryId === action.payload.categoryId)
         );
         // Add the new budget from Supabase
         state.budgets.push(action.payload);

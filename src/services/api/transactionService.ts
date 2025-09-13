@@ -45,7 +45,7 @@ export class TransactionService {
         ...transaction,
         id: crypto.randomUUID(),
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updatedAt: new Date()
       };
       
       const transactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
@@ -71,7 +71,7 @@ export class TransactionService {
       }
 
       // Update account balance
-      await this.updateAccountBalance(transaction.account_id, transaction.amount);
+      await this.updateAccountBalance(transaction.accountId, transaction.amount);
 
       return data;
     } catch (error) {
@@ -97,7 +97,7 @@ export class TransactionService {
       transactions[index] = {
         ...transactions[index],
         ...updates,
-        updated_at: new Date().toISOString()
+        updatedAt: new Date()
       };
       
       await storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, transactions);
@@ -220,7 +220,7 @@ export class TransactionService {
   static async getTransactionsByAccount(accountId: string): Promise<Transaction[]> {
     if (!isSupabaseConfigured()) {
       const transactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
-      return transactions.filter(t => t.account_id === accountId);
+      return transactions.filter(t => t.accountId === accountId);
     }
 
     try {
@@ -280,7 +280,7 @@ export class TransactionService {
         ...t,
         id: crypto.randomUUID(),
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updatedAt: new Date()
       }));
       
       const stored = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];

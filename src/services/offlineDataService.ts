@@ -237,7 +237,7 @@ class OfflineDataService {
           await this.updateSyncRetryCount(sync.id, sync.retryCount + 1);
         }
       } catch (error) {
-        logger.error('Sync failed for item:', sync.id, error);
+        logger.error('Sync failed for item', { id: sync.id, error });
         await this.updateSyncRetryCount(sync.id, sync.retryCount + 1);
       }
     }
@@ -269,8 +269,8 @@ class OfflineDataService {
     if (!this.db) await this.initialize();
 
     const conflict = {
-      id: sync.id,
       ...sync,
+      id: sync.id,
       conflictedAt: Date.now()
     };
 

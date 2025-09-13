@@ -43,8 +43,8 @@ const accountsSlice = createSlice({
       const newAccount: Account = {
         ...action.payload,
         id: crypto.randomUUID(),
-        lastUpdated: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        lastUpdated: new Date(getCurrentISOString()),
+        updatedAt: new Date(getCurrentISOString()),
       };
       state.accounts.push(serializeForRedux(newAccount) as any);
     },
@@ -54,7 +54,7 @@ const accountsSlice = createSlice({
         state.accounts[index] = {
           ...state.accounts[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString(),
+          updatedAt: new Date(getCurrentISOString()),
         };
       }
     },
@@ -65,7 +65,7 @@ const accountsSlice = createSlice({
       const account = state.accounts.find(acc => acc.id === action.payload.id);
       if (account) {
         account.balance = action.payload.balance;
-        account.updatedAt = getCurrentISOString();
+        account.updatedAt = new Date(getCurrentISOString());
       }
     },
     recalculateAllBalances: (state, action: PayloadAction<any[]>) => {

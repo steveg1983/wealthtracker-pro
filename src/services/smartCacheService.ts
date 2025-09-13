@@ -143,6 +143,13 @@ class SmartCacheService {
   }
 
   /**
+   * Alias for get method for backward compatibility
+   */
+  getCached<T>(key: string): T | null {
+    return this.get<T>(key) as T | null;
+  }
+
+  /**
    * Set value in cache with dependencies
    */
   set<T>(
@@ -236,7 +243,9 @@ class SmartCacheService {
       if (memoCache.size >= maxArgs) {
         // Remove oldest entry
         const firstKey = memoCache.keys().next().value;
-        memoCache.delete(firstKey);
+        if (firstKey !== undefined) {
+          memoCache.delete(firstKey);
+        }
       }
       
       memoCache.set(key, { result, timestamp: Date.now() });
@@ -263,11 +272,11 @@ class SmartCacheService {
   /**
    * Get cached preference
    */
-  getPreference<T>(key: string, defaultValue?: T): T | undefined {
+  async getPreference<T>(key: string, defaultValue?: T): Promise<T | undefined> {
     const prefKey = `pref:${key}`;
     
     // Try memory cache first
-    let value = this.get<T>(prefKey);
+    let value = await this.get<T>(prefKey);
     
     // Fall back to localStorage
     if (value === null) {
@@ -289,14 +298,14 @@ class SmartCacheService {
   /**
    * Cache filter states
    */
-  cacheFilters(page: string, filters: FilterConfig): void {
+  async cacheFilters(page: string, filters: FilterConfig): Promise<void> {
     const filterKey = `filters:${page}`;
     this.set(filterKey, filters, { ttl: 24 * 60 * 60 * 1000 }); // 24 hours
     
     // Track recent filters
     const recentKey = 'filters:recent';
-    const recent = this.get<FilterConfig[]>(recentKey) || [];
-    const updated = [filters, ...recent.filter(f => 
+    const recent = await this.get<FilterConfig[]>(recentKey) || [];
+    const updated = [filters, ...recent.filter((f: FilterConfig) => 
       JSON.stringify(f) !== JSON.stringify(filters)
     )].slice(0, 10);
     this.set(recentKey, updated);
@@ -305,8 +314,8 @@ class SmartCacheService {
   /**
    * Get cached filters
    */
-  getCachedFilters(page: string): FilterConfig | null {
-    return this.get(`filters:${page}`);
+  async getCachedFilters(page: string): Promise<FilterConfig | null> {
+    return await this.get<FilterConfig>(`filters:${page}`) || null;
   }
 
   /**
@@ -328,7 +337,7 @@ class SmartCacheService {
   /**
    * Get cached calculation
    */
-  getCachedCalculation<T>(type: string, params: CalculationParams): T | null {
+  async getCachedCalculation<T>(type: string, params: CalculationParams): Promise<T | null> {
     const key = `calc:${type}:${JSON.stringify(params)}`;
     return this.get<T>(key);
   }
@@ -339,8 +348,13 @@ class SmartCacheService {
   async batch<T>(operations: Array<{
     key: string;
     fetcher: () => Promise<T>;
-    options?: ExportOptions;
-  }>): Promise<T[]> {
+    options?: {
+      ttl?: number;
+      dependencies?: string[];
+      forceRefresh?: boolean;
+      staleWhileRevalidate?: boolean;
+    };
+  }>): Promise<(T | null)[]> {
     return Promise.all(
       operations.map(op => this.get(op.key, op.fetcher, op.options))
     );
@@ -524,76 +538,5 @@ export const smartCache = new SmartCacheService({
   staleWhileRevalidate: true,
   persistToStorage: true
 });
-
-// LRU Cache implementation (simplified version)
-class LRUCache<K, V> {
-  private cache: Map<K, V>;
-  private maxSize: number;
-  private ttl: number;
-  private timers: Map<K, NodeJS.Timeout>;
-
-  constructor(options: any) {
-    this.cache = new Map();
-    this.maxSize = options.max || 100;
-    this.ttl = options.ttl || 0;
-    this.timers = new Map();
-  }
-
-  get(key: K): V | undefined {
-    const value = this.cache.get(key);
-    if (value !== undefined) {
-      // Move to end (most recently used)
-      this.cache.delete(key);
-      this.cache.set(key, value);
-    }
-    return value;
-  }
-
-  set(key: K, value: V): void {
-    // Remove oldest if at capacity
-    if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
-      const firstKey = this.cache.keys().next().value;
-      this.delete(firstKey);
-    }
-
-    this.cache.set(key, value);
-
-    // Set TTL if specified
-    if (this.ttl > 0) {
-      this.clearTimer(key);
-      const timer = setTimeout(() => {
-        this.delete(key);
-      }, this.ttl);
-      this.timers.set(key, timer);
-    }
-  }
-
-  delete(key: K): boolean {
-    this.clearTimer(key);
-    return this.cache.delete(key);
-  }
-
-  clear(): void {
-    this.timers.forEach(timer => clearTimeout(timer));
-    this.timers.clear();
-    this.cache.clear();
-  }
-
-  keys(): IterableIterator<K> {
-    return this.cache.keys();
-  }
-
-  get size(): number {
-    return this.cache.size;
-  }
-
-  private clearTimer(key: K): void {
-    const timer = this.timers.get(key);
-    if (timer) {
-      clearTimeout(timer);
-      this.timers.delete(key);
-    }
-  }
-}
 
 export default smartCache;

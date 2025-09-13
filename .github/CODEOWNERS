@@ -1,0 +1,30 @@
+# CODEOWNERS — critical paths
+# Replace placeholders with real GitHub users or teams (e.g., @your-org/maintainers or @your-username)
+# Lines are evaluated top-to-bottom; the last matching pattern wins.
+
+# Core governance
+.github/**                                  @steveg1983
+.github/workflows/**                        @steveg1983
+
+# Build & deploy
+Dockerfile                                  @steveg1983
+nginx*                                      @steveg1983
+vercel.json                                 @steveg1983
+
+# Security-critical code
+src/security/**                              @steveg1983
+src/services/loggingService.ts              @steveg1983
+
+# Data layer and Supabase access
+src/services/**/supabase*                   @steveg1983
+src/services/supabaseService.ts             @steveg1983
+src/lib/supabase.ts                         @steveg1983
+src/services/api/supabaseClient.ts          @steveg1983
+
+# Default fallback — all files require maintainer approval
+*                                            @steveg1983
+
+# Notes:
+# - Use GitHub team names (@org/team) or individual users (@username).
+# - If a team doesn’t exist yet, create it or replace with real users to avoid non-functional ownership.
+# - After editing owners, re-run the branch protection script to keep settings aligned.

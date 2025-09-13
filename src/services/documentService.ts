@@ -170,7 +170,7 @@ class DocumentService {
   private async saveDocument(document: Document): Promise<void> {
     try {
       await this.ensureInitialized();
-      await indexedDBService.put('documents', document);
+      await indexedDBService.put('documents', document as unknown as Record<string, unknown>);
     } catch (error) {
       logger.error('Failed to save document to IndexedDB:', error);
       // Fallback: Keep in memory only, don't save to localStorage
@@ -334,7 +334,6 @@ class DocumentService {
       // Clean up the object URL after loading
       img.onload = function() {
         URL.revokeObjectURL(url);
-        img.onload!();
       };
     });
   }

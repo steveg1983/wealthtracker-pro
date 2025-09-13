@@ -33,6 +33,10 @@ export class ImportRulesService {
     return [...this.rules].sort((a, b) => a.priority - b.priority);
   }
 
+  getActiveRules(): ImportRule[] {
+    return this.getRules().filter(rule => rule.enabled);
+  }
+
   getRule(id: string): ImportRule | undefined {
     return this.rules.find(rule => rule.id === id);
   }

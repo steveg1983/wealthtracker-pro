@@ -26,7 +26,7 @@ export const BudgetOverview = memo(function BudgetOverview({
     });
   }, []);
 
-  if (budgetStatus.length === 0) return null;
+  if (budgetStatus.length === 0) return <></>;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">

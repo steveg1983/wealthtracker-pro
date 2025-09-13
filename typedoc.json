@@ -1,0 +1,22 @@
+{
+  "entryPoints": ["src/services", "src/utils", "src/contexts"],
+  "out": "docs/api",
+  "tsconfig": "tsconfig.app.json",
+  "excludePrivate": true,
+  "excludeProtected": false,
+  "excludeExternals": true,
+  "readme": "README.md",
+  "name": "WealthTracker API Documentation",
+  "includeVersion": true,
+  "categorizeByGroup": true,
+  "hideGenerator": true,
+  "theme": "default",
+  "plugin": [],
+  "exclude": [
+    "**/node_modules/**",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx"
+  ]
+}

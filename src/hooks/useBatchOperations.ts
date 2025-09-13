@@ -10,6 +10,7 @@ export interface BatchOperation {
   requiresConfirmation?: boolean;
   confirmMessage?: (count: number) => string;
   variant?: 'primary' | 'danger' | 'secondary';
+  group?: string;
 }
 
 interface UseBatchOperationsProps {

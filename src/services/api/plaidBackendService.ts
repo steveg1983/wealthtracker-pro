@@ -132,6 +132,8 @@ class PlaidBackendService {
       const { access_token, item_id } = await response.json();
 
       // Store connection in Supabase (access token should be encrypted)
+      if (!supabase) throw new Error("Supabase not configured");
+
       const { data, error } = await supabase
         .from('plaid_connections')
         .insert({
@@ -163,6 +165,9 @@ class PlaidBackendService {
       const userId = await userIdService.getDatabaseUserId(clerkId);
       if (!userId) throw new Error('User not found');
 
+      if (!supabase) throw new Error("Supabase not configured");
+
+
       const { data, error } = await supabase
         .from('plaid_connections')
         .select('*')
@@ -187,6 +192,8 @@ class PlaidBackendService {
       if (!userId) throw new Error('User not found');
 
       // Get connection details
+      if (!supabase) throw new Error("Supabase not configured");
+
       const { data: connection, error: connError } = await supabase
         .from('plaid_connections')
         .select('*')
@@ -232,6 +239,9 @@ class PlaidBackendService {
           updated_at: new Date().toISOString()
         };
 
+        if (!supabase) throw new Error("Supabase not configured");
+
+
         const { data, error } = await supabase
           .from('plaid_accounts')
           .upsert(accountData, {
@@ -273,6 +283,8 @@ class PlaidBackendService {
       if (!userId) throw new Error('User not found');
 
       // Get connection details
+      if (!supabase) throw new Error("Supabase not configured");
+
       const { data: connection, error: connError } = await supabase
         .from('plaid_connections')
         .select('*')
@@ -322,6 +334,9 @@ class PlaidBackendService {
           created_at: new Date().toISOString()
         };
 
+        if (!supabase) throw new Error("Supabase not configured");
+
+
         const { data, error } = await supabase
           .from('transactions')
           .upsert(transactionData, {
@@ -358,6 +373,8 @@ class PlaidBackendService {
       if (!userId) throw new Error('User not found');
 
       // Get connection to get access token
+      if (!supabase) throw new Error("Supabase not configured");
+
       const { data: connection, error: connError } = await supabase
         .from('plaid_connections')
         .select('*')
@@ -443,6 +460,8 @@ class PlaidBackendService {
       if (!userId) throw new Error('User not found');
 
       // Get connection
+      if (!supabase) throw new Error("Supabase not configured");
+
       const { data: connection, error: connError } = await supabase
         .from('plaid_connections')
         .select('*')

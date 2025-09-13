@@ -15,7 +15,7 @@ import {
   MinimizeIcon,
   RefreshCwIcon,
   DownloadIcon,
-  ShareIcon,
+  SendIcon,
   LockIcon,
   UnlockIcon,
   CopyIcon,
@@ -125,7 +125,7 @@ export default function DashboardBuilder({
   onClose,
   readOnly = false
 }: DashboardBuilderProps) {
-  const { showNotification } = useNotifications();
+  const { addNotification } = useNotifications();
   const { accounts, transactions, budgets, goals, categories } = useApp();
   
   // State
@@ -195,14 +195,14 @@ export default function DashboardBuilder({
     
     setWidgets([...widgets, newWidget]);
     setIsAddingWidget(false);
-    showNotification('success', `Added ${widgetType.name} widget`);
-  }, [widgets, showNotification]);
+    addNotification({ type: 'success', title: `Added ${widgetType.name} widget`, message: '' });
+  }, [widgets, addNotification]);
   
   // Remove widget
   const handleRemoveWidget = useCallback((widgetId: string) => {
     setWidgets(widgets.filter(w => w.id !== widgetId));
-    showNotification('info', 'Widget removed');
-  }, [widgets, showNotification]);
+    addNotification({ type: 'info', title: 'Widget removed', message: '' });
+  }, [widgets, addNotification]);
   
   // Toggle widget lock
   const handleToggleLock = useCallback((widgetId: string) => {
@@ -230,8 +230,8 @@ export default function DashboardBuilder({
     };
     
     onSave?.(dashboardData);
-    showNotification('success', 'Dashboard saved successfully');
-  }, [dashboard, dashboardName, dashboardDescription, widgets, onSave, showNotification]);
+    addNotification({ type: 'success', title: 'Dashboard saved successfully', message: '' });
+  }, [dashboard, dashboardName, dashboardDescription, widgets, onSave, addNotification]);
   
   // Export dashboard
   const handleExportDashboard = useCallback(() => {
@@ -250,8 +250,8 @@ export default function DashboardBuilder({
     a.click();
     URL.revokeObjectURL(url);
     
-    showNotification('success', 'Dashboard exported');
-  }, [dashboardName, dashboardDescription, widgets, showNotification]);
+    addNotification({ type: 'success', title: 'Dashboard exported', message: '' });
+  }, [dashboardName, dashboardDescription, widgets, addNotification]);
   
   return (
     <div className="flex flex-col h-full bg-blue-50 dark:bg-gray-900">

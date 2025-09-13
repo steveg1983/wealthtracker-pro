@@ -1,4 +1,4 @@
-import type { Transaction, Category } from '../types';
+import type { Transaction, Category, Account } from '../types';
 
 interface CategoryPattern {
   categoryId: string;
@@ -493,6 +493,27 @@ export class SmartCategorizationService {
     const descriptionKey = transaction.description.toLowerCase();
     const rejected = this.rejectedSuggestions.get(descriptionKey);
     return rejected ? rejected.has(categoryId) : false;
+  }
+
+  /**
+   * Categorize a transaction
+   */
+  categorizeTransaction(transaction: Transaction): string | null {
+    const suggestions = this.suggestCategories(transaction);
+    if (suggestions.length > 0 && suggestions[0].confidence > 0.7) {
+      return suggestions[0].categoryId;
+    }
+    return null;
+  }
+
+  /**
+   * Learn from account transactions
+   */
+  learnFromAccount(account: Account, transactions: Transaction[]): void {
+    // Filter transactions for this account
+    const accountTransactions = transactions.filter(t => t.accountId === account.id);
+    // Use the existing learning mechanism
+    this.learnFromTransactions(accountTransactions, []);
   }
 }
 

@@ -51,7 +51,7 @@ const IGNORE_ACTIONS = [
   // Add any bulk set operations that come from server
 ];
 
-export const syncMiddleware: Middleware = (store) => (next) => (action) => {
+export const syncMiddleware: Middleware = (store) => (next) => (action: any) => {
   // Execute the action first
   const result = next(action);
   
@@ -70,7 +70,7 @@ export const syncMiddleware: Middleware = (store) => (next) => (action) => {
     try {
       // Extract entity ID and data from the action
       let entityId: string | undefined;
-      let data: SyncData<EntityType>;
+      let data: SyncData<EntityType> | null = null;
       
       // Handle different action payload structures
       if (action.payload) {
@@ -125,7 +125,7 @@ export const handleRemoteSyncUpdate = <T extends EntityType>(
           dispatch({ type: 'transactions/addTransaction', payload: data });
           break;
         case 'UPDATE':
-          dispatch({ type: 'transactions/updateTransaction', payload: { id: entityId, ...data } });
+          dispatch({ type: 'transactions/updateTransaction', payload: { ...data, id: entityId } });
           break;
         case 'DELETE':
           dispatch({ type: 'transactions/deleteTransaction', payload: entityId });
@@ -139,7 +139,7 @@ export const handleRemoteSyncUpdate = <T extends EntityType>(
           dispatch({ type: 'accounts/addAccount', payload: data });
           break;
         case 'UPDATE':
-          dispatch({ type: 'accounts/updateAccount', payload: { id: entityId, ...data } });
+          dispatch({ type: 'accounts/updateAccount', payload: { ...data, id: entityId } });
           break;
         case 'DELETE':
           dispatch({ type: 'accounts/deleteAccount', payload: entityId });
@@ -165,7 +165,7 @@ export const handleRemoteSyncUpdate = <T extends EntityType>(
           dispatch({ type: 'goals/addGoal', payload: data });
           break;
         case 'UPDATE':
-          dispatch({ type: 'goals/updateGoal', payload: { id: entityId, ...data } });
+          dispatch({ type: 'goals/updateGoal', payload: { ...data, id: entityId } });
           break;
         case 'DELETE':
           dispatch({ type: 'goals/deleteGoal', payload: entityId });
@@ -179,7 +179,7 @@ export const handleRemoteSyncUpdate = <T extends EntityType>(
           dispatch({ type: 'categories/addCategory', payload: data });
           break;
         case 'UPDATE':
-          dispatch({ type: 'categories/updateCategory', payload: { id: entityId, ...data } });
+          dispatch({ type: 'categories/updateCategory', payload: { ...data, id: entityId } });
           break;
         case 'DELETE':
           dispatch({ type: 'categories/deleteCategory', payload: entityId });

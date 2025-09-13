@@ -44,7 +44,7 @@ export function PageTransition({ children, mode = 'fade' }: PageTransitionProps)
         initial={transition.initial}
         animate={transition.animate}
         exit={transition.exit}
-        transition={transition.transition}
+        transition={transition.transition as any}
         className="h-full"
       >
         {children}

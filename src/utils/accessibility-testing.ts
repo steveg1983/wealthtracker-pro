@@ -16,7 +16,7 @@ interface ColorContrastResult {
 }
 
 interface AccessibilityIssue {
-  element: HTMLElement;
+  element: Element | HTMLElement;
   type: 'error' | 'warning';
   category: string;
   message: string;

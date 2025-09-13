@@ -463,7 +463,7 @@ class MobileService {
         const date = new Date(t.date);
         return date.getMonth() === currentMonth && 
                date.getFullYear() === currentYear &&
-               t.category === budget.category &&
+               t.category === budget.categoryId &&
                t.type === 'expense';
       });
 
@@ -473,8 +473,8 @@ class MobileService {
       if (percentage >= 90) {
         this.sendNotification(
           'Budget Alert',
-          `You've spent ${percentage.toFixed(0)}% of your ${budget.category} budget`,
-          { type: 'budget_alert', category: budget.category }
+          `You've spent ${percentage.toFixed(0)}% of your ${budget.categoryId} budget`,
+          { type: 'budget_alert', category: budget.categoryId }
         );
       }
     });

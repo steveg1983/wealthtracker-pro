@@ -382,6 +382,7 @@ class PlaidService {
         date: new Date(txn.date),
         description: txn.description,
         amount: txn.amount,
+        type: txn.amount < 0 ? 'expense' : 'income',
         category: txn.category,
         pending: txn.pending,
         plaidTransactionId: txn.plaid_transaction_id,
@@ -501,6 +502,7 @@ class PlaidService {
       date: new Date(plaidTxn.date),
       description: plaidTxn.merchant_name || plaidTxn.name,
       amount: -plaidTxn.amount, // Plaid uses positive for debits, we use negative
+      type: plaidTxn.amount > 0 ? 'expense' as const : 'income' as const,
       category: this.mapPlaidCategory(plaidTxn.category),
       pending: plaidTxn.pending,
       plaidTransactionId: plaidTxn.transaction_id,

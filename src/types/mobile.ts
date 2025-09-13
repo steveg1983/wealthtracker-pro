@@ -42,7 +42,7 @@ export interface NavigatorWithStandalone extends Navigator {
   standalone?: boolean;
 }
 
-export interface NavigatorWithConnection extends Navigator {
+export interface NavigatorWithConnection {
   connection?: {
     effectiveType?: string;
     downlink?: number;

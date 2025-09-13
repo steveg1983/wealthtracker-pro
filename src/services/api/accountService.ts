@@ -64,7 +64,7 @@ export class AccountService {
         ...account,
         id: crypto.randomUUID(),
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updatedAt: new Date()
       };
       
       const accounts = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS) || [];
@@ -77,10 +77,9 @@ export class AccountService {
     try {
       // Prepare the account data without problematic fields
       // Map 'current' to 'checking' as that's what the database expects
-      const accountType = account.type === 'current' ? 'checking' : account.type;
-      
       // Map account type properly (current -> checking for UK compatibility)
-      const mappedType = accountType === 'current' ? 'checking' : accountType;
+      const accountType = (account.type as string) === 'current' ? 'checking' : account.type;
+      const mappedType = accountType;
 
       const accountData: Database['public']['Tables']['accounts']['Insert'] = {
         user_id: userId,
@@ -88,11 +87,11 @@ export class AccountService {
         type: (mappedType as any) || 'checking',
         currency: account.currency || 'GBP',
         balance: account.balance || 0,
-        initial_balance: account.initialBalance || account.balance || 0,
+        initial_balance: account.balance || 0,
         is_active: account.isActive !== undefined ? account.isActive : true,
         institution: account.institution || null,
-        icon: account.icon || null,
-        color: account.color || null
+        icon: null,
+        color: null
       };
 
       logger.info('Creating account', accountData);
@@ -141,7 +140,7 @@ export class AccountService {
       accounts[index] = {
         ...accounts[index],
         ...updates,
-        updated_at: new Date().toISOString()
+        updatedAt: new Date()
       };
       
       await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);
@@ -251,7 +250,7 @@ export class AccountService {
       
       if (index !== -1) {
         accounts[index].balance = newBalance;
-        accounts[index].updated_at = new Date().toISOString();
+        accounts[index].updatedAt = new Date();
         await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);
       }
       return;

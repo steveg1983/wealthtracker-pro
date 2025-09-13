@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import Decimal from 'decimal.js';
 import type { Transaction, Account } from '../types';
 import type { SavedInvoice, SavedMileageEntry, SavedBusinessExpense } from '../types/business';
 import { logger } from './loggingService';
@@ -408,8 +408,8 @@ class BusinessService {
     let vatAmount = new Decimal(0);
 
     items.forEach(item => {
-      const itemSubtotal = new Decimal(item.quantity).mul(item.unitPrice);
-      const itemVat = itemSubtotal.mul(item.vatRate);
+      const itemSubtotal = new Decimal(item.quantity).times(item.unitPrice);
+      const itemVat = itemSubtotal.times(item.vatRate);
       
       subtotal = subtotal.plus(itemSubtotal);
       vatAmount = vatAmount.plus(itemVat);
@@ -430,7 +430,7 @@ class BusinessService {
   }
 
   addMileageEntry(entry: Omit<MileageEntry, 'id' | 'amount' | 'createdAt'>): MileageEntry {
-    const amount = new Decimal(entry.distance).mul(entry.rate).toNumber();
+    const amount = new Decimal(entry.distance).times(entry.rate).toNumber();
     
     const newEntry: MileageEntry = {
       ...entry,
@@ -452,7 +452,7 @@ class BusinessService {
     
     // Recalculate amount if distance or rate changed
     if (updates.distance !== undefined || updates.rate !== undefined) {
-      entry.amount = new Decimal(entry.distance).mul(entry.rate).toNumber();
+      entry.amount = new Decimal(entry.distance).times(entry.rate).toNumber();
     }
 
     this.mileageEntries[index] = entry;

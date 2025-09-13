@@ -92,7 +92,7 @@ export function useBudgetCalculations(
 
   // Check for budget alerts
   useEffect(() => {
-    const alerts: BudgetAlert[] = budgetsWithSpent
+    const alerts = budgetsWithSpent
       .filter(budget => budget.isActive)
       .map(budget => {
         const category = categories.find(c => c.id === ((budget as any).categoryId || (budget as any).category));
@@ -103,7 +103,7 @@ export function useBudgetCalculations(
             percentage: toDecimal(budget.percentage).round().toNumber(),
             spent: budget.spent,
             budget: budget.amount,
-            period: budget.period,
+            period: budget.period as string,
             type: 'danger' as const
           };
         } else if (budget.percentage >= alertThreshold) {
@@ -113,13 +113,13 @@ export function useBudgetCalculations(
             percentage: toDecimal(budget.percentage).round().toNumber(),
             spent: budget.spent,
             budget: budget.amount,
-            period: budget.period,
+            period: budget.period as string,
             type: 'warning' as const
           };
         }
         return null;
       })
-      .filter((alert): alert is BudgetAlert => alert !== null);
+      .filter((alert): alert is BudgetAlert => alert !== null) as BudgetAlert[];
 
     if (alerts.length > 0) {
       checkBudgetAlerts(alerts);

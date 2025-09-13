@@ -111,6 +111,9 @@ export default function SubscriptionPage({
           }
           
           // Cancel the subscription through Stripe
+          if (!currentSubscription.stripeSubscriptionId) {
+            throw new Error('No subscription ID found');
+          }
           const result = await StripeService.cancelSubscription(
             currentSubscription.stripeSubscriptionId,
             token

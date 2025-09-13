@@ -7,7 +7,92 @@ export interface DuplicateMatch {
   matchReasons: string[];
 }
 
+export interface DetectionSettings {
+  confidenceThreshold: number;
+  timeWindow: number; // days
+  amountTolerance: number; // percentage
+  checkDescription: boolean;
+  checkCategory: boolean;
+  dateThreshold: number; // days
+  amountThreshold: number; // dollars
+  similarityThreshold: number; // 0-100
+}
+
+export interface DuplicateGroup {
+  id: string;
+  transactions: Transaction[];
+  original: Transaction;
+  potential: Transaction[];
+  confidence: number;
+  matchReasons: string[];
+  suggestedAction: 'merge' | 'keep' | 'delete';
+}
+
 export class DuplicateDetectionService {
+  /**
+   * Get confidence color based on confidence level
+   */
+  static getConfidenceColor(confidence: number): string {
+    if (confidence >= 90) return 'text-red-600';
+    if (confidence >= 70) return 'text-yellow-600';
+    return 'text-gray-600';
+  }
+
+  /**
+   * Get confidence label based on confidence level
+   */
+  static getConfidenceLabel(confidence: number): string {
+    if (confidence >= 90) return 'High';
+    if (confidence >= 70) return 'Medium';
+    return 'Low';
+  }
+
+  /**
+   * Calculate similarity between two strings
+   */
+  static calculateSimilarity(str1: string, str2: string): number {
+    if (!str1 || !str2) return 0;
+    
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+    
+    if (longer.length === 0) return 100;
+    
+    const editDistance = this.levenshteinDistance(longer, shorter);
+    return ((longer.length - editDistance) / longer.length) * 100;
+  }
+
+  /**
+   * Calculate Levenshtein distance between two strings
+   */
+  private static levenshteinDistance(str1: string, str2: string): number {
+    const matrix: number[][] = [];
+    
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+    
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    
+    return matrix[str2.length][str1.length];
+  }
+
   /**
    * Detect potential duplicate transactions
    */
@@ -44,10 +129,10 @@ export class DuplicateDetectionService {
     const matchReasons: string[] = [];
 
     // Exact amount match (40 points)
-    if (Math.abs(parseFloat(tx1.amount) - parseFloat(tx2.amount)) < 0.01) {
+    if (Math.abs(tx1.amount - tx2.amount) < 0.01) {
       confidence += 40;
       matchReasons.push('Exact amount match');
-    } else if (Math.abs(parseFloat(tx1.amount) - parseFloat(tx2.amount)) < 1) {
+    } else if (Math.abs(tx1.amount - tx2.amount) < 1) {
       confidence += 20;
       matchReasons.push('Similar amount');
     }
@@ -110,36 +195,6 @@ export class DuplicateDetectionService {
     return 1 - distance / maxLength;
   }
 
-  /**
-   * Calculate Levenshtein distance between two strings
-   */
-  private static levenshteinDistance(str1: string, str2: string): number {
-    const matrix: number[][] = [];
-
-    for (let i = 0; i <= str2.length; i++) {
-      matrix[i] = [i];
-    }
-
-    for (let j = 0; j <= str1.length; j++) {
-      matrix[0][j] = j;
-    }
-
-    for (let i = 1; i <= str2.length; i++) {
-      for (let j = 1; j <= str1.length; j++) {
-        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-          matrix[i][j] = matrix[i - 1][j - 1];
-        } else {
-          matrix[i][j] = Math.min(
-            matrix[i - 1][j - 1] + 1, // substitution
-            matrix[i][j - 1] + 1,     // insertion
-            matrix[i - 1][j] + 1      // deletion
-          );
-        }
-      }
-    }
-
-    return matrix[str2.length][str1.length];
-  }
 
   /**
    * Find potential duplicates within a single list
@@ -261,3 +316,6 @@ export class DuplicateDetectionService {
     return groups;
   }
 }
+
+// Export instance for convenience
+export const duplicateDetectionService = DuplicateDetectionService;

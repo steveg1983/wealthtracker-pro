@@ -1,6 +1,6 @@
 import { Account, Transaction, Budget, Goal } from '../types';
 import { toDecimal } from '../utils/decimal';
-import type Decimal from 'decimal.js';
+import Decimal from 'decimal.js';
 
 export interface Widget {
   id: string;
@@ -17,11 +17,11 @@ export interface WidgetLayout {
 }
 
 export interface DashboardMetrics {
-  netWorth: Decimal;
-  totalAssets: Decimal;
-  totalLiabilities: Decimal;
-  monthlyIncome: Decimal;
-  monthlyExpenses: Decimal;
+  netWorth: InstanceType<typeof Decimal>;
+  totalAssets: InstanceType<typeof Decimal>;
+  totalLiabilities: InstanceType<typeof Decimal>;
+  monthlyIncome: InstanceType<typeof Decimal>;
+  monthlyExpenses: InstanceType<typeof Decimal>;
   savingsRate: number;
 }
 

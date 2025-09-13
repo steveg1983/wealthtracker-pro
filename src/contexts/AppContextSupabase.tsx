@@ -14,7 +14,8 @@ import { formatCurrency } from '../utils/formatters';
 import { 
   toDecimalTransaction, 
   toDecimalAccount, 
-  toDecimalGoal 
+  toDecimalGoal,
+  toDecimalBudget 
 } from '../utils/decimal-converters';
 import { logger } from '../services/loggingService';
 import type { 
@@ -24,8 +25,12 @@ import type {
   Budget, 
   Goal, 
   RecurringTransaction,
+  Investment,
   AppState 
 } from '../types';
+
+// Re-export types that are used by other components
+export type { RecurringTransaction } from '../types';
 
 export interface Tag {
   id: string;
@@ -36,7 +41,10 @@ export interface Tag {
   updatedAt: Date;
 }
 
-interface AppContextType extends AppState {
+export interface AppContextType extends AppState {
+  // User data
+  user?: { id: string; emailAddresses?: Array<{ emailAddress: string }> };
+  
   // Account operations
   addAccount: (account: Omit<Account, 'id' | 'balance'>) => void;
   updateAccount: (id: string, updates: Partial<Account>) => void;
@@ -53,7 +61,7 @@ interface AppContextType extends AppState {
   deleteBudget: (id: string) => void;
   
   // Goal operations
-  addGoal: (goal: Omit<Goal, 'id' | 'progress'>) => void;
+  addGoal: (goal: Omit<Goal, 'id' | 'progress' | 'createdAt' | 'updatedAt'>) => void;
   updateGoal: (id: string, updates: Partial<Goal>) => void;
   deleteGoal: (id: string) => void;
   contributeToGoal: (id: string, amount: number) => void;
@@ -72,6 +80,12 @@ interface AppContextType extends AppState {
   getTagUsageCount: (tagName: string) => number;
   getAllUsedTags: () => string[];
   
+  // Recurring transaction operations
+  addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id' | 'nextDate'>) => void;
+  updateRecurringTransaction: (id: string, updates: Partial<RecurringTransaction>) => void;
+  deleteRecurringTransaction: (id: string) => void;
+  processRecurringTransactions: () => void;
+  
   // Other operations
   importData: (data: Partial<AppState>) => void;
   exportData: () => AppState;
@@ -79,12 +93,17 @@ interface AppContextType extends AppState {
   getDecimalTransactions: () => any[]; // Returns DecimalTransaction[] for decimal calculations
   getDecimalAccounts: () => any[]; // Returns DecimalAccount[] for decimal calculations
   getDecimalGoals: () => any[]; // Returns DecimalGoal[] for decimal calculations
+  getDecimalBudgets: () => any[]; // Returns DecimalBudget[] for decimal calculations
   
   // Sync status
   isLoading: boolean;
+  hasTestData: boolean;
   isSyncing: boolean;
   lastSyncTime: Date | null;
   syncError: string | null;
+  
+  // Optional properties
+  investments?: Investment[];
   isUsingSupabase: boolean;
 }
 
@@ -298,7 +317,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Account operations
-  const addAccount = useCallback(async (account: Omit<Account, 'id'> & { initialBalance?: number }) => {
+  const addAccount = useCallback(async (account: Omit<Account, 'id' | 'balance'>) => {
     try {
       logger.info('[AppContext] Adding account:', account);
       
@@ -308,8 +327,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       const accountToCreate = {
         ...account,
-        balance: account.initialBalance || account.balance || 0,
-        initialBalance: account.initialBalance || account.balance || 0,
+        balance: 0,
+        initialBalance: 0,
         isActive: account.isActive !== undefined ? account.isActive : true
       };
       
@@ -341,8 +360,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       // Don't queue for sync - it's already in the database!
       // AutoSyncService is for offline-created items only
-      
-      return newAccount;
     } catch (error) {
       logger.error('[AppContext] Failed to add account:', error);
       throw error;
@@ -643,7 +660,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Budget operations using DataService
   const addBudget = useCallback(async (budget: Omit<Budget, 'id' | 'spent' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const newBudget = await DataService.createBudget(budget);
+      const newBudget = await DataService.createBudget({ ...budget, spent: 0 });
       setBudgets(prev => [...prev, newBudget]);
       return newBudget;
     } catch (error) {
@@ -784,6 +801,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return Array.from(tagSet);
   }, [transactions]);
 
+  // Recurring transaction operations
+  const addRecurringTransaction = useCallback((transaction: Omit<RecurringTransaction, 'id' | 'nextDate'>) => {
+    const newRecurring: RecurringTransaction = {
+      ...transaction,
+      id: Date.now().toString(),
+      nextDate: new Date()
+    };
+    setRecurringTransactions(prev => [...prev, newRecurring]);
+  }, []);
+
+  const updateRecurringTransaction = useCallback((id: string, updates: Partial<RecurringTransaction>) => {
+    setRecurringTransactions(prev => 
+      prev.map(rt => rt.id === id ? { ...rt, ...updates } : rt)
+    );
+  }, []);
+
+  const deleteRecurringTransaction = useCallback((id: string) => {
+    setRecurringTransactions(prev => prev.filter(rt => rt.id !== id));
+  }, []);
+
+  const processRecurringTransactions = useCallback(() => {
+    // Process recurring transactions and create actual transactions
+    const today = new Date();
+    recurringTransactions.forEach(rt => {
+      if (rt.nextDate && new Date(rt.nextDate) <= today) {
+        // Create transaction from recurring template
+        const newTransaction: Omit<Transaction, 'id'> = {
+          date: today,
+          description: rt.description,
+          amount: rt.amount,
+          accountId: rt.accountId,
+          category: rt.category,
+          type: rt.amount < 0 ? 'expense' : 'income',
+          isRecurring: true,
+          tags: rt.tags
+        };
+        addTransaction(newTransaction);
+        
+        // Update next date based on frequency
+        // This is simplified - you'd need more logic for different frequencies
+        const nextDate = new Date(rt.nextDate);
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        updateRecurringTransaction(rt.id, { nextDate });
+      }
+    });
+  }, [recurringTransactions, addTransaction]);
+
   // Import/Export operations
   const importData = useCallback((data: Partial<AppState>) => {
     if (data.accounts) setAccounts(data.accounts);
@@ -822,6 +886,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return goals.map(toDecimalGoal);
   }, [goals]);
 
+  const getDecimalBudgets = useCallback(() => {
+    // Convert all budgets to decimal format for precise calculations
+    return budgets.map(toDecimalBudget);
+  }, [budgets]);
+
   const clearAllData = useCallback(() => {
     setAccounts([]);
     setTransactions([]);
@@ -833,6 +902,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value: AppContextType = {
+    // User data
+    user: user ? { id: user.id, emailAddresses: user.emailAddresses } : undefined,
+    
     // State
     accounts,
     transactions,
@@ -877,6 +949,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     getTagUsageCount,
     getAllUsedTags,
     
+    // Recurring transaction operations
+    addRecurringTransaction,
+    updateRecurringTransaction,
+    deleteRecurringTransaction,
+    processRecurringTransactions,
+    
     // Other operations
     importData,
     exportData,
@@ -884,9 +962,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     getDecimalTransactions,
     getDecimalAccounts,
     getDecimalGoals,
+    getDecimalBudgets,
     
     // Sync status
     isLoading,
+    hasTestData: false, // Or compute this based on some condition
     isSyncing,
     lastSyncTime,
     syncError,

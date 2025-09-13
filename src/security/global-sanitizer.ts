@@ -150,7 +150,8 @@ export const sanitizeFormData = (formData: FormData): FormData => {
  * Create a proxy that automatically sanitizes object properties
  */
 export const createSanitizedProxy = <T extends Record<string, any>>(target: T): T => {
-  return new Proxy(target, {
+  const mutableTarget = target as Record<string, any>;
+  return new Proxy(mutableTarget, {
     set(obj, prop: string, value) {
       obj[prop] = sanitizeByFieldName(prop, value);
       return true;
@@ -162,7 +163,7 @@ export const createSanitizedProxy = <T extends Record<string, any>>(target: T): 
       }
       return value;
     }
-  });
+  }) as T;
 };
 
 /**

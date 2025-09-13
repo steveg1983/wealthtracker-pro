@@ -195,7 +195,10 @@ class AnalyticsEngine {
           cohortKey = transaction.category || 'Uncategorized';
           break;
         case 'month':
-          cohortKey = format(parseISO(transaction.date), 'yyyy-MM');
+          cohortKey = format(
+            typeof transaction.date === 'string' ? parseISO(transaction.date) : transaction.date,
+            'yyyy-MM'
+          );
           break;
       }
 
@@ -217,7 +220,7 @@ class AnalyticsEngine {
         const periodEnd = endOfMonth(periodStart);
 
         const periodTransactions = cohortTransactions.filter(t => {
-          const tDate = parseISO(t.date);
+          const tDate = typeof t.date === 'string' ? parseISO(t.date) : t.date;
           return isWithinInterval(tDate, { start: periodStart, end: periodEnd });
         });
 
@@ -265,7 +268,7 @@ class AnalyticsEngine {
     const values = monthlyData.map(d => d.y);
     
     // Calculate trend using linear regression
-    const regressionData = values.map((y, x) => [x, y]);
+    const regressionData: [number, number][] = values.map((y, x) => [x, y]);
     const result = regression.linear(regressionData);
     
     // Detrend the data
@@ -302,11 +305,11 @@ class AnalyticsEngine {
       throw new Error('Insufficient data for forecasting');
     }
 
-    const values = historicalData.map((d, i) => [i, d.y]);
+    const values: [number, number][] = historicalData.map((d, i) => [i, d.y]);
     
     // Select best model if auto
     let selectedModel = model;
-    let bestFit = { equation: [0, 0], r2: 0, predict: (x: number) => [0, 0] };
+    let bestFit = { equation: [0, 0], r2: 0, predict: (x: number): [number, number] => [0, 0] };
     
     if (model === 'auto') {
       const models = {
@@ -386,7 +389,10 @@ class AnalyticsEngine {
     
     months.forEach(month => {
       const monthTransactions = transactions.filter(t => 
-        format(parseISO(t.date), 'yyyy-MM') === month
+        format(
+          typeof t.date === 'string' ? parseISO(t.date) : t.date,
+          'yyyy-MM'
+        ) === month
       );
       
       const monthMetrics = new Map<string, number>();
@@ -508,7 +514,7 @@ class AnalyticsEngine {
   
   private filterByTimeRange(transactions: Transaction[], range: TimeRange): Transaction[] {
     return transactions.filter(t => {
-      const date = parseISO(t.date);
+      const date = typeof t.date === 'string' ? parseISO(t.date) : t.date;
       return isWithinInterval(date, { start: range.start, end: range.end });
     });
   }
@@ -543,7 +549,7 @@ class AnalyticsEngine {
     const grouped = new Map<string, Transaction[]>();
 
     transactions.forEach(transaction => {
-      const date = parseISO(transaction.date);
+      const date = typeof transaction.date === 'string' ? parseISO(transaction.date) : transaction.date;
       let key: string;
 
       switch (period) {
@@ -634,7 +640,8 @@ class AnalyticsEngine {
   private getUniqueMonths(transactions: Transaction[]): string[] {
     const months = new Set<string>();
     transactions.forEach(t => {
-      months.add(format(parseISO(t.date), 'yyyy-MM'));
+      const date = typeof t.date === 'string' ? parseISO(t.date) : t.date;
+      months.add(format(date, 'yyyy-MM'));
     });
     return Array.from(months).sort();
   }

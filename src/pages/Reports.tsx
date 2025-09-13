@@ -7,7 +7,7 @@ import ScheduledReports from '../components/ScheduledReports';
 import BudgetComparison from '../components/reports/BudgetComparison';
 import FinancialReportGenerator from '../components/reports/FinancialReportGenerator';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
-import { LineChart as LazyLineChart, PieChart as LazyDoughnutChart } from '../components/charts/LazyChart';
+import { Line as LazyLineChart, Doughnut as LazyDoughnutChart } from 'react-chartjs-2';
 import { logger } from '../services/loggingService';
 
 export default function Reports() {

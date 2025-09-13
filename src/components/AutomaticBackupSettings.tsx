@@ -17,11 +17,28 @@ import {
   // CalendarIcon // Currently unused
 } from './icons';
 
+interface BackupHistoryEntry {
+  timestamp: number;
+  success: boolean;
+  format?: 'json' | 'csv' | 'all';
+  filesCreated?: number;
+  error?: string;
+}
+
+interface StoredBackupEntry {
+  id: string;
+  timestamp: number;
+  size: number;
+  format: string;
+  encrypted: boolean;
+  filename?: string;
+}
+
 export default function AutomaticBackupSettings() {
   const { addNotification } = useNotifications();
   const [config, setConfig] = useState<BackupConfig>(automaticBackupService.getBackupConfig());
-  const [backupHistory, setBackupHistory] = useState<unknown[]>([]);
-  const [storedBackups, setStoredBackups] = useState<unknown[]>([]);
+  const [backupHistory, setBackupHistory] = useState<BackupHistoryEntry[]>([]);
+  const [storedBackups, setStoredBackups] = useState<StoredBackupEntry[]>([]);
   // const [loading, setLoading] = useState(false); // Currently unused
   const [testingBackup, setTestingBackup] = useState(false);
 
@@ -35,7 +52,11 @@ export default function AutomaticBackupSettings() {
       setBackupHistory(history.slice(0, 10)); // Show last 10 entries
       
       const stored = await automaticBackupService.getStoredBackups();
-      setStoredBackups(stored);
+      setStoredBackups(stored.map(backup => ({
+        ...backup,
+        id: String(backup.id),
+        encrypted: false // Default value since it's not provided
+      })));
     } catch (error) {
       logger.error('Failed to load backup data:', error);
     }
@@ -78,9 +99,9 @@ export default function AutomaticBackupSettings() {
     }
   };
 
-  const handleDownloadBackup = async (backupId: number) => {
+  const handleDownloadBackup = async (backupId: string) => {
     try {
-      await automaticBackupService.downloadBackup(backupId);
+      await automaticBackupService.downloadBackup(Number(backupId));
       addNotification({
         type: 'success',
         title: 'Backup Downloaded',
@@ -95,13 +116,13 @@ export default function AutomaticBackupSettings() {
     }
   };
 
-  const handleDeleteBackup = async (backupId: number) => {
+  const handleDeleteBackup = async (backupId: string) => {
     if (!confirm('Are you sure you want to delete this backup?')) {
       return;
     }
     
     try {
-      await automaticBackupService.deleteBackup(backupId);
+      await automaticBackupService.deleteBackup(Number(backupId));
       await loadBackupData();
       addNotification({
         type: 'success',

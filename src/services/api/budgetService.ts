@@ -33,18 +33,18 @@ function transformBudgetFromDb(dbBudget: BudgetRow): Budget {
     id: dbBudget.id,
     name: dbBudget.name,
     amount: dbBudget.amount,
-    period: dbBudget.period,
+    period: (dbBudget.period === 'custom' ? 'monthly' : dbBudget.period) as 'monthly' | 'weekly' | 'yearly' | 'quarterly',
     categoryId: dbBudget.category_id as any,
     spent: (dbBudget.spent as number | undefined) || 0,
-    startDate: dbBudget.start_date,
-    endDate: dbBudget.end_date,
+    startDate: dbBudget.start_date || undefined,
+    endDate: dbBudget.end_date || undefined,
     isActive: dbBudget.is_active !== false,
     rollover: (dbBudget.rollover as boolean | undefined) || false,
     rolloverAmount: dbBudget.rollover_amount || 0,
     alertThreshold: dbBudget.alert_threshold || 80,
     notes: (dbBudget.notes as string | null) || undefined,
-    createdAt: dbBudget.created_at,
-    updatedAt: dbBudget.updated_at
+    createdAt: new Date(dbBudget.created_at),
+    updatedAt: new Date(dbBudget.updated_at)
   };
 }
 
@@ -211,8 +211,8 @@ export async function createBudget(
       ...budget,
       id: crypto.randomUUID(),
       spent: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     
     const budgets = await storageAdapter.get<Budget[]>(STORAGE_KEYS.BUDGETS) || [];
@@ -271,7 +271,7 @@ export async function updateBudget(
       budgets[index] = { 
         ...budgets[index], 
         ...updates,
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date()
       };
       await storageAdapter.set(STORAGE_KEYS.BUDGETS, budgets);
       return budgets[index];

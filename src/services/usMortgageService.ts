@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import Decimal from 'decimal.js';
 import usMortgageConstants from '../data/us-mortgage-constants-2025.json';
 
 export interface USMortgageCalculation {
@@ -90,7 +90,7 @@ class USMortgageService {
     const totalMonthlyPayment = monthlyPayment + pmiCalc.monthlyPMI + monthlyPropertyTax + monthlyInsurance;
     
     // Calculate totals
-    const totalPayment = new Decimal(monthlyPayment).mul(totalPayments).toNumber();
+    const totalPayment = new Decimal(monthlyPayment).times(totalPayments).toNumber();
     const totalInterest = totalPayment - loanAmount;
     
     return {
@@ -433,9 +433,9 @@ class USMortgageService {
     
     const rate = new Decimal(monthlyRate);
     const n = totalPayments;
-    const factor = rate.mul(rate.plus(1).pow(n)).div(rate.plus(1).pow(n).minus(1));
+    const factor = rate.times(rate.plus(1).pow(n)).div(rate.plus(1).pow(n).minus(1));
     
-    return new Decimal(principal).mul(factor).toNumber();
+    return new Decimal(principal).times(factor).toNumber();
   }
 
   /**

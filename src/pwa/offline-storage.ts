@@ -17,6 +17,7 @@ export interface OfflineQueueItem {
   synced: boolean;
   retries: number;
   error?: string;
+  [key: string]: unknown;  // Index signature for compatibility with IndexedDB
 }
 
 export interface OfflineState {
@@ -120,13 +121,16 @@ class OfflineStorageService {
   /**
    * Queue an offline operation
    */
-  async queueOfflineOperation(item: Omit<OfflineQueueItem, 'id' | 'timestamp' | 'synced' | 'retries'>) {
+  async queueOfflineOperation(item: Pick<OfflineQueueItem, 'type' | 'entity' | 'data' | 'error'>) {
     const queueItem: OfflineQueueItem = {
-      ...item,
+      type: item.type as 'create' | 'update' | 'delete',
+      entity: item.entity as 'transaction' | 'account' | 'budget' | 'goal',
+      data: item.data,
       id: crypto.randomUUID(),
       timestamp: Date.now(),
       synced: false,
-      retries: 0
+      retries: 0,
+      error: item.error
     };
 
     await indexedDBService.put(this.OFFLINE_QUEUE_STORE, queueItem);
@@ -182,7 +186,7 @@ class OfflineStorageService {
           
           // Mark as synced
           operation.synced = true;
-          await indexedDBService.put(this.OFFLINE_QUEUE_STORE, operation.id!, operation);
+          await indexedDBService.put(this.OFFLINE_QUEUE_STORE, operation);
           
           // Remove from queue after successful sync
           await indexedDBService.delete(this.OFFLINE_QUEUE_STORE, operation.id!);
@@ -443,7 +447,8 @@ class OfflineStorageService {
    * Get cached data
    */
   async getCachedData<T>(key: string): Promise<T | null> {
-    return await indexedDBService.get<T>(this.OFFLINE_DATA_STORE, key);
+    const data = await indexedDBService.get<T>(this.OFFLINE_DATA_STORE, key);
+    return data ?? null;
   }
 
   /**
@@ -462,7 +467,7 @@ class OfflineStorageService {
 
     for (const key of allKeys) {
       if (key !== 'init') {
-        const conflict = await indexedDBService.get(this.CONFLICT_STORE, key);
+        const conflict = await indexedDBService.get(this.CONFLICT_STORE, key) as ConflictResolution<any> | undefined;
         if (conflict && !conflict.resolved) {
           conflicts.push(conflict);
         }
@@ -476,7 +481,7 @@ class OfflineStorageService {
    * Manually resolve a conflict
    */
   async resolveConflict(conflictId: string, resolution: any) {
-    const conflict = await indexedDBService.get(this.CONFLICT_STORE, conflictId);
+    const conflict = await indexedDBService.get(this.CONFLICT_STORE, conflictId) as any;
     if (!conflict) {
       throw new Error('Conflict not found');
     }
@@ -493,8 +498,10 @@ class OfflineStorageService {
     }
 
     // Mark conflict as resolved
-    conflict.resolved = true;
-    conflict.resolutionData = resolution;
+    if (conflict) {
+      conflict.resolved = true;
+      conflict.resolutionData = resolution;
+    }
     await indexedDBService.put(this.CONFLICT_STORE, conflict);
   }
 
@@ -552,7 +559,7 @@ export const useOfflineState = () => {
 // React hook for offline operations
 export const useOfflineOperations = () => {
   const queue = React.useCallback(
-    (item: Omit<OfflineQueueItem, 'id' | 'timestamp' | 'synced' | 'retries'>) => 
+    (item: Pick<OfflineQueueItem, 'type' | 'entity' | 'data' | 'error'>) => 
       offlineStorage.queueOfflineOperation(item),
     []
   );

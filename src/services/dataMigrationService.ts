@@ -113,8 +113,7 @@ export class DataMigrationService {
         currency: account.currency || 'USD',
         institution: account.institution,
         is_active: account.isActive !== false,
-        color: account.color,
-        icon: account.icon,
+        icon: (account as any).icon,
         created_at: account.createdAt || new Date().toISOString(),
       }));
 
@@ -190,7 +189,7 @@ export class DataMigrationService {
           notes: transaction.notes,
           merchant: transaction.merchant,
           is_cleared: transaction.cleared !== false,
-          is_reconciled: transaction.reconciled || false,
+          is_reconciled: (transaction as any).reconciled || false,
           created_at: transaction.createdAt || new Date().toISOString(),
         }));
 
@@ -236,7 +235,7 @@ export class DataMigrationService {
         period: budget.period || 'monthly',
         start_date: budget.startDate || new Date().toISOString().split('T')[0],
         is_active: budget.isActive !== false,
-        alert_enabled: budget.alertEnabled !== false,
+        alert_enabled: (budget as any).alertEnabled !== false,
         alert_threshold: budget.alertThreshold || 80,
         created_at: budget.createdAt || new Date().toISOString(),
       }));

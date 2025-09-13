@@ -260,7 +260,7 @@ export default function SocialSecurityOptimizer(): React.JSX.Element {
                               style={{ width: `${percentage}%` }}
                             />
                             <span className="absolute right-2 top-0.5 text-xs font-medium text-gray-700 dark:text-gray-300">
-                              {formatCurrency(data.lifetime, { decimals: 0, compact: true })}
+                              {formatCurrency(Math.round(data.lifetime))}
                             </span>
                           </div>
                         </div>

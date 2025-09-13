@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import Decimal from 'decimal.js';
 import stateTaxData from '../data/tax/us-state-taxes-2025.json';
 
 export interface StateTaxBracket {
@@ -53,13 +53,14 @@ export interface StateTaxCalculation {
     tax: string;
     rate: string;
   }[];
+  totalTax?: number;
 }
 
 class StateTaxService {
   private stateTaxData: Record<string, StateTaxInfo>;
 
   constructor() {
-    this.stateTaxData = stateTaxData as Record<string, StateTaxInfo>;
+    this.stateTaxData = stateTaxData as unknown as Record<string, StateTaxInfo>;
   }
 
   /**

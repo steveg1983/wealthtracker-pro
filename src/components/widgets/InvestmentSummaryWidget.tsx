@@ -14,7 +14,7 @@ interface InvestmentSummaryWidgetProps {
 }
 
 export default function InvestmentSummaryWidget({ size, settings }: InvestmentSummaryWidgetProps) {
-  const { accounts, investments } = useApp();
+  const { accounts, investments = [] } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const showChart = settings.showChart ?? true;
   const period = settings.period || '1M';

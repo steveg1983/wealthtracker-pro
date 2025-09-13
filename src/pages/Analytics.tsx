@@ -15,19 +15,18 @@ import { analyticsEngine } from '../services/analyticsEngine';
 import { anomalyDetectionService } from '../services/anomalyDetectionService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import PageWrapper from '../components/PageWrapper';
+import type { Query } from '../components/analytics/QueryBuilder';
 
 // Lazy load heavy components to reduce bundle size
 const DashboardBuilder = lazy(() => import('../components/analytics/DashboardBuilder'));
-const QueryBuilder = lazy(() => import('../components/analytics/QueryBuilder').then(module => ({ default: module.default, Query: module.Query })));
+const QueryBuilder = lazy(() => import('../components/analytics/QueryBuilder'));
 const ChartWizard = lazy(() => import('../components/analytics/ChartWizard'));
+import type { Dashboard as BuilderDashboard } from '../components/analytics/DashboardBuilder';
 const AgGridReact = lazy(() => import('ag-grid-react').then(module => ({ default: module.AgGridReact })));
 
 // Import AG-Grid styles
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-
-// Import Query type
-import type { Query } from '../components/analytics/QueryBuilder';
 import { logger } from '../services/loggingService';
 
 interface Dashboard {
@@ -90,14 +89,19 @@ export default function Analytics(): React.JSX.Element {
     }
     
     // Category analysis
-    const categoryAnalysis = analyticsEngine.performCohortAnalysis(transactions, 'category', 'amount');
-    const topCategory = Object.entries(categoryAnalysis.segments)
-      .sort((a: any, b: any) => b[1].total - a[1].total)[0];
+    const categoryAnalysis = analyticsEngine.performCohortAnalysis(transactions, accounts, 'category', 'value');
+    const topCategory = categoryAnalysis.length > 0 ? categoryAnalysis
+      .sort((a: any, b: any) => {
+        const aTotal = a.periods.reduce((sum: number, p: any) => sum + p.value, 0);
+        const bTotal = b.periods.reduce((sum: number, p: any) => sum + p.value, 0);
+        return bTotal - aTotal;
+      })[0] : null;
     if (topCategory) {
+      const totalSpent = topCategory.periods.reduce((sum: number, p: any) => sum + p.value, 0);
       newInsights.push({
         type: 'category',
-        title: `Highest spending category: ${topCategory[0]}`,
-        description: `You've spent ${formatCurrency(topCategory[1].total)} in ${topCategory[0]} this month`,
+        title: `Highest spending category: ${topCategory.cohort}`,
+        description: `You've spent ${formatCurrency(totalSpent)} in ${topCategory.cohort} this month`,
         severity: 'info'
       });
     }
@@ -150,7 +154,7 @@ export default function Analytics(): React.JSX.Element {
         results = [...goals];
         break;
       case 'investments':
-        results = [...investments];
+        results = [...(investments || [])];
         break;
     }
     
@@ -164,11 +168,11 @@ export default function Analytics(): React.JSX.Element {
           case 'contains':
             return value?.toString().includes(condition.value);
           case 'greater':
-            return parseFloat(value) > parseFloat(condition.value);
+            return parseFloat(value) > condition.value;
           case 'less':
-            return parseFloat(value) < parseFloat(condition.value);
+            return parseFloat(value) < condition.value;
           case 'between':
-            return parseFloat(value) >= parseFloat(condition.value) && 
+            return parseFloat(value) >= condition.value && 
                    parseFloat(value) <= parseFloat(condition.value2);
           default:
             return true;
@@ -217,6 +221,29 @@ export default function Analytics(): React.JSX.Element {
     setActiveDashboard(dashboard);
   };
   
+  const handleSaveDashboardFromBuilder = (builderDashboard: BuilderDashboard) => {
+    const dashboard: Dashboard = {
+      id: builderDashboard.id,
+      name: builderDashboard.name,
+      description: builderDashboard.description || '',
+      createdAt: builderDashboard.createdAt,
+      updatedAt: builderDashboard.updatedAt,
+      widgets: builderDashboard.widgets.map(w => ({
+        id: w.id,
+        type: w.type,
+        title: w.title,
+        config: w.config
+      })),
+      layout: builderDashboard.widgets.map(w => ({
+        x: w.layout.x,
+        y: w.layout.y,
+        w: w.layout.w,
+        h: w.layout.h
+      }))
+    };
+    handleSaveDashboard(dashboard);
+  };
+  
   const handleAddChart = (chartConfig: any) => {
     // Add chart to current dashboard or create new widget
     setShowChartWizard(false);
@@ -226,11 +253,11 @@ export default function Analytics(): React.JSX.Element {
   const keyMetrics = useMemo(() => {
     const income = transactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      .reduce((sum, t) => sum + t.amount, 0);
     
     const expenses = transactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      .reduce((sum, t) => sum + t.amount, 0);
     
     const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
     
@@ -377,8 +404,59 @@ export default function Analytics(): React.JSX.Element {
                   </div>
                   <Suspense fallback={<div className="flex items-center justify-center h-64">Loading dashboard...</div>}>
                     <DashboardBuilder
-                      dashboard={activeDashboard}
-                      onSave={handleSaveDashboard}
+                      dashboard={{
+                        id: activeDashboard.id,
+                        name: activeDashboard.name,
+                        description: activeDashboard.description,
+                        createdAt: activeDashboard.createdAt,
+                        updatedAt: activeDashboard.updatedAt,
+                        settings: {
+                          columns: 12,
+                          rowHeight: 60,
+                          theme: 'auto' as const,
+                          autoRefresh: false,
+                          refreshInterval: 300000
+                        },
+                        widgets: activeDashboard.widgets.map((widget, index) => ({
+                          id: widget.id,
+                          type: widget.type,
+                          title: widget.title,
+                          config: widget.config || {},
+                          layout: activeDashboard.layout?.[index] ? {
+                            x: activeDashboard.layout[index].x,
+                            y: activeDashboard.layout[index].y,
+                            w: activeDashboard.layout[index].w,
+                            h: activeDashboard.layout[index].h
+                          } : {
+                            x: 0,
+                            y: 0,
+                            w: 4,
+                            h: 3
+                          }
+                        }))
+                      } as BuilderDashboard}
+                      onSave={(updatedDashboard) => {
+                        const mappedDashboard: Dashboard = {
+                          id: updatedDashboard.id,
+                          name: updatedDashboard.name,
+                          description: updatedDashboard.description || '',
+                          createdAt: updatedDashboard.createdAt,
+                          updatedAt: updatedDashboard.updatedAt,
+                          widgets: updatedDashboard.widgets.map(w => ({
+                            id: w.id,
+                            type: w.type,
+                            title: w.title,
+                            config: w.config
+                          })),
+                          layout: updatedDashboard.widgets.map(w => ({
+                            x: w.layout.x,
+                            y: w.layout.y,
+                            w: w.layout.w,
+                            h: w.layout.h
+                          }))
+                        };
+                        handleSaveDashboard(mappedDashboard);
+                      }}
                       onClose={() => setActiveDashboard(null)}
                     />
                   </Suspense>
@@ -498,11 +576,12 @@ export default function Analytics(): React.JSX.Element {
                         <AgGridReact
                           rowData={selectedData}
                           columnDefs={Object.keys(selectedData[0] || {}).map(key => ({
-                            field: key,
+                            field: key as string,
+                            headerName: key,
                             sortable: true,
                             filter: true,
                             resizable: true
-                          }))}
+                          } as any))}
                           defaultColDef={{
                             flex: 1,
                             minWidth: 100
@@ -596,7 +675,7 @@ export default function Analytics(): React.JSX.Element {
             <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <Suspense fallback={<div className="flex items-center justify-center h-full p-8">Loading...</div>}>
                 <DashboardBuilder
-                  onSave={handleSaveDashboard}
+                  onSave={handleSaveDashboardFromBuilder}
                   onClose={() => setShowDashboardBuilder(false)}
                 />
               </Suspense>

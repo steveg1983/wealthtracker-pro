@@ -102,6 +102,7 @@ class DashboardWidgetService {
       }
 
       // Try to get from Supabase
+      if (!supabase) throw new Error('Supabase not initialized');
       const { data, error } = await supabase
         .from('dashboard_layouts')
         .select('widgets')
@@ -133,6 +134,7 @@ class DashboardWidgetService {
       if (!userId) return;
 
       // Save to Supabase
+      if (!supabase) throw new Error('Supabase not initialized');
       const { error } = await supabase
         .from('dashboard_layouts')
         .upsert({
@@ -282,6 +284,7 @@ class DashboardWidgetService {
   ): Promise<void> {
     try {
       // Save to database
+      if (!supabase) throw new Error('Supabase not initialized');
       const { error } = await supabase
         .from('dashboard_layouts')
         .upsert({
@@ -312,6 +315,7 @@ class DashboardWidgetService {
   async getLayout(userId: string): Promise<any> {
     try {
       // Get from database
+      if (!supabase) throw new Error('Supabase not initialized');
       const { data, error } = await supabase
         .from('dashboard_layouts')
         .select('*')
@@ -349,6 +353,7 @@ class DashboardWidgetService {
     try {
       const userId = await userIdService.getDatabaseUserId(clerkId);
       if (!userId) throw new Error('User not found');
+      if (!supabase) throw new Error('Supabase not initialized');
 
       const { data, error } = await supabase
         .from('dashboard_layouts')
@@ -387,6 +392,7 @@ class DashboardWidgetService {
     try {
       const userId = await userIdService.getDatabaseUserId(clerkId);
       if (!userId) throw new Error('User not found');
+      if (!supabase) throw new Error('Supabase not initialized');
 
       const { data, error } = await supabase
         .from('dashboard_layouts')
@@ -412,7 +418,7 @@ class DashboardWidgetService {
   async getLayouts(clerkId: string): Promise<DashboardLayout[]> {
     try {
       const userId = await userIdService.getDatabaseUserId(clerkId);
-      if (!userId) return [];
+      if (!userId || !supabase) return [];
 
       const { data, error } = await supabase
         .from('dashboard_layouts')

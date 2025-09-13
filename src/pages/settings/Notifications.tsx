@@ -11,12 +11,7 @@ import { BellIcon } from '../../components/icons';
 export default function Notifications() {
   return (
     <PageWrapper 
-      title="Notification Settings" 
-      icon={BellIcon}
-      breadcrumbs={[
-        { label: 'Settings', path: '/settings' },
-        { label: 'Notifications', path: '/settings/notifications' }
-      ]}
+      title="Notification Settings"
     >
       <div className="max-w-3xl mx-auto">
         <PushNotificationSettings />

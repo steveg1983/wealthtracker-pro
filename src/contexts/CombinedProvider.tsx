@@ -20,7 +20,7 @@ export function CombinedProvider({ children, useTestData = false }: CombinedProv
     <PreferencesProvider>
       <LayoutProvider>
         <CategoryProvider>
-          <AccountProvider initialAccounts={initialAccounts}>
+          <AccountProvider initialAccounts={initialAccounts as any}>
             <TransactionProvider 
               initialTransactions={initialTransactions}
               initialRecurringTransactions={[]}

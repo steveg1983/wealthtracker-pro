@@ -63,8 +63,8 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
         ]
       };
 
-      // Add the connection
-      const connection = await plaidService.addConnection(simulatedPublicToken);
+      // Add the connection (using demo user ID for now)
+      const connection = await plaidService.addConnection(simulatedPublicToken, 'demo-user');
       
       // Sync accounts immediately
       const accounts = await plaidService.syncAccounts(connection.id);

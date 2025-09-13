@@ -26,6 +26,11 @@ export class SupabaseSubscriptionService {
    */
   static async getCurrentSubscription(userId: string): Promise<UserSubscription | null> {
     try {
+      if (!supabase) {
+        logger.warn('Supabase not configured');
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('subscriptions')
         .select('*')
@@ -68,6 +73,10 @@ export class SupabaseSubscriptionService {
    */
   static async upsertSubscription(subscription: Partial<UserSubscription>): Promise<UserSubscription> {
     try {
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+
       const subscriptionData = {
         user_id: subscription.userId,
         stripe_subscription_id: subscription.stripeSubscriptionId,
@@ -121,6 +130,10 @@ export class SupabaseSubscriptionService {
    */
   static async getSubscriptionUsage(userId: string): Promise<SubscriptionUsage> {
     try {
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+
       const { data, error } = await supabase
         .from('subscription_usage')
         .select('*')
@@ -177,6 +190,10 @@ export class SupabaseSubscriptionService {
     usage: Partial<Omit<SubscriptionUsage, 'lastCalculated'>>
   ): Promise<void> {
     try {
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+
       const updateData: any = {
         last_calculated: new Date().toISOString()
       };
@@ -207,6 +224,10 @@ export class SupabaseSubscriptionService {
    */
   static async refreshUsageCounts(userId: string): Promise<void> {
     try {
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+
       // Call the database function to update usage counts
       const { error } = await supabase.rpc('update_usage_counts', {
         p_user_id: userId
@@ -224,6 +245,10 @@ export class SupabaseSubscriptionService {
    */
   static async hasFeatureAccess(userId: string, feature: string): Promise<boolean> {
     try {
+      if (!supabase) {
+        return false;
+      }
+
       const { data, error } = await supabase.rpc('has_feature_access', {
         p_user_id: userId,
         p_feature: feature
@@ -243,6 +268,10 @@ export class SupabaseSubscriptionService {
    */
   static async getPaymentMethods(userId: string): Promise<PaymentMethod[]> {
     try {
+      if (!supabase) {
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('payment_methods')
         .select('*')
@@ -273,6 +302,10 @@ export class SupabaseSubscriptionService {
     paymentMethod: Omit<PaymentMethod, 'isDefault'>
   ): Promise<void> {
     try {
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+
       const { error } = await supabase
         .from('payment_methods')
         .insert({
@@ -297,6 +330,10 @@ export class SupabaseSubscriptionService {
    */
   static async setDefaultPaymentMethod(userId: string, paymentMethodId: string): Promise<void> {
     try {
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+
       // First, unset all as default
       await supabase
         .from('payment_methods')
@@ -322,6 +359,10 @@ export class SupabaseSubscriptionService {
    */
   static async removePaymentMethod(userId: string, paymentMethodId: string): Promise<void> {
     try {
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+
       const { error } = await supabase
         .from('payment_methods')
         .delete()
@@ -340,6 +381,10 @@ export class SupabaseSubscriptionService {
    */
   static async getInvoices(userId: string): Promise<Invoice[]> {
     try {
+      if (!supabase) {
+        return [];
+      }
+
       const { data, error } = await supabase
         .from('invoices')
         .select('*')
@@ -371,6 +416,10 @@ export class SupabaseSubscriptionService {
    */
   static async addInvoice(userId: string, invoice: Omit<Invoice, 'createdAt'>): Promise<void> {
     try {
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+
       const { error } = await supabase
         .from('invoices')
         .insert({
@@ -398,6 +447,10 @@ export class SupabaseSubscriptionService {
    */
   static async createUserProfile(clerkUserId: string, email: string, fullName?: string): Promise<void> {
     try {
+      if (!supabase) {
+        throw new Error('Supabase not configured');
+      }
+
       const { error } = await supabase
         .from('user_profiles')
         .insert({
@@ -422,6 +475,10 @@ export class SupabaseSubscriptionService {
    */
   static async getUserProfile(clerkUserId: string): Promise<any> {
     try {
+      if (!supabase) {
+        return null;
+      }
+
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')

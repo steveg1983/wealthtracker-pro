@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { themeSchedulingService } from '../../services/themeSchedulingService';
 import type { ThemeSchedule, ThemePreset } from '../../services/themeSchedulingService';
+import { logger } from '../../services/loggingService';
 import { 
   MoonIcon,
   SunIcon,
@@ -114,7 +115,7 @@ export default function ThemeSettings() {
   };
 
   return (
-    <PageWrapper>
+    <PageWrapper title="Theme Settings">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-gray-600 dark:from-purple-800 dark:to-gray-800 rounded-2xl p-6 mb-6 text-white shadow-lg">

@@ -11,8 +11,8 @@ import {
   BanknotesIcon,
   CurrencyDollarIcon,
   CalendarIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
+  ArrowTrendingUpIcon as TrendingUpIcon,
+  ArrowTrendingDownIcon as TrendingDownIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ClockIcon,
@@ -381,8 +381,7 @@ export default function DashboardDraggable(): React.JSX.Element {
               onClick={() => setIsEditMode(!isEditMode)}
               className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-gray-700 hover:text-gray-900"
               style={{
-                backgroundColor: isEditMode ? '#C5D3E8' : '#D9E1F2',
-                ':hover': { backgroundColor: '#C5D3E8' }
+                backgroundColor: isEditMode ? '#C5D3E8' : '#D9E1F2'
               }}
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#C5D3E8'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isEditMode ? '#C5D3E8' : '#D9E1F2'}

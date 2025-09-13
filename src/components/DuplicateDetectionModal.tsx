@@ -176,7 +176,7 @@ export default function DuplicateDetectionModal({
                         </p>
                         <div className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
                           <p>Date: {format(new Date(duplicate.transaction.date), 'MMM d, yyyy')}</p>
-                          <p>Amount: {formatCurrency(parseFloat(duplicate.transaction.amount))}</p>
+                          <p>Amount: {formatCurrency(duplicate.transaction.amount)}</p>
                           <p>Category: {duplicate.transaction.category}</p>
                         </div>
                       </div>
@@ -193,7 +193,7 @@ export default function DuplicateDetectionModal({
                         </p>
                         <div className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
                           <p>Date: {format(new Date(duplicate.matchingTransaction.date), 'MMM d, yyyy')}</p>
-                          <p>Amount: {formatCurrency(parseFloat(duplicate.matchingTransaction.amount))}</p>
+                          <p>Amount: {formatCurrency(duplicate.matchingTransaction.amount)}</p>
                           <p>Category: {duplicate.matchingTransaction.category}</p>
                         </div>
                       </div>

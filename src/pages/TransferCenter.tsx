@@ -2,13 +2,15 @@ import { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import EnhancedTransferModal from '../components/EnhancedTransferModal';
 import PageWrapper from '../components/PageWrapper';
-import { PlusIcon } from '../components/icons/PlusIcon';
-import { ArrowRightIcon } from '../components/icons/ArrowRightIcon';
-import { FilterIcon } from '../components/icons/FilterIcon';
-import { ChartIcon } from '../components/icons/ChartIcon';
-import { AlertCircleIcon } from '../components/icons/AlertCircleIcon';
-import { CheckCircleIcon } from '../components/icons/CheckCircleIcon';
-import { ClockIcon } from '../components/icons/ClockIcon';
+import { 
+  PlusIcon,
+  ArrowRightIcon,
+  FilterIcon,
+  BarChart3Icon as ChartIcon,
+  AlertCircleIcon,
+  CheckCircleIcon,
+  ClockIcon
+} from '../components/icons';
 import { format } from 'date-fns';
 import type { Transaction } from '../types';
 

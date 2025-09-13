@@ -3,7 +3,6 @@ import { portfolioRebalanceService } from '../services/portfolioRebalanceService
 import type { AssetAllocation, RebalanceAction, PortfolioTarget } from '../services/portfolioRebalanceService';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Investment } from '../types';
 import {
   BarChart3Icon,
@@ -37,8 +36,8 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
   const [taxConsiderations, setTaxConsiderations] = useState(true);
   
   const { accounts } = useApp();
-  const { currencySymbol } = useCurrencyDecimal();
-  const { formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
+  const currencySymbol = getCurrencySymbol(displayCurrency);
 
   // Extract investments from accounts with holdings
   const investments = useMemo(() => {

@@ -13,9 +13,10 @@ import { Toaster, toast } from 'react-hot-toast';
 import { useRealtimeSync, type UseRealtimeSyncReturn } from '../hooks/useRealtimeSync';
 import { advancedAnalyticsService } from '../services/advancedAnalyticsService';
 import type { SpendingAnomaly } from '../services/advancedAnalyticsService';
-import { useAppSelector } from '../store/hooks/useAppRedux';
+import { useAppSelector } from '../store';
 import Decimal from 'decimal.js';
 import type { Transaction } from '../types';
+import { logger } from '../services/loggingService';
 
 interface RealtimeSyncContextType extends UseRealtimeSyncReturn {
   /**
@@ -85,11 +86,11 @@ export function RealtimeSyncProvider({
   const [recentAnomalies, setRecentAnomalies] = useState<SpendingAnomaly[]>([]);
   const [portfolioChange24h, setPortfolioChange24h] = useState<number | null>(null);
   const lastAnomalyCheckRef = useRef<Date>(new Date());
-  const portfolioValueRef = useRef<Decimal | null>(null);
+  const portfolioValueRef = useRef<InstanceType<typeof Decimal> | null>(null);
   
   // Get data from store
-  const transactions = useAppSelector(state => state.transactions.transactions);
-  const accounts = useAppSelector(state => state.accounts.accounts);
+  const transactions = useAppSelector((state: any) => state.transactions.transactions);
+  const accounts = useAppSelector((state: any) => state.accounts.accounts);
 
   // These would need state management to be fully functional
   const setEnabled = useCallback((enabled: boolean) => {
@@ -112,7 +113,7 @@ export function RealtimeSyncProvider({
       if (transactions.length > 0 && (newTransaction || timeSinceLastCheck > 5 * 60 * 1000)) {
         const anomalies = await advancedAnalyticsService.detectSpendingAnomalies(
           transactions,
-          { sensitivity: 'medium' }
+          6
         );
         
         // Filter to only show high and critical severity anomalies
@@ -130,7 +131,7 @@ export function RealtimeSyncProvider({
         // Show notifications for new anomalies
         if (showNotifications && newAnomalies.length > 0) {
           newAnomalies.forEach(anomaly => {
-            const message = `Unusual ${anomaly.type === 'amount' ? 'amount' : 'pattern'} detected: ${anomaly.description}`;
+            const message = `Unusual ${anomaly.type === 'unusual_amount' ? 'amount' : 'pattern'} detected: ${anomaly.description}`;
             
             if (anomaly.severity === 'critical') {
               toast.error(message, {
@@ -159,12 +160,12 @@ export function RealtimeSyncProvider({
     try {
       // Calculate total portfolio value from investment accounts
       const investmentAccounts = accounts.filter(
-        acc => acc.type === 'investment' || acc.type === 'retirement'
+        (acc: any) => acc.type === 'investment' || acc.type === 'retirement'
       );
       
       if (investmentAccounts.length > 0) {
         const currentValue = investmentAccounts.reduce(
-          (sum, acc) => sum.plus(new Decimal(acc.balance)),
+          (sum: any, acc: any) => sum.plus(new Decimal(acc.balance)),
           new Decimal(0)
         );
         

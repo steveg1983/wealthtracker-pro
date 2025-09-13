@@ -209,7 +209,7 @@ class FinancialSummaryService {
       const limit = toDecimal(budget.limit);
       
       return {
-        budgetName: budget.name,
+        budgetName: budget.name || `Budget for ${categoryId}`,
         spent,
         limit,
         percentage: limit.greaterThan(0) 

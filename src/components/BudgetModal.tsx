@@ -23,15 +23,15 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
   
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
     {
-      category: budget?.category || '',
+      category: budget?.categoryId || '',
       amount: budget?.amount?.toString() || '',
-      period: budget?.period || 'monthly',
+      period: (budget?.period === 'quarterly' ? 'monthly' : budget?.period) || 'monthly',
       isActive: budget?.isActive !== false
     },
     {
       onSubmit: (data) => {
         const budgetData = {
-          category: data.category,
+          categoryId: data.category,
           amount: parseFloat(data.amount),
           period: data.period,
           isActive: data.isActive
@@ -40,7 +40,11 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
         if (budget) {
           updateBudget(budget.id, budgetData);
         } else {
-          addBudget(budgetData);
+          addBudget({
+            ...budgetData,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
         }
       },
       onClose
@@ -50,9 +54,9 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
   useEffect(() => {
     if (budget) {
       setFormData({
-        category: budget.category || '',
+        category: budget.categoryId || '',
         amount: budget.amount?.toString() || '',
-        period: budget.period || 'monthly',
+        period: (budget.period === 'quarterly' ? 'monthly' : budget.period) || 'monthly',
         isActive: budget.isActive !== false
       });
     }

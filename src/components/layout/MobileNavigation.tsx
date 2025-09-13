@@ -119,7 +119,7 @@ export function MobileNavigation({ isOpen, onClose, links }: MobileNavigationPro
                               className="overflow-hidden"
                             >
                               <div className="ml-8 mt-1 space-y-1">
-                                {link.subItems.map((subItem) => {
+                                {link.subItems?.map((subItem) => {
                                   const SubIcon = subItem.icon;
                                   const isSubActive = location.pathname === subItem.to;
 

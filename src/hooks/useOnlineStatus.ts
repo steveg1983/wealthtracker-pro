@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { logger } from '../services/loggingService';
 
 export function useOnlineStatus(): boolean {
   const [isOnline, setIsOnline] = useState(navigator.onLine);

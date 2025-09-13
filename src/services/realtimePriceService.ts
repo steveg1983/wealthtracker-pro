@@ -173,7 +173,7 @@ class RealTimePriceService {
             fiftyTwoWeekLow: update.quote.fiftyTwoWeekLow?.toString()
           },
           timestamp: update.timestamp.toISOString()
-        } as JsonValue);
+        } as unknown as JsonValue);
         
         // Call all callbacks
         const callbacks = this.subscriptions.get(symbol);
@@ -189,7 +189,7 @@ class RealTimePriceService {
       }
     } catch (error) {
       logger.error(`Error fetching price for ${symbol}:`, error);
-      this.emit('error', { symbol, error: String(error) } as JsonValue);
+      this.emit('error', { symbol, error: String(error) } as unknown as JsonValue);
     }
   }
 

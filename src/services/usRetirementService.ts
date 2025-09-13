@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import Decimal from 'decimal.js';
 import usRetirementConstants from '../data/us-retirement-constants-2025.json';
 import { taxDataService } from './taxDataService';
 
@@ -570,7 +570,9 @@ class USRetirementService {
       filingStatus: filingStatus === 'married' ? 'married' : 'single'
     });
     
-    const afterTaxIncome = totalAnnualIncome - taxResult.incomeTax;
+    const tax = 'federal' in taxResult ? taxResult.federal : 
+                'incomeTax' in taxResult ? taxResult.incomeTax : 0;
+    const afterTaxIncome = totalAnnualIncome - tax;
     
     // Calculate RMD if applicable
     const totalTraditionalBalance = (retirement401k?.projectedBalance || 0) + 
@@ -638,10 +640,10 @@ class USRetirementService {
     years: number
   ): number {
     const futureValueCurrent = new Decimal(currentValue)
-      .mul(new Decimal(1 + growthRate).pow(years));
+      .times(new Decimal(1 + growthRate).pow(years));
     
     const futureValueContributions = new Decimal(annualContribution)
-      .mul(new Decimal(1 + growthRate).pow(years).minus(1))
+      .times(new Decimal(1 + growthRate).pow(years).minus(1))
       .div(growthRate);
     
     return futureValueCurrent.plus(futureValueContributions).toNumber();
