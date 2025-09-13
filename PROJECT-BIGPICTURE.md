@@ -152,9 +152,9 @@ Notes:
 Auto-refreshed by `npm run handoff:update`.
 
 <!-- CONTEXT_ERROR_SNAPSHOT_START -->
-- Snapshot: 2025-09-11T00:00:00.000Z — no detailed lines captured
-- Use `npm run handoff:update` to populate the latest top errors
-<!-- CONTEXT_ERROR_SNAPSHOT_END -->
+- Snapshot: 2025-09-13T11:53:07.011Z — 1 line(s)
+- No relevant errors captured.
+  <!-- CONTEXT_ERROR_SNAPSHOT_END -->
 
 ### Recent Changelog (2025-09-11)
 - Fixed 121 TypeScript errors (1,856 → 1,735)

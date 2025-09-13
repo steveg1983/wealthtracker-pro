@@ -8,8 +8,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const repoRoot = resolve(__dirname, '..');
+// handoff.md is deprecated; use CLAUDE_WORKFILE.md as the live workfile
 const handoffPath = resolve(repoRoot, 'handoff.md');
 const projectEnterprisePath = resolve(repoRoot, 'PROJECT-BIGPICTURE.md');
+const workfilePath = resolve(repoRoot, 'CLAUDE_WORKFILE.md');
 
 function runContextSnapshot() {
   try {
@@ -68,13 +70,18 @@ const timestamp = new Date().toISOString();
 const summary = [`- Snapshot: ${timestamp} — ${errors.length} line(s)`];
 const payload = [...summary, ...errors];
 
-// Update handoff.md
-replaceBetweenMarkers(
-  handoffPath,
-  '<!-- ERROR_SNAPSHOT_START -->',
-  '<!-- ERROR_SNAPSHOT_END -->',
-  payload
-);
+// Update handoff.md (deprecated) only if present; ignore if missing
+try {
+  replaceBetweenMarkers(
+    handoffPath,
+    '<!-- ERROR_SNAPSHOT_START -->',
+    '<!-- ERROR_SNAPSHOT_END -->',
+    payload
+  );
+  console.log(`Updated error snapshot in deprecated handoff.md at ${timestamp}.`);
+} catch (e) {
+  console.warn(`handoff.md not updated (deprecated or missing): ${e.message}`);
+}
 
 // Update PROJECT-BIGPICTURE.md
 try {
@@ -84,7 +91,31 @@ try {
     '<!-- CONTEXT_ERROR_SNAPSHOT_END -->',
     payload
   );
-  console.log(`Updated error snapshots in handoff.md and PROJECT-BIGPICTURE.md at ${timestamp} with ${errors.length} line(s).`);
+  console.log(`Updated error snapshots in PROJECT-BIGPICTURE.md at ${timestamp} with ${errors.length} line(s).`);
 } catch (e) {
   console.warn(`Could not update PROJECT-BIGPICTURE.md context snapshot: ${e.message}`);
+}
+
+// Update CLAUDE_WORKFILE.md (both handoff and context sections if present)
+try {
+  replaceBetweenMarkers(
+    workfilePath,
+    '<!-- ERROR_SNAPSHOT_START -->',
+    '<!-- ERROR_SNAPSHOT_END -->',
+    payload
+  );
+} catch (e) {
+  console.warn(`Could not update CLAUDE_WORKFILE.md error snapshot: ${e.message}`);
+}
+
+try {
+  replaceBetweenMarkers(
+    workfilePath,
+    '<!-- CONTEXT_ERROR_SNAPSHOT_START -->',
+    '<!-- CONTEXT_ERROR_SNAPSHOT_END -->',
+    payload
+  );
+  console.log(`Updated snapshots in CLAUDE_WORKFILE.md at ${timestamp} with ${errors.length} line(s).`);
+} catch (e) {
+  console.warn(`Could not update CLAUDE_WORKFILE.md context snapshot: ${e.message}`);
 }
