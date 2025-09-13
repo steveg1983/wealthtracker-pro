@@ -206,7 +206,7 @@ Generated: $(date)
 
 ## Progress Toward World-Class
 
-See PROJECT_ENTERPRISE.md for documentation standards; target comprehensive coverage.
+See PROJECT-BIGPICTURE.md for documentation standards; target comprehensive coverage.
 
 Current Status: **$(echo "scale=1; $DOCUMENTED_FILES * 100 / $TOTAL_FILES" | bc)%** complete
 

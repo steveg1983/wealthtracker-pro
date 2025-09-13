@@ -9,7 +9,7 @@ const __dirname = dirname(__filename);
 
 const repoRoot = resolve(__dirname, '..');
 const handoffPath = resolve(repoRoot, 'handoff.md');
-const projectEnterprisePath = resolve(repoRoot, 'PROJECT_ENTERPRISE.md');
+const projectEnterprisePath = resolve(repoRoot, 'PROJECT-BIGPICTURE.md');
 
 function runContextSnapshot() {
   try {
@@ -76,7 +76,7 @@ replaceBetweenMarkers(
   payload
 );
 
-// Update PROJECT_ENTERPRISE.md
+// Update PROJECT-BIGPICTURE.md
 try {
   replaceBetweenMarkers(
     projectEnterprisePath,
@@ -84,7 +84,7 @@ try {
     '<!-- CONTEXT_ERROR_SNAPSHOT_END -->',
     payload
   );
-  console.log(`Updated error snapshots in handoff.md and PROJECT_ENTERPRISE.md at ${timestamp} with ${errors.length} line(s).`);
+  console.log(`Updated error snapshots in handoff.md and PROJECT-BIGPICTURE.md at ${timestamp} with ${errors.length} line(s).`);
 } catch (e) {
-  console.warn(`Could not update PROJECT_ENTERPRISE.md context snapshot: ${e.message}`);
+  console.warn(`Could not update PROJECT-BIGPICTURE.md context snapshot: ${e.message}`);
 }

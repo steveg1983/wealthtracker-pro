@@ -11,7 +11,7 @@ Generated: Sun Sep  7 10:37:37 BST 2025
 
 ## Progress Toward World-Class
 
-See PROJECT_ENTERPRISE.md for documentation standards; target comprehensive coverage.
+See PROJECT-BIGPICTURE.md for documentation standards; target comprehensive coverage.
 
 Current Status: **%** complete
 

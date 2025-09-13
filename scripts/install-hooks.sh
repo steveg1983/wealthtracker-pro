@@ -11,9 +11,9 @@ cat > "$HOOK_FILE" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Only run updater if PROJECT_ENTERPRISE.md is staged (or the updater itself changed)
+# Only run updater if PROJECT-BIGPICTURE.md is staged (or the updater itself changed)
 STAGED=$(git diff --cached --name-only)
-if echo "$STAGED" | grep -qE '^(PROJECT_ENTERPRISE\.md|scripts/update-handoff\.mjs|package\.json)$'; then
+if echo "$STAGED" | grep -qE '^(PROJECT-BIGPICTURE\.md|scripts/update-handoff\.mjs|package\.json)$'; then
   echo "[pre-commit] Updating handoff and context error snapshots..."
   # Ensure dependencies are installed for node to run
   if command -v node >/dev/null 2>&1; then
@@ -21,7 +21,7 @@ if echo "$STAGED" | grep -qE '^(PROJECT_ENTERPRISE\.md|scripts/update-handoff\.m
       echo "[pre-commit] Warning: handoff:update failed; continuing" >&2
     }
     # Re-add potentially modified files
-    git add handoff.md PROJECT_ENTERPRISE.md || true
+    git add handoff.md PROJECT-BIGPICTURE.md || true
   else
     echo "[pre-commit] Node not found; skipping snapshot update" >&2
   fi

@@ -6,7 +6,7 @@ These files have been **consolidated** into the main project documentation:
 
 ### 📍 Current Location of Information:
 **All content from these files has been merged into:**
-## → `/PROJECT_ENTERPRISE.md`
+## → `/PROJECT-BIGPICTURE.md`
 
 This is now the **single authoritative document** for world-class code standards.
 
@@ -36,7 +36,7 @@ These are kept for **historical reference only**. They contain:
 
 ## ✅ USE INSTEAD:
 
-1. **`/PROJECT_ENTERPRISE.md`** - For all world-class engineering standards and plans
+1. **`/PROJECT-BIGPICTURE.md`** - For all world-class engineering standards and plans
 2. **`/CLAUDE.md`** - For project standards and AI guidelines
 3. **`/TASKS.md`** - For general development tasks and improvements
 
