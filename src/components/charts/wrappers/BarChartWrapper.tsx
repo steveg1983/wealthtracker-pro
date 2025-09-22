@@ -1,3 +1,3 @@
-import { BarChart as RechartsBarChart } from 'recharts';
+import { DynamicBarChart } from '../ChartMigration';
 
-export default RechartsBarChart;
+export default DynamicBarChart;

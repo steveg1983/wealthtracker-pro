@@ -18,10 +18,12 @@ import {
 } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths } from 'date-fns';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
-import { logger } from '../services/loggingService';
+// jsPDF will be loaded dynamically when needed
+let jsPDF: typeof import('jspdf').jsPDF | null = null;
+let autoTable: typeof import('jspdf-autotable').default | null = null;
+// XLSX will be loaded dynamically when needed
+let XLSX: typeof import('xlsx') | null = null;
+import { useLogger } from '../services/ServiceProvider';
 
 type ExportFormat = 'pdf' | 'excel' | 'csv';
 type ReportType = 'transactions' | 'summary' | 'budget' | 'tax' | 'investment' | 'networth' | 'custom';
@@ -104,6 +106,7 @@ const REPORT_TEMPLATES = [
 ];
 
 export default function EnhancedExportManager(): React.JSX.Element {
+  const logger = useLogger();
   const { accounts, transactions, budgets, goals } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
@@ -161,6 +164,15 @@ export default function EnhancedExportManager(): React.JSX.Element {
   };
 
   const generatePDF = async () => {
+    // Dynamically load jsPDF and autoTable when needed
+    if (!jsPDF) {
+      const module = await import('jspdf');
+      jsPDF = module.jsPDF;
+    }
+    if (!autoTable) {
+      autoTable = (await import('jspdf-autotable')).default;
+    }
+
     const pdf = new jsPDF({
       orientation: options.orientation,
       unit: 'mm',
@@ -195,12 +207,12 @@ export default function EnhancedExportManager(): React.JSX.Element {
     pdf.text('Summary', 20, 45);
     
     const income = filteredTransactions
-      .filter(t => parseFloat(t.amount) > 0)
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      .filter(t => t.amount > 0)
+      .reduce((sum, t) => sum + t.amount, 0);
     
     const expenses = Math.abs(filteredTransactions
-      .filter(t => parseFloat(t.amount) < 0)
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0));
+      .filter(t => t.amount < 0)
+      .reduce((sum, t) => sum + t.amount, 0));
     
     pdf.setFontSize(10);
     pdf.text(`Total Income: £${income.toFixed(2)}`, 20, 55);
@@ -215,8 +227,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
         t.description,
         t.category,
         accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-        `£${Math.abs(parseFloat(t.amount)).toFixed(2)}`,
-        parseFloat(t.amount) > 0 ? 'Income' : 'Expense'
+        `£${Math.abs(t.amount).toFixed(2)}`,
+        t.amount > 0 ? 'Income' : 'Expense'
       ]);
 
       autoTable(pdf, {
@@ -237,16 +249,16 @@ export default function EnhancedExportManager(): React.JSX.Element {
 
       const budgetData = budgets.map(b => {
         const spent = Math.abs(filteredTransactions
-          .filter(t => t.category === b.category && parseFloat(t.amount) < 0)
-          .reduce((sum, t) => sum + parseFloat(t.amount), 0));
+          .filter(t => t.category === b.categoryId && t.amount < 0)
+          .reduce((sum, t) => sum + t.amount, 0));
         
-        const percentage = (spent / parseFloat(b.amount)) * 100;
+        const percentage = (spent / b.amount) * 100;
         
         return [
-          b.category,
-          `£${parseFloat(b.amount).toFixed(2)}`,
+          b.categoryId,
+          `£${b.amount.toFixed(2)}`,
           `£${spent.toFixed(2)}`,
-          `£${(parseFloat(b.amount) - spent).toFixed(2)}`,
+          `£${(b.amount - spent).toFixed(2)}`,
           `${percentage.toFixed(1)}%`
         ];
       });
@@ -278,6 +290,10 @@ export default function EnhancedExportManager(): React.JSX.Element {
   };
 
   const generateExcel = async () => {
+    // Dynamically load XLSX when needed
+    if (!XLSX) {
+      XLSX = await import('xlsx');
+    }
     const workbook = XLSX.utils.book_new();
     const dateRange = getDateRange();
 
@@ -299,9 +315,9 @@ export default function EnhancedExportManager(): React.JSX.Element {
       ['Generated:', format(new Date(), 'MMM d, yyyy HH:mm')],
       [''],
       ['Summary Statistics'],
-      ['Total Income:', filteredTransactions.filter(t => parseFloat(t.amount) > 0).reduce((sum, t) => sum + parseFloat(t.amount), 0)],
-      ['Total Expenses:', Math.abs(filteredTransactions.filter(t => parseFloat(t.amount) < 0).reduce((sum, t) => sum + parseFloat(t.amount), 0))],
-      ['Net Amount:', filteredTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0)],
+      ['Total Income:', filteredTransactions.filter(t => t.amount > 0).reduce((sum, t) => sum + t.amount, 0)],
+      ['Total Expenses:', Math.abs(filteredTransactions.filter(t => t.amount < 0).reduce((sum, t) => sum + t.amount, 0))],
+      ['Net Amount:', filteredTransactions.reduce((sum, t) => sum + t.amount, 0)],
       ['Transaction Count:', filteredTransactions.length]
     ];
 
@@ -317,8 +333,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
           t.description,
           t.category,
           accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-          parseFloat(t.amount),
-          parseFloat(t.amount) > 0 ? 'Income' : 'Expense',
+          t.amount,
+          t.amount > 0 ? 'Income' : 'Expense',
           0 // Would calculate running balance in production
         ])
       ];
@@ -346,15 +362,15 @@ export default function EnhancedExportManager(): React.JSX.Element {
         ['Category', 'Budgeted', 'Spent', 'Remaining', '% Used', 'Status'],
         ...budgets.map(b => {
           const spent = Math.abs(filteredTransactions
-            .filter(t => t.category === b.category && parseFloat(t.amount) < 0)
-            .reduce((sum, t) => sum + parseFloat(t.amount), 0));
+            .filter(t => t.category === b.categoryId && t.amount < 0)
+            .reduce((sum, t) => sum + t.amount, 0));
           
-          const remaining = parseFloat(b.amount) - spent;
-          const percentage = (spent / parseFloat(b.amount)) * 100;
+          const remaining = b.amount - spent;
+          const percentage = (spent / b.amount) * 100;
           
           return [
-            b.category,
-            parseFloat(b.amount),
+            b.categoryId,
+            b.amount,
             spent,
             remaining,
             percentage,
@@ -371,7 +387,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
     const categoryGroups = new Map<string, number>();
     filteredTransactions.forEach(t => {
       const current = categoryGroups.get(t.category) || 0;
-      categoryGroups.set(t.category, current + parseFloat(t.amount));
+      categoryGroups.set(t.category, current + t.amount);
     });
 
     const categoryData = [
@@ -434,7 +450,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
       t.category,
       accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
       t.amount,
-      parseFloat(t.amount) > 0 ? 'Income' : 'Expense'
+      t.amount > 0 ? 'Income' : 'Expense'
     ]);
 
     return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');

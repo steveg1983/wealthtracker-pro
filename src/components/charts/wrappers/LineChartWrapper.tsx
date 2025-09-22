@@ -1,3 +1,3 @@
-import { LineChart as RechartsLineChart } from 'recharts';
+import { DynamicLineChart } from '../ChartMigration';
 
-export default RechartsLineChart;
+export default DynamicLineChart;

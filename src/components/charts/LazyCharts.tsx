@@ -1,64 +1,55 @@
-import React, { Suspense, lazy } from 'react';
-import { Skeleton } from '../loading/Skeleton';
+/**
+ * Lazy-loaded chart components to reduce bundle size
+ * Only loads Recharts when actually rendered
+ */
 
-// Lazy load chart components
-const LazyPieChart = lazy(() => import('./LazyPieChartComponent'));
-const LazyBarChart = lazy(() => import('./LazyBarChartComponent'));
-const LazyLineChart = lazy(() => import('./LazyLineChartComponent'));
-const LazyTreemap = lazy(() => import('./LazyTreemapComponent'));
+import React, { lazy, Suspense } from 'react';
+import { LoadingSpinner } from '../LoadingSpinner';
 
-// Loading component for charts
-function ChartSkeleton({ height = 300 }: { height?: number }) {
+// Lazy load each chart component
+export const LazySpendingByCategoryChart = lazy(() => import('../SpendingByCategoryChart'));
+export const LazyIncomeVsExpensesChart = lazy(() => import('../IncomeVsExpensesChart'));
+export const LazyAccountBalancesChart = lazy(() => import('../AccountBalancesChart'));
+export const LazyAllocationAnalysis = lazy(() => import('../AllocationAnalysis'));
+export const LazyDebtManagement = lazy(() => import('../DebtManagement'));
+export const LazyPortfolioRebalancer = lazy(() => import('../PortfolioRebalancer'));
+
+// Chart wrapper with loading state
+export function LazyChart({
+  Component,
+  ...props
+}: {
+  Component: React.ComponentType<any>;
+  [key: string]: any;
+}) {
   return (
-    <div className="w-full" style={{ height }}>
-      <Skeleton className="w-full h-full rounded-lg" />
-    </div>
-  );
-}
-
-// Wrapper components with loading states
-export function PieChart(props: any) {
-  return (
-    <Suspense fallback={<ChartSkeleton height={props.height || 300} />}>
-      <LazyPieChart {...props} />
+    <Suspense fallback={<LoadingSpinner message="Loading chart..." />}>
+      <Component {...props} />
     </Suspense>
   );
 }
 
-export function BarChart(props: any) {
-  return (
-    <Suspense fallback={<ChartSkeleton height={props.height || 300} />}>
-      <LazyBarChart {...props} />
-    </Suspense>
-  );
+// Export convenient wrappers for each chart
+export function SpendingChart(props: any) {
+  return <LazyChart Component={LazySpendingByCategoryChart} {...props} />;
 }
 
-export function LineChart(props: any) {
-  return (
-    <Suspense fallback={<ChartSkeleton height={props.height || 300} />}>
-      <LazyLineChart {...props} />
-    </Suspense>
-  );
+export function IncomeExpenseChart(props: any) {
+  return <LazyChart Component={LazyIncomeVsExpensesChart} {...props} />;
 }
 
-export function Treemap(props: any) {
-  return (
-    <Suspense fallback={<ChartSkeleton height={props.height || 300} />}>
-      <LazyTreemap {...props} />
-    </Suspense>
-  );
+export function BalancesChart(props: any) {
+  return <LazyChart Component={LazyAccountBalancesChart} {...props} />;
 }
 
-// Re-export common chart components that don't need lazy loading
-export { 
-  ResponsiveContainer, 
-  Tooltip, 
-  Cell, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid,
-  Legend,
-  Pie,
-  Bar,
-  Line
-} from 'recharts';
+export function AllocationChart(props: any) {
+  return <LazyChart Component={LazyAllocationAnalysis} {...props} />;
+}
+
+export function DebtChart(props: any) {
+  return <LazyChart Component={LazyDebtManagement} {...props} />;
+}
+
+export function PortfolioChart(props: any) {
+  return <LazyChart Component={LazyPortfolioRebalancer} {...props} />;
+}

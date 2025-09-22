@@ -1,3 +1,3 @@
-import { PieChart } from 'recharts';
+import { DynamicPieChart } from './ChartMigration';
 
-export default PieChart;
+export default DynamicPieChart;

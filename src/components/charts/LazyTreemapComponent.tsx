@@ -1,3 +1,3 @@
-import { Treemap } from 'recharts';
+import { DynamicTreemap } from './ChartMigration';
 
-export default Treemap;
+export default DynamicTreemap;

@@ -1,8 +1,6 @@
 // Isolated module for recharts child components
 // This file is lazy-loaded separately to keep recharts out of the main bundle
 
-import * as RechartsComponents from '../recharts-lazy';
-
 export {
   ResponsiveContainer,
   Tooltip,
@@ -28,7 +26,7 @@ export {
   ReferenceDot,
   Brush,
   LabelList
-} from '../recharts-lazy';
+} from './recharts-lazy';
 
 // Export color constants commonly used with charts
 export const CHART_COLORS = [
@@ -43,5 +41,3 @@ export const CHART_COLORS = [
   '#f97316', // Orange
   '#84cc16', // Lime
 ];
-// Default export for dynamic imports
-export default RechartsComponents;

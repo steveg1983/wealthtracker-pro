@@ -1,3 +1,3 @@
-import { AreaChart as RechartsAreaChart } from 'recharts';
+import { DynamicAreaChart } from '../ChartMigration';
 
-export default RechartsAreaChart;
+export default DynamicAreaChart;

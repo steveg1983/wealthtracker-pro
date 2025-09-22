@@ -1,146 +1,119 @@
-import React, { memo, useMemo, useRef, useEffect, useState } from 'react';
+import React, { memo, useMemo } from 'react';
 import { useInView } from 'react-intersection-observer';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend,
-  ChartOptions,
-  ChartData
-} from 'chart.js';
-import { Line, Bar, Doughnut, Pie } from 'react-chartjs-2';
+  DynamicLineChart,
+  DynamicBarChart,
+  DynamicPieChart
+} from './ChartMigration';
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  ArcElement,
-  Title,
-  Tooltip,
-  Legend
-);
+// Type definitions for compatibility with Chart.js-like API
+interface ChartOptions {
+  responsive?: boolean;
+  maintainAspectRatio?: boolean;
+  plugins?: {
+    legend?: any;
+    title?: any;
+    tooltip?: any;
+  };
+  scales?: any;
+}
+
+interface ChartData {
+  labels?: string[];
+  datasets?: Array<{
+    label?: string;
+    data?: number[];
+    backgroundColor?: string | string[];
+    borderColor?: string | string[];
+    borderWidth?: number;
+    fill?: boolean;
+    tension?: number;
+  }>;
+}
 
 interface OptimizedChartProps {
   type: 'line' | 'bar' | 'doughnut' | 'pie';
-  data: ChartData<any>;
-  options?: ChartOptions<any>;
+  data: ChartData;
+  options?: ChartOptions;
   height?: number;
-  width?: number;
+  width?: number | string;
   className?: string;
   lazyLoad?: boolean;
   throttleRedraw?: number;
 }
 
-// Chart skeleton loader
-const ChartSkeleton = memo(({ height = 200 }: { height?: number }) => (
-  <div 
-    className="animate-pulse bg-gray-200 dark:bg-gray-700 rounded-lg"
-    style={{ height: `${height}px` }}
-  >
-    <div className="h-full flex items-center justify-center">
-      <div className="space-y-2">
-        <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-32"></div>
-        <div className="h-2 bg-gray-300 dark:bg-gray-600 rounded w-24"></div>
-      </div>
-    </div>
-  </div>
-));
+// Color palette for charts
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
-// Memoized chart component
-const MemoizedChart = memo(({ 
+// Convert Chart.js data format to Recharts format
+const convertToRechartsData = (data: ChartData) => {
+  if (!data.labels || !data.datasets) return [];
+  
+  return data.labels.map((label, index) => {
+    const point: any = { name: label };
+    data.datasets?.forEach((dataset) => {
+      point[dataset.label || 'value'] = dataset.data?.[index] || 0;
+    });
+    return point;
+  });
+};
+
+// Chart component implementation
+const ChartComponent = memo<OptimizedChartProps>(({ 
   type, 
   data, 
   options, 
-  height, 
-  width 
-}: OptimizedChartProps) => {
-  const chartRef = useRef<any>(null);
+  height = 200, 
+  width = '100%' 
+}) => {
+  const chartData = useMemo(() => convertToRechartsData(data), [data]);
+  const dataset = data.datasets?.[0];
   
-  // Optimize chart options with defaults
-  const optimizedOptions = useMemo(() => ({
-    responsive: true,
-    maintainAspectRatio: false,
-    animation: {
-      duration: 300, // Faster animations
-      easing: 'easeInOutQuart' as const
-    },
-    plugins: {
-      legend: {
-        display: true,
-        position: 'bottom' as const,
-        labels: {
-          boxWidth: 12,
-          padding: 10,
-          font: {
-            size: 11
-          }
-        }
-      },
-      tooltip: {
-        enabled: true,
-        intersect: false,
-        mode: 'index' as const,
-        animation: {
-          duration: 150
-        }
-      }
-    },
-    interaction: {
-      mode: 'nearest' as const,
-      axis: 'x' as const,
-      intersect: false
-    },
-    ...options
-  }), [options]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (chartRef.current) {
-        chartRef.current.destroy();
-      }
-    };
-  }, []);
-
-  const chartProps = {
-    ref: chartRef,
-    data,
-    options: optimizedOptions,
-    height,
-    width
-  };
-
   switch (type) {
     case 'line':
-      return <Line {...chartProps} />;
+      return (
+        <DynamicLineChart
+          data={chartData}
+          xDataKey="name"
+          yDataKeys={['value']}
+          height={200}
+        />
+      );
+      
     case 'bar':
-      return <Bar {...chartProps} />;
-    case 'doughnut':
-      return <Doughnut {...chartProps} />;
+      return (
+        <DynamicBarChart
+          data={chartData}
+          xDataKey="name"
+          yDataKeys={['value']}
+          height={200}
+        />
+      );
+      
     case 'pie':
-      return <Pie {...chartProps} />;
+    case 'doughnut':
+      const pieData = data.labels?.map((label, index) => ({
+        name: label,
+        value: dataset?.data?.[index] || 0
+      })) || [];
+      
+      return (
+        <DynamicPieChart
+          data={pieData}
+          dataKey="value"
+          nameKey="name"
+          innerRadius={type === 'doughnut' ? 40 : 0}
+          outerRadius={type === 'doughnut' ? 80 : 60}
+          height={200}
+        />
+      );
+      
     default:
       return null;
   }
-}, (prevProps, nextProps) => {
-  // Custom comparison for memo optimization
-  return (
-    prevProps.type === nextProps.type &&
-    JSON.stringify(prevProps.data) === JSON.stringify(nextProps.data) &&
-    JSON.stringify(prevProps.options) === JSON.stringify(nextProps.options) &&
-    prevProps.height === nextProps.height &&
-    prevProps.width === nextProps.width
-  );
 });
+
+ChartComponent.displayName = 'ChartComponent';
 
 // Main optimized chart component with lazy loading
 export const OptimizedChart: React.FC<OptimizedChartProps> = memo(({
@@ -155,150 +128,36 @@ export const OptimizedChart: React.FC<OptimizedChartProps> = memo(({
 }) => {
   const { ref, inView } = useInView({
     threshold: 0.1,
-    triggerOnce: true, // Only load once when scrolled into view
-    rootMargin: '50px' // Start loading 50px before visible
+    triggerOnce: true,
+    rootMargin: '50px'
   });
   
-  const [isLoaded, setIsLoaded] = useState(!lazyLoad);
-  const [throttledData, setThrottledData] = useState(data);
-  const lastUpdateTime = useRef(Date.now());
-
-  // Throttle data updates to prevent excessive re-renders
-  useEffect(() => {
-    if (throttleRedraw > 0) {
-      const now = Date.now();
-      const timeSinceLastUpdate = now - lastUpdateTime.current;
-      
-      if (timeSinceLastUpdate >= throttleRedraw) {
-        setThrottledData(data);
-        lastUpdateTime.current = now;
-      } else {
-        const timeout = setTimeout(() => {
-          setThrottledData(data);
-          lastUpdateTime.current = Date.now();
-        }, throttleRedraw - timeSinceLastUpdate);
-        
-        return () => clearTimeout(timeout);
-      }
-    } else {
-      setThrottledData(data);
-    }
-  }, [data, throttleRedraw]);
-
-  // Handle lazy loading
-  useEffect(() => {
-    if (lazyLoad && inView && !isLoaded) {
-      // Use requestIdleCallback for non-critical chart loading
-      if ('requestIdleCallback' in window) {
-        window.requestIdleCallback(() => {
-          setIsLoaded(true);
-        });
-      } else {
-        setTimeout(() => {
-          setIsLoaded(true);
-        }, 0);
-      }
-    }
-  }, [inView, lazyLoad, isLoaded]);
-
-  const containerStyle = {
-    height: `${height}px`,
-    width: width ? `${width}px` : '100%'
-  };
-
-  if (lazyLoad && !isLoaded) {
+  // Show placeholder while not in view
+  if (lazyLoad && !inView) {
     return (
-      <div ref={ref} className={className} style={containerStyle}>
-        <ChartSkeleton height={height} />
+      <div 
+        ref={ref} 
+        className={`flex items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg ${className}`}
+        style={{ height, width: width || '100%' }}
+      >
+        <div className="text-gray-400">Chart will load when visible</div>
       </div>
     );
   }
-
+  
   return (
-    <div ref={ref} className={className} style={containerStyle}>
-      <MemoizedChart
-        type={type}
-        data={throttledData}
-        options={options}
-        height={height}
-        width={width}
+    <div ref={ref} className={className}>
+      <ChartComponent 
+        type={type} 
+        data={data} 
+        options={options} 
+        height={height} 
+        width={width} 
       />
     </div>
   );
 });
 
-// Utility function to generate optimized chart colors
-export const generateChartColors = (count: number, opacity: number = 1): string[] => {
-  const baseColors = [
-    `rgba(59, 130, 246, ${opacity})`,   // Blue
-    `rgba(16, 185, 129, ${opacity})`,   // Green
-    `rgba(251, 146, 60, ${opacity})`,   // Orange
-    `rgba(147, 51, 234, ${opacity})`,   // Purple
-    `rgba(236, 72, 153, ${opacity})`,   // Pink
-    `rgba(20, 184, 166, ${opacity})`,   // Teal
-    `rgba(251, 191, 36, ${opacity})`,   // Yellow
-    `rgba(239, 68, 68, ${opacity})`,    // Red
-  ];
-
-  const colors: string[] = [];
-  for (let i = 0; i < count; i++) {
-    colors.push(baseColors[i % baseColors.length]);
-  }
-  return colors;
-};
-
-// Utility function to format large numbers for charts
-export const formatChartNumber = (value: number): string => {
-  if (Math.abs(value) >= 1000000) {
-    return `${(value / 1000000).toFixed(1)}M`;
-  } else if (Math.abs(value) >= 1000) {
-    return `${(value / 1000).toFixed(1)}K`;
-  }
-  return value.toFixed(0);
-};
-
-// Chart data transformer utilities
-export const chartDataTransformers = {
-  // Transform time series data for line charts
-  transformTimeSeries: (data: Array<{ date: Date; value: number }>, label: string) => ({
-    labels: data.map(d => d.date.toLocaleDateString()),
-    datasets: [{
-      label,
-      data: data.map(d => d.value),
-      borderColor: 'rgba(59, 130, 246, 1)',
-      backgroundColor: 'rgba(59, 130, 246, 0.1)',
-      tension: 0.4
-    }]
-  }),
-
-  // Transform category data for bar charts
-  transformCategories: (data: Record<string, number>, label: string) => {
-    const entries = Object.entries(data);
-    return {
-      labels: entries.map(([key]) => key),
-      datasets: [{
-        label,
-        data: entries.map(([, value]) => value),
-        backgroundColor: generateChartColors(entries.length, 0.8),
-        borderColor: generateChartColors(entries.length, 1),
-        borderWidth: 1
-      }]
-    };
-  },
-
-  // Transform data for pie/doughnut charts
-  transformPieData: (data: Record<string, number>) => {
-    const entries = Object.entries(data);
-    return {
-      labels: entries.map(([key]) => key),
-      datasets: [{
-        data: entries.map(([, value]) => value),
-        backgroundColor: generateChartColors(entries.length, 0.8),
-        borderColor: generateChartColors(entries.length, 1),
-        borderWidth: 1
-      }]
-    };
-  }
-};
+OptimizedChart.displayName = 'OptimizedChart';
 
 export default OptimizedChart;

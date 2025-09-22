@@ -72,11 +72,6 @@ export function Treemap(props: any) {
   );
 }
 
-// Lazy load chart child components
-const LazyChartComponents = lazy(() => 
-  import(/* webpackChunkName: "chart-components" */ './ChartComponents')
-);
-
 // Create a hook to use chart components
 function useChartComponents() {
   const [components, setComponents] = useState<any>(null);
