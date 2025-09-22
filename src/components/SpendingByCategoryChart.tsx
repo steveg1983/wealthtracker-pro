@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { DynamicPieChart } from './charts/ChartMigration';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { transactionAnalyticsService } from '../services/transactionAnalyticsService';
@@ -50,31 +50,14 @@ const SpendingByCategoryChart = React.memo(function SpendingByCategoryChart() {
         </p>
       ) : (
         <div className="h-64" role="img" aria-label={chartDescription}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart role="presentation">
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {data.map((_, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip 
-                formatter={(value: number) => formatCurrency(value)}
-                contentStyle={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  border: '1px solid #ccc',
-                  borderRadius: '8px'
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <DynamicPieChart
+          data={data}
+          dataKey="value"
+          nameKey="name"
+          innerRadius={60}
+          outerRadius={80}
+          height={200}
+        />
         </div>
       )}
       

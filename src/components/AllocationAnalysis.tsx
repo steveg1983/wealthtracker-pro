@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { portfolioRebalanceService } from '../services/portfolioRebalanceService';
 import type { AssetAllocation } from '../services/portfolioRebalanceService';
 import type { Investment } from '../types';
@@ -13,20 +12,7 @@ import {
   TargetIcon,
   DownloadIcon
 } from './icons';
-import {
-  PieChart,
-  Pie,
-  Cell,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  Treemap
-} from 'recharts';
+import { DynamicPieChart, DynamicBarChart, DynamicTreemap } from './charts/ChartMigration';
 
 interface AllocationAnalysisProps {
   accountId?: string;
@@ -39,8 +25,7 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
   const [showTargets, setShowTargets] = useState(true);
   
   const { accounts } = useApp();
-  const { formatCurrency } = useCurrencyDecimal();
-  const { currencySymbol } = useCurrencyDecimal();
+  const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
 
   // Extract investments from accounts with holdings
   const investments = useMemo(() => {

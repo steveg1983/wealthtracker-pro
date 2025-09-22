@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import compression from 'vite-plugin-compression2'
 import { visualizer } from 'rollup-plugin-visualizer'
-import path from 'path'
+import * as path from 'path'
 
 // Feature flags (read at config time in Node)
 const ANALYZE = !!process.env.ANALYZE_BUNDLE
@@ -16,8 +16,8 @@ export default defineConfig({
       // Compress only during build, and only if enabled
       if (ENABLE_COMPRESS) {
         plugins.push(
-          compression({ algorithm: 'gzip', threshold: 1024, deleteOriginalAssets: false, apply: 'build' }) as any,
-          compression({ algorithm: 'brotliCompress', threshold: 1024, deleteOriginalAssets: false, apply: 'build' }) as any,
+          compression({ algorithms: ['gzip'], threshold: 1024, deleteOriginalAssets: false }) as any,
+          compression({ algorithms: ['brotliCompress'], threshold: 1024, deleteOriginalAssets: false }) as any,
         )
       }
       // Bundle analyzer gated by env flag
@@ -65,6 +65,11 @@ export default defineConfig({
       strictRequires: 'auto'
     },
     rollupOptions: {
+      // Re-enable tree-shaking with safe settings
+      treeshake: {
+        moduleSideEffects: true,
+        propertyReadSideEffects: false
+      },
       output: {
         // Use default Vite chunking to avoid circular dependencies
         manualChunks: undefined,
@@ -79,11 +84,6 @@ export default defineConfig({
         format: 'es',
         interop: 'esModule'
       }
-    },
-    // Re-enable tree-shaking with safe settings
-    treeshake: {
-      moduleSideEffects: true,
-      propertyReadSideEffects: false
     },
     // Enable minification but preserve React
     minify: 'terser',
