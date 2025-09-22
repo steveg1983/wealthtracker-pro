@@ -1,3 +1,4 @@
+/// <reference types="cypress" />
 import React from 'react';
 import PerformanceWidget from './PerformanceWidget';
 import { MemoryRouter } from 'react-router-dom';

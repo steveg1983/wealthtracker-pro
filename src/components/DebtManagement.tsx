@@ -21,7 +21,7 @@ import {
   DollarSignIcon,
   BellIcon
 } from './icons';
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar } from 'recharts';
+import { DynamicLineChart, DynamicBarChart } from './charts/ChartMigration';
 import { debtCalculationService } from '../services/debtCalculationService';
 
 export interface Debt {

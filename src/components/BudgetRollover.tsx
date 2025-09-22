@@ -100,7 +100,7 @@ export default function BudgetRollover() {
       const spent = decimalTransactions
         .filter(t => 
           t.type === 'expense' && 
-          t.categoryId === budget.categoryId &&
+          t.category === budget.categoryId &&
           t.date >= startDate &&
           t.date <= endDate
         )

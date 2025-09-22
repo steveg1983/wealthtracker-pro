@@ -1,92 +1,223 @@
-import React, { useState } from 'react';
-import { InfoIcon, XIcon } from './icons';
+/**
+ * HelpTooltip Component - Contextual help tooltips
+ *
+ * Features:
+ * - Hover and click-to-show tooltips
+ * - Rich content support (text, links, images)
+ * - Positioning options
+ * - Accessibility compliant
+ * - Mobile-friendly
+ */
+
+import React, { useState, useRef, useEffect } from 'react';
 
 interface HelpTooltipProps {
-  title: string;
   content: string | React.ReactNode;
-  position?: 'top' | 'bottom' | 'left' | 'right';
+  title?: string;
+  position?: 'top' | 'bottom' | 'left' | 'right' | 'auto';
+  trigger?: 'hover' | 'click';
+  maxWidth?: string;
   className?: string;
-  iconSize?: number;
-  showOnHover?: boolean;
+  children?: React.ReactNode;
+  disabled?: boolean;
 }
 
-export default function HelpTooltip({ 
-  title, 
-  content, 
-  position = 'top',
+export default function HelpTooltip({
+  content,
+  title,
+  position = 'auto',
+  trigger = 'hover',
+  maxWidth = '300px',
   className = '',
-  iconSize = 16,
-  showOnHover = true
+  children,
+  disabled = false
 }: HelpTooltipProps): React.JSX.Element {
   const [isVisible, setIsVisible] = useState(false);
-  
-  const getPositionClasses = () => {
-    switch (position) {
+  const [actualPosition, setActualPosition] = useState<'top' | 'bottom' | 'left' | 'right'>('top');
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
+
+  // Calculate optimal position
+  useEffect(() => {
+    if (!isVisible || !triggerRef.current || !tooltipRef.current) return;
+
+    const triggerRect = triggerRef.current.getBoundingClientRect();
+    const tooltipRect = tooltipRef.current.getBoundingClientRect();
+    const viewport = {
+      width: window.innerWidth,
+      height: window.innerHeight
+    };
+
+    let optimalPosition: 'top' | 'bottom' | 'left' | 'right' = position as any;
+
+    if (position === 'auto') {
+      // Determine best position based on available space
+      const spaceTop = triggerRect.top;
+      const spaceBottom = viewport.height - triggerRect.bottom;
+      const spaceLeft = triggerRect.left;
+      const spaceRight = viewport.width - triggerRect.right;
+
+      const tooltipHeight = tooltipRect.height || 100; // Fallback estimate
+      const tooltipWidth = tooltipRect.width || 200; // Fallback estimate
+
+      // Prefer top/bottom first, then left/right
+      if (spaceBottom >= tooltipHeight) {
+        optimalPosition = 'bottom';
+      } else if (spaceTop >= tooltipHeight) {
+        optimalPosition = 'top';
+      } else if (spaceRight >= tooltipWidth) {
+        optimalPosition = 'right';
+      } else if (spaceLeft >= tooltipWidth) {
+        optimalPosition = 'left';
+      } else {
+        // Fallback to position with most space
+        const maxSpace = Math.max(spaceTop, spaceBottom, spaceLeft, spaceRight);
+        if (maxSpace === spaceBottom) optimalPosition = 'bottom';
+        else if (maxSpace === spaceTop) optimalPosition = 'top';
+        else if (maxSpace === spaceRight) optimalPosition = 'right';
+        else optimalPosition = 'left';
+      }
+    }
+
+    setActualPosition(optimalPosition);
+  }, [isVisible, position]);
+
+  // Handle click outside to close tooltip
+  useEffect(() => {
+    if (trigger !== 'click' || !isVisible) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        triggerRef.current &&
+        tooltipRef.current &&
+        !triggerRef.current.contains(event.target as Node) &&
+        !tooltipRef.current.contains(event.target as Node)
+      ) {
+        setIsVisible(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [trigger, isVisible]);
+
+  // Handle escape key to close tooltip
+  useEffect(() => {
+    if (!isVisible) return;
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsVisible(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isVisible]);
+
+  const handleTriggerEvent = (event: React.MouseEvent) => {
+    if (disabled) return;
+
+    if (trigger === 'click') {
+      event.preventDefault();
+      setIsVisible(!isVisible);
+    }
+  };
+
+  const handleMouseEnter = () => {
+    if (disabled || trigger !== 'hover') return;
+    setIsVisible(true);
+  };
+
+  const handleMouseLeave = () => {
+    if (disabled || trigger !== 'hover') return;
+    setIsVisible(false);
+  };
+
+  const getTooltipPosition = () => {
+    const baseClasses = 'absolute z-50 px-3 py-2 text-sm bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 rounded-lg shadow-lg';
+
+    switch (actualPosition) {
       case 'top':
-        return 'bottom-full left-1/2 transform -translate-x-1/2 mb-2';
+        return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 mb-2`;
       case 'bottom':
-        return 'top-full left-1/2 transform -translate-x-1/2 mt-2';
+        return `${baseClasses} top-full left-1/2 transform -translate-x-1/2 mt-2`;
       case 'left':
-        return 'right-full top-1/2 transform -translate-y-1/2 mr-2';
+        return `${baseClasses} right-full top-1/2 transform -translate-y-1/2 mr-2`;
       case 'right':
-        return 'left-full top-1/2 transform -translate-y-1/2 ml-2';
+        return `${baseClasses} left-full top-1/2 transform -translate-y-1/2 ml-2`;
       default:
-        return 'bottom-full left-1/2 transform -translate-x-1/2 mb-2';
+        return `${baseClasses} bottom-full left-1/2 transform -translate-x-1/2 mb-2`;
     }
   };
 
   const getArrowClasses = () => {
-    switch (position) {
+    const arrowBase = 'absolute w-2 h-2 bg-gray-900 dark:bg-gray-100 transform rotate-45';
+
+    switch (actualPosition) {
       case 'top':
-        return 'top-full left-1/2 transform -translate-x-1/2 -mt-1';
+        return `${arrowBase} top-full left-1/2 -translate-x-1/2 -mt-1`;
       case 'bottom':
-        return 'bottom-full left-1/2 transform -translate-x-1/2 -mb-1 rotate-180';
+        return `${arrowBase} bottom-full left-1/2 -translate-x-1/2 -mb-1`;
       case 'left':
-        return 'left-full top-1/2 transform -translate-y-1/2 -ml-1 -rotate-90';
+        return `${arrowBase} left-full top-1/2 -translate-y-1/2 -ml-1`;
       case 'right':
-        return 'right-full top-1/2 transform -translate-y-1/2 -mr-1 rotate-90';
+        return `${arrowBase} right-full top-1/2 -translate-y-1/2 -mr-1`;
       default:
-        return 'top-full left-1/2 transform -translate-x-1/2 -mt-1';
+        return `${arrowBase} top-full left-1/2 -translate-x-1/2 -mt-1`;
     }
   };
 
+  if (disabled) {
+    return <>{children || <DefaultTrigger />}</>;
+  }
+
   return (
-    <div className={`relative inline-flex items-center ${className}`}>
-      <button
-        type="button"
-        className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors p-1"
-        onMouseEnter={() => showOnHover && setIsVisible(true)}
-        onMouseLeave={() => showOnHover && setIsVisible(false)}
-        onClick={() => !showOnHover && setIsVisible(!isVisible)}
-        aria-label={`Help: ${title}`}
+    <div className={`relative inline-block ${className}`} ref={triggerRef}>
+      {/* Trigger */}
+      <div
+        onClick={handleTriggerEvent}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className={`${trigger === 'click' ? 'cursor-pointer' : ''}`}
+        role={trigger === 'click' ? 'button' : undefined}
+        tabIndex={trigger === 'click' ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (trigger === 'click' && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            setIsVisible(!isVisible);
+          }
+        }}
+        aria-describedby={isVisible ? 'tooltip' : undefined}
       >
-        <InfoIcon size={iconSize} />
-      </button>
-      
+        {children || <DefaultTrigger />}
+      </div>
+
+      {/* Tooltip */}
       {isVisible && (
-        <div 
-          className={`absolute z-50 ${getPositionClasses()} pointer-events-none`}
-          style={{ minWidth: '250px', maxWidth: '350px' }}
+        <div
+          ref={tooltipRef}
+          id="tooltip"
+          role="tooltip"
+          className={getTooltipPosition()}
+          style={{ maxWidth }}
         >
-          <div className="bg-amber-50 dark:bg-amber-900/20 text-gray-900 dark:text-gray-100 rounded-lg shadow-xl p-3 pointer-events-auto border-l-4 border-amber-400 dark:border-amber-600">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <h4 className="font-semibold text-sm">{title}</h4>
-              {!showOnHover && (
-                <button
-                  onClick={() => setIsVisible(false)}
-                  className="text-gray-400 hover:text-white transition-colors"
-                  aria-label="Close help tooltip"
-                >
-                  <XIcon size={14} />
-                </button>
+          {/* Arrow */}
+          <div className={getArrowClasses()}></div>
+
+          {/* Content */}
+          <div>
+            {title && (
+              <div className="font-semibold mb-1 text-white dark:text-gray-900">
+                {title}
+              </div>
+            )}
+            <div className="text-white dark:text-gray-900">
+              {typeof content === 'string' ? (
+                <div dangerouslySetInnerHTML={{ __html: content }} />
+              ) : (
+                content
               )}
-            </div>
-            <div className="text-xs text-gray-700 dark:text-gray-200 leading-relaxed">
-              {content}
-            </div>
-            {/* Arrow */}
-            <div className={`absolute ${getArrowClasses()}`}>
-              <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-amber-50 dark:border-t-amber-900/20" />
             </div>
           </div>
         </div>
@@ -95,112 +226,88 @@ export default function HelpTooltip({
   );
 }
 
-// Collection of help content for common features
-export const HelpContent = {
-  reconciliation: {
-    title: "Account Reconciliation",
-    content: "Match your account balance with bank statements. Mark transactions as cleared when they appear on your statement. This helps identify missing or duplicate transactions."
-  },
-  
-  budgetCategories: {
-    title: "Budget Categories",
-    content: "Organize expenses into categories and subcategories. Set monthly limits for each category to track spending. Categories can be nested up to 3 levels deep."
-  },
-  
-  recurringTransactions: {
-    title: "Recurring Transactions",
-    content: "Set up automatic transaction entries for regular bills and income. Choose frequency (daily, weekly, monthly, etc.) and the system will create transactions automatically."
-  },
-  
-  goals: {
-    title: "Financial Goals",
-    content: "Set savings targets with deadlines. Track progress automatically as you save. Goals can be linked to specific accounts for automatic progress tracking."
-  },
-  
-  tags: {
-    title: "Transaction Tags",
-    content: "Add multiple tags to transactions for flexible organization. Use tags for projects, tax categories, or any custom grouping you need."
-  },
-  
-  investmentTracking: {
-    title: "Investment Tracking",
-    content: "Track portfolio performance, holdings, and returns. Add individual stocks or funds to investment accounts. View allocation charts and performance over time."
-  },
-  
-  currencyConversion: {
-    title: "Multi-Currency Support",
-    content: "Each account can have its own currency. Transactions are automatically converted to your base currency for net worth calculations using current exchange rates."
-  },
-  
-  importExport: {
-    title: "Data Import/Export",
-    content: "Import transactions from CSV, QIF, or OFX files. Export your data anytime for backup or analysis in other tools. Supports custom field mapping."
-  },
-  
-  offlineMode: {
-    title: "Offline Mode",
-    content: "Continue working without internet. Changes sync automatically when you reconnect. Conflicts are resolved with a merge strategy that preserves all data."
-  },
-  
-  bulkEdit: {
-    title: "Bulk Operations",
-    content: "Select multiple transactions to edit or delete at once. Use filters to find transactions, then apply changes to all selected items simultaneously."
-  },
-  
-  advancedFilters: {
-    title: "Advanced Filtering",
-    content: "Combine multiple filters: date range, amount range, categories, accounts, and search text. Save filter combinations for quick access later."
-  },
-  
-  netWorthTracking: {
-    title: "Net Worth Calculation",
-    content: (
-      <div>
-        <p className="mb-2">Your total assets minus total liabilities:</p>
-        <ul className="list-disc list-inside space-y-1">
-          <li>Assets: Cash, investments, property</li>
-          <li>Liabilities: Loans, credit cards, mortgages</li>
-        </ul>
-        <p className="mt-2">Updated in real-time as you add transactions.</p>
-      </div>
-    )
-  },
-  
-  attachments: {
-    title: "Document Attachments",
-    content: "Attach receipts, invoices, or documents to transactions. Supports images and PDFs. Files are securely stored and can be viewed anytime."
-  },
-  
-  aiCategorization: {
-    title: "Smart Categorization",
-    content: "AI learns from your categorization patterns. New transactions are automatically categorized based on description, amount, and past behavior."
-  },
-  
-  reports: {
-    title: "Financial Reports",
-    content: "Generate detailed reports: income/expense, cash flow, category breakdown, and trends. Export reports as PDF or CSV for sharing or archiving."
-  }
-};
+// Default help icon trigger
+function DefaultTrigger(): React.JSX.Element {
+  return (
+    <div className="inline-flex items-center justify-center w-4 h-4 bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 rounded-full text-xs font-medium hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors duration-200">
+      <span>?</span>
+    </div>
+  );
+}
 
-// Wrapper component for inline help icons next to labels
-interface InlineHelpProps {
-  helpKey: keyof typeof HelpContent;
-  label: string;
+// Convenience wrapper for common help scenarios
+interface QuickHelpProps {
+  text: string;
+  title?: string;
   className?: string;
 }
 
-export function InlineHelp({ helpKey, label, className = '' }: InlineHelpProps): React.JSX.Element {
-  const help = HelpContent[helpKey];
-  
+export function QuickHelp({ text, title, className }: QuickHelpProps): React.JSX.Element {
   return (
-    <div className={`flex items-center gap-1 ${className}`}>
-      <span>{label}</span>
+    <HelpTooltip
+      content={text}
+      title={title}
+      trigger="hover"
+      position="auto"
+      className={className}
+    />
+  );
+}
+
+// Wrapper for inline help within forms
+interface InlineHelpProps {
+  children: React.ReactNode;
+  helpText: string;
+  helpTitle?: string;
+}
+
+export function InlineHelp({ children, helpText, helpTitle }: InlineHelpProps): React.JSX.Element {
+  return (
+    <div className="flex items-center space-x-2">
+      {children}
       <HelpTooltip
-        title={help.title}
-        content={help.content}
-        iconSize={14}
-        position="top"
+        content={helpText}
+        title={helpTitle}
+        trigger="hover"
+        position="auto"
       />
     </div>
+  );
+}
+
+// Wrapper for help buttons
+interface HelpButtonProps {
+  content: string | React.ReactNode;
+  title?: string;
+  buttonText?: string;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+export function HelpButton({
+  content,
+  title,
+  buttonText = 'Help',
+  size = 'md'
+}: HelpButtonProps): React.JSX.Element {
+  const sizeClasses = {
+    sm: 'px-2 py-1 text-xs',
+    md: 'px-3 py-1.5 text-sm',
+    lg: 'px-4 py-2 text-base'
+  };
+
+  return (
+    <HelpTooltip
+      content={content}
+      title={title}
+      trigger="click"
+      position="auto"
+    >
+      <button
+        type="button"
+        className={`${sizeClasses[size]} bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-md transition-colors duration-200 font-medium`}
+      >
+        {buttonText}
+      </button>
+    </HelpTooltip>
   );
 }

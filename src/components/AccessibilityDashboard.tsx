@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { useAccessibilityAudit } from '../hooks/useAccessibilityAudit';
-import { ColorContrastChecker, commonCombinations } from '../utils/color-contrast-checker';
+import { ColorContrastChecker, commonCombinations, type ContrastResult } from '../utils/color-contrast-checker';
 import { accessibleColorClasses } from '../design-system/accessible-colors';
 import { 
   CheckCircleIcon, 
@@ -28,7 +28,7 @@ export const AccessibilityDashboard: React.FC = () => {
   } = useAccessibilityAudit({ autoAudit: true });
 
   const [activeTab, setActiveTab] = React.useState<'overview' | 'issues' | 'colors' | 'guidelines'>('overview');
-  const [colorContrastResults, setColorContrastResults] = React.useState<Array<{ fg: string; bg: string; result: unknown }>>([]);
+  const [colorContrastResults, setColorContrastResults] = React.useState<Array<{ name: string; fg: string; bg: string; result: ContrastResult }>>([]);
 
   React.useEffect(() => {
     // Run color contrast audit
@@ -375,3 +375,5 @@ export const AccessibilityDashboard: React.FC = () => {
     </div>
   );
 };
+
+export default AccessibilityDashboard;

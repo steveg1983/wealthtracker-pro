@@ -10,7 +10,7 @@ import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
 import { LoadingButton } from './loading/LoadingState';
 import { useToast } from '../contexts/ToastContext';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface AddTransactionModalProps {
   isOpen: boolean;
@@ -29,7 +29,8 @@ interface FormData {
   notes: string;
 }
 
-const AddTransactionModal = memo(function AddTransactionModal({ isOpen, onClose }: AddTransactionModalProps): React.JSX.Element {
+const AddTransactionModal = memo(function AddTransactionModal({ isOpen, onClose  }: AddTransactionModalProps): React.JSX.Element {
+  const logger = useLogger();
   const { accounts, addTransaction, categories, getSubCategories, getDetailCategories } = useApp();
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});

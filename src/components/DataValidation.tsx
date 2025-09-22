@@ -18,7 +18,7 @@ import FixSummaryModal from './FixSummaryModal';
 import type { ChangeRecord } from './FixSummaryModal';
 import BalanceReconciliationModal from './BalanceReconciliationModal';
 import type { ReconciliationOption } from './BalanceReconciliationModal';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface DataValidationProps {
   isOpen: boolean;
@@ -35,7 +35,8 @@ interface ValidationIssue {
   fixDescription?: string;
 }
 
-export default function DataValidation({ isOpen, onClose }: DataValidationProps) {
+export default function DataValidation({ isOpen, onClose  }: DataValidationProps) {
+  const logger = useLogger();
   const { transactions, accounts, categories, updateTransaction, deleteTransaction, updateAccount, addTransaction, addCategory } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   

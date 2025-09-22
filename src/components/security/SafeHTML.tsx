@@ -22,7 +22,7 @@ export const SafeHTML: React.FC<SafeHTMLProps> = ({
   allowedAttributes,
 }) => {
   const sanitizedHTML = React.useMemo(() => {
-    const config: DOMPurify.Config = {};
+    const config: any = {};
     
     if (allowedTags) {
       config.ALLOWED_TAGS = allowedTags;
@@ -32,7 +32,8 @@ export const SafeHTML: React.FC<SafeHTMLProps> = ({
       config.ALLOWED_ATTR = allowedAttributes;
     }
     
-    return DOMPurify.sanitize(children, config);
+    const result = DOMPurify.sanitize(children, config);
+    return typeof result === 'string' ? result : String(result);
   }, [children, allowedTags, allowedAttributes]);
 
   return (

@@ -5,7 +5,7 @@ import { ArrowRightIcon } from './icons/ArrowRightIcon';
 import { AlertCircleIcon } from './icons/AlertCircleIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import type { Transaction, Account } from '../types';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface EnhancedTransferModalProps {
   isOpen: boolean;
@@ -44,12 +44,11 @@ interface TransferFormData {
   taxImplications: string;
 }
 
-export default function EnhancedTransferModal({
-  isOpen,
+export default function EnhancedTransferModal({ isOpen,
   onClose,
   transaction,
   sourceAccountId
-}: EnhancedTransferModalProps): React.JSX.Element | null {
+ }: EnhancedTransferModalProps): React.JSX.Element | null {
   const { accounts, addTransaction, updateTransaction, categories } = useApp();
   
   const [formData, setFormData] = useState<TransferFormData>({
@@ -161,8 +160,8 @@ export default function EnhancedTransferModal({
           exchangeRate: parseFloat(formData.exchangeRate) || undefined,
           originalCurrency: formData.originalCurrency || undefined,
           assetType: formData.assetType,
-          units: parseFloat(formData.units) || undefined,
-          pricePerUnit: parseFloat(formData.pricePerUnit) || undefined,
+          units: formData.units ? parseFloat(formData.units) : undefined,
+          pricePerUnit: formData.pricePerUnit ? parseFloat(formData.pricePerUnit) : undefined,
           settlementDate: formData.settlementDate ? new Date(formData.settlementDate) : undefined,
           reference: formData.reference || undefined,
           taxImplications: formData.taxImplications || undefined,

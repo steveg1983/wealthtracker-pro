@@ -83,10 +83,12 @@ export default function SharedBudgetsGoals() {
       const sharedBudget = sharedFinanceService.createSharedBudget(
         {
           name: budgetForm.name,
-          category: budgetForm.category,
+          categoryId: budgetForm.category,
           amount: Number(budgetForm.amount),
           period: budgetForm.period,
-          isActive: true
+          isActive: true,
+          spent: 0,
+          updatedAt: new Date()
         },
         household.id,
         currentMember.id,
@@ -100,9 +102,12 @@ export default function SharedBudgetsGoals() {
       // Also create in main app context
       addBudget({
         name: budgetForm.name,
-        category: budgetForm.category,
+        categoryId: budgetForm.category,
         amount: Number(budgetForm.amount),
-        period: budgetForm.period
+        period: budgetForm.period,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
 
       setShowCreateBudget(false);
@@ -133,7 +138,11 @@ export default function SharedBudgetsGoals() {
           targetDate: new Date(goalForm.targetDate),
           category: goalForm.category,
           description: goalForm.description,
-          isCompleted: false
+          completedAt: undefined,
+          type: 'savings' as const,
+          isActive: true,
+          updatedAt: new Date(),
+          progress: 0
         },
         household.id,
         currentMember.id,
@@ -144,10 +153,13 @@ export default function SharedBudgetsGoals() {
       // Also create in main app context
       addGoal({
         name: goalForm.name,
+        type: 'savings',
         targetAmount: Number(goalForm.targetAmount),
+        currentAmount: 0,
         targetDate: new Date(goalForm.targetDate),
         category: goalForm.category,
-        description: goalForm.description
+        description: goalForm.description,
+        isActive: true
       });
 
       setShowCreateGoal(false);
@@ -258,7 +270,7 @@ export default function SharedBudgetsGoals() {
                     {approval.reason} • {format(approval.requestedAt, 'MMM d, h:mm a')}
                   </p>
                 </div>
-                {currentMember.role === 'owner' || currentMember.role === 'admin' ? (
+                {currentMember?.role === 'owner' || currentMember?.role === 'admin' ? (
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleReviewApproval(approval.id, true)}
@@ -335,7 +347,7 @@ export default function SharedBudgetsGoals() {
                   <div>
                     <h3 className="text-lg font-semibold">{budget.name}</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {categories.find(c => c.id === budget.category)?.name} • {budget.period}
+                      {categories.find(c => c.id === budget.categoryId)?.name} • {budget.period}
                     </p>
                   </div>
                   <div className="text-right">
@@ -444,7 +456,7 @@ export default function SharedBudgetsGoals() {
                   <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                     <div 
                       className={`h-full transition-all duration-300 ${
-                        goal.isCompleted ? 'bg-green-500' : 'bg-purple-500'
+                        goal.completedAt ? 'bg-green-500' : 'bg-purple-500'
                       }`}
                       style={{ width: `${Math.min(percentage, 100)}%` }}
                     />
@@ -481,7 +493,7 @@ export default function SharedBudgetsGoals() {
                 </div>
 
                 {/* Quick Contribute */}
-                {!goal.isCompleted && myContribution && currentMember?.permissions.canEditGoals && (
+                {!goal.completedAt && myContribution && currentMember?.permissions.canEditGoals && (
                   <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex gap-2">
                       {[10, 25, 50, 100].map(amount => (
@@ -497,7 +509,7 @@ export default function SharedBudgetsGoals() {
                   </div>
                 )}
 
-                {goal.isCompleted && (
+                {goal.completedAt && (
                   <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <p className="text-sm text-green-800 dark:text-green-200 font-medium">
                       <CheckIcon size={16} className="inline mr-1" />

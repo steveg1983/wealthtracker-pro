@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { documentService } from '../services/documentService';
 import type { ExtractedData } from '../services/documentService';
 import { UploadIcon } from './icons';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 export default function OCRTest() {
+  const logger = useLogger();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);

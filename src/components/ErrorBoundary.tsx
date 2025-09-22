@@ -3,7 +3,7 @@ import type { ReactNode, ErrorInfo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertTriangleIcon, RefreshCwIcon, HomeIcon } from './icons';
 import { captureException } from '../lib/sentry';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface Props {
   children: ReactNode;
@@ -29,7 +29,7 @@ class ErrorBoundaryClass extends Component<Props & { resetKey?: string }, State>
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    logger.error('Error caught by boundary:', error, errorInfo);
+    logger.error('Error caught by boundary:', error, errorInfo.componentStack ?? '');
     this.setState({ errorInfo });
     
     // Report to Sentry
@@ -178,6 +178,7 @@ export default ErrorBoundaryClass;
 
 // Also export a Router-aware version for use inside Router context
 export function RouterAwareErrorBoundary(props: Props) {
+  const logger = useLogger();
   const location = useLocation();
   const errorBoundaryRef = useRef<ErrorBoundaryClass>(null);
   

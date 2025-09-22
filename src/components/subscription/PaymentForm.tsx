@@ -17,7 +17,7 @@ import {
 } from '@stripe/react-stripe-js';
 import { useUser } from '@clerk/clerk-react';
 import type { SubscriptionPlan } from '../../types/subscription';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../../services/ServiceProvider';
 import { 
   CreditCardIcon, 
   ShieldIcon, 
@@ -34,13 +34,13 @@ interface PaymentFormProps {
   className?: string;
 }
 
-export default function PaymentForm({
-  plan,
+export default function PaymentForm({ plan,
   onSuccess,
   onError,
   onCancel,
   className = ''
-}: PaymentFormProps): React.JSX.Element {
+ }: PaymentFormProps): React.JSX.Element {
+  const logger = useLogger();
   const stripe = useStripe();
   const elements = useElements();
   const { user } = useUser();

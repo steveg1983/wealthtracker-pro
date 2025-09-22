@@ -39,6 +39,7 @@ export interface SyncConflict<T extends EntityType = EntityType> {
   remoteOperation: SyncOperation<T>;
   resolution?: 'local' | 'remote' | 'merge';
   mergedData?: SyncData<T>;
+  detectedAt?: Date | string;
 }
 
 // Sync status

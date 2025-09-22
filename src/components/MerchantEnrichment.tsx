@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import type { MerchantData, MerchantEnrichment } from '../services/dataIntelligenceService';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 import { 
   SearchIcon,
   TagIcon,
@@ -21,7 +21,8 @@ interface MerchantEnrichmentProps {
   onDataChange?: () => void;
 }
 
-export default function MerchantEnrichment({ onDataChange }: MerchantEnrichmentProps) {
+export default function MerchantEnrichment({ onDataChange  }: MerchantEnrichmentProps) {
+  const logger = useLogger();
   const [merchants, setMerchants] = useState<MerchantData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');

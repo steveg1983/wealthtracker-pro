@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { DynamicBarChart } from './charts/ChartMigration';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
@@ -46,17 +46,12 @@ const IncomeVsExpensesChart = React.memo(function IncomeVsExpensesChart() {
   return (
     <div className="bg-white p-6 rounded-lg shadow">
       <h3 className="text-lg font-semibold mb-4">Income vs Expenses (Last 6 Months)</h3>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={monthlyData}>
-          <CartesianGrid strokeDasharray="3 3" />
-          <XAxis dataKey="month" />
-          <YAxis tickFormatter={formatCurrencyShort} />
-          <Tooltip formatter={(value: number) => formatCurrency(value)} />
-          <Legend />
-          <Bar dataKey="income" fill="#34c759" name="Income" />
-          <Bar dataKey="expenses" fill="#ff3b30" name="Expenses" />
-        </BarChart>
-      </ResponsiveContainer>
+      <DynamicBarChart
+          data={monthlyData}
+          xDataKey="month"
+          yDataKeys={['income', 'expenses']}
+          height={200}
+        />
     </div>
   );
 });

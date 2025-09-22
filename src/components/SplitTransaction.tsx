@@ -33,7 +33,7 @@ export default function SplitTransaction({
   onCancel 
 }: SplitTransactionProps): React.JSX.Element {
   const { categories } = useApp();
-  const totalAmount = Math.abs(parseFloat(transaction.amount));
+  const totalAmount = Math.abs(transaction.amount);
   
   const [splits, setSplits] = useState<SplitItem[]>([
     {

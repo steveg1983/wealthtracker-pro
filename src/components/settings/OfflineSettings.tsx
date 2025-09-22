@@ -5,9 +5,10 @@ import { formatBytes } from '../../utils/formatters';
 import { Button } from '../common/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '../common/Card';
 import { WifiOffIcon, DatabaseIcon, RefreshCwIcon, TrashIcon, DownloadIcon } from '../icons';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 export function OfflineSettings(): React.JSX.Element {
+  const logger = useLogger();
   const { isOffline, isSyncing, pendingChanges, syncNow, clearOfflineData } = useOffline();
   const [cacheSize, setCacheSize] = useState<number | null>(null);
   const [isCalculatingSize, setIsCalculatingSize] = useState(false);

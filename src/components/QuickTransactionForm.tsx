@@ -226,7 +226,7 @@ export function QuickTransactionForm({
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
                     className="w-full px-2 py-2 text-sm bg-blue-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    required={type !== 'transfer'}
+                    required
                   >
                     {filteredCategories.map(cat => (
                       <option key={cat.id} value={cat.id}>

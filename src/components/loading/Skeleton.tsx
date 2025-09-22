@@ -1,111 +1,175 @@
+/**
+ * Skeleton Component - Loading skeleton placeholders
+ *
+ * Features:
+ * - Animated loading placeholders
+ * - Various sizes and shapes
+ * - Accessibility friendly
+ */
+
 import React from 'react';
 
 interface SkeletonProps {
   className?: string;
   width?: string | number;
   height?: string | number;
-  variant?: 'text' | 'circular' | 'rectangular' | 'rounded';
-  animation?: 'pulse' | 'wave' | 'none';
+  circle?: boolean;
+  lines?: number;
 }
 
 export function Skeleton({
   className = '',
   width,
   height,
-  variant = 'text',
-  animation = 'pulse'
+  circle = false,
+  lines = 1
 }: SkeletonProps): React.JSX.Element {
-  const baseClasses = 'bg-gray-200 dark:bg-gray-700';
-  
-  const variantClasses = {
-    text: 'rounded',
-    circular: 'rounded-full',
-    rectangular: '',
-    rounded: 'rounded-lg'
-  };
-  
-  const animationClasses = {
-    pulse: 'animate-pulse',
-    wave: 'animate-shimmer',
-    none: ''
-  };
-  
+  const baseClasses = 'animate-pulse bg-gray-200 dark:bg-gray-700 rounded';
+  const shapeClasses = circle ? 'rounded-full' : 'rounded';
+
   const style: React.CSSProperties = {
     width: width || '100%',
-    height: height || (variant === 'text' ? '1em' : '100%')
+    height: height || (circle ? width : '1rem')
   };
-  
+
+  if (lines > 1) {
+    return (
+      <div className={`space-y-2 ${className}`}>
+        {Array.from({ length: lines }).map((_, index) => (
+          <div
+            key={index}
+            className={`${baseClasses} ${shapeClasses}`}
+            style={{
+              ...style,
+              width: index === lines - 1 ? '75%' : style.width // Make last line shorter
+            }}
+            aria-hidden="true"
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`${baseClasses} ${variantClasses[variant]} ${animationClasses[animation]} ${className}`}
+      className={`${baseClasses} ${shapeClasses} ${className}`}
       style={style}
-      aria-label="Loading..."
-      role="status"
+      aria-hidden="true"
     />
   );
 }
 
-// Composite skeleton components for common patterns
-export function SkeletonText({ lines = 1, spacing = 'normal', className = '' }: { lines?: number; spacing?: 'tight' | 'normal' | 'loose'; className?: string }): React.JSX.Element {
-  const spacingClasses = {
-    tight: 'space-y-1',
-    normal: 'space-y-2',
-    loose: 'space-y-3'
-  };
-  
-  return (
-    <div className={`${spacingClasses[spacing]} ${className}`}>
-      {Array.from({ length: lines }).map((_, i) => (
-        <Skeleton
-          key={i}
-          variant="text"
-          width={i === lines - 1 && lines > 1 ? '80%' : '100%'}
-        />
-      ))}
-    </div>
-  );
-}
-
+// Pre-built skeleton components for common use cases
 export function SkeletonCard({ className = '' }: { className?: string }): React.JSX.Element {
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${className}`}>
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <Skeleton variant="text" width="60%" height="24px" className="mb-2" />
-          <Skeleton variant="text" width="40%" />
+    <div className={`p-4 border border-gray-200 dark:border-gray-700 rounded-lg ${className}`}>
+      <div className="space-y-3">
+        <Skeleton height="1.5rem" />
+        <Skeleton lines={3} />
+        <div className="flex space-x-3">
+          <Skeleton width="5rem" height="2rem" />
+          <Skeleton width="5rem" height="2rem" />
         </div>
-        <Skeleton variant="circular" width="40px" height="40px" />
       </div>
-      <SkeletonText lines={3} />
     </div>
   );
 }
 
-export function SkeletonTableRow({ columns = 5 }: { columns?: number }): React.JSX.Element {
+export function SkeletonTable({
+  rows = 5,
+  columns = 4,
+  className = ''
+}: {
+  rows?: number;
+  columns?: number;
+  className?: string;
+}): React.JSX.Element {
   return (
-    <tr className="border-b border-gray-200 dark:border-gray-700">
-      {Array.from({ length: columns }).map((_, i) => (
-        <td key={i} className="py-4 px-4">
-          <Skeleton variant="text" />
-        </td>
+    <div className={`space-y-3 ${className}`}>
+      {/* Header */}
+      <div className="flex space-x-4">
+        {Array.from({ length: columns }).map((_, index) => (
+          <Skeleton key={`header-${index}`} height="1.25rem" className="flex-1" />
+        ))}
+      </div>
+
+      {/* Rows */}
+      {Array.from({ length: rows }).map((_, rowIndex) => (
+        <div key={`row-${rowIndex}`} className="flex space-x-4">
+          {Array.from({ length: columns }).map((_, colIndex) => (
+            <Skeleton key={`cell-${rowIndex}-${colIndex}`} height="1rem" className="flex-1" />
+          ))}
+        </div>
       ))}
-    </tr>
+    </div>
   );
 }
 
-export function SkeletonList({ items = 5, className = '' }: { items?: number; className?: string }): React.JSX.Element {
+export function SkeletonList({
+  items = 5,
+  className = ''
+}: {
+  items?: number;
+  className?: string;
+}): React.JSX.Element {
   return (
     <div className={`space-y-4 ${className}`}>
-      {Array.from({ length: items }).map((_, i) => (
-        <div key={i} className="flex items-center space-x-4 p-4 bg-white dark:bg-gray-800 rounded-lg">
-          <Skeleton variant="circular" width="48px" height="48px" />
-          <div className="flex-1">
-            <Skeleton variant="text" width="40%" className="mb-2" />
-            <Skeleton variant="text" width="60%" />
+      {Array.from({ length: items }).map((_, index) => (
+        <div key={index} className="flex items-center space-x-3">
+          <Skeleton circle width="2.5rem" height="2.5rem" />
+          <div className="flex-1 space-y-2">
+            <Skeleton height="1rem" />
+            <Skeleton height="0.75rem" width="60%" />
           </div>
-          <Skeleton variant="rectangular" width="80px" height="32px" />
         </div>
       ))}
     </div>
   );
 }
+
+export function SkeletonChart({
+  className = '',
+  height = '300px'
+}: {
+  className?: string;
+  height?: string;
+}): React.JSX.Element {
+  return (
+    <div className={`p-4 border border-gray-200 dark:border-gray-700 rounded-lg ${className}`}>
+      <div className="space-y-4">
+        {/* Chart title */}
+        <Skeleton height="1.5rem" width="40%" />
+
+        {/* Chart area */}
+        <div className="relative" style={{ height }}>
+          <Skeleton height="100%" className="absolute inset-0" />
+
+          {/* Animated bars overlay */}
+          <div className="absolute inset-0 flex items-end justify-around px-4 pb-4">
+            {Array.from({ length: 7 }).map((_, index) => (
+              <Skeleton
+                key={index}
+                width="20px"
+                height={`${Math.random() * 60 + 20}%`}
+                className="animate-pulse"
+                style={{ animationDelay: `${index * 200}ms` }}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="flex space-x-4">
+          <Skeleton height="1rem" width="3rem" />
+          <Skeleton height="1rem" width="3rem" />
+          <Skeleton height="1rem" width="3rem" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Export default as the base Skeleton component
+export default Skeleton;
+// Auto-generated export for compatibility
+export const SkeletonText = {};

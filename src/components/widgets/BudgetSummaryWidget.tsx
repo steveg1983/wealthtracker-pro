@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { DynamicPieChart, DynamicBarChart, DynamicLineChart, DynamicAreaChart, DynamicTreemap } from '../charts/ChartMigration';
 import { PiggyBankIcon, AlertCircleIcon, CheckCircleIcon } from '../icons';
 import { budgetCalculationService } from '../../services/budgetCalculationService';
 
@@ -57,7 +57,7 @@ export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWid
       
       // Aggregate spending across all categories in this budget
       const categorySpending = summary.budgetsByCategory
-        .filter(bs => bs.categoryId === budget.category)
+        .filter(bs => bs.categoryId === budget.categoryId)
         .reduce((sum, bs) => sum + bs.spentAmount, 0);
       
       const spent = toDecimal(categorySpending);
@@ -147,31 +147,14 @@ export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWid
         <div className="flex-1 min-h-0">
           <div className="grid grid-cols-2 gap-4 h-full">
             <div className="flex items-center justify-center">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={40}
-                    outerRadius={80}
-                    paddingAngle={5}
-                    dataKey="value"
-                  >
-                    {pieData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value: number) => formatCurrency(value)}
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                      border: '1px solid #ccc',
-                      borderRadius: '8px'
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+              <DynamicPieChart
+          data={pieData}
+          dataKey="value"
+          nameKey="name"
+          innerRadius={40}
+          outerRadius={80}
+          height={200}
+        />
             </div>
             
             <div className="space-y-2 overflow-y-auto">

@@ -4,12 +4,12 @@ import {
   UploadIcon,
   TargetIcon,
   TrendingUpIcon,
+  TrendingUpIcon as RocketIcon,
   WalletIcon,
   CalendarIcon,
   SparklesIcon,
-  RocketIcon,
-  BookOpenIcon,
-  ChartBarIcon,
+  FileTextIcon as BookOpenIcon,
+  BarChart3Icon,
   BankIcon,
   FileTextIcon,
   ArrowRightIcon
@@ -71,7 +71,7 @@ export function EmptyState({
       illustration: 'wallet'
     },
     budgets: {
-      icon: <ChartBarIcon size={48} className="text-primary" />,
+      icon: <BarChart3Icon size={48} className="text-primary" />,
       title: "No budgets created",
       description: "Take control of your spending by creating monthly budgets for different categories. We'll help you stay on track!",
       actionLabel: "Create Budget",
@@ -122,7 +122,7 @@ export function EmptyState({
       illustration: 'chart'
     },
     reports: {
-      icon: <ChartBarIcon size={48} className="text-primary" />,
+      icon: <BarChart3Icon size={48} className="text-primary" />,
       title: "No data for reports",
       description: "Add some transactions and we'll generate insightful reports about your spending patterns and financial health.",
       actionLabel: "Add Data",

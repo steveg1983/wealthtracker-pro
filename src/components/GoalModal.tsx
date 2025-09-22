@@ -46,7 +46,7 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
           description: data.description || undefined,
           linkedAccountIds: data.linkedAccountIds.length > 0 ? data.linkedAccountIds : undefined,
           isActive: data.isActive,
-          createdAt: goal?.createdAt || new Date(),
+          updatedAt: new Date()
         };
 
         if (goal) {
@@ -61,15 +61,10 @@ export default function GoalModal({ isOpen, onClose, goal }: GoalModalProps): Re
 
   useEffect(() => {
     if (goal) {
-      // Handle targetDate whether it's a Date object or string
+      // Handle targetDate - it's always a Date object
       let targetDateString = "";
       if (goal.targetDate) {
-        if (goal.targetDate instanceof Date) {
-          targetDateString = goal.targetDate.toISOString().split("T")[0];
-        } else if (typeof goal.targetDate === 'string') {
-          // If it's already a string, ensure it's in YYYY-MM-DD format
-          targetDateString = goal.targetDate.split("T")[0];
-        }
+        targetDateString = goal.targetDate.toISOString().split("T")[0];
       }
       
       setFormData({

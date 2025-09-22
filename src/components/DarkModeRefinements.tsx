@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 import {
   SunIcon,
   MoonIcon,
@@ -7,7 +7,8 @@ import {
   ClockIcon,
   PaletteIcon,
   ContrastIcon,
-  SettingsIcon
+  SettingsIcon,
+  XIcon
 } from './icons';
 
 interface DarkModeSettings {
@@ -35,9 +36,9 @@ interface DarkModeRefinementsProps {
  * 4. Per-component theme overrides
  * 5. High contrast mode support
  */
-export function DarkModeRefinements({ 
-  onSettingsChange 
-}: DarkModeRefinementsProps): React.JSX.Element {
+export function DarkModeRefinements({ onSettingsChange 
+ }: DarkModeRefinementsProps): React.JSX.Element {
+  const logger = useLogger();
   const [settings, setSettings] = useState<DarkModeSettings>(() => {
     const saved = localStorage.getItem('wealthtracker_darkModeSettings');
     if (saved) {

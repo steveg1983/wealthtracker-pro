@@ -25,7 +25,7 @@ import {
   MinusIcon
 } from './icons';
 import type { Account, Transaction } from '../types';
-import type { FinancialPlan } from '../services/financialPlanningService';
+import type { FinancialPlan } from '../types/financial-plans';
 
 interface NetWorthPlannerProps {
   onDataChange: () => void;
@@ -52,7 +52,8 @@ interface NetWorthProjection {
 
 export default function NetWorthProjector({ onDataChange }: NetWorthPlannerProps): React.JSX.Element {
   const { accounts, transactions } = useApp();
-  const { user } = useAuth();
+  const { userId } = useAuth();
+  const user = { id: userId || '' };
   const { formatCurrency } = useRegionalCurrency();
   const [projection, setProjection] = useState<NetWorthProjection | null>(null);
   const [projectionYears, setProjectionYears] = useState(10);
@@ -132,9 +133,7 @@ export default function NetWorthProjector({ onDataChange }: NetWorthPlannerProps
     
     setIsLoading(true);
     try {
-      const plans = await financialPlanningService.getFinancialPlans(user.id, {
-        type: 'networth'
-      });
+      const plans = await financialPlanningService.getFinancialPlans(user.id, {});
       
       if (plans && plans.length > 0) {
         const plan = plans[0];
@@ -230,9 +229,13 @@ export default function NetWorthProjector({ onDataChange }: NetWorthPlannerProps
     
     try {
       const planData = {
+        user_id: user.id,
         name: 'Net Worth Projection',
-        type: 'networth' as const,
-        status: 'active' as const,
+        plan_type: 'networth' as const,
+        is_active: true,
+        is_favorite: false,
+        region: 'US',
+        currency: 'USD',
         data: {
           currentNetWorth: currentNetWorth.toNumber(),
           projectionYears,
@@ -313,7 +316,7 @@ export default function NetWorthProjector({ onDataChange }: NetWorthPlannerProps
             <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">Current Net Worth</h3>
             <BarChart3Icon size={20} className="text-gray-400" />
           </div>
-          <p className={`text-2xl font-bold ${currentNetWorth.isPositive() ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+          <p className={`text-2xl font-bold ${currentNetWorth.greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {formatCurrency(currentNetWorth.toNumber())}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">

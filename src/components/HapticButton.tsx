@@ -1,8 +1,8 @@
 import React from 'react';
-import { useHapticFeedback, HapticPattern } from '../hooks/useHapticFeedback';
+import { useHapticFeedback, HapticPattern, HapticPatternType } from '../hooks/useHapticFeedback';
 
 interface HapticButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  hapticPattern?: HapticPattern;
+  hapticPattern?: HapticPatternType;
   hapticDisabled?: boolean;
   variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
@@ -238,7 +238,7 @@ export function HapticCard({
 }: {
   children: React.ReactNode;
   onClick?: () => void;
-  hapticPattern?: HapticPattern;
+  hapticPattern?: HapticPatternType;
   hapticDisabled?: boolean;
   className?: string;
   disabled?: boolean;
@@ -296,7 +296,7 @@ export function HapticSettings() {
     );
   }
 
-  const testHaptic = async (pattern: HapticPattern) => {
+  const testHaptic = async (pattern: HapticPatternType) => {
     await trigger(pattern, { force: true });
   };
 

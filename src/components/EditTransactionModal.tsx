@@ -13,7 +13,7 @@ import MarkdownEditor from './MarkdownEditor';
 import DocumentManager from './DocumentManager';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -35,7 +35,8 @@ interface FormData {
   reconciledWith: string;
 }
 
-export default function EditTransactionModal({ isOpen, onClose, transaction }: EditTransactionModalProps): React.JSX.Element {
+export default function EditTransactionModal({ isOpen, onClose, transaction  }: EditTransactionModalProps): React.JSX.Element {
+  const logger = useLogger();
   const { accounts, categories, updateTransaction, deleteTransaction, getSubCategories, getDetailCategories } = useApp();
   const { addTransaction } = useTransactionNotifications();
   
@@ -472,6 +473,7 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
                 <RadioCheckbox
                   checked={!!formData.reconciledWith && formData.reconciledWith !== 'manual'}
                   disabled
+                  onChange={() => {}}
                 />
                 <LinkIcon size={16} className="text-gray-600 dark:text-gray-500" />
                 <span className="text-sm text-gray-700 dark:text-gray-300">

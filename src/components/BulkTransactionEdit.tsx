@@ -25,7 +25,7 @@ import {
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
 import { toDecimal } from '../utils/decimal';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface BulkTransactionEditProps {
   isOpen: boolean;
@@ -63,11 +63,11 @@ interface FilterOptions {
   };
 }
 
-export default function BulkTransactionEdit({ 
-  isOpen, 
+export default function BulkTransactionEdit({ isOpen, 
   onClose,
   preSelectedIds = []
-}: BulkTransactionEditProps) {
+ }: BulkTransactionEditProps) {
+  const logger = useLogger();
   const { transactions, accounts, categories, updateTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   

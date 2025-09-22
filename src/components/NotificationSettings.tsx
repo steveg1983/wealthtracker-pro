@@ -10,14 +10,15 @@ import {
   AlertCircleIcon
 } from './icons';
 import type { NotificationSettings as NotificationSettingsType } from '../services/mobileService';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface NotificationSettingsProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export default function NotificationSettings({ isOpen, onClose }: NotificationSettingsProps) {
+export default function NotificationSettings({ isOpen, onClose  }: NotificationSettingsProps) {
+  const logger = useLogger();
   const [settings, setSettings] = useState<NotificationSettingsType>(
     mobileService.getNotificationSettings()
   );

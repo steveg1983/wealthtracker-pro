@@ -1,135 +1,196 @@
-import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { supportedCurrencies } from '../utils/currency';
+/**
+ * OnboardingModal Component - Welcome and onboarding flow
+ *
+ * Features:
+ * - Welcome message for new users
+ * - Quick start guide
+ * - Feature highlights
+ * - Setup steps
+ */
+
+import React, { useState } from 'react';
+import Modal from './common/Modal';
 
 interface OnboardingModalProps {
   isOpen: boolean;
-  onComplete: (name: string, currency: string) => void;
+  onClose: () => void;
+  onComplete: () => void;
 }
 
-export default function OnboardingModal({ isOpen, onComplete }: OnboardingModalProps): React.JSX.Element | null {
-  const [firstName, setFirstName] = useState('');
-  const [baseCurrency, setBaseCurrency] = useState('GBP');
-  const modalRef = useRef<HTMLDivElement>(null);
+interface OnboardingStep {
+  title: string;
+  description: string;
+  icon: string;
+  action?: string;
+}
 
-  const handleSubmit = (e: React.FormEvent): void => {
-    e.preventDefault();
-    if (firstName.trim()) {
-      onComplete(firstName.trim(), baseCurrency);
+const onboardingSteps: OnboardingStep[] = [
+  {
+    title: 'Welcome to WealthTracker!',
+    description: 'Take control of your finances with our comprehensive personal finance management platform.',
+    icon: '👋',
+  },
+  {
+    title: 'Add Your Accounts',
+    description: 'Connect your bank accounts or add them manually to get a complete picture of your finances.',
+    icon: '🏦',
+    action: 'Add Account'
+  },
+  {
+    title: 'Track Transactions',
+    description: 'Monitor your income and expenses. Categorize transactions to understand your spending patterns.',
+    icon: '💰',
+    action: 'Add Transaction'
+  },
+  {
+    title: 'Create Budgets',
+    description: 'Set spending limits by category to stay on track with your financial goals.',
+    icon: '📊',
+    action: 'Create Budget'
+  },
+  {
+    title: 'Set Financial Goals',
+    description: 'Define your savings targets and track your progress towards achieving them.',
+    icon: '🎯',
+    action: 'Set Goal'
+  }
+];
+
+export default function OnboardingModal({
+  isOpen,
+  onClose,
+  onComplete
+}: OnboardingModalProps): React.JSX.Element {
+  const [currentStep, setCurrentStep] = useState(0);
+
+  const handleNext = () => {
+    if (currentStep < onboardingSteps.length - 1) {
+      setCurrentStep(currentStep + 1);
+    } else {
+      handleComplete();
     }
   };
 
-  // No scroll prevention - user can scroll freely
-  useEffect(() => {
-    if (!isOpen) return;
-    // Modal will stay fixed in viewport automatically
-    // No need to prevent scrolling
-  }, [isOpen]);
+  const handlePrevious = () => {
+    if (currentStep > 0) {
+      setCurrentStep(currentStep - 1);
+    }
+  };
 
-  if (!isOpen) return null;
+  const handleComplete = () => {
+    onComplete();
+    onClose();
+  };
 
-  // Render modal using React Portal at document.body level
-  // This ensures the modal is outside any transformed parents
-  return createPortal(
-    <>
-      {/* Fixed backdrop that covers the viewport */}
-      <div 
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(0, 0, 0, 0.6)',
-          backdropFilter: 'blur(4px)',
-          zIndex: 99998
-        }}
-        onClick={(e) => e.stopPropagation()}
-      />
-      
-      {/* Modal centered in viewport using fixed positioning */}
-      <div 
-        ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-2xl"
-        style={{
-          position: 'fixed',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          maxWidth: '448px',
-          width: '90%',
-          maxHeight: '80vh',
-          overflowY: 'auto',
-          zIndex: 99999,
-          animation: 'fadeInScale 0.3s ease-out'
-        }}
-      >
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Welcome to WealthTracker!
-          </h2>
+  const handleSkip = () => {
+    onClose();
+  };
+
+  const currentStepData = onboardingSteps[currentStep];
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={handleSkip}
+      size="lg"
+      closeOnBackdrop={false}
+      showCloseButton={false}
+    >
+      <div className="space-y-6">
+        {/* Progress indicator */}
+        <div className="flex items-center justify-between">
+          <div className="flex space-x-2">
+            {onboardingSteps.map((_, index) => (
+              <div
+                key={index}
+                className={`w-3 h-3 rounded-full transition-colors duration-200 ${
+                  index <= currentStep
+                    ? 'bg-blue-600'
+                    : 'bg-gray-200 dark:bg-gray-600'
+                }`}
+              />
+            ))}
+          </div>
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            {currentStep + 1} of {onboardingSteps.length}
+          </span>
         </div>
 
-        <p className="text-gray-600 dark:text-gray-400 mb-6">
-          Let's personalize your experience with a few quick settings.
-        </p>
+        {/* Step content */}
+        <div className="text-center space-y-4">
+          <div className="text-6xl">{currentStepData.icon}</div>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {currentStepData.title}
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 max-w-md mx-auto">
+            {currentStepData.description}
+          </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              What's your first name?
-            </label>
-            <input
-              type="text"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-              placeholder="Enter your first name"
-              required
-              autoFocus
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              This will be used to personalize your dashboard
-            </p>
+          {currentStepData.action && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>Quick Action:</strong> Use the "{currentStepData.action}" button to get started with this feature.
+              </p>
+            </div>
+          )}
+        </div>
+
+        {/* Features highlight for welcome step */}
+        {currentStep === 0 && (
+          <div className="grid grid-cols-2 gap-4 mt-6">
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="text-2xl mb-2">🔒</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Secure</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Bank-level security</div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="text-2xl mb-2">📱</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Mobile Ready</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Works on all devices</div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="text-2xl mb-2">📊</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Analytics</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Detailed insights</div>
+            </div>
+            <div className="text-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+              <div className="text-2xl mb-2">🎯</div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">Goal Tracking</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Achieve your targets</div>
+            </div>
           </div>
+        )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Preferred base currency
-            </label>
-            <select
-              value={baseCurrency}
-              onChange={(e) => setBaseCurrency(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-            >
-              {supportedCurrencies.map((curr) => (
-                <option key={curr.code} value={curr.code}>
-                  {curr.symbol} {curr.name} ({curr.code})
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Choose your preferred base currency to display your net worth in
-            </p>
-          </div>
+        {/* Navigation */}
+        <div className="flex justify-between items-center pt-4">
+          <button
+            type="button"
+            className="text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors duration-200"
+            onClick={handleSkip}
+          >
+            Skip Tour
+          </button>
 
-          <div className="flex gap-3 mt-6">
+          <div className="flex space-x-3">
+            {currentStep > 0 && (
+              <button
+                type="button"
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors duration-200"
+                onClick={handlePrevious}
+              >
+                Previous
+              </button>
+            )}
             <button
-              type="submit"
-              className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+              type="button"
+              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200 font-medium"
+              onClick={handleNext}
             >
-              Get Started
+              {currentStep === onboardingSteps.length - 1 ? 'Get Started!' : 'Next'}
             </button>
           </div>
-        </form>
-
-        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-          <p className="text-xs text-blue-800 dark:text-blue-200">
-            💡 You can change these settings anytime in Settings → App Settings
-          </p>
         </div>
       </div>
-    </>,
-    document.body
+    </Modal>
   );
 }

@@ -1,8 +1,20 @@
-import React, { useEffect, useRef } from 'react';
+/**
+ * Confetti Component - Celebration confetti effect
+ *
+ * Features:
+ * - Animated confetti particles
+ * - Customizable colors and duration
+ * - Performance optimized
+ * - Accessible (can be disabled)
+ */
+
+import React, { useEffect, useRef, useState } from 'react';
 
 interface ConfettiProps {
-  isActive: boolean;
-  duration?: number;
+  trigger: boolean;
+  duration?: number; // milliseconds
+  particleCount?: number;
+  colors?: string[];
   onComplete?: () => void;
 }
 
@@ -11,102 +23,191 @@ interface Particle {
   y: number;
   vx: number;
   vy: number;
-  color: string;
-  angle: number;
-  angularVelocity: number;
   size: number;
-  lifetime: number;
+  color: string;
+  rotation: number;
+  rotationSpeed: number;
 }
 
-export default function Confetti({ isActive, duration = 3000, onComplete }: ConfettiProps) {
+export default function Confetti({
+  trigger,
+  duration = 3000,
+  particleCount = 50,
+  colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#F97316'],
+  onComplete
+}: ConfettiProps): React.JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const animationFrameRef = useRef<number>(0);
-  const particlesRef = useRef<Particle[]>([]);
-  const startTimeRef = useRef<number>(0);
-
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#FFD93D', '#6BCF7F'];
+  const animationRef = useRef<number | null>(null);
+  const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
-    if (!isActive) return;
+    if (!trigger || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     // Set canvas size
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const updateCanvasSize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+    updateCanvasSize();
+    window.addEventListener('resize', updateCanvasSize);
 
-    // Initialize particles
-    particlesRef.current = [];
-    startTimeRef.current = Date.now();
-
-    // Create initial burst of confetti
-    for (let i = 0; i < 150; i++) {
-      particlesRef.current.push({
-        x: canvas.width / 2,
-        y: canvas.height / 2,
-        vx: (Math.random() - 0.5) * 15,
-        vy: Math.random() * -15 - 5,
+    // Create particles
+    const particles: Particle[] = [];
+    for (let i = 0; i < particleCount; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: -10,
+        vx: (Math.random() - 0.5) * 10,
+        vy: Math.random() * 5 + 5,
+        size: Math.random() * 8 + 4,
         color: colors[Math.floor(Math.random() * colors.length)],
-        angle: Math.random() * 360,
-        angularVelocity: (Math.random() - 0.5) * 10,
-        size: Math.random() * 6 + 4,
-        lifetime: 1
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 10
       });
     }
 
+    setIsActive(true);
+    const startTime = Date.now();
+
     const animate = () => {
+      const currentTime = Date.now();
+      const elapsed = currentTime - startTime;
+
+      // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Update and draw particles
-      particlesRef.current = particlesRef.current.filter(particle => {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const particle = particles[i];
+
+        // Update position
         particle.x += particle.vx;
         particle.y += particle.vy;
-        particle.vy += 0.5; // gravity
-        particle.angle += particle.angularVelocity;
-        particle.lifetime -= 0.02;
+        particle.vy += 0.3; // gravity
+        particle.rotation += particle.rotationSpeed;
 
-        if (particle.lifetime <= 0) return false;
+        // Remove particles that are off screen
+        if (particle.y > canvas.height + 20 ||
+            particle.x < -20 ||
+            particle.x > canvas.width + 20) {
+          particles.splice(i, 1);
+          continue;
+        }
 
+        // Draw particle
         ctx.save();
         ctx.translate(particle.x, particle.y);
-        ctx.rotate((particle.angle * Math.PI) / 180);
-        ctx.globalAlpha = particle.lifetime;
+        ctx.rotate((particle.rotation * Math.PI) / 180);
         ctx.fillStyle = particle.color;
-        ctx.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size);
+
+        // Draw as a small rectangle (confetti piece)
+        ctx.fillRect(-particle.size / 2, -particle.size / 4, particle.size, particle.size / 2);
+
         ctx.restore();
+      }
 
-        return particle.y < canvas.height && particle.lifetime > 0;
-      });
-
-      // Check if animation should continue
-      const elapsed = Date.now() - startTimeRef.current!;
-      if (elapsed < duration && particlesRef.current.length > 0) {
-        animationFrameRef.current = requestAnimationFrame(animate);
+      // Continue animation if within duration and particles remain
+      if (elapsed < duration && particles.length > 0) {
+        animationRef.current = requestAnimationFrame(animate);
       } else {
+        // Animation complete
+        setIsActive(false);
         onComplete?.();
+
+        // Cleanup
+        window.removeEventListener('resize', updateCanvasSize);
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+        }
       }
     };
 
-    animate();
+    // Start animation
+    animationRef.current = requestAnimationFrame(animate);
 
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      window.removeEventListener('resize', updateCanvasSize);
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
+      setIsActive(false);
     };
-  }, [isActive, duration, onComplete]);
+  }, [trigger, duration, particleCount, colors, onComplete]);
 
-  if (!isActive) return null;
+  if (!isActive && !trigger) {
+    return <></>;
+  }
 
   return (
     <canvas
       ref={canvasRef}
       className="fixed inset-0 pointer-events-none z-50"
-      style={{ width: '100%', height: '100%' }}
+      style={{
+        opacity: isActive ? 1 : 0,
+        transition: 'opacity 0.3s ease-in-out'
+      }}
+      aria-hidden="true"
     />
   );
+}
+
+// Hook for easier confetti usage
+export function useConfetti() {
+  const [trigger, setTrigger] = useState(false);
+
+  const celebrate = () => {
+    setTrigger(true);
+  };
+
+  const handleComplete = () => {
+    setTrigger(false);
+  };
+
+  return {
+    ConfettiComponent: () => (
+      <Confetti
+        trigger={trigger}
+        onComplete={handleComplete}
+      />
+    ),
+    celebrate
+  };
+}
+
+// Simple confetti burst function for one-off celebrations
+export function showConfetti(options?: {
+  duration?: number;
+  particleCount?: number;
+  colors?: string[];
+}): void {
+  // Create a temporary container
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+
+  // Render confetti
+  import('react-dom/client').then(({ createRoot }) => {
+    const root = createRoot(container);
+
+    const cleanup = () => {
+      root.unmount();
+      document.body.removeChild(container);
+    };
+
+    root.render(
+      <Confetti
+        trigger={true}
+        duration={options?.duration}
+        particleCount={options?.particleCount}
+        colors={options?.colors}
+        onComplete={cleanup}
+      />
+    );
+  }).catch(() => {
+    // Fallback cleanup if React DOM fails to load
+    document.body.removeChild(container);
+  });
 }

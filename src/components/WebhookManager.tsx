@@ -10,7 +10,7 @@ import {
   ZapIcon as Zap
 } from './icons';
 import { formatDistanceToNow } from 'date-fns';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface WebhookEvent {
   id: string;
@@ -32,6 +32,7 @@ interface WebhookEndpoint {
 }
 
 export default function WebhookManager(): React.JSX.Element {
+  const logger = useLogger();
   const [events, setEvents] = useState<WebhookEvent[]>([]);
   const [endpoints, setEndpoints] = useState<WebhookEndpoint[]>([]);
   const [isLoading, setIsLoading] = useState(true);

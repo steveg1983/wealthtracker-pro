@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../../services/dataIntelligenceService';
 import type { DataIntelligenceStats, SpendingInsight } from '../../services/dataIntelligenceService';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 import { 
   DatabaseIcon,
   BellIcon,
@@ -22,10 +22,10 @@ interface DataIntelligenceWidgetProps {
   };
 }
 
-export default function DataIntelligenceWidget({ 
-  size = 'medium', 
+export default function DataIntelligenceWidget({ size = 'medium', 
   settings = {} 
 }: DataIntelligenceWidgetProps) {
+  const logger = useLogger();
   const [stats, setStats] = useState<DataIntelligenceStats | null>(null);
   const [insights, setInsights] = useState<SpendingInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);

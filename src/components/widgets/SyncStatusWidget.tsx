@@ -10,7 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 import type { Account } from '../../types';
 import { supabase } from '../../lib/supabase';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface SyncStatusWidgetProps {
   accounts: Account[];
@@ -29,16 +29,14 @@ interface AccountSyncStatus {
   lastSync?: Date;
   nextSync?: Date;
   error?: string;
-  itemsSync
-
-ed?: number;
+  itemsSynced?: number;
   totalItems?: number;
 }
 
-export default function SyncStatusWidget({ 
-  accounts, 
+export default function SyncStatusWidget({ accounts, 
   settings = { autoRefresh: true, showDetails: true }
 }: SyncStatusWidgetProps): React.JSX.Element {
+  const logger = useLogger();
   
   const [syncStatuses, setSyncStatuses] = useState<AccountSyncStatus[]>([]);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -79,7 +77,7 @@ export default function SyncStatusWidget({
           : 'pending',
         lastSync,
         nextSync,
-        itemsSynced: 0,
+        itemsSync: 0,
         totalItems: 0
       };
     });
@@ -158,7 +156,7 @@ export default function SyncStatusWidget({
               status: 'synced' as const,
               lastSync: now,
               nextSync: new Date(now.getTime() + 5 * 60 * 1000),
-              itemsSynced: Math.floor(Math.random() * 50) + 10,
+              itemsSync: Math.floor(Math.random() * 50) + 10,
               totalItems: Math.floor(Math.random() * 50) + 10
             }
           : s

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useLogger } from '../services/ServiceProvider';
 import { Modal } from './common/Modal';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { 
@@ -25,12 +26,11 @@ interface BalanceReconciliationModalProps {
   onConfirm: (type: 'opening-balance' | 'adjustment-transaction') => void;
 }
 
-export default function BalanceReconciliationModal({
-  isOpen,
+export default function BalanceReconciliationModal({ isOpen,
   onClose,
   option,
   onConfirm
-}: BalanceReconciliationModalProps): React.JSX.Element | null {
+ }: BalanceReconciliationModalProps): React.JSX.Element | null {
   const { formatCurrency } = useCurrencyDecimal();
   const [selectedOption, setSelectedOption] = useState<'opening-balance' | 'adjustment-transaction' | null>(null);
 

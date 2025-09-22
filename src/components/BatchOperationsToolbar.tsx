@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckSquareIcon, XIcon, TagIcon, FolderIcon, TrashIcon, DownloadIcon, CheckCircleIcon, XCircleIcon, MoreVerticalIcon } from './icons';
+import { CheckIcon, XIcon, TagIcon, FolderIcon, TrashIcon, DownloadIcon, CheckCircleIcon, XCircleIcon, MenuIcon } from './icons';
 import { Button } from './common/Button';
 import { formatCurrency } from '../utils/formatters';
 import type { BatchOperation } from '../hooks/useBatchOperations';
@@ -85,7 +85,7 @@ export function BatchOperationsToolbar({
               className="p-2 hover:bg-blue-100 dark:hover:bg-blue-800/30 rounded transition-colors"
               title={isAllSelected ? 'Clear selection' : 'Select all'}
             >
-              <CheckSquareIcon 
+              <CheckIcon 
                 className={`h-5 w-5 ${
                   isAllSelected ? 'text-gray-600' : 
                   isPartiallySelected ? 'text-gray-500' : 
@@ -151,7 +151,7 @@ export function BatchOperationsToolbar({
                 variant="secondary"
                 size="sm"
                 onClick={() => setShowMoreMenu(!showMoreMenu)}
-                leftIcon={MoreVerticalIcon}
+                leftIcon={MenuIcon}
               >
                 More
               </Button>

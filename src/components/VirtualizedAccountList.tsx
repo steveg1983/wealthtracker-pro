@@ -173,7 +173,7 @@ export function VirtualizedAccountList({
         {/* Account tags/labels */}
         {account.tags && account.tags.length > 0 && (
           <div className="flex gap-2 mt-2">
-            {account.tags.map((tag, idx) => (
+            {account.tags.map((tag: any, idx: any) => (
               <span
                 key={idx}
                 className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded-full"
@@ -191,7 +191,7 @@ export function VirtualizedAccountList({
   const getItemHeight = useCallback((index: number) => {
     const item = processedAccounts[index];
     if ((item as any).isHeader) return 40;
-    if ((item as Account).tags?.length > 0) return 100;
+    if ((item as Account).tags?.length && (item as Account).tags!.length > 0) return 100;
     return 80;
   }, [processedAccounts]);
 

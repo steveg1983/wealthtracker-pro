@@ -65,21 +65,21 @@ export default function TransactionSearch({
 
     // Date filters
     if (currentFilters.dateFrom) {
-      filtered = filtered.filter(t => t.date >= currentFilters.dateFrom);
+      filtered = filtered.filter(t => new Date(t.date) >= new Date(currentFilters.dateFrom));
     }
     if (currentFilters.dateTo) {
-      filtered = filtered.filter(t => t.date <= currentFilters.dateTo);
+      filtered = filtered.filter(t => new Date(t.date) <= new Date(currentFilters.dateTo));
     }
 
     // Amount filters
     if (currentFilters.amountMin) {
       filtered = filtered.filter(t => 
-        Math.abs(parseFloat(t.amount)) >= parseFloat(currentFilters.amountMin)
+        Math.abs(t.amount) >= parseFloat(currentFilters.amountMin)
       );
     }
     if (currentFilters.amountMax) {
       filtered = filtered.filter(t => 
-        Math.abs(parseFloat(t.amount)) <= parseFloat(currentFilters.amountMax)
+        Math.abs(t.amount) <= parseFloat(currentFilters.amountMax)
       );
     }
 
@@ -96,7 +96,7 @@ export default function TransactionSearch({
     // Type filter
     if (currentFilters.type !== 'all') {
       filtered = filtered.filter(t => {
-        const amount = parseFloat(t.amount);
+        const amount = t.amount;
         return currentFilters.type === 'income' ? amount > 0 : amount < 0;
       });
     }

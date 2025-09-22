@@ -10,7 +10,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useAuth } from '@clerk/clerk-react';
 import StripeService from '../../services/stripeService';
 import type { 
   UserSubscription, 
@@ -18,7 +18,7 @@ import type {
   PaymentMethod,
   SubscriptionTier 
 } from '../../types/subscription';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../../services/ServiceProvider';
 import { 
   CreditCardIcon, 
   CalendarIcon, 
@@ -37,10 +37,11 @@ interface BillingDashboardProps {
   className?: string;
 }
 
-export default function BillingDashboard({
-  className = ''
-}: BillingDashboardProps): React.JSX.Element {
+export default function BillingDashboard({ className = ''
+ }: BillingDashboardProps): React.JSX.Element {
+  const logger = useLogger();
   const { user } = useUser();
+  const { getToken } = useAuth();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [billingHistory, setBillingHistory] = useState<BillingHistory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -78,7 +79,11 @@ export default function BillingDashboard({
     
     setIsProcessing(true);
     try {
-      await StripeService.cancelSubscription(subscription.stripeSubscriptionId!, true);
+      const token = await getToken();
+      if (!token) {
+        throw new Error('Unable to get authentication token');
+      }
+      await StripeService.cancelSubscription(subscription.stripeSubscriptionId!, token, true);
       await loadBillingData();
       setShowCancelModal(false);
     } catch (err) {

@@ -2,14 +2,15 @@ import React, { useState, useCallback } from 'react';
 import { plaidService, PlaidPublicToken } from '../services/plaidService';
 import { useApp } from '../contexts/AppContextSupabase';
 import { LinkIcon, RefreshCwIcon, TrashIcon, AlertCircleIcon, CheckCircleIcon } from './icons';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface PlaidLinkProps {
   onSuccess?: () => void;
   onError?: (error: Error) => void;
 }
 
-export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
+export default function PlaidLink({ onSuccess, onError  }: PlaidLinkProps) {
+  const logger = useLogger();
   const [isLinking, setIsLinking] = useState(false);
   const [connections, setConnections] = useState(plaidService.getConnections());
   const [syncingConnections, setSyncingConnections] = useState<Set<string>>(new Set());
@@ -63,8 +64,8 @@ export default function PlaidLink({ onSuccess, onError }: PlaidLinkProps) {
         ]
       };
 
-      // Add the connection
-      const connection = await plaidService.addConnection(simulatedPublicToken);
+      // Add the connection (using demo user ID for now)
+      const connection = await plaidService.addConnection(simulatedPublicToken, 'demo-user');
       
       // Sync accounts immediately
       const accounts = await plaidService.syncAccounts(connection.id);

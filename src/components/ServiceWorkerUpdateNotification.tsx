@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { skipWaiting } from '../utils/serviceWorkerRegistration';
 import { RefreshCwIcon, XIcon } from './icons';
+import { useLogger } from '../services/ServiceProvider';
 
 interface ServiceWorkerUpdateNotificationProps {
   registration: ServiceWorkerRegistration | null;
 }
 
-export default function ServiceWorkerUpdateNotification({ 
-  registration 
-}: ServiceWorkerUpdateNotificationProps): React.JSX.Element | null {
+export default function ServiceWorkerUpdateNotification({ registration 
+ }: ServiceWorkerUpdateNotificationProps): React.JSX.Element | null {
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 

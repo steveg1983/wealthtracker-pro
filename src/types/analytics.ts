@@ -56,10 +56,12 @@ export interface SpendingVelocity {
   daily: DecimalInstance;
   weekly: DecimalInstance;
   monthly: DecimalInstance;
-  trend: 'accelerating' | 'stable' | 'decelerating';
+  trend: 'accelerating' | 'stable' | 'decelerating' | 'increasing' | 'decreasing';
   projectedMonthly: DecimalInstance;
   isAccelerating?: boolean;
   percentageIncrease?: number;
+  currentMonth?: DecimalInstance;
+  previousMonth?: DecimalInstance;
 }
 
 export interface SavingsBehavior {
@@ -70,6 +72,9 @@ export interface SavingsBehavior {
   savingsTrend: 'improving' | 'stable' | 'declining';
   consistentSaving?: boolean;
   averagePercentage?: number;
+  monthlySavings?: DecimalInstance;
+  savingsRate?: DecimalInstance;
+  trend?: 'improving' | 'stable' | 'declining';
 }
 
 export interface BudgetPerformance {
@@ -80,7 +85,10 @@ export interface BudgetPerformance {
   averageUtilization: number;
   trend: 'improving' | 'stable' | 'worsening';
   consistentlyUnder?: boolean;
+  consistentlyOver?: boolean;
   averageUsage?: number;
+  averageOverage?: number;
+  monthsAnalyzed?: number;
   name?: string;
 }
 
@@ -91,6 +99,9 @@ export interface IncomeStability {
   incomeStreams: number;
   primaryIncomePercentage: number;
   isIrregular?: boolean;
+  standardDeviation?: DecimalInstance;
+  coefficientOfVariation?: number;
+  trend?: 'increasing' | 'stable' | 'decreasing';
 }
 
 export interface SeasonalPattern {

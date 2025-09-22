@@ -3,7 +3,7 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { Investment } from '../../types';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { TrendingUpIcon, TrendingDownIcon, LineChartIcon } from '../icons';
-import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { DynamicPieChart, DynamicBarChart, DynamicLineChart, DynamicAreaChart, DynamicTreemap } from '../charts/ChartMigration';
 
 interface InvestmentSummaryWidgetProps {
   size: 'small' | 'medium' | 'large';
@@ -14,7 +14,7 @@ interface InvestmentSummaryWidgetProps {
 }
 
 export default function InvestmentSummaryWidget({ size, settings }: InvestmentSummaryWidgetProps) {
-  const { accounts, investments } = useApp();
+  const { accounts, investments = [] } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const showChart = settings.showChart ?? true;
   const period = settings.period || '1M';
@@ -135,36 +135,12 @@ export default function InvestmentSummaryWidget({ size, settings }: InvestmentSu
       {/* Chart */}
       {showChart && size !== 'small' && (
         <div style={{ height: size === 'medium' ? 150 : 200 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-              <XAxis 
-                dataKey="date" 
-                tick={{ fontSize: 10 }}
-                tickFormatter={(date) => new Date(date).toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}
-              />
-              <YAxis 
-                tick={{ fontSize: 10 }}
-                tickFormatter={(value) => formatCurrency(value)}
-              />
-              <Tooltip 
-                formatter={(value: number) => formatCurrency(value)}
-                labelFormatter={(date) => new Date(date).toLocaleDateString()}
-                contentStyle={{
-                  backgroundColor: 'var(--color-background)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: '8px'
-                }}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="value" 
-                stroke="var(--color-primary)" 
-                strokeWidth={2}
-                dot={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <DynamicLineChart
+          data={chartData}
+          xDataKey="date"
+          yDataKeys={['value']}
+          height={200}
+        />
         </div>
       )}
 

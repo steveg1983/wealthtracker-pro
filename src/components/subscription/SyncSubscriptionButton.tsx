@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { RefreshCwIcon } from '../icons';
 import { apiUrl } from '../../config/api';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
-export default function SyncSubscriptionButton({ onSync }: { onSync?: () => void }): React.JSX.Element {
+export default function SyncSubscriptionButton({ onSync  }: { onSync?: () => void }): React.JSX.Element {
   const { getToken } = useAuth();
   const [syncing, setSyncing] = useState(false);
   const [message, setMessage] = useState('');

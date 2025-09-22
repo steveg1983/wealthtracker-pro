@@ -10,7 +10,7 @@ import {
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Transaction, Account } from '../types';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface SimplifiedReconciliationProps {
   account: Account;
@@ -26,7 +26,8 @@ interface SimplifiedReconciliationProps {
  * 4. Mobile-friendly interface
  * 5. Smart matching suggestions
  */
-export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconciliationProps): React.JSX.Element {
+export function SimplifiedReconciliation({ account, onClose  }: SimplifiedReconciliationProps): React.JSX.Element {
+  const logger = useLogger();
   const { transactions, updateTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [targetBalance, setTargetBalance] = useState('');
@@ -47,7 +48,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
     return transactions
       .filter(t => t.accountId === account.id)
       .reduce((sum, t) => {
-        if (account.type === 'liability') {
+        if (account.type === 'credit' || account.type === 'loan') {
           return sum - t.amount; // Liabilities are negative
         }
         return sum + t.amount;

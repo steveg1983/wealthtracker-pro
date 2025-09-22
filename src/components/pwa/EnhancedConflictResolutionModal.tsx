@@ -9,7 +9,7 @@ import { AlertTriangleIcon, CheckIcon, MergeIcon } from '../icons';
 import { formatCurrency } from '../../utils/formatters';
 import { format } from 'date-fns';
 import { ConflictResolutionService, ConflictAnalysis } from '../../services/conflictResolutionService';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface EnhancedConflictResolutionModalProps {
   isOpen: boolean;
@@ -233,7 +233,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
       isOpen={isOpen}
       onClose={onClose}
       title="Resolve Data Sync Conflict"
-      maxWidth="max-w-3xl"
+      size="xl"
     >
       <div className="space-y-6">
         {/* Smart Resolution Header */}

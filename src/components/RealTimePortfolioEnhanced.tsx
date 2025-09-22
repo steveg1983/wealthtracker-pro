@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useLogger } from '../services/ServiceProvider';
 import { useRealTimePrices } from '../hooks/useRealTimePrices';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
@@ -29,11 +30,11 @@ interface RealTimePortfolioEnhancedProps {
   className?: string;
 }
 
-export default function RealTimePortfolioEnhanced({ 
-  holdings, 
+export default function RealTimePortfolioEnhanced({ holdings, 
   baseCurrency,
   className = ''
-}: RealTimePortfolioEnhancedProps) {
+ }: RealTimePortfolioEnhancedProps) {
+  const logger = useLogger();
   const { formatCurrency } = useCurrencyDecimal();
   const [isRefreshing, setIsRefreshing] = useState(false);
   

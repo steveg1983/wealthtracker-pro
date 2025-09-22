@@ -63,11 +63,14 @@ export const SelectableTransactionRow = memo(function SelectableTransactionRow({
         <TransactionRow
           transaction={transaction}
           account={account}
+          categoryPath=""
+          compactView={isCompact}
+          formatCurrency={(amount) => `${displayCurrency}${amount.toFixed(2)}`}
           onEdit={onEdit}
-          onDelete={onDelete}
+          onDelete={(id) => onDelete(transaction)}
           onView={onView}
-          displayCurrency={displayCurrency}
-          isCompact={isCompact}
+          columnOrder={['date', 'description', 'category', 'amount']}
+          columnWidths={{}}
         />
       </div>
     </div>

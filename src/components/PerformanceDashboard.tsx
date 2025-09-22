@@ -3,7 +3,7 @@ import { usePerformanceMonitoring } from '../hooks/usePerformanceMonitoring';
 import { Card } from './common/Card';
 import ActivityIcon from './icons/ActivityIcon';
 import { AlertCircleIcon as AlertCircle, CheckCircleIcon as CheckCircle, XCircleIcon as XCircle } from './icons';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface WebVitalScore {
   metric: string;

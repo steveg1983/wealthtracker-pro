@@ -141,3 +141,6 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps): Reac
     </div>
   );
 }
+
+// Default export for compatibility
+export default Toast;

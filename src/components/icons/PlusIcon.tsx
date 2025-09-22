@@ -1,24 +1,36 @@
-import React from 'react';
-import { IconBase } from './IconBase';
-import type { IconProps } from './IconBase';
+/**
+ * PlusIcon Component - Plus/add icon
+ */
 
-export const PlusIcon: React.FC<IconProps> = (props) => {
+import React from 'react';
+
+interface PlusIconProps {
+  size?: number;
+  className?: string;
+  color?: string;
+}
+
+export function PlusIcon({
+  size = 24,
+  className = '',
+  color = 'currentColor'
+}: PlusIconProps): React.JSX.Element {
   return (
-    <IconBase {...props}>
-      <path
-        d="M12 5V19"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M5 12H19"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </IconBase>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={color}
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+    </svg>
   );
-};
+}
+
+export default PlusIcon;

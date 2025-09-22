@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import type { SpendingPattern } from '../services/dataIntelligenceService';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 import { 
   TrendingUpIcon,
   BarChart3Icon,
@@ -21,7 +21,8 @@ interface SpendingPatternsProps {
   onDataChange?: () => void;
 }
 
-export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps) {
+export default function SpendingPatterns({ onDataChange  }: SpendingPatternsProps) {
+  const logger = useLogger();
   const [patterns, setPatterns] = useState<SpendingPattern[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedType, setSelectedType] = useState<string>('all');

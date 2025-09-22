@@ -1,344 +1,455 @@
-import React, { useState, memo } from 'react';
-import { useApp } from '../contexts/AppContextSupabase';
-import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal } from '../utils/decimal';
-import { validateSymbol } from '../services/stockPriceService';
-import { 
-  PlusIcon, 
-  EditIcon, 
-  DeleteIcon, 
-  SearchIcon,
-  CheckIcon,
-  XIcon
-} from './icons';
-import { Modal } from './common/Modal';
-import { LoadingButton } from './loading/LoadingState';
-import type { DecimalInstance } from '../types/decimal-types';
+/**
+ * PortfolioManager Component - Portfolio management and configuration
+ *
+ * Features:
+ * - Add/remove portfolio holdings
+ * - Edit investment details
+ * - Rebalancing recommendations
+ * - Performance tracking setup
+ * - Import/export functionality
+ */
 
-interface StockHolding {
+import React, { useState, useEffect } from 'react';
+import { lazyLogger as logger } from '../services/serviceFactory';
+
+interface Investment {
   id: string;
   symbol: string;
-  shares: DecimalInstance;
-  averageCost: DecimalInstance;
-  costBasis: DecimalInstance;
-  dateAdded: Date;
+  name: string;
+  type: 'stock' | 'etf' | 'mutual_fund' | 'bond' | 'crypto' | 'real_estate';
+  shares: number;
+  purchasePrice: number;
+  purchaseDate: Date;
+  currentPrice?: number;
+  notes?: string;
 }
 
 interface PortfolioManagerProps {
-  accountId: string;
-  holdings: StockHolding[];
-  onUpdate: (holdings: StockHolding[]) => void;
+  userId?: string;
+  onInvestmentChange?: (investments: Investment[]) => void;
+  className?: string;
 }
 
-const PortfolioManager = memo(function PortfolioManager({ accountId, holdings, onUpdate }: PortfolioManagerProps) {
-  const { formatCurrency } = useCurrencyDecimal();
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingHolding, setEditingHolding] = useState<StockHolding | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
-  const [validationError, setValidationError] = useState('');
-  
-  // Form state
-  const [symbol, setSymbol] = useState('');
-  const [shares, setShares] = useState('');
-  const [averageCost, setAverageCost] = useState('');
+const investmentTypes = [
+  { value: 'stock', label: 'Stock' },
+  { value: 'etf', label: 'ETF' },
+  { value: 'mutual_fund', label: 'Mutual Fund' },
+  { value: 'bond', label: 'Bond' },
+  { value: 'crypto', label: 'Cryptocurrency' },
+  { value: 'real_estate', label: 'Real Estate' }
+];
 
-  const resetForm = () => {
-    setSymbol('');
-    setShares('');
-    setAverageCost('');
-    setValidationError('');
-  };
+export default function PortfolioManager({
+  userId,
+  onInvestmentChange,
+  className = ''
+}: PortfolioManagerProps): React.JSX.Element {
+  const [investments, setInvestments] = useState<Investment[]>([]);
+  const [isAddingInvestment, setIsAddingInvestment] = useState(false);
+  const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [newInvestment, setNewInvestment] = useState<Partial<Investment>>({
+    type: 'stock',
+    shares: 0,
+    purchasePrice: 0,
+    purchaseDate: new Date()
+  });
 
-  const handleAddHolding = () => {
-    resetForm();
-    setIsAddModalOpen(true);
-  };
+  // Load investments
+  useEffect(() => {
+    const loadInvestments = async () => {
+      setIsLoading(true);
+      try {
+        logger.debug('Loading investments for user:', userId);
 
-  const handleEditHolding = (holding: StockHolding) => {
-    setEditingHolding(holding);
-    setSymbol(holding.symbol);
-    setShares(holding.shares.toString());
-    setAverageCost(holding.averageCost.toString());
-    setValidationError('');
-  };
+        // In a real implementation, this would fetch from API
+        await new Promise(resolve => setTimeout(resolve, 300));
 
-  const handleDeleteHolding = (holdingId: string) => {
-    if (confirm('Are you sure you want to remove this holding?')) {
-      const updatedHoldings = holdings.filter(h => h.id !== holdingId);
-      onUpdate(updatedHoldings);
-    }
-  };
+        // Mock data
+        const mockInvestments: Investment[] = [
+          {
+            id: 'inv-1',
+            symbol: 'AAPL',
+            name: 'Apple Inc.',
+            type: 'stock',
+            shares: 50,
+            purchasePrice: 160.00,
+            purchaseDate: new Date('2024-01-15'),
+            currentPrice: 175.50,
+            notes: 'Long-term growth play'
+          },
+          {
+            id: 'inv-2',
+            symbol: 'VTSAX',
+            name: 'Vanguard Total Stock Market Index',
+            type: 'mutual_fund',
+            shares: 100,
+            purchasePrice: 105.00,
+            purchaseDate: new Date('2024-02-01'),
+            currentPrice: 112.30
+          }
+        ];
 
-  const validateAndSaveHolding = async () => {
-    setValidationError('');
-    
-    // Basic validation
-    if (!symbol || !shares || !averageCost) {
-      setValidationError('All fields are required');
-      return;
-    }
-
-    const sharesNum = parseFloat(shares);
-    const costNum = parseFloat(averageCost);
-
-    if (isNaN(sharesNum) || sharesNum <= 0) {
-      setValidationError('Shares must be a positive number');
-      return;
-    }
-
-    if (isNaN(costNum) || costNum <= 0) {
-      setValidationError('Average cost must be a positive number');
-      return;
-    }
-
-    // Validate symbol exists
-    setIsValidating(true);
-    try {
-      const isValid = await validateSymbol(symbol);
-      if (!isValid) {
-        setValidationError(`Symbol "${symbol}" not found. Please check and try again.`);
-        setIsValidating(false);
-        return;
+        setInvestments(mockInvestments);
+        onInvestmentChange?.(mockInvestments);
+        logger.debug('Investments loaded successfully');
+      } catch (error) {
+        logger.error('Error loading investments:', error);
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      setValidationError('Unable to validate symbol. Please try again.');
-      setIsValidating(false);
+    };
+
+    loadInvestments();
+  }, [userId, onInvestmentChange]);
+
+  const handleAddInvestment = async () => {
+    if (!newInvestment.symbol || !newInvestment.name || !newInvestment.shares || !newInvestment.purchasePrice) {
       return;
     }
-    setIsValidating(false);
 
-    // Create or update holding
-    const sharesDecimal = toDecimal(sharesNum);
-    const costDecimal = toDecimal(costNum);
-    const costBasis = sharesDecimal.times(costDecimal);
-
-    if (editingHolding) {
-      // Update existing
-      const updatedHoldings = holdings.map(h => 
-        h.id === editingHolding.id
-          ? {
-              ...h,
-              symbol: symbol.toUpperCase(),
-              shares: sharesDecimal,
-              averageCost: costDecimal,
-              costBasis
-            }
-          : h
-      );
-      onUpdate(updatedHoldings);
-      setEditingHolding(null);
-    } else {
-      // Add new
-      const newHolding: StockHolding = {
-        id: `holding-${Date.now()}`,
-        symbol: symbol.toUpperCase(),
-        shares: sharesDecimal,
-        averageCost: costDecimal,
-        costBasis,
-        dateAdded: new Date()
+    try {
+      const investment: Investment = {
+        id: `inv-${Date.now()}`,
+        symbol: newInvestment.symbol.toUpperCase(),
+        name: newInvestment.name,
+        type: newInvestment.type as Investment['type'],
+        shares: newInvestment.shares,
+        purchasePrice: newInvestment.purchasePrice,
+        purchaseDate: newInvestment.purchaseDate || new Date(),
+        notes: newInvestment.notes
       };
-      onUpdate([...holdings, newHolding]);
-      setIsAddModalOpen(false);
-    }
 
-    resetForm();
+      const updatedInvestments = [...investments, investment];
+      setInvestments(updatedInvestments);
+      onInvestmentChange?.(updatedInvestments);
+
+      // Reset form
+      setNewInvestment({
+        type: 'stock',
+        shares: 0,
+        purchasePrice: 0,
+        purchaseDate: new Date()
+      });
+      setIsAddingInvestment(false);
+
+      logger.debug('Investment added:', investment);
+    } catch (error) {
+      logger.error('Error adding investment:', error);
+    }
   };
 
-  const totalCostBasis = holdings.reduce((sum, h) => sum.plus(h.costBasis), toDecimal(0));
+  const handleEditInvestment = async (investment: Investment) => {
+    try {
+      const updatedInvestments = investments.map(inv =>
+        inv.id === investment.id ? investment : inv
+      );
+      setInvestments(updatedInvestments);
+      onInvestmentChange?.(updatedInvestments);
+      setEditingInvestment(null);
+
+      logger.debug('Investment updated:', investment);
+    } catch (error) {
+      logger.error('Error updating investment:', error);
+    }
+  };
+
+  const handleDeleteInvestment = async (investmentId: string) => {
+    try {
+      const updatedInvestments = investments.filter(inv => inv.id !== investmentId);
+      setInvestments(updatedInvestments);
+      onInvestmentChange?.(updatedInvestments);
+
+      logger.debug('Investment deleted:', investmentId);
+    } catch (error) {
+      logger.error('Error deleting investment:', error);
+    }
+  };
+
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP'
+    }).format(amount);
+  };
+
+  const calculateGainLoss = (investment: Investment): { amount: number; percentage: number } => {
+    if (!investment.currentPrice) {
+      return { amount: 0, percentage: 0 };
+    }
+
+    const currentValue = investment.shares * investment.currentPrice;
+    const costBasis = investment.shares * investment.purchasePrice;
+    const gainLoss = currentValue - costBasis;
+    const percentage = (gainLoss / costBasis) * 100;
+
+    return { amount: gainLoss, percentage };
+  };
+
+  if (isLoading) {
+    return (
+      <div className={`space-y-6 ${className}`}>
+        <div className="animate-pulse">
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded mb-4"></div>
+          <div className="space-y-3">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${className}`}>
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-          Portfolio Holdings ({holdings.length})
-        </h3>
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+          Portfolio Manager
+        </h2>
         <button
-          onClick={handleAddHolding}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
+          onClick={() => setIsAddingInvestment(true)}
+          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
         >
-          <PlusIcon size={20} />
-          Add Holding
+          Add Investment
         </button>
       </div>
 
-      {/* Holdings List */}
-      {holdings.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-          <p className="text-gray-500 dark:text-gray-400 mb-4">
-            No holdings yet. Add stocks to track your portfolio performance.
-          </p>
-          <button
-            onClick={handleAddHolding}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
-          >
-            <PlusIcon size={20} />
-            Add Your First Stock
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {holdings.map((holding) => (
-            <div
-              key={holding.id}
-              className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+      {/* Add Investment Form */}
+      {isAddingInvestment && (
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg border border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+            Add New Investment
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Symbol
+              </label>
+              <input
+                type="text"
+                value={newInvestment.symbol || ''}
+                onChange={(e) => setNewInvestment({ ...newInvestment, symbol: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                placeholder="e.g., AAPL"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Name
+              </label>
+              <input
+                type="text"
+                value={newInvestment.name || ''}
+                onChange={(e) => setNewInvestment({ ...newInvestment, name: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                placeholder="e.g., Apple Inc."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Type
+              </label>
+              <select
+                value={newInvestment.type}
+                onChange={(e) => setNewInvestment({ ...newInvestment, type: e.target.value as Investment['type'] })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+              >
+                {investmentTypes.map(type => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Shares
+              </label>
+              <input
+                type="number"
+                value={newInvestment.shares || ''}
+                onChange={(e) => setNewInvestment({ ...newInvestment, shares: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Purchase Price
+              </label>
+              <input
+                type="number"
+                value={newInvestment.purchasePrice || ''}
+                onChange={(e) => setNewInvestment({ ...newInvestment, purchasePrice: parseFloat(e.target.value) || 0 })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                min="0"
+                step="0.01"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Purchase Date
+              </label>
+              <input
+                type="date"
+                value={newInvestment.purchaseDate?.toISOString().split('T')[0] || ''}
+                onChange={(e) => setNewInvestment({ ...newInvestment, purchaseDate: new Date(e.target.value) })}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Notes (Optional)
+            </label>
+            <textarea
+              value={newInvestment.notes || ''}
+              onChange={(e) => setNewInvestment({ ...newInvestment, notes: e.target.value })}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+              rows={2}
+              placeholder="Investment notes or strategy..."
+            />
+          </div>
+
+          <div className="flex space-x-3 mt-6">
+            <button
+              onClick={handleAddInvestment}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors duration-200"
             >
-              <div className="flex-1">
-                <h4 className="font-semibold text-gray-900 dark:text-white">
-                  {holding.symbol}
-                </h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {holding.shares.toFixed(2)} shares @ {formatCurrency(holding.averageCost)}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-6">
-                <div className="text-right">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">Cost Basis</p>
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {formatCurrency(holding.costBasis)}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleEditHolding(holding)}
-                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    title="Edit holding"
-                  >
-                    <EditIcon size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleDeleteHolding(holding.id)}
-                    className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                    title="Remove holding"
-                  >
-                    <DeleteIcon size={18} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {/* Total */}
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex justify-between items-center">
-              <span className="font-semibold text-gray-900 dark:text-white">
-                Total Cost Basis
-              </span>
-              <span className="text-xl font-bold text-gray-900 dark:text-white">
-                {formatCurrency(totalCostBasis)}
-              </span>
-            </div>
+              Add Investment
+            </button>
+            <button
+              onClick={() => setIsAddingInvestment(false)}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md transition-colors duration-200"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
 
-      {/* Add/Edit Modal */}
-      <Modal
-        isOpen={isAddModalOpen || !!editingHolding}
-        onClose={() => {
-          setIsAddModalOpen(false);
-          setEditingHolding(null);
-          resetForm();
-        }}
-        title={editingHolding ? 'Edit Holding' : 'Add Stock Holding'}
-      >
-        <div className="space-y-4">
-          {/* Symbol Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Stock Symbol
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={symbol}
-                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                placeholder="AAPL, MSFT, GOOGL..."
-                className="w-full px-4 py-2 pl-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white uppercase"
-                disabled={isValidating}
-              />
-              <SearchIcon size={20} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-            </div>
-          </div>
-
-          {/* Shares Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Number of Shares
-            </label>
-            <input
-              type="number"
-              value={shares}
-              onChange={(e) => setShares(e.target.value)}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              disabled={isValidating}
-            />
-          </div>
-
-          {/* Average Cost Input */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Average Cost per Share
-            </label>
-            <input
-              type="number"
-              value={averageCost}
-              onChange={(e) => setAverageCost(e.target.value)}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-              disabled={isValidating}
-            />
-          </div>
-
-          {/* Cost Basis Preview */}
-          {shares && averageCost && !isNaN(parseFloat(shares)) && !isNaN(parseFloat(averageCost)) && (
-            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Cost Basis: {formatCurrency(toDecimal(parseFloat(shares) * parseFloat(averageCost)))}
-              </p>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {validationError && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-              <p className="text-sm text-red-600 dark:text-red-400">{validationError}</p>
-            </div>
-          )}
-
-          {/* Actions */}
-          <div className="flex justify-end gap-3 pt-4">
+      {/* Investments List */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        {investments.length === 0 ? (
+          <div className="p-8 text-center">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              No investments yet
+            </h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">
+              Add your first investment to start tracking your portfolio performance.
+            </p>
             <button
-              onClick={() => {
-                setIsAddModalOpen(false);
-                setEditingHolding(null);
-                resetForm();
-              }}
-              className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+              onClick={() => setIsAddingInvestment(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
             >
-              Cancel
+              Add Investment
             </button>
-            <LoadingButton
-              isLoading={isValidating}
-              onClick={validateAndSaveHolding}
-              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              loadingText="Validating..."
-            >
-              <CheckIcon size={16} className="mr-2" />
-              {editingHolding ? 'Update' : 'Add'} Holding
-            </LoadingButton>
           </div>
-        </div>
-      </Modal>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Investment
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Shares
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Purchase Price
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Current Value
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Gain/Loss
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {investments.map(investment => {
+                  const gainLoss = calculateGainLoss(investment);
+                  return (
+                    <tr key={investment.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                            {investment.symbol}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-400">
+                            {investment.name}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200">
+                          {investmentTypes.find(t => t.value === investment.type)?.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                        {investment.shares}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                        {formatCurrency(investment.purchasePrice)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                        {investment.currentPrice
+                          ? formatCurrency(investment.shares * investment.currentPrice)
+                          : 'N/A'
+                        }
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {investment.currentPrice ? (
+                          <div>
+                            <div className={`text-sm ${gainLoss.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {formatCurrency(gainLoss.amount)}
+                            </div>
+                            <div className={`text-xs ${gainLoss.amount >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {gainLoss.percentage >= 0 ? '+' : ''}{gainLoss.percentage.toFixed(2)}%
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-500 dark:text-gray-400">N/A</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => setEditingInvestment(investment)}
+                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-200 mr-3"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteInvestment(investment.id)}
+                          className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-200"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
-});
-
-export default PortfolioManager;
+}

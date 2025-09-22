@@ -77,6 +77,8 @@ export interface SavedInsuranceNeed {
   id: string;
   type: string;
   coverageAmount: number;
+  currentCoverage?: number;
+  recommendedCoverage?: number;
   monthlyPremium: number;
   provider: string;
   policyNumber?: string;

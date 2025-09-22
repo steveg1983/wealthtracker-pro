@@ -49,7 +49,9 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
           interval: 1,
           startDate,
           endDate: data.endDate ? new Date(data.endDate) : undefined,
-          isActive: true
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
         });
         reset();
         setShowForm(false);

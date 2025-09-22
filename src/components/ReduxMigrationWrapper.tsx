@@ -36,11 +36,11 @@ export function ReduxMigrationWrapper({ children }: { children: React.ReactNode 
 
   // Sync app context data to Redux
   useEffect(() => {
-    dispatch(setAccounts(serializeForRedux(accounts)));
+    dispatch(setAccounts(accounts));
   }, [dispatch, accounts]);
 
   useEffect(() => {
-    dispatch(setTransactions(serializeForRedux(transactions)));
+    dispatch(setTransactions(transactions));
   }, [dispatch, transactions]);
 
   useEffect(() => {
@@ -52,21 +52,21 @@ export function ReduxMigrationWrapper({ children }: { children: React.ReactNode 
   }, [dispatch, tags]);
 
   useEffect(() => {
-    dispatch(setBudgets(serializeForRedux(budgets)));
+    dispatch(setBudgets(budgets));
   }, [dispatch, budgets]);
 
   useEffect(() => {
-    dispatch(setGoals(serializeForRedux(goals)));
+    dispatch(setGoals(goals));
   }, [dispatch, goals]);
 
   useEffect(() => {
     // Convert AppContext RecurringTransaction to Redux RecurringTransaction
     const convertedRecurringTransactions = recurringTransactions.map(rt => ({
       ...rt,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: rt.createdAt || new Date(),
+      updatedAt: rt.updatedAt || new Date()
     }));
-    dispatch(setRecurringTransactions(serializeForRedux(convertedRecurringTransactions)));
+    dispatch(setRecurringTransactions(convertedRecurringTransactions));
   }, [dispatch, recurringTransactions]);
 
   // Sync preferences to Redux

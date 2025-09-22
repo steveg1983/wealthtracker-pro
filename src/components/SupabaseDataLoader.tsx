@@ -15,13 +15,14 @@ import { userIdService } from '../services/userIdService';
 import { AppDispatch } from '../store';
 import { loadAllData } from '../store/thunks';
 import PageLoader from './PageLoader';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface SupabaseDataLoaderProps {
   children: React.ReactNode;
 }
 
 export function SupabaseDataLoader({ children }: SupabaseDataLoaderProps) {
+  const logger = useLogger();
   const dispatch = useDispatch<AppDispatch>();
   const { isAuthenticated, isLoading: authLoading, user } = useAuth();
   const [dataLoading, setDataLoading] = useState(false);
@@ -39,8 +40,8 @@ export function SupabaseDataLoader({ children }: SupabaseDataLoaderProps) {
         const databaseId = await userIdService.ensureUserExists(
           user.id,
           user.email || 'user@example.com',
-          user.firstName,
-          user.lastName
+          (user as any).firstName,
+          (user as any).lastName
         );
 
         if (!databaseId) {

@@ -13,11 +13,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { BusinessMetrics } from '../../services/businessService';
 import type { BaseWidgetProps } from '../../types/widget-types';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface BusinessWidgetProps extends BaseWidgetProps {}
 
-export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps) {
+export default function BusinessWidget({ size = 'medium'  }: BusinessWidgetProps) {
+  const logger = useLogger();
   const navigate = useNavigate();
   const [metrics, setMetrics] = useState<BusinessMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);

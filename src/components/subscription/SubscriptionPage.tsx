@@ -19,7 +19,7 @@ import SyncSubscriptionButton from './SyncSubscriptionButton';
 import StripeStatusButton from './StripeStatusButton';
 import type { SubscriptionPlan, UserSubscription } from '../../types/subscription';
 import { ArrowLeftIcon, CheckCircleIcon } from '../icons';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../../services/ServiceProvider';
 
 type ViewMode = 'plans' | 'payment' | 'billing' | 'success';
 
@@ -28,10 +28,10 @@ interface SubscriptionPageProps {
   className?: string;
 }
 
-export default function SubscriptionPage({
-  defaultView = 'plans',
+export default function SubscriptionPage({ defaultView = 'plans',
   className = ''
-}: SubscriptionPageProps): React.JSX.Element {
+ }: SubscriptionPageProps): React.JSX.Element {
+  const logger = useLogger();
   const { user, isSignedIn } = useUser();
   const { session } = useSession();
   const [currentView, setCurrentView] = useState<ViewMode>(defaultView);
@@ -111,6 +111,9 @@ export default function SubscriptionPage({
           }
           
           // Cancel the subscription through Stripe
+          if (!currentSubscription.stripeSubscriptionId) {
+            throw new Error('No subscription ID found');
+          }
           const result = await StripeService.cancelSubscription(
             currentSubscription.stripeSubscriptionId,
             token

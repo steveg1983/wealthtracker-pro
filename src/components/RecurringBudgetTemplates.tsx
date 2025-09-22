@@ -147,7 +147,9 @@ export default function RecurringBudgetTemplates() {
           categoryId: item.categoryIds[0],
           amount: item.amount,
           period: 'monthly' as const,
-          isActive: true
+          isActive: true,
+          createdAt: new Date(),
+          updatedAt: new Date()
         };
         addBudget(newBudget);
       }

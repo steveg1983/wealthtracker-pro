@@ -12,7 +12,7 @@ import {
   PackageIcon as Package,
   AlertCircleIcon as AlertCircle
 } from './icons';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -44,7 +44,8 @@ const currencies = [
   { value: 'EUR', label: 'Euro', symbol: '€' },
 ];
 
-export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProps): React.JSX.Element {
+export default function AddAccountModal({ isOpen, onClose  }: AddAccountModalProps): React.JSX.Element {
+  const logger = useLogger();
   const { accounts, addAccount } = useApp();
   const { currency: defaultCurrency } = usePreferences();
   const [isSubmitting, setIsSubmitting] = useState(false);

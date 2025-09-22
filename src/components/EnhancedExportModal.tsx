@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { exportService } from '../services/exportService';
 import type { ExportOptions, ExportTemplate } from '../services/exportService';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 import { 
   XIcon,
   DownloadIcon,
@@ -18,12 +18,12 @@ interface EnhancedExportModalProps {
   title?: string;
 }
 
-export default function EnhancedExportModal({ 
-  isOpen, 
+export default function EnhancedExportModal({ isOpen, 
   onClose, 
   defaultOptions = {},
   title = "Export Data"
 }: EnhancedExportModalProps) {
+  const logger = useLogger();
   const [templates] = useState<ExportTemplate[]>(exportService.getTemplates());
   const [selectedTemplate, setSelectedTemplate] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);

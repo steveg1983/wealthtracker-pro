@@ -42,7 +42,7 @@ export default function BillRemindersWidget({ isCompact = false }: BillReminders
       .filter(t => 
         t.type === 'expense' && 
         new Date(t.date) >= threeMonthsAgo &&
-        t.recurring
+        t.isRecurring
       )
       .forEach(t => {
         const key = `${t.description}-${Math.round(t.amount)}`;

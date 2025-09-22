@@ -3,6 +3,7 @@ import { RadioCheckbox } from './common/RadioCheckbox';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useRegionalCurrency } from '../hooks/useRegionalCurrency';
+import { useRegionalSettings } from '../hooks/useRegionalSettings';
 import { financialPlanningService } from '../services/financialPlanningService';
 import Decimal from 'decimal.js';
 import { Account } from '../types';
@@ -45,6 +46,7 @@ export default function InsurancePlanner(): React.JSX.Element {
   const { accounts, transactions } = useApp();
   const { user } = useAuth();
   const { formatCurrency } = useRegionalCurrency();
+  const { currency, region } = useRegionalSettings();
   
   const [plans, setPlans] = useState<InsurancePlan[]>([]);
   const [showAddPlan, setShowAddPlan] = useState(false);
@@ -80,7 +82,7 @@ export default function InsurancePlanner(): React.JSX.Element {
     
     try {
       setLoading(true);
-      const savedPlans = await financialPlanningService.getFinancialPlans(user.id, 'insurance');
+      const savedPlans = await financialPlanningService.getFinancialPlans(user.id, { plan_type: 'insurance' });
       
       if (savedPlans && savedPlans.length > 0) {
         const parsedPlans = savedPlans.map(plan => ({
@@ -105,7 +107,7 @@ export default function InsurancePlanner(): React.JSX.Element {
       .filter(a => a.type === 'asset' || a.type === 'investment')
       .reduce((sum, a) => sum + a.balance, 0);
     const totalDebts = accounts
-      .filter(a => a.type === 'liability')
+      .filter(a => a.type === 'loan' || a.type === 'mortgage')
       .reduce((sum, a) => sum + Math.abs(a.balance), 0);
     
     // Life insurance recommendation (10x annual income)
@@ -250,18 +252,24 @@ export default function InsurancePlanner(): React.JSX.Element {
       
       const planData = {
         name: `${formData.type} Insurance - ${formData.provider}`,
-        type: 'insurance' as const,
-        data: formData
+        plan_type: 'insurance' as const,
+        data: formData,
+        currency: currency,
+        user_id: user.id,
+        is_active: true,
+        region: region,
+        is_favorite: false,
+        description: formData.notes
       };
       
       if (editingPlan?.id) {
-        await financialPlanningService.updateFinancialPlan(editingPlan.id, planData);
+        await financialPlanningService.updateFinancialPlan(user.id, editingPlan.id, planData);
         setPlans(prev => prev.map(p => 
           p.id === editingPlan.id ? { ...formData, id: editingPlan.id } : p
         ));
       } else {
-        const savedPlan = await financialPlanningService.saveFinancialPlan(user.id, planData);
-        setPlans(prev => [...prev, { ...formData, id: savedPlan.id }]);
+        const savedPlan = await financialPlanningService.createFinancialPlan(user.id, planData);
+        setPlans(prev => [...prev, { ...formData, id: savedPlan?.id || '' }]);
       }
       
       // Reset form
@@ -289,7 +297,7 @@ export default function InsurancePlanner(): React.JSX.Element {
     if (!confirm('Are you sure you want to delete this insurance plan?')) return;
     
     try {
-      await financialPlanningService.deleteFinancialPlan(planId);
+      await financialPlanningService.deleteFinancialPlan(user?.id || '', planId);
       setPlans(prev => prev.filter(p => p.id !== planId));
     } catch (error) {
       console.error('Error deleting insurance plan:', error);

@@ -3,7 +3,6 @@ import { portfolioRebalanceService } from '../services/portfolioRebalanceService
 import type { AssetAllocation, RebalanceAction, PortfolioTarget } from '../services/portfolioRebalanceService';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Investment } from '../types';
 import {
   BarChart3Icon,
@@ -19,7 +18,7 @@ import {
   PlusIcon
 } from './icons';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { DynamicPieChart } from './charts/ChartMigration';
 
 interface PortfolioRebalancerProps {
   accountId?: string;
@@ -37,8 +36,8 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
   const [taxConsiderations, setTaxConsiderations] = useState(true);
   
   const { accounts } = useApp();
-  const { currencySymbol } = useCurrencyDecimal();
-  const { formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
+  const currencySymbol = getCurrencySymbol(displayCurrency);
 
   // Extract investments from accounts with holdings
   const investments = useMemo(() => {
@@ -259,24 +258,14 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
           <h3 className="text-lg font-semibold mb-4">Current Allocation</h3>
           
           {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  fill="#8884d8"
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent ?? 0).toFixed(1)}%`}
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => formatCurrency(value as number)} />
-              </PieChart>
-            </ResponsiveContainer>
+            <DynamicPieChart
+          data={chartData}
+          dataKey="value"
+          nameKey="name"
+          
+          outerRadius={100}
+          height={200}
+        />
           ) : (
             <p className="text-center text-gray-500 py-8">No holdings to display</p>
           )}

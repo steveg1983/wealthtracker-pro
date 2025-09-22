@@ -60,7 +60,7 @@ const QUICK_RANGES = [
 ];
 
 export default function FinancialReportGenerator(): React.JSX.Element {
-  const { accounts, transactions, budgets, goals, investments } = useApp();
+  const { accounts, transactions, budgets, goals, investments = [] } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
   const [isGenerating, setIsGenerating] = useState(false);
@@ -198,16 +198,29 @@ export default function FinancialReportGenerator(): React.JSX.Element {
         data: reportData
       };
 
+      // Convert ReportOptions to ExportOptions
+      const exportOptions = {
+        startDate: reportOptions.dateRange.start,
+        endDate: reportOptions.dateRange.end,
+        format: reportOptions.format as 'csv' | 'pdf' | 'xlsx',
+        includeCharts: reportOptions.includeCharts,
+        includeTransactions: reportOptions.includeTransactions,
+        includeAccounts: true,
+        includeInvestments: true,
+        includeBudgets: true,
+        groupBy: reportOptions.groupBy
+      };
+
       // Generate report based on format
       switch (reportOptions.format) {
         case 'pdf':
-          await exportService.generatePDFReport(exportData, reportOptions);
+          await exportService.generatePDFReport(exportData, exportOptions);
           break;
         case 'excel':
-          await exportService.generateExcelReport(exportData, reportOptions);
+          await exportService.generateExcelReport(exportData, exportOptions);
           break;
         case 'csv':
-          await exportService.generateCSVReport(exportData, reportOptions);
+          await exportService.generateCSVReport(exportData, exportOptions);
           break;
       }
       

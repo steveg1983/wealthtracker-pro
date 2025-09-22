@@ -10,7 +10,7 @@ import {
 } from './icons';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { formatDistanceToNow } from 'date-fns';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface PlanFeature {
   name: string;
@@ -85,6 +85,7 @@ const PLAN_DETAILS: Record<string, PlanDetails> = {
 };
 
 export default function SubscriptionStatus(): React.JSX.Element {
+  const logger = useLogger();
   const { 
     subscriptionTier, 
     isLoading, 
@@ -105,12 +106,14 @@ export default function SubscriptionStatus(): React.JSX.Element {
     );
   }
 
-  const currentPlan = PLAN_DETAILS[subscriptionTier] || PLAN_DETAILS.free;
+  const currentPlan = PLAN_DETAILS[subscriptionTier || 'free'] || PLAN_DETAILS.free;
   const Icon = currentPlan.icon;
 
   const handleUpgrade = async (newTier: 'pro' | 'business'): Promise<void> => {
     try {
-      await updateSubscription(newTier);
+      if (updateSubscription) {
+        await updateSubscription(newTier);
+      }
     } catch (error) {
       logger.error('Failed to upgrade subscription:', error);
     }
@@ -119,7 +122,9 @@ export default function SubscriptionStatus(): React.JSX.Element {
   const handleCancel = async (): Promise<void> => {
     if (confirm('Are you sure you want to cancel your subscription? You will retain access until the end of your billing period.')) {
       try {
-        await cancelSubscription();
+        if (cancelSubscription) {
+          await cancelSubscription();
+        }
       } catch (error) {
         logger.error('Failed to cancel subscription:', error);
       }
@@ -128,7 +133,9 @@ export default function SubscriptionStatus(): React.JSX.Element {
 
   const handleReactivate = async (): Promise<void> => {
     try {
-      await reactivateSubscription();
+      if (reactivateSubscription) {
+        await reactivateSubscription();
+      }
     } catch (error) {
       logger.error('Failed to reactivate subscription:', error);
     }
@@ -213,7 +220,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             Your plan includes:
           </h4>
           <ul className="space-y-2">
-            {currentPlan.features.filter(f => f.included).map((feature, index) => (
+            {currentPlan.features.filter((f: any) => f.included).map((feature: any, index: number) => (
               <li key={index} className="flex items-start gap-2">
                 <Check size={16} className="text-green-600 dark:text-green-400 mt-0.5" />
                 <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -262,7 +269,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             </>
           )}
 
-          {subscriptionTier === 'business' && !cancelAtPeriodEnd && (
+          {subscriptionTier && subscriptionTier === 'business' && !cancelAtPeriodEnd && (
             <button
               onClick={handleCancel}
               className="px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"

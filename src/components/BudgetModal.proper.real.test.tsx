@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { RealTestDatabase, withRealDatabase } from '../test/setup/real-test-framework';
+import { withRealDatabase } from '../test/setup/real-test-framework';
 
 describe('BudgetModal.proper - REAL DATABASE TESTS', () => {
   it('creates minimal test data in REAL database', async () => {

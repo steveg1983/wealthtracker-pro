@@ -19,7 +19,7 @@ import {
 let XLSX: typeof import('xlsx') | null = null;
 import { toDecimal } from '../utils/decimal';
 import type { Transaction, Account, Budget } from '../types';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface ExcelExportProps {
   isOpen: boolean;
@@ -47,7 +47,8 @@ interface ExportOptions {
   };
 }
 
-export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): React.JSX.Element {
+export default function ExcelExport({ isOpen, onClose  }: ExcelExportProps): React.JSX.Element {
+  const logger = useLogger();
   const { transactions, accounts, budgets, categories } = useApp();
   const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
   const currencySymbol = getCurrencySymbol(displayCurrency);
@@ -326,7 +327,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           .filter(t => {
             const tDate = t.date instanceof Date ? t.date : new Date(t.date);
             return t.type === 'expense' && 
-              t.category === budget.category &&
+              t.category === budget.categoryId &&
               tDate.getMonth() === new Date().getMonth() &&
               tDate.getFullYear() === new Date().getFullYear();
           })
@@ -338,7 +339,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           : 0;
         
         return {
-          Category: budget.category,
+          Category: budget.categoryId,
           'Budget Amount': toDecimal(budget.amount).toNumber(),
           Spent: spent,
           Remaining: remaining,
@@ -375,7 +376,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           .filter(t => t.type === 'expense')
           .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
         
-        const budget = budgets.find(b => b.category === cat.name);
+        const budget = budgets.find(b => b.categoryId === cat.name);
         
         return {
           Name: cat.name,

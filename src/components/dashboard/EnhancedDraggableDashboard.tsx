@@ -281,7 +281,7 @@ export default function EnhancedDraggableDashboard(): React.JSX.Element {
           </div>
         );
       
-      case 'transactions':
+      case 'transactions': {
         const recentTransactions = transactions
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
           .slice(0, widget.isCompact ? 3 : 5);
@@ -307,8 +307,9 @@ export default function EnhancedDraggableDashboard(): React.JSX.Element {
             </button>
           </div>
         );
+      }
       
-      case 'budgets':
+      case 'budgets': {
         const activeBudgets = budgets.filter(b => b.isActive);
         const overBudget = activeBudgets.filter(b => (b.spent || 0) > b.amount);
         
@@ -334,6 +335,7 @@ export default function EnhancedDraggableDashboard(): React.JSX.Element {
             </button>
           </div>
         );
+      }
       
       case 'savingsGoals':
         return <SavingsGoalsWidget isCompact={widget.isCompact} />;

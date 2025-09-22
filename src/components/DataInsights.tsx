@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import type { SpendingInsight } from '../services/dataIntelligenceService';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 import { 
   BellIcon,
   AlertCircleIcon,
@@ -22,7 +22,8 @@ interface DataInsightsProps {
   onDataChange?: () => void;
 }
 
-export default function DataInsights({ onDataChange }: DataInsightsProps) {
+export default function DataInsights({ onDataChange  }: DataInsightsProps) {
+  const logger = useLogger();
   const [insights, setInsights] = useState<SpendingInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');

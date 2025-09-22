@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 import {
   IconHome,
   IconSettings,
@@ -150,6 +150,7 @@ import {
   IconBolt,
   IconLoader2,
   IconGitBranch,
+  IconArrowsSort,
   IconBrandChrome,
   IconCrown,
   IconCurrencyPound,
@@ -220,6 +221,7 @@ export const LandmarkIcon = createIconComponent(IconBuildingBank, 'LandmarkIcon'
 
 // Chart & Analytics Icons
 export const BarChart3Icon = createIconComponent(IconChartBar, 'BarChart3Icon');
+export const ChartBarIcon = createIconComponent(IconChartBar, 'ChartBarIcon');
 export const LineChartIcon = createIconComponent(IconChartLine, 'LineChartIcon');
 export const PieChartIcon = createIconComponent(IconChartPie, 'PieChartIcon');
 export const TrendingUpIcon = createIconComponent(IconTrendingUp, 'TrendingUpIcon');
@@ -302,6 +304,7 @@ export const FingerprintIcon = createIconComponent(IconFingerprint, 'Fingerprint
 // Device Icons
 export const MonitorIcon = createIconComponent(IconDeviceDesktop, 'MonitorIcon');
 export const ComputerIcon = createIconComponent(IconDeviceDesktop, 'ComputerIcon');
+export const ComputerDesktopIcon = createIconComponent(IconDeviceDesktop, 'ComputerDesktopIcon');
 export const PhoneIcon = createIconComponent(IconPhone, 'PhoneIcon');
 export const CameraIcon = createIconComponent(IconCamera, 'CameraIcon');
 
@@ -327,6 +330,7 @@ export const CarIcon = createIconComponent(IconCar, 'CarIcon');
 export const MapPinIcon = createIconComponent(IconMapPin, 'MapPinIcon');
 export const GlobeIcon = createIconComponent(IconWorld, 'GlobeIcon');
 export const StarIcon = createIconComponent(IconStar, 'StarIcon');
+export const TrophyIcon = createIconComponent(IconAward, 'TrophyIcon');
 
 // Utility Icons
 export const CalculatorIcon = createIconComponent(IconCalculator, 'CalculatorIcon');
@@ -335,6 +339,8 @@ export const SaveIcon = createIconComponent(IconDeviceFloppy, 'SaveIcon');
 export const LayersIcon = createIconComponent(IconLayersLinked, 'LayersIcon');
 export const GridIcon = createIconComponent(IconLayoutGrid, 'GridIcon');
 export const MagicWandIcon = createIconComponent(IconWand, 'MagicWandIcon');
+export const SparklesIcon = createIconComponent(IconWand, 'SparklesIcon'); // Alias for backward compatibility
+export const ContrastIcon = createIconComponent(IconAdjustments, 'ContrastIcon'); // Alias for backward compatibility
 export const VolumeIcon = createIconComponent(IconVolume, 'VolumeIcon');
 export const PlayIcon = createIconComponent(IconPlayerPlay, 'PlayIcon');
 export const StopIcon = createIconComponent(IconPlayerStop, 'StopIcon');
@@ -376,6 +382,7 @@ export const CloudOffIcon = createIconComponent(IconCloudOff, 'CloudOffIcon');
 export const ZapIcon = createIconComponent(IconBolt, 'ZapIcon');
 export const Loader2Icon = createIconComponent(IconLoader2, 'Loader2Icon');
 export const GitBranchIcon = createIconComponent(IconGitBranch, 'GitBranchIcon');
+export const CompareIcon = createIconComponent(IconArrowsSort, 'CompareIcon');
 export const ChromeIcon = createIconComponent(IconBrandChrome, 'ChromeIcon');
 export const ExternalLinkIcon = createIconComponent(IconExternalLink, 'ExternalLinkIcon');
 export const CrownIcon = createIconComponent(IconCrown, 'CrownIcon');

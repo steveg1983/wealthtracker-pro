@@ -45,7 +45,7 @@ interface GoalProjection {
 
 export default function FinancialGoalTracker({ onDataChange }: FinancialGoalTrackerProps): React.JSX.Element {
   const { goals, accounts, transactions, addGoal, updateGoal, deleteGoal } = useApp();
-  const { user } = useAuth();
+  const { userId } = useAuth();
   const { formatCurrency } = useRegionalCurrency();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -549,7 +549,10 @@ function GoalModal({ goal, onClose, onSave }: GoalModalProps) {
     e.preventDefault();
     onSave({
       ...formData,
-      targetDate: new Date(formData.targetDate).toISOString()
+      targetDate: new Date(formData.targetDate),
+      type: 'custom' as const,
+      isActive: true,
+      progress: (formData.currentAmount / formData.targetAmount) * 100
     });
   };
 

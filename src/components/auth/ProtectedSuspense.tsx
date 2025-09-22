@@ -1,30 +1,15 @@
-import { Suspense, ReactNode } from 'react';
-import { ProtectedRoute } from './ProtectedRoute';
-import PageLoader from '../PageLoader';
+import React, { Suspense } from 'react';
+import { PageLoader } from '../PageLoader';
 
 interface ProtectedSuspenseProps {
-  children: ReactNode;
+  children: React.ReactNode;
   requirePremium?: boolean;
-  requiredRole?: string;
-  fallbackPath?: string;
 }
 
-// Helper component that combines ProtectedRoute with Suspense
-export function ProtectedSuspense({ 
-  children, 
-  requirePremium,
-  requiredRole,
-  fallbackPath
-}: ProtectedSuspenseProps) {
+export const ProtectedSuspense: React.FC<ProtectedSuspenseProps> = ({ children }) => {
   return (
-    <ProtectedRoute 
-      requirePremium={requirePremium}
-      requiredRole={requiredRole}
-      fallbackPath={fallbackPath}
-    >
-      <Suspense fallback={<PageLoader />}>
-        {children}
-      </Suspense>
-    </ProtectedRoute>
+    <Suspense fallback={<PageLoader />}>
+      {children}
+    </Suspense>
   );
-}
+};

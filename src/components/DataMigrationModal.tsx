@@ -10,7 +10,7 @@ import { useAuth } from '@clerk/clerk-react';
 import { DataMigrationService } from '../services/dataMigrationService';
 import { userIdService } from '../services/userIdService';
 import { DatabaseIcon, CheckCircleIcon, AlertCircleIcon, LoadingIcon } from './icons';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface DataMigrationModalProps {
   isOpen: boolean;
@@ -18,7 +18,8 @@ interface DataMigrationModalProps {
   onComplete?: () => void;
 }
 
-export default function DataMigrationModal({ isOpen, onClose, onComplete }: DataMigrationModalProps) {
+export default function DataMigrationModal({ isOpen, onClose, onComplete  }: DataMigrationModalProps) {
+  const logger = useLogger();
   const { userId } = useAuth();
   const [migrationState, setMigrationState] = useState<'idle' | 'migrating' | 'completed' | 'error'>('idle');
   const [migrationStats, setMigrationStats] = useState<any>(null);

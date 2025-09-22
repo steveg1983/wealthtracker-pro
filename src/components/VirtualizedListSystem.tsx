@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useEffect, useState, memo, useMemo } from 'react';
-import { FixedSizeList, VariableSizeList, ListChildComponentProps } from 'react-window';
+import { FixedSizeList as List, VariableSizeList, ListChildComponentProps } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { useVirtualizer } from '@tanstack/react-virtual';
@@ -53,7 +53,7 @@ export function VirtualizedList<T>({
 }: VirtualizedListProps<T>): React.JSX.Element {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollPositionRef = useRef(0);
-  const listRef = useRef<FixedSizeList | VariableSizeList>(null);
+  const listRef = useRef<List | VariableSizeList>(null);
 
   // Determine if we should use fixed or variable size list
   const isFixedHeight = typeof itemHeight === 'number';
@@ -132,8 +132,6 @@ export function VirtualizedList<T>({
     );
   }
 
-  const List = isFixedHeight ? FixedSizeList : VariableSizeList;
-
   return (
     <div className={`relative ${className}`}>
       {header}
@@ -147,11 +145,16 @@ export function VirtualizedList<T>({
             minimumBatchSize={10}
             threshold={5}
           >
-            {({ onItemsRendered, ref }) => (
-              <List
-                ref={(list) => {
-                  ref(list);
-                  listRef.current = list;
+            {({ onItemsRendered, ref }) => 
+              isFixedHeight ? (
+                <List
+                  ref={(list: any) => {
+                  if (typeof ref === 'function') {
+                    ref(list);
+                  } else if (ref && 'current' in ref) {
+                    (ref as React.MutableRefObject<any>).current = list;
+                  }
+                  (listRef as React.MutableRefObject<any>).current = list;
                 }}
                 height={height}
                 width={width}
@@ -161,13 +164,36 @@ export function VirtualizedList<T>({
                 overscanCount={overscan}
                 onScroll={handleScroll}
                 onItemsRendered={onItemsRendered}
-                itemKey={getItemKey}
                 direction={horizontal ? 'horizontal' : 'vertical'}
                 useIsScrolling
               >
                 {Row}
               </List>
-            )}
+              ) : (
+                <VariableSizeList
+                  ref={(list: any) => {
+                    if (typeof ref === 'function') {
+                      ref(list);
+                    } else if (ref && 'current' in ref) {
+                      (ref as React.MutableRefObject<any>).current = list;
+                    }
+                    (listRef as React.MutableRefObject<any>).current = list;
+                  }}
+                  height={height}
+                  width={width}
+                  itemCount={itemCount}
+                  itemSize={itemHeight}
+                  itemData={items}
+                  overscanCount={overscan}
+                  onScroll={handleScroll}
+                  onItemsRendered={onItemsRendered}
+                    direction={horizontal ? 'horizontal' : 'vertical'}
+                  useIsScrolling
+                >
+                  {Row}
+                </VariableSizeList>
+              )
+            }
           </InfiniteLoader>
         )}
       </AutoSizer>

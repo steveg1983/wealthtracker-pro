@@ -1,45 +1,97 @@
-import { useState, useRef, useEffect } from 'react';
-import { useApp } from '../contexts/AppContextSupabase';
-import { XIcon } from './icons/XIcon';
-import { PlusIcon } from './icons/PlusIcon';
-import { HashIcon } from './icons/HashIcon';
+/**
+ * TagSelector Component - Tag selection and management interface
+ *
+ * Features:
+ * - Multi-select tags
+ * - Create new tags
+ * - Tag filtering and searching
+ * - Tag color coding
+ * - Keyboard navigation
+ * - Accessible interface
+ */
 
-interface TagSelectorProps {
-  selectedTags: string[];
-  onTagsChange: (tags: string[]) => void;
-  placeholder?: string;
-  allowNewTags?: boolean;
-  className?: string;
+import React, { useState, useEffect, useRef } from 'react';
+import { lazyLogger } from '../services/serviceFactory';
+
+const logger = lazyLogger.getLogger('TagSelector');
+
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  count?: number;
+  created_at?: string;
 }
 
-export default function TagSelector({
-  selectedTags,
+interface TagSelectorProps {
+  selectedTags?: Tag[];
+  availableTags?: Tag[];
+  onTagsChange?: (tags: Tag[]) => void;
+  onCreateTag?: (tagName: string) => Promise<Tag>;
+  placeholder?: string;
+  maxTags?: number;
+  allowCreate?: boolean;
+  className?: string;
+  disabled?: boolean;
+}
+
+const DEFAULT_TAG_COLORS = [
+  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
+  '#06B6D4', '#84CC16', '#F97316', '#EC4899', '#6366F1'
+];
+
+export function TagSelector({
+  selectedTags = [],
+  availableTags = [],
   onTagsChange,
-  placeholder = "Add tags...",
-  allowNewTags = true,
-  className = ""
+  onCreateTag,
+  placeholder = 'Type to search or add tags...',
+  maxTags,
+  allowCreate = true,
+  className = '',
+  disabled = false
 }: TagSelectorProps): React.JSX.Element {
-  const { tags, addTag, getTagUsageCount } = useApp();
-  const [inputValue, setInputValue] = useState('');
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [focusedIndex, setFocusedIndex] = useState(-1);
+
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Filter available tags based on input and exclude already selected ones
-  const filteredTags = tags.filter(tag => 
-    tag.name.toLowerCase().includes(inputValue.toLowerCase()) &&
-    !selectedTags.includes(tag.name)
+  // Filter available tags based on search term and exclude selected tags
+  const filteredTags = availableTags.filter(tag =>
+    tag.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
+    !selectedTags.some(selected => selected.id === tag.id)
   );
 
-  // Check if input matches an existing tag exactly
-  const exactMatch = tags.find(tag => tag.name.toLowerCase() === inputValue.toLowerCase());
+  // Check if we can create a new tag
+  const canCreateNewTag = allowCreate &&
+    searchTerm.trim() &&
+    !availableTags.some(tag =>
+      tag.name.toLowerCase() === searchTerm.toLowerCase()
+    ) &&
+    (!maxTags || selectedTags.length < maxTags);
 
-  // Handle clicking outside to close dropdown
+  // All selectable options (filtered tags + create option)
+  const selectableOptions = [
+    ...filteredTags,
+    ...(canCreateNewTag ? [{
+      id: 'create-new',
+      name: searchTerm.trim(),
+      color: DEFAULT_TAG_COLORS[selectedTags.length % DEFAULT_TAG_COLORS.length],
+      isNew: true
+    }] : [])
+  ];
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowDropdown(false);
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
         setFocusedIndex(-1);
       }
     };
@@ -48,187 +100,207 @@ export default function TagSelector({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const value = e.target.value;
-    setInputValue(value);
-    setShowDropdown(value.length > 0);
-    setFocusedIndex(-1);
-  };
-
-  const handleInputFocus = (): void => {
-    if (inputValue.length > 0) {
-      setShowDropdown(true);
+  const handleTagSelect = async (tag: Tag & { isNew?: boolean }): Promise<void> => {
+    if (disabled || (maxTags && selectedTags.length >= maxTags)) {
+      return;
     }
+
+    let tagToAdd = tag;
+
+    // Create new tag if it's a new one
+    if (tag.isNew && onCreateTag) {
+      try {
+        tagToAdd = await onCreateTag(tag.name);
+        logger.info('New tag created', { tagName: tag.name, tagId: tagToAdd.id });
+      } catch (error) {
+        logger.error('Failed to create new tag:', error);
+        return;
+      }
+    }
+
+    const newSelectedTags = [...selectedTags, tagToAdd];
+    onTagsChange?.(newSelectedTags);
+
+    // Clear search and close dropdown
+    setSearchTerm('');
+    setIsOpen(false);
+    setFocusedIndex(-1);
+
+    // Focus back on input
+    inputRef.current?.focus();
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent): void => {
-    if (!showDropdown) return;
+  const handleTagRemove = (tagToRemove: Tag): void => {
+    if (disabled) return;
 
-    const totalOptions = filteredTags.length + (allowNewTags && inputValue.trim() && !exactMatch ? 1 : 0);
+    const newSelectedTags = selectedTags.filter(tag => tag.id !== tagToRemove.id);
+    onTagsChange?.(newSelectedTags);
+  };
+
+  const handleInputKeyDown = (e: React.KeyboardEvent): void => {
+    if (disabled) return;
 
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setFocusedIndex(prev => (prev + 1) % totalOptions);
+        setIsOpen(true);
+        setFocusedIndex(prev =>
+          prev < selectableOptions.length - 1 ? prev + 1 : 0
+        );
         break;
+
       case 'ArrowUp':
         e.preventDefault();
-        setFocusedIndex(prev => prev <= 0 ? totalOptions - 1 : prev - 1);
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (focusedIndex >= 0 && focusedIndex < filteredTags.length) {
-          selectTag(filteredTags[focusedIndex].name);
-        } else if (focusedIndex === filteredTags.length && allowNewTags && inputValue.trim() && !exactMatch) {
-          createAndSelectTag(inputValue.trim());
-        } else if (inputValue.trim()) {
-          if (exactMatch) {
-            selectTag(exactMatch.name);
-          } else if (allowNewTags) {
-            createAndSelectTag(inputValue.trim());
-          }
+        if (isOpen) {
+          setFocusedIndex(prev => prev > 0 ? prev - 1 : selectableOptions.length - 1);
         }
         break;
+
+      case 'Enter':
+        e.preventDefault();
+        if (isOpen && focusedIndex >= 0 && selectableOptions[focusedIndex]) {
+          handleTagSelect(selectableOptions[focusedIndex] as Tag & { isNew?: boolean });
+        } else if (!isOpen) {
+          setIsOpen(true);
+        }
+        break;
+
       case 'Escape':
-        setShowDropdown(false);
+        e.preventDefault();
+        setIsOpen(false);
         setFocusedIndex(-1);
+        setSearchTerm('');
+        break;
+
+      case 'Backspace':
+        if (!searchTerm && selectedTags.length > 0) {
+          e.preventDefault();
+          handleTagRemove(selectedTags[selectedTags.length - 1]);
+        }
         break;
     }
   };
 
-  const selectTag = (tagName: string): void => {
-    if (!selectedTags.includes(tagName)) {
-      onTagsChange([...selectedTags, tagName]);
-    }
-    setInputValue('');
-    setShowDropdown(false);
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const value = e.target.value;
+    setSearchTerm(value);
+    setIsOpen(true);
     setFocusedIndex(-1);
   };
 
-  const createAndSelectTag = (tagName: string): void => {
-    // Create the tag in the centralized system
-    addTag({
-      name: tagName,
-      color: '#6B7280',
-      description: 'Created during transaction entry'
-    });
-    
-    // Select the tag
-    selectTag(tagName);
+  const handleInputFocus = (): void => {
+    if (!disabled) {
+      setIsOpen(true);
+    }
   };
-
-  const removeTag = (tagToRemove: string): void => {
-    onTagsChange(selectedTags.filter(tag => tag !== tagToRemove));
-  };
-
-  const getTagColor = (tagName: string): string => {
-    const tag = tags.find(t => t.name === tagName);
-    return tag?.color || '#6B7280';
-  };
-
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
-      {/* Selected Tags */}
-      {selectedTags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
-          {selectedTags.map(tag => (
-            <span
-              key={tag}
-              className="inline-flex items-center gap-1 px-2 py-1 text-white rounded-full text-sm font-medium"
-              style={{ backgroundColor: getTagColor(tag) }}
-            >
-              {tag}
+    <div className={`relative ${className}`}>
+      {/* Selected Tags + Input */}
+      <div className={`
+        flex flex-wrap items-center gap-1 p-2 min-h-[42px]
+        border border-gray-300 dark:border-gray-600 rounded-md
+        bg-white dark:bg-gray-800
+        focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500
+        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-text'}
+      `}>
+        {/* Selected Tags */}
+        {selectedTags.map((tag) => (
+          <span
+            key={tag.id}
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm font-medium text-white"
+            style={{ backgroundColor: tag.color }}
+          >
+            <span>{tag.name}</span>
+            {!disabled && (
               <button
                 type="button"
-                onClick={() => removeTag(tag)}
-                className="text-white/80 hover:text-white"
+                onClick={() => handleTagRemove(tag)}
+                className="ml-1 hover:bg-white hover:bg-opacity-20 rounded-full p-0.5 focus:outline-none focus:ring-1 focus:ring-white"
+                aria-label={`Remove ${tag.name} tag`}
               >
-                <XIcon size={14} />
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
-            </span>
-          ))}
-        </div>
-      )}
+            )}
+          </span>
+        ))}
 
-      {/* Input Field */}
-      <div className="relative">
+        {/* Input */}
         <input
           ref={inputRef}
           type="text"
-          value={inputValue}
+          value={searchTerm}
           onChange={handleInputChange}
+          onKeyDown={handleInputKeyDown}
           onFocus={handleInputFocus}
-          onKeyDown={handleKeyDown}
-          placeholder={placeholder}
-          className="w-full px-3 py-2 h-[42px] bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent dark:text-white"
+          placeholder={selectedTags.length === 0 ? placeholder : ''}
+          disabled={disabled}
+          className="flex-1 min-w-[120px] bg-transparent border-none outline-none text-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
         />
-        
-        {/* Dropdown */}
-        {showDropdown && (filteredTags.length > 0 || (allowNewTags && inputValue.trim() && !exactMatch)) && (
-          <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto z-50">
-            {/* Existing Tags */}
-            {filteredTags.map((tag, index) => {
-              const usageCount = getTagUsageCount(tag.name);
-              return (
-                <div
-                  key={tag.id}
-                  className={`px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 ${
-                    focusedIndex === index ? 'bg-gray-100 dark:bg-gray-600' : ''
-                  }`}
-                  onClick={() => selectTag(tag.name)}
-                >
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: tag.color }}
-                    />
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {tag.name}
-                    </span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      ({usageCount} uses)
-                    </span>
-                  </div>
-                  {tag.description && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-5">
-                      {tag.description}
-                    </p>
-                  )}
-                </div>
-              );
-            })}
-            
-            {/* Create New Tag Option */}
-            {allowNewTags && inputValue.trim() && !exactMatch && (
-              <div
-                className={`px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 border-t border-gray-200 dark:border-gray-600 ${
-                  focusedIndex === filteredTags.length ? 'bg-gray-100 dark:bg-gray-600' : ''
-                }`}
-                onClick={() => createAndSelectTag(inputValue.trim())}
-              >
-                <div className="flex items-center gap-2">
-                  <PlusIcon size={14} className="text-green-600 dark:text-green-400" />
-                  <span className="font-medium text-gray-900 dark:text-white">
-                    Create "{inputValue.trim()}"
-                  </span>
-                </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 ml-5">
-                  Create new tag and add to transaction
-                </p>
-              </div>
-            )}
-          </div>
+
+        {/* Max tags indicator */}
+        {maxTags && (
+          <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+            {selectedTags.length}/{maxTags}
+          </span>
         )}
       </div>
 
-      {/* Helper Text */}
-      {selectedTags.length === 0 && (
-        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-          <HashIcon size={12} />
-          Type to search existing tags or create new ones
-        </p>
+      {/* Dropdown */}
+      {isOpen && !disabled && (
+        <div
+          ref={dropdownRef}
+          className="absolute z-10 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-lg max-h-60 overflow-y-auto"
+        >
+          {selectableOptions.length === 0 ? (
+            <div className="p-3 text-sm text-gray-500 dark:text-gray-400 text-center">
+              {searchTerm ? 'No tags found' : 'No available tags'}
+            </div>
+          ) : (
+            selectableOptions.map((option, index) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => handleTagSelect(option as Tag & { isNew?: boolean })}
+                className={`
+                  w-full flex items-center gap-3 px-3 py-2 text-left text-sm
+                  hover:bg-gray-50 dark:hover:bg-gray-700
+                  focus:outline-none focus:bg-gray-50 dark:focus:bg-gray-700
+                  ${index === focusedIndex ? 'bg-gray-50 dark:bg-gray-700' : ''}
+                `}
+              >
+                {/* Tag Color */}
+                <div
+                  className="w-3 h-3 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: option.color }}
+                />
+
+                {/* Tag Name */}
+                <span className="flex-1 text-gray-900 dark:text-white">
+                  {(option as any).isNew ? (
+                    <>
+                      Create "<strong>{option.name}</strong>"
+                    </>
+                  ) : (
+                    option.name
+                  )}
+                </span>
+
+                {/* Tag Count */}
+                {option.count !== undefined && (
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
+                    {option.count}
+                  </span>
+                )}
+              </button>
+            ))
+          )}
+        </div>
       )}
     </div>
   );
 }
+
+export default TagSelector;

@@ -109,7 +109,7 @@ export default function RecentAlertsWidget({ isCompact = false }: RecentAlertsWi
     goals.forEach(goal => {
       const progress = (goal.currentAmount / goal.targetAmount) * 100;
       
-      if (progress >= 100 && !goal.isCompleted) {
+      if (progress >= 100 && !goal.completedAt) {
         alertsList.push({
           id: `goal-complete-${goal.id}`,
           type: 'success',

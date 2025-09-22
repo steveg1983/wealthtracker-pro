@@ -64,7 +64,7 @@ export default function ConflictResolutionModal({
       case 'transaction':
         return <DollarSign size={16} />;
       case 'budget':
-        return <CalendarIcon size={16} />;
+        return <Calendar size={16} />;
       case 'category':
         return <FileText size={16} />;
     }

@@ -13,7 +13,7 @@ import {
 import { useApp } from '../contexts/AppContextSupabase';
 import { exportService } from '../services/exportService';
 import { format, differenceInDays, addDays } from 'date-fns';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface BackupSettings {
   enabled: boolean;
@@ -26,6 +26,7 @@ interface BackupSettings {
 }
 
 export default function BackupReminder(): React.JSX.Element {
+  const logger = useLogger();
   const { transactions, accounts, budgets, goals } = useApp();
   const [settings, setSettings] = useState<BackupSettings>({
     enabled: true,
@@ -109,7 +110,7 @@ export default function BackupReminder(): React.JSX.Element {
           a.click();
           URL.revokeObjectURL(url);
         } else if (format === 'csv') {
-          const csv = exportService.exportToCSV(transactions);
+          const csv = await exportService.exportToCSV(transactions);
           const blob = new Blob([csv], { type: 'text/csv' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
@@ -118,7 +119,7 @@ export default function BackupReminder(): React.JSX.Element {
           a.click();
           URL.revokeObjectURL(url);
         } else if (format === 'qif') {
-          const qif = exportService.exportToQIF(transactions);
+          const qif = exportService.exportToQIF({ transactions, accounts });
           const blob = new Blob([qif], { type: 'application/qif' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');

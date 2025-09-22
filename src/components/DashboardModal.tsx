@@ -3,7 +3,7 @@ import { XIcon } from './icons/XIcon';
 import { MaximizeIcon } from './icons/MaximizeIcon';
 import { MinimizeIcon } from './icons/MinimizeIcon';
 import { useNavigate } from 'react-router-dom';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
+import { DynamicBarChart, DynamicPieChart } from './charts/ChartMigration';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import IncomeExpenditureReport from './IncomeExpenditureReport';
 import type { ReportSettings } from './IncomeExpenditureReport';
@@ -104,75 +104,26 @@ export default function DashboardModal({
       case 'networth-chart':
         return (
           <div className={isFullscreen ? "h-[calc(100vh-200px)]" : "h-96"}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data as NetWorthData[]}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" opacity={0.3} />
-                <XAxis 
-                  dataKey="month" 
-                  stroke="#6B7280"
-                  fontSize={14}
-                  tickFormatter={(value) => value.slice(0, 3)}
-                />
-                <YAxis 
-                  stroke="#6B7280"
-                  fontSize={14}
-                  tickFormatter={(value) => {
-                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-                    return value.toString();
-                  }}
-                />
-                <Tooltip 
-                  formatter={(value: number) => [formatCurrency(value), 'Net Worth']}
-                  contentStyle={chartStyles?.tooltip}
-                />
-                <Bar 
-                  dataKey="netWorth" 
-                  fill="#8B5CF6" 
-                  radius={[4, 4, 0, 0]}
-                  style={{ cursor: 'pointer' }}
-                  onClick={(data: unknown) => {
-                    const monthData = data as { payload?: NetWorthData };
-                    if (monthData?.payload?.month) {
-                      navigate(`/networth/monthly/${monthData.payload.month}`);
-                      onClose();
-                    }
-                  }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            <DynamicBarChart
+          data={data as NetWorthData[]}
+          xDataKey="month"
+          yDataKeys={['netWorth']}
+          height={200}
+        />
           </div>
         );
 
       case 'account-distribution':
         return (
           <div className={isFullscreen ? "h-[calc(100vh-200px)]" : "h-96"}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={data as AccountDistributionData[]}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={isFullscreen ? 120 : 80}
-                  outerRadius={isFullscreen ? 200 : 140}
-                  paddingAngle={5}
-                  dataKey="value"
-                  onClick={(data) => {
-                    navigate(`/transactions?account=${data.id}`);
-                    onClose();
-                  }}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {(data as AccountDistributionData[])?.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  formatter={(value: number) => formatCurrency(value)}
-                  contentStyle={chartStyles?.pieTooltip}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            <DynamicPieChart
+          data={data as AccountDistributionData[]}
+          dataKey="value"
+          nameKey="name"
+          innerRadius={isFullscreen ? 120 : 80}
+          outerRadius={isFullscreen ? 200 : 140}
+          height={200}
+        />
           </div>
         );
 

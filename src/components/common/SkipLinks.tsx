@@ -1,248 +1,225 @@
 /**
- * Skip Links Component
- * Provides keyboard users quick navigation to main content areas
+ * SkipLinks Component - Accessibility skip navigation links
+ *
+ * Features:
+ * - Skip to main content
+ * - Skip to navigation
+ * - Skip to sidebar
+ * - Keyboard navigation
+ * - Screen reader support
  */
 
 import React from 'react';
 
-interface SkipLink {
+export interface SkipLink {
   href: string;
-  label: string;
+  text: string;
 }
 
 interface SkipLinksProps {
   links?: SkipLink[];
+  className?: string;
 }
 
-const defaultLinks: SkipLink[] = [
-  { href: '#main-content', label: 'Skip to main content' },
-  { href: '#navigation', label: 'Skip to navigation' },
-  { href: '#search', label: 'Skip to search' }
+const DEFAULT_SKIP_LINKS: SkipLink[] = [
+  { href: '#main-content', text: 'Skip to main content' },
+  { href: '#main-navigation', text: 'Skip to navigation' },
+  { href: '#sidebar', text: 'Skip to sidebar' }
 ];
 
-export const SkipLinks: React.FC<SkipLinksProps> = ({ links = defaultLinks }) => {
+export function SkipLinks({
+  links = DEFAULT_SKIP_LINKS,
+  className = ''
+}: SkipLinksProps): React.JSX.Element {
+  const handleSkipClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string): void => {
+    e.preventDefault();
+
+    const targetElement = document.querySelector(href);
+    if (targetElement) {
+      // Set focus on the target element
+      if (targetElement instanceof HTMLElement) {
+        targetElement.focus();
+
+        // If the element doesn't naturally receive focus, set tabindex temporarily
+        if (!targetElement.hasAttribute('tabindex')) {
+          targetElement.setAttribute('tabindex', '-1');
+          targetElement.addEventListener('blur', () => {
+            targetElement.removeAttribute('tabindex');
+          }, { once: true });
+        }
+      }
+
+      // Scroll to the element
+      targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
     <nav
-      className="skip-links"
-      aria-label="Skip links"
+      className={`skip-links fixed top-0 left-0 z-[9999] ${className}`}
+      aria-label="Skip navigation links"
     >
-      {links.map((link, index) => (
-        <a
-          key={link.href}
-          href={link.href}
-          className="skip-link"
-          style={{ marginLeft: index > 0 ? '8px' : '0' }}
-        >
-          {link.label}
-        </a>
-      ))}
+      <ul className="list-none m-0 p-0">
+        {links.map((link, index) => (
+          <li key={index} className="m-0 p-0">
+            <a
+              href={link.href}
+              onClick={(e) => handleSkipClick(e, link.href)}
+              className={`
+                skip-link
+                absolute top-0 left-0
+                px-4 py-2
+                bg-blue-600 text-white
+                text-sm font-medium
+                border border-blue-700
+                rounded-br-md
+                focus:relative focus:z-10
+                transform -translate-y-full
+                focus:translate-y-0
+                transition-transform duration-150 ease-in-out
+                whitespace-nowrap
+                no-underline hover:no-underline
+                focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-blue-600
+              `}
+              style={{
+                clipPath: 'inset(0 0 100% 0)',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.clipPath = 'none';
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.clipPath = 'inset(0 0 100% 0)';
+              }}
+            >
+              {link.text}
+            </a>
+          </li>
+        ))}
+      </ul>
     </nav>
   );
-};
-
-// CSS for skip links (add to your global styles)
-export const skipLinksStyles = `
-  .skip-links {
-    position: absolute;
-    top: -40px;
-    left: 0;
-    background: #000;
-    color: #fff;
-    padding: 8px;
-    text-decoration: none;
-    z-index: 100;
-  }
-
-  .skip-link {
-    position: absolute;
-    left: -10000px;
-    top: auto;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    background: #1a73e8;
-    color: white;
-    padding: 0.75rem 1.5rem;
-    text-decoration: none;
-    font-weight: 500;
-    border-radius: 0.375rem;
-    z-index: 9999;
-  }
-
-  .skip-link:focus {
-    position: fixed;
-    left: 1rem;
-    top: 1rem;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    outline: 3px solid #4285f4;
-    outline-offset: 2px;
-  }
-`;
-
-// Live Region Component for Screen Reader Announcements
-interface LiveRegionProps {
-  message: string;
-  type?: 'polite' | 'assertive';
-  atomic?: boolean;
-  relevant?: 'additions' | 'removals' | 'text' | 'all';
 }
 
-export const LiveRegion: React.FC<LiveRegionProps> = ({
-  message,
-  type = 'polite',
-  atomic = true,
-  relevant = 'additions'
-}) => {
-  const [currentMessage, setCurrentMessage] = React.useState('');
+// Hook for managing skip link visibility and behavior
+export function useSkipLinks() {
+  const [isVisible, setIsVisible] = React.useState(false);
+  const [currentLink, setCurrentLink] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    if (message) {
-      setCurrentMessage(message);
-      // Clear message after announcement
-      const timer = setTimeout(() => {
-        setCurrentMessage('');
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [message]);
-
-  return (
-    <div
-      role="status"
-      aria-live={type}
-      aria-atomic={atomic}
-      aria-relevant={relevant}
-      className="sr-only"
-    >
-      {currentMessage}
-    </div>
-  );
-};
-
-// Focus Manager Hook
-export const useFocusManager = () => {
-  const previousFocusRef = React.useRef<HTMLElement | null>(null);
-
-  const saveFocus = React.useCallback(() => {
-    previousFocusRef.current = document.activeElement as HTMLElement;
-  }, []);
-
-  const restoreFocus = React.useCallback(() => {
-    if (previousFocusRef.current && previousFocusRef.current.focus) {
-      previousFocusRef.current.focus();
-    }
-  }, []);
-
-  const moveFocusToElement = React.useCallback((element: HTMLElement | null) => {
-    if (element && element.focus) {
-      element.focus();
-    }
-  }, []);
-
-  const getFocusableElements = React.useCallback((container: HTMLElement): HTMLElement[] => {
-    const focusableSelectors = [
-      'a[href]',
-      'button:not([disabled])',
-      'textarea:not([disabled])',
-      'input[type="text"]:not([disabled])',
-      'input[type="radio"]:not([disabled])',
-      'input[type="checkbox"]:not([disabled])',
-      'select:not([disabled])',
-      '[tabindex]:not([tabindex="-1"])'
-    ].join(', ');
-
-    return Array.from(container.querySelectorAll(focusableSelectors));
-  }, []);
-
-  const trapFocus = React.useCallback((container: HTMLElement) => {
-    const focusableElements = getFocusableElements(container);
-    const firstFocusable = focusableElements[0];
-    const lastFocusable = focusableElements[focusableElements.length - 1];
-
-    const handleTabKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Tab') return;
-
-      if (e.shiftKey) {
-        // Shift + Tab
-        if (document.activeElement === firstFocusable) {
-          e.preventDefault();
-          lastFocusable?.focus();
-        }
-      } else {
-        // Tab
-        if (document.activeElement === lastFocusable) {
-          e.preventDefault();
-          firstFocusable?.focus();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Show skip links when Tab is pressed from the top of the page
+      if (event.key === 'Tab' && !event.shiftKey) {
+        const activeElement = document.activeElement;
+        if (!activeElement || activeElement === document.body) {
+          setIsVisible(true);
         }
       }
     };
 
-    document.addEventListener('keydown', handleTabKey);
+    const handleFocusIn = (event: FocusEvent) => {
+      const target = event.target as Element;
+      if (target?.classList.contains('skip-link')) {
+        setIsVisible(true);
+        setCurrentLink(target.getAttribute('href'));
+      } else if (!target?.closest('.skip-links')) {
+        setIsVisible(false);
+        setCurrentLink(null);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('focusin', handleFocusIn);
 
     return () => {
-      document.removeEventListener('keydown', handleTabKey);
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('focusin', handleFocusIn);
     };
-  }, [getFocusableElements]);
+  }, []);
 
   return {
-    saveFocus,
-    restoreFocus,
-    moveFocusToElement,
-    getFocusableElements,
-    trapFocus
+    isVisible,
+    currentLink,
+    show: () => setIsVisible(true),
+    hide: () => setIsVisible(false)
   };
-};
+}
 
-// Roving TabIndex Hook for composite widgets
-export const useRovingTabIndex = (items: React.RefObject<HTMLElement>[]) => {
-  const [focusedIndex, setFocusedIndex] = React.useState(0);
+// Specialized skip links for different page types
+export function DashboardSkipLinks(): React.JSX.Element {
+  const dashboardLinks: SkipLink[] = [
+    { href: '#main-content', text: 'Skip to dashboard content' },
+    { href: '#main-navigation', text: 'Skip to navigation' },
+    { href: '#account-summary', text: 'Skip to account summary' },
+    { href: '#recent-transactions', text: 'Skip to recent transactions' },
+    { href: '#budget-overview', text: 'Skip to budget overview' }
+  ];
 
-  React.useEffect(() => {
-    items.forEach((item, index) => {
-      if (item.current) {
-        item.current.tabIndex = index === focusedIndex ? 0 : -1;
-      }
-    });
-  }, [focusedIndex, items]);
+  return <SkipLinks links={dashboardLinks} />;
+}
 
-  const handleKeyDown = React.useCallback((e: React.KeyboardEvent) => {
-    const { key } = e;
-    const lastIndex = items.length - 1;
+export function TransactionPageSkipLinks(): React.JSX.Element {
+  const transactionLinks: SkipLink[] = [
+    { href: '#main-content', text: 'Skip to transaction list' },
+    { href: '#main-navigation', text: 'Skip to navigation' },
+    { href: '#transaction-filters', text: 'Skip to filters' },
+    { href: '#transaction-search', text: 'Skip to search' },
+    { href: '#add-transaction', text: 'Skip to add transaction' }
+  ];
 
-    switch (key) {
-      case 'ArrowRight':
-      case 'ArrowDown':
-        e.preventDefault();
-        setFocusedIndex((prev) => (prev === lastIndex ? 0 : prev + 1));
-        break;
-      case 'ArrowLeft':
-      case 'ArrowUp':
-        e.preventDefault();
-        setFocusedIndex((prev) => (prev === 0 ? lastIndex : prev - 1));
-        break;
-      case 'Home':
-        e.preventDefault();
-        setFocusedIndex(0);
-        break;
-      case 'End':
-        e.preventDefault();
-        setFocusedIndex(lastIndex);
-        break;
-    }
-  }, [items.length]);
+  return <SkipLinks links={transactionLinks} />;
+}
 
-  React.useEffect(() => {
-    const focusedItem = items[focusedIndex];
-    if (focusedItem?.current) {
-      focusedItem.current.focus();
-    }
-  }, [focusedIndex, items]);
+export function SettingsPageSkipLinks(): React.JSX.Element {
+  const settingsLinks: SkipLink[] = [
+    { href: '#main-content', text: 'Skip to settings content' },
+    { href: '#main-navigation', text: 'Skip to navigation' },
+    { href: '#settings-menu', text: 'Skip to settings menu' },
+    { href: '#settings-form', text: 'Skip to settings form' }
+  ];
 
-  return {
-    focusedIndex,
-    handleKeyDown,
-    setFocusedIndex
-  };
-};
+  return <SkipLinks links={settingsLinks} />;
+}
+
+export function ReportsPageSkipLinks(): React.JSX.Element {
+  const reportsLinks: SkipLink[] = [
+    { href: '#main-content', text: 'Skip to reports content' },
+    { href: '#main-navigation', text: 'Skip to navigation' },
+    { href: '#report-filters', text: 'Skip to report filters' },
+    { href: '#report-charts', text: 'Skip to charts' },
+    { href: '#report-data', text: 'Skip to data table' }
+  ];
+
+  return <SkipLinks links={reportsLinks} />;
+}
+
+// Component for adding skip link targets
+interface SkipTargetProps {
+  id: string;
+  children: React.ReactNode;
+  as?: keyof JSX.IntrinsicElements;
+  className?: string;
+  tabIndex?: number;
+}
+
+export function SkipTarget({
+  id,
+  children,
+  as: Component = 'div',
+  className = '',
+  tabIndex = -1,
+  ...props
+}: SkipTargetProps): React.JSX.Element {
+  return React.createElement(
+    Component,
+    {
+      id,
+      tabIndex,
+      className: `skip-target ${className}`,
+      'aria-label': `Content section: ${id.replace('-', ' ')}`,
+      ...props
+    },
+    children
+  );
+}
+
+export default SkipLinks;

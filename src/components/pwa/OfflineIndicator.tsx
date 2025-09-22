@@ -6,7 +6,7 @@
 import React from 'react';
 import { useOfflineState, useOfflineOperations } from '../../pwa/offline-storage';
 import { WifiOffIcon, WifiIcon, RefreshCwIcon, AlertCircleIcon } from '../icons';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 export const OfflineIndicator: React.FC = () => {
   const offlineState = useOfflineState();

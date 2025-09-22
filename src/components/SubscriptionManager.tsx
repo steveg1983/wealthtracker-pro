@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import type { Subscription } from '../services/dataIntelligenceService';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 import { 
   CreditCardIcon,
   PlusIcon,

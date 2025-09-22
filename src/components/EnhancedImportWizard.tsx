@@ -25,7 +25,7 @@ import { LoadingButton } from './loading/LoadingState';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import BankFormatSelector from './BankFormatSelector';
 import ImportRulesManager from './ImportRulesManager';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface EnhancedImportWizardProps {
   isOpen: boolean;
@@ -46,7 +46,8 @@ interface FileInfo {
   bankFormat?: string;
 }
 
-export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImportWizardProps): React.JSX.Element {
+export default function EnhancedImportWizard({ isOpen, onClose  }: EnhancedImportWizardProps): React.JSX.Element {
+  const logger = useLogger();
   const { accounts, transactions, addTransaction, categories, hasTestData, clearAllData } = useApp();
   
   const [currentStep, setCurrentStep] = useState<WizardStep>('files');

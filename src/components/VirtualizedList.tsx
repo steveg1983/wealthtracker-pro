@@ -144,18 +144,18 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                   ref={(list) => {
                     // Handle both refs
                     if (list) {
-                      listRef.current = list;
+                      (listRef as React.MutableRefObject<any>).current = list;
                       if (typeof ref === 'function') {
                         ref(list);
-                      } else if (ref) {
-                        ref.current = list;
+                      } else if (ref && 'current' in ref) {
+                        (ref as React.MutableRefObject<any>).current = list;
                       }
                     }
                   }}
                   height={height}
                   itemCount={itemCount}
                   itemSize={getItemSize}
-                  itemData={itemData}
+                  itemData={itemData as any}
                   onItemsRendered={(props) => {
                     onInfiniteItemsRendered(props);
                     onItemsRendered?.(props);
@@ -175,18 +175,18 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                   ref={(list) => {
                     // Handle both refs
                     if (list) {
-                      listRef.current = list;
+                      (listRef as React.MutableRefObject<any>).current = list;
                       if (typeof ref === 'function') {
                         ref(list);
-                      } else if (ref) {
-                        ref.current = list;
+                      } else if (ref && 'current' in ref) {
+                        (ref as React.MutableRefObject<any>).current = list;
                       }
                     }
                   }}
                   height={height}
                   itemCount={itemCount}
                   itemSize={itemHeight as number}
-                  itemData={itemData}
+                  itemData={itemData as any}
                   itemKey={(index, data) => {
                     const item = data.items[index];
                     return item ? data.getItemKey(item, index) : `loading-${index}`;

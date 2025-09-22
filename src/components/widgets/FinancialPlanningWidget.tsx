@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { financialPlanningService } from '../../services/financialPlanningService';
+import { useApp } from '../../contexts/AppContextSupabase';
 import { 
   CalculatorIcon,
   PiggyBankIcon,
@@ -13,24 +14,30 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { RetirementPlan, FinancialGoal } from '../../services/financialPlanningService';
 import type { BaseWidgetProps } from '../../types/widget-types';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface FinancialPlanningWidgetProps extends BaseWidgetProps {}
 
-export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPlanningWidgetProps) {
+export default function FinancialPlanningWidget({ size = 'medium'  }: FinancialPlanningWidgetProps) {
+  const logger = useLogger();
   const navigate = useNavigate();
+  const { user } = useApp();
   const [retirementPlans, setRetirementPlans] = useState<RetirementPlan[]>([]);
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (user?.id) {
+      loadData();
+    }
+  }, [user?.id]);
 
   const loadData = async () => {
+    if (!user?.id) return;
     try {
       setRetirementPlans(financialPlanningService.getRetirementPlans());
-      setFinancialGoals(financialPlanningService.getFinancialGoals());
+      const plans = await financialPlanningService.getFinancialPlans(user.id);
+      setFinancialGoals(plans as any);
     } catch (error) {
       logger.error('Error loading financial planning data:', error);
     } finally {
@@ -52,7 +59,18 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
   };
 
   const getGoalStatus = (goal: FinancialGoal) => {
-    const projection = financialPlanningService.calculateGoalProjection(goal);
+    // Calculate time horizon from target date
+    const targetDate = new Date(goal.targetDate);
+    const now = new Date();
+    const timeHorizon = Math.max(1, Math.ceil((targetDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 365)));
+    
+    const projection = financialPlanningService.calculateGoalProjection(
+      goal.targetAmount,
+      goal.currentSavings,
+      goal.monthlyContribution || 0,
+      0.07,
+      timeHorizon
+    );
     return projection.onTrack;
   };
 
@@ -143,7 +161,7 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
             <div className="space-y-2">
               {/* Retirement Plans */}
               {retirementPlans.slice(0, 2).map((plan) => {
-                const projection = financialPlanningService.calculateRetirementProjection(plan);
+                const projection = financialPlanningService.calculateRetirementProjection(plan) as { yearsToRetirement?: number; totalSavingsAtRetirement?: number } | null;
                 return (
                   <div key={plan.id} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                     <div className="flex items-center gap-2">
@@ -153,12 +171,12 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
                           {plan.name}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {projection.yearsToRetirement} years to go
+                          {projection?.yearsToRetirement || 0} years to go
                         </p>
                       </div>
                     </div>
                     <div className="text-xs text-gray-900 dark:text-white">
-                      {formatCurrency(projection.totalSavingsAtRetirement)}
+                      {formatCurrency(projection?.totalSavingsAtRetirement || 0)}
                     </div>
                   </div>
                 );

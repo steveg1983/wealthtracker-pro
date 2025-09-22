@@ -1,347 +1,613 @@
-import React, { useState, useCallback } from 'react';
-import { useApp } from '../contexts/AppContextSupabase';
-import { qifImportService } from '../services/qifImportService';
-import type { Account } from '../types';
-import { Modal } from './common/Modal';
-import {
-  UploadIcon,
-  FileTextIcon,
-  CheckIcon,
-  AlertCircleIcon,
-  InfoIcon,
-  RefreshCwIcon
-} from './icons';
-import { LoadingButton } from './loading/LoadingState';
-import { logger } from '../services/loggingService';
+/**
+ * QIFImportModal Component - Specialized modal for importing QIF files
+ *
+ * Features:
+ * - QIF format parsing and validation
+ * - Account mapping and categorization
+ * - Transaction deduplication
+ * - Import configuration options
+ * - Progress tracking and error handling
+ */
+
+import React, { useState, useRef, useCallback } from 'react';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface QIFImportModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onImport: (transactions: QIFTransaction[], options: ImportOptions) => Promise<void>;
+  className?: string;
 }
 
-export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps): React.JSX.Element {
-  const { accounts, transactions, categories, addTransaction } = useApp();
+interface QIFTransaction {
+  date: Date;
+  amount: number;
+  description: string;
+  category?: string;
+  memo?: string;
+  payee?: string;
+  cleared?: 'cleared' | 'reconciled' | 'uncleared';
+  number?: string; // Check number
+  address?: string[];
+}
+
+interface ImportOptions {
+  targetAccount: string;
+  duplicateHandling: 'skip' | 'import' | 'ask';
+  dateFormat: 'MDY' | 'DMY' | 'YMD';
+  defaultCategory?: string;
+  createNewCategories: boolean;
+}
+
+interface QIFParseResult {
+  transactions: QIFTransaction[];
+  accounts: string[];
+  categories: string[];
+  errors: string[];
+  warnings: string[];
+}
+
+export default function QIFImportModal({
+  isOpen,
+  onClose,
+  onImport,
+  className = ''
+}: QIFImportModalProps): React.JSX.Element {
+  const [step, setStep] = useState<'upload' | 'configure' | 'preview' | 'importing' | 'complete'>('upload');
   const [file, setFile] = useState<File | null>(null);
+  const [parseResult, setParseResult] = useState<QIFParseResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [parseResult, setParseResult] = useState<{ transactions: Array<{ date: string; amount: number; payee?: string; memo?: string; category?: string; checkNumber?: string; cleared?: boolean }>; accountType?: string } | null>(null);
-  const [importResult, setImportResult] = useState<{ success: boolean; imported?: number; duplicates?: number; account?: Account; error?: string } | null>(null);
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [skipDuplicates, setSkipDuplicates] = useState(true);
-  
-  // Handle file upload
-  const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const uploadedFile = event.target.files?.[0];
-    if (!uploadedFile) return;
-    
-    // Check file extension
-    if (!uploadedFile.name.toLowerCase().endsWith('.qif')) {
-      alert('Please select a QIF file');
+  const [importProgress, setImportProgress] = useState(0);
+  const [importOptions, setImportOptions] = useState<ImportOptions>({
+    targetAccount: 'checking',
+    duplicateHandling: 'skip',
+    dateFormat: 'MDY',
+    createNewCategories: true
+  });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reset state when modal opens/closes
+  React.useEffect(() => {
+    if (!isOpen) {
+      setStep('upload');
+      setFile(null);
+      setParseResult(null);
+      setIsProcessing(false);
+      setImportProgress(0);
+      setImportOptions({
+        targetAccount: 'checking',
+        duplicateHandling: 'skip',
+        dateFormat: 'MDY',
+        createNewCategories: true
+      });
+    }
+  }, [isOpen]);
+
+  const parseQIFFile = useCallback(async (fileContent: string): Promise<QIFParseResult> => {
+    const lines = fileContent.split('\n').map(line => line.trim()).filter(line => line);
+    const transactions: QIFTransaction[] = [];
+    const accounts = new Set<string>();
+    const categories = new Set<string>();
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    let currentTransaction: Partial<QIFTransaction> = {};
+    let currentAccount = '';
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+
+      if (line.startsWith('!Type:')) {
+        currentAccount = line.substring(6);
+        accounts.add(currentAccount);
+        continue;
+      }
+
+      if (line === '^') {
+        // End of transaction
+        if (currentTransaction.date && currentTransaction.amount !== undefined && currentTransaction.description) {
+          transactions.push(currentTransaction as QIFTransaction);
+          if (currentTransaction.category) {
+            categories.add(currentTransaction.category);
+          }
+        } else {
+          warnings.push(`Incomplete transaction on line ${i + 1}`);
+        }
+        currentTransaction = {};
+        continue;
+      }
+
+      const code = line.charAt(0);
+      const value = line.substring(1);
+
+      switch (code) {
+        case 'D': // Date
+          try {
+            currentTransaction.date = new Date(value);
+            if (isNaN(currentTransaction.date.getTime())) {
+              errors.push(`Invalid date format on line ${i + 1}: ${value}`);
+            }
+          } catch {
+            errors.push(`Invalid date on line ${i + 1}: ${value}`);
+          }
+          break;
+        case 'T': // Amount
+          currentTransaction.amount = parseFloat(value);
+          if (isNaN(currentTransaction.amount)) {
+            errors.push(`Invalid amount on line ${i + 1}: ${value}`);
+          }
+          break;
+        case 'P': // Payee
+          currentTransaction.payee = value;
+          if (!currentTransaction.description) {
+            currentTransaction.description = value;
+          }
+          break;
+        case 'M': // Memo
+          currentTransaction.memo = value;
+          if (!currentTransaction.description) {
+            currentTransaction.description = value;
+          }
+          break;
+        case 'L': // Category
+          currentTransaction.category = value;
+          break;
+        case 'C': // Cleared status
+          currentTransaction.cleared = value.toLowerCase() as QIFTransaction['cleared'];
+          break;
+        case 'N': // Number (check number)
+          currentTransaction.number = value;
+          break;
+        case 'A': // Address line
+          if (!currentTransaction.address) {
+            currentTransaction.address = [];
+          }
+          currentTransaction.address.push(value);
+          break;
+        default:
+          warnings.push(`Unknown QIF code '${code}' on line ${i + 1}`);
+      }
+    }
+
+    return {
+      transactions,
+      accounts: Array.from(accounts),
+      categories: Array.from(categories),
+      errors,
+      warnings
+    };
+  }, []);
+
+  const handleFileSelect = useCallback(async (selectedFile: File) => {
+    if (!selectedFile.name.toLowerCase().endsWith('.qif')) {
       return;
     }
-    
-    setFile(uploadedFile);
-    setParseResult(null);
-    setImportResult(null);
-    
-    // Parse the file
-    parseFile(uploadedFile);
-  }, []);
-  
-  // Handle drag and drop
-  const handleDrop = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    const droppedFile = event.dataTransfer.files[0];
-    
-    if (droppedFile && droppedFile.name.toLowerCase().endsWith('.qif')) {
-      setFile(droppedFile);
-      setParseResult(null);
-      setImportResult(null);
-      parseFile(droppedFile);
-    }
-  }, []);
-  
-  // Parse QIF file
-  const parseFile = async (file: File) => {
+
+    setFile(selectedFile);
     setIsProcessing(true);
-    
+
     try {
-      const content = await file.text();
-      const parsed = qifImportService.parseQIF(content);
-      
+      logger.debug('Processing QIF file:', selectedFile.name);
+
+      const fileContent = await selectedFile.text();
+      const result = await parseQIFFile(fileContent);
+
+      if (result.errors.length > 0) {
+        logger.error('QIF parsing errors:', result.errors);
+      }
+
+      setParseResult(result);
+      setStep(result.errors.length > 0 ? 'upload' : 'configure');
+      logger.debug('QIF file processed successfully', {
+        transactions: result.transactions.length,
+        accounts: result.accounts.length
+      });
+    } catch (error) {
+      logger.error('Error processing QIF file:', error);
       setParseResult({
-        transactions: parsed.transactions,
-        accountType: parsed.accountType
+        transactions: [],
+        accounts: [],
+        categories: [],
+        errors: ['Failed to process QIF file. Please check the file format.'],
+        warnings: []
       });
-      
-      // Pre-select first account if only one exists
-      if (accounts.length === 1) {
-        setSelectedAccountId(accounts[0].id);
-      }
-    } catch (error) {
-      logger.error('Error parsing QIF file:', error);
-      alert('Error parsing QIF file. Please check the file format.');
     } finally {
       setIsProcessing(false);
     }
-  };
-  
-  // Process import
-  const processImport = async () => {
-    if (!parseResult || !file || !selectedAccountId) return;
-    
-    setIsProcessing(true);
-    
+  }, [parseQIFFile]);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile && droppedFile.name.toLowerCase().endsWith('.qif')) {
+      handleFileSelect(droppedFile);
+    }
+  }, [handleFileSelect]);
+
+  const handleImport = async () => {
+    if (!parseResult || parseResult.transactions.length === 0) return;
+
+    setStep('importing');
+    setImportProgress(0);
+
     try {
-      const content = await file.text();
-      const result = await qifImportService.importTransactions(
-        content,
-        selectedAccountId,
-        skipDuplicates ? transactions : [],
-        {
-          categories,
-          autoCategorize: true
-        }
-      );
-      
-      // Add transactions
-      for (const transaction of result.transactions) {
-        addTransaction(transaction);
+      // Simulate import progress
+      const totalSteps = parseResult.transactions.length;
+      for (let i = 0; i <= totalSteps; i += Math.max(1, Math.floor(totalSteps / 20))) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+        setImportProgress((i / totalSteps) * 100);
       }
-      
-      setImportResult({
-        success: true,
-        imported: result.newTransactions,
-        duplicates: result.duplicates,
-        account: accounts.find(a => a.id === selectedAccountId)
-      });
+
+      await onImport(parseResult.transactions, importOptions);
+      setStep('complete');
+      logger.debug('QIF import completed successfully');
     } catch (error) {
-      logger.error('Import error:', error);
-      setImportResult({
-        success: false,
-        error: error instanceof Error ? error.message : 'Import failed'
-      });
-    } finally {
-      setIsProcessing(false);
+      logger.error('QIF import failed:', error);
+      setParseResult(prev => prev ? {
+        ...prev,
+        errors: [...prev.errors, 'Import failed. Please try again.']
+      } : null);
+      setStep('preview');
     }
   };
-  
-  // Reset modal
-  const resetModal = () => {
-    setFile(null);
-    setParseResult(null);
-    setImportResult(null);
-    setSelectedAccountId('');
+
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP'
+    }).format(amount);
   };
-  
+
+  if (!isOpen) return <></>;
+
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Import QIF File" size="lg">
-      <div className="p-6">
-        {!parseResult && !importResult && (
-          <>
-            {/* File Upload */}
-            <div
-              className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-primary transition-colors cursor-pointer"
-              onDrop={handleDrop}
-              onDragOver={(e) => e.preventDefault()}
+    <div className="fixed inset-0 z-50 overflow-y-auto">
+      <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" onClick={onClose}></div>
+
+        <div className={`inline-block w-full max-w-3xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white dark:bg-gray-800 shadow-xl rounded-2xl ${className}`}>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+              Import QIF File
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
             >
-              <UploadIcon size={48} className="mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Upload QIF File
-              </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                Drag and drop your .qif file here, or click to browse
-              </p>
-              <input
-                type="file"
-                accept=".qif"
-                onChange={handleFileUpload}
-                className="hidden"
-                id="qif-upload"
-              />
-              <label
-                htmlFor="qif-upload"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary cursor-pointer"
-              >
-                <FileTextIcon size={20} />
-                Select QIF File
-              </label>
-            </div>
-            
-            {/* Info Box */}
-            <div className="mt-6 bg-amber-50 dark:bg-amber-900/20 rounded-xl p-4 shadow-md border-l-4 border-amber-400 dark:border-amber-600">
-              <div className="flex items-start gap-3">
-                <InfoIcon className="text-amber-600 dark:text-amber-400 mt-0.5" size={20} />
-                <div className="text-sm">
-                  <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
-                    About QIF Files
-                  </h4>
-                  <p className="text-gray-600 dark:text-gray-400 mb-2">
-                    QIF (Quicken Interchange Format) is a simple text format for financial data.
-                  </p>
-                  <ul className="text-gray-600 dark:text-gray-400 space-y-1">
-                    <li>• Widely supported by UK banks and financial software</li>
-                    <li>• Simple format but no unique transaction IDs</li>
-                    <li>• Requires manual account selection</li>
-                    <li>• Best for one-time imports or initial setup</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-        
-        {/* Parse Results */}
-        {parseResult && !importResult && (
-          <div className="space-y-6">
-            {/* File Info */}
-            <div className="flex items-center gap-3 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-              <FileTextIcon className="text-gray-600 dark:text-gray-400" size={24} />
-              <div className="flex-1">
-                <p className="font-medium text-gray-900 dark:text-white">{file?.name}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {parseResult.transactions.length} transactions found
-                  {parseResult.accountType && ` (Type: ${parseResult.accountType})`}
-                </p>
-              </div>
-            </div>
-            
-            {/* Account Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Import to Account <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={selectedAccountId}
-                onChange={(e) => setSelectedAccountId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-700 dark:text-white"
-                required
-              >
-                <option value="">Select an account...</option>
-                {accounts.map(account => (
-                  <option key={account.id} value={account.id}>
-                    {account.name} ({account.type})
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                QIF files don't contain account information, so you need to select the destination account
-              </p>
-            </div>
-            
-            {/* Import Options */}
-            <div>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={skipDuplicates}
-                  onChange={(e) => setSkipDuplicates(e.target.checked)}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Skip potential duplicates
-                </span>
-              </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400 ml-6 mt-1">
-                Checks for transactions with the same date, amount, and payee
-              </p>
-            </div>
-            
-            {/* Summary */}
-            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-              <h4 className="font-medium text-gray-900 dark:text-white mb-3">
-                Preview (First 5 transactions)
-              </h4>
-              <div className="space-y-2 text-sm">
-                {parseResult.transactions.slice(0, 5).map((trx, index) => (
-                  <div key={index} className="flex justify-between text-gray-600 dark:text-gray-400">
-                    <span>{trx.date} - {trx.payee || trx.memo || 'No description'}</span>
-                    <span className={trx.amount < 0 ? 'text-red-600' : 'text-green-600'}>
-                      £{Math.abs(trx.amount).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-                {parseResult.transactions.length > 5 && (
-                  <p className="text-gray-500 dark:text-gray-400 text-xs mt-2">
-                    ...and {parseResult.transactions.length - 5} more transactions
-                  </p>
-                )}
-              </div>
-            </div>
-            
-            {/* Actions */}
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={resetModal}
-                className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
-              >
-                Cancel
-              </button>
-              <LoadingButton
-                isLoading={isProcessing}
-                onClick={processImport}
-                disabled={!selectedAccountId}
-                className="flex items-center gap-2 px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50"
-              >
-                <UploadIcon size={20} />
-                Import Transactions
-              </LoadingButton>
-            </div>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
-        )}
-        
-        {/* Import Results */}
-        {importResult && (
-          <div className="text-center">
-            {importResult.success ? (
-              <>
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full mb-4">
-                  <CheckIcon size={32} className="text-green-600 dark:text-green-400" />
+
+          {/* Progress Steps */}
+          <div className="flex items-center justify-between mb-8">
+            {[
+              { key: 'upload', label: 'Upload QIF' },
+              { key: 'configure', label: 'Configure' },
+              { key: 'preview', label: 'Preview' },
+              { key: 'importing', label: 'Import' }
+            ].map((stepItem, index) => (
+              <div key={stepItem.key} className="flex items-center">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+                  step === stepItem.key ? 'bg-blue-600 text-white' :
+                  ['configure', 'preview', 'importing', 'complete'].indexOf(step) > ['upload', 'configure', 'preview', 'importing'].indexOf(stepItem.key)
+                    ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-600'
+                }`}>
+                  {['configure', 'preview', 'importing', 'complete'].indexOf(step) > ['upload', 'configure', 'preview', 'importing'].indexOf(stepItem.key) ? '✓' : index + 1}
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  Import Successful!
-                </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
-                  Imported {importResult.imported} transactions to {importResult.account?.name}
-                </p>
-                
-                {(importResult.duplicates ?? 0) > 0 && (
-                  <p className="text-sm text-yellow-600 dark:text-yellow-400 mb-6">
-                    Skipped {importResult.duplicates} potential duplicate transactions
-                  </p>
+                <span className={`ml-2 text-sm ${
+                  step === stepItem.key ? 'text-blue-600 font-medium' : 'text-gray-500'
+                }`}>
+                  {stepItem.label}
+                </span>
+                {index < 3 && (
+                  <div className={`w-8 h-0.5 mx-4 ${
+                    ['configure', 'preview', 'importing', 'complete'].indexOf(step) > index ? 'bg-green-600' : 'bg-gray-200'
+                  }`}></div>
                 )}
-              </>
-            ) : (
-              <>
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full mb-4">
-                  <AlertCircleIcon size={32} className="text-red-600 dark:text-red-400" />
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  Import Failed
-                </h3>
-                <p className="text-red-600 dark:text-red-400 mb-6">
-                  {importResult.error}
-                </p>
-              </>
-            )}
-            
-            <div className="flex justify-center gap-3">
-              <button
-                onClick={resetModal}
-                className="flex items-center gap-2 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+              </div>
+            ))}
+          </div>
+
+          {/* Error/Warning Messages */}
+          {parseResult?.errors && parseResult.errors.length > 0 && (
+            <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <h4 className="text-red-800 dark:text-red-200 font-medium mb-2">
+                Parse Errors
+              </h4>
+              <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+                {parseResult.errors.map((error, index) => (
+                  <li key={index}>• {error}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {parseResult?.warnings && parseResult.warnings.length > 0 && (
+            <div className="mb-6 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+              <h4 className="text-yellow-800 dark:text-yellow-200 font-medium mb-2">
+                Warnings
+              </h4>
+              <ul className="text-sm text-yellow-700 dark:text-yellow-300 space-y-1">
+                {parseResult.warnings.slice(0, 5).map((warning, index) => (
+                  <li key={index}>• {warning}</li>
+                ))}
+                {parseResult.warnings.length > 5 && (
+                  <li>... and {parseResult.warnings.length - 5} more warnings</li>
+                )}
+              </ul>
+            </div>
+          )}
+
+          {/* Step Content */}
+          {step === 'upload' && (
+            <div className="space-y-6">
+              <div
+                className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center hover:border-blue-500 transition-colors"
+                onDrop={handleDrop}
+                onDragOver={(e) => e.preventDefault()}
               >
-                <RefreshCwIcon size={20} />
-                Import Another File
-              </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".qif"
+                  onChange={(e) => e.target.files?.[0] && handleFileSelect(e.target.files[0])}
+                  className="hidden"
+                />
+                {isProcessing ? (
+                  <div className="space-y-4">
+                    <div className="text-gray-400 text-6xl mb-4">⚙️</div>
+                    <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                      Processing QIF file...
+                    </h4>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 max-w-xs mx-auto">
+                      <div className="bg-blue-600 h-2 rounded-full animate-pulse" style={{ width: '70%' }}></div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-gray-400 text-6xl mb-4">📋</div>
+                    <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      Upload QIF File
+                    </h4>
+                    <p className="text-gray-500 dark:text-gray-400 mb-4">
+                      Drag and drop your Quicken QIF file here, or click to browse
+                    </p>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                    >
+                      Choose QIF File
+                    </button>
+                    <p className="text-xs text-gray-400 mt-4">
+                      Supports .qif files from Quicken, QuickBooks, and other financial software
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {step === 'configure' && parseResult && (
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                  Import Configuration
+                </h4>
+                <p className="text-gray-500 dark:text-gray-400">
+                  Configure how your QIF data should be imported
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Target Account
+                  </label>
+                  <select
+                    value={importOptions.targetAccount}
+                    onChange={(e) => setImportOptions({ ...importOptions, targetAccount: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  >
+                    <option value="checking">Checking Account</option>
+                    <option value="savings">Savings Account</option>
+                    <option value="credit">Credit Card</option>
+                    <option value="investment">Investment Account</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Date Format
+                  </label>
+                  <select
+                    value={importOptions.dateFormat}
+                    onChange={(e) => setImportOptions({ ...importOptions, dateFormat: e.target.value as ImportOptions['dateFormat'] })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  >
+                    <option value="MDY">MM/DD/YYYY (US)</option>
+                    <option value="DMY">DD/MM/YYYY (UK)</option>
+                    <option value="YMD">YYYY/MM/DD (ISO)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Duplicate Handling
+                  </label>
+                  <select
+                    value={importOptions.duplicateHandling}
+                    onChange={(e) => setImportOptions({ ...importOptions, duplicateHandling: e.target.value as ImportOptions['duplicateHandling'] })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                  >
+                    <option value="skip">Skip duplicates</option>
+                    <option value="import">Import all</option>
+                    <option value="ask">Ask for each duplicate</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Default Category (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={importOptions.defaultCategory || ''}
+                    onChange={(e) => setImportOptions({ ...importOptions, defaultCategory: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-100"
+                    placeholder="Uncategorized"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={importOptions.createNewCategories}
+                    onChange={(e) => setImportOptions({ ...importOptions, createNewCategories: e.target.checked })}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">
+                    Create new categories for unknown categories in QIF file
+                  </span>
+                </label>
+              </div>
+
+              {/* Summary */}
+              <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+                <h5 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Import Summary</h5>
+                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                  <li>• {parseResult.transactions.length} transactions found</li>
+                  <li>• {parseResult.categories.length} categories detected</li>
+                  <li>• {parseResult.accounts.length} accounts in file</li>
+                </ul>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setStep('upload')}
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => setStep('preview')}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  Preview Import
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'preview' && parseResult && (
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                  Import Preview
+                </h4>
+                <p className="text-gray-500 dark:text-gray-400">
+                  Review the first few transactions before importing
+                </p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <thead className="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Date</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Description</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Amount</th>
+                      <th className="px-4 py-2 text-left text-sm font-medium text-gray-700 dark:text-gray-300">Category</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                    {parseResult.transactions.slice(0, 10).map((transaction, index) => (
+                      <tr key={index} className="bg-white dark:bg-gray-800">
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
+                          {transaction.date.toLocaleDateString()}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
+                          {transaction.description}
+                        </td>
+                        <td className={`px-4 py-2 text-sm font-medium ${
+                          transaction.amount >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {formatCurrency(transaction.amount)}
+                        </td>
+                        <td className="px-4 py-2 text-sm text-gray-900 dark:text-gray-100">
+                          {transaction.category || importOptions.defaultCategory || 'Uncategorized'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {parseResult.transactions.length > 10 && (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  ... and {parseResult.transactions.length - 10} more transactions
+                </p>
+              )}
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setStep('configure')}
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg transition-colors"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={handleImport}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  Import Transactions
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'importing' && (
+            <div className="space-y-6 text-center">
+              <div className="text-6xl mb-4">📥</div>
+              <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                Importing QIF data...
+              </h4>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 max-w-md mx-auto">
+                <div
+                  className="bg-blue-600 h-4 rounded-full transition-all duration-300"
+                  style={{ width: `${importProgress}%` }}
+                ></div>
+              </div>
+              <p className="text-gray-500 dark:text-gray-400">
+                {Math.round(importProgress)}% complete
+              </p>
+            </div>
+          )}
+
+          {step === 'complete' && (
+            <div className="space-y-6 text-center">
+              <div className="text-6xl mb-4">✅</div>
+              <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                QIF Import Complete!
+              </h4>
+              <p className="text-gray-500 dark:text-gray-400">
+                Your QIF file has been successfully imported.
+              </p>
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-secondary"
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
                 Done
               </button>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-    </Modal>
+    </div>
   );
 }

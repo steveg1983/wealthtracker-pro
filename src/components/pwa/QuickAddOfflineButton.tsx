@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { useLogger } from '../services/ServiceProvider';
 import { useOfflineState } from '../../pwa/offline-storage';
 import { OfflineTransactionForm } from './OfflineTransactionForm';
 import { PlusCircleIcon, WifiOffIcon } from '../icons';

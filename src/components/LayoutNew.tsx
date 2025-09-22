@@ -33,10 +33,10 @@ export default function LayoutNew(): React.JSX.Element {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showPageTips, setShowPageTips] = useState(false);
   
-  const { updateAvailable, skipWaiting } = useServiceWorker();
-  const { conflicts = [], resolveConflict } = useConflictResolution();
-  const { isDialogOpen: isSearchOpen, openDialog: openSearch, closeDialog: closeSearch } = useGlobalSearchDialog();
-  const { isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
+  const { updateAvailable } = useServiceWorker();
+  const { resolveConflict } = useConflictResolution();
+  const { isOpen: isSearchOpen, openSearch, closeSearch } = useGlobalSearchDialog();
+  const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
 
   // Check if user is new and needs onboarding
   useEffect(() => {
@@ -53,14 +53,7 @@ export default function LayoutNew(): React.JSX.Element {
   }, []);
 
   // Set up global keyboard shortcuts
-  useGlobalKeyboardShortcuts({
-    onSearch: openSearch,
-    onHelp: openHelp,
-    onRefresh: () => {
-      setIsRefreshing(true);
-      window.location.reload();
-    }
-  });
+  useGlobalKeyboardShortcuts(openHelp);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -142,15 +135,9 @@ export default function LayoutNew(): React.JSX.Element {
       <GlobalSearch isOpen={isSearchOpen} onClose={closeSearch} />
       <KeyboardShortcutsHelp isOpen={isHelpOpen} onClose={closeHelp} />
       <PWAInstallPrompt />
-      {updateAvailable && <ServiceWorkerUpdateNotification onUpdate={skipWaiting} />}
-      {conflicts.length > 0 && (
-        <EnhancedConflictResolutionModal
-          conflicts={conflicts}
-          onResolve={resolveConflict}
-        />
-      )}
+      {updateAvailable && <ServiceWorkerUpdateNotification registration={null} />}
       <SyncConflictResolver />
-      <KeyboardSequenceIndicator />
+      <KeyboardSequenceIndicator activeSequence={null} />
       
       {/* Onboarding Guide for New Users */}
       {showOnboarding && (

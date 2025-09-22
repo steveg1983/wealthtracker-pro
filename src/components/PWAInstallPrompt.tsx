@@ -1,92 +1,137 @@
-import React, { useState, useEffect } from 'react';
-import { usePWAInstall } from '../hooks/usePWAInstall';
-import { XIcon } from './icons';
+/**
+ * PWAInstallPrompt Component - Progressive Web App install prompt
+ *
+ * Features:
+ * - Detects PWA install availability
+ * - Shows install prompt when appropriate
+ * - Handles install flow
+ */
 
-export default function PWAInstallPrompt() {
-  const { isInstallable, isInstalled, installApp } = usePWAInstall();
-  const [showPrompt, setShowPrompt] = useState(false);
-  const [hasBeenDismissed, setHasBeenDismissed] = useState(false);
+import React, { useState, useEffect } from 'react';
+import { lazyLogger as logger } from '../services/serviceFactory';
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+export default function PWAInstallPrompt(): React.JSX.Element {
+  const [installPrompt, setInstallPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Check if user has dismissed the prompt before
-    const dismissed = localStorage.getItem('pwa-install-dismissed');
-    if (dismissed) {
-      setHasBeenDismissed(true);
+    const handleBeforeInstallPrompt = (e: Event) => {
+      // Prevent the mini-infobar from appearing on mobile
+      e.preventDefault();
+      const promptEvent = e as BeforeInstallPromptEvent;
+      setInstallPrompt(promptEvent);
+      setIsVisible(true);
+      logger.info('PWA install prompt available');
+    };
+
+    const handleAppInstalled = () => {
+      logger.info('PWA was installed');
+      setIsVisible(false);
+      setInstallPrompt(null);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // Check if already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsVisible(false);
     }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
   }, []);
 
-  useEffect(() => {
-    // Show prompt after 30 seconds if installable and not dismissed
-    if (isInstallable && !hasBeenDismissed && !isInstalled) {
-      const timer = setTimeout(() => {
-        setShowPrompt(true);
-      }, 30000);
+  const handleInstallClick = async () => {
+    if (!installPrompt) return;
 
-      return () => clearTimeout(timer);
-    }
-  }, [isInstallable, hasBeenDismissed, isInstalled]);
+    try {
+      await installPrompt.prompt();
+      const { outcome } = await installPrompt.userChoice;
 
-  const handleInstall = async () => {
-    const success = await installApp();
-    if (success) {
-      setShowPrompt(false);
+      if (outcome === 'accepted') {
+        logger.info('User accepted the PWA install prompt');
+      } else {
+        logger.info('User dismissed the PWA install prompt');
+      }
+
+      setIsVisible(false);
+      setInstallPrompt(null);
+    } catch (error) {
+      logger.error('Error during PWA install:', error);
     }
   };
 
   const handleDismiss = () => {
-    setShowPrompt(false);
-    setHasBeenDismissed(true);
-    localStorage.setItem('pwa-install-dismissed', 'true');
+    setIsVisible(false);
+    // Don't reset installPrompt so it can be shown again later if needed
   };
 
-  const handleLater = () => {
-    setShowPrompt(false);
-    // Don't set permanent dismissal, just hide for this session
-  };
-
-  if (!showPrompt || isInstalled) {
-    return null;
+  if (!isVisible || !installPrompt) {
+    return <></>;
   }
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 md:left-auto md:right-4 md:max-w-sm z-50 animate-fadeIn">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-600 p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center">
-            <div className="w-10 h-10 bg-[#8EA9DB] rounded-lg flex items-center justify-center mr-3">
-              <span className="text-white font-bold text-lg">W</span>
-            </div>
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">Install WealthTracker</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">Get the full app experience</p>
-            </div>
+    <div className="fixed bottom-4 right-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg p-4 max-w-sm z-50">
+      <div className="flex items-start space-x-3">
+        <div className="flex-shrink-0">
+          <svg
+            className="w-8 h-8 text-blue-600"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            Install WealthTracker
+          </h3>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+            Get quick access and offline features by installing our app!
+          </p>
+          <div className="flex space-x-2 mt-3">
+            <button
+              onClick={handleInstallClick}
+              className="px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors duration-200"
+            >
+              Install
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="px-3 py-1.5 text-gray-600 dark:text-gray-400 text-xs font-medium hover:text-gray-800 dark:hover:text-gray-200 focus:outline-none transition-colors duration-200"
+            >
+              Not now
+            </button>
           </div>
-          <button
-            onClick={handleDismiss}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1"
-          >
-            <XIcon size={16} />
-          </button>
         </div>
-        
-        <div className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-          Install WealthTracker for quick access, offline support, and a native app experience.
-        </div>
-        
-        <div className="flex space-x-2">
-          <button
-            onClick={handleInstall}
-            className="flex-1 bg-[#8EA9DB] hover:bg-[#7A97C9] text-white font-medium py-2 px-4 rounded-lg transition-colors"
-          >
-            Install
-          </button>
-          <button
-            onClick={handleLater}
-            className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition-colors"
-          >
-            Later
-          </button>
-        </div>
+        <button
+          onClick={handleDismiss}
+          className="flex-shrink-0 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 focus:outline-none"
+        >
+          <span className="sr-only">Close</span>
+          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+            <path
+              fillRule="evenodd"
+              d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </button>
       </div>
     </div>
   );

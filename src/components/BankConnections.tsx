@@ -13,13 +13,14 @@ import {
   SearchIcon
 } from './icons';
 import { format } from 'date-fns';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 interface BankConnectionsProps {
   onAccountsLinked?: () => void;
 }
 
-export default function BankConnections({ onAccountsLinked }: BankConnectionsProps) {
+export default function BankConnections({ onAccountsLinked  }: BankConnectionsProps) {
+  const logger = useLogger();
   const [connections, setConnections] = useState<BankConnection[]>([]);
   const [institutions, setInstitutions] = useState<BankInstitution[]>([]);
   const [showAddBank, setShowAddBank] = useState(false);

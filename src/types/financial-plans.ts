@@ -6,7 +6,7 @@
 export interface FinancialPlan {
   id: string;
   user_id: string;
-  plan_type: 'retirement' | 'mortgage' | 'investment' | 'tax' | 'insurance' | 'education';
+  plan_type: 'retirement' | 'mortgage' | 'investment' | 'tax' | 'insurance' | 'education' | 'networth' | 'debt';
   name: string;
   description?: string;
   data: Record<string, any>; // JSONB data
@@ -58,6 +58,7 @@ export interface RetirementPlan {
   id: string;
   user_id: string;
   financial_plan_id?: string;
+  name?: string; // Optional plan name
   
   // Personal Details
   current_age: number;

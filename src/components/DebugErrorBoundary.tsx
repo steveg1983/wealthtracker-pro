@@ -1,5 +1,5 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface Props {
   children: ReactNode;
@@ -23,7 +23,7 @@ export class DebugErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    logger.error('DebugErrorBoundary caught:', error, errorInfo);
+    logger.error('DebugErrorBoundary caught:', error, errorInfo.componentStack ?? '');
     this.setState({
       error,
       errorInfo

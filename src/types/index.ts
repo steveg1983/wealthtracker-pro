@@ -10,12 +10,24 @@ export interface Holding {
   gainPercent?: number;
   currency?: string;
   lastUpdated?: Date;
+  costBasis?: number;
+}
+
+export interface User {
+  id: string;
+  clerk_id: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  created_at: Date;
+  updated_at: Date;
+  settings?: Record<string, any>;
 }
 
 export interface Account {
   id: string;
   name: string;
-  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'mortgage' | 'assets' | 'other' | 'checking';
+  type: 'current' | 'savings' | 'credit' | 'loan' | 'investment' | 'asset' | 'mortgage' | 'assets' | 'other' | 'checking' | 'credit_card' | 'cash' | 'liability';
   balance: number;
   currency: string;
   institution?: string;
@@ -28,9 +40,21 @@ export interface Account {
   plaidConnectionId?: string;
   plaidAccountId?: string;
   mask?: string;
+  createdAt?: Date;
   updatedAt?: Date;
   sortCode?: string; // UK bank sort code (XX-XX-XX format)
   accountNumber?: string; // Bank account number (typically 8 digits)
+  creditLimit?: number; // For credit card accounts
+  subtype?: string; // Account subtype for detailed categorization
+  metadata?: {
+    apr?: number; // Annual Percentage Rate for loans/credit
+    interestRate?: number;
+    minimumPayment?: number;
+    paymentDueDate?: string;
+    [key: string]: any;
+  };
+  available?: number; // Available balance (balance minus pending)
+  tags?: string[]; // User-defined tags for categorization
 }
 
 export interface Transaction {
@@ -39,6 +63,7 @@ export interface Transaction {
   amount: number;
   description: string;
   category: string;
+  subcategory?: string;
   categoryName?: string;
   accountId: string;
   type: 'income' | 'expense' | 'transfer';
@@ -117,13 +142,17 @@ export interface Transaction {
     stampDuty?: number;
     totalCost?: number;
   };
+  
+  // Timestamps
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface Budget {
   id: string;
   categoryId: string;  // Changed from 'category' to match service implementation
   amount: number;
-  period: 'monthly' | 'weekly' | 'yearly';
+  period: 'monthly' | 'weekly' | 'yearly' | 'quarterly';
   isActive: boolean;
   createdAt: Date;
   name?: string;
@@ -178,6 +207,7 @@ export interface Category {
   isTransferCategory?: boolean; // Indicates this is an account-specific transfer category
   accountId?: string; // The account this transfer category is associated with
   isActive?: boolean; // Used for soft-deleting categories (e.g., when account is deleted)
+  description?: string; // Optional description for the category
 }
 
 export interface Investment {
@@ -215,6 +245,27 @@ export interface RecurringTransaction {
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Tag interface  
+export interface Tag {
+  id: string;
+  name: string;
+  color?: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// App state interface
+export interface AppState {
+  accounts: Account[];
+  transactions: Transaction[];
+  budgets: Budget[];
+  goals: Goal[];
+  categories: Category[];
+  tags: Tag[];
+  recurringTransactions: RecurringTransaction[];
 }
 
 // Re-export widget types

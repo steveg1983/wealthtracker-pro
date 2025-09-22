@@ -33,6 +33,7 @@ import ErrorBoundary from './ErrorBoundary';
 import { FloatingActionButton } from './FloatingActionButton';
 import DemoModeIndicator from './DemoModeIndicator';
 import RealtimeAlerts from './RealtimeAlerts';
+import { RealtimeStatusDot } from './RealtimeStatusIndicator';
 
 interface SidebarLinkProps {
   to: string;
@@ -179,8 +180,7 @@ export default function Layout(): React.JSX.Element {
         const prevPage = getNextPrevPage('prev', location.pathname);
         if (prevPage) navigate(prevPage);
       }
-    },
-    threshold: 100
+    }
   });
 
   const toggleSidebar = () => {
@@ -242,8 +242,8 @@ export default function Layout(): React.JSX.Element {
   useEffect(() => {
     const handleOpenConflictResolver = (event: Event) => {
       const conflict = (event as CustomEvent).detail;
-      setCurrentConflict(conflict);
-      setConflictModalOpen(true);
+      // Conflict resolution is handled by the useConflictResolution hook
+      // The conflict state is managed by the hook itself
     };
 
     window.addEventListener('open-conflict-resolver', handleOpenConflictResolver);
@@ -257,7 +257,11 @@ export default function Layout(): React.JSX.Element {
       try {
         setIsExplaining(true);
         setExplainTitle(detail.title || 'Explain This Page');
-        const res = await aiService.explainPage({ route: detail.route, title: detail.title, signals: detail.signals });
+        const res = await aiService.explainPage({ 
+          route: detail.route, 
+          title: detail.title, 
+          signals: (detail.signals || {}) as Record<string, string | number | boolean | undefined> 
+        });
         setExplainTitle(res.title || detail.title || 'Explain This Page');
         setExplainMarkdown(res.markdown);
         setExplainOpen(true);
@@ -748,7 +752,7 @@ export default function Layout(): React.JSX.Element {
 
       {/* Main Content */}
       <main 
-        ref={swipeRef as React.RefObject<HTMLElement>}
+        ref={swipeRef.ref}
         id="main-content"
         className={`flex-1 md:pl-0 mt-16 md:mt-0 ${isSidebarCollapsed ? 'md:ml-[5.5rem]' : 'md:ml-[14.5rem]'} transition-all duration-300`}
         style={{ WebkitOverflowScrolling: 'touch' }}
@@ -836,8 +840,8 @@ export default function Layout(): React.JSX.Element {
       <EnhancedConflictResolutionModal 
         isOpen={isConflictModalOpen}
         onClose={dismissConflict}
-        conflict={currentConflict}
-        analysis={currentAnalysis}
+        conflict={currentConflict || undefined}
+        analysis={currentAnalysis ?? undefined}
         onResolve={resolveConflict}
       />
       
@@ -870,7 +874,7 @@ export default function Layout(): React.JSX.Element {
           isOpen={isConflictModalOpen}
           onClose={dismissConflict}
           conflict={currentConflict}
-          analysis={currentAnalysis}
+          analysis={currentAnalysis ?? undefined}
           onResolve={resolveConflict}
         />
       )}

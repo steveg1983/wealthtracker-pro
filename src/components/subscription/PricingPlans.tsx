@@ -12,7 +12,7 @@ import React, { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import StripeService from '../../services/stripeService';
 import type { SubscriptionPlan, SubscriptionTier } from '../../types/subscription';
-import { logger } from '../../services/loggingService';
+import { useLogger } from '../../services/ServiceProvider';
 import { 
   CheckIcon, 
   XIcon, 
@@ -28,12 +28,12 @@ interface PricingPlansProps {
   className?: string;
 }
 
-export default function PricingPlans({ 
-  currentTier = 'free', 
+export default function PricingPlans({ currentTier = 'free', 
   onSelectPlan, 
   showFreePlan = true,
   className = '' 
-}: PricingPlansProps): React.JSX.Element {
+ }: PricingPlansProps): React.JSX.Element {
+  const logger = useLogger();
   const { user } = useUser();
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);

@@ -1,201 +1,250 @@
-import React, { useEffect, useRef } from 'react';
+/**
+ * Modal Component - Reusable modal dialog
+ *
+ * Features:
+ * - Backdrop click to close
+ * - Escape key to close
+ * - Focus management
+ * - Accessibility support
+ */
+
+import React, { useEffect, useRef, ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { XIcon as X } from '../icons';
-import { logger } from '../../services/loggingService';
 
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
-  children: React.ReactNode;
+  title?: string;
+  children: ReactNode;
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  closeOnBackdrop?: boolean;
+  closeOnEscape?: boolean;
+  className?: string;
   showCloseButton?: boolean;
-  ariaDescribedBy?: string;
 }
 
-export function Modal({ 
-  isOpen, 
-  onClose, 
-  title, 
-  children, 
+function ModalComponent({
+  isOpen,
+  onClose,
+  title,
+  children,
   size = 'md',
-  showCloseButton = true,
-  ariaDescribedBy
+  closeOnBackdrop = true,
+  closeOnEscape = true,
+  className = '',
+  showCloseButton = true
 }: ModalProps): React.JSX.Element | null {
   const modalRef = useRef<HTMLDivElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
-  
-  logger.debug('Modal rendering', { isOpen, title });
-  
-  useEffect(() => {
-    if (isOpen) {
-      // Store the currently focused element
-      previousActiveElement.current = document.activeElement as HTMLElement;
-      
-      // Focus the modal after a short delay
-      setTimeout(() => {
-        modalRef.current?.focus();
-      }, 50);
-      
-      // Trap focus within modal
-      const handleTabKey = (e: KeyboardEvent) => {
-        if (e.key !== 'Tab') return;
-        
-        const focusableElements = modalRef.current?.querySelectorAll(
-          'a[href], button, textarea, input[type="text"], input[type="number"], input[type="radio"], input[type="checkbox"], select, [tabindex]:not([tabindex="-1"])'
-        );
-        
-        if (!focusableElements || focusableElements.length === 0) return;
-        
-        const firstFocusable = focusableElements[0] as HTMLElement;
-        const lastFocusable = focusableElements[focusableElements.length - 1] as HTMLElement;
-        
-        if (e.shiftKey && document.activeElement === firstFocusable) {
-          lastFocusable.focus();
-          e.preventDefault();
-        } else if (!e.shiftKey && document.activeElement === lastFocusable) {
-          firstFocusable.focus();
-          e.preventDefault();
-        }
-      };
-      
-      // Handle escape key
-      const handleEscapeKey = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          onClose();
-        }
-      };
-      
-      document.addEventListener('keydown', handleTabKey);
-      document.addEventListener('keydown', handleEscapeKey);
-      
-      // Prevent body scroll when modal is open - simplified approach
-      const originalOverflow = document.body.style.overflow;
-      document.body.style.overflow = 'hidden';
-      
-      return () => {
-        // Cleanup event listeners
-        document.removeEventListener('keydown', handleTabKey);
-        document.removeEventListener('keydown', handleEscapeKey);
-        
-        // Restore body scroll
-        document.body.style.overflow = originalOverflow;
-        
-        // Restore focus to the previously focused element
-        previousActiveElement.current?.focus();
-      };
-    }
-  }, [isOpen, onClose]);
-  
-  if (!isOpen) return null;
 
+  // Size classes
   const sizeClasses = {
     sm: 'max-w-sm',
     md: 'max-w-md',
-    lg: 'max-w-2xl',
-    xl: 'max-w-4xl',
-    full: 'max-w-full mx-4'
+    lg: 'max-w-lg',
+    xl: 'max-w-xl',
+    full: 'max-w-4xl'
   };
 
-  return createPortal(
-    <>
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && closeOnEscape) {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      document.addEventListener('keydown', handleEscape);
+      // Store currently focused element
+      previousActiveElement.current = document.activeElement as HTMLElement;
+      // Focus the modal
+      setTimeout(() => {
+        modalRef.current?.focus();
+      }, 0);
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleEscape);
+      // Restore focus when modal closes
+      if (!isOpen && previousActiveElement.current) {
+        previousActiveElement.current.focus();
+      }
+    };
+  }, [isOpen, closeOnEscape, onClose]);
+
+  // Handle backdrop click
+  const handleBackdropClick = (event: React.MouseEvent) => {
+    if (event.target === event.currentTarget && closeOnBackdrop) {
+      onClose();
+    }
+  };
+
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const modalContent = (
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={title ? 'modal-title' : undefined}
+    >
       {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9998]"
-        onClick={onClose}
+      <div
+        className="fixed inset-0 bg-black/50 transition-opacity"
+        onClick={handleBackdropClick}
         aria-hidden="true"
       />
-      
-      {/* Modal Container - Centered with fixed positioning */}
-      <div className={`fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[9999] w-full ${sizeClasses[size]} px-4`}>
-        <div 
+
+      {/* Modal container */}
+      <div className="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+        <div
           ref={modalRef}
-          className={`
-            bg-white dark:bg-gray-900 
-            rounded-2xl 
-            shadow-2xl 
-            w-full 
-            max-h-[85vh]
-            flex 
-            flex-col
-            overflow-hidden
-            border border-gray-200/50 dark:border-gray-700/50
-          `}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="modal-title"
-          aria-describedby={ariaDescribedBy}
+          className={`relative transform overflow-hidden rounded-lg bg-white dark:bg-gray-800 px-4 pb-4 pt-5 text-left shadow-xl transition-all sm:my-8 sm:w-full sm:p-6 ${sizeClasses[size]} ${className}`}
           tabIndex={-1}
         >
-          {/* Header - Always visible, never scrolls */}
-          <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800 bg-gradient-to-r from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-            <h2 
-              id="modal-title" 
-              className="text-xl font-bold text-gray-900 dark:text-white"
-            >
-              {title}
-            </h2>
-            {showCloseButton && (
-              <button
-                onClick={onClose}
-                className="
-                  p-2 
-                  rounded-lg 
-                  text-gray-400 
-                  hover:text-gray-600 
-                  dark:text-gray-500 
-                  dark:hover:text-gray-300 
-                  hover:bg-gray-100 
-                  dark:hover:bg-gray-800 
-                  transition-all 
-                  duration-200
-                  focus:outline-none 
-                  focus:ring-2 
-                  focus:ring-primary/50
-                "
-                aria-label="Close modal"
-              >
-                <X size={20} />
-              </button>
-            )}
-          </div>
-          
-          {/* Content area - Scrollable with professional scrollbar styling */}
-          <div className="flex-1 overflow-y-auto overscroll-contain 
-                          scrollbar-thin scrollbar-track-transparent 
-                          scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600
-                          hover:scrollbar-thumb-gray-400 dark:hover:scrollbar-thumb-gray-500">
+          {/* Header */}
+          {(title || showCloseButton) && (
+            <div className="flex items-center justify-between mb-4">
+              {title && (
+                <h2
+                  id="modal-title"
+                  className="text-lg font-semibold text-gray-900 dark:text-gray-100"
+                >
+                  {title}
+                </h2>
+              )}
+              {showCloseButton && (
+                <button
+                  type="button"
+                  className="rounded-md bg-white dark:bg-gray-800 text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800"
+                  onClick={onClose}
+                  aria-label="Close modal"
+                >
+                  <span className="sr-only">Close</span>
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth="1.5"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="text-gray-900 dark:text-gray-100">
             {children}
           </div>
         </div>
       </div>
-    </>,
-    document.body
+    </div>
+  );
+
+  // Render modal in portal
+  return createPortal(modalContent, document.body);
+}
+
+// Confirmation Modal variant
+interface ConfirmModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  message: string;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: 'default' | 'danger';
+}
+
+export function ConfirmModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  title,
+  message,
+  confirmText = 'Confirm',
+  cancelText = 'Cancel',
+  variant = 'default'
+}: ConfirmModalProps): React.JSX.Element {
+  const handleConfirm = () => {
+    onConfirm();
+    onClose();
+  };
+
+  const confirmButtonClasses = variant === 'danger'
+    ? 'bg-red-600 hover:bg-red-700 text-white'
+    : 'bg-blue-600 hover:bg-blue-700 text-white';
+
+  return (
+    <ModalComponent isOpen={isOpen} onClose={onClose} title={title} size="sm">
+      <div className="space-y-4">
+        <p className="text-gray-600 dark:text-gray-400">{message}</p>
+        <div className="flex space-x-3 justify-end">
+          <button
+            type="button"
+            className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-md transition-colors duration-200"
+            onClick={onClose}
+          >
+            {cancelText}
+          </button>
+          <button
+            type="button"
+            className={`px-4 py-2 rounded-md transition-colors duration-200 ${confirmButtonClasses}`}
+            onClick={handleConfirm}
+          >
+            {confirmText}
+          </button>
+        </div>
+      </div>
+    </ModalComponent>
   );
 }
 
+// Modal composition components
 interface ModalBodyProps {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }
 
 export function ModalBody({ children, className = '' }: ModalBodyProps): React.JSX.Element {
   return (
-    <div className={`px-6 py-5 ${className}`}>
+    <div className={`px-6 py-4 ${className}`}>
       {children}
     </div>
   );
 }
 
 interface ModalFooterProps {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }
 
 export function ModalFooter({ children, className = '' }: ModalFooterProps): React.JSX.Element {
   return (
-    <div className={`flex-shrink-0 px-6 py-4 border-t border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 ${className}`}>
+    <div className={`px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 rounded-b-lg ${className}`}>
       {children}
     </div>
   );
 }
+
+// Named exports for compatibility
+export const Modal = ModalComponent;
+export default ModalComponent;

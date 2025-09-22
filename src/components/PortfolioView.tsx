@@ -1,218 +1,176 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from './icons';
-import { formatCurrency } from '../utils/currency';
+/**
+ * PortfolioView Component - Investment portfolio overview
+ *
+ * Features:
+ * - Portfolio value summary
+ * - Asset allocation
+ * - Performance tracking
+ * - Holdings breakdown
+ */
 
-interface Holding {
-  ticker: string;
-  name: string;
-  shares: number;
-  value: number;
-}
+import React from 'react';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface PortfolioViewProps {
-  accountId: string;
-  accountName: string;
-  holdings: Holding[];
-  currency: string;
-  onClose: () => void;
+  accountId?: string;
+  className?: string;
 }
 
-export default function PortfolioView({ 
-  accountId, 
-  accountName, 
-  holdings, 
-  currency,
-  onClose 
-}: PortfolioViewProps) {
-  const navigate = useNavigate();
-  const [sortBy, setSortBy] = useState<'value' | 'shares' | 'name'>('value');
-  
-  const totalValue = holdings.reduce((sum, holding) => sum + holding.value, 0);
-  
-  const sortedHoldings = [...holdings].sort((a, b) => {
-    switch (sortBy) {
-      case 'value':
-        return b.value - a.value;
-      case 'shares':
-        return b.shares - a.shares;
-      case 'name':
-        return a.name.localeCompare(b.name);
-      default:
-        return 0;
+interface Holding {
+  symbol: string;
+  name: string;
+  shares: number;
+  price: number;
+  value: number;
+  change: number;
+  changePercent: number;
+}
+
+export default function PortfolioView({
+  accountId,
+  className = ''
+}: PortfolioViewProps): React.JSX.Element {
+  // Mock portfolio data
+  const holdings: Holding[] = [
+    {
+      symbol: 'AAPL',
+      name: 'Apple Inc.',
+      shares: 10,
+      price: 150.25,
+      value: 1502.50,
+      change: 2.45,
+      changePercent: 1.66
+    },
+    {
+      symbol: 'MSFT',
+      name: 'Microsoft Corp.',
+      shares: 5,
+      price: 280.15,
+      value: 1400.75,
+      change: -3.25,
+      changePercent: -1.15
+    },
+    {
+      symbol: 'GOOGL',
+      name: 'Alphabet Inc.',
+      shares: 3,
+      price: 2750.80,
+      value: 8252.40,
+      change: 15.20,
+      changePercent: 0.55
     }
-  });
-  
-  const getPercentage = (value: number) => {
-    return ((value / totalValue) * 100).toFixed(1);
+  ];
+
+  const totalValue = holdings.reduce((sum, holding) => sum + holding.value, 0);
+  const totalChange = holdings.reduce((sum, holding) => sum + (holding.change * holding.shares), 0);
+  const totalChangePercent = totalValue > 0 ? (totalChange / (totalValue - totalChange)) * 100 : 0;
+
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP'
+    }).format(amount);
   };
-  
-  const getPricePerShare = (holding: Holding) => {
-    return holding.shares > 0 ? holding.value / holding.shares : 0;
+
+  const formatPercent = (percent: number): string => {
+    return `${percent >= 0 ? '+' : ''}${percent.toFixed(2)}%`;
   };
-  
+
+  React.useEffect(() => {
+    logger.debug('PortfolioView rendered', { accountId, holdingsCount: holdings.length });
+  }, [accountId, holdings.length]);
+
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-6">
-        <div className="flex items-center gap-4 mb-4">
-          <button
-            onClick={onClose}
-            className="p-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-          >
-            <ArrowLeft size={24} />
-          </button>
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-              {accountName} Portfolio
-            </h1>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              Total Portfolio Value: {formatCurrency(totalValue, currency)}
-            </p>
+    <div className={`space-y-6 ${className}`}>
+      {/* Portfolio Summary */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">
+          Portfolio Overview
+        </h2>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="text-center">
+            <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              {formatCurrency(totalValue)}
+            </div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Total Value</div>
+          </div>
+
+          <div className="text-center">
+            <div className={`text-2xl font-bold ${
+              totalChange >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {totalChange >= 0 ? '+' : ''}{formatCurrency(totalChange)}
+            </div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Today's Change</div>
+          </div>
+
+          <div className="text-center">
+            <div className={`text-2xl font-bold ${
+              totalChangePercent >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {formatPercent(totalChangePercent)}
+            </div>
+            <div className="text-sm text-gray-600 dark:text-gray-400">Today's Change %</div>
           </div>
         </div>
-        
-        <div className="flex gap-4 mb-4">
-          <button
-            onClick={() => navigate(`/transactions?account=${accountId}`)}
-            className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700"
-          >
-            View Transactions
-          </button>
-        </div>
       </div>
-      
-      {/* Portfolio Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Total Holdings</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">{holdings.length}</p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Portfolio Value</p>
-          <p className="text-2xl font-bold text-gray-900 dark:text-white">
-            {formatCurrency(totalValue, currency)}
-          </p>
-        </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">Largest Position</p>
-          <p className="text-lg font-semibold text-gray-900 dark:text-white">
-            {sortedHoldings[0]?.name || 'N/A'}
-          </p>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {sortedHoldings[0] ? `${getPercentage(sortedHoldings[0].value)}%` : ''}
-          </p>
-        </div>
-      </div>
-      
+
       {/* Holdings Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Holdings</h2>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Holdings</h3>
         </div>
-        
-        {holdings.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-gray-500 dark:text-gray-400">
-              No holdings in this portfolio yet.
-            </p>
-            <p className="text-sm text-gray-500 dark:text-gray-300 mt-2">
-              Add holdings to track your investments.
-            </p>
-          </div>
-        ) : (
-        <>
-        
-        {/* Sort Options */}
-        <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/50">
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600 dark:text-gray-400">Sort by:</span>
-            <button
-              onClick={() => setSortBy('value')}
-              className={`text-sm px-3 py-1 rounded ${
-                sortBy === 'value' 
-                  ? 'bg-primary text-white' 
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              Value
-            </button>
-            <button
-              onClick={() => setSortBy('shares')}
-              className={`text-sm px-3 py-1 rounded ${
-                sortBy === 'shares' 
-                  ? 'bg-primary text-white' 
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              Shares
-            </button>
-            <button
-              onClick={() => setSortBy('name')}
-              className={`text-sm px-3 py-1 rounded ${
-                sortBy === 'name' 
-                  ? 'bg-primary text-white' 
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-600'
-              }`}
-            >
-              Name
-            </button>
-          </div>
-        </div>
-        
-        {/* Desktop Table */}
-        <div className="hidden md:block overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 dark:bg-gray-700">
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Ticker
+
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-900">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Symbol
                 </th>
-                <th className="px-6 py-3 text-left text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Name
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Shares
                 </th>
-                <th className="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Shares/Units
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Price
                 </th>
-                <th className="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Price per Share
-                </th>
-                <th className="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Value
                 </th>
-                <th className="px-6 py-3 text-right text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  % of Portfolio
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Change
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {sortedHoldings.map((holding, index) => (
-                <tr key={`${holding.ticker}-${index}`} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                    {holding.ticker}
+              {holdings.map((holding) => (
+                <tr key={holding.symbol} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <div className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {holding.symbol}
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        {holding.name}
+                      </div>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                    {holding.name}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 dark:text-gray-100">
                     {holding.shares.toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 dark:text-gray-100">
-                    {formatCurrency(getPricePerShare(holding), currency)}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                    {formatCurrency(holding.price)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900 dark:text-white">
-                    {formatCurrency(holding.value, currency)}
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                    {formatCurrency(holding.value)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <div className="w-20 bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                        <div 
-                          className="bg-primary h-2 rounded-full"
-                          style={{ width: `${getPercentage(holding.value)}%` }}
-                        />
-                      </div>
-                      <span className="text-gray-600 dark:text-gray-400 w-12 text-right">
-                        {getPercentage(holding.value)}%
-                      </span>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm">
+                    <div className={`${
+                      holding.changePercent >= 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      <div>{formatCurrency(holding.change)}</div>
+                      <div>{formatPercent(holding.changePercent)}</div>
                     </div>
                   </td>
                 </tr>
@@ -220,41 +178,37 @@ export default function PortfolioView({
             </tbody>
           </table>
         </div>
-        
-        {/* Mobile Card View */}
-        <div className="md:hidden">
-          {sortedHoldings.map((holding, index) => (
-            <div 
-              key={`${holding.ticker}-${index}`}
-              className="px-4 py-4 border-b border-gray-200 dark:border-gray-700 last:border-b-0"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-white">{holding.ticker}</p>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">{holding.name}</p>
+      </div>
+
+      {/* Asset Allocation */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">
+          Asset Allocation
+        </h3>
+
+        <div className="space-y-3">
+          {holdings.map((holding) => {
+            const percentage = (holding.value / totalValue) * 100;
+            return (
+              <div key={holding.symbol} className="flex items-center">
+                <div className="w-16 text-sm font-medium text-gray-900 dark:text-gray-100">
+                  {holding.symbol}
                 </div>
-                <div className="text-right">
-                  <p className="font-medium text-gray-900 dark:text-white">
-                    {formatCurrency(holding.value, currency)}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    {getPercentage(holding.value)}%
-                  </p>
+                <div className="flex-1 mx-4">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full"
+                      style={{ width: `${percentage}%` }}
+                    ></div>
+                  </div>
+                </div>
+                <div className="w-16 text-sm text-gray-600 dark:text-gray-400 text-right">
+                  {percentage.toFixed(1)}%
                 </div>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">
-                  {holding.shares.toLocaleString()} shares
-                </span>
-                <span className="text-gray-600 dark:text-gray-400">
-                  @ {formatCurrency(getPricePerShare(holding), currency)}
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
-        </>
-        )}
       </div>
     </div>
   );

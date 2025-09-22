@@ -79,7 +79,7 @@ export default function BudgetComparison({
                t.type === 'expense';
       })
       .reduce((acc, t) => {
-        const categoryId = t.categoryId || t.category || 'uncategorized';
+        const categoryId = t.category || t.category || 'uncategorized';
         if (!acc[categoryId]) {
           acc[categoryId] = {
             total: new Decimal(0),
@@ -89,7 +89,7 @@ export default function BudgetComparison({
         acc[categoryId].total = acc[categoryId].total.plus(t.amount);
         acc[categoryId].transactions.push(t);
         return acc;
-      }, {} as Record<string, { total: Decimal; transactions: any[] }>);
+      }, {} as Record<string, { total: InstanceType<typeof Decimal>; transactions: any[] }>);
 
     // Process each budget
     activeBudgets.forEach(budget => {
@@ -107,13 +107,13 @@ export default function BudgetComparison({
             // Use as is
             break;
           case 'month':
-            budgetedAmount = budgetedAmount.mul(4.33); // Average weeks per month
+            budgetedAmount = budgetedAmount.times(4.33); // Average weeks per month
             break;
           case 'quarter':
-            budgetedAmount = budgetedAmount.mul(13); // Weeks per quarter
+            budgetedAmount = budgetedAmount.times(13); // Weeks per quarter
             break;
           case 'year':
-            budgetedAmount = budgetedAmount.mul(52); // Weeks per year
+            budgetedAmount = budgetedAmount.times(52); // Weeks per year
             break;
         }
       } else if (budget.period === 'monthly') {
@@ -125,10 +125,10 @@ export default function BudgetComparison({
             // Use as is
             break;
           case 'quarter':
-            budgetedAmount = budgetedAmount.mul(3);
+            budgetedAmount = budgetedAmount.times(3);
             break;
           case 'year':
-            budgetedAmount = budgetedAmount.mul(12);
+            budgetedAmount = budgetedAmount.times(12);
             break;
         }
       } else if (budget.period === 'yearly') {
@@ -151,16 +151,16 @@ export default function BudgetComparison({
       const actualSpending = transactionsByCategory[categoryId]?.total || new Decimal(0);
       const variance = budgetedAmount.minus(actualSpending);
       const variancePercent = budgetedAmount.gt(0) 
-        ? variance.div(budgetedAmount).mul(100).toNumber()
+        ? variance.div(budgetedAmount).times(100).toNumber()
         : 0;
       
       // Determine status
       let status: CategoryComparison['status'];
       if (actualSpending.gt(budgetedAmount)) {
         status = 'over';
-      } else if (actualSpending.gte(budgetedAmount.mul(0.9))) {
+      } else if (actualSpending.gte(budgetedAmount.times(0.9))) {
         status = 'warning';
-      } else if (actualSpending.gte(budgetedAmount.mul(0.7))) {
+      } else if (actualSpending.gte(budgetedAmount.times(0.7))) {
         status = 'on-track';
       } else {
         status = 'under';

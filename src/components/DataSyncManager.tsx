@@ -14,9 +14,10 @@ import {
 import { useDataSync } from '../hooks/useDataSync';
 import { formatDistanceToNow } from 'date-fns';
 import { SyncConflict } from '../services/syncService';
-import { logger } from '../services/loggingService';
+import { useLogger } from '../services/ServiceProvider';
 
 export default function DataSyncManager(): React.JSX.Element {
+  const logger = useLogger();
   const { syncStatus, conflicts, forceSync, resolveConflict, clearSyncQueue } = useDataSync();
   const [showDetails, setShowDetails] = useState(false);
   const [showConflicts, setShowConflicts] = useState(false);

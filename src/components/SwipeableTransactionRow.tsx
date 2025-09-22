@@ -165,7 +165,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
 
       {/* Main content */}
       <div
-        ref={ref}
+        ref={ref as React.RefObject<HTMLDivElement>}
         className={`relative bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 ${
           isSelected ? 'bg-blue-50 dark:bg-gray-900/20' : ''
         }`}
