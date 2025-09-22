@@ -17,7 +17,7 @@
 import { useState, useEffect } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { userIdService, type ClerkUserId, type DatabaseUserId } from '../services/userIdService';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface UseUserIdReturn {
   /** The Clerk authentication ID (e.g., "user_2abc123...") */

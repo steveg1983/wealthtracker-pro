@@ -9,7 +9,6 @@
  */
 
 import React from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface PortfolioViewProps {
   accountId?: string;
@@ -77,7 +76,6 @@ export default function PortfolioView({
   };
 
   React.useEffect(() => {
-    logger.debug('PortfolioView rendered', { accountId, holdingsCount: holdings.length });
   }, [accountId, holdings.length]);
 
   return (

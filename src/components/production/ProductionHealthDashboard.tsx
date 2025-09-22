@@ -17,7 +17,7 @@ import {
 import { productionMonitoring, createMonitoringWidget } from '../../services/ProductionMonitoringService';
 import { webVitalsMonitor } from '../../utils/performance/coreWebVitals';
 import { errorTaxonomyService } from '../../services/ErrorTaxonomyService';
-import { useLogger } from '../../services/ServiceProvider';
+import { useLogger } from '../services/ServiceProvider';
 interface HealthStatus {
   overall: 'healthy' | 'warning' | 'critical';
   database: boolean;

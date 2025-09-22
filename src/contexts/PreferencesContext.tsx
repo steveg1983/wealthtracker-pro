@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface PreferencesContextType {
   compactView: boolean;

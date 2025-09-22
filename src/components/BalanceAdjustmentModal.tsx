@@ -10,7 +10,6 @@
 
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface BalanceAdjustmentModalProps {
   isOpen: boolean;
@@ -70,7 +69,6 @@ export default function BalanceAdjustmentModal({
         type: reason as BalanceAdjustment['type']
       };
 
-      logger.info('Processing balance adjustment', {
         accountId,
         currentBalance,
         adjustment,
@@ -87,7 +85,6 @@ export default function BalanceAdjustmentModal({
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      logger.info('Balance adjustment completed successfully');
 
       onAdjustmentComplete?.(newBalance, balanceAdjustment);
       onClose();
@@ -97,7 +94,6 @@ export default function BalanceAdjustmentModal({
       setReason('correction');
       setDescription('');
     } catch (error) {
-      logger.error('Error processing balance adjustment:', error);
     } finally {
       setIsSubmitting(false);
     }

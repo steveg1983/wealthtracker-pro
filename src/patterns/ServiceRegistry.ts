@@ -5,7 +5,6 @@
  */
 
 import { z } from 'zod';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 // Service configuration schema
 const ServiceConfigSchema = z.object({

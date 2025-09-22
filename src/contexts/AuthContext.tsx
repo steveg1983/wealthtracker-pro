@@ -13,7 +13,7 @@ import { useUser, useAuth as useClerkAuth, useSession } from '@clerk/clerk-react
 import { AuthService, AuthUser } from '../services/authService';
 import { syncClerkUser } from '../lib/supabase';
 import { setSentryUser, clearSentryUser } from '../lib/sentry';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface AuthContextType {
   user: AuthUser | null;

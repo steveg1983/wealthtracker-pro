@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { IconProps } from '../components/icons';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export interface BulkOperation<T> {
   id: string;

@@ -22,7 +22,7 @@ import {
 } from '../components/icons';
 import PageWrapper from '../components/PageWrapper';
 import type { Investment } from '../types';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 type ActiveTab = 'export' | 'templates' | 'scheduled' | 'history';
 

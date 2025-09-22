@@ -19,7 +19,7 @@ import type { DecimalInstance } from '../utils/decimal';
 import { recalculateAccountBalances } from '../utils/recalculateBalances';
 import { smartCategorizationService } from '../services/smartCategorizationService';
 import { storageAdapter, STORAGE_KEYS } from '../services/storageAdapter';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export interface Tag {
   id: string;

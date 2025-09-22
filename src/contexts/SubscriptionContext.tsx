@@ -13,7 +13,7 @@ import { useUser } from '@clerk/clerk-react';
 import { userIdService } from '../services/userIdService';
 import StripeService from '../services/stripeService';
 import SubscriptionApiService from '../services/subscriptionApiService';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 import type { 
   UserSubscription, 
   SubscriptionTier, 

@@ -8,7 +8,7 @@ import BudgetComparison from '../components/reports/BudgetComparison';
 import FinancialReportGenerator from '../components/reports/FinancialReportGenerator';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
 import { LineChart as LazyLineChart, PieChart as LazyDoughnutChart } from '../components/charts/LazyChart';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export default function Reports() {
   const { transactions, accounts } = useApp();

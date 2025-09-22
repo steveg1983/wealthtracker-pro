@@ -17,7 +17,7 @@ import {
 } from '@stripe/react-stripe-js';
 import { useUser } from '@clerk/clerk-react';
 import type { SubscriptionPlan } from '../../types/subscription';
-import { useLogger } from '../../services/ServiceProvider';
+import { useLogger } from '../services/ServiceProvider';
 import { 
   CreditCardIcon, 
   ShieldIcon, 

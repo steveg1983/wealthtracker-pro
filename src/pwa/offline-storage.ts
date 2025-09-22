@@ -6,7 +6,7 @@
 import React from 'react';
 import { indexedDBService } from '../services/indexedDBService';
 import type { Transaction, Account, Budget, Goal } from '../types';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export interface OfflineQueueItem {
   id?: string;

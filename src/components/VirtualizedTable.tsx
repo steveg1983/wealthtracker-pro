@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface Column<T = any> {
   key: string;

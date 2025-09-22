@@ -9,7 +9,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface Achievement {
   id: string;
@@ -88,7 +87,6 @@ export default function AchievementHistory({
     const loadAchievements = async () => {
       setIsLoading(true);
       try {
-        logger.debug('Loading achievements for user:', userId);
 
         // In a real implementation, this would fetch from API
         // For now, use mock data
@@ -100,9 +98,7 @@ export default function AchievementHistory({
         );
 
         setAchievements(sortedAchievements);
-        logger.debug('Achievements loaded:', sortedAchievements.length);
       } catch (error) {
-        logger.error('Error loading achievements:', error);
         setAchievements([]);
       } finally {
         setIsLoading(false);

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 /**
  * Haptic feedback patterns

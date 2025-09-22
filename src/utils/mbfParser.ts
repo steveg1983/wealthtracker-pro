@@ -1,4 +1,4 @@
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 // Microsoft Money .mny file parser
 // .mny files are the active database files used by Microsoft Money
 
@@ -28,7 +28,6 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
   const transactions: ParsedTransaction[] = [];
   const accountsMap = new Map<string, ParsedAccount>();
   
-  logger.info('Parsing Microsoft Money .mny file', { size: arrayBuffer.byteLength });
   
   try {
     // .mny files are actually Microsoft Jet database files (Access format)
@@ -36,7 +35,6 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
     
     // Check for Jet database signature
     const signature = Array.from(uint8Array.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ');
-    logger.debug('MBF file signature', { signature });
     
     // Helper to read null-terminated strings
     const readString = (offset: number, maxLength: number = 255): string => {
@@ -86,7 +84,6 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
         }
         
         if (found) {
-          logger.debug('Pattern found at offset', { pattern, offset: i });
           
           // Look for account data near this pattern
           for (let offset = i + pattern.length; offset < i + 1000 && offset < uint8Array.length - 100; offset++) {
@@ -117,7 +114,6 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
                   type: accountType,
                   balance: 0
                 });
-                logger.debug('Found account', { accountName, accountType });
               }
             }
           }
@@ -270,7 +266,6 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
 
     // If no accounts found, create a default
     if (accountsMap.size === 0) {
-      logger.info('No accounts found, creating default');
       accountsMap.set('Money Import', {
         name: 'Money Import',
         type: 'checking',
@@ -290,7 +285,6 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
     // Sort by date
     uniqueTransactions.sort((a, b) => a.date.getTime() - b.date.getTime());
 
-    logger.info('MBF parsed summary', { accounts: accountsMap.size, transactions: uniqueTransactions.length });
     
     return {
       accounts: Array.from(accountsMap.values()),
@@ -298,7 +292,6 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<{
     };
     
   } catch (error) {
-    logger.error('Error parsing .mny file:', error);
     throw new Error('Failed to parse Microsoft Money file. The file may be encrypted, corrupted, or in an unsupported version.');
   }
 }

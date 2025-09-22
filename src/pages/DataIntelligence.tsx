@@ -25,7 +25,7 @@ import SpendingPatterns from '../components/SpendingPatterns';
 import DataInsights from '../components/DataInsights';
 import DataIntelligenceVerification from '../components/DataIntelligenceVerification';
 import type { DataIntelligenceStats, SpendingInsight, Subscription } from '../services/dataIntelligenceService';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 type ActiveTab = 'overview' | 'subscriptions' | 'merchants' | 'patterns' | 'insights' | 'verification';
 

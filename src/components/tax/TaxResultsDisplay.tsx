@@ -7,7 +7,6 @@
 import React, { memo } from 'react';
 import { useRegionalSettings, useRegionalCurrency } from '../../hooks/useRegionalSettings';
 import { UKTaxYear } from '../../services/taxDataService';
-import { lazyLogger as logger } from '../../services/serviceFactory';
 
 interface TaxResults {
   incomeTax: number;
@@ -63,7 +62,6 @@ export const TaxResultsDisplay = memo(function TaxResultsDisplay({
     try {
       return formatCurrency(amount ?? 0);
     } catch (error) {
-      logger.error(`Error formatting ${errorContext}:`, error, 'TaxResultsDisplay');
       return 'Error';
     }
   };

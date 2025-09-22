@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface PerformanceMetrics {
   fcp?: number; // First Contentful Paint

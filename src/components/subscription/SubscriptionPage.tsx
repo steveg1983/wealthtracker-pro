@@ -19,7 +19,7 @@ import SyncSubscriptionButton from './SyncSubscriptionButton';
 import StripeStatusButton from './StripeStatusButton';
 import type { SubscriptionPlan, UserSubscription } from '../../types/subscription';
 import { ArrowLeftIcon, CheckCircleIcon } from '../icons';
-import { useLogger } from '../../services/ServiceProvider';
+import { useLogger } from '../services/ServiceProvider';
 
 type ViewMode = 'plans' | 'payment' | 'billing' | 'success';
 

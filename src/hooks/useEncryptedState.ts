@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { enhancedEncryption, EncryptedData } from '../security/encryption-enhanced';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface UseEncryptedStateOptions {
   autoDecrypt?: boolean;

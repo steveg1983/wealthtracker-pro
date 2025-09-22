@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Layout, Layouts } from 'react-grid-layout';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export interface LayoutConfig {
   dashboard: Layout[];

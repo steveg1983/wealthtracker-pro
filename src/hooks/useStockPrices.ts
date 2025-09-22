@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getStockQuote, getMultipleStockQuotes } from '../services/stockPriceService';
 import type { Holding } from '../types';
 import type { DecimalInstance } from '../utils/decimal';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface StockPrice {
   symbol: string;

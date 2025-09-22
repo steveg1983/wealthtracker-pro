@@ -159,14 +159,6 @@ export function generateTestData() {
   const daysDiff = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
   
   const totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
-  
-  import { logger } from '../services/loggingService';
-  logger.info('Test data generation', {
-    startDate: startDate.toDateString(),
-    endDate: endDate.toDateString(),
-    daysDiff: daysDiff,
-    monthsDiff: totalMonths
-  });
 
   let transactionId = 1;
 
@@ -551,8 +543,6 @@ export function generateTestData() {
   // Sort transactions by date (newest first)
   transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
   
-  logger.info('Generated transactions', { count: transactions.length });
-  logger.info('Date range', { start: transactions[transactions.length - 1].date.toDateString(), end: transactions[0].date.toDateString() });
 
   // Budgets
   const budgets = [

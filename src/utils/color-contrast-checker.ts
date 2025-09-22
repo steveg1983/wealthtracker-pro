@@ -246,12 +246,9 @@ export const commonCombinations = [
 // Utility function to check all common combinations
 export function auditColorContrast() {
   import('../services/loggingService').then(({ logger }) => {
-    logger.info('Color Contrast Audit start');
     commonCombinations.forEach(({ name, fg, bg }) => {
       const result = ColorContrastChecker.checkContrast(fg, bg);
-      logger.info('Contrast', { name, ratio: result.ratio, passesAA: result.passes.normal.aa, recommendation: result.recommendation });
     });
-    logger.info('Color Contrast Audit end');
   }).catch(() => {});
 }
 

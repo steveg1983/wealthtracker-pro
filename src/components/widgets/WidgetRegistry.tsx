@@ -9,7 +9,6 @@
  */
 
 import React, { ReactNode } from 'react';
-import { lazyLogger as logger } from '../../services/serviceFactory';
 
 // Widget types
 export type WidgetSize = 'small' | 'medium' | 'large' | 'full';
@@ -203,17 +202,14 @@ class WidgetRegistryClass {
       requiresData: ['goals']
     });
 
-    logger.debug('Default widgets registered');
   }
 
   register(config: WidgetConfig): void {
     this.widgets.set(config.id, config);
-    logger.debug('Widget registered:', config.id);
   }
 
   unregister(id: string): void {
     this.widgets.delete(id);
-    logger.debug('Widget unregistered:', id);
   }
 
   get(id: string): WidgetConfig | undefined {
@@ -235,7 +231,6 @@ class WidgetRegistryClass {
   renderWidget(id: string, props: Omit<WidgetProps, 'id'>): ReactNode {
     const widget = this.get(id);
     if (!widget) {
-      logger.error('Widget not found:', id);
       return (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
           <p className="text-red-600 dark:text-red-400">Widget not found: {id}</p>

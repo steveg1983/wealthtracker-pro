@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface ImportRule {
   id: string;
@@ -145,16 +144,13 @@ export default function ImportRulesManager({
     const loadRules = async () => {
       setIsLoading(true);
       try {
-        logger.debug('Loading import rules');
 
         // In a real implementation, this would fetch from API
         await new Promise(resolve => setTimeout(resolve, 300));
 
         setRules(mockRules);
         onRuleChange?.(mockRules);
-        logger.debug('Import rules loaded successfully');
       } catch (error) {
-        logger.error('Error loading import rules:', error);
       } finally {
         setIsLoading(false);
       }
@@ -205,14 +201,12 @@ export default function ImportRulesManager({
     setEditingRule(null);
     setIsCreatingRule(false);
 
-    logger.debug(isCreatingRule ? 'Rule created' : 'Rule updated', editingRule);
   };
 
   const handleDeleteRule = (ruleId: string) => {
     const updatedRules = rules.filter(rule => rule.id !== ruleId);
     setRules(updatedRules);
     onRuleChange?.(updatedRules);
-    logger.debug('Rule deleted', ruleId);
   };
 
   const handleToggleRule = (ruleId: string) => {
@@ -232,7 +226,6 @@ export default function ImportRulesManager({
     }));
 
     setTestResults(results);
-    logger.debug('Rule testing completed', { testData, results });
   };
 
   const evaluateRule = (rule: ImportRule, data: string): boolean => {

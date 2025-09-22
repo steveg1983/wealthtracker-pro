@@ -1,8 +1,19 @@
 import React, { useEffect, memo } from 'react';
 import { CheckCircleIcon, XCircleIcon } from '../icons';
 import { accessibleColorClasses } from '../../design-system/accessible-colors';
-import type { ColorContrastResult } from '../../services/accessibilityDashboardService';
 import { useLogger } from '../services/ServiceProvider';
+
+// Temporary type definition
+interface ColorContrastResult {
+  name: string;
+  fg: string;
+  bg: string;
+  ratio: number;
+  passes: {
+    normal: { aa: boolean; aaa: boolean };
+  };
+  recommendation?: string;
+}
 
 interface ColorsTabProps {
   colorContrastResults: ColorContrastResult[];

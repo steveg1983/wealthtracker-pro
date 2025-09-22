@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger } from '../../services/serviceFactory';
 
 const logger = lazyLogger.getLogger('StatePensionCalculator');
 
@@ -208,14 +207,12 @@ export function StatePensionCalculator({
       setCalculation(calculationResult);
       onCalculationComplete?.(calculationResult);
 
-      logger.info('State pension calculation completed', {
         qualifyingYears: formData.qualifyingYears,
         weeklyEntitlement,
         yearsToRetirement
       });
 
     } catch (error) {
-      logger.error('Error calculating state pension:', error);
       setErrors({ calculation: 'Failed to calculate state pension' });
     } finally {
       setIsCalculating(false);

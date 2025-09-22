@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface BudgetAlert {
   id: string;
@@ -119,16 +118,13 @@ export default function BudgetAlertSettings({
     const loadAlerts = async () => {
       setIsLoading(true);
       try {
-        logger.debug('Loading budget alerts for user:', userId);
 
         // In a real implementation, this would fetch from API
         await new Promise(resolve => setTimeout(resolve, 300));
 
         setAlerts(mockAlerts);
         onSettingsChange?.(mockAlerts);
-        logger.debug('Budget alerts loaded successfully');
       } catch (error) {
-        logger.error('Error loading budget alerts:', error);
       } finally {
         setIsLoading(false);
       }
@@ -169,14 +165,12 @@ export default function BudgetAlertSettings({
     setEditingAlert(null);
     setIsCreatingAlert(false);
 
-    logger.debug(isCreatingAlert ? 'Alert created' : 'Alert updated', editingAlert);
   };
 
   const handleDeleteAlert = (alertId: string) => {
     const updatedAlerts = alerts.filter(alert => alert.id !== alertId);
     setAlerts(updatedAlerts);
     onSettingsChange?.(updatedAlerts);
-    logger.debug('Alert deleted', alertId);
   };
 
   const handleToggleAlert = (alertId: string) => {

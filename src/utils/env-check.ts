@@ -1,5 +1,5 @@
 // Environment variable checker for debugging
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export function checkEnvironmentVariables() {
   const envVars = {
@@ -12,16 +12,13 @@ export function checkEnvironmentVariables() {
     DEV: import.meta.env.DEV,
   };
 
-  logger.info('Environment Variables Check:');
   Object.entries(envVars).forEach(([key, value]) => {
     if (value) {
       // Don't log full keys for security, just first few chars
       const displayValue = typeof value === 'string' && value.length > 10 
         ? `${value.substring(0, 10)}...` 
         : value;
-      logger.info('Env ok', { key, value: displayValue });
     } else {
-      logger.warn('Env missing', { key });
     }
   });
 

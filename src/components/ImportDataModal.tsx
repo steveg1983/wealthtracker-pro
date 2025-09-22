@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useRef, useCallback } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface ImportDataModalProps {
   isOpen: boolean;
@@ -94,7 +93,6 @@ export default function ImportDataModal({
     setWarnings([]);
 
     try {
-      logger.debug('Processing import file:', selectedFile.name);
 
       // Simulate file processing
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -168,9 +166,7 @@ export default function ImportDataModal({
       setImportData(mockData);
       setWarnings(newWarnings);
       setStep('preview');
-      logger.debug('File processed successfully', mockData.metadata);
     } catch (error) {
-      logger.error('Error processing import file:', error);
       setErrors(['Failed to process the selected file. Please check the format and try again.']);
     } finally {
       setIsProcessing(false);
@@ -203,9 +199,7 @@ export default function ImportDataModal({
 
       await onImport(importData);
       setStep('complete');
-      logger.debug('Import completed successfully');
     } catch (error) {
-      logger.error('Import failed:', error);
       setErrors(['Import failed. Please try again or contact support.']);
       setStep('preview');
     }

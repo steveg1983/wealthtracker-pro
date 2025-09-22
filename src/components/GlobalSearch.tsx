@@ -8,7 +8,6 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface SearchResult {
   id: string;
@@ -89,9 +88,7 @@ export default function GlobalSearch(): React.JSX.Element {
         );
 
         setResults(mockResults);
-        logger.debug('Search performed', { query, resultCount: mockResults.length });
       } catch (error) {
-        logger.error('Search error:', error);
         setResults([]);
       } finally {
         setIsLoading(false);

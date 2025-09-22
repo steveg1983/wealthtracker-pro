@@ -1,4 +1,4 @@
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 /**
  * Clerk Configuration - Setup for world-class authentication
  * 

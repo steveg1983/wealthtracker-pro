@@ -264,7 +264,6 @@ export const ProfessionalIcon: React.FC<ProfessionalIconProps> = ({
   const IconComponent = iconMap[name];
   
   if (!IconComponent) {
-    logger.warn(`Icon "${name}" not found in professional icon set`);
     return null;
   }
   

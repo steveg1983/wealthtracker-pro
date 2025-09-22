@@ -1,4 +1,4 @@
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 import { captureMessage } from '../lib/sentry';
 // Service Worker Registration with enhanced update handling
 
@@ -31,7 +31,6 @@ export function register(config?: Config): void {
         baseUrl = import.meta.env.BASE_URL;
       }
     } catch {
-      logger.warn('Failed to access import.meta.env.BASE_URL, using default');
     }
     
     const publicUrl = new URL(baseUrl, window.location.href);
@@ -50,7 +49,6 @@ export function register(config?: Config): void {
 
         // Add some additional logging to localhost
         navigator.serviceWorker.ready.then(() => {
-          logger.info('App is being served cache-first by a service worker.');
         });
       } else {
         // Is not localhost. Just register service worker
@@ -90,7 +88,6 @@ function registerValidSW(swUrl: string, config?: Config): void {
               // At this point, the updated precached content has been fetched,
               // but the previous service worker will still serve the older
               // content until all client tabs are closed.
-              logger.info('New content is available and will be used when all tabs are closed.');
 
               // Execute callback
               try { 
@@ -103,7 +100,6 @@ function registerValidSW(swUrl: string, config?: Config): void {
               }
             } else {
               // At this point, everything has been precached.
-              logger.info('Content is cached for offline use.');
 
               // Execute callback
               try { 
@@ -125,19 +121,15 @@ function registerValidSW(swUrl: string, config?: Config): void {
         
         switch (type) {
           case 'sync-success':
-            logger.info('Data synced successfully:', data);
             break;
           case 'accounts-updated':
-            logger.info('Accounts updated in background:', data);
             break;
           case 'sync-status':
-            logger.info('Sync status:', data);
             break;
         }
       });
     })
     .catch((error) => {
-      logger.error('Error during service worker registration:', error);
     });
 }
 
@@ -165,7 +157,6 @@ function checkValidServiceWorker(swUrl: string, config?: Config): void {
       }
     })
     .catch(() => {
-      logger.warn('No internet connection found. App is running in offline mode.');
     });
 }
 
@@ -176,7 +167,6 @@ export function unregister(): void {
         registration.unregister();
       })
       .catch((error) => {
-        logger.error(error.message);
       });
   }
 }
@@ -212,7 +202,6 @@ export function clearCaches(): Promise<void> {
     return caches.keys().then((names) => {
       return Promise.all(names.map(name => caches.delete(name)));
     }).then(() => {
-      logger.info('All caches cleared');
     });
   }
   return Promise.resolve();

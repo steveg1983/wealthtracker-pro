@@ -1,7 +1,7 @@
 // Production-only console routing to centralized logger
 // Avoids mass edits while discouraging future console usage via ESLint
 
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 // Only activate in production builds
 // In development, keep native console for DX

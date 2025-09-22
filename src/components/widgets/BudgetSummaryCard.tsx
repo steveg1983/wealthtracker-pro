@@ -5,7 +5,7 @@
 
 import React, { useEffect, memo } from 'react';
 import type { BudgetTotals } from '../../services/budgetComparisonService';
-import { useLogger } from '../../services/ServiceProvider';
+import { useLogger } from '../services/ServiceProvider';
 interface BudgetSummaryCardProps {
   totals: BudgetTotals;
   formatCurrency: (value: number) => string;

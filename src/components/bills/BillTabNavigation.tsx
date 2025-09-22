@@ -5,7 +5,6 @@
  */
 
 import React, { memo } from 'react';
-import { lazyLogger as logger } from '../../services/serviceFactory';
 
 type BillTabId = 'upcoming' | 'overdue' | 'all' | 'history';
 
@@ -25,7 +24,6 @@ export const BillTabNavigation = memo(function BillTabNavigation({
       {tabs.map(tab => {
         try {
           if (!tab || !tab.id) {
-            logger.warn('Invalid tab data encountered', { tab, componentName: 'BillTabNavigation' });
             return null;
           }
           
@@ -34,10 +32,8 @@ export const BillTabNavigation = memo(function BillTabNavigation({
               key={tab.id}
               onClick={() => {
                 try {
-                  logger.debug('Tab clicked', { tabId: tab.id, componentName: 'BillTabNavigation' });
                   setActiveTab(tab.id);
                 } catch (error) {
-                  logger.error('Tab click failed:', error, 'BillTabNavigation');
                 }
               }}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
@@ -59,7 +55,6 @@ export const BillTabNavigation = memo(function BillTabNavigation({
             </button>
           );
         } catch (error) {
-          logger.error('Error rendering tab:', error, 'BillTabNavigation');
           return null;
         }
       }).filter(Boolean)}

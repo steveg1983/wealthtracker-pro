@@ -5,14 +5,11 @@ import { portfolioRebalanceService } from '../services/portfolioRebalanceService
 import type { AssetAllocation } from '../services/portfolioRebalanceService';
 import type { Investment } from '../types';
 import {
-  PieChartIcon,
-  BarChart3Icon,
   TrendingUpIcon,
   InfoIcon,
   TargetIcon,
   DownloadIcon
 } from './icons';
-import { DynamicPieChart, DynamicBarChart, DynamicTreemap } from './charts/ChartMigration';
 
 interface AllocationAnalysisProps {
   accountId?: string;
@@ -175,7 +172,6 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
               }`}
               title="Pie Chart"
             >
-              <PieChartIcon size={20} />
             </button>
             <button
               onClick={() => setViewMode('bar')}
@@ -184,14 +180,12 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
               }`}
               title="Bar Chart"
             >
-              <BarChart3Icon size={20} />
             </button>
             <button
               onClick={() => setViewMode('treemap')}
               className={`px-3 py-1.5 rounded-r-lg transition-colors ${
                 viewMode === 'treemap' ? 'bg-gray-600 text-white' : 'text-gray-600 dark:text-gray-400'
               }`}
-              title="Treemap"
             >
               <TrendingUpIcon size={20} />
             </button>
@@ -227,7 +221,6 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Value</p>
               <p className="text-2xl font-bold">{formatCurrency(totalValue)}</p>
             </div>
-            <PieChartIcon size={32} className="text-gray-600" />
           </div>
         </div>
         
@@ -272,8 +265,6 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
         <h3 className="text-lg font-semibold mb-4">Allocation Visualization</h3>
         
         {viewMode === 'pie' && (
-          <ResponsiveContainer width="100%" height={400}>
-            <PieChart>
               <Pie
                 data={chartData}
                 cx="50%"
@@ -284,17 +275,11 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
                 label={({ name, percent }) => `${name}: ${percent !== undefined ? percent.toFixed(1) : '0.0'}%`}
               >
                 {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                 ))}
               </Pie>
-              <Tooltip formatter={(value) => formatCurrency(value as number)} />
-            </PieChart>
-          </ResponsiveContainer>
         )}
         
         {viewMode === 'bar' && (
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={chartData} margin={{ left: 50, right: 20, top: 20, bottom: 50 }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis 
                 dataKey="name" 
@@ -303,26 +288,19 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
                 height={100}
               />
               <YAxis />
-              <Tooltip formatter={(value) => formatCurrency(value as number)} />
-              <Legend />
               <Bar dataKey="percent" fill="#3B82F6" name="Current %" />
               {showTargets && groupBy === 'assetClass' && (
                 <Bar dataKey="target" fill="#10B981" name="Target %" />
               )}
-            </BarChart>
-          </ResponsiveContainer>
         )}
         
         {viewMode === 'treemap' && (
-          <ResponsiveContainer width="100%" height={400}>
-            <Treemap
               data={chartData}
               dataKey="value"
               aspectRatio={4 / 3}
               stroke="#fff"
               fill="#3B82F6"
             >
-              <Tooltip 
                 content={({ active, payload }) => {
                   if (active && payload && payload[0]) {
                     const data = payload[0].payload;
@@ -337,8 +315,6 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
                   return null;
                 }}
               />
-            </Treemap>
-          </ResponsiveContainer>
         )}
       </div>
 

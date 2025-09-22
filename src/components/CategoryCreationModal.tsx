@@ -11,7 +11,6 @@
  */
 
 import React, { useState } from 'react';
-import { lazyLogger } from '../services/serviceFactory';
 
 const logger = lazyLogger.getLogger('CategoryCreationModal');
 
@@ -165,14 +164,12 @@ export function CategoryCreationModal({
 
       await onCreateCategory(categoryData);
 
-      logger.info('Category created successfully', {
         name: categoryData.name,
         type: categoryData.type
       });
 
       onClose();
     } catch (error) {
-      logger.error('Error creating category:', error);
       setErrors({
         submit: error instanceof Error ? error.message : 'Failed to create category'
       });

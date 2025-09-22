@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface Investment {
   id: string;
@@ -60,7 +59,6 @@ export default function PortfolioManager({
     const loadInvestments = async () => {
       setIsLoading(true);
       try {
-        logger.debug('Loading investments for user:', userId);
 
         // In a real implementation, this would fetch from API
         await new Promise(resolve => setTimeout(resolve, 300));
@@ -92,9 +90,7 @@ export default function PortfolioManager({
 
         setInvestments(mockInvestments);
         onInvestmentChange?.(mockInvestments);
-        logger.debug('Investments loaded successfully');
       } catch (error) {
-        logger.error('Error loading investments:', error);
       } finally {
         setIsLoading(false);
       }
@@ -133,9 +129,7 @@ export default function PortfolioManager({
       });
       setIsAddingInvestment(false);
 
-      logger.debug('Investment added:', investment);
     } catch (error) {
-      logger.error('Error adding investment:', error);
     }
   };
 
@@ -148,9 +142,7 @@ export default function PortfolioManager({
       onInvestmentChange?.(updatedInvestments);
       setEditingInvestment(null);
 
-      logger.debug('Investment updated:', investment);
     } catch (error) {
-      logger.error('Error updating investment:', error);
     }
   };
 
@@ -160,9 +152,7 @@ export default function PortfolioManager({
       setInvestments(updatedInvestments);
       onInvestmentChange?.(updatedInvestments);
 
-      logger.debug('Investment deleted:', investmentId);
     } catch (error) {
-      logger.error('Error deleting investment:', error);
     }
   };
 

@@ -45,7 +45,6 @@ export const SecureField: React.FC<SecureFieldProps> = ({
         await enhancedEncryption.initialize();
       } catch (err) {
         setError('Failed to initialize encryption');
-        logger.error('Encryption initialization failed:', err);
       }
     };
     init();
@@ -75,7 +74,6 @@ export const SecureField: React.FC<SecureFieldProps> = ({
       setDecryptedValue(decrypted);
     } catch (err) {
       setError('Failed to decrypt value');
-      logger.error('Decryption failed:', err);
       setDecryptedValue('');
     } finally {
       setIsDecrypting(false);
@@ -97,7 +95,6 @@ export const SecureField: React.FC<SecureFieldProps> = ({
         onEncryptedChange?.(encryptedString);
       } catch (err) {
         setError('Failed to encrypt value');
-        logger.error('Encryption failed:', err);
       }
     }
   }, [isEncrypted, onChange, onEncryptedChange]);

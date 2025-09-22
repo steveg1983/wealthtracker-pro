@@ -28,7 +28,7 @@ import 'ag-grid-community/styles/ag-theme-alpine.css';
 
 // Import Query type
 import type { Query } from '../components/analytics/QueryBuilder';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface Dashboard {
   id: string;

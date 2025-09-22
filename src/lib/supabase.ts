@@ -1,4 +1,4 @@
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 /**
  * Supabase client re-export
  * Use the single client from services/api/supabaseClient to avoid duplication.

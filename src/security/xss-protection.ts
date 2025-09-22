@@ -4,7 +4,7 @@
  */
 
 import DOMPurify from 'dompurify';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 // Configure DOMPurify options for different contexts
 const DEFAULT_CONFIG: DOMPurify.Config = {

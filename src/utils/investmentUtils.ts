@@ -1,5 +1,5 @@
 import type { Transaction, Holding } from '../types';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface InvestmentTransactionData {
   ticker: string;
@@ -58,7 +58,6 @@ export function parseInvestmentTransaction(transaction: Transaction): Investment
 
     return null;
   } catch (error) {
-    logger.error('Error parsing investment transaction:', error);
     return null;
   }
 }

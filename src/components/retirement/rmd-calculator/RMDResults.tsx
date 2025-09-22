@@ -7,7 +7,6 @@ import {
   DollarSignIcon as DollarSign
 } from '../../icons';
 import { RMDCalculatorService, type RMDCalculation, type RMDResults } from '../../../services/rmdCalculatorService';
-import { lazyLogger as logger } from '../../../services/serviceFactory';
 
 interface RMDResultsProps {
   calculation: RMDCalculation;

@@ -1,4 +1,4 @@
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 /**
  * Professional-grade environment configuration
  * Centralizes all environment-specific settings

@@ -2,7 +2,6 @@ import { useState, useCallback, useMemo } from 'react';
 import type { TransferFormData, TransferErrors } from './types';
 import type { Transaction } from '../../types';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { lazyLogger as logger } from '../../services/serviceFactory';
 
 export function useTransferForm(
   sourceAccountId: string,
@@ -146,7 +145,6 @@ export function useTransferForm(
       
       return true;
     } catch (error) {
-      logger.error('Failed to create transfer:', error);
       setErrors({ description: 'Failed to create transfer. Please try again.' });
       return false;
     } finally {

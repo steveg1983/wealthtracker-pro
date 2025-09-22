@@ -18,7 +18,7 @@ import type {
   PaymentMethod,
   SubscriptionTier 
 } from '../../types/subscription';
-import { useLogger } from '../../services/ServiceProvider';
+import { useLogger } from '../services/ServiceProvider';
 import { 
   CreditCardIcon, 
   CalendarIcon, 

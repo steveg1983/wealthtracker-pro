@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { searchService, SearchOptions, SearchResponse } from '../services/searchService';
 import type { Transaction, Account, Budget, Goal } from '../types';
 import { useDebounce } from './useDebounce';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface UseEnhancedSearchProps {
   transactions: Transaction[];

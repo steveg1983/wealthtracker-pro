@@ -1,10 +1,8 @@
 import React, { useEffect, memo } from 'react';
-import { DynamicPieChart, DynamicBarChart, DynamicLineChart, DynamicAreaChart, DynamicTreemap } from '../../charts/ChartMigration';
 import { COLORS } from './types';
 import type { AssetAllocation } from '../../services/portfolioRebalanceService';
 import { useLogger } from '../services/ServiceProvider';
 
-interface TooltipPayload {
   name?: string;
   value?: number;
   payload?: {
@@ -15,12 +13,9 @@ interface TooltipPayload {
   };
 }
 
-interface CustomTooltipProps {
   active?: boolean;
-  payload?: TooltipPayload[];
 }
 
-interface TreemapContentProps {
   x?: number;
   y?: number;
   width?: number;
@@ -31,19 +26,14 @@ interface TreemapContentProps {
   [key: string]: any;
 }
 
-interface AllocationTreemapProps {
   allocations: AssetAllocation[];
   formatCurrency: (value: number) => string;
 }
 
-export const AllocationTreemap = memo(function AllocationTreemap({ allocations,
   formatCurrency
- }: AllocationTreemapProps): React.JSX.Element {
   const logger = useLogger();
   // Component initialization logging
   useEffect(() => {
-    logger.info('AllocationTreemap component initialized', {
-      componentName: 'AllocationTreemap'
     });
   }, []);
 
@@ -54,7 +44,6 @@ export const AllocationTreemap = memo(function AllocationTreemap({ allocations,
     color: COLORS[index % COLORS.length]
   }));
 
-  const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
     if (active && payload && payload[0] && payload[0].payload) {
       const data = payload[0].payload;
       return (
@@ -69,7 +58,6 @@ export const AllocationTreemap = memo(function AllocationTreemap({ allocations,
     return null;
   };
 
-  const CustomContent = (props: TreemapContentProps) => {
     const { x = 0, y = 0, width = 0, height = 0, name = '', percent = 0, color = '#8884d8' } = props;
     return (
       <g>
@@ -114,8 +102,6 @@ export const AllocationTreemap = memo(function AllocationTreemap({ allocations,
   };
 
   return (
-    <ResponsiveContainer width="100%" height={400}>
-      <Treemap
         data={data}
         dataKey="size"
         aspectRatio={4 / 3}
@@ -123,8 +109,5 @@ export const AllocationTreemap = memo(function AllocationTreemap({ allocations,
         fill="#8884d8"
         content={CustomContent}
       >
-        <Tooltip content={<CustomTooltip />} />
-      </Treemap>
-    </ResponsiveContainer>
   );
 });

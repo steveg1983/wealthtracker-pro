@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { captureException } from '../lib/sentry';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export function useErrorHandler(): {
   handleError: (error: Error, context?: Record<string, any>) => void;

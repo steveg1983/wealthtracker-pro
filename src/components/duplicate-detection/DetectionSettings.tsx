@@ -1,7 +1,6 @@
 import { memo } from 'react';
 import { FilterIcon } from '../icons';
 import type { DetectionSettings } from '../../services/duplicateDetectionService';
-import { lazyLogger as logger } from '../../services/serviceFactory';
 
 interface DetectionSettingsProps {
   settings: DetectionSettings;

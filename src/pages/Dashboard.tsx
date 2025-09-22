@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import PageWrapper from '../components/PageWrapper';
 import { SkeletonCard } from '../components/loading/Skeleton';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 import { useTranslation } from '../hooks/useTranslation';
 
 // Lazy load only modals and heavy features for better performance

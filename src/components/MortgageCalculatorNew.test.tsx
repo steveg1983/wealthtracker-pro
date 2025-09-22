@@ -8,7 +8,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MortgageCalculatorNew } from './MortgageCalculatorNew';
 import { MortgageCalculatorService } from '../services/mortgageCalculatorService';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 // Mock dependencies
 vi.mock('../services/loggingService', () => ({

@@ -7,7 +7,6 @@ import {
 } from '../icons';
 import { handleClerkSafariError } from '../../utils/clerkSafarifix';
 import { isSafari } from '../../utils/safariCompat';
-import { lazyLogger as logger } from '../../services/serviceFactory';
 
 declare global {
   interface Window {
@@ -63,7 +62,6 @@ export class ClerkErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    logger.error('Clerk authentication error:', error, errorInfo.componentStack || '');
     
     // Log to error tracking service if available
     if (window.Sentry) {
@@ -122,7 +120,6 @@ export class ClerkErrorBoundary extends Component<Props, State> {
       // Reload
       window.location.reload();
     } catch (error) {
-      logger.error('Failed to clear storage:', error);
       alert('Failed to clear storage. Please try manually clearing your browser data.');
     }
   };

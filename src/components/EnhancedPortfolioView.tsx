@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface PortfolioHolding {
   id: string;
@@ -105,7 +104,6 @@ export default function EnhancedPortfolioView({
     const loadPortfolioData = async () => {
       setIsLoading(true);
       try {
-        logger.debug('Loading portfolio data for user:', userId);
 
         // In a real implementation, this would fetch from API
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
@@ -142,9 +140,7 @@ export default function EnhancedPortfolioView({
         }));
 
         setAllocation(allocationData);
-        logger.debug('Portfolio data loaded successfully');
       } catch (error) {
-        logger.error('Error loading portfolio data:', error);
       } finally {
         setIsLoading(false);
       }

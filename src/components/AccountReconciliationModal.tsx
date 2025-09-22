@@ -10,7 +10,6 @@
 
 import React, { useState } from 'react';
 import Modal from './common/Modal';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface AccountReconciliationModalProps {
   isOpen: boolean;
@@ -41,7 +40,6 @@ export default function AccountReconciliationModal({
 
     setIsReconciling(true);
     try {
-      logger.info('Reconciling account', {
         accountId,
         currentBalance,
         statementBalance: parseFloat(statementBalance),
@@ -57,10 +55,8 @@ export default function AccountReconciliationModal({
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      logger.info('Account reconciliation completed');
       onClose();
     } catch (error) {
-      logger.error('Error reconciling account:', error);
     } finally {
       setIsReconciling(false);
     }

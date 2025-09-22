@@ -1,6 +1,6 @@
 import { Stripe } from 'stripe';
 import { supabase } from './supabase';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 // Webhook event types we handle
 export const HANDLED_EVENTS = [

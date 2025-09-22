@@ -2,7 +2,6 @@
  * Performance Optimization Patterns
  */
 import { lazy } from 'react';
-import { lazyLogger } from '../services/serviceFactory';
 
 export const performanceOptimizations = {
   // Lazy load heavy components

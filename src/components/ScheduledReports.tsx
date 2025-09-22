@@ -18,7 +18,7 @@ import {
 import { generatePDFReport } from '../utils/pdfExport';
 import { exportTransactionsToCSV } from '../utils/csvExport';
 import type { Account, Category } from '../types';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface ScheduledReport {
   id: string;
@@ -283,7 +283,6 @@ ${Object.entries(
       });
 
     } catch (error) {
-      logger.error('Error generating report:', error);
       addNotification({
         type: 'error',
         title: 'Report Generation Failed',

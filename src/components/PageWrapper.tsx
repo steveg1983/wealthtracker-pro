@@ -9,7 +9,6 @@
  */
 
 import React, { ReactNode } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface PageWrapperProps {
   children: ReactNode;
@@ -40,7 +39,6 @@ export default function PageWrapper({
   // Log page render for debugging
   React.useEffect(() => {
     if (title) {
-      logger.debug('Page rendered:', title);
       document.title = `${title} - WealthTracker`;
     }
   }, [title]);

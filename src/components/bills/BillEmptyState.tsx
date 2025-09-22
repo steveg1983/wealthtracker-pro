@@ -6,7 +6,6 @@
 
 import React, { memo } from 'react';
 import { CalendarIcon, PlusIcon } from '../icons';
-import { lazyLogger as logger } from '../../services/serviceFactory';
 
 interface BillEmptyStateProps {
   activeTab: string;
@@ -34,7 +33,6 @@ export const BillEmptyState = memo(function BillEmptyState({ activeTab, onAddBil
           };
       }
     } catch (error) {
-      logger.error('Error getting empty state message:', error, 'BillEmptyState');
       return {
         title: 'No bills found',
         description: 'Start by adding your first bill'
@@ -57,10 +55,8 @@ export const BillEmptyState = memo(function BillEmptyState({ activeTab, onAddBil
         <button
           onClick={() => {
             try {
-              logger.debug('Add first bill button clicked', { componentName: 'BillEmptyState' });
               onAddBill();
             } catch (error) {
-              logger.error('Add first bill button click failed:', error, 'BillEmptyState');
             }
           }}
           className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-white rounded-lg hover:bg-[var(--color-primary)]/90 transition-colors"

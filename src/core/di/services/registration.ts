@@ -39,7 +39,6 @@ import {
 } from './interfaces';
 
 // Import existing services
-import { lazyLogger as logger } from '../../../services/serviceFactory';
 import { hapticService } from '../../../services/haptic/hapticService';
 import { gestureService } from '../../../services/gesture/gestureService';
 import { keyboardNavigationService } from '../../../services/keyboard/keyboardNavigationService';

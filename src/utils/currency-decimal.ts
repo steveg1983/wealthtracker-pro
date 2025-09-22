@@ -1,6 +1,6 @@
 import { Decimal, toDecimal } from './decimal';
 import type { DecimalInstance } from './decimal';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 import { captureMessage } from '../lib/sentry';
 
 // Currency conversion utilities with Decimal.js
@@ -69,7 +69,6 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
     const data = await response.json();
     return data.rates;
   } catch (error) {
-    logger.error('Error fetching exchange rates via API route (falling back):', error);
     try { captureMessage('FX_FALLBACK_SERVERLESS_FAILURE', 'warning', { error: String(error) }); } catch {
       // Sentry not available, continue without logging
     }
@@ -80,7 +79,6 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
       const data = await upstream.json();
       return data.rates;
     } catch (e) {
-      logger.error('Error fetching exchange rates from upstream:', e);
       try { captureMessage('FX_FALLBACK_UPSTREAM_FAILURE', 'warning', { error: String(e) }); } catch {
         // Sentry not available, continue without logging
       }
@@ -142,7 +140,6 @@ export async function convertCurrency(
     
     // Check if we have rates for both currencies
     if (!rates[fromCurrency] || !rates[toCurrency]) {
-      logger.warn(`Missing exchange rate for ${fromCurrency} or ${toCurrency}`);
       return decimalAmount; // Return original amount if conversion fails
     }
     
@@ -166,7 +163,6 @@ export async function convertCurrency(
     
     return converted;
   } catch (error) {
-    logger.error('Currency conversion error:', error);
     return decimalAmount; // Return original amount if conversion fails
   }
 }
@@ -191,7 +187,6 @@ export async function convertMultipleCurrencies(
       
       // Check if we have rates for the currency
       if (!rates[currency] || !rates[toCurrency]) {
-        logger.warn(`Missing exchange rate for ${currency} or ${toCurrency}`);
         total = total.plus(decimalAmount); // Add unconverted amount
         continue;
       }
@@ -219,7 +214,6 @@ export async function convertMultipleCurrencies(
     
     return total;
   } catch (error) {
-    logger.error('Currency conversion error:', error);
     // Fallback: just sum amounts without conversion
     return amounts.reduce((sum, { amount }) => sum.plus(toDecimal(amount)), new Decimal(0));
   }

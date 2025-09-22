@@ -1,8 +1,17 @@
 import React, { useEffect, memo } from 'react';
 import { XCircleIcon, AlertTriangleIcon, CheckCircleIcon } from '../icons';
 import { accessibleColorClasses } from '../../design-system/accessible-colors';
-import type { AccessibilityIssue } from '../../services/accessibilityDashboardService';
 import { useLogger } from '../services/ServiceProvider';
+
+// Temporary type definition
+interface AccessibilityIssue {
+  id: string;
+  severity: 'error' | 'warning' | 'info';
+  element: string;
+  description: string;
+  recommendation: string;
+  wcagCriteria?: string;
+}
 
 interface IssuesTabProps {
   issues: AccessibilityIssue[];

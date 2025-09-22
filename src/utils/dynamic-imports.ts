@@ -1,4 +1,4 @@
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 /**
  * Dynamic Import Utilities
@@ -117,11 +117,9 @@ export async function measureImport<T>(
     try {
       const result = await importFn();
       const end = performance.now();
-      logger.info(`Loaded module`, { name, ms: Number((end - start).toFixed(2)) });
       return result;
     } catch (error) {
       const end = performance.now();
-      logger.error(`❌ Failed to load ${name} after ${(end - start).toFixed(2)}ms`, error);
       throw error;
     }
   }

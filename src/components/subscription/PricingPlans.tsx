@@ -12,7 +12,7 @@ import React, { useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import StripeService from '../../services/stripeService';
 import type { SubscriptionPlan, SubscriptionTier } from '../../types/subscription';
-import { useLogger } from '../../services/ServiceProvider';
+import { useLogger } from '../services/ServiceProvider';
 import { 
   CheckIcon, 
   XIcon, 

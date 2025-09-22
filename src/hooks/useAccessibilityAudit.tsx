@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { AccessibilityTester } from '../utils/accessibility-testing';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface UseAccessibilityAuditOptions {
   autoAudit?: boolean; // Run audit automatically on mount

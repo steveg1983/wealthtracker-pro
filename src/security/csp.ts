@@ -187,7 +187,7 @@ export const applyCSPMetaTag = (): void => {
 };
 
 import { captureMessage } from '../lib/sentry';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 // Check for CSP violations and report them
 export const setupCSPReporting = (): void => {

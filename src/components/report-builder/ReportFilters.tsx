@@ -1,6 +1,5 @@
 import { memo } from 'react';
 import type { ReportFilters } from '../../services/customReportService';
-import { lazyLogger as logger } from '../../services/serviceFactory';
 
 interface ReportFiltersProps {
   filters: ReportFilters;

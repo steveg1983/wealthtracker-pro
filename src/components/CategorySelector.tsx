@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 export interface Category {
   id: string;
@@ -169,7 +168,6 @@ export default function CategorySelector({
 
     setIsOpen(false);
     setSearchTerm('');
-    logger.debug('Category selected:', category);
   };
 
   const handleAddCategory = () => {
@@ -185,7 +183,6 @@ export default function CategorySelector({
     };
 
     // In a real implementation, this would save to the backend
-    logger.debug('New category created:', category);
 
     handleCategorySelect(category);
     setNewCategory({
@@ -200,7 +197,6 @@ export default function CategorySelector({
     if (!allowManagement) return;
 
     // In a real implementation, this would handle category management
-    logger.debug('Category management:', { category, action });
   };
 
   return (

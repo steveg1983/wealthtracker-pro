@@ -6,7 +6,7 @@
 import React, { useEffect, memo } from 'react';
 import type { BudgetComparison } from '../../services/budgetComparisonService';
 import { budgetComparisonService } from '../../services/budgetComparisonService';
-import { useLogger } from '../../services/ServiceProvider';
+import { useLogger } from '../services/ServiceProvider';
 interface BudgetDetailedTableProps {
   comparisons: BudgetComparison[];
   formatCurrency: (value: number) => string;

@@ -4,7 +4,7 @@
  */
 
 import { isSafari } from './safariCompat';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 // Check if third-party cookies are blocked
 export const checkThirdPartyCookies = async (): Promise<boolean> => {
@@ -20,7 +20,6 @@ export const checkThirdPartyCookies = async (): Promise<boolean> => {
     
     return cookieSet;
   } catch (error) {
-    logger.warn('Cookie test failed:', error);
     return false;
   }
 };
@@ -55,7 +54,6 @@ export const initClerkSafariCompat = async () => {
     return { compatible: true };
   }
 
-  logger.info('Safari detected - checking Clerk compatibility...');
 
   const results = {
     safari: true,
@@ -87,7 +85,6 @@ export const initClerkSafariCompat = async () => {
   }
 
   if (results.warnings.length > 0) {
-    logger.warn('⚠️ Safari compatibility warnings:', results.warnings);
   }
 
   return results;
@@ -111,7 +108,6 @@ const applySafariFixes = () => {
       return originalFetch.apply(this, [url, options]);
     };
   } catch (error) {
-    logger.error('Failed to patch fetch for Safari:', error);
   }
 
   // 2. Add storage event listeners to sync auth state
@@ -119,7 +115,6 @@ const applySafariFixes = () => {
     window.addEventListener('storage', (e) => {
       // Sync Clerk session across tabs in Safari
       if (e.key?.includes('clerk') || e.key?.includes('__session')) {
-        logger.info('Safari: Syncing Clerk session across tabs');
         // Force a session refresh
         window.location.reload();
       }
@@ -158,11 +153,9 @@ const polyfillSafari = () => {
     // Request storage access for third-party contexts
     document.hasStorageAccess().then(hasAccess => {
       if (!hasAccess) {
-        logger.info('Requesting storage access for Safari...');
         return document.requestStorageAccess();
       }
     }).catch(error => {
-      logger.warn('Storage access request failed:', error);
     });
   }
 };

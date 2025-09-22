@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface WatchlistStock {
   id: string;
@@ -93,15 +92,12 @@ export default function StockWatchlist({
     const loadWatchlist = async () => {
       setIsLoading(true);
       try {
-        logger.debug('Loading watchlist for user:', userId);
 
         // In a real implementation, this would fetch from API
         await new Promise(resolve => setTimeout(resolve, 300));
 
         setWatchlist(mockWatchlistStocks);
-        logger.debug('Watchlist loaded successfully');
       } catch (error) {
-        logger.error('Error loading watchlist:', error);
       } finally {
         setIsLoading(false);
       }
@@ -131,7 +127,6 @@ export default function StockWatchlist({
 
       setSearchResults(mockResults);
     } catch (error) {
-      logger.error('Error searching stocks:', error);
       setSearchResults([]);
     }
   };
@@ -158,9 +153,7 @@ export default function StockWatchlist({
       setSearchResults([]);
       setIsAddingStock(false);
 
-      logger.debug('Stock added to watchlist:', newStock);
     } catch (error) {
-      logger.error('Error adding stock to watchlist:', error);
     }
   };
 
@@ -169,9 +162,7 @@ export default function StockWatchlist({
     try {
       const updatedWatchlist = watchlist.filter(stock => stock.id !== stockId);
       setWatchlist(updatedWatchlist);
-      logger.debug('Stock removed from watchlist:', stockId);
     } catch (error) {
-      logger.error('Error removing stock from watchlist:', error);
     }
   };
 
@@ -182,9 +173,7 @@ export default function StockWatchlist({
         stock.id === stockId ? { ...stock, alertPrice } : stock
       );
       setWatchlist(updatedWatchlist);
-      logger.debug('Price alert set:', { stockId, alertPrice });
     } catch (error) {
-      logger.error('Error setting price alert:', error);
     }
   };
 

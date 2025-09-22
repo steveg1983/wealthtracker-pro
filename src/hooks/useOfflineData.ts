@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { offlineDataService } from '../services/offlineDataService';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface UseOfflineDataReturn {
   isOnline: boolean;

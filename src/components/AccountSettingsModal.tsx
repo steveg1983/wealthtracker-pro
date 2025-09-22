@@ -12,7 +12,6 @@
 import React, { useState, useEffect } from 'react';
 import Modal from './common/Modal';
 import { ConfirmModal } from './common/Modal';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface Account {
   id: string;
@@ -101,10 +100,8 @@ export default function AccountSettingsModal({
         description: formData.description.trim() || undefined
       });
 
-      logger.info('Account settings saved successfully', { accountId: account.id });
       onClose();
     } catch (error) {
-      logger.error('Error saving account settings:', error);
     } finally {
       setIsLoading(false);
     }
@@ -115,11 +112,9 @@ export default function AccountSettingsModal({
 
     try {
       await onDelete(account.id);
-      logger.info('Account deleted successfully', { accountId: account.id });
       setShowDeleteConfirm(false);
       onClose();
     } catch (error) {
-      logger.error('Error deleting account:', error);
     }
   };
 

@@ -9,7 +9,6 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 export interface Category {
   id: string;
@@ -109,7 +108,6 @@ export default function CategorySelect({
     onChange(categoryId);
     setIsOpen(false);
     setSearchTerm('');
-    logger.debug('Category selected:', categoryId);
   };
 
   const handleAddCategory = () => {
@@ -126,7 +124,6 @@ export default function CategorySelect({
     setNewCategoryName('');
     setShowAddForm(false);
     setIsOpen(false);
-    logger.debug('New category added:', newCategory);
   };
 
   return (

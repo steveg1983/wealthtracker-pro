@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useRef, useCallback } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface ImportMapping {
   sourceColumn: string;
@@ -132,7 +131,6 @@ export default function BatchImportModal({
 
       setMapping(initialMapping);
       setStep('mapping');
-      logger.debug('File parsed successfully', { headers: mockHeaders, rows: mockData.length });
     }, 1000);
   }, []);
 
@@ -244,9 +242,7 @@ export default function BatchImportModal({
 
       await onImport(structuredData, mapping);
       setStep('complete');
-      logger.debug('Import completed successfully', { imported: totalRows });
     } catch (error) {
-      logger.error('Import failed:', error);
       setErrorCount(rawData.length);
     }
   };

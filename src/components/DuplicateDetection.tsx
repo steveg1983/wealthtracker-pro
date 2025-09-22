@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger } from '../services/serviceFactory';
 
 const logger = lazyLogger.getLogger('DuplicateDetection');
 
@@ -66,7 +65,6 @@ export function DuplicateDetection({
   }, [transactions, autoDetect]);
 
   const detectDuplicates = (): void => {
-    logger.info('Starting duplicate detection', {
       transactionCount: transactions.length,
       threshold
     });
@@ -104,9 +102,7 @@ export function DuplicateDetection({
       });
 
       setDuplicateGroups(groups);
-      logger.info('Duplicate detection completed', { groupsFound: groups.length });
     } catch (error) {
-      logger.error('Error detecting duplicates:', error);
     } finally {
       setIsProcessing(false);
     }
@@ -170,9 +166,7 @@ export function DuplicateDetection({
       );
       setSelectedGroups(new Set());
 
-      logger.info('Duplicates resolved', { resolvedCount: groupsToResolve.length });
     } catch (error) {
-      logger.error('Error resolving duplicates:', error);
     } finally {
       setIsProcessing(false);
     }

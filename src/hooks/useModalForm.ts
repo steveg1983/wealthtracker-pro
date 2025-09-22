@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface UseModalFormOptions<T> {
   onSubmit: (data: T) => void | Promise<void>;

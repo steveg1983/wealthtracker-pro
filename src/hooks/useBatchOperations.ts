@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Transaction } from '../types';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export interface BatchOperation {
   id: string;

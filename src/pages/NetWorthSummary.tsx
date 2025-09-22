@@ -4,7 +4,7 @@ import { ArrowLeftIcon, TrendingUpIcon, BanknoteIcon, ChevronRightIcon, Building
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Account } from '../types';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 type SummaryType = 'networth' | 'assets' | 'liabilities';
 

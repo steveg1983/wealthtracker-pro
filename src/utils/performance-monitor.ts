@@ -1,4 +1,4 @@
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 /**
  * Performance Monitoring Utilities
  * Track and report application performance metrics
@@ -69,7 +69,6 @@ export class PerformanceMonitor {
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
         this.observers.push(lcpObserver);
       } catch (e) {
-        logger.warn('Performance Observer not supported:', e);
       }
     }
   }
@@ -142,7 +141,6 @@ export class PerformanceMonitor {
           this.metrics.customMetrics[name] = entries[entries.length - 1].duration;
         }
       } catch (e) {
-        logger.warn('Performance measure failed:', e);
       }
     }
   }
@@ -155,34 +153,23 @@ export class PerformanceMonitor {
 
   logMetrics(): void {
     const metrics = this.getMetrics();
-    logger.info('📊 Performance Metrics', { type: 'performance-start' });
     
     if (metrics.domContentLoaded) {
-      logger.info('Performance DOM Content Loaded', { ms: Number(metrics.domContentLoaded.toFixed(2)) });
     }
     if (metrics.loadComplete) {
-      logger.info('Performance Page Load Complete', { ms: Number(metrics.loadComplete.toFixed(2)) });
     }
     if (metrics.firstContentfulPaint) {
-      logger.info('Performance FCP', { ms: Number(metrics.firstContentfulPaint.toFixed(2)) });
+      // FCP metric
     }
     if (metrics.largestContentfulPaint) {
-      logger.info('Performance LCP', { ms: Number(metrics.largestContentfulPaint.toFixed(2)) });
+      // LCP metric
     }
-    logger.info('Resource Metrics', {
-      totalResources: metrics.totalResources,
-      jsSize: this.formatBytes(metrics.jsSize || 0),
-      cssSize: this.formatBytes(metrics.cssSize || 0),
-      imageSize: this.formatBytes(metrics.imageSize || 0),
-      totalSize: this.formatBytes(metrics.totalResourceSize || 0)
-    });
     if (metrics.customMetrics && Object.keys(metrics.customMetrics).length > 0) {
       Object.entries(metrics.customMetrics).forEach(([name, duration]) => {
-        logger.info('Custom metric', { name, ms: Number(duration.toFixed(2)) });
+        // Custom metric
       });
     }
     
-    logger.info('📊 Performance Metrics', { type: 'performance-end' });
   }
 
   private formatBytes(bytes: number): string {
@@ -216,7 +203,6 @@ export function measureComponentRender(componentName: string): { start: () => vo
 
 export function reportWebVitals(metric: any): void {
   // Send to analytics or logging service
-  logger.info('Web Vital', { name: metric.name, value: metric.value });
   
   // Thresholds based on Core Web Vitals
   const thresholds: Record<string, { good: number; needsImprovement: number }> = {
@@ -236,6 +222,5 @@ export function reportWebVitals(metric: any): void {
       rating = 'needs improvement';
     }
     
-    logger.info('Web Vital rating', { name: metric.name, rating });
   }
 }

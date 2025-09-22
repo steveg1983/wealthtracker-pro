@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ConflictResolutionService, ConflictAnalysis } from '../services/conflictResolutionService';
 import { syncService } from '../services/syncService';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export interface ConflictState {
   hasConflicts: boolean;

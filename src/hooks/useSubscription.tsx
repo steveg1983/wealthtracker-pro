@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react';
 import { useSession } from '@clerk/clerk-react';
 import StripeService from '../services/stripeService';
 import type { UserSubscription, SubscriptionTier } from '../types/subscription';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface UseSubscriptionReturn {
   subscription: UserSubscription | null;

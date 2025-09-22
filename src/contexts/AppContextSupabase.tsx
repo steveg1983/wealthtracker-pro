@@ -16,7 +16,7 @@ import {
   toDecimalAccount, 
   toDecimalGoal 
 } from '../utils/decimal-converters';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 import type { 
   Account, 
   Transaction, 

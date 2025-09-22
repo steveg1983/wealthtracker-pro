@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger } from '../services/serviceFactory';
 
 const logger = lazyLogger.getLogger('SmartCategorizationSettings');
 
@@ -92,7 +91,6 @@ export function SmartCategorizationSettings({
   }, []);
 
   const loadCategories = async (): Promise<void> => {
-    logger.info('Loading categories for smart categorization');
 
     try {
       // Mock categories
@@ -111,12 +109,10 @@ export function SmartCategorizationSettings({
 
       setCategories(mockCategories);
     } catch (error) {
-      logger.error('Error loading categories:', error);
     }
   };
 
   const loadRules = async (): Promise<void> => {
-    logger.info('Loading categorization rules');
 
     try {
       // Mock rules
@@ -167,7 +163,6 @@ export function SmartCategorizationSettings({
 
       setRules(mockRules);
     } catch (error) {
-      logger.error('Error loading rules:', error);
     }
   };
 
@@ -213,7 +208,6 @@ export function SmartCategorizationSettings({
     setSelectedRule(null);
     setIsEditingRule(false);
 
-    logger.info('Rule saved', { ruleId: selectedRule.id });
   };
 
   const handleRuleDelete = (ruleId: string): void => {
@@ -226,7 +220,6 @@ export function SmartCategorizationSettings({
       setIsEditingRule(false);
     }
 
-    logger.info('Rule deleted', { ruleId });
   };
 
   const handleRuleToggle = (ruleId: string): void => {
@@ -241,7 +234,6 @@ export function SmartCategorizationSettings({
   const handleTestCategorization = (): void => {
     if (!testDescription) return;
 
-    logger.info('Testing categorization', { description: testDescription });
 
     // Mock test results
     const mockResults: CategorySuggestion[] = [

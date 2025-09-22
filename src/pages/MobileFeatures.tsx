@@ -16,7 +16,7 @@ import PageWrapper from '../components/PageWrapper';
 import QuickExpenseCapture from '../components/QuickExpenseCapture';
 import NotificationSettings from '../components/NotificationSettings';
 import type { OfflineTransaction, PushNotification } from '../services/mobileService';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export default function MobileFeatures() {
   const [isOffline, setIsOffline] = useState(mobileService.isOffline());

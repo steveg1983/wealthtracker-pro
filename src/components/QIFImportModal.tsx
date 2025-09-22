@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useRef, useCallback } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface QIFImportModalProps {
   isOpen: boolean;
@@ -188,23 +187,19 @@ export default function QIFImportModal({
     setIsProcessing(true);
 
     try {
-      logger.debug('Processing QIF file:', selectedFile.name);
 
       const fileContent = await selectedFile.text();
       const result = await parseQIFFile(fileContent);
 
       if (result.errors.length > 0) {
-        logger.error('QIF parsing errors:', result.errors);
       }
 
       setParseResult(result);
       setStep(result.errors.length > 0 ? 'upload' : 'configure');
-      logger.debug('QIF file processed successfully', {
         transactions: result.transactions.length,
         accounts: result.accounts.length
       });
     } catch (error) {
-      logger.error('Error processing QIF file:', error);
       setParseResult({
         transactions: [],
         accounts: [],
@@ -241,9 +236,7 @@ export default function QIFImportModal({
 
       await onImport(parseResult.transactions, importOptions);
       setStep('complete');
-      logger.debug('QIF import completed successfully');
     } catch (error) {
-      logger.error('QIF import failed:', error);
       setParseResult(prev => prev ? {
         ...prev,
         errors: [...prev.errors, 'Import failed. Please try again.']

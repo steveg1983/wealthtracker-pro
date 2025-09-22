@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger } from '../services/serviceFactory';
 
 const logger = lazyLogger.getLogger('TransactionReconciliation');
 
@@ -102,7 +101,6 @@ export function TransactionReconciliation({
   }, [transactions, statement, autoMatch]);
 
   const loadTransactions = async (): Promise<void> => {
-    logger.info('Loading transactions for reconciliation', { accountId });
 
     try {
       // Mock transaction data
@@ -140,12 +138,10 @@ export function TransactionReconciliation({
 
       setTransactions(mockTransactions);
     } catch (error) {
-      logger.error('Error loading transactions:', error);
     }
   };
 
   const loadStatement = async (): Promise<void> => {
-    logger.info('Loading bank statement', { statementId });
 
     try {
       // Mock statement data
@@ -188,14 +184,12 @@ export function TransactionReconciliation({
 
       setStatement(mockStatement);
     } catch (error) {
-      logger.error('Error loading statement:', error);
     }
   };
 
   const performAutoMatching = (): void => {
     if (!statement) return;
 
-    logger.info('Performing automatic matching');
 
     const updatedTransactions = transactions.map(transaction => {
       if (transaction.reconciliation_status === 'reconciled') {
@@ -245,7 +239,6 @@ export function TransactionReconciliation({
   };
 
   const handleManualMatch = (transactionId: string, statementTransactionId: string): void => {
-    logger.info('Manual match requested', { transactionId, statementTransactionId });
 
     setTransactions(prev =>
       prev.map(t =>
@@ -273,7 +266,6 @@ export function TransactionReconciliation({
   };
 
   const handleUnmatch = (transactionId: string): void => {
-    logger.info('Unmatching transaction', { transactionId });
 
     const transaction = transactions.find(t => t.id === transactionId);
     if (!transaction?.statement_ref) return;
@@ -304,7 +296,6 @@ export function TransactionReconciliation({
   };
 
   const handleMarkDisputed = (transactionId: string): void => {
-    logger.info('Marking transaction as disputed', { transactionId });
 
     setTransactions(prev =>
       prev.map(t =>
@@ -318,7 +309,6 @@ export function TransactionReconciliation({
   const handleCompleteReconciliation = (): void => {
     if (!reconciliationSummary) return;
 
-    logger.info('Completing reconciliation', reconciliationSummary);
     onReconciliationComplete?.(reconciliationSummary);
   };
 

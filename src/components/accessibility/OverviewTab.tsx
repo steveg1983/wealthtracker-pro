@@ -1,8 +1,17 @@
 import React, { useEffect, memo } from 'react';
 import { CheckCircleIcon, AlertTriangleIcon, XCircleIcon } from '../icons';
 import { accessibleColorClasses } from '../../design-system/accessible-colors';
-import type { AccessibilityStats } from '../../services/accessibilityDashboardService';
 import { useLogger } from '../services/ServiceProvider';
+
+// Temporary type definition
+interface AccessibilityStats {
+  totalIssues: number;
+  errors: number;
+  warnings: number;
+  passed: number;
+  score: number;
+  wcagLevel: string;
+}
 
 interface OverviewTabProps {
   stats: AccessibilityStats;

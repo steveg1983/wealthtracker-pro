@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { CheckCircleIcon, AlertCircleIcon } from '../icons';
 import { apiUrl } from '../../config/api';
-import { useLogger } from '../../services/ServiceProvider';
+import { useLogger } from '../services/ServiceProvider';
 
 export default function StripeStatusButton(): React.JSX.Element {
   const logger = useLogger();

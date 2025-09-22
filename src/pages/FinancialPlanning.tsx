@@ -28,7 +28,7 @@ import InsurancePlanner from '../components/InsurancePlanner';
 import NetWorthProjector from '../components/NetWorthProjector';
 import TaxCalculator from '../components/TaxCalculator';
 import type { RetirementPlan, MortgageCalculation, DebtPayoffPlan, FinancialGoal, InsuranceNeed } from '../services/financialPlanningService';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 type ActiveTab = 'overview' | 'tax' | 'retirement' | 'mortgage' | 'debt' | 'goals' | 'insurance' | 'networth';
 

@@ -390,7 +390,6 @@ export const initializeDemoData = () => {
   localStorage.setItem('categories', JSON.stringify(demoData.categories));
   localStorage.setItem('recurringTransactions', JSON.stringify(demoData.recurringTransactions));
   
-  logger.info('Demo mode initialized with sample data');
 };
 
 // Clear demo data
@@ -403,5 +402,4 @@ export const clearDemoData = () => {
   localStorage.removeItem('categories');
   localStorage.removeItem('recurringTransactions');
   
-  logger.info('Demo data cleared');
 };

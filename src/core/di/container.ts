@@ -33,7 +33,6 @@
  * - Factory Pattern
  */
 
-import { lazyLogger as logger } from '../../services/serviceFactory';
 
 /**
  * Service lifecycle scopes

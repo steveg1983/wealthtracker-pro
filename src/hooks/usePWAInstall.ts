@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;

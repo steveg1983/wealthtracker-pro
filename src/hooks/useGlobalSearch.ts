@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import type { Account, Transaction, Budget, Goal } from '../types';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export interface SearchResult {
   id: string;

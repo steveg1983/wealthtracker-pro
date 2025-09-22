@@ -69,7 +69,6 @@ export default function MobileAppWidget({ size = 'medium' }: MobileAppWidgetProp
         alert('PWA installation not available on this device.');
       }
     } catch (error) {
-      logger.error('PWA installation failed:', error);
     }
   };
 

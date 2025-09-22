@@ -10,7 +10,6 @@
  */
 
 import React, { useState, useRef, useCallback } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface OFXImportModalProps {
   isOpen: boolean;
@@ -176,7 +175,6 @@ export default function OFXImportModal({
     setErrors([]);
 
     try {
-      logger.debug('Processing OFX file:', selectedFile.name);
 
       const fileContent = await selectedFile.text();
       const data = await parseOFXFile(fileContent);
@@ -185,12 +183,10 @@ export default function OFXImportModal({
       // Auto-select all accounts by default
       setSelectedAccounts(new Set(data.accounts.map(acc => acc.accountId)));
       setStep('accounts');
-      logger.debug('OFX file processed successfully', {
         accounts: data.accounts.length,
         transactions: data.transactions.length
       });
     } catch (error) {
-      logger.error('Error processing OFX file:', error);
       setErrors(['Failed to process OFX file. Please check the file format and try again.']);
     } finally {
       setIsProcessing(false);
@@ -241,9 +237,7 @@ export default function OFXImportModal({
 
       await onImport(filteredData);
       setStep('complete');
-      logger.debug('OFX import completed successfully');
     } catch (error) {
-      logger.error('OFX import failed:', error);
       setErrors(['Import failed. Please try again or contact support.']);
       setStep('preview');
     }

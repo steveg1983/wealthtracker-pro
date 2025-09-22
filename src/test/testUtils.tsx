@@ -17,7 +17,7 @@ import { LayoutProvider } from '../contexts/LayoutContext';
 import { ToastProvider } from '../contexts/ToastContext';
 import { ThemeProvider } from '../design-system';
 import type { Transaction, Account, Budget, Goal, Category } from '../types';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 // Mock Clerk for testing
 const mockClerkProp = {

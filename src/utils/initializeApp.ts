@@ -1,11 +1,10 @@
 import { generateTestData } from './generateTestData';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export function initializeAppData() {
   try {
     // Check if localStorage is available
     if (typeof Storage === 'undefined') {
-      logger.error('LocalStorage not available');
       return generateTestData();
     }
     
@@ -16,7 +15,6 @@ export function initializeAppData() {
     
     // If no data exists, generate test data
     if (!hasAccounts && !hasTransactions && !hasBudgets) {
-      logger.info('No existing data found, generating test data...');
       const testData = generateTestData();
       
       // Save to localStorage with error handling
@@ -33,7 +31,6 @@ export function initializeAppData() {
           localStorage.setItem('money_management_accent_color', 'pink');
         }
       } catch (e) {
-        logger.error('Error saving to localStorage:', e);
       }
       
       return testData;
@@ -46,7 +43,6 @@ export function initializeAppData() {
       budgets: hasBudgets ? JSON.parse(hasBudgets) : []
     };
   } catch (error) {
-    logger.error('Error initializing app data:', error);
     return generateTestData();
   }
 }

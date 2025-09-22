@@ -9,7 +9,6 @@
  */
 
 import React, { ReactNode, useEffect } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface PageWrapperNewProps {
   children: ReactNode;
@@ -51,7 +50,6 @@ export default function PageWrapperNew({
   // Log page render and update document title
   useEffect(() => {
     if (title) {
-      logger.debug('PageWrapperNew rendered:', title);
       document.title = `${title} - WealthTracker`;
     }
   }, [title]);

@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 import { 
   sanitizeText, 
   sanitizeHTML, 

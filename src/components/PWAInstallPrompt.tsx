@@ -8,7 +8,6 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -26,11 +25,9 @@ export default function PWAInstallPrompt(): React.JSX.Element {
       const promptEvent = e as BeforeInstallPromptEvent;
       setInstallPrompt(promptEvent);
       setIsVisible(true);
-      logger.info('PWA install prompt available');
     };
 
     const handleAppInstalled = () => {
-      logger.info('PWA was installed');
       setIsVisible(false);
       setInstallPrompt(null);
     };
@@ -57,15 +54,12 @@ export default function PWAInstallPrompt(): React.JSX.Element {
       const { outcome } = await installPrompt.userChoice;
 
       if (outcome === 'accepted') {
-        logger.info('User accepted the PWA install prompt');
       } else {
-        logger.info('User dismissed the PWA install prompt');
       }
 
       setIsVisible(false);
       setInstallPrompt(null);
     } catch (error) {
-      logger.error('Error during PWA install:', error);
     }
   };
 

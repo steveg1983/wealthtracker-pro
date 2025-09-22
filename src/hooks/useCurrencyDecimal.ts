@@ -8,7 +8,7 @@ import {
 } from '../utils/currency-decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { toDecimal } from '../utils/decimal';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export function useCurrencyDecimal(): {
   formatCurrency: (amount: DecimalInstance | number, originalCurrency?: string) => string;

@@ -11,7 +11,6 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { lazyLogger } from '../services/serviceFactory';
 
 const logger = lazyLogger.getLogger('TagSelector');
 
@@ -111,9 +110,7 @@ export function TagSelector({
     if (tag.isNew && onCreateTag) {
       try {
         tagToAdd = await onCreateTag(tag.name);
-        logger.info('New tag created', { tagName: tag.name, tagId: tagToAdd.id });
       } catch (error) {
-        logger.error('Failed to create new tag:', error);
         return;
       }
     }

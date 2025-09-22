@@ -9,7 +9,6 @@
  */
 
 import React, { useState } from 'react';
-import { lazyLogger as logger } from '../../services/serviceFactory';
 
 export interface QueryFilter {
   field: string;
@@ -97,7 +96,6 @@ export default function QueryBuilder({
     };
 
     onQueryChange(query);
-    logger.debug('Query updated:', query);
   };
 
   const handleDateRangeChange = (field: 'start' | 'end', date: string) => {

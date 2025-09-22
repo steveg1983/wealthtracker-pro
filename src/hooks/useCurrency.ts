@@ -6,7 +6,7 @@
 import { useCallback, useMemo } from 'react';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { convertCurrency, convertMultipleCurrencies, formatCurrency as formatCurrencyUtil, getCurrencySymbol } from '../utils/currency';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export function useCurrency(): {
   displayCurrency: string;

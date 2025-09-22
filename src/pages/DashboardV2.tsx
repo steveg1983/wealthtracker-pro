@@ -19,7 +19,7 @@ import {
   ArrowDownTrayIcon,
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 

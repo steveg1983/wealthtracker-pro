@@ -15,7 +15,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import PageWrapper from '../components/PageWrapper';
 import { investmentService, type PortfolioSummary } from '../services/api/investmentService';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 export default function Investments() {
   const { accounts, transactions, updateAccount } = useApp();

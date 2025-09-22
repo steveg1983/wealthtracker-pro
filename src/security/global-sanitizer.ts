@@ -3,7 +3,7 @@
  * Applies XSS protection to all user inputs in the application
  */
 
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 import { 
   sanitizeText, 
   sanitizeHTML, 

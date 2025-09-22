@@ -5,7 +5,7 @@ import { Modal } from './common/Modal';
 // import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal'; // Currently unused
 import { useDebounce } from '../hooks/useDebounce';
 import type { Transaction, Account } from '../types';
-import { logger } from '../services/loggingService';
+import { lazyLogger as logger } from '../services/serviceFactory';
 
 interface SearchFilter {
   id: string;
@@ -138,7 +138,6 @@ export default function AdvancedSearch({
         }));
         setSavedSearches(searches);
       } catch (error) {
-        logger.error('Error loading saved searches:', error);
       }
     }
   }, []);
