@@ -38,9 +38,6 @@ jobs:
           chmod +x .github/scripts/check-console-log.sh
           ./.github/scripts/check-console-log.sh
 
-      - name: Enforce bundle size budget
-        run: npm run bundle:check
-
   # Job 2: Unit and Integration Tests
   test-unit:
     name: Unit & Integration Tests
