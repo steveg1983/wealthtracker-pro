@@ -81,6 +81,7 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     continue-on-error: true
+    if: github.event_name == 'push'
     strategy:
       fail-fast: false
       matrix:
@@ -319,7 +320,7 @@ jobs:
     name: Real Supabase Tests
     runs-on: ubuntu-latest
     continue-on-error: true
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -348,7 +349,7 @@ jobs:
     runs-on: ubuntu-latest
     continue-on-error: true
     needs: [deploy-staging, deploy-production]
-    if: always()
+    if: github.event_name == 'push'
     steps:
       - name: Send Slack notification
         uses: 8398a7/action-slack@v3
