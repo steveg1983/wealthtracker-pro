@@ -1,0 +1,177 @@
+/* Dashboard Widget Animations */
+
+/* Drag and drop animations */
+.widget-dragging {
+  opacity: 0.5;
+  transform: scale(1.05) rotate(2deg);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+  z-index: 1000;
+  transition: none !important;
+}
+
+.widget-drag-overlay {
+  cursor: grabbing;
+  transform: rotate(2deg);
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+}
+
+/* Widget entry animations */
+@keyframes widget-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.widget-enter {
+  animation: widget-slide-in 0.3s ease-out;
+}
+
+/* Widget removal animation */
+@keyframes widget-slide-out {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+.widget-exit {
+  animation: widget-slide-out 0.2s ease-in;
+}
+
+/* Edit mode pulse */
+@keyframes edit-mode-pulse {
+  0%, 100% {
+    border-color: rgb(59 130 246 / 0.5);
+    box-shadow: 0 0 0 0 rgb(59 130 246 / 0.4);
+  }
+  50% {
+    border-color: rgb(59 130 246 / 0.8);
+    box-shadow: 0 0 0 8px rgb(59 130 246 / 0);
+  }
+}
+
+.widget-edit-mode {
+  animation: edit-mode-pulse 2s infinite;
+  border: 2px solid rgb(59 130 246 / 0.5);
+}
+
+/* Hover effects */
+.widget-container {
+  transition: all 0.2s ease;
+}
+
+.widget-container:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+/* Drag handle animation */
+.drag-handle {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.widget-edit-mode .drag-handle {
+  opacity: 0.5;
+}
+
+.widget-edit-mode .drag-handle:hover {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+/* Widget resize animation */
+.widget-resize {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Loading skeleton animation */
+@keyframes skeleton-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.widget-skeleton {
+  animation: skeleton-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* Add widget button animation */
+@keyframes bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.add-widget-btn:hover {
+  animation: bounce 0.5s ease-in-out;
+}
+
+/* Success animation for saved layout */
+@keyframes success-flash {
+  0% {
+    background-color: rgb(34 197 94 / 0);
+  }
+  50% {
+    background-color: rgb(34 197 94 / 0.1);
+  }
+  100% {
+    background-color: rgb(34 197 94 / 0);
+  }
+}
+
+.layout-saved {
+  animation: success-flash 0.5s ease-out;
+}
+
+/* Template selection animation */
+.template-card {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.template-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1);
+}
+
+.template-card.selected {
+  border-color: rgb(59 130 246);
+  background-color: rgb(59 130 246 / 0.05);
+}
+
+/* Smooth transitions for layout changes */
+.dashboard-grid {
+  transition: gap 0.3s ease;
+}
+
+.dashboard-grid > * {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

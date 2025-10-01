@@ -18,10 +18,48 @@ import {
 } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths } from 'date-fns';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { logger } from '../services/loggingService';
+
+let jsPdfConstructor: typeof import('jspdf').jsPDF | null = null;
+let autoTableModule: typeof import('jspdf-autotable') | null = null;
+let xlsxModule: typeof import('xlsx') | null = null;
+
+const ensurePdfLibraries = async () => {
+  if (!jsPdfConstructor) {
+    const module = await import('jspdf');
+    jsPdfConstructor = module.default as unknown as typeof import('jspdf').jsPDF;
+  }
+
+  if (!autoTableModule) {
+    autoTableModule = await import('jspdf-autotable');
+  }
+
+  return {
+    jsPDF: jsPdfConstructor!,
+    autoTable: autoTableModule.default ?? autoTableModule
+  };
+};
+
+const ensureXlsxLibrary = async () => {
+  if (!xlsxModule) {
+    xlsxModule = await import('xlsx');
+  }
+
+  return xlsxModule;
+};
+
+const toNumeric = (value: number | string | null | undefined): number => {
+  if (typeof value === 'number') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  return 0;
+};
 
 type ExportFormat = 'pdf' | 'excel' | 'csv';
 type ReportType = 'transactions' | 'summary' | 'budget' | 'tax' | 'investment' | 'networth' | 'custom';
@@ -161,6 +199,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
   };
 
   const generatePDF = async () => {
+    const { jsPDF, autoTable } = await ensurePdfLibraries();
+
     const pdf = new jsPDF({
       orientation: options.orientation,
       unit: 'mm',
@@ -194,18 +234,24 @@ export default function EnhancedExportManager(): React.JSX.Element {
     pdf.setTextColor(0);
     pdf.text('Summary', 20, 45);
     
-    const income = filteredTransactions
-      .filter(t => parseFloat(t.amount) > 0)
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    
-    const expenses = Math.abs(filteredTransactions
-      .filter(t => parseFloat(t.amount) < 0)
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0));
+    const { income, expenses } = filteredTransactions.reduce(
+      (totals, transaction) => {
+        const amount = toNumeric(transaction.amount);
+        if (amount > 0) {
+          totals.income += amount;
+        } else if (amount < 0) {
+          totals.expenses += amount;
+        }
+        return totals;
+      },
+      { income: 0, expenses: 0 }
+    );
+    const expensesAbs = Math.abs(expenses);
     
     pdf.setFontSize(10);
     pdf.text(`Total Income: £${income.toFixed(2)}`, 20, 55);
-    pdf.text(`Total Expenses: £${expenses.toFixed(2)}`, 20, 62);
-    pdf.text(`Net: £${(income - expenses).toFixed(2)}`, 20, 69);
+    pdf.text(`Total Expenses: £${expensesAbs.toFixed(2)}`, 20, 62);
+    pdf.text(`Net: £${(income + expenses).toFixed(2)}`, 20, 69);
     pdf.text(`Transactions: ${filteredTransactions.length}`, 20, 76);
 
     // Add transactions table
@@ -215,8 +261,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
         t.description,
         t.category,
         accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-        `£${Math.abs(parseFloat(t.amount)).toFixed(2)}`,
-        parseFloat(t.amount) > 0 ? 'Income' : 'Expense'
+        `£${Math.abs(toNumeric(t.amount)).toFixed(2)}`,
+        toNumeric(t.amount) > 0 ? 'Income' : 'Expense'
       ]);
 
       autoTable(pdf, {
@@ -236,17 +282,22 @@ export default function EnhancedExportManager(): React.JSX.Element {
       pdf.text('Budget Analysis', 20, 20);
 
       const budgetData = budgets.map(b => {
-        const spent = Math.abs(filteredTransactions
-          .filter(t => t.category === b.category && parseFloat(t.amount) < 0)
-          .reduce((sum, t) => sum + parseFloat(t.amount), 0));
-        
-        const percentage = (spent / parseFloat(b.amount)) * 100;
-        
+        const budgetAmount = toNumeric(b.amount);
+        const spent = filteredTransactions
+          .filter(t => t.category === b.categoryId)
+          .reduce((sum, transaction) => {
+            const amount = toNumeric(transaction.amount);
+            return amount < 0 ? sum + Math.abs(amount) : sum;
+          }, 0);
+
+        const remaining = budgetAmount - spent;
+        const percentage = budgetAmount === 0 ? 0 : (spent / budgetAmount) * 100;
+
         return [
-          b.category,
-          `£${parseFloat(b.amount).toFixed(2)}`,
+          b.categoryId,
+          `£${budgetAmount.toFixed(2)}`,
           `£${spent.toFixed(2)}`,
-          `£${(parseFloat(b.amount) - spent).toFixed(2)}`,
+          `£${remaining.toFixed(2)}`,
           `${percentage.toFixed(1)}%`
         ];
       });
@@ -278,7 +329,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
   };
 
   const generateExcel = async () => {
-    const workbook = XLSX.utils.book_new();
+    const xlsx = await ensureXlsxLibrary();
+    const workbook = xlsx.utils.book_new();
     const dateRange = getDateRange();
 
     // Filter transactions
@@ -299,36 +351,45 @@ export default function EnhancedExportManager(): React.JSX.Element {
       ['Generated:', format(new Date(), 'MMM d, yyyy HH:mm')],
       [''],
       ['Summary Statistics'],
-      ['Total Income:', filteredTransactions.filter(t => parseFloat(t.amount) > 0).reduce((sum, t) => sum + parseFloat(t.amount), 0)],
-      ['Total Expenses:', Math.abs(filteredTransactions.filter(t => parseFloat(t.amount) < 0).reduce((sum, t) => sum + parseFloat(t.amount), 0))],
-      ['Net Amount:', filteredTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0)],
+      ['Total Income:', filteredTransactions.reduce((sum, t) => {
+        const amount = toNumeric(t.amount);
+        return amount > 0 ? sum + amount : sum;
+      }, 0)],
+      ['Total Expenses:', filteredTransactions.reduce((sum, t) => {
+        const amount = toNumeric(t.amount);
+        return amount < 0 ? sum + Math.abs(amount) : sum;
+      }, 0)],
+      ['Net Amount:', filteredTransactions.reduce((sum, t) => sum + toNumeric(t.amount), 0)],
       ['Transaction Count:', filteredTransactions.length]
     ];
 
-    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+    const summarySheet = xlsx.utils.aoa_to_sheet(summaryData);
+    xlsx.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
     // Transactions Sheet
     if (filteredTransactions.length > 0) {
       const transactionData = [
         ['Date', 'Description', 'Category', 'Account', 'Amount', 'Type', 'Balance'],
-        ...filteredTransactions.map(t => [
+        ...filteredTransactions.map(t => {
+          const amount = toNumeric(t.amount);
+          return [
           format(new Date(t.date), 'yyyy-MM-dd'),
           t.description,
           t.category,
           accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-          parseFloat(t.amount),
-          parseFloat(t.amount) > 0 ? 'Income' : 'Expense',
+          amount,
+          amount > 0 ? 'Income' : 'Expense',
           0 // Would calculate running balance in production
-        ])
+        ];
+        })
       ];
 
-      const transactionSheet = XLSX.utils.aoa_to_sheet(transactionData);
+      const transactionSheet = xlsx.utils.aoa_to_sheet(transactionData);
       
       // Apply formatting
-      const range = XLSX.utils.decode_range(transactionSheet['!ref'] || 'A1');
+      const range = xlsx.utils.decode_range(transactionSheet['!ref'] || 'A1');
       for (let C = range.s.c; C <= range.e.c; ++C) {
-        const address = XLSX.utils.encode_col(C) + "1";
+        const address = xlsx.utils.encode_col(C) + "1";
         if (!transactionSheet[address]) continue;
         transactionSheet[address].s = {
           font: { bold: true },
@@ -337,7 +398,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
         };
       }
 
-      XLSX.utils.book_append_sheet(workbook, transactionSheet, 'Transactions');
+      xlsx.utils.book_append_sheet(workbook, transactionSheet, 'Transactions');
     }
 
     // Budget Sheet (if applicable)
@@ -345,16 +406,20 @@ export default function EnhancedExportManager(): React.JSX.Element {
       const budgetData = [
         ['Category', 'Budgeted', 'Spent', 'Remaining', '% Used', 'Status'],
         ...budgets.map(b => {
-          const spent = Math.abs(filteredTransactions
-            .filter(t => t.category === b.category && parseFloat(t.amount) < 0)
-            .reduce((sum, t) => sum + parseFloat(t.amount), 0));
-          
-          const remaining = parseFloat(b.amount) - spent;
-          const percentage = (spent / parseFloat(b.amount)) * 100;
-          
+          const budgetAmount = toNumeric(b.amount);
+          const spent = filteredTransactions
+            .filter(t => t.category === b.categoryId)
+            .reduce((sum, transaction) => {
+              const amount = toNumeric(transaction.amount);
+              return amount < 0 ? sum + Math.abs(amount) : sum;
+            }, 0);
+
+          const remaining = budgetAmount - spent;
+          const percentage = budgetAmount === 0 ? 0 : (spent / budgetAmount) * 100;
+
           return [
-            b.category,
-            parseFloat(b.amount),
+            b.categoryId,
+            budgetAmount,
             spent,
             remaining,
             percentage,
@@ -363,29 +428,30 @@ export default function EnhancedExportManager(): React.JSX.Element {
         })
       ];
 
-      const budgetSheet = XLSX.utils.aoa_to_sheet(budgetData);
-      XLSX.utils.book_append_sheet(workbook, budgetSheet, 'Budget Analysis');
+      const budgetSheet = xlsx.utils.aoa_to_sheet(budgetData);
+      xlsx.utils.book_append_sheet(workbook, budgetSheet, 'Budget Analysis');
     }
 
     // Category Summary Sheet
     const categoryGroups = new Map<string, number>();
     filteredTransactions.forEach(t => {
       const current = categoryGroups.get(t.category) || 0;
-      categoryGroups.set(t.category, current + parseFloat(t.amount));
+      categoryGroups.set(t.category, current + toNumeric(t.amount));
     });
 
     const categoryData = [
       ['Category', 'Total Amount', 'Transaction Count', 'Average'],
       ...Array.from(categoryGroups.entries()).map(([category, total]) => {
         const count = filteredTransactions.filter(t => t.category === category).length;
-        return [category, total, count, total / count];
+        const average = count === 0 ? 0 : total / count;
+        return [category, total, count, average];
       })
     ];
 
-    const categorySheet = XLSX.utils.aoa_to_sheet(categoryData);
-    XLSX.utils.book_append_sheet(workbook, categorySheet, 'Category Summary');
+    const categorySheet = xlsx.utils.aoa_to_sheet(categoryData);
+    xlsx.utils.book_append_sheet(workbook, categorySheet, 'Category Summary');
 
-    return workbook;
+    return { workbook, xlsx };
   };
 
   const handleExport = async () => {
@@ -395,8 +461,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
         const pdf = await generatePDF();
         pdf.save(`${getFileName()}.pdf`);
       } else if (options.format === 'excel') {
-        const workbook = await generateExcel();
-        XLSX.writeFile(workbook, `${getFileName()}.xlsx`);
+        const { workbook, xlsx } = await generateExcel();
+        xlsx.writeFile(workbook, `${getFileName()}.xlsx`);
       } else if (options.format === 'csv') {
         // Simple CSV export
         const csv = generateCSV();
@@ -433,8 +499,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
       `"${t.description.replace(/"/g, '""')}"`,
       t.category,
       accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-      t.amount,
-      parseFloat(t.amount) > 0 ? 'Income' : 'Expense'
+      toNumeric(t.amount).toFixed(2),
+      toNumeric(t.amount) > 0 ? 'Income' : 'Expense'
     ]);
 
     return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');

@@ -1,6 +1,6 @@
 import { useAuth, useUser, useSession } from '@clerk/clerk-react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { ReactNode, useEffect, useState, useCallback } from 'react';
+import { type ReactNode, useEffect, useState, useCallback } from 'react';
 import { Skeleton } from '../loading/Skeleton';
 import StripeService from '../../services/stripeService';
 import { AlertCircleIcon, LockIcon } from '../icons';
@@ -8,10 +8,10 @@ import { logger } from '../../services/loggingService';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  requirePremium?: boolean;
-  requiredRole?: string;
-  requiredTier?: 'free' | 'premium' | 'pro';
-  fallbackPath?: string;
+  requirePremium?: boolean | undefined;
+  requiredRole?: string | undefined;
+  requiredTier?: 'free' | 'premium' | 'pro' | undefined;
+  fallbackPath?: string | undefined;
 }
 
 export function ProtectedRoute({ 
@@ -45,26 +45,6 @@ export function ProtectedRoute({
     import.meta.env.DEV === true
   );
 
-  // Show loading state while Clerk is initializing (skip in test mode, demo mode, or development)
-  if (!isLoaded && !isTestMode && !isDemoMode && !isDevelopmentMode) {
-    return (
-      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <Skeleton className="w-32 h-32 rounded-full mx-auto mb-4" />
-          <Skeleton className="w-48 h-6 mx-auto mb-2" />
-          <Skeleton className="w-64 h-4 mx-auto" />
-        </div>
-      </div>
-    );
-  }
-
-  // Redirect to home if not signed in (unless in test mode, demo mode, or development)
-  if (!isSignedIn && !isTestMode && !isDemoMode && !isDevelopmentMode) {
-    // Store the attempted location for redirect after login
-    sessionStorage.setItem('redirectAfterLogin', location.pathname);
-    return <Navigate to={fallbackPath} replace />;
-  }
-
   // Check subscription status if premium is required
   const checkSubscriptionStatus = useCallback(async () => {
     if (!session) return;
@@ -89,8 +69,30 @@ export function ProtectedRoute({
     }
   }, [requirePremium, isSignedIn, checkSubscriptionStatus]);
 
+  const shouldBypassChecks = isTestMode || isDemoMode || isDevelopmentMode;
+
+  // Show loading state while Clerk is initializing (skip in test mode, demo mode, or development)
+  if (!isLoaded && !shouldBypassChecks) {
+    return (
+      <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <Skeleton className="w-32 h-32 rounded-full mx-auto mb-4" />
+          <Skeleton className="w-48 h-6 mx-auto mb-2" />
+          <Skeleton className="w-64 h-4 mx-auto" />
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to home if not signed in (unless in test mode, demo mode, or development)
+  if (!isSignedIn && !shouldBypassChecks) {
+    // Store the attempted location for redirect after login
+    sessionStorage.setItem('redirectAfterLogin', location.pathname);
+    return <Navigate to={fallbackPath} replace />;
+  }
+
   // Check for premium features
-  if (requirePremium && !isTestMode && !isDemoMode && !isDevelopmentMode) {
+  if (requirePremium && !shouldBypassChecks) {
     if (isCheckingSubscription) {
       return (
         <div className="min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center">

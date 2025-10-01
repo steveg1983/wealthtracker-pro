@@ -13,6 +13,12 @@ import './mock-indexeddb';
 // import '../mocks/supabase'; // REMOVED - Using real database
 // import '../mocks/clerk';    // REMOVED - Using real auth
 
+const supabaseMode = process.env.VITEST_SUPABASE_MODE ?? 'mock';
+
+if (supabaseMode !== 'real') {
+  vi.doMock('@supabase/supabase-js', () => import('../../__mocks__/@supabase/supabase-js'));
+}
+
 // Cleanup after each test
 afterEach(() => {
   cleanup();
@@ -69,15 +75,18 @@ beforeAll(() => {
   
   // Mock crypto for UUID generation
   if (!global.crypto) {
-    global.crypto = {
-      randomUUID: () => `test-uuid-${Math.random().toString(36).substr(2, 9)}`,
-      getRandomValues: (arr: any) => {
-        for (let i = 0; i < arr.length; i++) {
-          arr[i] = Math.floor(Math.random() * 256);
+    const mockCrypto: Partial<Crypto> = {
+      randomUUID: () => `test-uuid-${Math.random().toString(36).slice(2, 11)}`,
+      getRandomValues: <T extends ArrayBufferView>(array: T): T => {
+        const view = new Uint8Array(array.buffer, array.byteOffset, array.byteLength);
+        for (let i = 0; i < view.length; i += 1) {
+          view[i] = Math.floor(Math.random() * 256);
         }
-        return arr;
-      },
-    } as any;
+        return array;
+      }
+    };
+
+    global.crypto = mockCrypto as Crypto;
   }
 });
 

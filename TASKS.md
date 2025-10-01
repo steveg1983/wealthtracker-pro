@@ -1,5 +1,9 @@
 # WealthTracker Implementation Tasks
-*Last Updated: 2025-09-03 - Internationalization Support Added*
+*Last Updated: 2025-09-29 – Bundle optimisation wave 4*
+
+## TODO
+
+- [ ] Publish a concise documentation index/landing page that links the living guides (`CLAUDE.md`, recovery snapshot, bundle plan, etc.) and archive or flag stale material so newcomers know exactly where to start.
 
 ## ✅ COMPLETED: Testing Infrastructure Transformation (2025-09-02)
 

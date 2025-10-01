@@ -1,0 +1,181 @@
+{
+  "year": "2025-26",
+  "validFrom": "2025-04-06",
+  "validTo": "2026-04-05",
+  "lastUpdated": "2025-09-01",
+  "statePension": {
+    "fullNewStatePension": {
+      "weekly": 230.25,
+      "annual": 11973.00,
+      "description": "Full new State Pension for 2025-26"
+    },
+    "basicStatePension": {
+      "weekly": 176.45,
+      "annual": 9175.40,
+      "description": "Basic State Pension (reached pension age before April 2016)"
+    },
+    "qualifyingYears": {
+      "minimum": 10,
+      "fullPension": 35,
+      "description": "National Insurance qualifying years needed"
+    },
+    "pensionAge": {
+      "born1954OrEarlier": 66,
+      "born1955": 66.25,
+      "born1956": 66.5,
+      "born1957": 66.75,
+      "born1958": 67,
+      "born1959": 67,
+      "born1960OrLater": 67,
+      "notes": "State Pension age varies by birth year"
+    },
+    "deferral": {
+      "increasePerWeek": 0.002,
+      "annualIncrease": 0.104,
+      "description": "Increase for each week of deferral (1% for each 5 weeks)"
+    },
+    "triplelock": {
+      "2025Increase": 0.041,
+      "method": "highest of: earnings growth, inflation, or 2.5%"
+    }
+  },
+  "workplacePension": {
+    "autoEnrollment": {
+      "earningsTrigger": 10000,
+      "qualifyingEarnings": {
+        "lower": 6240,
+        "upper": 50270
+      },
+      "minimumContributions": {
+        "total": 0.08,
+        "employer": 0.03,
+        "employee": 0.05,
+        "employeeAfterTaxRelief": 0.04
+      },
+      "ageRange": {
+        "minimum": 22,
+        "maximum": "statePensionAge"
+      }
+    },
+    "taxRelief": {
+      "basicRate": 0.20,
+      "higherRate": 0.40,
+      "additionalRate": 0.45,
+      "scottish": {
+        "starterRate": 0.19,
+        "basicRate": 0.20,
+        "intermediateRate": 0.21,
+        "higherRate": 0.42,
+        "advancedRate": 0.45,
+        "topRate": 0.48
+      }
+    },
+    "annualAllowance": {
+      "standard": 60000,
+      "tapered": {
+        "threshold": 260000,
+        "adjustedIncome": 360000,
+        "minimum": 10000,
+        "taperRate": 0.5
+      },
+      "carryForward": {
+        "years": 3,
+        "description": "Can carry forward unused allowance from previous 3 years"
+      }
+    }
+  },
+  "personalPension": {
+    "annualAllowance": 60000,
+    "minimumRetirementAge": {
+      "current": 55,
+      "from2028": 57
+    },
+    "taxFreeAmount": 0.25,
+    "lumpSumAllowance": 268275,
+    "notes": "Lifetime allowance abolished from April 2024"
+  },
+  "isa": {
+    "annual": {
+      "total": 20000,
+      "junior": 9000,
+      "lifetime": 4000
+    },
+    "lifetimeISA": {
+      "annualLimit": 4000,
+      "governmentBonus": 0.25,
+      "maximumBonus": 1000,
+      "ageRange": {
+        "openBefore": 40,
+        "withdrawFrom": 60
+      },
+      "firstHomeCap": 450000,
+      "earlyWithdrawalPenalty": 0.25
+    },
+    "flexibleISA": true,
+    "taxFree": {
+      "growth": true,
+      "withdrawals": true,
+      "dividends": true,
+      "interest": true
+    }
+  },
+  "nationalInsurance": {
+    "class1": {
+      "primaryThreshold": 12570,
+      "upperEarningsLimit": 50270,
+      "mainRate": 0.08,
+      "additionalRate": 0.02
+    },
+    "class2": {
+      "smallProfitsThreshold": 6725,
+      "rate": 3.45,
+      "description": "Weekly rate for self-employed"
+    },
+    "class3": {
+      "voluntaryRate": 17.45,
+      "description": "Weekly voluntary contributions to fill gaps"
+    },
+    "class4": {
+      "lowerProfitsLimit": 12570,
+      "upperProfitsLimit": 50270,
+      "mainRate": 0.06,
+      "additionalRate": 0.02
+    },
+    "creditsForPension": {
+      "description": "NI credits count towards State Pension",
+      "sources": [
+        "Child Benefit (child under 12)",
+        "Jobseeker's Allowance",
+        "Employment and Support Allowance",
+        "Carer's Allowance",
+        "Universal Credit"
+      ]
+    }
+  },
+  "retirementAges": {
+    "statePension": 67,
+    "privatePension": 55,
+    "privatePensionFrom2028": 57,
+    "notes": "Can access private pension 10 years before State Pension age"
+  },
+  "withdrawalRules": {
+    "flexibleAccess": {
+      "taxFreeAmount": 0.25,
+      "remainderTaxable": true
+    },
+    "annuity": {
+      "guaranteed": true,
+      "taxable": true,
+      "jointLife": "available"
+    },
+    "drawdown": {
+      "flexi": "no limits",
+      "capped": "abolished April 2015"
+    },
+    "ufpls": {
+      "description": "Uncrystallised Funds Pension Lump Sum",
+      "taxFree": 0.25,
+      "taxable": 0.75
+    }
+  }
+}

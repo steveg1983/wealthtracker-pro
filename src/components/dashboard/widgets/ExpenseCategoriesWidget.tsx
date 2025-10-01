@@ -3,15 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
 import { PieChartIcon, TrendingUpIcon, TrendingDownIcon } from '../../icons';
-import { Doughnut } from 'react-chartjs-2';
 import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend
-} from 'chart.js';
-
-ChartJS.register(ArcElement, Tooltip, Legend);
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Tooltip as RechartsTooltip
+} from 'recharts';
+import type { TooltipProps } from 'recharts';
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
+import { generateChartColors } from '../../charts/optimizedChartHelpers';
 
 interface ExpenseCategoriesWidgetProps {
   isCompact?: boolean;
@@ -27,7 +28,7 @@ interface CategoryData {
 
 export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCategoriesWidgetProps): React.JSX.Element {
   const navigate = useNavigate();
-  const { transactions, categories } = useApp();
+  const { transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
 
   const categoryData = useMemo(() => {
@@ -53,7 +54,7 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
     const categoryTotals = new Map<string, { current: number; previous: number }>();
     
     thisMonthExpenses.forEach(t => {
-      const category = t.categoryId || 'Uncategorized';
+      const category = t.category || 'Uncategorized';
       const existing = categoryTotals.get(category) || { current: 0, previous: 0 };
       categoryTotals.set(category, {
         ...existing,
@@ -62,7 +63,7 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
     });
 
     lastMonthExpenses.forEach(t => {
-      const category = t.categoryId || 'Uncategorized';
+      const category = t.category || 'Uncategorized';
       const existing = categoryTotals.get(category) || { current: 0, previous: 0 };
       categoryTotals.set(category, {
         ...existing,
@@ -74,19 +75,7 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
     const totalExpenses = Array.from(categoryTotals.values())
       .reduce((sum, cat) => sum + cat.current, 0);
 
-    // Define colors for categories
-    const colors = [
-      '#3B82F6', // Blue
-      '#10B981', // Green
-      '#F59E0B', // Amber
-      '#EF4444', // Red
-      '#8B5CF6', // Purple
-      '#EC4899', // Pink
-      '#14B8A6', // Teal
-      '#F97316', // Orange
-      '#6B7280', // Gray
-      '#84CC16', // Lime
-    ];
+    const chartColors = generateChartColors(categoryTotals.size || 1);
 
     // Convert to array and calculate percentages
     const categoryArray: CategoryData[] = Array.from(categoryTotals.entries())
@@ -95,12 +84,13 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
         const trend = amounts.previous > 0 
           ? ((amounts.current - amounts.previous) / amounts.previous) * 100
           : 0;
+        const color = chartColors[index % chartColors.length] ?? '#9CA3AF';
         
         return {
           name,
           amount: amounts.current,
           percentage,
-          color: colors[index % colors.length],
+          color,
           trend
         };
       })
@@ -128,7 +118,7 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
       topCategory: categoryArray[0],
       categoryCount: categoryTotals.size
     };
-  }, [transactions, categories]);
+  }, [transactions, isCompact]);
 
   if (categoryData.categories.length === 0) {
     return (
@@ -142,37 +132,33 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
     );
   }
 
-  const chartData = {
-    labels: categoryData.categories.map(cat => cat.name),
-    datasets: [
-      {
-        data: categoryData.categories.map(cat => cat.amount),
-        backgroundColor: categoryData.categories.map(cat => cat.color),
-        borderColor: categoryData.categories.map(cat => cat.color),
-        borderWidth: 1
-      }
-    ]
-  };
+  const chartData = categoryData.categories.map(cat => ({
+    name: cat.name,
+    value: cat.amount,
+    color: cat.color,
+    percentage: cat.percentage
+  }));
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false
-      },
-      tooltip: {
-        callbacks: {
-          label: (context: any) => {
-            const label = context.label || '';
-            const value = formatCurrency(context.raw);
-            const percentage = categoryData.categories[context.dataIndex].percentage.toFixed(1);
-            return `${label}: ${value} (${percentage}%)`;
-          }
-        }
-      }
-    },
-    cutout: '60%'
+  const tooltipFormatter = ({ active, payload }: TooltipProps<ValueType, NameType>) => {
+    if (!active || !payload?.length) {
+      return null;
+    }
+
+    const datum = payload[0];
+    const rawValue = datum?.value ?? 0;
+    const value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+    const name = datum?.name ?? '';
+    const categoryItem = chartData.find(cat => cat.name === name);
+    const percentText = categoryItem ? categoryItem.percentage.toFixed(1) : '0.0';
+
+    return (
+      <div className="rounded-md bg-white px-3 py-2 shadow-md dark:bg-gray-800">
+        <p className="text-xs text-gray-500 dark:text-gray-400">{name}</p>
+        <p className="text-sm font-medium text-gray-900 dark:text-white">
+          {formatCurrency(value)} ({percentText}%)
+        </p>
+      </div>
+    );
   };
 
   return (
@@ -195,12 +181,30 @@ export default function ExpenseCategoriesWidget({ isCompact = false }: ExpenseCa
       <div className="flex gap-4">
         {/* Donut Chart */}
         <div className="w-32 h-32 flex-shrink-0">
-          <Doughnut data={chartData} options={chartOptions} />
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={chartData}
+                dataKey="value"
+                nameKey="name"
+                cx="50%"
+                cy="50%"
+                innerRadius={isCompact ? 20 : 35}
+                outerRadius={isCompact ? 35 : 55}
+                paddingAngle={1}
+              >
+                {chartData.map(entry => (
+                  <Cell key={entry.name} fill={entry.color} />
+                ))}
+              </Pie>
+              <RechartsTooltip content={tooltipFormatter} />
+            </PieChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Legend */}
         <div className="flex-1 space-y-1 overflow-y-auto max-h-32">
-          {categoryData.categories.slice(0, isCompact ? 4 : 6).map((category, index) => (
+          {categoryData.categories.slice(0, isCompact ? 4 : 6).map((category, _index) => (
             <div key={category.name} className="flex items-center justify-between py-1">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <div 

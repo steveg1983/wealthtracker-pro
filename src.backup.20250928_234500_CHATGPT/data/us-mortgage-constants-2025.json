@@ -1,0 +1,150 @@
+{
+  "year": 2025,
+  "lastUpdated": "2025-09-01",
+  "loanTypes": {
+    "conventional": {
+      "terms": [15, 30],
+      "minDownPayment": 0.03,
+      "pmiRequired": true,
+      "pmiThreshold": 0.20,
+      "conformingLimits": {
+        "standard": 766550,
+        "highCost": 1149825
+      }
+    },
+    "fha": {
+      "minDownPayment": 0.035,
+      "maxLoanLimit": {
+        "standard": 498257,
+        "highCost": 1149825
+      },
+      "mip": {
+        "upfront": 0.0175,
+        "annual": {
+          "ltv95Plus": 0.0055,
+          "ltv95Less": 0.0050
+        }
+      },
+      "minCreditScore": 580
+    },
+    "va": {
+      "minDownPayment": 0,
+      "fundingFee": {
+        "firstUse": {
+          "downPayment0": 0.0230,
+          "downPayment5": 0.0165,
+          "downPayment10": 0.0140
+        },
+        "subsequentUse": {
+          "downPayment0": 0.0330,
+          "downPayment5": 0.0165,
+          "downPayment10": 0.0140
+        }
+      },
+      "noLoanLimit": true,
+      "noPMI": true
+    },
+    "usda": {
+      "minDownPayment": 0,
+      "guaranteeFee": 0.01,
+      "annualFee": 0.0035,
+      "incomeLimit": "115% of median area income",
+      "locationRestriction": "Rural and suburban areas"
+    },
+    "jumbo": {
+      "minLoan": 766551,
+      "minDownPayment": 0.10,
+      "typicalMinDownPayment": 0.20,
+      "minCreditScore": 700
+    }
+  },
+  "pmi": {
+    "conventional": {
+      "rates": [
+        { "ltv": { "min": 95, "max": 100 }, "rate": 0.0085 },
+        { "ltv": { "min": 90, "max": 94.99 }, "rate": 0.0062 },
+        { "ltv": { "min": 85, "max": 89.99 }, "rate": 0.0044 },
+        { "ltv": { "min": 80, "max": 84.99 }, "rate": 0.0027 }
+      ],
+      "cancellation": {
+        "automatic": 0.78,
+        "requestable": 0.80
+      }
+    }
+  },
+  "closingCosts": {
+    "typical": {
+      "percentageOfLoan": 0.03,
+      "range": { "min": 0.02, "max": 0.05 }
+    },
+    "components": {
+      "appraisal": 500,
+      "inspection": 400,
+      "attorneyFees": 1000,
+      "titleInsurance": 1500,
+      "titleSearch": 300,
+      "surveyFee": 500,
+      "recordingFees": 250,
+      "underwritingFee": 500,
+      "processingFee": 400,
+      "creditReport": 50,
+      "floodCertification": 25
+    }
+  },
+  "propertyTax": {
+    "nationalAverage": 0.0111,
+    "byState": {
+      "AL": 0.0041, "AK": 0.0119, "AZ": 0.0067, "AR": 0.0062, "CA": 0.0076,
+      "CO": 0.0051, "CT": 0.0214, "DE": 0.0057, "FL": 0.0089, "GA": 0.0092,
+      "HI": 0.0028, "ID": 0.0069, "IL": 0.0227, "IN": 0.0085, "IA": 0.0157,
+      "KS": 0.0141, "KY": 0.0086, "LA": 0.0055, "ME": 0.0128, "MD": 0.0109,
+      "MA": 0.0123, "MI": 0.0154, "MN": 0.0112, "MS": 0.0081, "MO": 0.0097,
+      "MT": 0.0084, "NE": 0.0173, "NV": 0.0069, "NH": 0.0218, "NJ": 0.0249,
+      "NM": 0.0080, "NY": 0.0172, "NC": 0.0084, "ND": 0.0098, "OH": 0.0156,
+      "OK": 0.0090, "OR": 0.0097, "PA": 0.0158, "RI": 0.0163, "SC": 0.0057,
+      "SD": 0.0131, "TN": 0.0071, "TX": 0.0180, "UT": 0.0063, "VT": 0.0190,
+      "VA": 0.0082, "WA": 0.0098, "WV": 0.0059, "WI": 0.0185, "WY": 0.0061
+    }
+  },
+  "homeownersInsurance": {
+    "nationalAverage": 1445,
+    "asPercentOfValue": 0.005,
+    "floodInsurance": {
+      "average": 700,
+      "highRisk": 3000
+    }
+  },
+  "taxBenefits": {
+    "mortgageInterestDeduction": {
+      "limit": 750000,
+      "grandfathered": 1000000,
+      "grandfatheredDate": "2017-12-15"
+    },
+    "saltDeduction": {
+      "limit": 10000,
+      "includes": ["State income tax", "Local income tax", "Property tax"]
+    },
+    "capitalGains": {
+      "exclusion": {
+        "single": 250000,
+        "married": 500000
+      },
+      "ownershipRequirement": 2,
+      "residencyRequirement": 2
+    }
+  },
+  "currentRates": {
+    "average30Year": 0.0689,
+    "average15Year": 0.0615,
+    "average5YearARM": 0.0576,
+    "averageFHA30": 0.0665,
+    "averageVA30": 0.0625,
+    "averageJumbo30": 0.0712
+  },
+  "points": {
+    "typical": 1,
+    "costPerPoint": 0.01,
+    "rateReduction": 0.0025,
+    "breakEvenYears": 4
+  }
+}

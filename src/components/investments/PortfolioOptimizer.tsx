@@ -1,18 +1,19 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { portfolioOptimizationService, type Asset, type EfficientFrontierPoint } from '../../services/portfolioOptimizationService';
+import React, { useState, useMemo, useCallback } from 'react';
+import { portfolioOptimizationService, type Asset, type EfficientFrontierPoint, type PortfolioStats } from '../../services/portfolioOptimizationService';
 import { useRegionalCurrency } from '../../hooks/useRegionalCurrency';
-import { Line } from 'react-chartjs-2';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  ChartOptions
-} from 'chart.js';
+  ResponsiveContainer,
+  ComposedChart,
+  Line as RechartsLine,
+  Scatter,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend
+} from '../charts/OptimizedCharts';
+import type { TooltipProps } from 'recharts';
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
 import { 
   TrendingUpIcon,
   TargetIcon,
@@ -21,19 +22,8 @@ import {
   PlusIcon,
   TrashIcon,
   CalculatorIcon,
-  RefreshCwIcon,
-  DownloadIcon
+  RefreshCwIcon
 } from '../icons';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
 
 // Default asset classes with historical statistics
 const DEFAULT_ASSETS: Asset[] = [
@@ -82,122 +72,133 @@ export default function PortfolioOptimizer({
     );
   }, [assets, correlationMatrix, riskFreeRate]);
 
+  const statsToFrontierPoint = (stats: PortfolioStats): EfficientFrontierPoint => ({
+    return: stats.expectedReturn,
+    risk: stats.volatility,
+    weights: stats.weights,
+    sharpeRatio: stats.sharpeRatio
+  });
+
   // Find optimal portfolio based on target
-  const optimalPortfolio = useMemo(() => {
+  const optimalPortfolio = useMemo<EfficientFrontierPoint | null>(() => {
     if (optimizationTarget === 'sharpe') {
-      return portfolioOptimizationService.findOptimalPortfolio(
+      const stats = portfolioOptimizationService.findOptimalPortfolio(
         assets,
         correlationMatrix,
         { riskFreeRate }
       );
-    } else if (optimizationTarget === 'minRisk') {
-      return efficientFrontier.reduce((min, point) => 
-        point.risk < min.risk ? point : min
-      , efficientFrontier[0]);
-    } else {
-      return efficientFrontier.reduce((max, point) => 
-        point.return > max.return ? point : max
-      , efficientFrontier[0]);
+      return statsToFrontierPoint(stats);
     }
+
+    const firstPoint = efficientFrontier[0];
+    if (!firstPoint) {
+      return null;
+    }
+
+    if (optimizationTarget === 'minRisk') {
+      return efficientFrontier.reduce((min, point) =>
+        point.risk < min.risk ? point : min
+      , firstPoint);
+    }
+
+    return efficientFrontier.reduce((max, point) =>
+      point.return > max.return ? point : max
+    , firstPoint);
   }, [assets, correlationMatrix, riskFreeRate, optimizationTarget, efficientFrontier]);
 
   // Chart data
-  const chartData = useMemo(() => {
-    return {
-      datasets: [
-        {
-          label: 'Efficient Frontier',
-          data: efficientFrontier.map(point => ({
-            x: point.risk * 100,
-            y: point.return * 100
-          })),
-          borderColor: 'rgb(59, 130, 246)',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
-          tension: 0.4,
-          pointRadius: 3,
-          pointHoverRadius: 6
-        },
-        {
-          label: 'Individual Assets',
-          data: assets.map(asset => ({
-            x: asset.volatility * 100,
-            y: asset.expectedReturn * 100
-          })),
-          borderColor: 'rgb(156, 163, 175)',
-          backgroundColor: 'rgb(156, 163, 175)',
-          showLine: false,
-          pointRadius: 6,
-          pointStyle: 'rect'
-        },
-        {
-          label: 'Optimal Portfolio',
-          data: [{
-            x: (optimalPortfolio as any).risk ? (optimalPortfolio as any).risk * 100 : (optimalPortfolio as any).volatility * 100,
-            y: (optimalPortfolio as any).return ? (optimalPortfolio as any).return * 100 : (optimalPortfolio as any).expectedReturn * 100
-          }],
-          borderColor: 'rgb(34, 197, 94)',
-          backgroundColor: 'rgb(34, 197, 94)',
-          showLine: false,
-          pointRadius: 10,
-          pointStyle: 'star'
-        }
-      ]
-    };
-  }, [efficientFrontier, assets, optimalPortfolio]);
+  const frontierChartData = useMemo(
+    () => efficientFrontier.map(point => ({
+      risk: Number((point.risk * 100).toFixed(2)),
+      expectedReturn: Number((point.return * 100).toFixed(2))
+    })),
+    [efficientFrontier]
+  );
 
-  const chartOptions: ChartOptions<'line'> = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      },
-      title: {
-        display: true,
-        text: 'Efficient Frontier Analysis'
-      },
-      tooltip: {
-        callbacks: {
-          label: (context) => {
-            const label = context.dataset.label || '';
-            const x = context.parsed.x.toFixed(2);
-            const y = context.parsed.y.toFixed(2);
-            return `${label}: Risk ${x}%, Return ${y}%`;
-          }
-        }
-      }
-    },
-    scales: {
-      x: {
-        title: {
-          display: true,
-          text: 'Risk (Standard Deviation %)'
-        },
-        min: 0
-      },
-      y: {
-        title: {
-          display: true,
-          text: 'Expected Return (%)'
-        },
-        min: 0
-      }
-    },
-    onClick: (event, elements) => {
-      if (elements.length > 0 && elements[0].datasetIndex === 0) {
-        const index = elements[0].index;
-        setSelectedPoint(efficientFrontier[index]);
-      }
+  const assetsChartData = useMemo(
+    () => assets.map(asset => ({
+      name: asset.name,
+      risk: Number((asset.volatility * 100).toFixed(2)),
+      expectedReturn: Number((asset.expectedReturn * 100).toFixed(2))
+    })),
+    [assets]
+  );
+
+  const selectedPointData = useMemo<Array<{ name: string; risk: number; expectedReturn: number }>>(() => {
+    const portfolio = selectedPoint ?? optimalPortfolio;
+    if (!portfolio) {
+      return [];
     }
-  };
+
+    return [
+      {
+        name: selectedPoint ? 'Selected Portfolio' : 'Optimal Portfolio',
+        risk: Number((portfolio.risk * 100).toFixed(2)),
+        expectedReturn: Number((portfolio.return * 100).toFixed(2))
+      }
+    ];
+  }, [selectedPoint, optimalPortfolio]);
+
+  const handleChartClick = useCallback((state: { activePayload?: Array<{ name?: string; index?: number }> } | undefined) => {
+    const activePayload = state?.activePayload?.[0];
+    if (!activePayload) {
+      return;
+    }
+
+    if (activePayload.name !== 'Efficient Frontier') {
+      return;
+    }
+
+    const index = activePayload.index;
+    if (typeof index !== 'number') {
+      return;
+    }
+
+    const point = efficientFrontier[index];
+    if (point) {
+      setSelectedPoint(point);
+    }
+  }, [efficientFrontier]);
+
+  const renderTooltip = useCallback(({ active, payload }: TooltipProps<ValueType, NameType>) => {
+    if (!active || !payload?.length) {
+      return null;
+    }
+
+    const datum = payload[0];
+    const sourceName = datum.name ?? '';
+    const point = datum.payload as { risk: number; expectedReturn: number; name?: string } | undefined;
+    const label = point?.name ?? sourceName;
+
+    if (!point) {
+      return null;
+    }
+
+    return (
+      <div className="rounded-md bg-white px-3 py-2 shadow-md dark:bg-gray-800">
+        {label && (
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            {label}
+          </p>
+        )}
+        <p className="text-xs text-gray-500 dark:text-gray-400">{sourceName}</p>
+        <p className="text-sm font-semibold text-gray-900 dark:text-white">
+          Risk {point.risk.toFixed(2)}% · Return {point.expectedReturn.toFixed(2)}%
+        </p>
+      </div>
+    );
+  }, []);
 
   // Handle asset changes
   const updateAsset = (index: number, field: keyof Asset, value: string | number) => {
     const newAssets = [...assets];
+    const asset = newAssets[index];
+    if (!asset) return;
+
     if (field === 'expectedReturn' || field === 'volatility') {
-      newAssets[index][field] = Number(value) / 100;
-    } else {
-      (newAssets[index] as any)[field] = value;
+      asset[field] = Number(value) / 100;
+    } else if (field === 'symbol' || field === 'name') {
+      asset[field] = String(value);
     }
     setAssets(newAssets);
   };
@@ -211,10 +212,13 @@ export default function PortfolioOptimizer({
     }]);
     
     // Expand correlation matrix
-    const newMatrix = correlationMatrix.map(row => [...row, 0.3]);
-    newMatrix.push(new Array(newMatrix[0].length).fill(0.3));
-    newMatrix[newMatrix.length - 1][newMatrix.length - 1] = 1;
-    setCorrelationMatrix(newMatrix);
+    const defaultCorrelation = 0.3;
+    const expandedMatrix = correlationMatrix.map(row => [...row, defaultCorrelation]);
+    const newSize = expandedMatrix[0]?.length ?? assets.length + 1;
+    const newRow = Array(newSize).fill(defaultCorrelation);
+    newRow[newRow.length - 1] = 1;
+    expandedMatrix.push(newRow);
+    setCorrelationMatrix(expandedMatrix);
   };
 
   const removeAsset = (index: number) => {
@@ -259,7 +263,7 @@ export default function PortfolioOptimizer({
     );
   }, [currentPortfolioStats, optimalPortfolio, portfolioValue]);
 
-  const displayPortfolio = selectedPoint || optimalPortfolio;
+  const displayPortfolio = selectedPoint ?? optimalPortfolio;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
@@ -322,7 +326,73 @@ export default function PortfolioOptimizer({
       {/* Efficient Frontier Chart */}
       <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
         <div style={{ height: '400px' }}>
-          <Line data={chartData} options={chartOptions} />
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart
+              data={frontierChartData}
+              onClick={handleChartClick}
+              margin={{ top: 16, right: 24, left: 0, bottom: 16 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.25)" />
+              <XAxis
+                type="number"
+                dataKey="risk"
+                name="Risk"
+                unit="%"
+                domain={[0, 'auto']}
+                tickFormatter={(value: number) => `${value.toFixed(1)}%`}
+                label={{
+                  value: 'Risk (Standard Deviation %)',
+                  position: 'insideBottomRight',
+                  offset: -6,
+                  fill: '#64748b',
+                  fontSize: 12
+                }}
+              />
+              <YAxis
+                type="number"
+                dataKey="expectedReturn"
+                name="Return"
+                unit="%"
+                domain={[0, 'auto']}
+                tickFormatter={(value: number) => `${value.toFixed(1)}%`}
+                label={{
+                  value: 'Expected Return (%)',
+                  angle: -90,
+                  position: 'insideLeft',
+                  fill: '#64748b',
+                  fontSize: 12
+                }}
+              />
+              <RechartsTooltip content={renderTooltip} cursor={{ strokeDasharray: '3 3' }} />
+              <Legend />
+              <RechartsLine
+                type="monotone"
+                dataKey="expectedReturn"
+                name="Efficient Frontier"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                activeDot={{ r: 6 }}
+                isAnimationActive={false}
+              />
+              <Scatter
+                name="Individual Assets"
+                data={assetsChartData}
+                fill="#9ca3af"
+                shape="square"
+                isAnimationActive={false}
+              />
+              {selectedPointData.length > 0 && (
+                <Scatter
+                  name={selectedPoint ? 'Selected Portfolio' : 'Optimal Portfolio'}
+                  data={selectedPointData}
+                  fill="#22c55e"
+                  shape="star"
+                  isAnimationActive={false}
+                />
+              )}
+            </ComposedChart>
+          </ResponsiveContainer>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
           Click on the efficient frontier line to explore different portfolios
@@ -334,59 +404,68 @@ export default function PortfolioOptimizer({
         <h4 className="font-medium text-gray-900 dark:text-white mb-3">
           {selectedPoint ? 'Selected' : 'Optimal'} Portfolio Allocation
         </h4>
-        
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-          <div className="bg-blue-50 dark:bg-gray-900/20 rounded-lg p-3">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Expected Return</p>
-            <p className="text-lg font-semibold text-gray-600 dark:text-gray-500">
-              {((displayPortfolio as any).return ? (displayPortfolio as any).return * 100 : (displayPortfolio as any).expectedReturn * 100).toFixed(2)}%
-            </p>
-          </div>
-          
-          <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Risk (Volatility)</p>
-            <p className="text-lg font-semibold text-orange-600 dark:text-orange-400">
-              {((displayPortfolio as any).risk ? (displayPortfolio as any).risk * 100 : (displayPortfolio as any).volatility * 100).toFixed(2)}%
-            </p>
-          </div>
-          
-          <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
-            <p className="text-sm text-gray-600 dark:text-gray-400">Sharpe Ratio</p>
-            <p className="text-lg font-semibold text-green-600 dark:text-green-400">
-              {displayPortfolio.sharpeRatio.toFixed(3)}
-            </p>
-          </div>
-        </div>
 
-        {/* Allocation Breakdown */}
-        <div className="space-y-2">
-          {assets.map((asset, index) => {
-            const weight = displayPortfolio.weights[asset.symbol] || 0;
-            const value = portfolioValue * weight;
-            
-            return (
-              <div key={asset.symbol} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-2 h-8 rounded" style={{
-                    backgroundColor: `hsl(${index * 60}, 70%, 50%)`
-                  }} />
-                  <div>
-                    <p className="font-medium text-gray-900 dark:text-white">{asset.name}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{asset.symbol}</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-900 dark:text-white">
-                    {(weight * 100).toFixed(1)}%
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {formatCurrency(value)}
-                  </p>
-                </div>
+        {displayPortfolio ? (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+              <div className="bg-blue-50 dark:bg-gray-900/20 rounded-lg p-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Expected Return</p>
+                <p className="text-lg font-semibold text-gray-600 dark:text-gray-500">
+                  {(displayPortfolio.return * 100).toFixed(2)}%
+                </p>
               </div>
-            );
-          })}
-        </div>
+
+              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Risk (Volatility)</p>
+                <p className="text-lg font-semibold text-orange-600 dark:text-orange-400">
+                  {(displayPortfolio.risk * 100).toFixed(2)}%
+                </p>
+              </div>
+
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Sharpe Ratio</p>
+                <p className="text-lg font-semibold text-green-600 dark:text-green-400">
+                  {displayPortfolio.sharpeRatio.toFixed(3)}
+                </p>
+              </div>
+            </div>
+
+            {/* Allocation Breakdown */}
+            <div className="space-y-2">
+              {assets.map((asset, index) => {
+                const weight = displayPortfolio.weights[asset.symbol] ?? 0;
+                const value = portfolioValue * weight;
+
+                return (
+                  <div key={asset.symbol} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-gray-700/50">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-2 h-8 rounded"
+                        style={{ backgroundColor: `hsl(${index * 60}, 70%, 50%)` }}
+                      />
+                      <div>
+                        <p className="font-medium text-gray-900 dark:text-white">{asset.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{asset.symbol}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-gray-900 dark:text-white">
+                        {(weight * 100).toFixed(1)}%
+                      </p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {formatCurrency(value)}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700/50 text-sm text-gray-600 dark:text-gray-300">
+            Unable to compute an optimal portfolio with the current settings. Adjust the assets or correlation matrix and try again.
+          </div>
+        )}
       </div>
 
       {/* Rebalancing Suggestions */}

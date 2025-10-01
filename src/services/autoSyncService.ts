@@ -9,12 +9,13 @@
  * - Zero user interaction required
  */
 
-import { supabase } from '../lib/supabase';
+import { ensureSupabaseClient } from '../lib/supabase';
 import { storageAdapter, STORAGE_KEYS } from './storageAdapter';
 import { userIdService } from './userIdService';
 import type { Account, Transaction, Budget, Goal, Category } from '../types';
-import type { EntityType, SyncData, OfflineQueueItem } from '../types/sync-types';
-import { logger } from './loggingService';
+import type { Json } from '../types/supabase';
+import type { EntityType, SyncData, OfflineQueueItem, SyncOperation } from '../types/sync-types';
+import { lazyLogger as logger } from './serviceFactory';
 
 // Use the properly typed OfflineQueueItem from sync-types
 type SyncQueueItem = OfflineQueueItem;
@@ -81,8 +82,8 @@ class AutoSyncService {
       // Step 1: Load local data
       const localData = await this.loadLocalData();
       logger.debug('[AutoSync] Local data loaded', {
-        accounts: localData.accounts.length,
-        transactions: localData.transactions.length
+        accounts: localData.accounts?.length || 0,
+        transactions: localData.transactions?.length || 0
       });
 
       // Step 2: Check cloud data status
@@ -90,14 +91,14 @@ class AutoSyncService {
       logger.info('[AutoSync] Cloud data exists', { hasCloudData });
 
       // Step 3: Intelligent merge and sync
-      if (!hasCloudData && this.hasLocalData(localData)) {
+      if (!hasCloudData && this.hasLocalData(localData as any)) {
         // First time user with local data - migrate silently
         logger.info('[AutoSync] Performing silent migration...');
-        await this.migrateToCloud(userId, localData);
-      } else if (hasCloudData && this.hasLocalData(localData)) {
+        await this.migrateToCloud(userId, localData as any);
+      } else if (hasCloudData && this.hasLocalData(localData as any)) {
         // Both local and cloud data exist - merge intelligently
         logger.info('[AutoSync] Merging local and cloud data...');
-        await this.mergeData(userId, localData);
+        await this.mergeData(userId, localData as any);
       }
       // If only cloud data exists, AppContext will load it normally
 
@@ -119,7 +120,8 @@ class AutoSyncService {
    * Check if user has any data in the cloud
    */
   private async checkCloudData(userId: string): Promise<boolean> {
-    if (!supabase) return false;
+    const client = await this.getSupabaseClient();
+    if (!client) return false;
 
     try {
       // Use centralized userIdService for ID conversion
@@ -128,13 +130,13 @@ class AutoSyncService {
       if (!databaseUserId) return false;
 
       // Check for any accounts (simplest check)
-      const { data: accounts } = await supabase
+      const { data: accounts } = await client
         .from('accounts')
         .select('id')
         .eq('user_id', databaseUserId)
         .limit(1);
 
-      return accounts && accounts.length > 0;
+      return !!(accounts && accounts.length > 0);
     } catch (error) {
       logger.error('[AutoSync] Error checking cloud data:', error);
       return false;
@@ -160,17 +162,18 @@ class AutoSyncService {
    * Check if there's any local data
    */
   private hasLocalData(data: LocalData): boolean {
-    return data.accounts.length > 0 || 
-           data.transactions.length > 0 || 
-           data.budgets.length > 0 || 
-           data.goals.length > 0;
+    return (data.accounts?.length || 0) > 0 || 
+           (data.transactions?.length || 0) > 0 || 
+           (data.budgets?.length || 0) > 0 || 
+           (data.goals?.length || 0) > 0;
   }
 
   /**
    * Migrate local data to cloud (first-time sync)
    */
   private async migrateToCloud(userId: string, localData: LocalData): Promise<void> {
-    if (!supabase) return;
+    const client = await this.getSupabaseClient();
+    if (!client) return;
 
     logger.info('[AutoSync] Starting silent migration to cloud...');
 
@@ -182,21 +185,37 @@ class AutoSyncService {
       }
 
       // Migrate accounts first (other entities depend on them)
-      if (localData.accounts.length > 0) {
-        const accountsToInsert = localData.accounts.map((account: Account) => ({
-          user_id: dbUserId,
-          name: account.name,
-          type: account.type === 'current' ? 'checking' : account.type,
-          balance: account.balance || 0,
-          currency: account.currency || 'GBP',
-          institution: account.institution || null,
-          is_active: account.isActive !== false,
-          initial_balance: account.initialBalance || account.balance || 0,
-          created_at: account.createdAt || new Date().toISOString(),
-          updated_at: account.updatedAt || new Date().toISOString()
-        }));
+      if (localData.accounts && localData.accounts.length > 0) {
+        const accountsToInsert = localData.accounts.map((account: Account) => {
+          const now = new Date();
+          const nowIso = now.toISOString();
+          const metadata: Json | undefined = account.tags && account.tags.length > 0
+            ? { tags: account.tags }
+            : undefined;
 
-        const { error: accountError } = await supabase
+          const insert: Record<string, Json> = {
+            user_id: dbUserId,
+            name: account.name,
+            type: account.type === 'current' ? 'checking' : account.type,
+            balance: account.balance ?? 0,
+            currency: account.currency ?? 'GBP',
+            institution: account.institution ?? null,
+            is_active: account.isActive !== false,
+            initial_balance: account.openingBalance ?? account.balance ?? 0,
+            account_number: account.accountNumber ?? null,
+            sort_code: account.sortCode ?? null,
+            created_at: nowIso,
+            updated_at: (account.lastUpdated ?? now).toISOString(),
+          };
+
+          if (metadata) {
+            insert.metadata = metadata;
+          }
+
+          return insert;
+        });
+
+        const { error: accountError } = await client
           .from('accounts')
           .insert(accountsToInsert);
 
@@ -208,9 +227,9 @@ class AutoSyncService {
       }
 
       // Migrate transactions
-      if (localData.transactions.length > 0) {
+      if (localData.transactions && localData.transactions.length > 0) {
         // Get the mapping of local account IDs to cloud account IDs
-        const { data: cloudAccounts } = await supabase
+        const { data: cloudAccounts } = await client
           .from('accounts')
           .select('id, name')
           .eq('user_id', dbUserId);
@@ -218,34 +237,70 @@ class AutoSyncService {
         if (cloudAccounts) {
           const accountMap = new Map(
             cloudAccounts.map(acc => [
-              localData.accounts.find((la: Account) => la.name === acc.name)?.id,
+              localData.accounts?.find((la: Account) => la.name === acc.name)?.id,
               acc.id
             ])
           );
 
           const transactionsToInsert = localData.transactions
             .filter((t: Transaction) => accountMap.has(t.accountId))
-            .map((transaction: Transaction) => ({
-              user_id: dbUserId,
-              account_id: accountMap.get(transaction.accountId),
-              amount: transaction.amount,
-              description: transaction.description,
-              date: transaction.date,
-              category: transaction.category,
-              subcategory: transaction.subcategory || null,
-              type: transaction.type,
-              is_recurring: transaction.isRecurring || false,
-              notes: transaction.notes || null,
-              tags: transaction.tags || [],
-              created_at: transaction.createdAt || new Date().toISOString()
-            }));
+            .map((transaction: Transaction) => {
+              const metadata: Record<string, Json> = {};
+
+              if (transaction.categoryName) metadata.categoryName = transaction.categoryName;
+              if (transaction.reconciledWith) metadata.reconciledWith = transaction.reconciledWith;
+              if (transaction.reconciledNotes) metadata.reconciledNotes = transaction.reconciledNotes;
+              if (transaction.reconciledDate) metadata.reconciledDate = transaction.reconciledDate.toISOString();
+              if (transaction.bankReference) metadata.bankReference = transaction.bankReference;
+              if (transaction.paymentChannel) metadata.paymentChannel = transaction.paymentChannel;
+              if (transaction.merchant) metadata.merchant = transaction.merchant;
+              if (transaction.accountName) metadata.accountName = transaction.accountName;
+              if (transaction.goalId) metadata.goalId = transaction.goalId;
+              if (transaction.addedBy) metadata.addedBy = transaction.addedBy;
+              if (transaction.pending !== undefined) metadata.pending = transaction.pending;
+              if (transaction.cleared !== undefined) metadata.cleared = transaction.cleared;
+              if (transaction.isSplit !== undefined) metadata.isSplit = transaction.isSplit;
+              if (transaction.isImported !== undefined) metadata.isImported = transaction.isImported;
+
+              const location = transaction.location;
+              if (location) {
+                metadata.location = {
+                  city: location.city ?? null,
+                  region: location.region ?? null,
+                  country: location.country ?? null,
+                } satisfies Json;
+              }
+
+              const nowIso = new Date().toISOString();
+
+              const insert: Record<string, Json> = {
+                user_id: dbUserId,
+                account_id: accountMap.get(transaction.accountId)!,
+                amount: transaction.amount,
+                description: transaction.description,
+                date: (transaction.date instanceof Date ? transaction.date : new Date(transaction.date)).toISOString(),
+                category_id: transaction.category,
+                type: transaction.type,
+                is_recurring: transaction.isRecurring ?? false,
+                notes: transaction.notes ?? null,
+                tags: transaction.tags ?? [],
+                created_at: nowIso,
+                updated_at: nowIso
+              };
+
+              if (Object.keys(metadata).length > 0) {
+                insert.metadata = metadata;
+              }
+
+              return insert;
+            });
 
           if (transactionsToInsert.length > 0) {
             // Insert in batches to avoid timeout
             const batchSize = 100;
             for (let i = 0; i < transactionsToInsert.length; i += batchSize) {
               const batch = transactionsToInsert.slice(i, i + batchSize);
-              const { error } = await supabase
+              const { error } = await client
                 .from('transactions')
                 .insert(batch);
 
@@ -273,30 +328,23 @@ class AutoSyncService {
    * Ensure user exists in database
    */
   private async ensureUserExists(clerkId: string): Promise<string | null> {
-    if (!supabase) return null;
+    const client = await this.getSupabaseClient();
+    if (!client) return null;
 
     try {
       // Use centralized userIdService for user creation and ID management
-      let databaseUserId = await userIdService.getDatabaseUserId(clerkId);
+      const databaseUserId = await userIdService.getDatabaseUserId(clerkId);
 
       if (databaseUserId) {
         return databaseUserId;
       }
 
-      // Create user if doesn't exist using the centralized service
-      databaseUserId = await userIdService.ensureUserExists(
+      return await userIdService.ensureUserExists(
         clerkId,
-        'user@example.com', // Will be updated by profile
+        'user@example.com',
         undefined,
         undefined
       );
-
-      if (!databaseUserId) {
-        logger.error('[AutoSync] Failed to create user');
-        return null;
-      }
-
-      return databaseUserId;
     } catch (error) {
       logger.error('[AutoSync] Error ensuring user exists:', error);
       return null;
@@ -353,14 +401,23 @@ class AutoSyncService {
     entity: T,
     data: SyncData<T>
   ): void {
-    const item: SyncQueueItem = {
+    const operation: SyncOperation<T> = {
       id: crypto.randomUUID(),
       type,
       entity,
+      entityId: data.id || crypto.randomUUID(),
       data,
       timestamp: Date.now(),
-      retries: 0,
-      status: 'pending'
+      clientId: this.userId || 'unknown',
+      version: 1
+    };
+
+    const item: SyncQueueItem = {
+      id: crypto.randomUUID(),
+      operation,
+      timestamp: Date.now(),
+      status: 'pending',
+      retries: 0
     };
 
     this.syncQueue.push(item);
@@ -396,13 +453,13 @@ class AutoSyncService {
         // Remove completed items from queue
         this.syncQueue = this.syncQueue.filter(i => i.id !== item.id);
       } catch (error) {
-        logger.error('[AutoSync] Sync failed for item:', item, error);
+        logger.error('[AutoSync] Sync failed for item', { item, error });
         item.status = 'pending';
         item.retries++;
 
         // Remove item if too many retries
         if (item.retries > 3) {
-          this.syncStatus.syncErrors.push(`Failed to sync ${item.entity}: ${error}`);
+          this.syncStatus.syncErrors.push(`Failed to sync ${item.operation.entity}: ${error instanceof Error ? error.message : String(error)}`);
           this.syncQueue = this.syncQueue.filter(i => i.id !== item.id);
         }
       }
@@ -417,7 +474,8 @@ class AutoSyncService {
    * Sync a single item
    */
   private async syncItem(item: SyncQueueItem): Promise<void> {
-    if (!supabase || !this.userId) {
+    const client = await this.getSupabaseClient();
+    if (!client || !this.userId) {
       throw new Error('Not initialized');
     }
 
@@ -428,35 +486,35 @@ class AutoSyncService {
       throw new Error('User not found');
     }
 
-    const table = `${item.entity}s`; // e.g., 'accounts', 'transactions'
+    const table = `${item.operation.entity}s`; // e.g., 'accounts', 'transactions'
     
-    switch (item.type) {
+    switch (item.operation.type) {
       case 'CREATE':
         // Don't create if it already has a database ID
-        if (item.data.id && item.data.id.length === 36) {
-          logger.debug('[AutoSync] Skipping CREATE - item already has database ID', { id: item.data.id });
+        if (item.operation.data.id && item.operation.data.id.length === 36) {
+          logger.debug('[AutoSync] Skipping CREATE - item already has database ID', { id: item.operation.data.id });
           return;
         }
-        await supabase.from(table).insert({
-          ...item.data,
+        await client.from(table).insert({
+          ...item.operation.data,
           user_id: databaseUserId
         });
         break;
       
       case 'UPDATE':
-        await supabase
+        await client
           .from(table)
-          .update(item.data)
-          .eq('id', item.data.id)
-          .eq('user_id', user.id);
+          .update(item.operation.data)
+          .eq('id', item.operation.data.id)
+          .eq('user_id', databaseUserId);
         break;
       
       case 'DELETE':
-        await supabase
+        await client
           .from(table)
           .delete()
-          .eq('id', item.data.id)
-          .eq('user_id', user.id);
+          .eq('id', item.operation.data.id)
+          .eq('user_id', databaseUserId);
         break;
     }
   }
@@ -483,6 +541,14 @@ class AutoSyncService {
    */
   getSyncStatus(): SyncStatus {
     return { ...this.syncStatus };
+  }
+
+  private async getSupabaseClient() {
+    const client = await ensureSupabaseClient();
+    if (!client || (client as any).__isStub) {
+      return null;
+    }
+    return client;
   }
 }
 

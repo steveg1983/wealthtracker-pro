@@ -1,7 +1,7 @@
 // Dynamic imports for heavy libraries
-let jsPDF: typeof import('jspdf').default | null = null;
+let jsPDFConstructor: typeof import('jspdf').jsPDF | null = null;
 let html2canvas: typeof import('html2canvas').default | null = null;
-import { Transaction, Account } from '../types';
+import type { Transaction, Account } from '../types';
 import { logger } from '../services/loggingService';
 
 interface ReportData {
@@ -24,16 +24,16 @@ interface ReportData {
 
 export async function generatePDFReport(data: ReportData, accounts: Account[]): Promise<void> {
   // Load libraries dynamically
-  if (!jsPDF) {
+  if (!jsPDFConstructor) {
     const module = await import('jspdf');
-    jsPDF = module.default;
+    jsPDFConstructor = module.default as unknown as typeof import('jspdf').jsPDF;
   }
   if (!html2canvas) {
     const module = await import('html2canvas');
     html2canvas = module.default;
   }
   
-  const pdf = new jsPDF('p', 'mm', 'a4');
+  const pdf = new jsPDFConstructor!('p', 'mm', 'a4');
   const pageWidth = pdf.internal.pageSize.getWidth();
   const pageHeight = pdf.internal.pageSize.getHeight();
   const margin = 20;
@@ -272,7 +272,7 @@ export async function generatePDFReport(data: ReportData, accounts: Account[]): 
 export function generateSimplePDFReport(data: ReportData, accounts: Account[]): void {
   const reportData = {
     ...data,
-    chartElements: undefined
+    chartElements: []
   };
   generatePDFReport(reportData, accounts);
 }

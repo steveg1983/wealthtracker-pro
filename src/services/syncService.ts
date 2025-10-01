@@ -11,7 +11,8 @@ import type {
   SyncEventPayload,
   SocketAckResponse,
   ConflictAnalysis,
-  SyncData
+  SyncData,
+  ConflictResolutionEvent
 } from '../types/sync-types';
 
 // Re-export for backward compatibility
@@ -23,7 +24,7 @@ class SyncService {
   private syncQueue: QueueItem[] = [];
   private conflicts: SyncConflict[] = [];
   private vectorClocks: Map<string, VectorClock> = new Map();
-  private listeners: Map<string, Set<Function>> = new Map();
+  private listeners: Map<string, Set<(payload?: unknown) => void>> = new Map();
   private syncStatus: SyncStatus = {
     isConnected: false,
     isSyncing: false,
@@ -323,16 +324,22 @@ class SyncService {
       
       // Emit resolution event
       this.emit('conflict-auto-resolved', {
+        type: 'conflict-auto-resolved',
         conflict,
         analysis,
-        resolution: 'merge'
+        resolution: 'merge',
+        mergedData: analysis.mergedData
       });
     } else {
       // Requires user intervention
       this.conflicts.push(conflict);
       this.syncStatus.conflicts = this.conflicts;
       this.emit('status-changed', this.syncStatus);
-      this.emit('conflict-detected', { conflict, analysis });
+      this.emit('conflict-detected', {
+        type: 'conflict-detected',
+        conflict,
+        analysis
+      });
       
       // If we have a suggested resolution with high confidence, apply it
       if (analysis.confidence >= 50 && analysis.suggestedResolution !== 'manual') {
@@ -413,10 +420,13 @@ class SyncService {
 
   private applyRemoteOperation(operation: SyncOperation): void {
     // Emit event for the app to handle the update
-    this.emit(`remote-${operation.type.toLowerCase()}`, {
+    const eventType = `remote-${operation.type.toLowerCase()}`;
+    this.emit(eventType, {
+      type: eventType,
       entity: operation.entity,
       entityId: operation.entityId,
-      data: operation.data
+      data: operation.data,
+      timestamp: operation.timestamp
     });
   }
 
@@ -426,9 +436,11 @@ class SyncService {
     data: SyncData<T>
   ): void {
     this.emit('remote-merge', {
+      type: 'remote-merge',
       entity,
       entityId,
-      data
+      data,
+      timestamp: Date.now()
     });
   }
 
@@ -466,14 +478,14 @@ class SyncService {
   }
 
   // Event handling
-  public on(event: string, callback: Function): void {
+  public on(event: string, callback: (payload?: unknown) => void): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event)!.add(callback);
   }
 
-  public off(event: string, callback: Function): void {
+  public off(event: string, callback: (payload?: unknown) => void): void {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
       callbacks.delete(callback);
@@ -482,7 +494,7 @@ class SyncService {
 
   private emit<T extends EntityType>(
     event: string,
-    data?: SyncEventPayload<T> | SyncStatus | SyncConflict<T>
+    data?: SyncEventPayload<T> | SyncStatus | SyncConflict<T> | SyncOperation<T> | ConflictResolutionEvent<T>
   ): void {
     const callbacks = this.listeners.get(event);
     if (callbacks) {

@@ -19,6 +19,7 @@ import {
   calculateDaysRemaining,
   calculateMonthlyContribution
 } from '../api/goalService';
+import { userIdService } from '../userIdService';
 import type { Goal } from '../../types';
 
 // Use real Supabase test instance
@@ -36,6 +37,8 @@ describe('GoalService - REAL Database Tests', () => {
   beforeEach(async () => {
     // Clear tracking arrays
     createdGoalIds.length = 0;
+    // Prime the userIdService cache so goalService doesn't block on Supabase lookups
+    userIdService.clearCache();
     
     // Create test user (required by foreign key constraint)
     const { error: userError } = await testSupabase
@@ -63,6 +66,8 @@ describe('GoalService - REAL Database Tests', () => {
     if (mappingError) {
       console.error('Failed to create user mapping:', mappingError);
     }
+
+    userIdService.setCurrentUser(TEST_CLERK_ID, TEST_USER_ID);
   });
 
   afterEach(async () => {
@@ -85,6 +90,8 @@ describe('GoalService - REAL Database Tests', () => {
       .from('users')
       .delete()
       .eq('id', TEST_USER_ID);
+
+    userIdService.clearCache();
   });
 
   describe('createGoal - REAL', () => {
@@ -173,7 +180,7 @@ describe('GoalService - REAL Database Tests', () => {
 
       // Assert
       expect(result).toBeDefined();
-      expect(result.targetDate).toBeUndefined();
+      expect(result.targetDate).toBeInstanceOf(Date);
       
       if (result.id) {
         createdGoalIds.push(result.id);
@@ -334,7 +341,7 @@ describe('GoalService - REAL Database Tests', () => {
         currentAmount: 900.00,
         category: 'savings',
         priority: 'high' as const,
-        isCompleted: false,
+        status: 'active',
       });
 
       if (!goal?.id) {
@@ -345,12 +352,13 @@ describe('GoalService - REAL Database Tests', () => {
       // Act - Update to reach target
       const updated = await updateGoal(goal.id, {
         currentAmount: 1000.00,
-        isCompleted: true,
+        status: 'completed',
       });
 
       // Assert
       expect(updated.currentAmount).toBe(1000);
-      expect(updated.isCompleted).toBe(true);
+      expect(updated.status).toBe('completed');
+      expect(updated.completedAt).toBeDefined();
     });
   });
 
@@ -420,7 +428,7 @@ describe('GoalService - REAL Database Tests', () => {
         currentAmount: 0,
         category: 'savings',
         priority: 'low' as const,
-        isCompleted: false,
+        status: 'active',
       });
 
       if (!goal?.id) {
@@ -452,7 +460,7 @@ describe('GoalService - REAL Database Tests', () => {
         currentAmount: 500.00,
         category: 'savings',
         priority: 'high' as const,
-        isCompleted: false,
+        status: 'active',
       });
 
       const completedGoal = await createGoal(TEST_CLERK_ID, {
@@ -461,7 +469,7 @@ describe('GoalService - REAL Database Tests', () => {
         currentAmount: 1000.00,
         category: 'savings',
         priority: 'high' as const,
-        isCompleted: true,
+        status: 'completed',
       });
 
       if (activeGoal?.id) createdGoalIds.push(activeGoal.id);
@@ -477,7 +485,7 @@ describe('GoalService - REAL Database Tests', () => {
       
       expect(testActiveGoals.length).toBe(1);
       expect(testActiveGoals[0].name).toBe('Active Goal');
-      expect(testActiveGoals[0].isCompleted).toBe(false);
+      expect(testActiveGoals[0].status).toBe('active');
     });
 
     it('should get only completed goals', async () => {
@@ -488,7 +496,7 @@ describe('GoalService - REAL Database Tests', () => {
         currentAmount: 2000.00,
         category: 'savings',
         priority: 'medium' as const,
-        isCompleted: true,
+        status: 'completed',
       });
 
       if (completedGoal?.id) createdGoalIds.push(completedGoal.id);
@@ -499,7 +507,7 @@ describe('GoalService - REAL Database Tests', () => {
       // Assert
       const testCompleted = completed.filter(g => g.id === completedGoal?.id);
       expect(testCompleted.length).toBe(1);
-      expect(testCompleted[0].isCompleted).toBe(true);
+      expect(testCompleted[0].status).toBe('completed');
     });
   });
 

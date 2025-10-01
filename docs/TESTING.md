@@ -6,9 +6,12 @@ Comprehensive unit testing implementation for WealthTracker application, focusin
 
 ## Test Infrastructure
 
-### Test Setup (`src/test/setup.ts`)
+### Test Setup (`src/test/setup/vitest-setup.ts`)
 - **Environment**: jsdom for React component testing
-- **Mocking**: Comprehensive mocks for browser APIs
+- **Supabase Modes**:
+  - `VITEST_SUPABASE_MODE=mock` (default) uses `src/__mocks__/@supabase/supabase-js.ts` so unit suites stay offline
+  - `VITEST_SUPABASE_MODE=real` connects to the configured Supabase project for integration suites
+- **Mocking**: Comprehensive mocks for browser APIs (matchMedia, IntersectionObserver, ResizeObserver, crypto, scrollTo)
 - **Utilities**: Custom test utilities and data generators
 
 ### Test Utilities (`src/test/testUtils.tsx`)

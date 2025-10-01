@@ -1,0 +1,80 @@
+{
+  "taxYear": "2024/25",
+  "startDate": "2024-04-06",
+  "endDate": "2025-04-05",
+  "lastUpdated": "2024-03-06",
+  "source": "HMRC Spring Budget 2024",
+  "incomeTax": {
+    "personalAllowance": 12570,
+    "bands": {
+      "england": [
+        { "min": 0, "max": 12570, "rate": 0, "name": "Personal Allowance" },
+        { "min": 12570, "max": 50270, "rate": 0.20, "name": "Basic Rate" },
+        { "min": 50270, "max": 125140, "rate": 0.40, "name": "Higher Rate" },
+        { "min": 125140, "max": null, "rate": 0.45, "name": "Additional Rate" }
+      ],
+      "scotland": [
+        { "min": 0, "max": 12570, "rate": 0, "name": "Personal Allowance" },
+        { "min": 12570, "max": 14876, "rate": 0.19, "name": "Starter Rate" },
+        { "min": 14876, "max": 26561, "rate": 0.20, "name": "Basic Rate" },
+        { "min": 26561, "max": 43662, "rate": 0.21, "name": "Intermediate Rate" },
+        { "min": 43662, "max": 125140, "rate": 0.42, "name": "Higher Rate" },
+        { "min": 125140, "max": null, "rate": 0.47, "name": "Top Rate" }
+      ]
+    }
+  },
+  "nationalInsurance": {
+    "class1": {
+      "primaryThreshold": 12570,
+      "upperEarningsLimit": 50270,
+      "employeeRate": 0.08,
+      "employeeRateAboveUEL": 0.02,
+      "employerRate": 0.138,
+      "employerThreshold": 9100
+    },
+    "class4": {
+      "lowerProfitsLimit": 12570,
+      "upperProfitsLimit": 50270,
+      "mainRate": 0.06,
+      "additionalRate": 0.02
+    }
+  },
+  "pensions": {
+    "annualAllowance": 60000,
+    "minimumPensionAge": 55,
+    "statePensionAge": 67,
+    "statePensionWeekly": 221.20
+  },
+  "isa": {
+    "annualLimit": 20000,
+    "juniorLimit": 9000,
+    "lifetimeLimit": 4000,
+    "lifetimeBonus": 0.25
+  },
+  "capitalGains": {
+    "annualExemption": 3000,
+    "basicRate": 0.10,
+    "higherRate": 0.20,
+    "residentialBasicRate": 0.18,
+    "residentialHigherRate": 0.24
+  },
+  "dividends": {
+    "allowance": 500,
+    "basicRate": 0.0875,
+    "higherRate": 0.3375,
+    "additionalRate": 0.393
+  },
+  "stampDuty": {
+    "standard": [
+      { "min": 0, "max": 250000, "rate": 0 },
+      { "min": 250000, "max": 925000, "rate": 0.05 },
+      { "min": 925000, "max": 1500000, "rate": 0.10 },
+      { "min": 1500000, "max": null, "rate": 0.12 }
+    ],
+    "firstTimeBuyer": {
+      "threshold": 425000,
+      "maxPrice": 625000
+    },
+    "additionalPropertySurcharge": 0.03
+  }
+}

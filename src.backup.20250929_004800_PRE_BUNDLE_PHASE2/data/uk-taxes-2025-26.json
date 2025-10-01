@@ -1,0 +1,138 @@
+{
+  "year": "2025-26",
+  "validFrom": "2025-04-06",
+  "validTo": "2026-04-05",
+  "lastUpdated": "2025-09-01",
+  "checksum": "pending-verification",
+  "bands": [
+    {
+      "name": "Personal Allowance",
+      "min": 0,
+      "max": 12570,
+      "rate": 0
+    },
+    {
+      "name": "Basic Rate",
+      "min": 12571,
+      "max": 50270,
+      "rate": 20
+    },
+    {
+      "name": "Higher Rate",
+      "min": 50271,
+      "max": 125140,
+      "rate": 40
+    },
+    {
+      "name": "Additional Rate",
+      "min": 125141,
+      "max": null,
+      "rate": 45
+    }
+  ],
+  "personalAllowance": {
+    "amount": 12570,
+    "taperThreshold": 100000,
+    "taperRate": 0.5,
+    "notes": "Reduces by £1 for every £2 of income above £100,000"
+  },
+  "nationalInsurance": {
+    "class1": {
+      "primaryThreshold": 12570,
+      "upperEarningsLimit": 50270,
+      "mainRate": 8,
+      "additionalRate": 2,
+      "notes": "8% on earnings between £12,570 and £50,270, 2% on earnings above £50,270"
+    }
+  },
+  "scottish": {
+    "bands": [
+      {
+        "name": "Personal Allowance",
+        "min": 0,
+        "max": 12570,
+        "rate": 0
+      },
+      {
+        "name": "Starter Rate",
+        "min": 12571,
+        "max": 14876,
+        "rate": 19
+      },
+      {
+        "name": "Basic Rate",
+        "min": 14877,
+        "max": 26561,
+        "rate": 20
+      },
+      {
+        "name": "Intermediate Rate",
+        "min": 26562,
+        "max": 43662,
+        "rate": 21
+      },
+      {
+        "name": "Higher Rate",
+        "min": 43663,
+        "max": 75000,
+        "rate": 42
+      },
+      {
+        "name": "Advanced Rate",
+        "min": 75001,
+        "max": 125140,
+        "rate": 45
+      },
+      {
+        "name": "Top Rate",
+        "min": 125141,
+        "max": null,
+        "rate": 48
+      }
+    ]
+  },
+  "testCases": [
+    {
+      "income": 30000,
+      "expectedTax": 3486,
+      "expectedNI": 1439.28,
+      "source": "HMRC Calculator 2025-26"
+    },
+    {
+      "income": 50000,
+      "expectedTax": 7486,
+      "expectedNI": 3839.28,
+      "source": "HMRC Calculator 2025-26"
+    },
+    {
+      "income": 75000,
+      "expectedTax": 17486,
+      "expectedNI": 4339.28,
+      "source": "HMRC Calculator 2025-26"
+    },
+    {
+      "income": 100000,
+      "expectedTax": 27432,
+      "expectedNI": 4839.28,
+      "source": "HMRC Calculator 2025-26"
+    },
+    {
+      "income": 112526,
+      "expectedTax": 34947.60,
+      "expectedNI": 4261.12,
+      "source": "HMRC Calculator 2025-26"
+    },
+    {
+      "income": 125140,
+      "expectedTax": 42516,
+      "expectedNI": 5091.48,
+      "source": "HMRC Calculator 2025-26"
+    },
+    {
+      "income": 150000,
+      "expectedTax": 53703,
+      "expectedNI": 5588.28,
+      "source": "HMRC Calculator 2025-26"
+    }
+  ]
+}

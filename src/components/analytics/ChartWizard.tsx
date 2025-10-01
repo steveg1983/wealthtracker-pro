@@ -11,10 +11,18 @@ import {
   LightbulbIcon
 } from '../icons';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { analyticsEngine } from '../../services/analyticsEngine';
 
-// Lazy load Plotly to reduce bundle size
-const Plot = lazy(() => import('react-plotly.js'));
+// Lazy load Plotly using the lightweight dist build
+const Plot = lazy(async () => {
+  const [{ default: createPlotlyComponent }, Plotly] = await Promise.all([
+    import('react-plotly.js/factory'),
+    import('../../lib/plotlyLight')
+  ]);
+
+  return {
+    default: createPlotlyComponent(Plotly.default ?? Plotly)
+  };
+});
 
 export type ChartType = 
   | 'line' | 'multi-line' | 'area' | 'stacked-area'

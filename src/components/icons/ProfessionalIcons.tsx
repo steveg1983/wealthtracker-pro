@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-imports */
 /**
  * Professional Icon System for WealthTracker
  * Using Tabler Icons for enterprise-grade appearance
@@ -341,4 +342,3 @@ export const SearchIcon = (props: Omit<ProfessionalIconProps, 'name'>) =>
   <ProfessionalIcon name="search" {...props} />;
 
 // Export all Tabler icons for direct use if needed
-export * from '@tabler/icons-react';

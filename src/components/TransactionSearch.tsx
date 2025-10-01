@@ -9,8 +9,8 @@ import {
   FileTextIcon as FileText
 } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
-import { Transaction } from '../types';
-import { debounce } from 'lodash';
+import type { Transaction } from '../types';
+import { debounce } from 'lodash-es';
 
 interface TransactionSearchProps {
   onResultsChange?: (results: Transaction[]) => void;
@@ -65,21 +65,23 @@ export default function TransactionSearch({
 
     // Date filters
     if (currentFilters.dateFrom) {
-      filtered = filtered.filter(t => t.date >= currentFilters.dateFrom);
+      const fromTime = new Date(currentFilters.dateFrom).getTime();
+      filtered = filtered.filter(t => new Date(t.date).getTime() >= fromTime);
     }
     if (currentFilters.dateTo) {
-      filtered = filtered.filter(t => t.date <= currentFilters.dateTo);
+      const toTime = new Date(currentFilters.dateTo).getTime();
+      filtered = filtered.filter(t => new Date(t.date).getTime() <= toTime);
     }
 
     // Amount filters
     if (currentFilters.amountMin) {
       filtered = filtered.filter(t => 
-        Math.abs(parseFloat(t.amount)) >= parseFloat(currentFilters.amountMin)
+        Math.abs(t.amount) >= parseFloat(currentFilters.amountMin)
       );
     }
     if (currentFilters.amountMax) {
       filtered = filtered.filter(t => 
-        Math.abs(parseFloat(t.amount)) <= parseFloat(currentFilters.amountMax)
+        Math.abs(t.amount) <= parseFloat(currentFilters.amountMax)
       );
     }
 
@@ -96,7 +98,7 @@ export default function TransactionSearch({
     // Type filter
     if (currentFilters.type !== 'all') {
       filtered = filtered.filter(t => {
-        const amount = parseFloat(t.amount);
+        const amount = t.amount;
         return currentFilters.type === 'income' ? amount > 0 : amount < 0;
       });
     }

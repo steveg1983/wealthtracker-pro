@@ -14,9 +14,15 @@ export default defineConfig({
     exclude: [
       '**/node_modules/**',
       '**/dist/**',
+      'dist/**',
       '**/e2e/**',
       '**/*.spec.ts',
-      '**/*.spec.tsx'
+      '**/*.spec.tsx',
+      'src.backup.*',
+      'src.backup.*/**',
+      '**/src.backup.*/**',
+      '**/*.backup.*/**',
+      '**/CLAUDE.md.backup.*'
     ],
     // Include real tests - we want to run them!
     include: [
@@ -39,6 +45,8 @@ export default defineConfig({
         '**/*.test.tsx',
         '**/test-utils.ts',
         '**/test-setup.ts',
+        '**/src.backup.*/**',
+        '**/*.backup.*/**',
       ],
       include: ['src/**/*.{ts,tsx}'],
       all: true,

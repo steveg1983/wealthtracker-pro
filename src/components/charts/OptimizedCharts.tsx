@@ -27,6 +27,10 @@ const LazyAreaChartWrapper = lazy(() =>
   import(/* webpackChunkName: "chart-area" */ './wrappers/AreaChartWrapper')
 );
 
+const LazyComposedChartWrapper = lazy(() => 
+  import(/* webpackChunkName: "chart-composed" */ './wrappers/ComposedChartWrapper')
+);
+
 const LazyTreemapWrapper = lazy(() => 
   import(/* webpackChunkName: "chart-treemap" */ './wrappers/TreemapWrapper')
 );
@@ -64,6 +68,14 @@ export function AreaChart(props: any) {
   );
 }
 
+export function ComposedChart(props: any) {
+  return (
+    <Suspense fallback={<ChartSkeleton height={props.height || 300} />}>
+      <LazyComposedChartWrapper {...props} />
+    </Suspense>
+  );
+}
+
 export function Treemap(props: any) {
   return (
     <Suspense fallback={<ChartSkeleton height={props.height || 300} />}>
@@ -71,24 +83,6 @@ export function Treemap(props: any) {
     </Suspense>
   );
 }
-
-// Lazy load chart child components
-const LazyChartComponents = lazy(() => 
-  import(/* webpackChunkName: "chart-components" */ './ChartComponents')
-);
-
-// Create a hook to use chart components
-function useChartComponents() {
-  const [components, setComponents] = useState<any>(null);
-  
-  useEffect(() => {
-    import(/* webpackChunkName: "chart-components" */ './ChartComponents')
-      .then(module => setComponents(module));
-  }, []);
-  
-  return components;
-}
-
 // Export individual component wrappers
 export function ResponsiveContainer({ children, ...props }: any) {
   const [Component, setComponent] = useState<any>(null);
@@ -170,6 +164,18 @@ export function Area(props: any) {
       .then(module => setComponent(() => module.Area));
   }, []);
   
+  if (!Component) return null;
+  return <Component {...props} />;
+}
+
+export function Scatter(props: any) {
+  const [Component, setComponent] = useState<any>(null);
+
+  useEffect(() => {
+    import(/* webpackChunkName: "chart-components" */ './ChartComponents')
+      .then(module => setComponent(() => module.Scatter));
+  }, []);
+
   if (!Component) return null;
   return <Component {...props} />;
 }

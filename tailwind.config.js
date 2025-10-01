@@ -1,9 +1,33 @@
+import { createRequire } from 'node:module'
+import { readFileSync } from 'node:fs'
+
+const require = createRequire(import.meta.url)
+
+const postcss = require('postcss')
+const plugin = require('tailwindcss/plugin')
+const tailwindScrollbar = require('tailwind-scrollbar')
+const tailwindPackage = require('tailwindcss/package.json')
+
+const preflightPath = require.resolve('tailwindcss/src/css/preflight.css')
+
+const preflightPlugin = plugin(({ addBase }) => {
+  const preflightCss = readFileSync(preflightPath, 'utf8')
+  const preflightRoot = postcss.parse(preflightCss, { from: preflightPath })
+
+  addBase([
+    postcss.comment({
+      text: `! tailwindcss v${tailwindPackage.version} | MIT License | https://tailwindcss.com`,
+    }),
+    ...preflightRoot.nodes,
+  ])
+})
+
 /** @type {import('tailwindcss').Config} */
 export default {
   darkMode: 'class',
   content: [
-    "./index.html",
-    "./src/**/*.{ts,tsx}",
+    './index.html',
+    './src/**/*.{ts,tsx}',
   ],
   theme: {
     extend: {
@@ -43,7 +67,11 @@ export default {
       },
     },
   },
+  corePlugins: {
+    preflight: false,
+  },
   plugins: [
-    require('tailwind-scrollbar')({ nocompatible: true }),
+    preflightPlugin,
+    tailwindScrollbar({ nocompatible: true }),
   ],
 }

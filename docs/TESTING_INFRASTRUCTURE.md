@@ -83,19 +83,17 @@ npm run test:seed
 
 ### 6. Add NPM Scripts
 
-Add these to `package.json`:
+Add these to `package.json` (already present in the main branch; the important part is the `VITEST_SUPABASE_MODE` toggle so real suites wire themselves correctly):
 
 ```json
 {
   "scripts": {
     "test:seed": "tsx scripts/seed-test-data.ts",
-    "test:unit": "vitest run --config vitest.config.unit.ts",
-    "test:integration": "vitest run --config vitest.config.integration.ts",
-    "test:e2e": "playwright test",
-    "test:all": "npm run test:unit && npm run test:integration && npm run test:e2e",
-    "test:docker:up": "docker-compose -f docker-compose.test.yml up -d",
-    "test:docker:down": "docker-compose -f docker-compose.test.yml down",
-    "test:docker:reset": "npm run test:docker:down && npm run test:docker:up && npm run test:seed"
+    "test:unit": "VITEST_SUPABASE_MODE=mock vitest run --exclude='**/integration/**'",
+    "test:integration": "VITEST_SUPABASE_MODE=real vitest run src/test/integration",
+    "test:real": "VITEST_SUPABASE_MODE=real vitest run -c vitest.config.integration.ts",
+    "test:smoke": "VITEST_SUPABASE_MODE=mock vitest run src/test/decimal-integration.test.tsx src/store/slices/layoutSlice.test.ts",
+    "test:e2e": "playwright test"
   }
 }
 ```
@@ -142,21 +140,8 @@ grep -r "vi.mock" src/ --include="*.test.ts" --include="*.test.tsx"
 # Update each file to use real services
 ```
 
-### Phase 3: Update Test Setup
-Update `src/test/setup/vitest-setup.ts`:
-
-```typescript
-// BEFORE (with mocks)
-vi.mock('@supabase/supabase-js');
-vi.mock('@clerk/clerk-react');
-
-// AFTER (real connections)
-import { createClient } from '@supabase/supabase-js';
-const supabase = createClient(
-  process.env.VITE_TEST_SUPABASE_INTEGRATION_URL!,
-  process.env.VITE_TEST_SUPABASE_INTEGRATION_ANON_KEY!
-);
-```
+### Phase 3: Update Test Setup (AUTOMATED)
+`src/test/setup/vitest-setup.ts` now reads `VITEST_SUPABASE_MODE` at runtime. When the value is `real` the true `@supabase/supabase-js` client is used; otherwise we swap in the lightweight mock. No manual edits required—just export the env var when you need the real harness.
 
 ### Phase 4: Convert Tests
 
@@ -218,6 +203,21 @@ class TestDataFactory {
   }
 }
 ```
+
+### Clerk/Supabase ID mapping
+
+Integration suites that call into services using `userIdService` (goals, transactions, etc.) should seed the Clerk ↔ database UUID mapping up front. Priming the cache keeps real-mode runs fast and avoids RLS noise:
+
+```typescript
+import { userIdService } from '@/services/userIdService';
+
+beforeEach(async () => {
+  await seedUserAndMapping();
+  userIdService.clearCache();
+  userIdService.setCurrentUser(TEST_CLERK_ID, TEST_DATABASE_ID);
+});
+```
+
 
 ## CI/CD Integration
 
