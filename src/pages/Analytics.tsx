@@ -11,42 +11,75 @@ import {
   DownloadIcon,
   PlayIcon
 } from '../components/icons';
-import { analyticsEngine } from '../services/analyticsEngine';
-import { anomalyDetectionService } from '../services/anomalyDetectionService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import PageWrapper from '../components/PageWrapper';
 
+type AnalyticsEngineModule = typeof import('../services/analyticsEngine');
+type AnomalyDetectionModule = typeof import('../services/anomalyDetectionService');
+
+let analyticsServicesPromise:
+  | Promise<{ analyticsEngine: AnalyticsEngineModule['analyticsEngine']; anomalyDetectionService: AnomalyDetectionModule['anomalyDetectionService'] }>
+  | null = null;
+
+const loadAnalyticsServices = async () => {
+  if (!analyticsServicesPromise) {
+    analyticsServicesPromise = Promise.all([
+      import('../services/analyticsEngine'),
+      import('../services/anomalyDetectionService')
+    ]).then(([analyticsModule, anomalyModule]) => ({
+      analyticsEngine: analyticsModule.analyticsEngine,
+      anomalyDetectionService: anomalyModule.anomalyDetectionService
+    }));
+  }
+
+  return analyticsServicesPromise;
+};
+
+let agGridStylesPromise: Promise<void> | null = null;
+
+const ensureAgGridStyles = () => {
+  if (!agGridStylesPromise) {
+    agGridStylesPromise = Promise.all([
+      import('ag-grid-community/styles/ag-grid.css'),
+      import('ag-grid-community/styles/ag-theme-alpine.css')
+    ]).then(() => undefined);
+  }
+
+  return agGridStylesPromise;
+};
+
 // Lazy load heavy components to reduce bundle size
 const DashboardBuilder = lazy(() => import('../components/analytics/DashboardBuilder'));
-const QueryBuilder = lazy(() => import('../components/analytics/QueryBuilder').then(module => ({ default: module.default, Query: module.Query })));
+const QueryBuilder = lazy(() => import('../components/analytics/QueryBuilder'));
 const ChartWizard = lazy(() => import('../components/analytics/ChartWizard'));
 const AgGridReact = lazy(() => import('ag-grid-react').then(module => ({ default: module.AgGridReact })));
 
-// Import AG-Grid styles
-import 'ag-grid-community/styles/ag-grid.css';
-import 'ag-grid-community/styles/ag-theme-alpine.css';
-
-// Import Query type
+// Import type helpers
 import type { Query } from '../components/analytics/QueryBuilder';
+import type { Dashboard as BuilderDashboard } from '../components/analytics/DashboardBuilder';
+import type { ColDef } from 'ag-grid-community';
 import { logger } from '../services/loggingService';
 
-interface Dashboard {
-  id: string;
-  name: string;
-  description: string;
-  widgets: any[];
-  layout: any[];
-  createdAt: Date;
-  updatedAt: Date;
-}
+type Dashboard = BuilderDashboard;
 
 interface SavedQuery extends Query {
   lastRun?: Date;
   results?: any;
 }
 
+type QueryRow = Record<string, unknown>;
+
 export default function Analytics(): React.JSX.Element {
-  const { transactions, accounts, categories, budgets, goals, investments } = useApp();
+  const appContext = useApp();
+  const {
+    transactions,
+    accounts,
+    categories,
+    budgets,
+    goals,
+    investments: contextInvestments
+  } = appContext;
+  const investments = contextInvestments ?? [];
   const { formatCurrency } = useCurrencyDecimal();
   
   const [activeTab, setActiveTab] = useState<'dashboards' | 'explorer' | 'insights' | 'reports'>('dashboards');
@@ -56,26 +89,94 @@ export default function Analytics(): React.JSX.Element {
   const [showQueryBuilder, setShowQueryBuilder] = useState(false);
   const [showChartWizard, setShowChartWizard] = useState(false);
   const [showDashboardBuilder, setShowDashboardBuilder] = useState(false);
-  const [selectedData, setSelectedData] = useState<any>(null);
+  const [selectedData, setSelectedData] = useState<Record<string, unknown>[] | null>(null);
   const [insights, setInsights] = useState<any[]>([]);
   
+  const deserializeDashboard = (raw: any): Dashboard => ({
+    ...raw,
+    createdAt: raw?.createdAt ? new Date(raw.createdAt) : new Date(),
+    updatedAt: raw?.updatedAt ? new Date(raw.updatedAt) : new Date(),
+    widgets: Array.isArray(raw?.widgets) ? raw.widgets : [],
+    settings: raw?.settings ?? {}
+  });
+
+  const serializeDashboards = (items: Dashboard[]): string =>
+    JSON.stringify(
+      items.map(dashboard => ({
+        ...dashboard,
+        createdAt: dashboard.createdAt.toISOString(),
+        updatedAt: dashboard.updatedAt.toISOString()
+      }))
+    );
+
+  const serializeQueries = (items: SavedQuery[]): string =>
+    JSON.stringify(
+      items.map(query => ({
+        ...query,
+        lastRun: query.lastRun ? new Date(query.lastRun).toISOString() : undefined
+      }))
+    );
+
+  const deserializeQueries = (raw: any[]): SavedQuery[] =>
+    raw.map(item => ({
+      ...item,
+      lastRun: item?.lastRun ? new Date(item.lastRun) : undefined
+    }));
+
   // Load saved dashboards and queries from localStorage
   useEffect(() => {
-    const savedDashboards = localStorage.getItem('analytics_dashboards');
-    if (savedDashboards) {
-      setDashboards(JSON.parse(savedDashboards));
-    }
-    
-    const savedQueriesData = localStorage.getItem('analytics_queries');
-    if (savedQueriesData) {
-      setSavedQueries(JSON.parse(savedQueriesData));
-    }
-    
-    // Generate initial insights
-    generateInsights();
+    let isActive = true;
+
+    const initialise = async () => {
+      try {
+        const savedDashboards = localStorage.getItem('analytics_dashboards');
+        if (savedDashboards) {
+          const parsed = JSON.parse(savedDashboards);
+          if (Array.isArray(parsed)) {
+            setDashboards(parsed.map(deserializeDashboard));
+          }
+        }
+      } catch (error) {
+        logger.error('Failed to load dashboards from storage', error);
+      }
+      
+      try {
+        const savedQueriesData = localStorage.getItem('analytics_queries');
+        if (savedQueriesData) {
+          const parsed = JSON.parse(savedQueriesData);
+          if (Array.isArray(parsed)) {
+            setSavedQueries(deserializeQueries(parsed));
+          }
+        }
+      } catch (error) {
+        logger.error('Failed to load queries from storage', error);
+      }
+
+      const insights = await buildInsights();
+      if (isActive) {
+        setInsights(insights);
+      }
+    };
+
+    void initialise();
+
+    return () => {
+      isActive = false;
+    };
   }, []);
-  
-  const generateInsights = async () => {
+
+  useEffect(() => {
+    if (activeTab !== 'explorer') {
+      return;
+    }
+
+    void ensureAgGridStyles().catch(error => {
+      logger.error('Failed to load AG Grid styles', error);
+    });
+  }, [activeTab]);
+
+  const buildInsights = async () => {
+    const { analyticsEngine, anomalyDetectionService } = await loadAnalyticsServices();
     const newInsights = [];
     
     // Spending trends
@@ -90,14 +191,27 @@ export default function Analytics(): React.JSX.Element {
     }
     
     // Category analysis
-    const categoryAnalysis = analyticsEngine.performCohortAnalysis(transactions, 'category', 'amount');
-    const topCategory = Object.entries(categoryAnalysis.segments)
-      .sort((a: any, b: any) => b[1].total - a[1].total)[0];
-    if (topCategory) {
+    const categoryCohorts = analyticsEngine.performCohortAnalysis(
+      transactions,
+      accounts,
+      'category',
+      'value'
+    );
+
+    const sortedCategories = categoryCohorts
+      .map(cohort => ({
+        name: cohort.cohort,
+        total: cohort.periods.reduce((sum, period) => sum + period.value, 0)
+      }))
+      .sort((a, b) => b.total - a.total);
+
+    const topCategory = sortedCategories[0];
+
+    if (topCategory && topCategory.total > 0) {
       newInsights.push({
         type: 'category',
-        title: `Highest spending category: ${topCategory[0]}`,
-        description: `You've spent ${formatCurrency(topCategory[1].total)} in ${topCategory[0]} this month`,
+        title: `Highest spending category: ${topCategory.name}`,
+        description: `You've spent ${formatCurrency(topCategory.total)} in ${topCategory.name} this month`,
         severity: 'info'
       });
     }
@@ -129,68 +243,137 @@ export default function Analytics(): React.JSX.Element {
       // Don't fail the entire insights generation if anomaly detection fails
     }
     
-    setInsights(newInsights);
+    return newInsights;
   };
-  
-  const executeQuery = (query: Query) => {
-    // Execute query against data
-    let results: any[] = [];
-    
+
+  const executeQuery = (query: Query): Record<string, unknown>[] => {
+    const cloneRecords = <T extends Record<string, unknown>>(items: T[]): Record<string, unknown>[] =>
+      items.map(item => ({ ...item }));
+
+    let results: Record<string, unknown>[];
+
     switch (query.dataSource) {
       case 'transactions':
-        results = [...transactions];
+        results = cloneRecords(transactions as unknown as Record<string, unknown>[]);
         break;
       case 'accounts':
-        results = [...accounts];
+        results = cloneRecords(accounts as unknown as Record<string, unknown>[]);
         break;
       case 'budgets':
-        results = [...budgets];
+        results = cloneRecords(budgets as unknown as Record<string, unknown>[]);
         break;
       case 'goals':
-        results = [...goals];
+        results = cloneRecords(goals as unknown as Record<string, unknown>[]);
         break;
       case 'investments':
-        results = [...investments];
+        results = cloneRecords(investments as unknown as Record<string, unknown>[]);
         break;
+      default:
+        results = [];
     }
-    
-    // Apply filters
+
+    const toNumber = (input: unknown): number | null => {
+      if (typeof input === 'number') {
+        return input;
+      }
+      const parsed = Number(input);
+      return Number.isNaN(parsed) ? null : parsed;
+    };
+
+    const toStringValue = (input: unknown): string => {
+      if (input === null || input === undefined) {
+        return '';
+      }
+      return String(input);
+    };
+
     query.conditions.forEach(condition => {
       results = results.filter(item => {
         const value = item[condition.field];
+
         switch (condition.operator) {
           case 'equals':
             return value === condition.value;
-          case 'contains':
-            return value?.toString().includes(condition.value);
-          case 'greater':
-            return parseFloat(value) > parseFloat(condition.value);
-          case 'less':
-            return parseFloat(value) < parseFloat(condition.value);
-          case 'between':
-            return parseFloat(value) >= parseFloat(condition.value) && 
-                   parseFloat(value) <= parseFloat(condition.value2);
+          case 'contains': {
+            const target = toStringValue(condition.value).toLowerCase();
+            return toStringValue(value).toLowerCase().includes(target);
+          }
+          case 'greater': {
+            const numericValue = toNumber(value);
+            const numericTarget = toNumber(condition.value);
+            return numericValue !== null && numericTarget !== null && numericValue > numericTarget;
+          }
+          case 'less': {
+            const numericValue = toNumber(value);
+            const numericTarget = toNumber(condition.value);
+            return numericValue !== null && numericTarget !== null && numericValue < numericTarget;
+          }
+          case 'between': {
+            const numericValue = toNumber(value);
+            const min = toNumber(condition.value);
+            const max = toNumber(condition.value2);
+            return (
+              numericValue !== null &&
+              min !== null &&
+              max !== null &&
+              numericValue >= min &&
+              numericValue <= max
+            );
+          }
+          case 'in': {
+            const candidates = Array.isArray(condition.value)
+              ? condition.value
+              : String(condition.value).split(',');
+            if (Array.isArray(value)) {
+              const normalized = value.map(toStringValue);
+              return candidates.some(candidate => normalized.includes(String(candidate)));
+            }
+            return candidates.map(String).includes(toStringValue(value));
+          }
+          case 'not_in': {
+            const candidates = Array.isArray(condition.value)
+              ? condition.value
+              : String(condition.value).split(',');
+            if (Array.isArray(value)) {
+              const normalized = value.map(toStringValue);
+              return candidates.every(candidate => !normalized.includes(String(candidate)));
+            }
+            return !candidates.map(String).includes(toStringValue(value));
+          }
           default:
             return true;
         }
       });
     });
-    
-    // Apply sorting
+
+    const compareValues = (a: unknown, b: unknown): number => {
+      if (a === b) {
+        return 0;
+      }
+
+      const aNumber = toNumber(a);
+      const bNumber = toNumber(b);
+
+      if (aNumber !== null && bNumber !== null) {
+        return aNumber - bNumber;
+      }
+
+      const aString = toStringValue(a);
+      const bString = toStringValue(b);
+      return aString.localeCompare(bString, undefined, { sensitivity: 'base' });
+    };
+
     query.sortBy.forEach(sort => {
       results.sort((a, b) => {
-        const aVal = a[sort.field];
-        const bVal = b[sort.field];
-        const comparison = aVal > bVal ? 1 : aVal < bVal ? -1 : 0;
+        const comparison = compareValues(a[sort.field], b[sort.field]);
         return sort.direction === 'asc' ? comparison : -comparison;
       });
     });
-    
-    // Apply limit
+
     if (query.limit) {
       results = results.slice(0, query.limit);
     }
-    
+
     return results;
   };
   
@@ -204,33 +387,41 @@ export default function Analytics(): React.JSX.Element {
     
     const updatedQueries = [...savedQueries, savedQuery];
     setSavedQueries(updatedQueries);
-    localStorage.setItem('analytics_queries', JSON.stringify(updatedQueries));
+    localStorage.setItem('analytics_queries', serializeQueries(updatedQueries));
     setShowQueryBuilder(false);
     setSelectedData(results);
   };
   
   const handleSaveDashboard = (dashboard: Dashboard) => {
-    const updatedDashboards = [...dashboards, dashboard];
+    const normalizedDashboard: Dashboard = {
+      ...dashboard,
+      createdAt: dashboard.createdAt ? new Date(dashboard.createdAt) : new Date(),
+      updatedAt: dashboard.updatedAt ? new Date(dashboard.updatedAt) : new Date()
+    };
+
+    const updatedDashboards = dashboards.some(d => d.id === normalizedDashboard.id)
+      ? dashboards.map(d => (d.id === normalizedDashboard.id ? normalizedDashboard : d))
+      : [...dashboards, normalizedDashboard];
     setDashboards(updatedDashboards);
-    localStorage.setItem('analytics_dashboards', JSON.stringify(updatedDashboards));
+    localStorage.setItem('analytics_dashboards', serializeDashboards(updatedDashboards));
     setShowDashboardBuilder(false);
-    setActiveDashboard(dashboard);
+    setActiveDashboard(normalizedDashboard);
   };
   
   const handleAddChart = (chartConfig: any) => {
     // Add chart to current dashboard or create new widget
     setShowChartWizard(false);
   };
-  
+
   // Calculate key metrics
   const keyMetrics = useMemo(() => {
     const income = transactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      .reduce((sum, t) => sum + typeof t.amount === 'number' ? t.amount : parseFloat(String(t.amount)), 0);
     
     const expenses = transactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      .reduce((sum, t) => sum + typeof t.amount === 'number' ? t.amount : parseFloat(String(t.amount)), 0);
     
     const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
     
@@ -241,6 +432,28 @@ export default function Analytics(): React.JSX.Element {
       transactionCount: transactions.length
     };
   }, [transactions]);
+
+  const queryColumnDefs = useMemo<ColDef<QueryRow>[]>(() => {
+    if (!selectedData || selectedData.length === 0) {
+      return [];
+    }
+
+    const [firstRow] = selectedData;
+    if (!firstRow) {
+      return [];
+    }
+
+    const columnKeys = Object.keys(firstRow) as Array<keyof typeof firstRow>;
+
+    return columnKeys.map(key => ({
+      field: key as string,
+      sortable: true,
+      filter: true,
+      resizable: true
+    }));
+  }, [selectedData]);
+
+  const gridColumnDefs = useMemo(() => queryColumnDefs as unknown as ColDef<unknown, any>[], [queryColumnDefs]);
   
   return (
     <PageWrapper title="Analytics">
@@ -496,13 +709,8 @@ export default function Analytics(): React.JSX.Element {
                     <div className="ag-theme-alpine-dark" style={{ height: 400 }}>
                       <Suspense fallback={<div className="flex items-center justify-center h-full">Loading grid...</div>}>
                         <AgGridReact
-                          rowData={selectedData}
-                          columnDefs={Object.keys(selectedData[0] || {}).map(key => ({
-                            field: key,
-                            sortable: true,
-                            filter: true,
-                            resizable: true
-                          }))}
+                          rowData={selectedData ?? []}
+                          columnDefs={gridColumnDefs}
                           defaultColDef={{
                             flex: 1,
                             minWidth: 100

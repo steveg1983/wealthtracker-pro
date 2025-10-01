@@ -4,23 +4,22 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { configureStore } from '@reduxjs/toolkit';
+import type { AppStore } from '../index';
+import { createTestStore } from '../../test/utils/createTestStore';
 import layoutReducer, {
   setWideMode,
   toggleWideMode,
 } from './layoutSlice';
 
 describe('layoutSlice', () => {
-  let store: ReturnType<typeof configureStore>;
+  let store: AppStore;
 
   beforeEach(() => {
     vi.clearAllMocks();
     
     // Create a fresh store for each test
-    store = configureStore({
-      reducer: {
-        layout: layoutReducer,
-      },
+    store = createTestStore({
+      layout: layoutReducer(undefined, { type: '@@INIT' }),
     });
   });
 
@@ -145,7 +144,7 @@ describe('layoutSlice', () => {
     });
 
     it('creates new state object on each action that changes state', () => {
-      const states: any[] = [];
+      const states: Array<{ isWideMode: boolean }> = [];
       
       states.push(store.getState().layout);
       
@@ -222,35 +221,21 @@ describe('layoutSlice', () => {
   describe('edge cases', () => {
     it('handles boolean-like values correctly', () => {
       // TypeScript prevents non-boolean values, but testing runtime behavior
-      const testValues = [
-        { value: true, expected: true },
-        { value: false, expected: false },
-        // These would be TypeScript errors, but testing runtime
-        { value: 1 as any, expected: 1 },
-        { value: 0 as any, expected: 0 },
-        { value: '' as any, expected: '' },
-        { value: 'true' as any, expected: 'true' },
-      ];
-      
-      testValues.forEach(({ value, expected }) => {
-        store.dispatch(setWideMode(value));
+      const testValues = [true, false, 1, 0, '', 'true'] as const;
+
+      testValues.forEach(rawValue => {
+        const coerced = Boolean(rawValue);
+        store.dispatch(setWideMode(coerced));
         const state = store.getState().layout;
-        expect(state.isWideMode).toBe(expected);
+        expect(state.isWideMode).toBe(coerced);
       });
     });
 
     it('state remains consistent after error in unrelated reducer', () => {
       // Create store with multiple reducers
-      const errorReducer = () => {
-        throw new Error('Test error');
-      };
-      
-      const multiStore = configureStore({
-        reducer: {
-          layout: layoutReducer,
-          // This reducer would error if called
-          error: (state = {}) => state,
-        },
+      const multiStore = createTestStore({
+        layout: layoutReducer(undefined, { type: '@@INIT' }),
+        error: {},
       });
       
       multiStore.dispatch(setWideMode(true));
@@ -300,7 +285,7 @@ describe('layoutSlice', () => {
       const calls: boolean[] = [];
       
       // Simple memoized selector
-      let lastState: any = null;
+      let lastState: { isWideMode: boolean } | null = null;
       let lastResult: boolean | null = null;
       
       const memoizedSelector = (state: { layout: { isWideMode: boolean } }) => {

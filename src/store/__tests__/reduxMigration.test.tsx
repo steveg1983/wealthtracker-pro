@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import React from 'react';
-import { configureStore } from '@reduxjs/toolkit';
 import { ClerkProvider } from '@clerk/clerk-react';
+import type { AppStore } from '../index';
+import { createTestStore } from '../../test/utils/createTestStore';
 import accountsReducer from '../slices/accountsSlice';
 import transactionsReducer from '../slices/transactionsSlice';
 import categoriesReducer from '../slices/categoriesSlice';
@@ -22,32 +23,22 @@ import { LayoutProvider } from '../../contexts/LayoutContext';
 import { ReduxMigrationWrapper } from '../../components/ReduxMigrationWrapper';
 
 // Use real Clerk test data instead of mocks
-const TEST_USER = {
-  id: 'user_test123',
-  primaryEmailAddress: { emailAddress: 'test@example.com' }
-};
-
-// Test wrapper components that provide real context
-const TestClerkProvider = ({ children }: { children: React.ReactNode }) => children;
-
 describe('Redux Migration', () => {
-  let store: ReturnType<typeof configureStore>;
+  let store: AppStore;
 
   beforeEach(() => {
     // Create a fresh store for each test
-    store = configureStore({
-      reducer: {
-        accounts: accountsReducer,
-        transactions: transactionsReducer,
-        categories: categoriesReducer,
-        budgets: budgetsReducer,
-        goals: goalsReducer,
-        tags: tagsReducer,
-        recurringTransactions: recurringTransactionsReducer,
-        preferences: preferencesReducer,
-        notifications: notificationsReducer,
-        layout: layoutReducer,
-      },
+    store = createTestStore({
+      accounts: accountsReducer(undefined, { type: '@@INIT' }),
+      transactions: transactionsReducer(undefined, { type: '@@INIT' }),
+      categories: categoriesReducer(undefined, { type: '@@INIT' }),
+      budgets: budgetsReducer(undefined, { type: '@@INIT' }),
+      goals: goalsReducer(undefined, { type: '@@INIT' }),
+      tags: tagsReducer(undefined, { type: '@@INIT' }),
+      recurringTransactions: recurringTransactionsReducer(undefined, { type: '@@INIT' }),
+      preferences: preferencesReducer(undefined, { type: '@@INIT' }),
+      notifications: notificationsReducer(undefined, { type: '@@INIT' }),
+      layout: layoutReducer(undefined, { type: '@@INIT' }),
     });
   });
 

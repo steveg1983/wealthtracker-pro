@@ -1,0 +1,285 @@
+# SINGLE ENGINEERING BIBLE – WealthTracker
+
+Owner: Project Engineering Manager  
+Last updated: 2025-09-29 19:41 UTC  
+Status: 🟢 STABLE – 0 strict TypeScript errors (see `logs/tsc-20250928_223400.log`); `npm run build:check` is green (only Rollup chunk-size hints). Bundle snapshot: `vendor-plotly` ~1.24 MB (0.42 MB gzip), `vendor-export` ~1.14 MB (0.35 MB gzip), `vendor-shared` ~0.58 MB (0.20 MB gzip), entry `index` ~0.56 MB (0.13 MB gzip). Guardrails stay green while bundle diet work continues alongside deeper automated test coverage.
+Authoritative scope: Vision, rules, procedures, live recovery status, and hand-off instructions for every contributor.
+
+---
+
+## 1. Mission & Non-Negotiable Standards
+- Build the #1 professional personal finance platform with "just works" reliability.
+- Subscription SaaS, multi-tenant, secure by default, WCAG 2.1 AA accessible.
+- Financial software tolerates **zero** data loss, precision errors, or guesswork.
+- This document is the **single source of truth**. If it conflicts with other files, this one wins.
+
+---
+
+## 2. Core Principles
+1. **Professional Excellence** – Verify every assumption; "good enough" is failure.
+2. **Read First, Code Second** – Understand implementations before touching them.
+3. **Slower Is Faster** – Diagnose before acting; revert if you feel rushed.
+4. **Functional before Cosmetic** – Features must actually work end-to-end.
+5. **Financial Integrity** – No floating-point money math; use Decimal.js or precise value objects.
+6. **No Half Measures** – If you start a feature, you finish it: UI, services, database, tests, docs.
+7. **Testing Reality** – Mocks are last resort; connect to real infrastructure whenever feasible.
+8. **Verification Discipline** – Every change runs the full gate (`npm run build:check`, lint, tests) before commit.
+9. **Documentation of Why** – Leave breadcrumbs for the next engineer; explain reasoning, not syntax.
+
+---
+
+## 3. Operating Procedures & Guardrails
+### 3.1 Backup Doctrine
+```bash
+cp -r src src.backup.$(date +%Y%m%d_%H%M%S)_BEFORE_WORK
+# After meaningful milestones (~10 files or major fix)
+cp -r src src.backup.$(date +%Y%m%d_%H%M%S)_CHECKPOINT
+```
+Rollback immediately if verification fails.
+
+### 3.2 Verification Rhythm
+```bash
+BEFORE=$(npx tsc -p tsconfig.strict.json --noEmit 2>&1 | rg -c "error TS" || echo "fail")
+# make one focused change
+AFTER=$(npx tsc -p tsconfig.strict.json --noEmit 2>&1 | rg -c "error TS")
+```
+- Error count must trend down; if it rises, revert.
+- Big-picture checks after each session: `npm run build`, `npm run lint`, `npm test --run`, `npm run bundle:report`.
+
+### 3.3 One-File Law
+- Change **one logical unit** at a time. No mass find-replace. No reckless scripts.
+- Understand ripple effects before modifying shared hooks, services, or contexts.
+
+### 3.4 Documentation Imperative
+Log every change (file, line, reason, verification result). Update this bible if procedures or priorities shift.
+
+### 3.5 No-Cowboy Clause (Instant Stop)
+- Mass edits without review.
+- Silencing errors with `as any` or TODO placeholders.
+- Deleting code to "make things compile."  
+Violations require rollback, root-cause doc, and prevention measures.
+
+---
+
+## 4. Quality Gates & Reference Commands
+```bash
+npm run build:check      # tsc -b + vite build
+npx tsc -p tsconfig.strict.json --noEmit
+npm run lint             # ESLint (strict rules)
+npm test --run           # Vitest focused run
+npm run test:real        # Integration tests w/ real services
+npm run bundle:report    # Bundle size analysis
+npm run lighthouse       # Performance budget verification
+```
+`npm run build:check` now runs the strict profile first. Add Husky pre-commit hook to run `npm run typecheck:strict && npm run lint` before committing.
+
+---
+
+## 5. Current Recovery Status (2025-09-29)
+- **Sanity checks:** `npx tsx scripts/check-user-identifier.ts` (service `__testing` harness stubs Supabase/logging and exits cleanly).  
+- **Focused unit:** `npx vitest run --config vitest.config.unit.ts` (7 targeted `resolveDatabaseUserId` tests; runs fast with the stubbed harness).  
+- **Budget/goal sanity (heavy):** `NODE_OPTIONS="--max-old-space-size=12288" npx tsx --tsconfig tsconfig.scripts.json scripts/check-budget-goal-service.ts` – now uses the Supabase/storage stubs but still OOMs here because other Supabase consumers drag the full client; run on a beefy local box until we finish slimming.  
+- **Budget/goal service coverage:** Vitest still OOMs when those modules load; keep pending until we split the graph or drop the encrypted storage dependency from the hot path.  
+**Strict TypeScript errors:** 0 (mortgage, tax, retirement, sync, and storage services are strict-clean; guard enforced by `npm run typecheck:strict` inside build/test workflows).  
+**Latest strict log:** `logs/tsc-20250928_223400.log` (captured with `NODE_OPTIONS="--max-old-space-size=4096" npx tsc -p tsconfig.strict.json --noEmit --pretty false`).  
+**Last Vite production build:** succeeded with clean logs; vendor Plotly chunk now `assets/vendor-plotly-ADh8pNe3.js` (~1.24 MB, 0.42 MB gzip), export tooling lives in `assets/vendor-export-7HC4GUjT.js` (~1.14 MB, 0.35 MB gzip), the reshaped shared payload sits in `assets/vendor-shared-BMpPIotj.js` (~0.58 MB, 0.20 MB gzip), React core ships in `assets/vendor-react-core-D28Q2z0q.js` (~140 KB, 0.046 MB gzip), and `vendor-grid` covers ag-grid at ~0.53 MB (0.14 MB gzip). See `docs/performance/bundle-optimization-plan.md` for actions.  
+**Decimal safety:** Violations remain (e.g., `src/components/add-transaction/useAddTransaction.ts:67`, `src/utils/currency.ts:114`).  
+**Testing signal:** Existing coverage artifacts report zero executed lines; treat as no test coverage.  
+**High-risk hotspots:**
+- `smartCacheService` needs a typed cache wrapper (`@types/lru-cache` or local declaration), dependency guards, and Promise handling so helpers no longer return `Promise<T | null>`.
+- `storageAdapter` export/import helpers must respect the `JsonValue` constraint; exported payloads need typed serialization helpers before writing to IndexedDB/Zip.
+- Supabase sync slices/thunks (`supabaseThunks`, `syncService`, demo fixtures) still spread snake_case payloads and refer to obsolete conflict metadata—refactor to the new DTO helpers and align with `ConflictAnalysis` types.
+- Retirement calculators (`usRetirementService`, `smartCacheService` callers) emit unions with missing required properties; convert optional results to explicit `null` when data is unavailable.
+- Decimal hygiene remains incomplete across transaction/category utilities—track outstanding sites via the decimal audit command above.
+- Build pipeline now runs without the PostCSS `from` warning (patched Tailwind/Vite via `patch-package`); track the patches in `/patches` and revalidate after dependency bumps.
+
+Backups available under `src.backup.*`. Validate timestamp before using.
+
+---
+
+## 6. Immediate Objectives & Roadmap
+1. **Baseline Snapshot** ✅ _2025-09-24_  
+   - `logs/tsc-20250924.log` captured via `npx tsc -p tsconfig.strict.json --noEmit`.  
+   - Bundle report generated with `npm run bundle:report` (`logs/bundle-report-20250924.log`, `bundle-size-report.json`).  
+   - `docs/recovery-status.md` now tracks the metrics and should be updated whenever they change.
+
+2. **Stabilize Shared Hooks & Forms** ✅ _2025-09-24_  
+   - Restored `useModalForm` compatibility (`formData`, `updateField`, `setFormData`).  
+   - Enhanced `useActivityTracking` with unread/new accessors and SSR-safe storage usage.  
+   - Added focused Vitest coverage for both hooks to prevent regression.
+
+3. **Untangle App Context & Data Layer** ⚠️ _in progress_  
+   - Split responsibilities (Auth/User, Data Access, UI State).  
+   - Replace stubbed `dataService` with concrete Supabase adapter + local fallback that throws when unimplemented.  
+   - Introduce dependency injection via `ServiceProvider` with clear contracts.  
+   - ✅ 2025-09-24: AppContext now caches the Supabase UUID, all create calls route through `appDataService`, `TransactionService.getTransactionsByIds` ships, and `userIdService` persists Clerk↔UUID mappings (budgets/goals now resolve DB IDs directly).  
+   - ✅ 2025-09-24: Added `vitest.config.unit.ts` enabling focused service tests without bundling the whole app (requires high heap locally due to heavy deps).  
+   - ⚠️ Still need integration tests plus cleanup of the 900-line provider before refactoring more features; verify Supabase policies for `user_id_mappings` and monitor runtime fallbacks.  
+   - 🔜 Next: exercise the live Supabase flows end-to-end, stand up real Supabase-backed tests via the light config, and retire the `dataService` stub + local fallback path once coverage exists.
+
+4. **Financial Integrity & Audit Trail**  
+   - Introduce `Money` value object (Decimal-backed) used across services.  
+   - Replace all `parseFloat`/manual rounding in transaction flows.  
+   - Ensure audit logging (Sentry + internal history) for every financial mutation.
+
+5. **Bundle Diet & Feature Modularization**  
+   - Lazy-load Investment/Analytics dashboards; move chart libs into dynamic imports.  
+   - Audit Recharts/Plotly usage to eliminate unused datasets.  
+   - Set bundle budget automation to fail if main chunk > 300 KB gzip.
+
+6. **Build Real Quality Gates**  
+   - Reinstate Vitest suites (unit + integration) against real services where feasible.  
+   - Add Playwright smoke flows to CI (login, add transaction, download report).  
+   - Configure CI to run strict `tsc`, lint, tests, bundle budget, accessibility checks.
+
+7. **Documentation & Training**  
+   - Keep this bible updated after every major change (append "Changelog" entry).  
+   - Archive obsolete Claude docs in `/docs/archive/` if still needed for history.
+
+---
+
+## 7. Architectural & Coding Standards
+- **Frontend stack:** React + TypeScript + Vite + Redux Toolkit + TailwindCSS.
+- **Component pattern:** hooks at top, handlers next, JSX last (`src/components/*`).
+- **Testing pattern:** Vitest + React Testing Library; use `vi` mocks sparingly, prefer real services.
+- **Service pattern:** Export interfaces in `src/services/interfaces`. Implementations inject dependencies via `ServiceProvider`.
+- **Decimal usage:** `Decimal.js` everywhere that handles currency; keep amounts as strings/`Decimal` until final presentation.
+- **ID handling:** Clerk IDs must convert to DB UUIDs via `userIdService` before data access.
+- **Security:** sanitize inputs via `security/xss-protection`, never trust browser input.
+- **Performance:** Desktop-first responsive design; lazy-load heavy components; always verify Lighthouse budgets.
+
+---
+
+## 8. Handoff & Daily Workflow Checklist
+### Before Starting Work
+- [ ] Read relevant codepaths; confirm understanding.  
+- [ ] Capture strict TS error count.  
+- [ ] Create fresh backup (`src.backup.YYYYMMDD_HHMMSS_you`).
+
+### During Work
+- [ ] Make atomic changes; document rationale.  
+- [ ] Re-run strict `tsc` after each logical change.  
+- [ ] Keep log of error deltas and affected files.  
+- [ ] Update this bible if rules or priorities change.
+
+### Before Committing / Handoff
+- [ ] `npm run build:check`, `npm run lint`, `npm test --run` all succeed.  
+- [ ] `npm run bundle:report` reviewed; chunk growth justified.  
+- [ ] No `console.log`, no commented-out code, no `as any`.  
+- [ ] Documentation updated (`docs/`, this bible, changelog).  
+- [ ] Record final strict error count + summary in session log.
+
+### Emergency Protocol
+1. Stop immediately when counts spike or build fails.  
+2. Restore latest backup.  
+3. Document cause, fix, and mitigation here.  
+4. Inform team before resuming.
+
+---
+
+## 9. Disaster Prevention & Lessons Learned
+- **"Quick fix" finds** caused past 11k-error explosions. Never again.
+- **"Cleanup" deletions** removed live components; archive instead of delete.  
+- **"Silence errors"** with `as any` masked runtime crashes; fix the root issue.  
+- **"Refactor in bulk"** created circular dependencies; redesign first, then execute incrementally.
+
+---
+
+## 10. Documentation Change Control
+- Any adjustment to rules, procedures, or roadmap **must** be reflected here immediately.
+- Append a brief entry to `## Changelog` with date, author, and summary.  
+- Archive retired guidance under `docs/archive/` for traceability.
+
+### Maintenance Workflow – Keep Guidance Fresh
+1. **Update metrics first** – whenever strict TS counts, bundle sizes, or build/test outcomes change, refresh `docs/recovery-status.md` with the latest command output and timestamp.
+2. **Sync the handoff prompt** – if priorities or wording shift, update the code block in §12 here **and** mirror the same text in `docs/SESSION_HANDOFF_PROMPT.md`.
+3. **Record decisions** – log significant process or rule changes in the changelog section (include date + author).
+4. **Cross-check before handoff** – before ending a session, re-read §§5, 6, 12 and `docs/SESSION_HANDOFF_PROMPT.md` to ensure they describe the current reality.
+5. **Archive superseded material** – move old plans or obsolete instructions into `docs/archive/` rather than deleting, and link back if needed.
+
+### Changelog
+- 2025-09-29 – Redirected Plotly’s internal D3 packages and export codecs into the dedicated vendor bundles, cutting the shared payload to ~0.58 MB (0.20 MB gzip) while keeping analytics/export routes lazy (author: Codex).
+- 2025-09-29 – Replaced remaining direct `lodash` imports with `lodash-es` for tree-shaking and added `@types/lodash-es` (author: Codex).
+- 2025-09-29 – Split additional vendor families (`vendor-react-router`, `vendor-react-grid-layout`, `vendor-virtualization`, `vendor-dnd`, `vendor-icons`, `vendor-floating-ui`, `vendor-auth`, `vendor-sentry`, `vendor-motion`) and aligned Rollup output naming for diagnostics; shared payload now ~0.92 MB (0.30 MB gzip) (author: Codex).
+- 2025-09-29 – Deferred Analytics ag-grid CSS loading to the explorer tab and ensured manual chunk IDs surface in emitted filenames for faster bundle triage (author: Codex).
+- 2025-09-29 – Introduced vendor manual chunk groups (`vendor-plotly`, `vendor-export`, etc.) and lazy-loaded export libraries so `jspdf`/`xlsx` stay out of the main bundle (author: Codex).
+- 2025-09-29 – Swapped Plotly loader to `react-plotly.js/factory` + `plotly.js-dist-min`, shaving ~240 KB from the Plotly chunk and capturing the latest bundle report (`bundle-size-report.json`) (author: Codex).
+- 2025-09-29 – Replaced the Plotly dependency with a bespoke registry (`src/lib/plotlyLight.ts`) so only required traces ship; Plotly vendor chunk now ~1.63 MB (0.55 MB gzip) (author: Codex).
+- 2025-09-29 – Trimmed unused 3D Plotly traces from the registry, reducing the Plotly vendor chunk to ~1.31 MB (0.44 MB gzip) (author: Codex).
+- 2025-09-29 – Deferred `analyticsEngine`/`anomalyDetectionService` loading inside `Analytics` so the heavy D3/statistics stack stays off the initial bundle; insights hydrate services on demand (author: Codex).
+- 2025-09-29 – `exportService` now reuses the shared `importXLSX` helper (workbook creation + download), eliminating duplicate XLSX chunks when reports run (author: Codex).
+- 2025-09-29 – ChartWizard sheds its static `analyticsEngine` dependency; analytics math now loads only when the page resolves the services, keeping the vendor React chunk leaner (author: Codex).
+- 2025-09-29 – Added `vendor-analytics` manual chunk (ml-matrix/simple-statistics/regression) so analytics math bundles separately and hydrates lazily with the analytics page (author: Codex).
+- 2025-09-29 – Added `vendor-react-core` manual chunk (react, react-dom, scheduler) so React core ships in its own 1.23 MB/0.39 MB gzip payload, leaving the shared application chunk leaner (author: Codex).
+- 2025-09-29 – Added `vendor-date-fns` manual chunk, isolating `date-fns` (~1.13 MB, 0.34 MB gzip) and removing it from the shared application payload (author: Codex).
+- 2025-09-29 – Eliminated the PostCSS `from` warning by patching Tailwind’s bundled PostCSS input handling and Vite’s URL rewriter (captured in `/patches` via `patch-package`); build now runs clean with strict typecheck gating (author: Codex).
+- 2025-09-28 – Harmonised Supabase imports (centralised client in `src/lib/supabase.ts`, added live subscription bridge in `supabaseClient`, and converted `userIdService` to static imports). Builds now only warn about PostCSS and security modules (author: Codex).
+- 2025-09-28 – Removed dynamic loggingService imports (serviceFactory/BaseService/color-contrast audit) so the build no longer warns about logger mixing; Supabase + PostCSS warnings flagged for next pass (author: Codex).
+- 2025-09-28 – Captured current bundle baseline (`bundle-size-report.json`) and published `docs/performance/bundle-optimization-plan.md`; highlights vendor chunk split, export tool lazy-loading, and PostCSS warning follow-up (author: Codex).
+- 2025-09-28 – Hard-typed Analytics grid columns, refreshed `vite.config.ts` to satisfy plugin typings, and verified `npm run build:check` so strict gating now executes cleanly (author: Codex).
+- 2025-09-28 – Integrated strict type-check into `npm run build:check`, added `npm run typecheck:strict` and `npm run verify:ci` guardrails, and refreshed the bible to highlight the new verification flow (author: Codex).
+- 2025-09-28 – Eliminated the remaining strict TypeScript violations across sync, tax, retirement, mortgage, and storage services; strict profile now passes with 0 errors (`logs/tsc-20250928_233104.log`) (author: Codex).
+- 2025-09-28 – Replaced smart cache’s dependency on the external LRU module with a typed in-house wrapper (adds synchronous peek helpers and respects TTL), serialised storageAdapter writes/reads through `JsonValue`, and captured the 49-error strict baseline (`logs/tsc-20250928_224504.log`) (author: Codex).
+- 2025-09-28 – Normalised household local-storage hydration (members/invites/activities now emit defined IDs/dates) and tightened import rules loading/updating with typed condition/action sanitisation; strict errors down to 62 (`logs/tsc-20250928_220207.log`) (author: Codex).
+- 2025-09-27 – Haptic feedback hook now guards browser APIs, exports a value-friendly pattern map, and keyboard shortcuts dispatch a sync event instead of the missing toast; strict errors down to 866 (`logs/tsc-20250927_141531.log`) (author: Codex).
+- 2025-09-27 – Decimal budget types now extend Supabase budgets (with legacy `category` helper), converters/tests updated, and strict counter drops to 884 (`logs/tsc-20250927_135106.log`) (author: Codex).
+- 2025-09-27 – Theme token utilities coerce CSS values safely, diagnostic report now typed with explicit snapshots, and activity logger respects `categoryId` budgets; strict errors down to 890 (`logs/tsc-20250927_154733.log`) (author: Codex).
+- 2025-09-27 – Default test budgets now expose `categoryId`, required timestamps, and `spent` totals so strict payloads are valid; strict errors down to 907 (`logs/tsc-20250927_153437.log`) (author: Codex).
+- 2025-09-27 – Hardened Auth/Sentry sync flow, typed preferences setters, aligned realtime analytics provider with service contracts, and cleaned default holdings/transactions for strict optional compliance; strict errors now 912 (`logs/tsc-20250927_143007.log`) (author: Codex).
+- 2025-09-26 – Portfolio Rebalancer target management now uses typed payloads, sanitized allocations, and Supabase-aware updates; realtime alerts reflect analytics types with Decimal-safe formatting and the provider exposes connection status via ReturnType (author: Codex).
+- 2025-09-26 – Updated FinancialGoalTracker flows, ensured both goal modals emit Supabase-safe payloads, and fixed FixSummary grouping; strict errors now 1,486 (`logs/tsc-20250926_214718.log`) (author: Codex).
+- 2025-09-26 – Tightened Excel export grouping, ensured ExpenseSplitModal emits percentage values safely, and made ExportModal date handling/groupBy compliant with strict optional rules (strict errors now 1,519; `logs/tsc-20250926_205616.log`) (author: Codex).
+- 2025-09-26 – Hardened EnhancedTransferModal metadata handling, EnvelopeBudgeting budget creation, and ErrorBoundary overrides/reset logic; strict errors now 1,543 (`logs/tsc-20250926_202845.log`) (author: Codex).
+- 2025-09-26 – Guarded dropzone accept handling, stabilized debt credit score comparisons, and aligned the debt payoff planner with Supabase financial plan types (strict errors now 1,850) (author: Codex).
+- 2025-09-26 – Fixed DebugErrorBoundary overrides/logging and sanitized dividend tracker imports/add/update flows (strict errors now 1,841) (author: Codex).
+- 2025-09-26 – Safeguarded net worth trend history, normalized dashboard widget refresh intervals, and aligned data intelligence verification with service getters (strict errors now 1,883) (author: Codex).
+- 2025-09-25 – Restored strict tsconfig gate (now 2,290 errors) and cleaned AppWrapper, lazy preload util, accessibility dashboard, and reconciliation chart typings (author: Codex).
+- 2025-09-26 – Fixed strict regressions across BottomSheet, BudgetRecommendations, BulkTransactionEdit, CashFlowForecast, CategorySuggestion, and chart infrastructure (custom in-view observer, safe color handling, guarded tooltips); strict errors down to 2,098 (author: Codex).
+- 2025-09-26 – Hardened account selector/settings modals plus add-investment/transaction flows to respect exact optional types; strict errors down to 2,277 (author: Codex).
+- 2025-09-26 – Shifted realtimeService onto ensureSupabaseClient, added stub guards, and corrected goal subscription filters; strict errors now 2,269 (author: Codex).
+- 2025-09-26 – Converted useDashboardLayout to the lazy Supabase client with SSR-safe local storage fallbacks; strict errors now 2,242 (author: Codex).
+- 2025-09-26 – Normalised balance adjustments, bank API/format selectors, and batch import flows for strict typing (author: Codex).
+- 2025-09-26 – Typed CSV import wizard end-to-end (transaction/account branches), guarded mobile list virtualization, and tightened natural-language date parsing; strict errors down to 1,977 (author: Codex).
+- 2025-09-25 – Extended autoSyncService to the lazy Supabase guardrail and SSR-safe storage fallbacks (author: Codex).
+- 2025-09-25 – Refined Dashboard Supabase checks and localStorage usage with lazy client resolution and SSR-safe guards (author: Codex).
+- 2025-09-25 – Hardened RealtimeSyncTest with lazy Supabase resolution, bounded event history, and deterministic cleanup (author: Codex).
+- 2025-09-25 – Updated RealtimeDebugger to defer Supabase resolution, add SSR-safe window guards, and cleanly dispose realtime channels (author: Codex).
+- 2025-09-25 – Converted dataMigrationService to the lazy Supabase guardrail, centralized migration flags, and retired window-based ID state (author: Codex).
+- 2025-09-25 – Hardened dashboardWidgetService with the lazy Supabase client guardrail and SSR-safe localStorage fallbacks (author: Codex).
+- 2025-09-25 – Converted SupabaseSubscriptionService to the lazy Supabase client guardrail and verified the focused Vitest suite (author: Codex).
+- 2025-09-25 – Fixed 114+ TypeScript errors through systematic leaf component fixes: IconBase exports, ErrorBoundary logger/overrides, type-only imports (ReactNode/ErrorInfo/DragEvents), FormFieldWrapper optional properties, accessibility utilities null checking, decimal calculations safety, BottomSheet touch handling, logger declarations, Skeleton props, utility function null safety, exactOptionalPropertyTypes compliance, broken comment pattern elimination, virtualization safety, and 15 missing component/hook/service stubs (2516 → 2402 errors) - (author: Claude Code).
+- 2025-09-25 – Stubbed Supabase client for Node contexts and lazily import the real client only in browsers; script still OOMs until remaining imports shrink (author: Codex).
+- 2025-09-25 – Added injectable harnesses to `budgetService`/`goalService`, documented the heavyweight sanity script, and noted the Vitest OOM blocker pending storage/supabase slimming (author: Codex).
+- 2025-09-25 – Routed budget/goal services through `userIdService`, cleaned imports, and documented the Vitest OOM blocker for their coverage (author: Codex).
+- 2025-09-25 – Added `userIdService.__testing`, rewrote the Vitest/unit harness for identifier resolution, and refreshed the sanity script + docs to reflect the passing checks (author: Codex).
+- 2025-09-24 – Added `vitest.config.unit.ts` for focused service tests and documented execution constraints (author: Codex).
+- 2025-09-24 – Unified budget/goal services around Supabase UUID resolution and tightened docs/process focus on verifying the new data layer (author: Codex).
+- 2025-09-24 – Wired Clerk↔UUID mapping, updated AppContext to use Supabase IDs for all create flows, and added transaction lookup against real Supabase rows (author: Codex).
+- 2025-09-24 – Documented data layer blockers (ID mapping, AppContext integration), reprioritized handoff focus, and aligned prompts (author: Codex).
+- 2025-09-24 – Consolidated `CLAUDE.md` and `CLAUDE_WORKFILE.md` into this single engineering bible; updated recovery metrics and roadmap (author: Codex).
+
+---
+
+## 11. Quick Reference Appendix
+- **User identifier sanity check:** `npx tsx scripts/check-user-identifier.ts`
+- **Budget/goal sanity (requires >12 GB heap):** `NODE_OPTIONS="--max-old-space-size=12288" npx tsx --tsconfig tsconfig.scripts.json scripts/check-budget-goal-service.ts` – still OOMs in sandbox; run locally until Supabase imports are trimmed.
+- **Backup restore:** `rm -rf src && cp -r src.backup.<timestamp> src`
+- **Check bundle hotspots:** `npx rollup-plugin-visualizer dist/stats.html`
+- **Find float usage:** `rg "parseFloat|toFixed|Math\.round" src`
+- **Locate `as any`:** `rg "as any" src`
+- **Audit TODOs:** `rg "TODO" src --iglob "*.ts*"`
+- **Verify Decimal usage:** `rg "new Decimal" src/components src/services`
+
+Stay disciplined. Every change either strengthens or weakens WealthTracker. Choose strengthening.
+
+---
+
+## 12. Session Reboot Prompt
+When a conversation resets or a new assistant joins, paste the message below as the first instruction. Update its status lines before sharing if fresher metrics exist.
+
+```
+You are resuming work on the WealthTracker project. Immediately open `CLAUDE.md` in the repository root (the Single Engineering Bible) and follow the procedures there. Confirm the latest recovery status from “Current Recovery Status” and review `docs/recovery-status.md` plus `docs/SESSION_HANDOFF_PROMPT.md` for session notes. Continue with the roadmap priorities, focusing first on validating the new AppContext/userIdService wiring (exercise Supabase flows, run `npx vitest run --config vitest.config.unit.ts` and `npx tsx scripts/check-user-identifier.ts`, retire the local fallback) unless newer guidance in those documents overrides it. After reading, report back with the current strict TypeScript error count, bundle-size summary, and your next action plan.
+```
+
+- Ensure `docs/recovery-status.md` reflects the newest metrics before issuing the prompt.
+- Update `docs/SESSION_HANDOFF_PROMPT.md` if the wording above changes so every assistant uses the same launch message.

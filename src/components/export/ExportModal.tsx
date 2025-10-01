@@ -12,6 +12,7 @@ import {
   CheckIcon
 } from '@heroicons/react/24/outline';
 import { exportService } from '../../services/exportService';
+import type { ExportOptions as ServiceExportOptions } from '../../services/exportService';
 import type { Account, Transaction, Budget, Goal } from '../../types';
 
 interface ExportModalProps {
@@ -33,13 +34,18 @@ export default function ExportModal({
 }: ExportModalProps): React.JSX.Element {
   const [selectedFormat, setSelectedFormat] = useState<'csv' | 'pdf' | 'xlsx' | 'json' | 'qif' | 'ofx'>('csv');
   const [dateRange, setDateRange] = useState<'all' | 'month' | 'quarter' | 'year' | 'custom'>('month');
-  const [startDate, setStartDate] = useState(() => {
+  const formatISODate = (date: Date): string => {
+    const [isoDate] = date.toISOString().split('T');
+    return isoDate ?? '';
+  };
+
+  const [startDate, setStartDate] = useState<string>(() => {
     const date = new Date();
     date.setMonth(date.getMonth() - 1);
-    return date.toISOString().split('T')[0];
+    return formatISODate(date);
   });
-  const [endDate, setEndDate] = useState(() => {
-    return new Date().toISOString().split('T')[0];
+  const [endDate, setEndDate] = useState<string>(() => {
+    return formatISODate(new Date());
   });
   
   const [includeOptions, setIncludeOptions] = useState({
@@ -68,21 +74,22 @@ export default function ExportModal({
     
     switch (range) {
       case 'month':
-        setStartDate(new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]);
-        setEndDate(new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split('T')[0]);
+        setStartDate(formatISODate(new Date(now.getFullYear(), now.getMonth(), 1)));
+        setEndDate(formatISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0)));
         break;
-      case 'quarter':
+      case 'quarter': {
         const quarterStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
-        setStartDate(quarterStart.toISOString().split('T')[0]);
-        setEndDate(new Date(quarterStart.getFullYear(), quarterStart.getMonth() + 3, 0).toISOString().split('T')[0]);
+        setStartDate(formatISODate(quarterStart));
+        setEndDate(formatISODate(new Date(quarterStart.getFullYear(), quarterStart.getMonth() + 3, 0)));
         break;
+      }
       case 'year':
-        setStartDate(new Date(now.getFullYear(), 0, 1).toISOString().split('T')[0]);
-        setEndDate(new Date(now.getFullYear(), 11, 31).toISOString().split('T')[0]);
+        setStartDate(formatISODate(new Date(now.getFullYear(), 0, 1)));
+        setEndDate(formatISODate(new Date(now.getFullYear(), 11, 31)));
         break;
       case 'all':
         setStartDate('2020-01-01');
-        setEndDate(now.toISOString().split('T')[0]);
+        setEndDate(formatISODate(now));
         break;
     }
   };
@@ -92,25 +99,32 @@ export default function ExportModal({
     
     try {
       // Filter data based on date range
-      const filteredTransactions = dateRange === 'all' 
-        ? transactions 
+      const startDateValue = startDate ? new Date(startDate) : new Date(0);
+      const endDateValue = endDate ? new Date(endDate) : new Date();
+
+      const filteredTransactions = dateRange === 'all'
+        ? transactions
         : transactions.filter(t => {
-            const date = new Date(t.date);
-            return date >= new Date(startDate) && date <= new Date(endDate);
+            const date = t.date instanceof Date ? t.date : new Date(t.date);
+            return date >= startDateValue && date <= endDateValue;
           });
       
       // Prepare export options
-      const exportOptions = {
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
+      const baseExportOptions: ServiceExportOptions = {
+        startDate: startDateValue,
+        endDate: endDateValue,
         format: selectedFormat,
         includeCharts: includeOptions.charts && (selectedFormat === 'pdf' || selectedFormat === 'xlsx'),
         includeTransactions: includeOptions.transactions,
         includeAccounts: includeOptions.accounts,
         includeInvestments: false, // Could be added later
         includeBudgets: includeOptions.budgets,
-        groupBy: groupBy === 'none' ? undefined : groupBy,
         customTitle: `Financial Report - ${new Date().toLocaleDateString()}`
+      };
+
+      const exportOptions: ServiceExportOptions = {
+        ...baseExportOptions,
+        ...(groupBy !== 'none' ? { groupBy } : {})
       };
       
       // Prepare data for export
@@ -356,7 +370,7 @@ export default function ExportModal({
                       <li>• Records to export: {
                         includeOptions.transactions ? `${transactions.filter(t => {
                           const date = new Date(t.date);
-                          return date >= new Date(startDate) && date <= new Date(endDate);
+                          return date >= new Date(startDate || '') && date <= new Date(endDate || '');
                         }).length} transactions` : '0 transactions'
                       }</li>
                     </ul>

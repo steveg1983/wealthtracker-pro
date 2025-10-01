@@ -3,3 +3,4 @@ src/setup/consoleToLogger.ts
 src/mocks/syncServer.ts
 scripts/seed-test-data.ts
 src/hooks/useAccessibilityAudit.tsx
+src/lib/react-fix.ts

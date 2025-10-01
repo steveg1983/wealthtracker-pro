@@ -6,11 +6,10 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent,
-  DragStartEvent,
   DragOverlay,
   MeasuringStrategy
 } from '@dnd-kit/core';
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
@@ -89,7 +88,7 @@ export default function EnhancedDraggableDashboard(): React.JSX.Element {
   const navigate = useNavigate();
   const { accounts, transactions, budgets, goals } = useApp();
   const { formatCurrency: formatCurrencyWithSymbol } = useCurrencyDecimal();
-  const { preferences, updatePreferences } = usePreferences();
+  usePreferences();
   
   const [isEditMode, setIsEditMode] = useState(false);
   const [showAddWidget, setShowAddWidget] = useState(false);
@@ -131,8 +130,6 @@ export default function EnhancedDraggableDashboard(): React.JSX.Element {
   useEffect(() => {
     if (!isEditMode) {
       localStorage.setItem('dashboardLayout', JSON.stringify(layout));
-      // Also save to user preferences in database
-      updatePreferences({ dashboardLayout: layout });
     }
   }, [layout, isEditMode]);
 
@@ -281,11 +278,11 @@ export default function EnhancedDraggableDashboard(): React.JSX.Element {
           </div>
         );
       
-      case 'transactions':
+      case 'transactions': {
         const recentTransactions = transactions
           .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
           .slice(0, widget.isCompact ? 3 : 5);
-        
+
         return (
           <div className="space-y-3">
             {recentTransactions.map(transaction => (
@@ -307,11 +304,12 @@ export default function EnhancedDraggableDashboard(): React.JSX.Element {
             </button>
           </div>
         );
-      
-      case 'budgets':
+      }
+
+      case 'budgets': {
         const activeBudgets = budgets.filter(b => b.isActive);
         const overBudget = activeBudgets.filter(b => (b.spent || 0) > b.amount);
-        
+
         return (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -334,30 +332,31 @@ export default function EnhancedDraggableDashboard(): React.JSX.Element {
             </button>
           </div>
         );
+      }
       
       case 'savingsGoals':
-        return <SavingsGoalsWidget isCompact={widget.isCompact} />;
-      
+        return <SavingsGoalsWidget {...(widget.isCompact ? { isCompact: widget.isCompact } : {})} />;
+
       case 'debtTracker':
-        return <DebtTrackerWidget isCompact={widget.isCompact} />;
-      
+        return <DebtTrackerWidget {...(widget.isCompact ? { isCompact: widget.isCompact } : {})} />;
+
       case 'billReminders':
-        return <BillRemindersWidget isCompact={widget.isCompact} />;
-      
+        return <BillRemindersWidget {...(widget.isCompact ? { isCompact: widget.isCompact } : {})} />;
+
       case 'investmentPerformance':
-        return <InvestmentPerformanceWidget isCompact={widget.isCompact} />;
+        return <InvestmentPerformanceWidget {...(widget.isCompact ? { isCompact: widget.isCompact } : {})} />;
       
       case 'cashFlow':
-        return <CashFlowWidget isCompact={widget.isCompact} />;
-      
+        return <CashFlowWidget {...(widget.isCompact ? { isCompact: widget.isCompact } : {})} />;
+
       case 'recentAlerts':
-        return <RecentAlertsWidget isCompact={widget.isCompact} />;
-      
+        return <RecentAlertsWidget {...(widget.isCompact ? { isCompact: widget.isCompact } : {})} />;
+
       case 'netWorthTrend':
-        return <NetWorthTrendWidget isCompact={widget.isCompact} />;
-      
+        return <NetWorthTrendWidget {...(widget.isCompact ? { isCompact: widget.isCompact } : {})} />;
+
       case 'expenseCategories':
-        return <ExpenseCategoriesWidget isCompact={widget.isCompact} />;
+        return <ExpenseCategoriesWidget {...(widget.isCompact ? { isCompact: widget.isCompact } : {})} />;
       
       default:
         return <div className="text-gray-500">Widget content</div>;
@@ -458,7 +457,7 @@ export default function EnhancedDraggableDashboard(): React.JSX.Element {
                     id={widget.id}
                     title={widget.title}
                     isEditMode={isEditMode}
-                    isCompact={widget.isCompact}
+                    isCompact={Boolean(widget.isCompact)}
                     onRemove={() => handleRemoveWidget(widget.id)}
                     onToggleSize={() => handleToggleSize(widget.id)}
                   >

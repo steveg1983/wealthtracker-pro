@@ -5,6 +5,7 @@
 
 import { Matrix } from 'ml-matrix';
 import * as ss from 'simple-statistics';
+// @ts-ignore - no types available for regression library
 import regression from 'regression';
 import { 
   startOfMonth, 
@@ -27,6 +28,16 @@ import {
 import type { Transaction, Account, Budget, Goal } from '../types';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
+
+type RegressionResult = {
+  equation: number[];
+  r2: number;
+  predict: (input: number) => [number, number];
+};
+
+const normaliseDate = (value: string | Date): Date => {
+  return typeof value === 'string' ? parseISO(value) : value;
+};
 
 // Time intelligence types
 export type PeriodType = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
@@ -123,8 +134,8 @@ class AnalyticsEngine {
 
     return {
       value: currentValue,
-      change: comparisonType !== 'percentage' ? change : undefined,
-      changePercent: comparisonType !== 'absolute' ? changePercent : undefined,
+      ...(comparisonType !== 'percentage' ? { change } : {}),
+      ...(comparisonType !== 'absolute' ? { changePercent } : {}),
       trend: change > 0 ? 'up' : change < 0 ? 'down' : 'stable'
     };
   }
@@ -195,7 +206,7 @@ class AnalyticsEngine {
           cohortKey = transaction.category || 'Uncategorized';
           break;
         case 'month':
-          cohortKey = format(parseISO(transaction.date), 'yyyy-MM');
+          cohortKey = format(normaliseDate(transaction.date), 'yyyy-MM');
           break;
       }
 
@@ -210,14 +221,14 @@ class AnalyticsEngine {
 
     cohorts.forEach((cohortTransactions, cohortKey) => {
       const periods: Array<{ period: number; value: number }> = [];
-      const firstDate = new Date(Math.min(...cohortTransactions.map(t => new Date(t.date).getTime())));
+      const firstDate = new Date(Math.min(...cohortTransactions.map(t => normaliseDate(t.date).getTime())));
 
       for (let period = 0; period < 12; period++) {
         const periodStart = addMonths(firstDate, period);
         const periodEnd = endOfMonth(periodStart);
 
         const periodTransactions = cohortTransactions.filter(t => {
-          const tDate = parseISO(t.date);
+          const tDate = normaliseDate(t.date);
           return isWithinInterval(tDate, { start: periodStart, end: periodEnd });
         });
 
@@ -281,8 +292,8 @@ class AnalyticsEngine {
       changeRate: (result.equation[0] / (values[0] || 1)) * 100,
       seasonality: {
         detected: Math.abs(seasonalStrength) > 0.3,
-        pattern: Math.abs(seasonalStrength) > 0.3 ? 'monthly' : undefined,
-        strength: Math.abs(seasonalStrength)
+        ...(Math.abs(seasonalStrength) > 0.3 ? { pattern: 'monthly' } : {}),
+        ...(Math.abs(seasonalStrength) > 0 ? { strength: Math.abs(seasonalStrength) } : {})
       }
     };
   }
@@ -302,11 +313,15 @@ class AnalyticsEngine {
       throw new Error('Insufficient data for forecasting');
     }
 
-    const values = historicalData.map((d, i) => [i, d.y]);
+    const values: Array<[number, number]> = historicalData.map((d, i) => [i, d.y ?? 0]);
     
     // Select best model if auto
     let selectedModel = model;
-    let bestFit = { equation: [0, 0], r2: 0, predict: (x: number) => [0, 0] };
+    let bestFit: RegressionResult = {
+      equation: [0, 0],
+      r2: 0,
+      predict: (input: number) => [input, 0]
+    };
     
     if (model === 'auto') {
       const models = {
@@ -321,19 +336,19 @@ class AnalyticsEngine {
         if (fit.r2 > maxR2) {
           maxR2 = fit.r2;
           selectedModel = name as any;
-          bestFit = fit;
+          bestFit = fit as RegressionResult;
         }
       });
     } else {
       switch (model) {
         case 'linear':
-          bestFit = regression.linear(values);
+          bestFit = regression.linear(values) as RegressionResult;
           break;
         case 'exponential':
-          bestFit = regression.exponential(values);
+          bestFit = regression.exponential(values) as RegressionResult;
           break;
         case 'polynomial':
-          bestFit = regression.polynomial(values, { order: 2 });
+          bestFit = regression.polynomial(values, { order: 2 }) as RegressionResult;
           break;
       }
     }
@@ -341,16 +356,35 @@ class AnalyticsEngine {
     // Generate predictions
     const predictions: Array<{ date: Date; value: number; lower: number; upper: number }> = [];
     const lastIndex = values.length - 1;
-    const lastDate = parseISO(historicalData[historicalData.length - 1].x as string);
+    const lastDataPoint = historicalData[historicalData.length - 1];
+    if (!lastDataPoint) {
+      return {
+        predictions,
+        accuracy: bestFit.r2,
+        model: selectedModel,
+        parameters: {
+          equation: bestFit.equation,
+          dataPoints: values.length
+        }
+      };
+    }
+
+    const lastDate = parseISO(lastDataPoint.x as string);
+    const safePredict = (input: number): number => {
+      const result = bestFit.predict(input);
+      return Array.isArray(result) && typeof result[1] === 'number' ? result[1] : 0;
+    };
     
     // Calculate confidence intervals based on historical variance
-    const residuals = values.map(([x, y]) => y - bestFit.predict(x)[1]);
-    const stdError = ss.standardDeviation(residuals);
+    const residuals = values.map(([x, y]) => y - safePredict(x));
+    const stdError = ss.standardDeviation(residuals) || 1;
     
     for (let i = 1; i <= periods; i++) {
       const futureIndex = lastIndex + i;
-      const prediction = bestFit.predict(futureIndex)[1];
-      const confidence = 1.96 * stdError * Math.sqrt(1 + 1/values.length + Math.pow(futureIndex - ss.mean(values.map(v => v[0])), 2) / ss.sum(values.map(v => Math.pow(v[0] - ss.mean(values.map(v => v[0])), 2))));
+      const prediction = safePredict(futureIndex);
+      const meanX = ss.mean(values.map(v => v[0])) || 0;
+      const sumSquaredDeviations = ss.sum(values.map(v => Math.pow(v[0] - meanX, 2))) || 1;
+      const confidence = 1.96 * stdError * Math.sqrt(1 + 1/values.length + Math.pow(futureIndex - meanX, 2) / sumSquaredDeviations);
       
       predictions.push({
         date: addMonths(lastDate, i),
@@ -386,7 +420,7 @@ class AnalyticsEngine {
     
     months.forEach(month => {
       const monthTransactions = transactions.filter(t => 
-        format(parseISO(t.date), 'yyyy-MM') === month
+        format(normaliseDate(t.date), 'yyyy-MM') === month
       );
       
       const monthMetrics = new Map<string, number>();
@@ -418,8 +452,8 @@ class AnalyticsEngine {
         const values2: number[] = [];
         
         monthlyData.forEach(monthMetrics => {
-          const v1 = monthMetrics.get(metric1);
-          const v2 = monthMetrics.get(metric2);
+          const v1 = metric1 ? monthMetrics.get(metric1) : undefined;
+          const v2 = metric2 ? monthMetrics.get(metric2) : undefined;
           if (v1 !== undefined && v2 !== undefined) {
             values1.push(v1);
             values2.push(v2);
@@ -431,8 +465,8 @@ class AnalyticsEngine {
           const absCorr = Math.abs(correlation);
           
           results.push({
-            variable1: metric1,
-            variable2: metric2,
+            variable1: metric1 || 'unknown',
+            variable2: metric2 || 'unknown',
             correlation,
             pValue: this.calculatePValue(correlation, values1.length),
             strength: absCorr > 0.7 ? 'strong' : absCorr > 0.4 ? 'moderate' : absCorr > 0.2 ? 'weak' : 'none',
@@ -508,7 +542,7 @@ class AnalyticsEngine {
   
   private filterByTimeRange(transactions: Transaction[], range: TimeRange): Transaction[] {
     return transactions.filter(t => {
-      const date = parseISO(t.date);
+      const date = normaliseDate(t.date);
       return isWithinInterval(date, { start: range.start, end: range.end });
     });
   }
@@ -526,10 +560,11 @@ class AnalyticsEngine {
         return transactions
           .filter(t => t.type === 'expense')
           .reduce((sum, t) => sum + t.amount, 0);
-      case 'net':
+      case 'net': {
         const income = this.calculateMetric(transactions, 'income');
         const expenses = this.calculateMetric(transactions, 'expenses');
         return income - expenses;
+      }
       case 'count':
         return transactions.length;
     }
@@ -543,7 +578,7 @@ class AnalyticsEngine {
     const grouped = new Map<string, Transaction[]>();
 
     transactions.forEach(transaction => {
-      const date = parseISO(transaction.date);
+      const date = normaliseDate(transaction.date);
       let key: string;
 
       switch (period) {
@@ -592,7 +627,9 @@ class AnalyticsEngine {
     
     let sum = 0;
     for (let i = 0; i < data.length - lag; i++) {
-      sum += (data[i] - mean) * (data[i + lag] - mean);
+      const current = data[i] ?? 0;
+      const lagged = data[i + lag] ?? 0;
+      sum += (current - mean) * (lagged - mean);
     }
     
     return (sum / (data.length - lag)) / c0;
@@ -634,7 +671,7 @@ class AnalyticsEngine {
   private getUniqueMonths(transactions: Transaction[]): string[] {
     const months = new Set<string>();
     transactions.forEach(t => {
-      months.add(format(parseISO(t.date), 'yyyy-MM'));
+      months.add(format(normaliseDate(t.date), 'yyyy-MM'));
     });
     return Array.from(months).sort();
   }

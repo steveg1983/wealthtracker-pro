@@ -1,0 +1,14 @@
+// Add this import at the top:
+import { formatCurrency } from '../utils/formatters';
+
+// Then replace all instances of:
+£{someValue.toFixed(2)}
+
+// With:
+{formatCurrency(someValue)}
+
+// For example, change:
+<p className="text-2xl font-bold">£{totalBalance.toFixed(2)}</p>
+
+// To:
+<p className="text-2xl font-bold">{formatCurrency(totalBalance)}</p>

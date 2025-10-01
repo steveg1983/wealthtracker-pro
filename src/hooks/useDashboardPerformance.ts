@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { unstable_batchedUpdates as reactDomBatchedUpdates } from 'react-dom';
 import { useApp } from '../contexts/AppContextSupabase';
 
 interface PerformanceMetrics {
@@ -282,9 +283,8 @@ export const performanceUtils = {
   // Batch updates for multiple state changes
   batchUpdates<T>(updates: Array<() => void>): void {
     // Use React's unstable_batchedUpdates if available
-    if ('unstable_batchedUpdates' in require('react-dom')) {
-      const { unstable_batchedUpdates } = require('react-dom');
-      unstable_batchedUpdates(() => {
+    if (typeof reactDomBatchedUpdates === 'function') {
+      reactDomBatchedUpdates(() => {
         updates.forEach(update => update());
       });
     } else {

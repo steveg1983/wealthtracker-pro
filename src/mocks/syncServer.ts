@@ -81,7 +81,11 @@ class MockSyncServer {
     });
   }
 
-  private handleSyncOperation(socket: any, operation: any, callback: Function): void {
+  private handleSyncOperation(
+    socket: any,
+    operation: any,
+    callback: (result: { success: boolean; error?: string; operationId?: string }) => void
+  ): void {
     const { id, type, entity, entityId, data, timestamp, clientId, version } = operation;
     
     console.log(`Sync operation received: ${type} ${entity} ${entityId}`);
@@ -161,7 +165,11 @@ class MockSyncServer {
     clock.set(clientId, version);
   }
 
-  private handleConflictResolution(socket: any, resolution: any, callback: Function): void {
+  private handleConflictResolution(
+    socket: any,
+    resolution: any,
+    callback: (result: { success: boolean }) => void
+  ): void {
     const { conflictId, choice, mergedData } = resolution;
     
     console.log(`Conflict resolution: ${conflictId} - ${choice}`);

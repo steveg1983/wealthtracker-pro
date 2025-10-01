@@ -1,0 +1,36 @@
+diff --git a/node_modules/tailwindcss/peers/index.js b/node_modules/tailwindcss/peers/index.js
+index 25f2ad4..c0427fa 100644
+--- a/node_modules/tailwindcss/peers/index.js
++++ b/node_modules/tailwindcss/peers/index.js
+@@ -335,7 +335,7 @@ var require_terminal_highlight = __commonJS({
+       return type;
+     }
+     function terminalHighlight(css) {
+-      let processor = tokenizer(new Input(css), { ignoreErrors: true });
++      let processor = tokenizer(new Input(css, { from: 'inline.css' }), { ignoreErrors: true });
+       let result = "";
+       while (!processor.endOfFile()) {
+         let token = processor.nextToken();
+@@ -3654,6 +3654,9 @@ var require_input = __commonJS({
+     var pathAvailable = Boolean(resolve && isAbsolute);
+     var Input = class {
+       constructor(css, opts = {}) {
++        if (opts.from === undefined) {
++          opts = { ...opts, from: 'inline.css' };
++        }
+         if (css === null || typeof css === "undefined" || typeof css === "object" && !css.toString) {
+           throw new Error(`PostCSS received ${css} instead of CSS string`);
+         }
+@@ -4896,7 +4899,11 @@ var require_parse = __commonJS({
+     var Input = require_input();
+     var Parser = require_parser();
+     function parse(css, opts) {
+-      let input = new Input(css, opts);
++      let normalizedOpts = opts ? { ...opts } : {};
++      if (normalizedOpts.from === undefined) {
++        normalizedOpts.from = 'inline.css';
++      }
++      let input = new Input(css, normalizedOpts);
+       let parser = new Parser(input);
+       try {
+         parser.parse();

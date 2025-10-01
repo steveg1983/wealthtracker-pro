@@ -3,6 +3,8 @@
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import * as ReactDOMClient from 'react-dom/client';
+import * as ReactJSXRuntime from 'react/jsx-runtime';
+import * as ReactJSXDevRuntime from 'react/jsx-dev-runtime';
 
 // Make React available globally in production
 // This fixes issues where minified code expects React to be available
@@ -13,6 +15,21 @@ if (typeof window !== 'undefined') {
   win.React = React;
   win.ReactDOM = ReactDOM;
   win.ReactDOMClient = ReactDOMClient;
+  win.ReactJSXRuntime = ReactJSXRuntime;
+  win.ReactJSXDevRuntime = ReactJSXDevRuntime;
+
+  const assignIfMissing = (target: any, key: string, value: unknown) => {
+    if (!target[key] && value) {
+      Object.defineProperty(target, key, {
+        configurable: true,
+        enumerable: false,
+        get: () => value
+      });
+    }
+  };
+
+  // Remove manual JSX runtime setup - let Vite automatic JSX runtime handle this
+  // The automatic runtime imports jsx functions per-file, no need for global setup
   
   // Also ensure common React methods are directly available
   // This helps with minified code that might reference these directly
@@ -25,6 +42,7 @@ if (typeof window !== 'undefined') {
   
   // Log to confirm React is available (only in dev)
   if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
     console.log('React fix applied:', {
       React: !!win.React,
       Component: !!win.React?.Component,

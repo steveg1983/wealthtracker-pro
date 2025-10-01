@@ -1,24 +1,18 @@
 import { lazy, Suspense, useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { TrendingUpIcon, TrendingDownIcon, BanknoteIcon, GridIcon, BarChart3Icon, DatabaseIcon } from '../components/icons';
+import { BanknoteIcon } from '../components/icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useReconciliation } from '../hooks/useReconciliation';
-import { useLayoutConfig } from '../hooks/useLayoutConfig';
-import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
-import type { Account, Transaction } from '../types';
-import type { ReportSettings } from '../components/IncomeExpenditureReport';
+import { SkeletonCard } from '../components/loading/Skeleton';
 import PageWrapper from '../components/PageWrapper';
+import type { LineBarChartData, LineBarChartOptions } from '../components/charts/OptimizedChart';
+import { format, subMonths } from 'date-fns';
+import { toDecimal } from '../utils/decimal';
 
 // Lazy load heavy components
-const OptimizedCharts = lazy(() => import('../components/charts/OptimizedCharts'));
-const DraggableGrid = lazy(() => import('../components/layout/DraggableGrid').then(m => ({ default: m.DraggableGrid })));
-const GridItem = lazy(() => import('../components/layout/GridItem').then(m => ({ default: m.GridItem })));
+const LazyOptimizedChart = lazy(() => import('../components/charts/OptimizedChart'));
 const TestDataWarningModal = lazy(() => import('../components/TestDataWarningModal'));
 const OnboardingModal = lazy(() => import('../components/OnboardingModal'));
-const DashboardModal = lazy(() => import('../components/DashboardModal'));
-const EditTransactionModal = lazy(() => import('../components/EditTransactionModal'));
 const CustomizableDashboard = lazy(() => import('../components/CustomizableDashboard'));
 const DataImportExport = lazy(() => import('../components/DataImportExport'));
 
@@ -38,24 +32,107 @@ const DashboardSkeleton = () => (
 );
 
 export default function DashboardOptimized() {
-  const { accounts, transactions, hasTestData, clearAllData } = useApp();
+  const { accounts, transactions, clearAllData } = useApp();
   const { firstName, setFirstName, setCurrency } = usePreferences();
-  const { formatCurrency, convertAndSum, displayCurrency } = useCurrencyDecimal();
-  const { layouts, updateDashboardLayout, resetDashboardLayout } = useLayoutConfig();
-  const navigate = useNavigate();
+  const { formatCurrency } = useCurrencyDecimal();
   const [activeTab, setActiveTab] = useState<'classic' | 'modern' | 'import-export'>('classic');
   const [isLoading, setIsLoading] = useState(true);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showLayoutControls, setShowLayoutControls] = useState(false);
   const [chartsLoaded, setChartsLoaded] = useState(false);
+
+  const hasTestData = useMemo(
+    () => accounts.some(account => account.name === 'Main Checking' || account.name === 'Savings Account'),
+    [accounts]
+  );
+
+  const incomeExpenseChart = useMemo<LineBarChartData>(() => {
+    const now = new Date();
+    const monthLabels: string[] = [];
+    const monthBuckets = new Map<string, { income: number; expenses: number }>();
+
+    for (let offset = 5; offset >= 0; offset -= 1) {
+      const monthDate = subMonths(now, offset);
+      const label = format(monthDate, 'MMM yyyy');
+      monthLabels.push(label);
+      monthBuckets.set(label, { income: 0, expenses: 0 });
+    }
+
+    transactions.forEach(transaction => {
+      const rawDate = transaction.date instanceof Date ? transaction.date : new Date(transaction.date);
+      if (Number.isNaN(rawDate.getTime())) {
+        return;
+      }
+      const label = format(new Date(rawDate.getFullYear(), rawDate.getMonth(), 1), 'MMM yyyy');
+      const bucket = monthBuckets.get(label);
+      if (!bucket) {
+        return;
+      }
+
+      const amountDecimal = toDecimal(transaction.amount);
+      if (transaction.type === 'income') {
+        bucket.income += amountDecimal.toNumber();
+      } else if (transaction.type === 'expense') {
+        bucket.expenses += Math.abs(amountDecimal.toNumber());
+      }
+    });
+
+    const chartRows = monthLabels.map(label => ({
+      month: label,
+      income: monthBuckets.get(label)?.income ?? 0,
+      expenses: monthBuckets.get(label)?.expenses ?? 0
+    }));
+
+    return {
+      xKey: 'month',
+      data: chartRows,
+      datasets: [
+        {
+          key: 'income',
+          name: 'Income',
+          color: '#16a34a',
+          strokeWidth: 2,
+          type: 'monotone'
+        },
+        {
+          key: 'expenses',
+          name: 'Expenses',
+          color: '#ef4444',
+          strokeWidth: 2,
+          type: 'monotone'
+        }
+      ]
+    };
+  }, [transactions]);
+
+  const incomeExpenseOptions = useMemo<LineBarChartOptions>(() => ({
+    title: 'Income vs Expenses (Last 6 Months)',
+    legendPosition: 'top',
+    tooltipFormatter: value => formatCurrency(value),
+    yAxisFormatter: value => formatCurrency(value),
+    showDots: false,
+    showGrid: true
+  }), [formatCurrency]);
+
+  const handleOnboardingComplete = (name: string, currency: string) => {
+    setFirstName(name);
+    setCurrency(currency);
+    setShowOnboarding(false);
+  };
 
   // Simulate initial loading
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
       // Load charts after initial render
-      requestIdleCallback(() => setChartsLoaded(true));
+      if (typeof window !== 'undefined') {
+        const idle = (window as typeof window & { requestIdleCallback?: (cb: IdleRequestCallback) => void }).requestIdleCallback;
+        if (typeof idle === 'function') {
+          idle(() => setChartsLoaded(true));
+          return;
+        }
+      }
+      setChartsLoaded(true);
     }, 100);
     return () => clearTimeout(timer);
   }, []);
@@ -73,14 +150,14 @@ export default function DashboardOptimized() {
 
   if (isLoading) {
     return (
-      <PageWrapper>
+      <PageWrapper title="Optimized Dashboard">
         <DashboardSkeleton />
       </PageWrapper>
     );
   }
 
   return (
-    <PageWrapper>
+    <PageWrapper title="Optimized Dashboard">
       <Suspense fallback={<DashboardSkeleton />}>
         <div className="space-y-6">
           {/* Tab navigation */}
@@ -137,9 +214,16 @@ export default function DashboardOptimized() {
 
               {/* Charts load after initial render */}
               {chartsLoaded && (
-                <Suspense fallback={<SkeletonCard className="h-64" />}>
-                  <OptimizedCharts />
-                </Suspense>
+                <div className="h-80">
+                  <Suspense fallback={<SkeletonCard className="h-80" />}>
+                    <LazyOptimizedChart
+                      type="line"
+                      data={incomeExpenseChart}
+                      options={incomeExpenseOptions}
+                      height={320}
+                    />
+                  </Suspense>
+                </div>
               )}
             </div>
           )}
@@ -172,7 +256,7 @@ export default function DashboardOptimized() {
           <Suspense fallback={null}>
             <OnboardingModal
               isOpen={showOnboarding}
-              onClose={() => setShowOnboarding(false)}
+              onComplete={handleOnboardingComplete}
             />
           </Suspense>
         )}

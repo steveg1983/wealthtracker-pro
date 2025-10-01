@@ -2,31 +2,26 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
-import { TrendingUpIcon, TrendingDownIcon, ActivityIcon, DollarSignIcon } from '../../icons';
+import { TrendingUpIcon, TrendingDownIcon, ActivityIcon } from '../../icons';
 import { toDecimal } from '../../../utils/decimal';
-import { Line } from 'react-chartjs-2';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-} from 'chart.js';
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip
+} from 'recharts';
+import type { TooltipProps } from 'recharts';
+import type { NameType, ValueType } from 'recharts/types/component/DefaultTooltipContent';
+import { generateChartColors } from '../../charts/optimizedChartHelpers';
+import type { Account } from '../../../types';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+const getAccountSubtype = (account: Account): string | null => {
+  const subtype = (account as { subtype?: unknown }).subtype;
+  return typeof subtype === 'string' ? subtype : null;
+};
 
 interface InvestmentPerformanceWidgetProps {
   isCompact?: boolean;
@@ -34,13 +29,16 @@ interface InvestmentPerformanceWidgetProps {
 
 export default function InvestmentPerformanceWidget({ isCompact = false }: InvestmentPerformanceWidgetProps): React.JSX.Element {
   const navigate = useNavigate();
-  const { accounts, transactions } = useApp();
+  const { accounts } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
+  const chartPalette = useMemo(() => generateChartColors(2), []);
+  const primaryChartColor = chartPalette[0] ?? '#3b82f6';
+  const secondaryChartColor = chartPalette[1] ?? 'rgba(59, 130, 246, 0.35)';
 
   const investmentData = useMemo(() => {
     // Get investment accounts
     const investmentAccounts = accounts.filter(acc => 
-      acc.type === 'investment' || acc.type === 'retirement'
+      acc.type === 'investment' || getAccountSubtype(acc) === 'retirement'
     );
 
     // Calculate total portfolio value
@@ -56,7 +54,7 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
     
     // Calculate gains/losses
     const dayChange = totalValue.times(0.0045); // Mock daily change
-    const monthChange = totalValue.times(monthlyReturn / 100);
+    const monthChange = totalValue.times((monthlyReturn || 0) / 100);
     const yearChange = totalValue.times(ytdReturn / 100);
 
     // Generate chart data (mock historical values)
@@ -70,7 +68,10 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
       baseValue * 0.97,
       baseValue * 0.98,
       baseValue
-    ];
+    ].map((value, index) => ({
+      label: chartLabels[index],
+      value
+    }));
 
     // Find best and worst performers (mock data)
     const performers = investmentAccounts.map(acc => ({
@@ -108,56 +109,22 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
     );
   }
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false
-      },
-      tooltip: {
-        callbacks: {
-          label: (context: any) => {
-            return formatCurrency(context.parsed.y);
-          }
-        }
-      }
-    },
-    scales: {
-      x: {
-        display: !isCompact,
-        grid: {
-          display: false
-        }
-      },
-      y: {
-        display: !isCompact,
-        grid: {
-          color: 'rgba(0, 0, 0, 0.05)'
-        },
-        ticks: {
-          callback: (value: any) => {
-            return formatCurrency(value);
-          }
-        }
-      }
+  const chartTooltip = ({ active, payload }: TooltipProps<ValueType, NameType>) => {
+    if (!active || !payload?.length) {
+      return null;
     }
-  };
 
-  const chartDataConfig = {
-    labels: investmentData.chartLabels,
-    datasets: [
-      {
-        label: 'Portfolio Value',
-        data: investmentData.chartData,
-        borderColor: investmentData.yearChange.isPositive() ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)',
-        backgroundColor: investmentData.yearChange.isPositive() 
-          ? 'rgba(34, 197, 94, 0.1)' 
-          : 'rgba(239, 68, 68, 0.1)',
-        fill: true,
-        tension: 0.4
-      }
-    ]
+    const datum = payload[0];
+    const rawValue = datum?.value ?? 0;
+    const value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+    return (
+      <div className="rounded-md bg-white px-3 py-2 shadow-md dark:bg-gray-800">
+        <p className="text-xs text-gray-500 dark:text-gray-400">Portfolio Value</p>
+        <p className="text-sm font-medium text-gray-900 dark:text-white">
+          {formatCurrency(value)}
+        </p>
+      </div>
+    );
   };
 
   return (
@@ -173,15 +140,15 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
         </div>
         <div className="flex items-center gap-3 mt-2">
           <div className={`flex items-center gap-1 ${
-            investmentData.dayChange.isPositive() ? 'text-green-600' : 'text-red-600'
+            investmentData.dayChange.greaterThan(0) ? 'text-green-600' : 'text-red-600'
           }`}>
-            {investmentData.dayChange.isPositive() ? (
+            {investmentData.dayChange.greaterThan(0) ? (
               <TrendingUpIcon size={14} />
             ) : (
               <TrendingDownIcon size={14} />
             )}
             <span className="text-sm font-medium">
-              {investmentData.dayChange.isPositive() ? '+' : ''}{formatCurrency(investmentData.dayChange.toNumber())}
+              {investmentData.dayChange.greaterThan(0) ? '+' : ''}{formatCurrency(investmentData.dayChange.toNumber())}
             </span>
           </div>
           <span className="text-xs text-gray-400">Today</span>
@@ -191,7 +158,26 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
       {/* Performance Chart */}
       {!isCompact && (
         <div className="h-32">
-          <Line data={chartDataConfig} options={chartOptions} />
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={investmentData.chartData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.25)" />
+              <XAxis dataKey="label" axisLine={false} tickLine={false} />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={value => formatCurrency(Number(value))}
+              />
+              <RechartsTooltip content={chartTooltip} />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke={primaryChartColor}
+                strokeWidth={2}
+                dot={false}
+                activeDot={{ r: 4, stroke: primaryChartColor, strokeWidth: 2 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       )}
 
@@ -199,9 +185,9 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
       <div className="grid grid-cols-3 gap-2">
         <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
           <div className={`text-sm font-semibold ${
-            investmentData.monthlyReturn >= 0 ? 'text-green-600' : 'text-red-600'
+            (investmentData.monthlyReturn || 0) >= 0 ? 'text-green-600' : 'text-red-600'
           }`}>
-            {investmentData.monthlyReturn >= 0 ? '+' : ''}{investmentData.monthlyReturn.toFixed(1)}%
+            {(investmentData.monthlyReturn || 0) >= 0 ? '+' : ''}{(investmentData.monthlyReturn || 0).toFixed(1)}%
           </div>
           <div className="text-xs text-gray-500 dark:text-gray-400">Month</div>
         </div>
@@ -226,7 +212,10 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
       {/* Top/Bottom Performers */}
       {!isCompact && investmentData.topPerformer && investmentData.worstPerformer && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between p-2 bg-green-50 dark:bg-green-900/20 rounded">
+          <div
+            className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded border-l-4"
+            style={{ borderColor: primaryChartColor }}
+          >
             <div>
               <div className="text-xs text-gray-600 dark:text-gray-400">Best Today</div>
               <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -234,13 +223,16 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
               </div>
             </div>
             <div className="text-right">
-              <div className="text-sm font-semibold text-green-600">
+              <div className="text-sm font-semibold" style={{ color: primaryChartColor }}>
                 +{investmentData.topPerformer.change.toFixed(1)}%
               </div>
             </div>
           </div>
-          
-          <div className="flex items-center justify-between p-2 bg-red-50 dark:bg-red-900/20 rounded">
+
+          <div
+            className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded border-l-4"
+            style={{ borderColor: secondaryChartColor }}
+          >
             <div>
               <div className="text-xs text-gray-600 dark:text-gray-400">Worst Today</div>
               <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -248,7 +240,7 @@ export default function InvestmentPerformanceWidget({ isCompact = false }: Inves
               </div>
             </div>
             <div className="text-right">
-              <div className="text-sm font-semibold text-red-600">
+              <div className="text-sm font-semibold" style={{ color: secondaryChartColor }}>
                 {investmentData.worstPerformer.change.toFixed(1)}%
               </div>
             </div>

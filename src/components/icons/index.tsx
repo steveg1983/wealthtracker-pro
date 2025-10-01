@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-imports */
 /**
  * Professional Icon System Export
  * Migrated to Tabler Icons for enterprise-grade appearance

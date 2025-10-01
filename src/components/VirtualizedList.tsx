@@ -1,5 +1,22 @@
-import React, { memo, useCallback, useRef, useMemo, ReactNode } from 'react';
-import { FixedSizeList as List, VariableSizeList } from 'react-window';
+import React, {
+  memo,
+  useCallback,
+  useRef,
+  useMemo,
+  useEffect,
+  type ReactNode,
+  type MutableRefObject
+} from 'react';
+import {
+  FixedSizeList as FixedSizeListComponent,
+  VariableSizeList as VariableSizeListComponent
+} from 'react-window';
+import type {
+  FixedSizeList,
+  VariableSizeList,
+  ListOnItemsRenderedProps,
+  ListChildComponentProps
+} from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import AutoSizer from 'react-virtualized-auto-sizer';
 
@@ -27,27 +44,9 @@ interface ItemData<T> {
   items: T[];
   renderItem: (item: T, index: number, style: React.CSSProperties) => ReactNode;
   getItemKey: (item: T, index: number) => string;
+  hasMore: boolean;
+  isLoading: boolean;
 }
-
-interface ItemRendererProps<T> {
-  index: number;
-  style: React.CSSProperties;
-  data: ItemData<T>;
-}
-
-// Memoized item renderer component
-const ItemRenderer = memo(function ItemRenderer<T>({ 
-  index, 
-  style, 
-  data 
-}: ItemRendererProps<T>) {
-  const { items, renderItem } = data;
-  const item = items[index];
-  
-  if (!item) return null;
-  
-  return <>{renderItem(item, index, style)}</>;
-});
 
 export const VirtualizedList = memo(function VirtualizedList<T>({
   items,
@@ -63,7 +62,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   threshold = 100,
   onItemsRendered
 }: VirtualizedListProps<T>) {
-  const listRef = useRef<List | VariableSizeList>(null);
+  const listRef = useRef<FixedSizeList<ItemData<T>> | VariableSizeList<ItemData<T>> | null>(null);
   const itemHeightMap = useRef<Map<number, number>>(new Map());
   
   // Determine if we need variable size list
@@ -73,8 +72,10 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   const itemData = useMemo<ItemData<T>>(() => ({
     items,
     renderItem,
-    getItemKey
-  }), [items, renderItem, getItemKey]);
+    getItemKey,
+    hasMore,
+    isLoading
+  }), [items, renderItem, getItemKey, hasMore, isLoading]);
   
   // Determine if an item is loaded
   const isItemLoaded = useCallback((index: number) => {
@@ -107,15 +108,39 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   }, [itemHeight]);
   
   // Reset height cache when items change
-  useMemo(() => {
+  useEffect(() => {
     if (isVariableHeight) {
       itemHeightMap.current.clear();
     }
   }, [items, isVariableHeight]);
   
+  const renderRow = useCallback(
+    ({ index, style, data }: ListChildComponentProps<ItemData<T>>) => {
+      const item = data.items[index];
+
+      if (!item) {
+        if (!data.hasMore) {
+          return null;
+        }
+
+        return (
+          <div
+            style={style}
+            className="flex items-center justify-center text-sm text-gray-500"
+          >
+            Loading…
+          </div>
+        );
+      }
+
+      return <div style={style}>{data.renderItem(item, index, style)}</div>;
+    },
+    []
+  );
+
   // Determine if we should enable virtual scrolling
   const shouldVirtualize = items.length > threshold;
-  
+
   // Render non-virtualized list for small datasets
   if (!shouldVirtualize) {
     return (
@@ -128,7 +153,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
       </div>
     );
   }
-  
+
   return (
     <div className={`flex-1 w-full h-full overflow-hidden ${className}`}>
       <AutoSizer>
@@ -139,24 +164,26 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
             loadMoreItems={loadMoreItems}
           >
             {({ onItemsRendered: onInfiniteItemsRendered, ref }) => {
+              const assignListRef = (
+                list: FixedSizeList<ItemData<T>> | VariableSizeList<ItemData<T>> | null
+              ) => {
+                listRef.current = list;
+
+                if (typeof ref === 'function') {
+                  ref(list);
+                } else if (ref) {
+                  (ref as MutableRefObject<FixedSizeList<ItemData<T>> | VariableSizeList<ItemData<T>> | null>).current = list;
+                }
+              };
+
               return isVariableHeight ? (
-                <VariableSizeList
-                  ref={(list) => {
-                    // Handle both refs
-                    if (list) {
-                      listRef.current = list;
-                      if (typeof ref === 'function') {
-                        ref(list);
-                      } else if (ref) {
-                        ref.current = list;
-                      }
-                    }
-                  }}
+                <VariableSizeListComponent<ItemData<T>>
+                  ref={assignListRef}
                   height={height}
                   itemCount={itemCount}
                   itemSize={getItemSize}
                   itemData={itemData}
-                  onItemsRendered={(props) => {
+                  onItemsRendered={(props: ListOnItemsRenderedProps) => {
                     onInfiniteItemsRendered(props);
                     onItemsRendered?.(props);
                   }}
@@ -168,21 +195,11 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                     return item ? data.getItemKey(item, index) : `loading-${index}`;
                   }}
                 >
-                  {ItemRenderer}
-                </VariableSizeList>
+                  {renderRow}
+                </VariableSizeListComponent>
               ) : (
-                <List
-                  ref={(list) => {
-                    // Handle both refs
-                    if (list) {
-                      listRef.current = list;
-                      if (typeof ref === 'function') {
-                        ref(list);
-                      } else if (ref) {
-                        ref.current = list;
-                      }
-                    }
-                  }}
+                <FixedSizeListComponent<ItemData<T>>
+                  ref={assignListRef}
                   height={height}
                   itemCount={itemCount}
                   itemSize={itemHeight as number}
@@ -191,15 +208,15 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                     const item = data.items[index];
                     return item ? data.getItemKey(item, index) : `loading-${index}`;
                   }}
-                  onItemsRendered={(props) => {
+                  onItemsRendered={(props: ListOnItemsRenderedProps) => {
                     onInfiniteItemsRendered(props);
                     onItemsRendered?.(props);
                   }}
                   overscanCount={overscanCount}
                   width={width}
                 >
-                  {ItemRenderer}
-                </List>
+                  {renderRow}
+                </FixedSizeListComponent>
               );
             }}
           </InfiniteLoader>

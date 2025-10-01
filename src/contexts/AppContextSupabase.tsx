@@ -16,7 +16,9 @@ import {
   toDecimalAccount, 
   toDecimalGoal 
 } from '../utils/decimal-converters';
-import { logger } from '../services/loggingService';
+import { lazyLogger } from '../services/serviceFactory';
+
+const logger = lazyLogger.getLogger('AppContextSupabase');
 import type { 
   Account, 
   Transaction, 
@@ -24,8 +26,12 @@ import type {
   Budget, 
   Goal, 
   RecurringTransaction,
-  AppState 
+  Investment
 } from '../types';
+import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import type { Database } from '../types/supabase';
+
+type AccountRow = Database['public']['Tables']['accounts']['Row'];
 
 export interface Tag {
   id: string;
@@ -36,27 +42,38 @@ export interface Tag {
   updatedAt: Date;
 }
 
+type AppState = {
+  accounts: Account[];
+  transactions: Transaction[];
+  budgets: Budget[];
+  goals: Goal[];
+  categories: Category[];
+  tags: Tag[];
+  recurringTransactions: RecurringTransaction[];
+  investments: Investment[];
+};
+
 interface AppContextType extends AppState {
   // Account operations
-  addAccount: (account: Omit<Account, 'id' | 'balance'>) => void;
-  updateAccount: (id: string, updates: Partial<Account>) => void;
-  deleteAccount: (id: string) => void;
+  addAccount: (account: Omit<Account, 'id'> & { initialBalance?: number }) => Promise<Account>;
+  updateAccount: (id: string, updates: Partial<Account>) => Promise<Account>;
+  deleteAccount: (id: string) => Promise<void>;
   
   // Transaction operations
-  addTransaction: (transaction: Omit<Transaction, 'id'>) => void;
-  updateTransaction: (id: string, updates: Partial<Transaction>) => void;
-  deleteTransaction: (id: string) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id'>) => Promise<Transaction>;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<Transaction>;
+  deleteTransaction: (id: string) => Promise<void>;
   
   // Budget operations
-  addBudget: (budget: Omit<Budget, 'id' | 'spent'>) => void;
-  updateBudget: (id: string, updates: Partial<Budget>) => void;
-  deleteBudget: (id: string) => void;
+  addBudget: (budget: Omit<Budget, 'id' | 'spent' | 'createdAt' | 'updatedAt'>) => Promise<Budget>;
+  updateBudget: (id: string, updates: Partial<Budget>) => Promise<Budget>;
+  deleteBudget: (id: string) => Promise<void>;
   
   // Goal operations
-  addGoal: (goal: Omit<Goal, 'id' | 'progress'>) => void;
-  updateGoal: (id: string, updates: Partial<Goal>) => void;
-  deleteGoal: (id: string) => void;
-  contributeToGoal: (id: string, amount: number) => void;
+  addGoal: (goal: Omit<Goal, 'id' | 'progress' | 'createdAt' | 'updatedAt'>) => Promise<Goal>;
+  updateGoal: (id: string, updates: Partial<Goal>) => Promise<Goal>;
+  deleteGoal: (id: string) => Promise<void>;
+  contributeToGoal: (id: string, amount: number) => Promise<Goal>;
   
   // Category operations
   addCategory: (category: Omit<Category, 'id'>) => void;
@@ -72,10 +89,16 @@ interface AppContextType extends AppState {
   getTagUsageCount: (tagName: string) => number;
   getAllUsedTags: () => string[];
   
+  // Recurring transaction operations
+  addRecurringTransaction: (transaction: Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt' | 'nextDate'> & { nextDate?: Date }) => RecurringTransaction;
+  updateRecurringTransaction: (id: string, updates: Partial<RecurringTransaction>) => RecurringTransaction | undefined;
+  deleteRecurringTransaction: (id: string) => void;
+  
   // Other operations
   importData: (data: Partial<AppState>) => void;
   exportData: () => AppState;
   clearAllData: () => void;
+  refreshData: () => Promise<void>;
   getDecimalTransactions: () => any[]; // Returns DecimalTransaction[] for decimal calculations
   getDecimalAccounts: () => any[]; // Returns DecimalAccount[] for decimal calculations
   getDecimalGoals: () => any[]; // Returns DecimalGoal[] for decimal calculations
@@ -99,6 +122,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
+  const [investments, setInvestments] = useState<Investment[]>([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -154,11 +178,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           } else {
             logger.warn('[AppContext] Failed to resolve database user ID - no data will be loaded');
             setAccounts([]);
+            setInvestments([]);
           }
         } else {
           // No user logged in
           logger.debug('[AppContext] No user logged in');
           setAccounts([]);
+          setInvestments([]);
         }
         
         // Load other data through DataService for now
@@ -166,6 +192,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setTransactions(data.transactions);
         setBudgets(data.budgets);
         setGoals(data.goals);
+        setInvestments(data.investments ?? []);
         
         // Use default categories if none exist
         if (data.categories.length === 0) {
@@ -205,7 +232,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // Use the simple account service for real-time updates
           const unsubscribeAccountsPromise = SimpleAccountService.subscribeToAccountChanges(
             user.id,
-            async (payload) => {
+            async (payload: RealtimePostgresChangesPayload<AccountRow>) => {
               logger.debug('[AppContext] Real-time account update received:', payload);
               logger.debug('[AppContext] Update type:', payload.eventType);
               
@@ -279,11 +306,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const refreshData = useCallback(async () => {
     setIsSyncing(true);
     try {
-      const data = await DataService.refreshData();
+    const data = await DataService.refreshData();
       setAccounts(data.accounts);
       setTransactions(data.transactions);
       setBudgets(data.budgets);
       setGoals(data.goals);
+      setInvestments(data.investments ?? []);
       if (data.categories.length > 0) {
         setCategories(data.categories);
       }
@@ -343,6 +371,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // AutoSyncService is for offline-created items only
       
       return newAccount;
+      return newAccount;
     } catch (error) {
       logger.error('[AppContext] Failed to add account:', error);
       throw error;
@@ -363,6 +392,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             : cat
         ));
       }
+
+      return updatedAccount;
     } catch (error) {
       logger.error('Failed to update account:', error);
       throw error;
@@ -394,6 +425,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const addTransaction = useCallback(async (transaction: Omit<Transaction, 'id'>) => {
     try {
       const newTransaction = await DataService.createTransaction(transaction);
+      let resultTransaction = newTransaction;
       setTransactions(prev => [...prev, newTransaction]);
       
       // Update account balance locally for immediate UI feedback
@@ -447,8 +479,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }));
           
           logger.info('[AppContext] Linked transfer created:', { original: updatedOriginal, linked: newLinkedTransaction });
+          resultTransaction = updatedOriginal;
         }
       }
+
+      return resultTransaction;
     } catch (error) {
       logger.error('Failed to add transaction:', error);
       throw error;
@@ -529,7 +564,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             } else {
               // Category changed to non-transfer, remove link
               await DataService.deleteTransaction(linkedTransaction.id);
-              await DataService.updateTransaction(id, { linkedTransferId: undefined });
+              const { linkedTransferId, ...updateData } = updatedTransaction;
+              await DataService.updateTransaction(id, updateData);
               setTransactions(prev => prev.filter(t => t.id !== linkedTransaction.id));
             }
           } else {
@@ -567,6 +603,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
         }
       }
+
+      return updatedTransaction;
     } catch (error) {
       logger.error('Failed to update transaction:', error);
       throw error;
@@ -604,13 +642,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // This is the linked transaction, just remove the category from original
             const originalTransaction = transactions.find(t => t.linkedTransferId === id);
             if (originalTransaction) {
-              await DataService.updateTransaction(originalTransaction.id, { 
-                category: '', 
-                linkedTransferId: undefined 
+              const { linkedTransferId, ...originalData } = originalTransaction;
+              await DataService.updateTransaction(originalTransaction.id, {
+                ...originalData,
+                category: ''
               });
-              setTransactions(prev => prev.map(t => 
-                t.id === originalTransaction.id 
-                  ? { ...t, category: '', linkedTransferId: undefined }
+              setTransactions(prev => prev.map(t =>
+                t.id === originalTransaction.id
+                  ? (() => {
+                      const { linkedTransferId, ...tData } = t;
+                      return { ...tData, category: '' };
+                    })()
                   : t
               ));
             }
@@ -643,7 +685,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Budget operations using DataService
   const addBudget = useCallback(async (budget: Omit<Budget, 'id' | 'spent' | 'createdAt' | 'updatedAt'>) => {
     try {
-      const newBudget = await DataService.createBudget(budget);
+      const budgetInput: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'> = {
+        ...budget,
+        spent: 0
+      };
+      const newBudget = await DataService.createBudget(budgetInput);
       setBudgets(prev => [...prev, newBudget]);
       return newBudget;
     } catch (error) {
@@ -784,6 +830,84 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return Array.from(tagSet);
   }, [transactions]);
 
+  const normalizeDate = (value: Date | string | undefined): Date | undefined => {
+    if (!value) {
+      return undefined;
+    }
+    return value instanceof Date ? value : new Date(value);
+  };
+
+  const addRecurringTransaction = useCallback((transaction: Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt' | 'nextDate'> & { nextDate?: Date }) => {
+    const createdAt = new Date();
+    const startDate = transaction.startDate instanceof Date ? transaction.startDate : new Date(transaction.startDate);
+    const nextDate = transaction.nextDate ?? startDate;
+    const normalizedEndDate = normalizeDate(transaction.endDate);
+    const normalizedLastProcessed = normalizeDate(transaction.lastProcessed);
+
+    const recurring: RecurringTransaction = {
+      ...transaction,
+      id: crypto.randomUUID(),
+      startDate,
+      nextDate,
+      createdAt,
+      updatedAt: createdAt
+    };
+
+    if (normalizedEndDate) {
+      recurring.endDate = normalizedEndDate;
+    }
+
+    if (normalizedLastProcessed) {
+      recurring.lastProcessed = normalizedLastProcessed;
+    }
+
+    setRecurringTransactions(prev => [...prev, recurring]);
+    return recurring;
+  }, [normalizeDate]);
+
+  const updateRecurringTransaction = useCallback((id: string, updates: Partial<RecurringTransaction>) => {
+    let updatedRecurring: RecurringTransaction | undefined;
+    setRecurringTransactions(prev => prev.map(recurring => {
+      if (recurring.id !== id) {
+        return recurring;
+      }
+
+      const normalizedEndDate = updates.endDate === undefined ? recurring.endDate : normalizeDate(updates.endDate);
+      const normalizedLastProcessed = updates.lastProcessed === undefined ? recurring.lastProcessed : normalizeDate(updates.lastProcessed);
+      const normalizedStartDate = updates.startDate ? (updates.startDate instanceof Date ? updates.startDate : new Date(updates.startDate)) : recurring.startDate;
+      const normalizedNextDate = updates.nextDate ? (updates.nextDate instanceof Date ? updates.nextDate : new Date(updates.nextDate)) : recurring.nextDate;
+
+      const nextRecurring: RecurringTransaction = {
+        ...recurring,
+        ...updates,
+        startDate: normalizedStartDate,
+        nextDate: normalizedNextDate,
+        updatedAt: new Date()
+      };
+
+      if (normalizedEndDate) {
+        nextRecurring.endDate = normalizedEndDate;
+      } else {
+        delete (nextRecurring as { endDate?: Date }).endDate;
+      }
+
+      if (normalizedLastProcessed) {
+        nextRecurring.lastProcessed = normalizedLastProcessed;
+      } else {
+        delete (nextRecurring as { lastProcessed?: Date }).lastProcessed;
+      }
+
+      updatedRecurring = nextRecurring;
+      return nextRecurring;
+    }));
+
+    return updatedRecurring;
+  }, [normalizeDate]);
+
+  const deleteRecurringTransaction = useCallback((id: string) => {
+    setRecurringTransactions(prev => prev.filter(recurring => recurring.id !== id));
+  }, []);
+
   // Import/Export operations
   const importData = useCallback((data: Partial<AppState>) => {
     if (data.accounts) setAccounts(data.accounts);
@@ -793,6 +917,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (data.categories) setCategories(data.categories);
     if (data.tags) setTags(data.tags);
     if (data.recurringTransactions) setRecurringTransactions(data.recurringTransactions);
+    if (data.investments) setInvestments(data.investments);
   }, []);
 
   const exportData = useCallback((): AppState => {
@@ -803,9 +928,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       goals,
       categories,
       tags,
-      recurringTransactions
+      recurringTransactions,
+      investments
     };
-  }, [accounts, transactions, budgets, goals, categories, tags, recurringTransactions]);
+  }, [accounts, transactions, budgets, goals, categories, tags, recurringTransactions, investments]);
 
   const getDecimalTransactions = useCallback(() => {
     // Convert all transactions to decimal format for precise calculations
@@ -830,6 +956,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCategories(getDefaultCategories());
     setTags([]);
     setRecurringTransactions([]);
+    setInvestments([]);
   }, []);
 
   const value: AppContextType = {
@@ -841,6 +968,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     categories,
     tags,
     recurringTransactions,
+    investments,
     
     // Account operations
     addAccount,
@@ -876,11 +1004,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     deleteTag,
     getTagUsageCount,
     getAllUsedTags,
+
+    // Recurring transactions
+    addRecurringTransaction,
+    updateRecurringTransaction,
+    deleteRecurringTransaction,
     
     // Other operations
     importData,
     exportData,
     clearAllData,
+    refreshData,
     getDecimalTransactions,
     getDecimalAccounts,
     getDecimalGoals,

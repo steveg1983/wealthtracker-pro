@@ -6,7 +6,20 @@ import tseslint from 'typescript-eslint'
 import { globalIgnores } from 'eslint/config'
 
 export default tseslint.config([
-  globalIgnores(['dist']),
+  globalIgnores([
+    'dist',
+    'dist/**',
+    'coverage',
+    'coverage/**',
+    'logs',
+    'logs/**',
+    'playwright-report',
+    'playwright-report/**',
+    'src.backup.*',
+    'src.backup.*/**',
+    '*.backup.*',
+    '*.backup.*/**'
+  ]),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
@@ -72,7 +85,7 @@ export default tseslint.config([
   },
   // Allow console in scripts and debug tools
   {
-    files: ['scripts/**/*.{ts,tsx}', 'src/hooks/useAccessibilityAudit.tsx'],
+    files: ['scripts/**/*.{ts,tsx}', 'src/hooks/useAccessibilityAudit.tsx', 'src/services/loggingService.ts'],
     rules: {
       'no-console': 'off'
     }

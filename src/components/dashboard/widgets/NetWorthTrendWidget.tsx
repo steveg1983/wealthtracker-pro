@@ -3,31 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
 import { TrendingUpIcon, TrendingDownIcon, WalletIcon } from '../../icons';
-import { Line } from 'react-chartjs-2';
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-} from 'chart.js';
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip
+} from 'recharts';
+import type { TooltipProps } from 'recharts';
+import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
 import { format, subMonths } from 'date-fns';
 import { toDecimal } from '../../../utils/decimal';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
+import { generateChartColors } from '../../charts/optimizedChartHelpers';
 
 interface NetWorthTrendWidgetProps {
   isCompact?: boolean;
@@ -37,6 +26,14 @@ export default function NetWorthTrendWidget({ isCompact = false }: NetWorthTrend
   const navigate = useNavigate();
   const { accounts, transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
+  const [trendStrokeUp, trendStrokeDown] = useMemo(() => {
+    const palette = generateChartColors(2);
+    return [palette[0] ?? '#22c55e', palette[1] ?? '#ef4444'];
+  }, []);
+  const [trendFillUp, trendFillDown] = useMemo(() => {
+    const palette = generateChartColors(2, 0.15);
+    return [palette[0] ?? 'rgba(34, 197, 94, 0.15)', palette[1] ?? 'rgba(239, 68, 68, 0.15)'];
+  }, []);
 
   const netWorthData = useMemo(() => {
     // Calculate current net worth
@@ -90,8 +87,11 @@ export default function NetWorthTrendWidget({ isCompact = false }: NetWorthTrend
     }
 
     // Calculate changes
-    const lastMonth = historicalData[historicalData.length - 2]?.value || currentNetWorth.toNumber();
-    const sixMonthsAgo = historicalData[0]?.value || currentNetWorth.toNumber();
+    const lastMonthIndex = historicalData.length - 2;
+    const lastMonthEntry = lastMonthIndex >= 0 ? historicalData[lastMonthIndex] : undefined;
+    const lastMonth = lastMonthEntry?.value ?? currentNetWorth.toNumber();
+    const firstEntry = historicalData[0];
+    const sixMonthsAgo = firstEntry?.value ?? currentNetWorth.toNumber();
     
     const monthChange = currentNetWorth.toNumber() - lastMonth;
     const monthChangePercent = lastMonth !== 0 ? (monthChange / lastMonth) * 100 : 0;
@@ -100,14 +100,18 @@ export default function NetWorthTrendWidget({ isCompact = false }: NetWorthTrend
     const sixMonthChangePercent = sixMonthsAgo !== 0 ? (sixMonthChange / sixMonthsAgo) * 100 : 0;
 
     // Calculate growth rate
-    const monthlyGrowthRate = historicalData.length > 1 
-      ? (currentNetWorth.toNumber() - historicalData[0].value) / historicalData.length / historicalData[0].value * 100
+    const firstDataValue = firstEntry?.value ?? null;
+    const monthlyGrowthRate = (historicalData.length > 1 && firstDataValue && firstDataValue !== 0)
+      ? ((currentNetWorth.toNumber() - firstDataValue) / historicalData.length / firstDataValue) * 100
       : 0;
 
     // Find min and max for the period
     const allValues = historicalData.map(d => d.value);
-    const minValue = Math.min(...allValues);
-    const maxValue = Math.max(...allValues);
+    const safeValues = allValues.length > 0
+      ? allValues
+      : [currentNetWorth.toNumber()];
+    const minValue = Math.min(...safeValues);
+    const maxValue = Math.max(...safeValues);
 
     return {
       current: currentNetWorth,
@@ -125,58 +129,26 @@ export default function NetWorthTrendWidget({ isCompact = false }: NetWorthTrend
     };
   }, [accounts, transactions]);
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false
-      },
-      tooltip: {
-        callbacks: {
-          label: (context: any) => {
-            return `Net Worth: ${formatCurrency(context.parsed.y)}`;
-          }
-        }
-      }
-    },
-    scales: {
-      x: {
-        display: !isCompact,
-        grid: {
-          display: false
-        }
-      },
-      y: {
-        display: !isCompact,
-        grid: {
-          color: 'rgba(0, 0, 0, 0.05)'
-        },
-        ticks: {
-          callback: (value: any) => {
-            return formatCurrency(value);
-          }
-        }
-      }
-    }
-  };
+  const chartData = netWorthData.historicalData.map(entry => ({
+    date: entry.date,
+    value: entry.value
+  }));
 
-  const chartData = {
-    labels: netWorthData.historicalData.map(d => d.date),
-    datasets: [
-      {
-        label: 'Net Worth',
-        data: netWorthData.historicalData.map(d => d.value),
-        borderColor: netWorthData.trend === 'up' ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)',
-        backgroundColor: netWorthData.trend === 'up' 
-          ? 'rgba(34, 197, 94, 0.1)' 
-          : 'rgba(239, 68, 68, 0.1)',
-        fill: true,
-        tension: 0.4,
-        pointRadius: isCompact ? 0 : 3,
-        pointHoverRadius: 5
-      }
-    ]
+  const tooltipFormatter = ({ active, payload }: TooltipProps<ValueType, NameType>) => {
+    if (!active || !payload?.length) {
+      return null;
+    }
+
+    const rawValue = payload[0]?.value ?? 0;
+    const value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+    return (
+      <div className="rounded-md bg-white px-3 py-2 shadow-md dark:bg-gray-800">
+        <p className="text-xs text-gray-500 dark:text-gray-400">Net Worth</p>
+        <p className="text-sm font-medium text-gray-900 dark:text-white">
+          {formatCurrency(value)}
+        </p>
+      </div>
+    );
   };
 
   return (
@@ -208,7 +180,28 @@ export default function NetWorthTrendWidget({ isCompact = false }: NetWorthTrend
 
       {/* Trend Chart */}
       <div className={isCompact ? 'h-24' : 'h-40'}>
-        <Line data={chartData} options={chartOptions} />
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={chartData} margin={{ top: 8, right: 0, bottom: 8, left: 0 }}>
+            {!isCompact && <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.25)" />}
+            <XAxis dataKey="date" hide={isCompact} axisLine={false} tickLine={false} />
+            <YAxis
+              hide={isCompact}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={value => formatCurrency(Number(value))}
+            />
+            <RechartsTooltip content={tooltipFormatter} />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke={netWorthData.trend === 'up' ? trendStrokeUp : trendStrokeDown}
+              fill={netWorthData.trend === 'up' ? trendFillUp : trendFillDown}
+              strokeWidth={2}
+              dot={!isCompact}
+              activeDot={{ r: 4 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
       </div>
 
       {/* Assets vs Liabilities */}

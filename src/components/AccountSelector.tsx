@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRealFinancialData } from '../hooks/useRealFinancialData';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { CheckIcon, ChevronDownIcon, WalletIcon } from './icons';
@@ -25,6 +25,23 @@ export default function AccountSelector({
   const { formatCurrency } = useCurrencyDecimal();
   const [isOpen, setIsOpen] = useState(false);
 
+  // Filter accounts by type
+  const availableAccounts = useMemo(() => {
+    if (!financialData) {
+      return [] as Account[];
+    }
+
+    const sourceAccounts: Account[] = [
+      ...financialData.liquidAccounts,
+      ...(accountTypes.includes('investment') ? financialData.investmentAccounts : [])
+    ];
+    const allowedTypes = new Set<string>(accountTypes);
+
+    return sourceAccounts.filter(account =>
+      allowedTypes.has(String(account.type)) && account.balance > 0
+    );
+  }, [financialData, accountTypes]);
+
   if (!financialData) {
     return (
       <div className="space-y-2">
@@ -40,14 +57,6 @@ export default function AccountSelector({
     );
   }
 
-  // Filter accounts by type
-  const availableAccounts = [
-    ...financialData.liquidAccounts,
-    ...(accountTypes.includes('investment') ? financialData.investmentAccounts : [])
-  ].filter(account => 
-    accountTypes.includes(account.type as any) && account.balance > 0
-  );
-
   const selectedAccounts = availableAccounts.filter(account => 
     selectedAccountIds.includes(account.id)
   );
@@ -56,6 +65,14 @@ export default function AccountSelector({
     (sum, account) => sum + account.balance, 
     0
   );
+
+  const firstSelectedAccount = selectedAccounts[0];
+
+  const selectionLabel = selectedAccounts.length === 0
+    ? 'Select accounts...'
+    : selectedAccounts.length === 1 && firstSelectedAccount
+    ? firstSelectedAccount.name
+    : `${selectedAccounts.length} accounts selected`;
 
   const handleAccountToggle = (account: Account): void => {
     let newSelectedIds: string[];
@@ -133,12 +150,7 @@ export default function AccountSelector({
           <div className="flex items-center">
             <WalletIcon size={20} className="mr-3 text-gray-400" />
             <span className="block truncate">
-              {selectedAccounts.length === 0 
-                ? 'Select accounts...'
-                : selectedAccounts.length === 1
-                ? selectedAccounts[0].name
-                : `${selectedAccounts.length} accounts selected`
-              }
+              {selectionLabel}
             </span>
           </div>
           <span className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">

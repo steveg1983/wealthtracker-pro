@@ -1,37 +1,17 @@
 import React from 'react';
 import { render as rtlRender, RenderOptions } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { configureStore } from '@reduxjs/toolkit';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
+import type { PreloadedState } from '@reduxjs/toolkit';
+import { MemoryRouter, Routes } from 'react-router-dom';
 
-// Import all slices
-import accountsReducer from '../../store/slices/accountsSlice';
-import transactionsReducer from '../../store/slices/transactionsSlice';
-import budgetsReducer from '../../store/slices/budgetsSlice';
-import categoriesReducer from '../../store/slices/categoriesSlice';
-import goalsReducer from '../../store/slices/goalsSlice';
-import preferencesReducer from '../../store/slices/preferencesSlice';
-import recurringTransactionsReducer from '../../store/slices/recurringTransactionsSlice';
-import tagsReducer from '../../store/slices/tagsSlice';
-import notificationsReducer from '../../store/slices/notificationsSlice';
-import layoutReducer from '../../store/slices/layoutSlice';
+import type { RootState, AppStore } from '../../store';
+import { createTestStore } from '../utils/createTestStore';
 
 // Import all providers
-import { AppProvider } from '../../contexts/AppContext';
-import { BudgetProvider } from '../../contexts/BudgetContext';
-import { NotificationProvider } from '../../contexts/NotificationContext';
-import { PreferencesProvider } from '../../contexts/PreferencesContext';
-import { SecurityProvider } from '../../contexts/SecurityContext';
-import { InvestmentProvider } from '../../contexts/InvestmentContext';
-import { BillProvider } from '../../contexts/BillContext';
-import { ThemeProvider } from '../../contexts/ThemeContext';
-import { BackupProvider } from '../../contexts/BackupContext';
-import { GoalProvider } from '../../contexts/GoalContext';
-import { RecurringTransactionProvider } from '../../contexts/RecurringTransactionContext';
 import { CombinedProvider } from '../../contexts/CombinedProvider';
 
 interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
-  preloadedState?: any;
+  preloadedState?: PreloadedState<RootState>;
   route?: string;
   routes?: React.ReactElement;
 }
@@ -40,28 +20,14 @@ interface CustomRenderOptions extends Omit<RenderOptions, 'wrapper'> {
 export function renderWithProviders(
   ui: React.ReactElement,
   {
-    preloadedState = {},
+    preloadedState,
     route = '/',
     routes,
     ...renderOptions
   }: CustomRenderOptions = {}
 ) {
   // Create a fresh store for each test
-  const store = configureStore({
-    reducer: {
-      accounts: accountsReducer,
-      transactions: transactionsReducer,
-      budgets: budgetsReducer,
-      categories: categoriesReducer,
-      goals: goalsReducer,
-      preferences: preferencesReducer,
-      recurringTransactions: recurringTransactionsReducer,
-      tags: tagsReducer,
-      notifications: notificationsReducer,
-      layout: layoutReducer,
-    },
-    preloadedState,
-  });
+  const store: AppStore = createTestStore(preloadedState);
 
   function Wrapper({ children }: { children: React.ReactNode }) {
     return (
@@ -213,5 +179,6 @@ export const createTestData = () => {
 };
 
 // Re-export everything from RTL
+// eslint-disable-next-line react-refresh/only-export-components
 export * from '@testing-library/react';
 export { default as userEvent } from '@testing-library/user-event';

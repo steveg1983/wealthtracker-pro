@@ -1,10 +1,23 @@
 // Dynamic imports for heavy libraries
-let jsPDF: typeof import('jspdf').jsPDF | null = null;
+let jsPDFConstructor: typeof import('jspdf').jsPDF | null = null;
 const html2canvas: typeof import('html2canvas').default | null = null;
 import type { Transaction, Account, Category, Investment, Budget } from '../types';
-import type { ExportableData, GroupedData, ChartData, SavedReport, SavedTemplate } from '../types/export';
-import { Decimal } from 'decimal.js';
+import type {
+  ExportableAccount,
+  ExportableBudget,
+  ExportableData,
+  ExportableInvestment,
+  ExportableTransaction,
+  GroupedData,
+  SavedReport,
+  SavedTemplate
+} from '../types/export';
+import Decimal from 'decimal.js';
 import { logger } from './loggingService';
+import { importXLSX } from '../utils/dynamic-imports';
+
+type ExportSource = Transaction | Account | Investment | Budget;
+type JsPDFInstance = InstanceType<typeof import('jspdf').jsPDF>;
 
 export interface ExportOptions {
   startDate: Date;
@@ -186,9 +199,13 @@ class ExportService {
     const index = this.templates.findIndex(t => t.id === id);
     if (index === -1) return null;
 
-    this.templates[index] = { ...this.templates[index], ...updates };
-    this.saveData();
-    return this.templates[index];
+    const current = this.templates[index];
+    if (current) {
+      this.templates[index] = { ...current, ...updates };
+      this.saveData();
+      return this.templates[index];
+    }
+    return null;
   }
 
   deleteTemplate(id: string): boolean {
@@ -223,8 +240,11 @@ class ExportService {
     const index = this.scheduledReports.findIndex(r => r.id === id);
     if (index === -1) return null;
 
-    const updatedReport = { ...this.scheduledReports[index], ...updates };
-    
+    const current = this.scheduledReports[index];
+    if (!current) return null;
+
+    const updatedReport: ScheduledReport = { ...current, ...updates };
+
     // Recalculate next run if frequency changed
     if (updates.frequency) {
       updatedReport.nextRun = this.calculateNextRun(updates.frequency);
@@ -270,13 +290,7 @@ class ExportService {
 
   // Comprehensive Report Generation Methods
   async generatePDFReport(exportData: any, options: ExportOptions): Promise<void> {
-    // Lazy load jsPDF
-    if (!jsPDF) {
-      const module = await import('jspdf');
-      jsPDF = module.jsPDF;
-    }
-    
-    const doc = new jsPDF();
+    const doc = await this.createPdfDocument();
     let yPosition = 20;
     
     // Title
@@ -363,7 +377,7 @@ class ExportService {
   
   private async createComprehensiveExcelWorkbook(exportData: any, options: ExportOptions): Promise<any> {
     // Dynamically import xlsx library
-    const XLSX = await import('xlsx');
+    const XLSX = await importXLSX();
     const workbook = XLSX.utils.book_new();
     
     // Summary Sheet
@@ -476,9 +490,9 @@ class ExportService {
       Object.entries(categoryTotals).forEach(([category, data]) => {
         categoryData.push([
           category,
-          data.count,
-          data.total,
-          data.total / data.count
+          data.count.toString(),
+          data.total.toString(),
+          (data.total / data.count).toString()
         ]);
       });
       
@@ -490,14 +504,18 @@ class ExportService {
   }
   
   private downloadExcel(workbook: any, filename: string): void {
-    import('xlsx').then(XLSX => {
-      const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = `${filename.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
-      link.click();
-    });
+    importXLSX()
+      .then(XLSX => {
+        const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `${filename.replace(/[^a-z0-9]/gi, '_')}.xlsx`;
+        link.click();
+      })
+      .catch(error => {
+        logger.error('Failed to load XLSX for download', error);
+      });
   }
 
   async generateCSVReport(exportData: any, options: ExportOptions): Promise<void> {
@@ -556,37 +574,50 @@ class ExportService {
 
   // Export Functions
   async exportToCSV(
-    data: Transaction[] | Account[] | Investment[],
+    data: ExportSource[],
     options: Partial<ExportOptions> = {}
   ): Promise<string> {
     const { startDate, endDate, groupBy = 'none' } = options;
 
-    // Filter by date if specified
-    let filteredData = data;
-    if (startDate && endDate) {
-      filteredData = data.filter(item => {
-        const itemDate = 'date' in item ? item.date : 
-                        'createdAt' in item ? item.createdAt :
-                        new Date();
-        return itemDate >= startDate && itemDate <= endDate;
-      });
+    const filteredSource = this.filterByDate(data, startDate, endDate);
+    const exportableItems = filteredSource.map(item => this.convertToExportable(item));
+
+    if (exportableItems.length === 0) {
+      return '';
     }
 
-    // Group data if specified
-    const groupedData = this.groupData(filteredData, groupBy);
+    if (!groupBy || groupBy === 'none') {
+      const rows = exportableItems.map(item => this.exportableToRecord(item));
+      return this.arrayToCSV(rows);
+    }
 
-    // Convert to CSV
+    const groupedData = this.groupData(exportableItems, groupBy);
+
     if (Array.isArray(groupedData)) {
-      return this.arrayToCSV(groupedData);
-    } else {
-      // For grouped data, create summary CSV
-      const summaryRows = Object.entries(groupedData).map(([group, items]) => ({
-        Group: group,
-        Count: Array.isArray(items) ? items.length : 1,
-        Total: this.calculateGroupTotal(items)
-      }));
-      return this.arrayToCSV(summaryRows);
+      const rows = groupedData.map(item => this.exportableToRecord(item));
+      return this.arrayToCSV(rows);
     }
+
+    const summaryRows: Array<Record<string, unknown>> = Object.entries(groupedData).map(([group, items]) => ({
+      Group: group,
+      Count: items.length,
+      Total: this.calculateGroupTotal(items)
+    }));
+
+    return this.arrayToCSV(summaryRows);
+  }
+
+  private async createPdfDocument(): Promise<JsPDFInstance> {
+    if (!jsPDFConstructor) {
+      const module = await import('jspdf');
+      jsPDFConstructor = module.default as unknown as typeof import('jspdf').jsPDF;
+    }
+
+    if (!jsPDFConstructor) {
+      throw new Error('Unable to initialise jsPDF');
+    }
+
+    return new jsPDFConstructor();
   }
 
   async exportToPDF(
@@ -598,13 +629,7 @@ class ExportService {
     },
     options: ExportOptions
   ): Promise<Uint8Array> {
-    // Load jsPDF dynamically
-    if (!jsPDF) {
-      const module = await import('jspdf');
-      jsPDF = module.jsPDF;
-    }
-    
-    const doc = new jsPDF();
+    const doc = await this.createPdfDocument();
     let yPosition = 20;
 
     // Add header
@@ -647,10 +672,15 @@ class ExportService {
       await this.addChartsToPDF(doc, data, yPosition);
     }
 
-    return doc.output('arraybuffer');
+    const arrayBuffer = doc.output('arraybuffer') as ArrayBuffer;
+    return new Uint8Array(arrayBuffer);
   }
 
-  private async addAccountsSummaryToPDF(doc: jsPDF, accounts: Account[], yPosition: number): Promise<number> {
+  private async addAccountsSummaryToPDF(
+    doc: JsPDFInstance,
+    accounts: Account[],
+    yPosition: number
+  ): Promise<number> {
     doc.setFontSize(16);
     doc.text('Accounts Summary', 20, yPosition);
     yPosition += 10;
@@ -669,7 +699,7 @@ class ExportService {
   }
 
   private async addTransactionsSummaryToPDF(
-    doc: jsPDF, 
+    doc: JsPDFInstance, 
     transactions: Transaction[], 
     yPosition: number, 
     options: ExportOptions
@@ -684,13 +714,13 @@ class ExportService {
     );
 
     // Group by category
-    const byCategory = filteredTransactions.reduce((groups, transaction) => {
-      if (!groups[transaction.category]) {
-        groups[transaction.category] = [];
-      }
-      groups[transaction.category].push(transaction);
+    const byCategory = filteredTransactions.reduce<Record<string, Transaction[]>>((groups, transaction) => {
+      const key = transaction.category || 'Uncategorized';
+      const bucket = groups[key] ?? [];
+      bucket.push(transaction);
+      groups[key] = bucket;
       return groups;
-    }, {} as Record<string, Transaction[]>);
+    }, {});
 
     doc.setFontSize(10);
     Object.entries(byCategory).forEach(([category, categoryTransactions]) => {
@@ -702,7 +732,11 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addInvestmentsSummaryToPDF(doc: jsPDF, investments: Investment[], yPosition: number): Promise<number> {
+  private async addInvestmentsSummaryToPDF(
+    doc: JsPDFInstance,
+    investments: Investment[],
+    yPosition: number
+  ): Promise<number> {
     doc.setFontSize(16);
     doc.text('Investments Summary', 20, yPosition);
     yPosition += 10;
@@ -712,7 +746,7 @@ class ExportService {
       const currentValue = new Decimal(investment.currentValue || 0);
       const costBasis = new Decimal(investment.costBasis || investment.quantity * investment.purchasePrice);
       const gainLoss = currentValue.minus(costBasis);
-      const gainLossPercent = costBasis.gt(0) ? gainLoss.div(costBasis).mul(100) : new Decimal(0);
+      const gainLossPercent = costBasis.gt(0) ? gainLoss.div(costBasis).times(100) : new Decimal(0);
 
       doc.text(
         `${investment.symbol}: ${this.formatCurrency(currentValue.toNumber())} (${gainLoss.gte(0) ? '+' : ''}${gainLossPercent.toFixed(2)}%)`,
@@ -725,7 +759,11 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addBudgetsSummaryToPDF(doc: jsPDF, budgets: Budget[], yPosition: number): Promise<number> {
+  private async addBudgetsSummaryToPDF(
+    doc: JsPDFInstance,
+    budgets: Budget[],
+    yPosition: number
+  ): Promise<number> {
     doc.setFontSize(16);
     doc.text('Budget Summary', 20, yPosition);
     yPosition += 10;
@@ -733,12 +771,12 @@ class ExportService {
     doc.setFontSize(10);
     budgets.forEach(budget => {
       const spent = new Decimal(budget.spent || 0);
-      const budgeted = new Decimal(budget.budgeted);
+      const budgeted = new Decimal(budget.budgeted || 0);
       const remaining = budgeted.minus(spent);
-      const percentSpent = budgeted.gt(0) ? spent.div(budgeted).mul(100) : new Decimal(0);
+      const percentSpent = budgeted.gt(0) ? spent.div(budgeted).times(100) : new Decimal(0);
 
       doc.text(
-        `${budget.category}: ${this.formatCurrency(spent.toNumber())} / ${this.formatCurrency(budgeted.toNumber())} (${percentSpent.toFixed(1)}%)`,
+        `${budget.categoryId}: ${this.formatCurrency(spent.toNumber())} / ${this.formatCurrency(budgeted.toNumber())} (${percentSpent.toFixed(1)}%)`,
         20,
         yPosition
       );
@@ -748,7 +786,7 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addChartsToPDF(doc: jsPDF, data: ChartData, yPosition: number): Promise<void> {
+  private async addChartsToPDF(doc: JsPDFInstance, _data: unknown, yPosition: number): Promise<void> {
     // This would capture chart elements from the DOM and add them to PDF
     // For now, we'll add a placeholder
     doc.setFontSize(14);
@@ -756,22 +794,36 @@ class ExportService {
   }
 
   // Utility functions
-  private groupData(data: ExportableData[], groupBy: string): ExportableData[] | Record<string, ExportableData[]> {
-    if (groupBy === 'none') return data;
+  private groupData(
+    data: ExportableData[],
+    groupBy: string
+  ): ExportableData[] | Record<string, ExportableData[]> {
+    if (groupBy === 'none') {
+      return data;
+    }
 
-    return data.reduce((groups, item) => {
-      let key: string;
-      
+    return data.reduce<Record<string, ExportableData[]>>((groups, item) => {
+      let key = 'All';
+
       switch (groupBy) {
-        case 'category':
-          key = ('category' in item ? item.category : undefined) || 'Uncategorized';
+        case 'category': {
+          key = this.extractCategory(item) ?? 'Uncategorized';
           break;
-        case 'account':
-          key = ('accountId' in item ? item.accountId : 'account' in item ? (item as any).account : undefined) || 'Unknown';
+        }
+        case 'account': {
+          if ('accountId' in item && item.accountId) {
+            key = item.accountId;
+          } else if ('accountName' in item && item.accountName) {
+            key = item.accountName;
+          } else if ('name' in item && item.name) {
+            key = item.name;
+          } else {
+            key = 'Unknown Account';
+          }
           break;
+        }
         case 'month': {
-          const dateValue = ('date' in item ? item.date : 'createdAt' in item ? item.createdAt : undefined) || new Date();
-          const date = dateValue instanceof Date ? dateValue : new Date(dateValue);
+          const date = this.extractDateFromExportable(item) ?? new Date();
           key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
           break;
         }
@@ -779,12 +831,11 @@ class ExportService {
           key = 'All';
       }
 
-      if (!groups[key]) {
-        groups[key] = [];
-      }
-      groups[key].push(item);
+      const bucket = groups[key] ?? [];
+      bucket.push(item);
+      groups[key] = bucket;
       return groups;
-    }, {} as Record<string, ExportableData[]>);
+    }, {});
   }
 
   private calculateGroupTotal(items: ExportableData[]): number {
@@ -797,23 +848,206 @@ class ExportService {
     }, 0);
   }
 
-  private arrayToCSV(data: ExportableData[]): string {
-    if (data.length === 0) return '';
+  private extractCategory(item: ExportableData): string | undefined {
+    if ('category' in item && typeof item.category === 'string') {
+      return item.category;
+    }
+    if ('categoryId' in item && typeof item.categoryId === 'string') {
+      return item.categoryId;
+    }
+    if ('accountId' in item && typeof item.accountId === 'string') {
+      return item.accountId;
+    }
+    return undefined;
+  }
 
-    const headers = Object.keys(data[0]);
-    const csvRows = [
-      headers.join(','),
-      ...data.map(row => 
-        headers.map(header => {
-          const value = row[header];
-          // Escape commas and quotes in CSV
-          if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
-            return `"${value.replace(/"/g, '""')}"`;
-          }
-          return value;
-        }).join(',')
-      )
-    ];
+  private isTransaction(item: ExportSource): item is Transaction {
+    return Boolean(item) && typeof (item as Transaction).amount === 'number' && 'description' in item && 'type' in item;
+  }
+
+  private isAccount(item: ExportSource): item is Account {
+    return Boolean(item) && 'balance' in item && 'currency' in item && 'type' in item && !('amount' in item);
+  }
+
+  private isInvestment(item: ExportSource): item is Investment {
+    return Boolean(item) && 'symbol' in item && 'quantity' in item && 'purchasePrice' in item;
+  }
+
+  private isBudget(item: ExportSource): item is Budget {
+    return Boolean(item) && 'categoryId' in item && 'period' in item;
+  }
+
+  private ensureDate(value: Date | string | undefined): Date | undefined {
+    if (!value) {
+      return undefined;
+    }
+    if (value instanceof Date) {
+      return value;
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+  }
+
+  private extractDateFromSource(item: ExportSource): Date | undefined {
+    if (this.isTransaction(item)) {
+      return this.ensureDate(item.date);
+    }
+    if (this.isAccount(item)) {
+      return this.ensureDate(item.lastUpdated ?? item.updatedAt);
+    }
+    if (this.isInvestment(item)) {
+      return this.ensureDate(item.lastUpdated ?? item.purchaseDate);
+    }
+    if (this.isBudget(item)) {
+      return this.ensureDate(item.updatedAt);
+    }
+    return undefined;
+  }
+
+  private extractDateFromExportable(item: ExportableData): Date | undefined {
+    if ('date' in item) {
+      return this.ensureDate(item.date);
+    }
+    if ('lastUpdated' in item) {
+      return this.ensureDate(item.lastUpdated);
+    }
+    if ('purchaseDate' in item) {
+      return this.ensureDate(item.purchaseDate);
+    }
+    if ('updatedAt' in item) {
+      return this.ensureDate(item.updatedAt);
+    }
+    return undefined;
+  }
+
+  private convertToExportable(item: ExportSource): ExportableData {
+    if (this.isTransaction(item)) {
+      const normalizedDate = this.ensureDate(item.date) ?? new Date();
+      const normalized: ExportableTransaction = {
+        ...item,
+        date: normalizedDate,
+        categoryName: item.category
+      };
+      if (item.accountName) {
+        normalized.accountName = item.accountName;
+      }
+      return normalized;
+    }
+
+    if (this.isAccount(item)) {
+      const normalized: ExportableAccount = {
+        ...item,
+        lastUpdated: this.ensureDate(item.lastUpdated) ?? new Date(),
+        currentBalance: item.balance
+      };
+      if (Array.isArray(item.holdings)) {
+        normalized.transactionCount = item.holdings.length;
+      }
+      return normalized;
+    }
+
+    if (this.isInvestment(item)) {
+      const currentValue = item.currentValue ?? item.quantity * item.purchasePrice;
+      const costBasis = item.costBasis ?? item.quantity * item.purchasePrice;
+      const normalized: ExportableInvestment = {
+        ...item,
+        purchaseDate: this.ensureDate(item.purchaseDate) ?? new Date(),
+        currentValue,
+        totalReturn: currentValue - costBasis
+      };
+      return normalized;
+    }
+
+    if (this.isBudget(item)) {
+      const spent = item.spent ?? 0;
+      const limit = item.amount ?? item.limit ?? 0;
+      const remaining = limit - spent;
+      const percentUsed = limit > 0 ? (spent / limit) * 100 : 0;
+      const normalized: ExportableBudget = {
+        ...item,
+        updatedAt: this.ensureDate(item.updatedAt) ?? new Date(),
+        remaining,
+        percentUsed
+      };
+      return normalized;
+    }
+
+    // Fallback: coerce to transaction-like structure to avoid runtime crashes
+    const fallback: ExportableTransaction = {
+      id: 'unknown',
+      amount: 0,
+      date: new Date(),
+      description: 'Unknown',
+      category: 'uncategorized',
+      accountId: 'unknown',
+      type: 'expense'
+    };
+    return fallback;
+  }
+
+  private filterByDate(
+    data: ExportSource[],
+    startDate?: Date,
+    endDate?: Date
+  ): ExportSource[] {
+    if (!startDate || !endDate) {
+      return data;
+    }
+
+    return data.filter(item => {
+      const itemDate = this.extractDateFromSource(item);
+      if (!itemDate) {
+        return true;
+      }
+      return itemDate >= startDate && itemDate <= endDate;
+    });
+  }
+
+  private exportableToRecord(item: ExportableData): Record<string, unknown> {
+    const record: Record<string, unknown> = {};
+    Object.entries(item).forEach(([key, value]) => {
+      if (value instanceof Date) {
+        record[key] = value.toISOString();
+      } else {
+        record[key] = value;
+      }
+    });
+    return record;
+  }
+
+  private arrayToCSV(rows: Array<Record<string, unknown>>): string {
+    if (rows.length === 0) {
+      return '';
+    }
+
+    const [firstRow] = rows;
+    if (!firstRow) {
+      return '';
+    }
+
+    const headers = Object.keys(firstRow);
+    const csvRows: string[] = [headers.join(',')];
+
+    rows.forEach(row => {
+      const values = headers.map(header => {
+        const value = row[header];
+        if (value === null || value === undefined) {
+          return '';
+        }
+        if (value instanceof Date) {
+          return value.toISOString();
+        }
+        if (typeof value === 'number' || typeof value === 'boolean') {
+          return String(value);
+        }
+        const stringValue = String(value);
+        if (stringValue.includes(',') || stringValue.includes('"')) {
+          return `"${stringValue.replace(/"/g, '""')}"`;
+        }
+        return stringValue;
+      });
+      csvRows.push(values.join(','));
+    });
 
     return csvRows.join('\n');
   }
@@ -892,8 +1126,8 @@ class ExportService {
           qifContent += `P${transaction.description || ''}\n`;
           qifContent += `L${transaction.category || 'Uncategorized'}\n`;
           
-          if (transaction.note) {
-            qifContent += `M${transaction.note}\n`;
+          if (transaction.notes) {
+            qifContent += `M${transaction.notes}\n`;
           }
           
           qifContent += '^\n';
@@ -962,7 +1196,7 @@ NEWFILEUID:${now}
 <TRNAMT>${amount}
 <FITID>${transaction.id}
 <NAME>${transaction.description || ''}
-<MEMO>${transaction.note || ''}
+<MEMO>${transaction.notes || ''}
 </STMTTRN>
 `;
       }
@@ -1056,8 +1290,9 @@ NEWFILEUID:${now}
       excelContent += 'Category,Budgeted,Spent,Remaining,Period\n';
       data.budgets.forEach(budget => {
         const spent = budget.spent || 0;
-        const remaining = budget.budgeted - spent;
-        excelContent += `${budget.category},${budget.budgeted},${spent},${remaining},${budget.period}\n`;
+        const budgetedValue = budget.budgeted ?? budget.amount ?? 0;
+        const remaining = budgetedValue - spent;
+        excelContent += `${budget.categoryId},${budgetedValue},${spent},${remaining},${budget.period}\n`;
       });
       excelContent += '\n';
     }
@@ -1098,12 +1333,13 @@ NEWFILEUID:${now}
 
     // Generate export content based on format
     switch (format) {
-      case 'csv':
+      case 'csv': {
         const dataArray = data.transactions || data.accounts || [];
         exportContent = await this.exportToCSV(dataArray, options);
         filename = `export-${new Date().toISOString().split('T')[0]}.csv`;
         mimeType = 'text/csv';
         break;
+      }
       
       case 'pdf':
         exportContent = await this.exportToPDF(data, options);

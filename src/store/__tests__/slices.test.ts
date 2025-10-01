@@ -4,7 +4,6 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { configureStore } from '@reduxjs/toolkit';
 import {
   accountsSlice,
   transactionsSlice,
@@ -14,6 +13,8 @@ import {
   preferencesSlice,
 } from '../slices/index';
 import type { Transaction, Account, Budget, Goal, Category } from '../../types';
+import type { AppStore } from '../index';
+import { createTestStore } from '../../test/utils/createTestStore';
 
 // Create mock functions that preserve provided IDs
 const createMockTransaction = (overrides: Partial<Transaction> = {}): Transaction => ({
@@ -79,22 +80,12 @@ const createMockCategory = (overrides: Partial<Category> = {}): Category => ({
   updatedAt: new Date('2025-01-20'),
   ...overrides,
 });
-import type { RootState } from '../index';
 
 describe('Redux Slices', () => {
-  let store: ReturnType<typeof configureStore>;
+  let store: AppStore;
 
   beforeEach(() => {
-    store = configureStore({
-      reducer: {
-        accounts: accountsSlice.reducer,
-        transactions: transactionsSlice.reducer,
-        budgets: budgetsSlice.reducer,
-        goals: goalsSlice.reducer,
-        categories: categoriesSlice.reducer,
-        preferences: preferencesSlice.reducer,
-      },
-    });
+    store = createTestStore();
   });
 
   describe('Accounts Slice', () => {
@@ -599,8 +590,7 @@ describe('Redux Slices', () => {
       store.dispatch(accountsSlice.actions.addAccount(account));
       store.dispatch(transactionsSlice.actions.addTransaction(transaction));
 
-      const accountsState = store.getState().accounts;
-      const transactionsState = store.getState().transactions;
+            const transactionsState = store.getState().transactions;
 
       const relatedTransaction = transactionsState.transactions.find(
         t => t.accountId === account.id

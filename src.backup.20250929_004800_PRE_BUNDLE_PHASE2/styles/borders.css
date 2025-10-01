@@ -1,0 +1,65 @@
+/* Enhanced borders and shadows for better visual definition */
+
+/* Card and container borders */
+.bg-white,
+.dark\:bg-gray-800,
+.bg-white\/70,
+.dark\:bg-gray-800\/70,
+.bg-white\/50,
+.dark\:bg-gray-800\/50 {
+  border-width: 2px !important;
+}
+
+/* Enhanced shadows for all elements - removed aggressive overrides */
+/* Let Tailwind handle shadows properly with rounded corners */
+
+/* Border width enhancements */
+.border {
+  border-width: 2px !important;
+}
+
+.border-t {
+  border-top-width: 2px !important;
+}
+
+.border-b {
+  border-bottom-width: 2px !important;
+}
+
+.border-l {
+  border-left-width: 2px !important;
+}
+
+.border-r {
+  border-right-width: 2px !important;
+}
+
+/* Removed automatic shadows on rounded elements - let components define their own */
+
+/* Removed all shadow overrides - let Tailwind handle shadows naturally */
+
+/* Input and form field borders */
+input,
+textarea,
+select {
+  border-width: 2px !important;
+}
+
+/* Table borders */
+.divide-y > * {
+  border-width: 2px !important;
+}
+
+/* Removed grid item shadow overrides */
+
+/* Remove borders and shadows for collapsed sidebar links */
+.sidebar-link-collapsed.rounded-lg {
+  border-width: 0 !important;
+  box-shadow: none !important;
+  background-color: transparent !important;
+}
+
+.sidebar-link-collapsed.rounded-lg:hover {
+  box-shadow: none !important;
+  background-color: transparent !important;
+}

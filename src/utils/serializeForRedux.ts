@@ -2,9 +2,9 @@
  * Serialize data for Redux storage by converting Date objects to ISO strings
  */
 
-export function serializeForRedux<T>(data: T): T {
+export function serializeForRedux<T>(data: T): T extends Date ? string : T {
   if (data instanceof Date) {
-    return data.toISOString() as T;
+    return data.toISOString() as unknown as T extends Date ? string : T;
   }
 
   if (Array.isArray(data)) {
@@ -18,7 +18,7 @@ export function serializeForRedux<T>(data: T): T {
         serialized[key] = serializeForRedux(data[key]);
       }
     }
-    return serialized;
+    return serialized as unknown as T;
   }
 
   return data;
@@ -52,7 +52,7 @@ export function deserializeFromRedux<T>(data: T, dateFields: string[] = []): T {
         }
       }
     }
-    return deserialized;
+    return deserialized as unknown as T;
   }
 
   return data;

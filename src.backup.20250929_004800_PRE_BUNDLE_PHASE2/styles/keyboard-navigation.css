@@ -1,0 +1,188 @@
+/* Keyboard Navigation Styles */
+
+/* Enhanced focus indicators when keyboard navigation is active */
+.keyboard-navigation *:focus {
+  outline: 2px solid var(--color-primary, #3b82f6);
+  outline-offset: 2px;
+  transition: outline-offset 0.2s ease;
+}
+
+.keyboard-navigation button:focus,
+.keyboard-navigation a:focus,
+.keyboard-navigation input:focus,
+.keyboard-navigation select:focus,
+.keyboard-navigation textarea:focus {
+  outline: 3px solid var(--color-primary, #3b82f6);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+}
+
+/* Remove focus indicators for mouse users */
+body:not(.keyboard-navigation) *:focus {
+  outline: none;
+}
+
+/* Skip to content link */
+.skip-to-content {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--color-primary, #3b82f6);
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  border-radius: 0 0 4px 0;
+  z-index: 100;
+  transition: top 0.2s;
+}
+
+.skip-to-content:focus {
+  top: 0;
+}
+
+/* Focus trap for modals */
+[role="dialog"] {
+  position: relative;
+}
+
+[role="dialog"]:focus {
+  outline: none;
+}
+
+/* Keyboard hints */
+.keyboard-hint {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  background: rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: monospace;
+  color: rgba(0, 0, 0, 0.6);
+  vertical-align: middle;
+}
+
+.dark .keyboard-hint {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Hide keyboard hints on small screens */
+@media (max-width: 1024px) {
+  .keyboard-hint {
+    display: none;
+  }
+}
+
+/* Selected item highlight for vim mode */
+[data-vim-selected="true"] {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  border-left: 3px solid var(--color-primary, #3b82f6);
+}
+
+/* Command mode indicator */
+.vim-command-mode {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  padding: 8px 12px;
+  background: #1f2937;
+  color: #f3f4f6;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 14px;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Vim mode cursor */
+.vim-mode [data-vim-cursor="true"] {
+  position: relative;
+}
+
+.vim-mode [data-vim-cursor="true"]::before {
+  content: '';
+  position: absolute;
+  left: -2px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--color-primary, #3b82f6);
+  animation: vim-cursor-blink 1s infinite;
+}
+
+@keyframes vim-cursor-blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* Keyboard shortcut tooltips */
+[data-shortcut]:hover::after {
+  content: attr(data-shortcut);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 8px;
+  background: #1f2937;
+  color: white;
+  font-size: 11px;
+  font-family: monospace;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  margin-bottom: 4px;
+  z-index: 1000;
+}
+
+[data-shortcut]:hover::before {
+  content: '';
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #1f2937;
+  pointer-events: none;
+  z-index: 1000;
+}
+
+/* Focus visible polyfill for better browser support */
+.js-focus-visible :focus:not(.focus-visible) {
+  outline: none;
+}
+
+.js-focus-visible .focus-visible {
+  outline: 2px solid var(--color-primary, #3b82f6);
+  outline-offset: 2px;
+}
+
+/* Accessible focus for form elements */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--color-primary, #3b82f6);
+  outline-offset: 2px;
+  border-color: var(--color-primary, #3b82f6);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .keyboard-navigation *:focus {
+    outline-width: 3px;
+    outline-style: solid;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .keyboard-navigation *:focus {
+    transition: none;
+  }
+  
+  @keyframes vim-cursor-blink {
+    0%, 100% { opacity: 1; }
+  }
+}
