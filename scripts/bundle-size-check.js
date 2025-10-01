@@ -41,6 +41,20 @@ function getFileSize(filePath) {
   }
 }
 
+function getAssetSize(filePath) {
+  const gzipPath = `${filePath}.gz`;
+  const brotliPath = `${filePath}.br`;
+
+  if (fs.existsSync(gzipPath)) {
+    return getFileSize(gzipPath);
+  }
+  if (fs.existsSync(brotliPath)) {
+    return getFileSize(brotliPath);
+  }
+
+  return getFileSize(filePath);
+}
+
 function analyzeBundle() {
   const distDir = path.join(__dirname, '..', 'dist');
   const assetsDir = path.join(distDir, 'assets');
@@ -53,7 +67,6 @@ function analyzeBundle() {
   console.log('📦 Bundle Size Analysis');
   console.log('=======================\n');
 
-  const results = {};
   let totalSize = 0;
   let hasErrors = false;
   let hasWarnings = false;
@@ -62,7 +75,7 @@ function analyzeBundle() {
 
   // Check main HTML file
   const indexPath = path.join(distDir, 'index.html');
-  const htmlSize = getFileSize(indexPath);
+  const htmlSize = getAssetSize(indexPath);
   console.log(`📄 index.html: ${formatBytes(htmlSize)}`);
   totalSize += htmlSize;
 
@@ -71,19 +84,26 @@ function analyzeBundle() {
     const files = fs.readdirSync(assetsDir);
     
     // Group files by type
-    jsFiles = files.filter(f => f.endsWith('.js'));
+    jsFiles = files
+      .filter(f => f.endsWith('.js'))
+      .map(file => ({
+        file,
+        size: getAssetSize(path.join(assetsDir, file))
+      }));
     cssFiles = files.filter(f => f.endsWith('.css'));
-    const otherFiles = files.filter(f => !f.endsWith('.js') && !f.endsWith('.css'));
+    const otherFiles = files.filter(f => {
+      if (f.endsWith('.js') || f.endsWith('.css')) return false;
+      if (f.endsWith('.map') || f.endsWith('.gz') || f.endsWith('.br')) return false;
+      return true;
+    });
 
     // Analyze JavaScript files
     console.log('\n📜 JavaScript Files:');
     let totalJsSize = 0;
-    jsFiles.forEach(file => {
-      const filePath = path.join(assetsDir, file);
-      const size = getFileSize(filePath);
+    jsFiles.forEach(({ file, size }) => {
       totalJsSize += size;
       totalSize += size;
-      
+
       console.log(`  ${file}: ${formatBytes(size)}`);
       
       // Check against limits for known files
@@ -99,12 +119,31 @@ function analyzeBundle() {
     
     console.log(`  📊 Total JS: ${formatBytes(totalJsSize)}`);
 
+    const topJsFiles = [...jsFiles]
+      .sort((a, b) => b.size - a.size)
+      .slice(0, 10);
+
+    console.log('\n📈 Top JS Chunks:');
+    topJsFiles.forEach(({ file, size }, index) => {
+      const limit = file.includes('index') && !file.includes('vendor')
+        ? SIZE_LIMITS['index.js']
+        : SIZE_LIMITS['vendor.js'];
+      const marker = limit
+        ? size >= limit
+          ? '❌ '
+          : size >= WARNING_THRESHOLD * limit
+            ? '⚠️ '
+            : '  '
+        : '  ';
+      console.log(`${marker}${index + 1}. ${file} – ${formatBytes(size)}`);
+    });
+
     // Analyze CSS files
     console.log('\n🎨 CSS Files:');
     let totalCssSize = 0;
     cssFiles.forEach(file => {
       const filePath = path.join(assetsDir, file);
-      const size = getFileSize(filePath);
+      const size = getAssetSize(filePath);
       totalCssSize += size;
       totalSize += size;
       
@@ -124,7 +163,7 @@ function analyzeBundle() {
       let totalOtherSize = 0;
       otherFiles.forEach(file => {
         const filePath = path.join(assetsDir, file);
-        const size = getFileSize(filePath);
+        const size = getAssetSize(filePath);
         totalOtherSize += size;
         totalSize += size;
         
@@ -224,7 +263,12 @@ function generateReport() {
       if (stat.isDirectory()) {
         analyzeDirectory(filePath, prefix + file + '/');
       } else {
-        const size = stat.size;
+        // Skip compressed artifacts and sourcemaps for bundle accounting
+        if (file.endsWith('.gz') || file.endsWith('.br') || file.endsWith('.map')) {
+          return;
+        }
+
+        const size = getAssetSize(filePath);
         report.totalSize += size;
         
         report.files.push({
