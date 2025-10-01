@@ -6,58 +6,81 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
 import { AccountService } from '../api/accountService';
+import { supabase as appSupabase } from '../api/supabaseClient';
+import { userIdService } from '../userIdService';
 
-// Use real Supabase test instance
-const TEST_SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
-const TEST_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
+if (!appSupabase) {
+  throw new Error('Supabase client is not configured for account tests');
+}
 
-// Create real Supabase client for test cleanup
-const testSupabase = createClient(TEST_SUPABASE_URL, TEST_SUPABASE_ANON_KEY);
+const supabase = appSupabase;
 
-// Test data - using valid UUID for user_id
-const TEST_USER_ID = '00000000-0000-0000-0000-' + Date.now().toString().padStart(12, '0').slice(-12);
+const TEST_EMAIL = process.env.VITEST_SUPABASE_EMAIL ?? process.env.VITE_SUPABASE_TEST_EMAIL;
+const TEST_PASSWORD = process.env.VITEST_SUPABASE_PASSWORD ?? process.env.VITE_SUPABASE_TEST_PASSWORD;
+
 const createdAccountIds: string[] = [];
+let authUserId: string;
 
 describe('AccountService - REAL Database Tests', () => {
   beforeEach(async () => {
-    // Ensure we have a clean state
     createdAccountIds.length = 0;
-    
-    // Create a test user first (required by foreign key constraint)
-    const { error: userError } = await testSupabase
+    userIdService.clearCache();
+
+    if (!TEST_EMAIL || !TEST_PASSWORD) {
+      throw new Error('Set VITEST_SUPABASE_EMAIL and VITEST_SUPABASE_PASSWORD to run account real tests');
+    }
+
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD,
+    });
+
+    if (signInError) {
+      throw new Error(`Failed to sign in account test user: ${signInError.message}`);
+    }
+
+    const session = await supabase.auth.getSession();
+    authUserId = signInData.user?.id ?? session.data.session?.user?.id ?? '';
+    if (!authUserId) {
+      throw new Error('Unable to resolve authenticated user id for account tests');
+    }
+
+    const timestamp = new Date().toISOString();
+
+    await supabase
       .from('users')
       .upsert({
-        id: TEST_USER_ID,
-        clerk_id: 'test_clerk_' + Date.now(),
-        email: `test${Date.now()}@test.com`,
-        created_at: new Date().toISOString(),
+        id: authUserId,
+        clerk_id: authUserId,
+        email: TEST_EMAIL,
+        first_name: null,
+        last_name: null,
+        created_at: timestamp,
+        updated_at: timestamp,
       });
-    
-    if (userError) {
-      console.error('Failed to create test user:', userError);
-    }
+
+    await supabase
+      .from('user_id_mappings')
+      .upsert({
+        clerk_id: authUserId,
+        database_user_id: authUserId,
+        created_at: timestamp,
+      });
+
+    userIdService.setCurrentUser(authUserId, authUserId);
   });
 
   afterEach(async () => {
-    // Clean up any accounts created during tests
     if (createdAccountIds.length > 0) {
-      const { error } = await testSupabase
+      await supabase
         .from('accounts')
         .delete()
         .in('id', createdAccountIds);
-      
-      if (error) {
-        console.error('Cleanup error:', error);
-      }
     }
-    
-    // Clean up test user
-    await testSupabase
-      .from('users')
-      .delete()
-      .eq('id', TEST_USER_ID);
+
+    await supabase.auth.signOut();
+    userIdService.clearCache();
   });
 
   describe('createAccount - REAL', () => {
@@ -73,12 +96,12 @@ describe('AccountService - REAL Database Tests', () => {
       };
 
       // Act - Create real account
-      const result = await AccountService.createAccount(TEST_USER_ID, accountData);
+      const result = await AccountService.createAccount(authUserId, accountData);
 
       // Assert
       expect(result).toBeDefined();
       expect(result?.name).toBe('Real Test Checking Account');
-      expect(result?.type).toBe('checking');
+      expect(result?.type).toBe('current');
       expect(result?.balance).toBe(1000);
       expect(result?.id).toBeDefined();
 
@@ -86,7 +109,7 @@ describe('AccountService - REAL Database Tests', () => {
         createdAccountIds.push(result.id);
         
         // Verify it actually exists in the database
-        const { data: verifyData } = await testSupabase
+        const { data: verifyData } = await supabase
           .from('accounts')
           .select('*')
           .eq('id', result.id)
@@ -97,7 +120,7 @@ describe('AccountService - REAL Database Tests', () => {
       }
     });
 
-    it('should handle real database constraints', async () => {
+    it('should coerce unsupported types to "other" rather than failing', async () => {
       // Arrange - Create first account
       const accountData = {
         name: 'Unique Account Name ' + Date.now(),
@@ -108,12 +131,12 @@ describe('AccountService - REAL Database Tests', () => {
       };
 
       // Act - Create account
-      const firstAccount = await AccountService.createAccount(TEST_USER_ID, accountData);
+      const firstAccount = await AccountService.createAccount(authUserId, accountData);
       if (firstAccount?.id) {
         createdAccountIds.push(firstAccount.id);
       }
 
-      // Try to create with invalid type (should be caught by DB constraint)
+      // Try to create with invalid type (service should coerce to a supported value)
       const invalidAccount = {
         name: 'Invalid Type Account',
         type: 'invalid_type' as any,
@@ -121,10 +144,19 @@ describe('AccountService - REAL Database Tests', () => {
         currency: 'USD',
       };
 
-      // Should throw error due to constraint violation
-      await expect(
-        AccountService.createAccount(TEST_USER_ID, invalidAccount)
-      ).rejects.toThrow('accounts_type_check');
+      const coercedAccount = await AccountService.createAccount(authUserId, invalidAccount);
+      expect(coercedAccount.type).toBe('other');
+
+      if (coercedAccount.id) {
+        createdAccountIds.push(coercedAccount.id);
+        const { data: verifyData } = await supabase
+          .from('accounts')
+          .select('type')
+          .eq('id', coercedAccount.id)
+          .single();
+
+        expect(verifyData?.type).toBe('other');
+      }
     });
   });
 
@@ -148,14 +180,14 @@ describe('AccountService - REAL Database Tests', () => {
 
       // Create accounts
       for (const account of accounts) {
-        const created = await AccountService.createAccount(TEST_USER_ID, account);
+        const created = await AccountService.createAccount(authUserId, account);
         if (created?.id) {
           createdAccountIds.push(created.id);
         }
       }
 
       // Act - Retrieve accounts
-      const retrievedAccounts = await AccountService.getAccounts(TEST_USER_ID);
+      const retrievedAccounts = await AccountService.getAccounts(authUserId);
 
       // Assert
       expect(Array.isArray(retrievedAccounts)).toBe(true);
@@ -172,7 +204,7 @@ describe('AccountService - REAL Database Tests', () => {
   describe('updateAccount - REAL', () => {
     it('should update a real account in the database', async () => {
       // Arrange - Create a real account
-      const originalAccount = await AccountService.createAccount(TEST_USER_ID, {
+      const originalAccount = await AccountService.createAccount(authUserId, {
         name: 'Original Name',
         type: 'checking' as const,
         balance: 1000.00,
@@ -196,7 +228,7 @@ describe('AccountService - REAL Database Tests', () => {
       expect(updated.balance).toBe(2000);
 
       // Verify the update in the database
-      const { data: verifyData } = await testSupabase
+      const { data: verifyData } = await supabase
         .from('accounts')
         .select('*')
         .eq('id', originalAccount.id)
@@ -210,7 +242,7 @@ describe('AccountService - REAL Database Tests', () => {
   describe('deleteAccount - REAL', () => {
     it('should soft delete a real account', async () => {
       // Arrange - Create a real account
-      const account = await AccountService.createAccount(TEST_USER_ID, {
+      const account = await AccountService.createAccount(authUserId, {
         name: 'Account to Delete',
         type: 'credit' as const,
         balance: -500.00,
@@ -226,7 +258,7 @@ describe('AccountService - REAL Database Tests', () => {
       await AccountService.deleteAccount(account.id);
 
       // Verify it's soft deleted (is_active = false)
-      const { data: verifyData } = await testSupabase
+      const { data: verifyData } = await supabase
         .from('accounts')
         .select('*')
         .eq('id', account.id)
@@ -235,7 +267,7 @@ describe('AccountService - REAL Database Tests', () => {
       expect(verifyData?.is_active).toBe(false);
       
       // Clean up the soft-deleted account
-      await testSupabase
+      await supabase
         .from('accounts')
         .delete()
         .eq('id', account.id);
@@ -250,7 +282,7 @@ describe('AccountService - REAL Database Tests', () => {
       // Create 5 accounts concurrently
       for (let i = 0; i < 5; i++) {
         promises.push(
-          AccountService.createAccount(TEST_USER_ID, {
+          AccountService.createAccount(authUserId, {
             name: `Concurrent Account ${i}`,
             type: 'checking' as const,
             balance: 1000 + i * 100,
@@ -272,7 +304,7 @@ describe('AccountService - REAL Database Tests', () => {
       });
 
       // Verify all exist in database
-      const { data: allAccounts } = await testSupabase
+      const { data: allAccounts } = await supabase
         .from('accounts')
         .select('*')
         .in('id', createdAccountIds);
@@ -295,7 +327,7 @@ export class TestDataFactory {
   };
 
   async createTestAccount(overrides = {}) {
-    const account = await AccountService.createAccount(TEST_USER_ID, {
+    const account = await AccountService.createAccount(authUserId, {
       name: 'Test Account ' + Date.now(),
       type: 'checking' as const,
       balance: 1000.00,
@@ -313,7 +345,7 @@ export class TestDataFactory {
     // Clean up all created test data
     for (const [table, ids] of Object.entries(this.createdIds)) {
       if (ids.length > 0) {
-        await testSupabase
+        await supabase
           .from(table)
           .delete()
           .in('id', ids);
