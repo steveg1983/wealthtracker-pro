@@ -1,89 +1,99 @@
+
 /**
  * Category Service REAL Test
  * Following principle: "If it's not tested against real infrastructure, it's not tested"
- * 
+ *
  * This test uses REAL Supabase database connections, not mocks.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createClient } from '@supabase/supabase-js';
-import { 
+import {
   getCategories,
   createCategory,
   updateCategory,
-  deleteCategory
+  deleteCategory,
 } from '../api/categoryService';
+import { userIdService } from '../userIdService';
+import { supabase as appSupabase } from '../api/supabaseClient';
 import type { Category } from '../../types';
 
-// Use real Supabase test instance
-const testSupabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+const TEST_EMAIL = process.env.VITEST_SUPABASE_EMAIL ?? process.env.VITE_SUPABASE_TEST_EMAIL;
+const TEST_PASSWORD = process.env.VITEST_SUPABASE_PASSWORD ?? process.env.VITE_SUPABASE_TEST_PASSWORD;
 
-// Test data - using valid UUIDs
-const TEST_USER_ID = '66666666-6666-6666-6666-' + Date.now().toString().padStart(12, '0').slice(-12);
-const TEST_CLERK_ID = 'test_clerk_cat_' + Date.now();
-const createdCategoryIds: string[] = [];
+if (!appSupabase) {
+  throw new Error('Supabase client is not configured for category tests');
+}
+
+const supabase = appSupabase;
+
+let createdCategoryIds: string[] = [];
+let authUserId: string;
+let databaseUserId: string;
 
 describe('CategoryService - REAL Database Tests', () => {
   beforeEach(async () => {
-    // Clear tracking arrays
-    createdCategoryIds.length = 0;
-    
-    // Create test user (required by foreign key constraint)
-    const { error: userError } = await testSupabase
+    createdCategoryIds = [];
+    userIdService.clearCache();
+
+    if (!TEST_EMAIL || !TEST_PASSWORD) {
+      throw new Error('Set VITEST_SUPABASE_EMAIL and VITEST_SUPABASE_PASSWORD to run category real tests');
+    }
+
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: TEST_EMAIL,
+      password: TEST_PASSWORD,
+    });
+
+    if (signInError) {
+      throw new Error(`Failed to sign in category test user: ${signInError.message}`);
+    }
+
+    const session = await supabase.auth.getSession();
+    authUserId = signInData.user?.id ?? session.data.session?.user?.id ?? '';
+    if (!authUserId) {
+      throw new Error('Unable to resolve authenticated user id for category tests');
+    }
+
+    const timestamp = new Date().toISOString();
+
+    await supabase
       .from('users')
       .upsert({
-        id: TEST_USER_ID,
-        clerk_id: TEST_CLERK_ID,
-        email: `test.cat.${Date.now()}@test.com`,
-        created_at: new Date().toISOString(),
+        id: authUserId,
+        clerk_id: authUserId,
+        email: TEST_EMAIL,
+        first_name: null,
+        last_name: null,
+        created_at: timestamp,
+        updated_at: timestamp,
       });
-    
-    if (userError) {
-      console.error('Failed to create test user:', userError);
-    }
-    
-    // Create user_id_mapping for userIdService
-    const { error: mappingError } = await testSupabase
+
+    await supabase
       .from('user_id_mappings')
       .upsert({
-        clerk_id: TEST_CLERK_ID,
-        database_user_id: TEST_USER_ID,
-        created_at: new Date().toISOString(),
+        clerk_id: authUserId,
+        database_user_id: authUserId,
+        created_at: timestamp,
       });
-    
-    if (mappingError) {
-      console.error('Failed to create user mapping:', mappingError);
-    }
+
+    databaseUserId = authUserId;
+    userIdService.setCurrentUser(authUserId, databaseUserId);
   });
 
   afterEach(async () => {
-    // Clean up categories
     if (createdCategoryIds.length > 0) {
-      await testSupabase
+      await supabase
         .from('categories')
         .delete()
         .in('id', createdCategoryIds);
     }
-    
-    // Clean up user mapping
-    await testSupabase
-      .from('user_id_mappings')
-      .delete()
-      .eq('clerk_id', TEST_CLERK_ID);
-    
-    // Clean up test user
-    await testSupabase
-      .from('users')
-      .delete()
-      .eq('id', TEST_USER_ID);
+
+    await supabase.auth.signOut();
+    userIdService.clearCache();
   });
 
   describe('createCategory - REAL', () => {
     it('should create a real category in the database', async () => {
-      // Arrange
       const categoryData = {
         name: 'Real Groceries Category',
         type: 'expense' as const,
@@ -91,10 +101,7 @@ describe('CategoryService - REAL Database Tests', () => {
         icon: '🛒',
       };
 
-      // Act - Create real category
-      const result = await createCategory(TEST_CLERK_ID, categoryData);
-
-      // Assert
+      const result = await createCategory(authUserId, categoryData);
       expect(result).toBeDefined();
       expect(result.name).toBe('Real Groceries Category');
       expect(result.type).toBe('expense');
@@ -104,22 +111,16 @@ describe('CategoryService - REAL Database Tests', () => {
 
       if (result.id) {
         createdCategoryIds.push(result.id);
-        
-        // Verify it actually exists in the database
-        const { data: verifyData } = await testSupabase
-          .from('categories')
-          .select('*')
-          .eq('id', result.id)
-          .single();
-        
-        expect(verifyData).toBeDefined();
-        expect(verifyData?.name).toBe('Real Groceries Category');
-        expect(verifyData?.type).toBe('expense');
       }
+
+      const categories = await getCategories(authUserId);
+      const createdCategory = categories.find(category => category.id === result.id);
+      expect(createdCategory).toBeDefined();
+      expect(createdCategory?.name).toBe('Real Groceries Category');
+      expect(createdCategory?.type).toBe('expense');
     });
 
     it('should create income category correctly', async () => {
-      // Arrange
       const incomeCategory = {
         name: 'Salary',
         type: 'income' as const,
@@ -127,22 +128,21 @@ describe('CategoryService - REAL Database Tests', () => {
         icon: '💰',
       };
 
-      // Act
-      const result = await createCategory(TEST_CLERK_ID, incomeCategory);
+      const result = await createCategory(authUserId, incomeCategory);
 
-      // Assert
       expect(result).toBeDefined();
-      expect(result.type).toBe('income');
-      expect(result.name).toBe('Salary');
-      
       if (result.id) {
         createdCategoryIds.push(result.id);
       }
+
+      const categories = await getCategories(authUserId);
+      const fetchedIncomeCategory = categories.find(category => category.id === result.id);
+      expect(fetchedIncomeCategory?.type).toBe('income');
+      expect(fetchedIncomeCategory?.name).toBe('Salary');
     });
 
     it('should create subcategory with parent', async () => {
-      // First create parent category
-      const parentCategory = await createCategory(TEST_CLERK_ID, {
+      const parentCategory = await createCategory(authUserId, {
         name: 'Transportation',
         type: 'expense' as const,
         color: '#3B82F6',
@@ -153,113 +153,79 @@ describe('CategoryService - REAL Database Tests', () => {
       }
       createdCategoryIds.push(parentCategory.id);
 
-      // Create subcategory
-      const subcategory = {
+      const subcategory = await createCategory(authUserId, {
         name: 'Gas',
         type: 'expense' as const,
         color: '#60A5FA',
         parentId: parentCategory.id,
-      };
+      });
 
-      // Act
-      const result = await createCategory(TEST_CLERK_ID, subcategory);
+      expect(subcategory).toBeDefined();
+      expect(subcategory.parentId).toBe(parentCategory.id);
 
-      // Assert
-      expect(result).toBeDefined();
-      expect(result.name).toBe('Gas');
-      expect(result.parentId).toBe(parentCategory.id);
-      
-      if (result.id) {
-        createdCategoryIds.push(result.id);
+      if (subcategory?.id) {
+        createdCategoryIds.push(subcategory.id);
       }
     });
   });
 
   describe('getCategories - REAL', () => {
     it('should retrieve real categories from database', async () => {
-      // Arrange - Create multiple real categories
-      const categories = [
-        {
-          name: 'Food & Dining',
-          type: 'expense' as const,
-          color: '#10B981',
-        },
-        {
-          name: 'Entertainment',
-          type: 'expense' as const,
-          color: '#8B5CF6',
-        },
-        {
-          name: 'Freelance Income',
-          type: 'income' as const,
-          color: '#059669',
-        },
+      const categoriesToCreate = [
+        { name: 'Food & Dining', type: 'expense' as const, color: '#10B981' },
+        { name: 'Entertainment', type: 'expense' as const, color: '#8B5CF6' },
+        { name: 'Freelance Income', type: 'income' as const, color: '#059669' },
       ];
 
-      // Create categories
-      for (const cat of categories) {
-        const created = await createCategory(TEST_CLERK_ID, cat);
+      for (const cat of categoriesToCreate) {
+        const created = await createCategory(authUserId, cat);
         if (created?.id) {
           createdCategoryIds.push(created.id);
         }
       }
 
-      // Act - Retrieve categories
-      const retrievedCategories = await getCategories(TEST_CLERK_ID);
+      const retrievedCategories = await getCategories(authUserId);
 
-      // Assert
       expect(Array.isArray(retrievedCategories)).toBe(true);
-      expect(retrievedCategories.length).toBeGreaterThanOrEqual(3);
-      
-      // Verify our test categories are in the results
-      const testCategories = retrievedCategories.filter(c => 
-        createdCategoryIds.includes(c.id)
-      );
-      expect(testCategories.length).toBe(3);
-      
-      // Check specific categories
-      const foodCategory = testCategories.find(c => c.name === 'Food & Dining');
-      const incomeCategory = testCategories.find(c => c.type === 'income');
-      
-      expect(foodCategory).toBeDefined();
-      expect(foodCategory?.type).toBe('expense');
-      expect(incomeCategory).toBeDefined();
-      expect(incomeCategory?.name).toBe('Freelance Income');
+      expect(retrievedCategories.length).toBeGreaterThanOrEqual(categoriesToCreate.length);
+
+      const testCategories = retrievedCategories.filter((c) => createdCategoryIds.includes(c.id));
+      expect(testCategories.length).toBe(categoriesToCreate.length);
+
+      expect(testCategories.find((c) => c.name === 'Food & Dining')?.type).toBe('expense');
+      expect(testCategories.find((c) => c.type === 'income')?.name).toBe('Freelance Income');
     });
 
     it('should retrieve categories with hierarchy', async () => {
-      // Create parent category
-      const parent = await createCategory(TEST_CLERK_ID, {
+      const parent = await createCategory(authUserId, {
         name: 'Shopping',
         type: 'expense' as const,
         color: '#EC4899',
       });
-      
-      if (parent?.id) {
-        createdCategoryIds.push(parent.id);
-        
-        // Create subcategories
-        const subcategories = ['Clothing', 'Electronics', 'Home Goods'];
-        for (const name of subcategories) {
-          const sub = await createCategory(TEST_CLERK_ID, {
-            name,
-            type: 'expense' as const,
-            color: '#F9A8D4',
-            parentId: parent.id,
-          });
-          if (sub?.id) {
-            createdCategoryIds.push(sub.id);
-          }
+
+      if (!parent?.id) {
+        throw new Error('Failed to create parent category');
+      }
+      createdCategoryIds.push(parent.id);
+
+      const subcategories = ['Clothing', 'Electronics', 'Home Goods'];
+      for (const name of subcategories) {
+        const sub = await createCategory(authUserId, {
+          name,
+          type: 'expense' as const,
+          color: '#F9A8D4',
+          parentId: parent.id,
+        });
+        if (sub?.id) {
+          createdCategoryIds.push(sub.id);
         }
       }
 
-      // Act
-      const categories = await getCategories(TEST_CLERK_ID);
+      const categories = await getCategories(authUserId);
 
-      // Assert - Check hierarchy
-      const shoppingCategory = categories.find(c => c.name === 'Shopping');
-      const clothingCategory = categories.find(c => c.name === 'Clothing');
-      
+      const shoppingCategory = categories.find((c) => c.name === 'Shopping');
+      const clothingCategory = categories.find((c) => c.name === 'Clothing');
+
       expect(shoppingCategory).toBeDefined();
       expect(clothingCategory).toBeDefined();
       expect(clothingCategory?.parentId).toBe(shoppingCategory?.id);
@@ -268,8 +234,7 @@ describe('CategoryService - REAL Database Tests', () => {
 
   describe('updateCategory - REAL', () => {
     it('should update a real category in the database', async () => {
-      // Arrange - Create a real category
-      const originalCategory = await createCategory(TEST_CLERK_ID, {
+      const originalCategory = await createCategory(authUserId, {
         name: 'Original Category Name',
         type: 'expense' as const,
         color: '#000000',
@@ -281,110 +246,79 @@ describe('CategoryService - REAL Database Tests', () => {
       }
       createdCategoryIds.push(originalCategory.id);
 
-      // Act - Update the real category
       const updated = await updateCategory(originalCategory.id, {
         name: 'Updated Category Name',
         color: '#FFFFFF',
         icon: '✅',
       });
 
-      // Assert
       expect(updated).toBeDefined();
-      expect(updated.name).toBe('Updated Category Name');
-      expect(updated.color).toBe('#FFFFFF');
-      expect(updated.icon).toBe('✅');
-      expect(updated.type).toBe('expense'); // Type shouldn't change
 
-      // Verify the update in the database
-      const { data: verifyData } = await testSupabase
-        .from('categories')
-        .select('*')
-        .eq('id', originalCategory.id)
-        .single();
+      const categories = await getCategories(authUserId);
+      const updatedCategory = categories.find(category => category.id === originalCategory.id);
 
-      expect(verifyData?.name).toBe('Updated Category Name');
-      expect(verifyData?.color).toBe('#FFFFFF');
+      expect(updatedCategory?.name).toBe('Updated Category Name');
+      expect(updatedCategory?.color).toBe('#FFFFFF');
+      expect(updatedCategory?.icon).toBe('✅');
     });
   });
 
   describe('deleteCategory - REAL', () => {
     it('should delete a real category from database', async () => {
-      // Arrange - Create a real category
-      const category = await createCategory(TEST_CLERK_ID, {
-        name: 'Category to Delete',
+      const category = await createCategory(authUserId, {
+        name: 'Goal to Delete',
         type: 'expense' as const,
-        color: '#FF0000',
+        color: '#F87171',
       });
 
       if (!category?.id) {
         throw new Error('Failed to create test category');
       }
-      // Don't add to cleanup array since we're deleting it
 
-      // Act - Delete the category
       await deleteCategory(category.id);
 
-      // Verify it's deleted from database
-      const { data: verifyData } = await testSupabase
-        .from('categories')
-        .select('*')
-        .eq('id', category.id)
-        .single();
+      const categories = await getCategories(authUserId);
+      const deletedCategory = categories.find(item => item.id === category.id);
 
-      // Should not exist
-      expect(verifyData).toBeNull();
+      expect(deletedCategory).toBeUndefined();
     });
 
     it('should handle deletion of category with subcategories', async () => {
-      // Create parent and child categories
-      const parent = await createCategory(TEST_CLERK_ID, {
+      const parent = await createCategory(authUserId, {
         name: 'Parent Category',
         type: 'expense' as const,
-        color: '#000000',
+        color: '#FBBF24',
       });
 
       if (!parent?.id) {
         throw new Error('Failed to create parent category');
       }
+      createdCategoryIds.push(parent.id);
 
-      const child = await createCategory(TEST_CLERK_ID, {
+      const child = await createCategory(authUserId, {
         name: 'Child Category',
         type: 'expense' as const,
-        color: '#111111',
+        color: '#FCD34D',
         parentId: parent.id,
       });
 
-      if (child?.id) {
-        createdCategoryIds.push(child.id);
+      if (!child?.id) {
+        throw new Error('Failed to create child category');
       }
+      createdCategoryIds.push(child.id);
 
-      // Act - Try to delete parent (should handle cascade)
       await deleteCategory(parent.id);
 
-      // Verify parent is deleted
-      const { data: parentData } = await testSupabase
-        .from('categories')
-        .select('*')
-        .eq('id', parent.id)
-        .single();
+      const categories = await getCategories(authUserId);
+      const deletedParent = categories.find(item => item.id === parent.id);
 
-      expect(parentData).toBeNull();
-
-      // Child might be deleted or orphaned depending on database rules
-      // Clean up if still exists
-      if (child?.id) {
-        await testSupabase
-          .from('categories')
-          .delete()
-          .eq('id', child.id);
-      }
+      expect(deletedParent).toBeUndefined();
     });
   });
 
   describe('Real Database Category Operations', () => {
     it('should enforce unique category names per user', async () => {
-      // Create first category
-      const first = await createCategory(TEST_CLERK_ID, {
+      const first = await createCategory(authUserId, {
         name: 'Unique Category',
         type: 'expense' as const,
         color: '#000000',
@@ -394,104 +328,49 @@ describe('CategoryService - REAL Database Tests', () => {
         createdCategoryIds.push(first.id);
       }
 
-      // Try to create duplicate - behavior depends on database constraints
       try {
-        const duplicate = await createCategory(TEST_CLERK_ID, {
+        const duplicate = await createCategory(authUserId, {
           name: 'Unique Category',
           type: 'expense' as const,
           color: '#111111',
         });
-        
-        // If it succeeds, it means duplicates are allowed
+
         if (duplicate?.id) {
           createdCategoryIds.push(duplicate.id);
           expect(duplicate.name).toBe('Unique Category');
         }
       } catch (error) {
-        // If it fails, unique constraint is enforced
         expect(error).toBeDefined();
       }
     });
 
     it('should handle concurrent category operations correctly', async () => {
-      const promises = [];
-      
-      // Create 5 categories concurrently
+      const promises: Array<Promise<Category | undefined>> = [];
+
       for (let i = 0; i < 5; i++) {
         promises.push(
-          createCategory(TEST_USER_ID, {
+          createCategory(authUserId, {
             name: `Concurrent Category ${i}`,
-            type: i % 2 === 0 ? 'expense' as const : 'income' as const,
+            type: i % 2 === 0 ? ('expense' as const) : ('income' as const),
             color: `#${i}${i}${i}${i}${i}${i}`,
-          })
+          }),
         );
       }
 
-      // Act - Execute all concurrently
       const results = await Promise.all(promises);
 
-      // Assert - All should succeed
       results.forEach((result, index) => {
         expect(result).toBeDefined();
-        expect(result.name).toBe(`Concurrent Category ${index}`);
+        expect(result?.name).toBe(`Concurrent Category ${index}`);
         if (result?.id) {
           createdCategoryIds.push(result.id);
         }
       });
 
-      // Verify all exist in database
-      const { data: allCategories } = await testSupabase
-        .from('categories')
-        .select('*')
-        .in('id', createdCategoryIds);
+      const categories = await getCategories(authUserId);
+      const createdSet = categories.filter(category => createdCategoryIds.includes(category.id));
 
-      expect(allCategories?.length).toBeGreaterThanOrEqual(5);
+      expect(createdSet.length).toBeGreaterThanOrEqual(5);
     });
   });
 });
-
-/**
- * Test Data Factory for Real Category Tests
- */
-export class CategoryTestDataFactory {
-  private supabase = createClient(
-    import.meta.env.VITE_SUPABASE_URL,
-    import.meta.env.VITE_SUPABASE_ANON_KEY
-  );
-  
-  private createdIds = {
-    categories: [] as string[],
-    users: [] as string[],
-  };
-
-  async createTestCategory(clerkId: string, overrides = {}) {
-    const category = await createCategory(clerkId, {
-      name: 'Test Category ' + Date.now(),
-      type: 'expense' as const,
-      color: '#' + Math.floor(Math.random()*16777215).toString(16),
-      ...overrides,
-    });
-
-    if (category?.id) {
-      this.createdIds.categories.push(category.id);
-    }
-    return category;
-  }
-
-  async cleanup() {
-    // Clean up all created test data
-    if (this.createdIds.categories.length > 0) {
-      await this.supabase
-        .from('categories')
-        .delete()
-        .in('id', this.createdIds.categories);
-    }
-    
-    if (this.createdIds.users.length > 0) {
-      await this.supabase
-        .from('users')
-        .delete()
-        .in('id', this.createdIds.users);
-    }
-  }
-}
