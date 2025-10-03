@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
-import { 
+import {
   FileTextIcon as FileText,
   DownloadIcon as Download,
   CalendarIcon as Calendar,
-  FilterIcon as Filter,
-  CheckCircleIcon as CheckCircle,
-  SettingsIcon as Settings,
   FileTextIcon as FileSpreadsheet,
   FileTextIcon as FilePlus,
-  EyeIcon as Eye,
   XIcon as X,
-  ChevronDownIcon as ChevronDown,
   TrendingUpIcon as TrendingUp,
   DollarSignIcon as DollarSign,
   PieChartIcon as PieChart,
@@ -142,11 +137,10 @@ const REPORT_TEMPLATES = [
 ];
 
 export default function EnhancedExportManager(): React.JSX.Element {
-  const { accounts, transactions, budgets, goals } = useApp();
+  const { accounts, transactions, budgets } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   
   const [options, setOptions] = useState<ExportOptions>({
     format: 'pdf',
@@ -647,7 +641,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                   {['thisMonth', 'lastMonth', 'thisYear', 'lastYear', 'all', 'custom'].map(range => (
                     <button
                       key={range}
-                      onClick={() => setOptions(prev => ({ ...prev, dateRange: range as any }))}
+                      onClick={() => setOptions(prev => ({ ...prev, dateRange: range as ExportOptions['dateRange'] }))}
                       className={`px-4 py-2 rounded-lg border transition-all ${
                         options.dateRange === range
                           ? 'border-gray-500 bg-blue-50 dark:bg-gray-900/20 text-gray-600'
@@ -719,7 +713,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                       <label className="text-sm text-gray-700 dark:text-gray-300">Paper Size</label>
                       <select
                         value={options.paperSize}
-                        onChange={(e) => setOptions(prev => ({ ...prev, paperSize: e.target.value as any }))}
+                        onChange={(e) => setOptions(prev => ({ ...prev, paperSize: e.target.value as ExportOptions['paperSize'] }))}
                         className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                       >
                         <option value="a4">A4</option>
@@ -732,7 +726,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
                       <label className="text-sm text-gray-700 dark:text-gray-300">Orientation</label>
                       <select
                         value={options.orientation}
-                        onChange={(e) => setOptions(prev => ({ ...prev, orientation: e.target.value as any }))}
+                        onChange={(e) => setOptions(prev => ({ ...prev, orientation: e.target.value as ExportOptions['orientation'] }))}
                         className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                       >
                         <option value="portrait">Portrait</option>
@@ -745,15 +739,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <button
-                onClick={() => setShowPreview(true)}
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                <Eye size={16} />
-                Preview
-              </button>
-
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end">
               <div className="flex gap-3">
                 <button
                   onClick={() => setIsOpen(false)}
