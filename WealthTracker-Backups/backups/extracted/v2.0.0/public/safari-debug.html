@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Safari Debug</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ddd; }
+        .pass { background: #d4edda; }
+        .fail { background: #f8d7da; }
+    </style>
+</head>
+<body>
+    <h1>Safari Debug Page</h1>
+    <div id="tests"></div>
+    
+    <script>
+        const tests = document.getElementById('tests');
+        
+        function addTest(name, result, success) {
+            const div = document.createElement('div');
+            div.className = 'test ' + (success ? 'pass' : 'fail');
+            div.innerHTML = `<strong>${name}:</strong> ${result}`;
+            tests.appendChild(div);
+        }
+        
+        // Test 1: Basic JavaScript
+        addTest('JavaScript', 'Working', true);
+        
+        // Test 2: ES6 Features
+        try {
+            const arrow = () => 'arrow function works';
+            const template = `template literal works`;
+            const { a, b } = { a: 1, b: 2 };
+            addTest('ES6 Features', 'Supported', true);
+        } catch (e) {
+            addTest('ES6 Features', 'Error: ' + e.message, false);
+        }
+        
+        // Test 3: ES Modules
+        addTest('ES Module Support', 'noModule' in HTMLScriptElement.prototype ? 'Supported' : 'Not supported', 'noModule' in HTMLScriptElement.prototype);
+        
+        // Test 4: Fetch API
+        addTest('Fetch API', typeof fetch !== 'undefined' ? 'Available' : 'Not available', typeof fetch !== 'undefined');
+        
+        // Test 5: Try loading a module
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.textContent = `
+            import { test } from './safari-test-module.js';
+            window.moduleLoaded = true;
+        `;
+        document.head.appendChild(script);
+        
+        setTimeout(() => {
+            addTest('Module Loading', window.moduleLoaded ? 'Success' : 'Failed', window.moduleLoaded);
+        }, 100);
+        
+        // Test 6: Check for common issues
+        addTest('Cookies Enabled', navigator.cookieEnabled ? 'Yes' : 'No', navigator.cookieEnabled);
+        addTest('Local Storage', typeof localStorage !== 'undefined' ? 'Available' : 'Not available', typeof localStorage !== 'undefined');
+        
+        // Test 7: Content Blockers
+        const img = new Image();
+        img.src = 'https://www.google.com/favicon.ico';
+        img.onload = () => addTest('External Resources', 'Can load', true);
+        img.onerror = () => addTest('External Resources', 'Blocked', false);
+    </script>
+</body>
+</html>

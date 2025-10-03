@@ -1,0 +1,88 @@
+/* Design System CSS Variables */
+/* This file is auto-applied by the ThemeProvider */
+
+/* Use CSS variables in your components like this:
+ * background-color: var(--color-background-primary);
+ * color: var(--color-text-primary);
+ * border: 1px solid var(--color-border-primary);
+ * padding: var(--spacing-4);
+ * border-radius: var(--radius-lg);
+ * box-shadow: var(--shadow-md);
+ * transition: all var(--duration-normal) var(--easing-inOut);
+ */
+
+/* Example component styles using design tokens */
+.ds-button-primary {
+  background-color: var(--color-interactive-primary);
+  color: white;
+  padding: var(--spacing-2) var(--spacing-4);
+  border-radius: var(--radius-md);
+  font-weight: var(--font-weight-medium);
+  transition: background-color var(--duration-fast) var(--easing-inOut);
+}
+
+.ds-button-primary:hover {
+  background-color: var(--color-interactive-primaryHover);
+}
+
+.ds-button-primary:active {
+  background-color: var(--color-interactive-primaryActive);
+}
+
+.ds-card {
+  background-color: var(--color-surface-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.ds-input {
+  background-color: var(--color-surface-primary);
+  border: 1px solid var(--color-border-primary);
+  color: var(--color-text-primary);
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  transition: border-color var(--duration-fast) var(--easing-inOut);
+}
+
+.ds-input:focus {
+  outline: none;
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px var(--color-border-focus)20;
+}
+
+/* Status indicators */
+.ds-status-success {
+  background-color: var(--color-status-successBackground);
+  color: var(--color-status-success);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+.ds-status-error {
+  background-color: var(--color-status-errorBackground);
+  color: var(--color-status-error);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+}
+
+/* Financial indicators */
+.ds-amount-income {
+  color: var(--color-financial-income);
+}
+
+.ds-amount-expense {
+  color: var(--color-financial-expense);
+}
+
+.ds-amount-transfer {
+  color: var(--color-financial-transfer);
+}
+
+.ds-amount-investment {
+  color: var(--color-financial-investment);
+}

@@ -1,0 +1,1 @@
+If you can see this text, Vite is serving files correctly.

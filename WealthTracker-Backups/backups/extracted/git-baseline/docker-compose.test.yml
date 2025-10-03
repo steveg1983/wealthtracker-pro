@@ -1,0 +1,72 @@
+version: '3.8'
+
+services:
+  # Local Supabase instance for unit tests
+  supabase-test-unit:
+    image: supabase/postgres:15.1.0.117
+    container_name: wealthtracker-test-unit-db
+    ports:
+      - "54321:5432"
+    environment:
+      POSTGRES_PASSWORD: test_password_unit
+      POSTGRES_USER: postgres
+      POSTGRES_DB: wealthtracker_test_unit
+    volumes:
+      - test-unit-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Local Supabase instance for integration tests
+  supabase-test-integration:
+    image: supabase/postgres:15.1.0.117
+    container_name: wealthtracker-test-integration-db
+    ports:
+      - "54322:5432"
+    environment:
+      POSTGRES_PASSWORD: test_password_integration
+      POSTGRES_USER: postgres
+      POSTGRES_DB: wealthtracker_test_integration
+    volumes:
+      - test-integration-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Local Supabase instance for e2e tests
+  supabase-test-e2e:
+    image: supabase/postgres:15.1.0.117
+    container_name: wealthtracker-test-e2e-db
+    ports:
+      - "54323:5432"
+    environment:
+      POSTGRES_PASSWORD: test_password_e2e
+      POSTGRES_USER: postgres
+      POSTGRES_DB: wealthtracker_test_e2e
+    volumes:
+      - test-e2e-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis for test caching (optional but speeds up tests)
+  redis-test:
+    image: redis:7-alpine
+    container_name: wealthtracker-test-redis
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - test-redis-data:/data
+
+volumes:
+  test-unit-db-data:
+  test-integration-db-data:
+  test-e2e-db-data:
+  test-redis-data:

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Basic Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>Basic Safari Test</h1>
+    <noscript>
+        <p class="error">JavaScript is DISABLED in your browser!</p>
+    </noscript>
+    <div id="status">
+        <p>If you see this, HTML is loading...</p>
+    </div>
+    
+    <script>
+        // Immediate inline script
+        document.write('<p class="success">JavaScript is ENABLED!</p>');
+        
+        // DOM ready test
+        document.addEventListener('DOMContentLoaded', function() {
+            var status = document.getElementById('status');
+            status.innerHTML += '<p class="success">DOM loaded successfully!</p>';
+            
+            // Show browser info
+            status.innerHTML += '<p>Browser: ' + navigator.userAgent + '</p>';
+            status.innerHTML += '<p>URL: ' + window.location.href + '</p>';
+        });
+    </script>
+</body>
+</html>

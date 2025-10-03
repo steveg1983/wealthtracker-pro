@@ -1,0 +1,3289 @@
+
+> wealth-tracker@1.4.5 test:e2e
+> playwright test e2e/transaction-import-flow.spec.ts --reporter=json
+
+{
+  "config": {
+    "configFile": "/Users/stevegreen/wealthtracker-web/playwright.config.ts",
+    "rootDir": "/Users/stevegreen/wealthtracker-web/e2e",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 8
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "json"
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "/Users/stevegreen/wealthtracker-web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/stevegreen/wealthtracker-web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/stevegreen/wealthtracker-web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "firefox",
+        "name": "firefox",
+        "testDir": "/Users/stevegreen/wealthtracker-web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/stevegreen/wealthtracker-web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "webkit",
+        "name": "webkit",
+        "testDir": "/Users/stevegreen/wealthtracker-web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/stevegreen/wealthtracker-web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "Mobile Chrome",
+        "name": "Mobile Chrome",
+        "testDir": "/Users/stevegreen/wealthtracker-web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      },
+      {
+        "outputDir": "/Users/stevegreen/wealthtracker-web/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 8
+        },
+        "id": "Mobile Safari",
+        "name": "Mobile Safari",
+        "testDir": "/Users/stevegreen/wealthtracker-web/e2e",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.54.1",
+    "workers": 8,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:5173",
+      "reuseExistingServer": true,
+      "timeout": 120000
+    }
+  },
+  "suites": [
+    {
+      "title": "transaction-import-flow.spec.ts",
+      "file": "transaction-import-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Transaction Import - CSV Import",
+          "file": "transaction-import-flow.spec.ts",
+          "line": 55,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should import a basic CSV file successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 4744,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:19.559Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-934c244e2e071682e883",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 68,
+              "column": 3
+            },
+            {
+              "title": "should auto-detect bank format",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 3113,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/barclays-statement.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/barclays-statement.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:132:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 132
+                        },
+                        "snippet": "  130 |     \n  131 |     // Upload file\n> 132 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  133 |     await page.waitForTimeout(1000);\n  134 |     \n  135 |     // Should either show column mapping or jump straight to preview if auto-detected"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 132
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/barclays-statement.csv'\n\n  130 |     \n  131 |     // Upload file\n> 132 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  133 |     await page.waitForTimeout(1000);\n  134 |     \n  135 |     // Should either show column mapping or jump straight to preview if auto-detected\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:132:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:19.683Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 132
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-5bdf1f8fa42098830f89",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "should handle duplicate detection",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 2518,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/transactions1.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/transactions1.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:174:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 174
+                        },
+                        "snippet": "  172 |     // Import first file\n  173 |     await page.getByRole('button', { name: 'CSV Import (Bank Statements)' }).click();\n> 174 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath1);\n      |     ^\n  175 |     await page.waitForTimeout(1000);\n  176 |     await page.getByRole('button', { name: /Next/i }).click();\n  177 |     await page.getByRole('dialog').getByRole('button', { name: 'Import', exact: true }).click();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 174
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/transactions1.csv'\n\n  172 |     // Import first file\n  173 |     await page.getByRole('button', { name: 'CSV Import (Bank Statements)' }).click();\n> 174 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath1);\n      |     ^\n  175 |     await page.waitForTimeout(1000);\n  176 |     await page.getByRole('button', { name: /Next/i }).click();\n  177 |     await page.getByRole('dialog').getByRole('button', { name: 'Import', exact: true }).click();\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:174:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:19.741Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 174
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-6b804366694bc526c651",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 164,
+              "column": 3
+            },
+            {
+              "title": "should handle column mapping",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 2604,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/custom-format.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/custom-format.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:247:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 247
+                        },
+                        "snippet": "  245 |     \n  246 |     await page.getByRole('button', { name: 'CSV Import (Bank Statements)' }).click();\n> 247 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  248 |     await page.waitForTimeout(1000);\n  249 |     \n  250 |     // Should show column mapping"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 247
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/custom-format.csv'\n\n  245 |     \n  246 |     await page.getByRole('button', { name: 'CSV Import (Bank Statements)' }).click();\n> 247 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  248 |     await page.waitForTimeout(1000);\n  249 |     \n  250 |     // Should show column mapping\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:247:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:20.132Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-9aa81-hould-handle-column-mapping-chromium/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-9aa81-hould-handle-column-mapping-chromium/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-9aa81-hould-handle-column-mapping-chromium/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 247
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-3b48ba29448733b52c68",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 237,
+              "column": 3
+            },
+            {
+              "title": "should import a basic CSV file successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 16,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 6025,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:25.305Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-562fb6738ec114bac195",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 68,
+              "column": 3
+            },
+            {
+              "title": "should auto-detect bank format",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 17,
+                      "parallelIndex": 2,
+                      "status": "timedOut",
+                      "duration": 30110,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 132
+                          },
+                          "message": "Error: locator.setInputFiles: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('input[type=\"file\"]')\u001b[22m\n\n\n  130 |     \n  131 |     // Upload file\n> 132 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  133 |     await page.waitForTimeout(1000);\n  134 |     \n  135 |     // Should either show column mapping or jump straight to preview if auto-detected\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:132:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:26.235Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-firefox/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-firefox/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-firefox/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-38c6cd265de62fd0826d",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "should handle duplicate detection",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 11628,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeAttached\u001b[2m()\u001b[22m\n\nLocator: locator('input[type=\"file\"]')\nExpected: attached\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeAttached\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[type=\"file\"]')\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeAttached\u001b[2m()\u001b[22m\n\nLocator: locator('input[type=\"file\"]')\nExpected: attached\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeAttached\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[type=\"file\"]')\u001b[22m\n\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:211:29",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 29,
+                          "line": 211
+                        },
+                        "snippet": "  209 |     // Upload second file - wait for input to be ready\n  210 |     const fileInput = page.locator('input[type=\"file\"]');\n> 211 |     await expect(fileInput).toBeAttached({ timeout: 5000 });\n      |                             ^\n  212 |     await fileInput.setInputFiles(filePath2);\n  213 |     await page.waitForTimeout(1000);\n  214 |     "
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 29,
+                            "line": 211
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeAttached\u001b[2m()\u001b[22m\n\nLocator: locator('input[type=\"file\"]')\nExpected: attached\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeAttached\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[type=\"file\"]')\u001b[22m\n\n\n  209 |     // Upload second file - wait for input to be ready\n  210 |     const fileInput = page.locator('input[type=\"file\"]');\n> 211 |     await expect(fileInput).toBeAttached({ timeout: 5000 });\n      |                             ^\n  212 |     await fileInput.setInputFiles(filePath2);\n  213 |     await page.waitForTimeout(1000);\n  214 |     \n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:211:29"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:26.183Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-firefox/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-firefox/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-firefox/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 29,
+                        "line": 211
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-6e3b82b37f697b5fa7e2",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 164,
+              "column": 3
+            },
+            {
+              "title": "should handle column mapping",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 12,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 4350,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:27.727Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-3a930f63209b881fd68e",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 237,
+              "column": 3
+            },
+            {
+              "title": "should import a basic CSV file successfully",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 26,
+                      "parallelIndex": 6,
+                      "status": "failed",
+                      "duration": 3392,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/basic-transactions.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/basic-transactions.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:85:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 85
+                        },
+                        "snippet": "  83 |     // Upload file\n  84 |     const fileInput = page.locator('input[type=\"file\"]');\n> 85 |     await fileInput.setInputFiles(filePath);\n     |     ^\n  86 |     \n  87 |     // Wait for file to be processed\n  88 |     await page.waitForTimeout(1000);"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 85
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/basic-transactions.csv'\n\n  83 |     // Upload file\n  84 |     const fileInput = page.locator('input[type=\"file\"]');\n> 85 |     await fileInput.setInputFiles(filePath);\n     |     ^\n  86 |     \n  87 |     // Wait for file to be processed\n  88 |     await page.waitForTimeout(1000);\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:85:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:34.903Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-ef56c-basic-CSV-file-successfully-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-ef56c-basic-CSV-file-successfully-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-ef56c-basic-CSV-file-successfully-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 85
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-a7dd6558adb5652daa8c",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 68,
+              "column": 3
+            },
+            {
+              "title": "should auto-detect bank format",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 19,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 3740,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/barclays-statement.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/barclays-statement.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:132:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 132
+                        },
+                        "snippet": "  130 |     \n  131 |     // Upload file\n> 132 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  133 |     await page.waitForTimeout(1000);\n  134 |     \n  135 |     // Should either show column mapping or jump straight to preview if auto-detected"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 132
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/barclays-statement.csv'\n\n  130 |     \n  131 |     // Upload file\n> 132 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  133 |     await page.waitForTimeout(1000);\n  134 |     \n  135 |     // Should either show column mapping or jump straight to preview if auto-detected\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:132:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:34.595Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 132
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-70d1bffc17e991d9a718",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "should handle duplicate detection",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 27,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 3179,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/transactions1.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/transactions1.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:174:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 174
+                        },
+                        "snippet": "  172 |     // Import first file\n  173 |     await page.getByRole('button', { name: 'CSV Import (Bank Statements)' }).click();\n> 174 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath1);\n      |     ^\n  175 |     await page.waitForTimeout(1000);\n  176 |     await page.getByRole('button', { name: /Next/i }).click();\n  177 |     await page.getByRole('dialog').getByRole('button', { name: 'Import', exact: true }).click();"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 174
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/transactions1.csv'\n\n  172 |     // Import first file\n  173 |     await page.getByRole('button', { name: 'CSV Import (Bank Statements)' }).click();\n> 174 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath1);\n      |     ^\n  175 |     await page.waitForTimeout(1000);\n  176 |     await page.getByRole('button', { name: /Next/i }).click();\n  177 |     await page.getByRole('dialog').getByRole('button', { name: 'Import', exact: true }).click();\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:174:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:36.585Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 174
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-e30b767c3d782c88f864",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 164,
+              "column": 3
+            },
+            {
+              "title": "should handle column mapping",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 28,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 3383,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/custom-format.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/custom-format.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:247:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 247
+                        },
+                        "snippet": "  245 |     \n  246 |     await page.getByRole('button', { name: 'CSV Import (Bank Statements)' }).click();\n> 247 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  248 |     await page.waitForTimeout(1000);\n  249 |     \n  250 |     // Should show column mapping"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 247
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/custom-format.csv'\n\n  245 |     \n  246 |     await page.getByRole('button', { name: 'CSV Import (Bank Statements)' }).click();\n> 247 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  248 |     await page.waitForTimeout(1000);\n  249 |     \n  250 |     // Should show column mapping\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:247:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:37.163Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-9aa81-hould-handle-column-mapping-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-9aa81-hould-handle-column-mapping-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-9aa81-hould-handle-column-mapping-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 247
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-c889e6458687121c796b",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 237,
+              "column": 3
+            },
+            {
+              "title": "should import a basic CSV file successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 37,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4815,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:41.531Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-5dd4ee0f5da963571591",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 68,
+              "column": 3
+            },
+            {
+              "title": "should auto-detect bank format",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 39,
+                      "parallelIndex": 6,
+                      "status": "timedOut",
+                      "duration": 30441,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 28,
+                            "line": 127
+                          },
+                          "message": "Error: locator.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Barclays' })\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left\">Barclays</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - element is outside of the viewport\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - element is outside of the viewport\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    52 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - element is outside of the viewport\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\n\n  125 |     const barclaysButton = page.getByRole('button', { name: 'Barclays' });\n  126 |     if (await barclaysButton.isVisible({ timeout: 2000 })) {\n> 127 |       await barclaysButton.click();\n      |                            ^\n  128 |       await page.waitForTimeout(500);\n  129 |     }\n  130 |     \n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:127:28"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:41.848Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-Mobile-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-Mobile-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-Mobile-Chrome/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-9e6ac5f33ca52ca43383",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "should handle duplicate detection",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 38,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 11095,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeAttached\u001b[2m()\u001b[22m\n\nLocator: locator('input[type=\"file\"]')\nExpected: attached\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeAttached\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[type=\"file\"]')\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeAttached\u001b[2m()\u001b[22m\n\nLocator: locator('input[type=\"file\"]')\nExpected: attached\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeAttached\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[type=\"file\"]')\u001b[22m\n\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:211:29",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 29,
+                          "line": 211
+                        },
+                        "snippet": "  209 |     // Upload second file - wait for input to be ready\n  210 |     const fileInput = page.locator('input[type=\"file\"]');\n> 211 |     await expect(fileInput).toBeAttached({ timeout: 5000 });\n      |                             ^\n  212 |     await fileInput.setInputFiles(filePath2);\n  213 |     await page.waitForTimeout(1000);\n  214 |     "
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 29,
+                            "line": 211
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeAttached\u001b[2m()\u001b[22m\n\nLocator: locator('input[type=\"file\"]')\nExpected: attached\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeAttached\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[type=\"file\"]')\u001b[22m\n\n\n  209 |     // Upload second file - wait for input to be ready\n  210 |     const fileInput = page.locator('input[type=\"file\"]');\n> 211 |     await expect(fileInput).toBeAttached({ timeout: 5000 });\n      |                             ^\n  212 |     await fileInput.setInputFiles(filePath2);\n  213 |     await page.waitForTimeout(1000);\n  214 |     \n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:211:29"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:41.848Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-Mobile-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-Mobile-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-Mobile-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 29,
+                        "line": 211
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-3776f44c26cbed979ad6",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 164,
+              "column": 3
+            },
+            {
+              "title": "should handle column mapping",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 29,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 3699,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:42.016Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-94432bf5e4ce5cf1a3eb",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 237,
+              "column": 3
+            },
+            {
+              "title": "should import a basic CSV file successfully",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 44,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 3131,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/basic-transactions.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/basic-transactions.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:85:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 85
+                        },
+                        "snippet": "  83 |     // Upload file\n  84 |     const fileInput = page.locator('input[type=\"file\"]');\n> 85 |     await fileInput.setInputFiles(filePath);\n     |     ^\n  86 |     \n  87 |     // Wait for file to be processed\n  88 |     await page.waitForTimeout(1000);"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 85
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/basic-transactions.csv'\n\n  83 |     // Upload file\n  84 |     const fileInput = page.locator('input[type=\"file\"]');\n> 85 |     await fileInput.setInputFiles(filePath);\n     |     ^\n  86 |     \n  87 |     // Wait for file to be processed\n  88 |     await page.waitForTimeout(1000);\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:85:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:50.994Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-ef56c-basic-CSV-file-successfully-Mobile-Safari/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-ef56c-basic-CSV-file-successfully-Mobile-Safari/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-ef56c-basic-CSV-file-successfully-Mobile-Safari/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 85
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-b8edb074fcad0f2d72d5",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 68,
+              "column": 3
+            },
+            {
+              "title": "should auto-detect bank format",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 42,
+                      "parallelIndex": 5,
+                      "status": "timedOut",
+                      "duration": 30088,
+                      "error": {
+                        "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m",
+                        "stack": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                      },
+                      "errors": [
+                        {
+                          "message": "\u001b[31mTest timeout of 30000ms exceeded.\u001b[39m"
+                        },
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 28,
+                            "line": 127
+                          },
+                          "message": "Error: locator.click: Test timeout of 30000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Barclays' })\u001b[22m\n\u001b[2m    - locator resolved to <button class=\"px-3 py-2 text-sm bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors text-left\">Barclays</button>\u001b[22m\n\u001b[2m  - attempting click action\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - element is outside of the viewport\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m    - waiting 20ms\u001b[22m\n\u001b[2m    2 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m      - element is visible, enabled and stable\u001b[22m\n\u001b[2m      - scrolling into view if needed\u001b[22m\n\u001b[2m      - done scrolling\u001b[22m\n\u001b[2m      - element is outside of the viewport\u001b[22m\n\u001b[2m    - retrying click action\u001b[22m\n\u001b[2m      - waiting 100ms\u001b[22m\n\u001b[2m    51 × waiting for element to be visible, enabled and stable\u001b[22m\n\u001b[2m       - element is visible, enabled and stable\u001b[22m\n\u001b[2m       - scrolling into view if needed\u001b[22m\n\u001b[2m       - done scrolling\u001b[22m\n\u001b[2m       - element is outside of the viewport\u001b[22m\n\u001b[2m     - retrying click action\u001b[22m\n\u001b[2m       - waiting 500ms\u001b[22m\n\n\n  125 |     const barclaysButton = page.getByRole('button', { name: 'Barclays' });\n  126 |     if (await barclaysButton.isVisible({ timeout: 2000 })) {\n> 127 |       await barclaysButton.click();\n      |                            ^\n  128 |       await page.waitForTimeout(500);\n  129 |     }\n  130 |     \n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:127:28"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:51.285Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-Mobile-Safari/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-Mobile-Safari/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-2a445-uld-auto-detect-bank-format-Mobile-Safari/error-context.md"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-4270f77463a1719318d9",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 111,
+              "column": 3
+            },
+            {
+              "title": "should handle duplicate detection",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 45,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 11577,
+                      "error": {
+                        "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeAttached\u001b[2m()\u001b[22m\n\nLocator: locator('input[type=\"file\"]')\nExpected: attached\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeAttached\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[type=\"file\"]')\u001b[22m\n",
+                        "stack": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeAttached\u001b[2m()\u001b[22m\n\nLocator: locator('input[type=\"file\"]')\nExpected: attached\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeAttached\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[type=\"file\"]')\u001b[22m\n\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:211:29",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 29,
+                          "line": 211
+                        },
+                        "snippet": "  209 |     // Upload second file - wait for input to be ready\n  210 |     const fileInput = page.locator('input[type=\"file\"]');\n> 211 |     await expect(fileInput).toBeAttached({ timeout: 5000 });\n      |                             ^\n  212 |     await fileInput.setInputFiles(filePath2);\n  213 |     await page.waitForTimeout(1000);\n  214 |     "
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 29,
+                            "line": 211
+                          },
+                          "message": "Error: \u001b[31mTimed out 5000ms waiting for \u001b[39m\u001b[2mexpect(\u001b[22m\u001b[31mlocator\u001b[39m\u001b[2m).\u001b[22mtoBeAttached\u001b[2m()\u001b[22m\n\nLocator: locator('input[type=\"file\"]')\nExpected: attached\nReceived: <element(s) not found>\nCall log:\n\u001b[2m  - Expect \"toBeAttached\" with timeout 5000ms\u001b[22m\n\u001b[2m  - waiting for locator('input[type=\"file\"]')\u001b[22m\n\n\n  209 |     // Upload second file - wait for input to be ready\n  210 |     const fileInput = page.locator('input[type=\"file\"]');\n> 211 |     await expect(fileInput).toBeAttached({ timeout: 5000 });\n      |                             ^\n  212 |     await fileInput.setInputFiles(filePath2);\n  213 |     await page.waitForTimeout(1000);\n  214 |     \n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:211:29"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:53.360Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-Mobile-Safari/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-Mobile-Safari/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-39506--handle-duplicate-detection-Mobile-Safari/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 29,
+                        "line": 211
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-89246c72d094352e668a",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 164,
+              "column": 3
+            },
+            {
+              "title": "should handle column mapping",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 46,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 3044,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/custom-format.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/custom-format.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:247:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 247
+                        },
+                        "snippet": "  245 |     \n  246 |     await page.getByRole('button', { name: 'CSV Import (Bank Statements)' }).click();\n> 247 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  248 |     await page.waitForTimeout(1000);\n  249 |     \n  250 |     // Should show column mapping"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 247
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/custom-format.csv'\n\n  245 |     \n  246 |     await page.getByRole('button', { name: 'CSV Import (Bank Statements)' }).click();\n> 247 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  248 |     await page.waitForTimeout(1000);\n  249 |     \n  250 |     // Should show column mapping\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:247:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:53.843Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-9aa81-hould-handle-column-mapping-Mobile-Safari/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-9aa81-hould-handle-column-mapping-Mobile-Safari/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-9aa81-hould-handle-column-mapping-Mobile-Safari/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 247
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-f951d7e11297d82e338c",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 237,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Transaction Import - OFX Import",
+          "file": "transaction-import-flow.spec.ts",
+          "line": 280,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should import OFX file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5086,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:15.482Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-44b7be788ed369669fc1",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 286,
+              "column": 3
+            },
+            {
+              "title": "should import OFX file",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 7,
+                      "status": "failed",
+                      "duration": 3509,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/test.ofx'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/test.ofx'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:308:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 308
+                        },
+                        "snippet": "  306 |     \n  307 |     // Upload file\n> 308 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  309 |     await page.waitForTimeout(2000);\n  310 |     \n  311 |     // OFX import may show different UI than CSV"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 308
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/test.ofx'\n\n  306 |     \n  307 |     // Upload file\n> 308 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  309 |     await page.waitForTimeout(2000);\n  310 |     \n  311 |     // OFX import may show different UI than CSV\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:308:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:20.656Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-7ccf7-port-should-import-OFX-file-firefox/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-7ccf7-port-should-import-OFX-file-firefox/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-7ccf7-port-should-import-OFX-file-firefox/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 308
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-103397621e0f7fe00215",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 286,
+              "column": 3
+            },
+            {
+              "title": "should import OFX file",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 18,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 3229,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/test.ofx'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/test.ofx'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:308:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 308
+                        },
+                        "snippet": "  306 |     \n  307 |     // Upload file\n> 308 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  309 |     await page.waitForTimeout(2000);\n  310 |     \n  311 |     // OFX import may show different UI than CSV"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 308
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/test.ofx'\n\n  306 |     \n  307 |     // Upload file\n> 308 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  309 |     await page.waitForTimeout(2000);\n  310 |     \n  311 |     // OFX import may show different UI than CSV\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:308:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:28.514Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-7ccf7-port-should-import-OFX-file-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-7ccf7-port-should-import-OFX-file-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-7ccf7-port-should-import-OFX-file-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 308
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-91c6cf6dde6f58811f9a",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 286,
+              "column": 3
+            },
+            {
+              "title": "should import OFX file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 29,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 4429,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:37.423Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-f22c8bc2a7d78dd0ec48",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 286,
+              "column": 3
+            },
+            {
+              "title": "should import OFX file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 40,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 5115,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:44.654Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-20c9c55ca85edf18319b",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 286,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Transaction Import - QIF Import",
+          "file": "transaction-import-flow.spec.ts",
+          "line": 342,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should import QIF file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 4955,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:15.483Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-a426e6bfc46885bf119d",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 348,
+              "column": 3
+            },
+            {
+              "title": "should import QIF file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 5577,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:20.902Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-b523d1abb8a710e05fce",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 348,
+              "column": 3
+            },
+            {
+              "title": "should import QIF file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 19,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 5295,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:29.124Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-741758477239e0efbff4",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 348,
+              "column": 3
+            },
+            {
+              "title": "should import QIF file",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 30,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 2647,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/test.qif'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/test.qif'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:369:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 369
+                        },
+                        "snippet": "  367 |     \n  368 |     // Upload file\n> 369 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  370 |     await page.waitForTimeout(2000);\n  371 |     \n  372 |     // QIF import might show different UI than CSV"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 369
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/test.qif'\n\n  367 |     \n  368 |     // Upload file\n> 369 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  370 |     await page.waitForTimeout(2000);\n  371 |     \n  372 |     // QIF import might show different UI than CSV\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:369:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:37.594Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-a1a0d-port-should-import-QIF-file-Mobile-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-a1a0d-port-should-import-QIF-file-Mobile-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-a1a0d-port-should-import-QIF-file-Mobile-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 369
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-1570b319963714e03f33",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 348,
+              "column": 3
+            },
+            {
+              "title": "should import QIF file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 41,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 5242,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:44.851Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-eac5a493c7806a525306",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 348,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Transaction Import - Batch Import",
+          "file": "transaction-import-flow.spec.ts",
+          "line": 400,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should handle multiple file import",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 5029,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:15.476Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-679e5d2416a2ad7e4edb",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 406,
+              "column": 3
+            },
+            {
+              "title": "should handle multiple file import",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 2,
+                      "status": "failed",
+                      "duration": 3599,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/batch1.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/batch1.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:423:7",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 7,
+                          "line": 423
+                        },
+                        "snippet": "  421 |       \n  422 |       // Upload multiple files\n> 423 |       await page.locator('input[type=\"file\"]').setInputFiles(files);\n      |       ^\n  424 |       await page.waitForTimeout(2000);\n  425 |       \n  426 |       // Should show all files"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 7,
+                            "line": 423
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/batch1.csv'\n\n  421 |       \n  422 |       // Upload multiple files\n> 423 |       await page.locator('input[type=\"file\"]').setInputFiles(files);\n      |       ^\n  424 |       await page.waitForTimeout(2000);\n  425 |       \n  426 |       // Should show all files\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:423:7"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:20.973Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3497e-handle-multiple-file-import-firefox/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3497e-handle-multiple-file-import-firefox/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3497e-handle-multiple-file-import-firefox/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 7,
+                        "line": 423
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-b3133e97a476e6fe72c3",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 406,
+              "column": 3
+            },
+            {
+              "title": "should handle multiple file import",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 20,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 3335,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/batch1.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/batch1.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:423:7",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 7,
+                          "line": 423
+                        },
+                        "snippet": "  421 |       \n  422 |       // Upload multiple files\n> 423 |       await page.locator('input[type=\"file\"]').setInputFiles(files);\n      |       ^\n  424 |       await page.waitForTimeout(2000);\n  425 |       \n  426 |       // Should show all files"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 7,
+                            "line": 423
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/batch1.csv'\n\n  421 |       \n  422 |       // Upload multiple files\n> 423 |       await page.locator('input[type=\"file\"]').setInputFiles(files);\n      |       ^\n  424 |       await page.waitForTimeout(2000);\n  425 |       \n  426 |       // Should show all files\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:423:7"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:29.321Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3497e-handle-multiple-file-import-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3497e-handle-multiple-file-import-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3497e-handle-multiple-file-import-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 7,
+                        "line": 423
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-f48ec1d3343e49f02503",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 406,
+              "column": 3
+            },
+            {
+              "title": "should handle multiple file import",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 31,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 2531,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/batch1.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/batch1.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:423:7",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 7,
+                          "line": 423
+                        },
+                        "snippet": "  421 |       \n  422 |       // Upload multiple files\n> 423 |       await page.locator('input[type=\"file\"]').setInputFiles(files);\n      |       ^\n  424 |       await page.waitForTimeout(2000);\n  425 |       \n  426 |       // Should show all files"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 7,
+                            "line": 423
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/batch1.csv'\n\n  421 |       \n  422 |       // Upload multiple files\n> 423 |       await page.locator('input[type=\"file\"]').setInputFiles(files);\n      |       ^\n  424 |       await page.waitForTimeout(2000);\n  425 |       \n  426 |       // Should show all files\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:423:7"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:38.488Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3497e-handle-multiple-file-import-Mobile-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3497e-handle-multiple-file-import-Mobile-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3497e-handle-multiple-file-import-Mobile-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 7,
+                        "line": 423
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-22146c986271e8eee04f",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 406,
+              "column": 3
+            },
+            {
+              "title": "should handle multiple file import",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 42,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 5222,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:45.893Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-9bf7be928ed4e739a049",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 406,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Transaction Import - Error Handling",
+          "file": "transaction-import-flow.spec.ts",
+          "line": 434,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should handle invalid file format",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 4051,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:15.476Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-aa6d14c74963bd4949d9",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 440,
+              "column": 3
+            },
+            {
+              "title": "should handle empty file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 4106,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:15.477Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-d998a300c74435141685",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 463,
+              "column": 3
+            },
+            {
+              "title": "should validate required fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 4505,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:15.475Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-b79341e2684243c31cb3",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 492,
+              "column": 3
+            },
+            {
+              "title": "should handle invalid file format",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4596,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:21.044Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-3b0632581c2e6fbdcb35",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 440,
+              "column": 3
+            },
+            {
+              "title": "should handle empty file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 12,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 4591,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:22.626Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-7102cfb6302ecd4bca26",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 463,
+              "column": 3
+            },
+            {
+              "title": "should validate required fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 13,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 5063,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:23.080Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-f26267c29bcdb24d25a4",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 492,
+              "column": 3
+            },
+            {
+              "title": "should handle invalid file format",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 21,
+                      "parallelIndex": 6,
+                      "status": "failed",
+                      "duration": 3296,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/invalid.txt'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/invalid.txt'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:447:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 447
+                        },
+                        "snippet": "  445 |     await expect(page.getByRole('dialog')).toBeVisible();\n  446 |     \n> 447 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  448 |     await page.waitForTimeout(1000);\n  449 |     \n  450 |     // The file upload should still work, but parsing might fail"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 447
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/invalid.txt'\n\n  445 |     await expect(page.getByRole('dialog')).toBeVisible();\n  446 |     \n> 447 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  448 |     await page.waitForTimeout(1000);\n  449 |     \n  450 |     // The file upload should still work, but parsing might fail\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:447:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:31.034Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-45497--handle-invalid-file-format-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-45497--handle-invalid-file-format-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-45497--handle-invalid-file-format-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 447
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-cefc9760c26e77af0753",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 440,
+              "column": 3
+            },
+            {
+              "title": "should handle empty file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 23,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 4331,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:32.545Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-dd39e76c852595a30870",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 463,
+              "column": 3
+            },
+            {
+              "title": "should validate required fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 22,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 4787,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:32.245Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-0ee5490bdfb125f4ea2a",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 492,
+              "column": 3
+            },
+            {
+              "title": "should handle invalid file format",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 32,
+                      "parallelIndex": 3,
+                      "status": "failed",
+                      "duration": 2560,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/invalid.txt'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/invalid.txt'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:447:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 447
+                        },
+                        "snippet": "  445 |     await expect(page.getByRole('dialog')).toBeVisible();\n  446 |     \n> 447 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  448 |     await page.waitForTimeout(1000);\n  449 |     \n  450 |     // The file upload should still work, but parsing might fail"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 447
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/invalid.txt'\n\n  445 |     await expect(page.getByRole('dialog')).toBeVisible();\n  446 |     \n> 447 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  448 |     await page.waitForTimeout(1000);\n  449 |     \n  450 |     // The file upload should still work, but parsing might fail\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:447:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:38.815Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-45497--handle-invalid-file-format-Mobile-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-45497--handle-invalid-file-format-Mobile-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-45497--handle-invalid-file-format-Mobile-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 447
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-0308ca2a6f536f6a7097",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 440,
+              "column": 3
+            },
+            {
+              "title": "should handle empty file",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 33,
+                      "parallelIndex": 6,
+                      "status": "failed",
+                      "duration": 2426,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/empty.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/empty.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:472:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 472
+                        },
+                        "snippet": "  470 |     const fileInput = page.locator('input[type=\"file\"]');\n  471 |     await expect(fileInput).toBeAttached({ timeout: 5000 });\n> 472 |     await fileInput.setInputFiles(filePath);\n      |     ^\n  473 |     await page.waitForTimeout(1000);\n  474 |     \n  475 |     // Empty file should show column mapping with no columns, disabled Next button, or stay on upload"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 472
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/empty.csv'\n\n  470 |     const fileInput = page.locator('input[type=\"file\"]');\n  471 |     await expect(fileInput).toBeAttached({ timeout: 5000 });\n> 472 |     await fileInput.setInputFiles(filePath);\n      |     ^\n  473 |     await page.waitForTimeout(1000);\n  474 |     \n  475 |     // Empty file should show column mapping with no columns, disabled Next button, or stay on upload\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:472:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:38.934Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3e6e7-ng-should-handle-empty-file-Mobile-Chrome/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3e6e7-ng-should-handle-empty-file-Mobile-Chrome/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-3e6e7-ng-should-handle-empty-file-Mobile-Chrome/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 472
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-7c4b4438cb0009ceb8ee",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 463,
+              "column": 3
+            },
+            {
+              "title": "should validate required fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 34,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 4152,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:40.305Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-2c7c79eaecb93788597e",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 492,
+              "column": 3
+            },
+            {
+              "title": "should handle invalid file format",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 43,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 4052,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:46.038Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-298ef917e88382c2d2b6",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 440,
+              "column": 3
+            },
+            {
+              "title": "should handle empty file",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 44,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4029,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:46.797Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-a1f564a37937b1b6d307",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 463,
+              "column": 3
+            },
+            {
+              "title": "should validate required fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 40,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 4720,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:49.911Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-1795f5a3c8817d5e9f64",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 492,
+              "column": 3
+            }
+          ]
+        },
+        {
+          "title": "Transaction Import - Advanced Features",
+          "file": "transaction-import-flow.spec.ts",
+          "line": 534,
+          "column": 6,
+          "specs": [
+            {
+              "title": "should save and reuse import profile",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 3930,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:15.477Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-0dce4dc2537a1a9c1bba",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 540,
+              "column": 3
+            },
+            {
+              "title": "should show import progress",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 4715,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:15.487Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-c0d615e16ae9dcc21ac9",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 572,
+              "column": 3
+            },
+            {
+              "title": "should save and reuse import profile",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 14,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 4436,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:23.153Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-215d33273bf6e5746a09",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 540,
+              "column": 3
+            },
+            {
+              "title": "should show import progress",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "firefox",
+                  "projectName": "firefox",
+                  "results": [
+                    {
+                      "workerIndex": 15,
+                      "parallelIndex": 6,
+                      "status": "passed",
+                      "duration": 5242,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:24.688Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-de9ab13f6a27aba87458",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 572,
+              "column": 3
+            },
+            {
+              "title": "should save and reuse import profile",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 24,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 3254,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/profile-test.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/profile-test.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:549:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 549
+                        },
+                        "snippet": "  547 |     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });\n  548 |     \n> 549 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  550 |     await page.waitForTimeout(1000);\n  551 |     \n  552 |     // Should be on column mapping"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 549
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/profile-test.csv'\n\n  547 |     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });\n  548 |     \n> 549 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  550 |     await page.waitForTimeout(1000);\n  551 |     \n  552 |     // Should be on column mapping\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:549:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:32.791Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-65c4d-ve-and-reuse-import-profile-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-65c4d-ve-and-reuse-import-profile-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-65c4d-ve-and-reuse-import-profile-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 549
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-0e02b1c3838c383b70fa",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 540,
+              "column": 3
+            },
+            {
+              "title": "should show import progress",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "webkit",
+                  "projectName": "webkit",
+                  "results": [
+                    {
+                      "workerIndex": 25,
+                      "parallelIndex": 5,
+                      "status": "failed",
+                      "duration": 3368,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/large-file.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/large-file.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:584:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 584
+                        },
+                        "snippet": "  582 |     await expect(page.getByRole('dialog')).toBeVisible();\n  583 |     \n> 584 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  585 |     await page.waitForTimeout(1000);\n  586 |     \n  587 |     // Navigate through steps based on current screen"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 584
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/large-file.csv'\n\n  582 |     await expect(page.getByRole('dialog')).toBeVisible();\n  583 |     \n> 584 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  585 |     await page.waitForTimeout(1000);\n  586 |     \n  587 |     // Navigate through steps based on current screen\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:584:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:33.240Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-7ecdd-should-show-import-progress-webkit/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-7ecdd-should-show-import-progress-webkit/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-7ecdd-should-show-import-progress-webkit/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 584
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-86ffcb76a6055a6dbc0e",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 572,
+              "column": 3
+            },
+            {
+              "title": "should save and reuse import profile",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 35,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 3457,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:40.812Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-a200107dd8be2b35dd87",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 540,
+              "column": 3
+            },
+            {
+              "title": "should show import progress",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Chrome",
+                  "projectName": "Mobile Chrome",
+                  "results": [
+                    {
+                      "workerIndex": 36,
+                      "parallelIndex": 5,
+                      "status": "passed",
+                      "duration": 4373,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:41.100Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-a9e3575c50519699d6a1",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 572,
+              "column": 3
+            },
+            {
+              "title": "should save and reuse import profile",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 41,
+                      "parallelIndex": 4,
+                      "status": "failed",
+                      "duration": 3209,
+                      "error": {
+                        "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/profile-test.csv'",
+                        "stack": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/profile-test.csv'\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:549:5",
+                        "location": {
+                          "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                          "column": 5,
+                          "line": 549
+                        },
+                        "snippet": "  547 |     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });\n  548 |     \n> 549 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  550 |     await page.waitForTimeout(1000);\n  551 |     \n  552 |     // Should be on column mapping"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                            "column": 5,
+                            "line": 549
+                          },
+                          "message": "Error: ENOENT: no such file or directory, stat '/Users/stevegreen/wealthtracker-web/test-data/profile-test.csv'\n\n  547 |     await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });\n  548 |     \n> 549 |     await page.locator('input[type=\"file\"]').setInputFiles(filePath);\n      |     ^\n  550 |     await page.waitForTimeout(1000);\n  551 |     \n  552 |     // Should be on column mapping\n    at /Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts:549:5"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:50.267Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-65c4d-ve-and-reuse-import-profile-Mobile-Safari/test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-65c4d-ve-and-reuse-import-profile-Mobile-Safari/video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "/Users/stevegreen/wealthtracker-web/test-results/transaction-import-flow-Tr-65c4d-ve-and-reuse-import-profile-Mobile-Safari/error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "/Users/stevegreen/wealthtracker-web/e2e/transaction-import-flow.spec.ts",
+                        "column": 5,
+                        "line": 549
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "65955264b5064641536f-c60601392a1d0f551e91",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 540,
+              "column": 3
+            },
+            {
+              "title": "should show import progress",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "Mobile Safari",
+                  "projectName": "Mobile Safari",
+                  "results": [
+                    {
+                      "workerIndex": 43,
+                      "parallelIndex": 7,
+                      "status": "passed",
+                      "duration": 4879,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-07-22T17:43:50.301Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "65955264b5064641536f-1336a63f66ffc091e2e5",
+              "file": "transaction-import-flow.spec.ts",
+              "line": 572,
+              "column": 3
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-07-22T17:43:15.046Z",
+    "duration": 66351.859,
+    "expected": 33,
+    "skipped": 0,
+    "unexpected": 27,
+    "flaky": 0
+  }
+}

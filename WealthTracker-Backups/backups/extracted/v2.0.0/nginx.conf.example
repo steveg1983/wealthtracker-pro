@@ -1,0 +1,112 @@
+# Example Nginx configuration for optimal performance
+
+server {
+    listen 443 ssl http2;
+    server_name wealthtracker.example.com;
+    
+    # SSL configuration
+    ssl_certificate /path/to/ssl/cert.pem;
+    ssl_certificate_key /path/to/ssl/key.pem;
+    
+    # Enable HTTP/2
+    http2_push_preload on;
+    
+    # Security headers
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:;" always;
+    
+    # Enable HSTS
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    
+    root /var/www/wealthtracker/dist;
+    index index.html;
+    
+    # Compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+    
+    # Brotli compression (requires ngx_brotli module)
+    brotli on;
+    brotli_comp_level 6;
+    brotli_types text/plain text/css text/xml text/javascript application/javascript application/xml+rss application/json;
+    
+    # Serve pre-compressed files
+    location ~ \.(js|css|html)$ {
+        # Try brotli first, then gzip, then original
+        gzip_static on;
+        brotli_static on;
+        
+        # Cache static assets
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        
+        # Enable HTTP/2 server push for critical resources
+        add_header Link "</assets/index-*.js>; rel=preload; as=script" always;
+        add_header Link "</assets/index-*.css>; rel=preload; as=style" always;
+    }
+    
+    # Service worker
+    location /service-worker.js {
+        add_header Cache-Control "no-cache, no-store, must-revalidate";
+        add_header Pragma "no-cache";
+        expires 0;
+    }
+    
+    # Manifest
+    location /manifest.json {
+        add_header Cache-Control "no-cache";
+        expires 1d;
+    }
+    
+    # Images with modern formats
+    location ~ \.(jpg|jpeg|png|gif|ico|svg|webp|avif)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        
+        # Try modern formats first
+        try_files $uri.webp $uri.avif $uri =404;
+    }
+    
+    # Fonts
+    location ~ \.(woff|woff2|ttf|otf|eot)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        add_header Access-Control-Allow-Origin "*";
+    }
+    
+    # SPA fallback
+    location / {
+        try_files $uri $uri/ /index.html;
+        
+        # Cache HTML for short period
+        location = /index.html {
+            add_header Cache-Control "no-cache";
+            expires 0;
+        }
+    }
+    
+    # API proxy (if backend is separate)
+    location /api {
+        proxy_pass http://backend-server:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+        
+        # Enable compression for API responses
+        gzip_proxied any;
+    }
+}
+
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    server_name wealthtracker.example.com;
+    return 301 https://$server_name$request_uri;
+}

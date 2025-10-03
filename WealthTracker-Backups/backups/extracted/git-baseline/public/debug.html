@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug</title>
+</head>
+<body>
+    <h1>Debug Page</h1>
+    <div id="log"></div>
+    
+    <script>
+        function log(msg) {
+            document.getElementById('log').innerHTML += '<p>' + msg + '</p>';
+        }
+        
+        log('Script started');
+        
+        // Test basic features
+        log('User Agent: ' + navigator.userAgent);
+        log('Location: ' + window.location.href);
+        
+        // Test module support
+        log('Script type="module" test...');
+    </script>
+    
+    <!-- Test if modules work at all -->
+    <script type="module">
+        document.getElementById('log').innerHTML += '<p style="color: green;">Modules ARE supported!</p>';
+        
+        // Test import
+        try {
+            import('./test-module.js').then(() => {
+                document.getElementById('log').innerHTML += '<p style="color: green;">Dynamic import works!</p>';
+            }).catch(e => {
+                document.getElementById('log').innerHTML += '<p style="color: red;">Dynamic import failed: ' + e + '</p>';
+            });
+        } catch (e) {
+            document.getElementById('log').innerHTML += '<p style="color: red;">Import error: ' + e + '</p>';
+        }
+    </script>
+    
+    <script nomodule>
+        document.getElementById('log').innerHTML += '<p style="color: red;">Modules NOT supported! (Old browser)</p>';
+    </script>
+</body>
+</html>

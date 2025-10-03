@@ -1,0 +1,40 @@
+src/components/CSVImportWizard.tsx(623,55): error TS2531: Object is possibly 'null'.
+src/components/RecurringTransactionModal.tsx(52,11): error TS2353: Object literal may only specify known properties, and 'nextDate' does not exist in type 'Omit<RecurringTransaction, "id" | "nextDate">'.
+src/components/TransactionRow.tsx(212,17): error TS2322: Type '(e: React.MouseEvent) => void' is not assignable to type '(e?: MouseEvent<HTMLButtonElement, MouseEvent> | undefined) => void'.
+src/components/TransactionRow.tsx(220,17): error TS2322: Type '(e: React.MouseEvent) => void' is not assignable to type '(e?: MouseEvent<HTMLButtonElement, MouseEvent> | undefined) => void'.
+src/components/VirtualizedList.tsx(169,19): error TS2769: No overload matches this call.
+src/components/VirtualizedList.tsx(200,19): error TS2769: No overload matches this call.
+src/contexts/PreferencesContextSafe.tsx(88,34): error TS2322: Type '{ compactView: boolean; setCompactView: React.Dispatch<React.SetStateAction<boolean>>; currency: string; setCurrency: React.Dispatch<React.SetStateAction<string>>; ... 16 more ...; setEnableGoalCelebrations: React.Dispatch<...>; }' is not assignable to type 'PreferencesContextType'.
+src/hooks/useFormattedValues.ts(25,24): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/hooks/useTransactionFilters.ts(32,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/pages/Accounts.tsx(192,51): error TS2345: Argument of type '{ balance: Decimal; initialBalance: Decimal | undefined; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 11 more ...; updatedAt?: Date | undefined; }[]' is not assignable to parameter of type 'DecimalAccount[]'.
+src/pages/Accounts.tsx(431,9): error TS2322: Type 'import("/Users/stevegreen/wealthtracker-web/src/types/index").Account | null' is not assignable to type 'Account | null'.
+src/pages/AccountTransactions.tsx(604,11): error TS2322: Type 'Column<Transaction & { balance: number; }>[]' is not assignable to type 'Column<unknown>[]'.
+src/pages/AccountTransactions.tsx(605,40): error TS18046: 'transaction' is of type 'unknown'.
+src/pages/AccountTransactions.tsx(606,11): error TS2322: Type '(transaction: Transaction) => void' is not assignable to type '(item: unknown, index: number) => void'.
+src/pages/AccountTransactions.tsx(623,56): error TS18046: 'transaction' is of type 'unknown'.
+src/pages/Analytics.tsx(84,55): error TS2345: Argument of type '{ balance: Decimal; initialBalance: Decimal | undefined; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 11 more ...; updatedAt?: Date | undefined; }[]' is not assignable to parameter of type 'DecimalAccount[]'.
+src/pages/Dashboard.tsx(582,9): error TS2322: Type 'ModalData | undefined' is not assignable to type 'IncomeExpenditureData | NetWorthData[] | AccountDistributionData[] | ReconciliationData[] | undefined'.
+src/pages/Goals.tsx(120,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Omit<Notification, "id" | "timestamp" | "read">'.
+src/pages/Goals.tsx(135,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Omit<Notification, "id" | "timestamp" | "read">'.
+src/pages/HouseholdManagement.tsx(373,6): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/Investments.tsx(622,25): error TS2554: Expected 2 arguments, but got 1.
+src/pages/MobileFeatures.tsx(101,6): error TS2741: Property 'title' is missing in type '{ children: Element[]; }' but required in type 'PageWrapperProps'.
+src/pages/MonthlyNetWorth.tsx(47,32): error TS2345: Argument of type '{ convertedBalance: Decimal; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 12 more ...; updatedAt?: Date | undefined; }[]' is not assignable to parameter of type 'SetStateAction<ConvertedAccount[]>'.
+src/pages/NetWorthSummary.tsx(59,32): error TS2345: Argument of type '{ convertedBalance: Decimal; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 12 more ...; updatedAt?: Date | undefined; }[]' is not assignable to parameter of type 'SetStateAction<ConvertedAccount[]>'.
+src/pages/settings/AuditLogs.tsx(219,6): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/settings/AuditLogs.tsx(344,13): error TS2322: Type 'Column<AuditLog>[]' is not assignable to type 'Column<unknown>[]'.
+src/pages/settings/AuditLogs.tsx(345,34): error TS18046: 'log' is of type 'unknown'.
+src/pages/settings/SecuritySettings.tsx(114,6): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/settings/ThemeSettings.tsx(117,6): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/TransactionsComparison.tsx(28,7): error TS2322: Type '{ children: Element[]; title: string; subtitle: string; icon: Element; actions: Element; }' is not assignable to type 'IntrinsicAttributes & PageWrapperProps'.
+src/pages/TransactionsComparison.tsx(105,12): error TS2739: Type '{}' is missing the following properties from type 'VirtualizedTransactionListProps': transactions, formatCurrency
+src/pages/TransactionsComparison.tsx(113,9): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onSave: () => void; }' is not assignable to type 'IntrinsicAttributes & AddTransactionModalProps'.
+src/services/advancedAnalyticsService.ts(185,11): error TS18048: 'sub.unusedMonths' is possibly 'undefined'.
+src/services/advancedAnalyticsService.ts(191,29): error TS18048: 'sub.monthlyAmount' is possibly 'undefined'.
+src/services/advancedAnalyticsService.ts(202,42): error TS18048: 'data.percentageOfIncome' is possibly 'undefined'.
+src/services/advancedAnalyticsService.ts(208,29): error TS18048: 'data.monthlyAverage' is possibly 'undefined'.
+src/services/advancedAnalyticsService.ts(233,11): error TS18048: 'data.averageTransaction' is possibly 'undefined'.
+src/services/advancedAnalyticsService.ts(233,54): error TS2365: Operator '>' cannot be applied to types 'string' and 'number'.
+src/services/advancedAnalyticsService.ts(239,29): error TS18048: 'data.monthlyTotal' is possibly 'undefined'.
+src/services/advancedAnalyticsService.ts(292,44): error TS18048: 'performance.averageUsage' is possibly 'undefined'.

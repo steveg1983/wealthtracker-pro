@@ -1,0 +1,330 @@
+{
+  "year": 2025,
+  "validFrom": "2025-01-01",
+  "validTo": "2025-12-31",
+  "lastUpdated": "2025-09-01",
+  "socialSecurity": {
+    "maximumBenefit": {
+      "atFRA": 3822,
+      "at62": 2710,
+      "at70": 5108,
+      "description": "Maximum monthly benefits at different claiming ages"
+    },
+    "fullRetirementAge": {
+      "born1943to1954": 66,
+      "born1955": 66.17,
+      "born1956": 66.33,
+      "born1957": 66.5,
+      "born1958": 66.67,
+      "born1959": 66.83,
+      "born1960OrLater": 67
+    },
+    "earlyRetirement": {
+      "minimumAge": 62,
+      "reductionPerMonth": 0.00555,
+      "maxReduction36Months": 0.20,
+      "additionalReductionPerMonth": 0.00417,
+      "totalMaxReduction": 0.30
+    },
+    "delayedRetirement": {
+      "maximumAge": 70,
+      "creditPerMonth": 0.00667,
+      "annualCredit": 0.08,
+      "description": "8% increase per year of delay after FRA"
+    },
+    "cola2025": 0.025,
+    "earningsLimit": {
+      "beforeFRA": {
+        "annual": 22320,
+        "reduction": 0.50,
+        "description": "$1 reduction for every $2 over limit"
+      },
+      "yearOfFRA": {
+        "monthly": 5180,
+        "reduction": 0.333,
+        "description": "$1 reduction for every $3 over limit"
+      },
+      "afterFRA": "No limit"
+    },
+    "taxableWages": {
+      "maximum": 176100,
+      "rate": 0.062,
+      "medicareRate": 0.0145,
+      "medicareAdditional": {
+        "threshold": 200000,
+        "rate": 0.009
+      }
+    },
+    "quarters": {
+      "creditsPerYear": 4,
+      "earningsPerCredit": 1810,
+      "minimumCredits": 40,
+      "description": "Need 40 credits (10 years) for eligibility"
+    },
+    "spousalBenefits": {
+      "maximum": 0.50,
+      "ownBenefitOffset": true,
+      "survivorMaximum": 1.00
+    }
+  },
+  "retirement401k": {
+    "contributionLimits": {
+      "employee": {
+        "regular": 23500,
+        "catchUp50to59": 7500,
+        "catchUp60to63": 11250,
+        "catchUp64plus": 7500,
+        "total50to59": 31000,
+        "total60to63": 34750,
+        "total64plus": 31000
+      },
+      "combined": {
+        "regular": 70000,
+        "withCatchUp50to59": 77500,
+        "withCatchUp60to63": 81250,
+        "withCatchUp64plus": 77500
+      },
+      "compensationLimit": 350000
+    },
+    "vesting": {
+      "immediate": "employee contributions",
+      "cliff": {
+        "maxYears": 3,
+        "percentage": 1.00
+      },
+      "graded": {
+        "year2": 0.20,
+        "year3": 0.40,
+        "year4": 0.60,
+        "year5": 0.80,
+        "year6": 1.00
+      }
+    },
+    "loans": {
+      "maximum": {
+        "lesser": 50000,
+        "or": 0.50,
+        "minimum": 10000
+      },
+      "repaymentPeriod": 5,
+      "residenceException": 15
+    },
+    "hardshipWithdrawals": {
+      "reasons": [
+        "Medical expenses",
+        "Purchase of principal residence",
+        "Tuition and education fees",
+        "Prevent eviction or foreclosure",
+        "Funeral expenses",
+        "Repair damage to principal residence"
+      ],
+      "penalty": 0.10,
+      "penaltyExemptAge": 59.5
+    },
+    "requiredMinimumDistributions": {
+      "startAge": 73,
+      "born1960OrLater": 75,
+      "penalty": 0.25,
+      "description": "RMDs required starting at age 73 (75 for those born 1960+)"
+    }
+  },
+  "ira": {
+    "contributionLimits": {
+      "regular": 7000,
+      "catchUp50plus": 1000,
+      "totalWithCatchUp": 8000
+    },
+    "traditional": {
+      "deductibility": {
+        "single": {
+          "fullDeduction": 77000,
+          "phaseoutStart": 77000,
+          "phaseoutEnd": 87000,
+          "noDeduction": 87000
+        },
+        "marriedJoint": {
+          "fullDeduction": 123000,
+          "phaseoutStart": 123000,
+          "phaseoutEnd": 143000,
+          "noDeduction": 143000
+        },
+        "marriedSeparate": {
+          "phaseoutStart": 0,
+          "phaseoutEnd": 10000
+        }
+      },
+      "requiredDistributions": {
+        "startAge": 73,
+        "penalty": 0.25
+      }
+    },
+    "roth": {
+      "incomeLimits": {
+        "single": {
+          "fullContribution": 146000,
+          "phaseoutStart": 146000,
+          "phaseoutEnd": 161000,
+          "noContribution": 161000
+        },
+        "marriedJoint": {
+          "fullContribution": 230000,
+          "phaseoutStart": 230000,
+          "phaseoutEnd": 240000,
+          "noContribution": 240000
+        },
+        "marriedSeparate": {
+          "phaseoutStart": 0,
+          "phaseoutEnd": 10000
+        }
+      },
+      "qualifiedDistributions": {
+        "fiveYearRule": true,
+        "age": 59.5,
+        "taxFree": true,
+        "noRMDs": true
+      },
+      "conversions": {
+        "noIncomeLimit": true,
+        "taxable": true,
+        "fiveYearRule": true
+      }
+    },
+    "earlyWithdrawal": {
+      "penaltyAge": 59.5,
+      "penaltyRate": 0.10,
+      "exceptions": [
+        "First-time home purchase ($10,000 lifetime)",
+        "Higher education expenses",
+        "Disability",
+        "Medical expenses exceeding 7.5% AGI",
+        "Health insurance premiums while unemployed",
+        "Substantially equal periodic payments (72t)",
+        "IRS levy",
+        "Qualified reservist distributions"
+      ]
+    }
+  },
+  "medicare": {
+    "eligibilityAge": 65,
+    "partA": {
+      "premium": 0,
+      "deductible": 1632,
+      "description": "Hospital insurance (free if 40+ quarters)"
+    },
+    "partB": {
+      "standardPremium": 174.70,
+      "deductible": 240,
+      "irmaa": {
+        "single": [
+          { "income": 103000, "premium": 244.60 },
+          { "income": 129000, "premium": 349.40 },
+          { "income": 161000, "premium": 454.20 },
+          { "income": 193000, "premium": 559.00 },
+          { "income": 500000, "premium": 594.00 }
+        ],
+        "married": [
+          { "income": 206000, "premium": 244.60 },
+          { "income": 258000, "premium": 349.40 },
+          { "income": 322000, "premium": 454.20 },
+          { "income": 386000, "premium": 559.00 },
+          { "income": 750000, "premium": 594.00 }
+        ]
+      }
+    },
+    "partD": {
+      "averagePremium": 34.70,
+      "latePenalty": 0.01,
+      "description": "1% per month without creditable coverage"
+    }
+  },
+  "retirementAccounts": {
+    "403b": {
+      "limits": "Same as 401(k)",
+      "catchUp": {
+        "special15Year": 3000,
+        "description": "Additional $3,000 for 15+ years of service"
+      }
+    },
+    "457b": {
+      "regularLimit": 23500,
+      "catchUp50plus": 7500,
+      "special3Year": {
+        "amount": 47000,
+        "description": "Double limit in last 3 years before retirement"
+      }
+    },
+    "sep": {
+      "contributionLimit": {
+        "lesser": 69000,
+        "or": 0.25,
+        "description": "Lesser of $69,000 or 25% of compensation"
+      }
+    },
+    "simple": {
+      "employeeLimit": 16000,
+      "catchUp50plus": 3500,
+      "employerMatch": {
+        "dollarForDollar": 0.03,
+        "or": 0.02
+      }
+    }
+  },
+  "taxRates": {
+    "federal": {
+      "single": [
+        { "min": 0, "max": 11600, "rate": 0.10 },
+        { "min": 11600, "max": 47150, "rate": 0.12 },
+        { "min": 47150, "max": 100525, "rate": 0.22 },
+        { "min": 100525, "max": 191950, "rate": 0.24 },
+        { "min": 191950, "max": 243725, "rate": 0.32 },
+        { "min": 243725, "max": 609350, "rate": 0.35 },
+        { "min": 609350, "max": null, "rate": 0.37 }
+      ],
+      "marriedJoint": [
+        { "min": 0, "max": 23200, "rate": 0.10 },
+        { "min": 23200, "max": 94300, "rate": 0.12 },
+        { "min": 94300, "max": 201050, "rate": 0.22 },
+        { "min": 201050, "max": 383900, "rate": 0.24 },
+        { "min": 383900, "max": 487450, "rate": 0.32 },
+        { "min": 487450, "max": 731200, "rate": 0.35 },
+        { "min": 731200, "max": null, "rate": 0.37 }
+      ],
+      "standardDeduction": {
+        "single": 14600,
+        "marriedJoint": 29200,
+        "marriedSeparate": 14600,
+        "headOfHousehold": 21900
+      }
+    },
+    "capitalGains": {
+      "longTerm": {
+        "single": [
+          { "min": 0, "max": 47025, "rate": 0 },
+          { "min": 47025, "max": 518900, "rate": 0.15 },
+          { "min": 518900, "max": null, "rate": 0.20 }
+        ],
+        "marriedJoint": [
+          { "min": 0, "max": 94050, "rate": 0 },
+          { "min": 94050, "max": 583750, "rate": 0.15 },
+          { "min": 583750, "max": null, "rate": 0.20 }
+        ]
+      },
+      "netInvestmentIncome": {
+        "rate": 0.038,
+        "thresholdSingle": 200000,
+        "thresholdMarried": 250000
+      }
+    }
+  },
+  "inflation": {
+    "assumed": 0.025,
+    "historical10Year": 0.028,
+    "description": "Used for projection calculations"
+  },
+  "safeWithdrawalRate": {
+    "traditional4Percent": 0.04,
+    "conservative": 0.035,
+    "aggressive": 0.045,
+    "description": "Annual withdrawal rate for retirement planning"
+  }
+}

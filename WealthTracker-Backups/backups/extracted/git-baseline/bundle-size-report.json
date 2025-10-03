@@ -1,0 +1,949 @@
+{
+  "timestamp": "2025-08-05T10:45:49.031Z",
+  "files": [
+    {
+      "name": "assets/index-CuN0_npu.js",
+      "size": 734378,
+      "sizeFormatted": "717.17 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/xlsx-BQuIB4U0.js",
+      "size": 499824,
+      "sizeFormatted": "488.11 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/jspdf.es.min-DmxIiMw2.js",
+      "size": 357745,
+      "sizeFormatted": "349.36 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/PieChart-Cg7WhoMe.js",
+      "size": 294133,
+      "sizeFormatted": "287.24 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/html2canvas.esm-BfxBtG_O.js",
+      "size": 202285,
+      "sizeFormatted": "197.54 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Dashboard-D9Czwlv3.js",
+      "size": 174896,
+      "sizeFormatted": "170.8 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/index.es-CJwlfrIO.js",
+      "size": 159321,
+      "sizeFormatted": "155.59 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Transactions-BzjcTRAL.js",
+      "size": 141795,
+      "sizeFormatted": "138.47 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/index-BwXL-evd.css",
+      "size": 105340,
+      "sizeFormatted": "102.87 KB",
+      "type": "css"
+    },
+    {
+      "name": "assets/GridItem-DVQQ1TqL.js",
+      "size": 84743,
+      "sizeFormatted": "82.76 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Budget-B38g9fsR.js",
+      "size": 82905,
+      "sizeFormatted": "80.96 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/EditTransactionModal-3GDMBVE7.js",
+      "size": 75992,
+      "sizeFormatted": "74.21 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Categories-CszhCzNT.js",
+      "size": 71906,
+      "sizeFormatted": "70.22 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/EnhancedInvestments-AsD7bxLP.js",
+      "size": 71285,
+      "sizeFormatted": "69.61 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Investments-9_MxNh0Y.js",
+      "size": 69634,
+      "sizeFormatted": "68 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/BusinessFeatures-BaqPnEEp.js",
+      "size": 61356,
+      "sizeFormatted": "59.92 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/DataIntelligence-CSo1yjns.js",
+      "size": 58051,
+      "sizeFormatted": "56.69 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/HouseholdManagement-DtbTa3fT.js",
+      "size": 52686,
+      "sizeFormatted": "51.45 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/FinancialPlanning-DsKaGCxl.js",
+      "size": 43188,
+      "sizeFormatted": "42.18 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Accounts-DdoqQLUN.js",
+      "size": 43097,
+      "sizeFormatted": "42.09 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/CustomReports-_RyQROGp.js",
+      "size": 41978,
+      "sizeFormatted": "40.99 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/AIFeatures-DuI0744l.js",
+      "size": 37513,
+      "sizeFormatted": "36.63 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/EnhancedImport-DismtJRB.js",
+      "size": 32244,
+      "sizeFormatted": "31.49 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/DataValidation-BwKaciOv.js",
+      "size": 30827,
+      "sizeFormatted": "30.1 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/MobileFeatures-CaFj9aWP.js",
+      "size": 27876,
+      "sizeFormatted": "27.22 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Goals-D-g6uV7L.js",
+      "size": 26221,
+      "sizeFormatted": "25.61 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/ImportDataModal-LrThv0KB.js",
+      "size": 25633,
+      "sizeFormatted": "25.03 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/DocumentManager-BI1HqHC9.js",
+      "size": 24574,
+      "sizeFormatted": "24 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/AccessibilityDashboard-Cyk6Y2Iu.js",
+      "size": 22851,
+      "sizeFormatted": "22.32 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/AppSettings-BCbg7vk2.js",
+      "size": 22716,
+      "sizeFormatted": "22.18 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/enhancedCsvImportService-DcihErfr.js",
+      "size": 22709,
+      "sizeFormatted": "22.18 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/BarChart-DHBiwJo5.js",
+      "size": 22607,
+      "sizeFormatted": "22.08 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Reconciliation-BShTMb2Z.js",
+      "size": 20491,
+      "sizeFormatted": "20.01 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/AccountTransactions-DG9gQlSb.js",
+      "size": 20397,
+      "sizeFormatted": "19.92 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/TransactionsComparison-BC_sBr5q.js",
+      "size": 20042,
+      "sizeFormatted": "19.57 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/CSVImportWizard-CNrvWbmv.js",
+      "size": 17648,
+      "sizeFormatted": "17.23 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/AdvancedAnalytics-BEMLo45b.js",
+      "size": 17582,
+      "sizeFormatted": "17.17 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/ExportManager-BhpTVgBA.js",
+      "size": 17448,
+      "sizeFormatted": "17.04 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/OpenBanking-BE9lvSCq.js",
+      "size": 16815,
+      "sizeFormatted": "16.42 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/DataManagement-2aFytEky.js",
+      "size": 16688,
+      "sizeFormatted": "16.3 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/ImportRulesManager-BarTRjEr.js",
+      "size": 16291,
+      "sizeFormatted": "15.91 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Analytics-BvZoDreh.js",
+      "size": 15830,
+      "sizeFormatted": "15.46 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/TaxPlanning-EJNBrBjv.js",
+      "size": 15673,
+      "sizeFormatted": "15.31 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/index-CbvqoY9f.js",
+      "size": 15673,
+      "sizeFormatted": "15.31 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/dataIntelligenceService-BUVFr2sU.js",
+      "size": 15253,
+      "sizeFormatted": "14.9 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Treemap-IKm96pbK.js",
+      "size": 14775,
+      "sizeFormatted": "14.43 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/SecuritySettings-j3mc6h-v.js",
+      "size": 13797,
+      "sizeFormatted": "13.47 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/BulkTransactionEdit-I0dImo69.js",
+      "size": 13260,
+      "sizeFormatted": "12.95 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/FinancialSummary-CC7Vmn6Q.js",
+      "size": 12166,
+      "sizeFormatted": "11.88 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/AutomaticBackupSettings-OyfYz2aP.js",
+      "size": 12045,
+      "sizeFormatted": "11.76 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/documentService-DoIqc-wm.js",
+      "size": 11810,
+      "sizeFormatted": "11.53 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/LineChart-B0k3B0hW.js",
+      "size": 11770,
+      "sizeFormatted": "11.49 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/ExcelExport-Da3Nq-Vd.js",
+      "size": 11634,
+      "sizeFormatted": "11.36 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Performance-D5YWn67p.js",
+      "size": 11482,
+      "sizeFormatted": "11.21 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Notifications-C1FID9RO.js",
+      "size": 11389,
+      "sizeFormatted": "11.12 KB",
+      "type": "js"
+    },
+    {
+      "name": "service-worker.js.disabled",
+      "size": 11178,
+      "sizeFormatted": "10.92 KB",
+      "type": "disabled"
+    },
+    {
+      "name": "assets/financialPlanningService-Qn7CsKXu.js",
+      "size": 10770,
+      "sizeFormatted": "10.52 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/TransactionReconciliation-DEZA9noF.js",
+      "size": 10127,
+      "sizeFormatted": "9.89 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/BatchImportModal-haXVb1jL.js",
+      "size": 9869,
+      "sizeFormatted": "9.64 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/DuplicateDetection-6YjBQyy5.js",
+      "size": 9692,
+      "sizeFormatted": "9.46 KB",
+      "type": "js"
+    },
+    {
+      "name": "service-worker-enhanced.js.disabled",
+      "size": 9267,
+      "sizeFormatted": "9.05 KB",
+      "type": "disabled"
+    },
+    {
+      "name": "assets/OFXImportModal-FVHNw9B2.js",
+      "size": 9081,
+      "sizeFormatted": "8.87 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/advancedAnalyticsService-CEaY9Sgk.js",
+      "size": 8669,
+      "sizeFormatted": "8.47 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/businessService-Bhk2vo2C.js",
+      "size": 8627,
+      "sizeFormatted": "8.42 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/AuditLogs-BqPv-OBF.js",
+      "size": 8044,
+      "sizeFormatted": "7.86 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/QIFImportModal-CV3iL6rb.js",
+      "size": 7911,
+      "sizeFormatted": "7.73 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/BankAPISettings-DOTzACbE.js",
+      "size": 7647,
+      "sizeFormatted": "7.47 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/BankConnections-DIOx3_yx.js",
+      "size": 7636,
+      "sizeFormatted": "7.46 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Tags-BN6-miw1.js",
+      "size": 7411,
+      "sizeFormatted": "7.24 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/mobileService-D8UuI0LX.js",
+      "size": 7124,
+      "sizeFormatted": "6.96 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/SmartCategorizationSettings-CxtIDen7.js",
+      "size": 6821,
+      "sizeFormatted": "6.66 KB",
+      "type": "js"
+    },
+    {
+      "name": "clear-cache.html",
+      "size": 6694,
+      "sizeFormatted": "6.54 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/taxPlanningService-BIVl8viv.js",
+      "size": 6649,
+      "sizeFormatted": "6.49 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/securityService-CY5vf2ZG.js",
+      "size": 6338,
+      "sizeFormatted": "6.19 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/CategoryCreationModal-BKpAOpGZ.js",
+      "size": 6081,
+      "sizeFormatted": "5.94 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/GridItem-Dy6PSsQr.css",
+      "size": 5956,
+      "sizeFormatted": "5.82 KB",
+      "type": "css"
+    },
+    {
+      "name": "safari-test.html",
+      "size": 5566,
+      "sizeFormatted": "5.44 KB",
+      "type": "html"
+    },
+    {
+      "name": "clear-sw.html",
+      "size": 5130,
+      "sizeFormatted": "5.01 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/VirtualizedTransactionList-C04OVEzL.js",
+      "size": 4835,
+      "sizeFormatted": "4.72 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/FinancialSummaries-cL88WB2b.js",
+      "size": 4633,
+      "sizeFormatted": "4.52 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/ofxImportService-Cq01m0nD.js",
+      "size": 4474,
+      "sizeFormatted": "4.37 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/pdfExport-CUQk02Z0.js",
+      "size": 4380,
+      "sizeFormatted": "4.28 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/investmentEnhancementService-DEAjWkz6.js",
+      "size": 4331,
+      "sizeFormatted": "4.23 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/errorHandlingService-6uBJaU4T.js",
+      "size": 4261,
+      "sizeFormatted": "4.16 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/Settings-oL0aVbED.js",
+      "size": 4063,
+      "sizeFormatted": "3.97 KB",
+      "type": "js"
+    },
+    {
+      "name": "offline.html",
+      "size": 4033,
+      "sizeFormatted": "3.94 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/bankConnectionService-CAUJ6FGi.js",
+      "size": 3979,
+      "sizeFormatted": "3.89 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/importRulesService-R8miJJ7U.js",
+      "size": 3640,
+      "sizeFormatted": "3.55 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/VirtualizedTable-sjjlstuy.js",
+      "size": 3359,
+      "sizeFormatted": "3.28 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/OCRTest-BPHY0-2z.js",
+      "size": 3230,
+      "sizeFormatted": "3.15 KB",
+      "type": "js"
+    },
+    {
+      "name": "safari-debug.html",
+      "size": 2673,
+      "sizeFormatted": "2.61 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/useCurrencyDecimal-C3q8Ae1K.js",
+      "size": 2390,
+      "sizeFormatted": "2.33 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/qifImportService-C0FUqoi0.js",
+      "size": 2197,
+      "sizeFormatted": "2.15 KB",
+      "type": "js"
+    },
+    {
+      "name": "reset.html",
+      "size": 2078,
+      "sizeFormatted": "2.03 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/Skeleton-4IC7yCag.js",
+      "size": 1934,
+      "sizeFormatted": "1.89 KB",
+      "type": "js"
+    },
+    {
+      "name": "assets/currency-DhiV2ByB.js",
+      "size": 1895,
+      "sizeFormatted": "1.85 KB",
+      "type": "js"
+    },
+    {
+      "name": "unregister-sw.html",
+      "size": 1878,
+      "sizeFormatted": "1.83 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/csp-6IBAHue3.js",
+      "size": 1611,
+      "sizeFormatted": "1.57 KB",
+      "type": "js"
+    },
+    {
+      "name": "vite.svg",
+      "size": 1497,
+      "sizeFormatted": "1.46 KB",
+      "type": "svg"
+    },
+    {
+      "name": "debug.html",
+      "size": 1423,
+      "sizeFormatted": "1.39 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/Building2Icon-Duuf7ipR.js",
+      "size": 1352,
+      "sizeFormatted": "1.32 KB",
+      "type": "js"
+    },
+    {
+      "name": "manifest.json",
+      "size": 1140,
+      "sizeFormatted": "1.11 KB",
+      "type": "json"
+    },
+    {
+      "name": "basic.html",
+      "size": 1085,
+      "sizeFormatted": "1.06 KB",
+      "type": "html"
+    },
+    {
+      "name": "assets/useLocalStorage-EpsGDbMl.js",
+      "size": 959,
+      "sizeFormatted": "959 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "_headers",
+      "size": 955,
+      "sizeFormatted": "955 Bytes",
+      "type": "other"
+    },
+    {
+      "name": "assets/EyeOffIcon-DEm6dHol.js",
+      "size": 891,
+      "sizeFormatted": "891 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/LoadingState-6tjfEImv.js",
+      "size": 884,
+      "sizeFormatted": "884 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/LinkIcon-C3OOzdrm.js",
+      "size": 870,
+      "sizeFormatted": "870 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/IconButton-CxLYbQGO.js",
+      "size": 836,
+      "sizeFormatted": "836 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/calculations-decimal-Bj9TsYdJ.js",
+      "size": 834,
+      "sizeFormatted": "834 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/Dashboard-CCNfw6fC.css",
+      "size": 813,
+      "sizeFormatted": "813 Bytes",
+      "type": "css"
+    },
+    {
+      "name": "assets/useModalForm-CVnuycb1.js",
+      "size": 809,
+      "sizeFormatted": "809 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/useCurrency-BlGkYFq1.js",
+      "size": 799,
+      "sizeFormatted": "799 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/CameraIcon-Bns9PTqb.js",
+      "size": 741,
+      "sizeFormatted": "741 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "test-no-sw.html",
+      "size": 736,
+      "sizeFormatted": "736 Bytes",
+      "type": "html"
+    },
+    {
+      "name": "assets/RepeatIcon-BORhGdMJ.js",
+      "size": 717,
+      "sizeFormatted": "717 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/useReconciliation-DyKSrgJV.js",
+      "size": 701,
+      "sizeFormatted": "701 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/Welcome-DyILuWUn.js",
+      "size": 698,
+      "sizeFormatted": "698 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/PaletteIcon-DOkrnMEV.js",
+      "size": 690,
+      "sizeFormatted": "690 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "index.html",
+      "size": 663,
+      "sizeFormatted": "663 Bytes",
+      "type": "html"
+    },
+    {
+      "name": "assets/PiggyBankIcon-2v2p1MGL.js",
+      "size": 651,
+      "sizeFormatted": "651 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/PageWrapper-Bv0R6WTl.js",
+      "size": 646,
+      "sizeFormatted": "646 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "test.html",
+      "size": 641,
+      "sizeFormatted": "641 Bytes",
+      "type": "html"
+    },
+    {
+      "name": "assets/MapPinIcon-CdM78jGf.js",
+      "size": 603,
+      "sizeFormatted": "603 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/PhoneIcon-BtXdzqzF.js",
+      "size": 568,
+      "sizeFormatted": "568 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/UserIcon-q6g2f7tk.js",
+      "size": 562,
+      "sizeFormatted": "562 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/GridIcon-DYhhccSz.js",
+      "size": 512,
+      "sizeFormatted": "512 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ToggleRightIcon-DAZiusWW.js",
+      "size": 509,
+      "sizeFormatted": "509 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/SaveIcon-C9pLzCjN.js",
+      "size": 508,
+      "sizeFormatted": "508 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/UnlinkIcon-Dqjrwyl-.js",
+      "size": 501,
+      "sizeFormatted": "501 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/differenceInDays-Du0_S0UZ.js",
+      "size": 472,
+      "sizeFormatted": "472 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/GripVerticalIcon-D4tV4A_R.js",
+      "size": 457,
+      "sizeFormatted": "457 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/LockIcon-CEQeaCY1.js",
+      "size": 452,
+      "sizeFormatted": "452 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/BanknoteIcon-D-RTe9sR.js",
+      "size": 433,
+      "sizeFormatted": "433 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ArrowDownIcon-nD5X8m0B.js",
+      "size": 421,
+      "sizeFormatted": "421 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/GlobeIcon-FGoZmE3l.js",
+      "size": 415,
+      "sizeFormatted": "415 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/MailIcon-CNwbD14z.js",
+      "size": 396,
+      "sizeFormatted": "396 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/TrendingDownIcon-yBqzZfM2.js",
+      "size": 350,
+      "sizeFormatted": "350 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/EyeIcon-CWSd4H2W.js",
+      "size": 345,
+      "sizeFormatted": "345 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/KeyIcon-Co2byBw9.js",
+      "size": 344,
+      "sizeFormatted": "344 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ArrowRightIcon-BB-PRm_F.js",
+      "size": 335,
+      "sizeFormatted": "335 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ArrowLeftIcon-BTt0vthV.js",
+      "size": 334,
+      "sizeFormatted": "334 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/subMonths-COZTRLiU.js",
+      "size": 334,
+      "sizeFormatted": "334 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ActivityIcon-BSgoxUV-.js",
+      "size": 330,
+      "sizeFormatted": "330 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ClockIcon-DhKFk0Ix.js",
+      "size": 311,
+      "sizeFormatted": "311 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/Documents-DJOIRwJp.js",
+      "size": 299,
+      "sizeFormatted": "299 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/WrenchIcon-DkzmBDy4.js",
+      "size": 272,
+      "sizeFormatted": "272 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/startOfMonth-Co6VRyVJ.js",
+      "size": 262,
+      "sizeFormatted": "262 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/CopyIcon-Dt6bMv0H.js",
+      "size": 243,
+      "sizeFormatted": "243 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ChevronLeftIcon-kN2h--Qt.js",
+      "size": 219,
+      "sizeFormatted": "219 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/ChevronDownIcon-BBgEm-4D.js",
+      "size": 218,
+      "sizeFormatted": "218 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/endOfYear-B6OXrYQt.js",
+      "size": 167,
+      "sizeFormatted": "167 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "assets/index-DyXOrCa2.js",
+      "size": 67,
+      "sizeFormatted": "67 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "test.txt",
+      "size": 58,
+      "sizeFormatted": "58 Bytes",
+      "type": "txt"
+    },
+    {
+      "name": "test-module.js",
+      "size": 48,
+      "sizeFormatted": "48 Bytes",
+      "type": "js"
+    },
+    {
+      "name": "safari-test-module.js",
+      "size": 36,
+      "sizeFormatted": "36 Bytes",
+      "type": "js"
+    }
+  ],
+  "totalSize": 4353842,
+  "limits": {
+    "index.js": 1572864,
+    "vendor.js": 2097152,
+    "index.css": 102400,
+    "total": 4194304
+  },
+  "status": "failed"
+}

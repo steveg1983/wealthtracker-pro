@@ -1,0 +1,160 @@
+{
+  "year": 2025,
+  "lastUpdated": "2025-09-01",
+  "stampDuty": {
+    "england": {
+      "residential": {
+        "thresholds": [
+          { "min": 0, "max": 250000, "rate": 0 },
+          { "min": 250001, "max": 925000, "rate": 0.05 },
+          { "min": 925001, "max": 1500000, "rate": 0.10 },
+          { "min": 1500001, "max": null, "rate": 0.12 }
+        ],
+        "firstTimeBuyer": {
+          "reliefThreshold": 425000,
+          "zeroRateThreshold": 625000,
+          "thresholds": [
+            { "min": 0, "max": 425000, "rate": 0 },
+            { "min": 425001, "max": 625000, "rate": 0.05 },
+            { "min": 625001, "max": null, "rate": null }
+          ]
+        }
+      },
+      "additionalProperty": {
+        "surcharge": 0.03,
+        "description": "3% surcharge on top of standard rates"
+      }
+    },
+    "scotland": {
+      "residential": {
+        "name": "Land and Buildings Transaction Tax",
+        "thresholds": [
+          { "min": 0, "max": 145000, "rate": 0 },
+          { "min": 145001, "max": 250000, "rate": 0.02 },
+          { "min": 250001, "max": 325000, "rate": 0.05 },
+          { "min": 325001, "max": 750000, "rate": 0.10 },
+          { "min": 750001, "max": null, "rate": 0.12 }
+        ],
+        "firstTimeBuyer": {
+          "reliefThreshold": 175000,
+          "thresholds": [
+            { "min": 0, "max": 175000, "rate": 0 },
+            { "min": 175001, "max": 250000, "rate": 0.02 },
+            { "min": 250001, "max": 325000, "rate": 0.05 },
+            { "min": 325001, "max": 750000, "rate": 0.10 },
+            { "min": 750001, "max": null, "rate": 0.12 }
+          ]
+        }
+      },
+      "additionalProperty": {
+        "surcharge": 0.06,
+        "description": "6% Additional Dwelling Supplement"
+      }
+    },
+    "wales": {
+      "residential": {
+        "name": "Land Transaction Tax",
+        "thresholds": [
+          { "min": 0, "max": 225000, "rate": 0 },
+          { "min": 225001, "max": 400000, "rate": 0.06 },
+          { "min": 400001, "max": 750000, "rate": 0.075 },
+          { "min": 750001, "max": 1500000, "rate": 0.10 },
+          { "min": 1500001, "max": null, "rate": 0.12 }
+        ]
+      },
+      "additionalProperty": {
+        "surcharge": 0.04,
+        "description": "4% higher rate"
+      }
+    }
+  },
+  "helpToBuy": {
+    "equityLoan": {
+      "maxLoanPercent": 0.20,
+      "londonMaxLoanPercent": 0.40,
+      "maxPropertyPrice": 600000,
+      "minDeposit": 0.05,
+      "interestFreeYears": 5,
+      "year6Rate": 0.0175,
+      "annualIncrease": "RPI + 1%"
+    },
+    "isa": {
+      "maxSavings": 12000,
+      "governmentBonus": 0.25,
+      "maxBonus": 3000,
+      "maxPropertyPrice": 450000,
+      "minAge": 18,
+      "maxAge": 39
+    },
+    "sharedOwnership": {
+      "minShare": 0.10,
+      "maxShare": 0.75,
+      "rent": "2.75% of unsold equity per year",
+      "staircasing": {
+        "minPurchase": 0.10,
+        "finalPurchase": 1.00
+      }
+    }
+  },
+  "mortgageTypes": {
+    "fixed": {
+      "terms": [2, 3, 5, 10],
+      "description": "Fixed interest rate for set period"
+    },
+    "variable": {
+      "svr": {
+        "name": "Standard Variable Rate",
+        "typical": "Base Rate + 3-4%"
+      },
+      "tracker": {
+        "name": "Tracker Mortgage",
+        "typical": "Base Rate + 0.5-2%",
+        "follows": "Bank of England Base Rate"
+      },
+      "discount": {
+        "name": "Discount Variable",
+        "typical": "SVR - 1-2%",
+        "terms": [2, 3, 5]
+      }
+    }
+  },
+  "affordability": {
+    "maxLTI": 4.5,
+    "stressTest": {
+      "rate": 0.03,
+      "description": "Typically tested at current rate + 3%"
+    },
+    "maxLTV": {
+      "standard": 0.95,
+      "btl": 0.75
+    }
+  },
+  "fees": {
+    "arrangement": {
+      "min": 0,
+      "typical": 999,
+      "max": 2499
+    },
+    "valuation": {
+      "basic": 300,
+      "homebuyers": 450,
+      "structural": 600
+    },
+    "legal": {
+      "solicitor": 1500,
+      "searches": 300,
+      "landRegistry": 270
+    },
+    "broker": {
+      "typical": 500,
+      "percentage": 0.01
+    }
+  },
+  "currentRates": {
+    "bankOfEnglandBase": 0.0525,
+    "typical2Year": 0.0479,
+    "typical5Year": 0.0429,
+    "typicalSVR": 0.0824,
+    "typicalTracker": 0.0625
+  }
+}

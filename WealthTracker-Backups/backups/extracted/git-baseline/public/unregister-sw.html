@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Unregister Service Worker</title>
+</head>
+<body>
+    <h1>Service Worker Cleanup</h1>
+    <div id="status"></div>
+    
+    <script>
+        async function unregisterAll() {
+            const status = document.getElementById('status');
+            
+            try {
+                // Get all service worker registrations
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                status.innerHTML = `<p>Found ${registrations.length} service worker(s)</p>`;
+                
+                // Unregister each one
+                for (let registration of registrations) {
+                    const success = await registration.unregister();
+                    status.innerHTML += `<p>Unregistered: ${success ? 'Success' : 'Failed'}</p>`;
+                }
+                
+                // Clear all caches
+                const cacheNames = await caches.keys();
+                status.innerHTML += `<p>Found ${cacheNames.length} cache(s)</p>`;
+                
+                for (let name of cacheNames) {
+                    await caches.delete(name);
+                    status.innerHTML += `<p>Deleted cache: ${name}</p>`;
+                }
+                
+                status.innerHTML += '<h2 style="color: green;">All cleaned! Please close this tab and refresh your main app.</h2>';
+                
+                // Also clear localStorage and sessionStorage
+                localStorage.clear();
+                sessionStorage.clear();
+                status.innerHTML += '<p>Cleared localStorage and sessionStorage</p>';
+                
+            } catch (error) {
+                status.innerHTML += `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+        
+        // Run immediately
+        unregisterAll();
+    </script>
+</body>
+</html>

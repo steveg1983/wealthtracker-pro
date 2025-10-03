@@ -1,0 +1,40 @@
+src/components/CSVImportWizard.tsx(623,55): error TS2531: Object is possibly 'null'.
+src/components/RecurringTransactionModal.tsx(52,11): error TS2353: Object literal may only specify known properties, and 'nextDate' does not exist in type 'Omit<RecurringTransaction, "id" | "nextDate">'.
+src/components/TransactionRow.tsx(212,17): error TS2322: Type '(e: React.MouseEvent) => void' is not assignable to type '(e?: MouseEvent<HTMLButtonElement, MouseEvent> | undefined) => void'.
+src/components/TransactionRow.tsx(220,17): error TS2322: Type '(e: React.MouseEvent) => void' is not assignable to type '(e?: MouseEvent<HTMLButtonElement, MouseEvent> | undefined) => void'.
+src/components/VirtualizedList.tsx(169,19): error TS2769: No overload matches this call.
+src/components/VirtualizedList.tsx(200,19): error TS2769: No overload matches this call.
+src/contexts/PreferencesContextSafe.tsx(88,34): error TS2322: Type '{ compactView: boolean; setCompactView: React.Dispatch<React.SetStateAction<boolean>>; currency: string; setCurrency: React.Dispatch<React.SetStateAction<string>>; ... 16 more ...; setEnableGoalCelebrations: React.Dispatch<...>; }' is not assignable to type 'PreferencesContextType'.
+src/hooks/useAdvancedSearch.ts(163,7): error TS18048: 'a.institution' is possibly 'undefined'.
+src/hooks/useFormattedValues.ts(25,24): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/hooks/useTransactionFilters.ts(3,15): error TS2459: Module '"../contexts/AppContext"' declares 'Category' locally, but it is not exported.
+src/hooks/useTransactionFilters.ts(33,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/pages/Accounts.tsx(192,51): error TS2345: Argument of type '{ balance: Decimal; initialBalance: Decimal | undefined; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 11 more ...; updatedAt?: Date | undefined; }[]' is not assignable to parameter of type 'DecimalAccount[]'.
+src/pages/Accounts.tsx(431,9): error TS2322: Type 'import("/Users/stevegreen/wealthtracker-web/src/types/index").Account | null' is not assignable to type 'Account | null'.
+src/pages/AccountTransactions.tsx(604,11): error TS2322: Type 'Column<Transaction & { balance: number; }>[]' is not assignable to type 'Column<unknown>[]'.
+src/pages/AccountTransactions.tsx(605,40): error TS18046: 'transaction' is of type 'unknown'.
+src/pages/AccountTransactions.tsx(606,11): error TS2322: Type '(transaction: Transaction) => void' is not assignable to type '(item: unknown, index: number) => void'.
+src/pages/AccountTransactions.tsx(623,56): error TS18046: 'transaction' is of type 'unknown'.
+src/pages/Analytics.tsx(84,55): error TS2345: Argument of type '{ balance: Decimal; initialBalance: Decimal | undefined; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 11 more ...; updatedAt?: Date | undefined; }[]' is not assignable to parameter of type 'DecimalAccount[]'.
+src/pages/Budget.tsx(108,41): error TS2304: Cannot find name 'alertThreshold'.
+src/pages/Budget.tsx(124,7): error TS2304: Cannot find name 'checkBudgetAlerts'.
+src/pages/Budget.tsx(126,37): error TS2304: Cannot find name 'alertThreshold'.
+src/pages/Budget.tsx(126,53): error TS2304: Cannot find name 'checkBudgetAlerts'.
+src/pages/BusinessFeatures.tsx(61,8): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/BusinessFeatures.tsx(70,6): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/Dashboard.tsx(582,9): error TS2322: Type 'ModalData | undefined' is not assignable to type 'IncomeExpenditureData | NetWorthData[] | AccountDistributionData[] | ReconciliationData[] | undefined'.
+src/pages/DashboardRedux.tsx(116,7): error TS2322: Type '{ children: (false | Element)[]; title: string; subtitle: string; icon: Element; actions: Element; }' is not assignable to type 'IntrinsicAttributes & PageWrapperProps'.
+src/pages/DataIntelligence.tsx(123,8): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/DataIntelligence.tsx(132,6): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/EnhancedImport.tsx(39,6): error TS2741: Property 'title' is missing in type '{ children: (false | Element)[]; }' but required in type 'PageWrapperProps'.
+src/pages/EnhancedInvestments.tsx(35,9): error TS18048: 'investments' is possibly 'undefined'.
+src/pages/EnhancedInvestments.tsx(37,88): error TS2345: Argument of type 'Investment[] | undefined' is not assignable to parameter of type 'Investment[]'.
+src/pages/EnhancedInvestments.tsx(38,72): error TS2345: Argument of type 'Investment[] | undefined' is not assignable to parameter of type 'Investment[]'.
+src/pages/EnhancedInvestments.tsx(39,67): error TS2345: Argument of type 'Investment[] | undefined' is not assignable to parameter of type 'Investment[]'.
+src/pages/EnhancedInvestments.tsx(40,62): error TS2345: Argument of type 'Investment[] | undefined' is not assignable to parameter of type 'Investment[]'.
+src/pages/EnhancedInvestments.tsx(41,75): error TS2345: Argument of type 'Investment[] | undefined' is not assignable to parameter of type 'Investment[]'.
+src/pages/EnhancedInvestments.tsx(42,65): error TS2345: Argument of type 'Investment[] | undefined' is not assignable to parameter of type 'Investment[]'.
+src/pages/ExportManager.tsx(190,6): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/FinancialPlanning.tsx(105,8): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/FinancialPlanning.tsx(114,6): error TS2741: Property 'title' is missing in type '{ children: Element; }' but required in type 'PageWrapperProps'.
+src/pages/Forecasting.tsx(22,7): error TS2322: Type '{ children: (false | Element)[]; title: string; description: string; icon: Element; }' is not assignable to type 'IntrinsicAttributes & PageWrapperProps'.

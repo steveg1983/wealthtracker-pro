@@ -1,0 +1,20 @@
+src/components/BalanceReconciliationModal.tsx(37,16): error TS2322: Type 'null' is not assignable to type 'Element'.
+src/components/BalanceReconciliationModal.tsx(63,15): error TS2322: Type 'void' is not assignable to type 'ReactNode'.
+src/components/BatchImportModal.tsx(291,7): error TS2322: Type '{ children: Element; isOpen: boolean; onClose: () => void; title: string; className: string; }' is not assignable to type 'IntrinsicAttributes & ModalProps'.
+src/components/BatchImportModal.tsx(498,21): error TS2322: Type '{ children: Element; onClick: () => Promise<void>; disabled: boolean; loading: boolean; className: string; }' is not assignable to type 'IntrinsicAttributes & LoadingButtonProps'.
+src/components/BulkTransactionEdit.tsx(220,7): error TS2322: Type '{ children: Element[]; isOpen: boolean; onClose: () => void; title: string; className: string; }' is not assignable to type 'IntrinsicAttributes & ModalProps'.
+src/components/charts/TreemapChart.tsx(184,11): error TS2322: Type 'TreemapData[] | undefined' is not assignable to type 'readonly TreemapDataType[] | undefined'.
+src/components/DashboardWidget.tsx(249,21): error TS2322: Type 'string | number | true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/DashboardWidget.tsx(266,21): error TS2322: Type 'string | number | true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/DashboardWidget.tsx(284,21): error TS2322: Type 'string | number | true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/DataValidation.tsx(80,15): error TS2322: Type 'Date' is not assignable to type 'JsonValue'.
+src/components/DataValidation.tsx(81,15): error TS2322: Type 'Date' is not assignable to type 'JsonValue'.
+src/components/DividendTracker.tsx(376,11): error TS2322: Type '(dividend: Dividend) => void' is not assignable to type '(dividend: Partial<Dividend>) => void'.
+src/components/DuplicateDetection.tsx(309,7): error TS2322: Type '{ children: Element; isOpen: boolean; onClose: () => void; title: string; className: string; }' is not assignable to type 'IntrinsicAttributes & ModalProps'.
+src/components/EnhancedPortfolioView.tsx(58,13): error TS2322: Type 'Decimal' is not assignable to type 'number'.
+src/components/ExcelExport.tsx(440,7): error TS2322: Type '{ children: Element; isOpen: boolean; onClose: () => void; title: string; className: string; }' is not assignable to type 'IntrinsicAttributes & ModalProps'.
+src/components/GlobalSearch.tsx(128,16): error TS2322: Type 'null' is not assignable to type 'Element'.
+src/components/GoalCelebrationModal.tsx(47,7): error TS2322: Type '{ children: Element; isOpen: boolean; onClose: () => void; title: string; size: "sm"; className: string; }' is not assignable to type 'IntrinsicAttributes & ModalProps'.
+src/components/KeyboardShortcutsHelp.tsx(43,16): error TS2322: Type 'null' is not assignable to type 'Element'.
+src/components/MnyMappingModal.tsx(125,16): error TS2322: Type 'null' is not assignable to type 'Element'.
+src/components/NotificationCenter.tsx(405,21): error TS2322: Type '(notification: Notification, index: number, style: React.CSSProperties) => React.JSX.Element' is not assignable to type '(item: unknown, index: number, style: CSSProperties) => ReactNode'.

@@ -1,0 +1,175 @@
+================================================================================
+                    WEALTHTRACKER APP - BETA TESTER INSTRUCTIONS
+================================================================================
+
+Welcome! Thank you for helping test the WealthTracker application. This guide 
+will help you get started and test all the key features.
+
+================================================================================
+GETTING STARTED
+================================================================================
+
+1. Access the App
+   URL: https://wealthtracker-g34urrkik-steven-greens-projects.vercel.app
+   
+2. Create Your Account
+   - Click "Sign In" or "Sign Up"
+   - Enter your email address
+   - Create a password
+   - Verify your email if prompted
+   - You'll have your own private workspace - your data is completely separate
+
+================================================================================
+TEST CREDIT CARD DETAILS (NO REAL CHARGES)
+================================================================================
+
+IMPORTANT: These are TEST cards. No real money will be charged.
+
+PRIMARY TEST CARD (Use this for successful signup):
+----------------------------------------------------
+Card Number: 4242 4242 4242 4242
+Expiry Date: Any future date (e.g., 12/26)
+CVC/CVV:     Any 3 digits (e.g., 123)
+ZIP Code:    Any valid ZIP (e.g., 12345)
+
+OTHER TEST SCENARIOS:
+----------------------------------------------------
+Declined Card:           4000 0000 0000 0002
+Authentication Required: 4000 0025 0000 3155
+Insufficient Funds:      4000 0000 0000 9995
+Expired Card:           4000 0000 0000 0069
+Processing Error:        4000 0000 0000 0119
+Incorrect CVC:          4000 0000 0000 0127
+
+================================================================================
+SUBSCRIPTION SETUP
+================================================================================
+
+1. After signing in, navigate to the Subscription/Pricing page
+2. Choose a plan:
+   - Free: Basic features
+   - Pro: Advanced analytics ($9.99/month - TEST MODE)
+   - Business: Full features ($19.99/month - TEST MODE)
+3. Click "Upgrade" or "Start Free Trial"
+4. Enter the test card details above
+5. Complete the checkout
+6. You'll have a 14-day free trial with full access
+
+================================================================================
+KEY FEATURES TO TEST
+================================================================================
+
+DASHBOARD
+---------
+□ View account balances overview
+□ Customize which accounts appear (look for settings icon)
+□ Check budget status with progress bars
+□ View recent transactions
+□ Check net worth summary
+
+TRANSACTIONS
+------------
+□ Add a new transaction (income/expense)
+□ Edit existing transactions
+□ Delete transactions
+□ Filter by date range
+□ Search transactions (use Ctrl+K or Cmd+K)
+□ Categorize transactions
+□ Add notes/descriptions
+
+ACCOUNTS
+--------
+□ Add new accounts (checking, savings, credit card)
+□ Set account balances
+□ View account details
+□ Edit account information
+□ Archive/delete accounts
+
+BUDGETS
+-------
+□ Create monthly budgets for categories
+□ View budget vs actual spending
+□ See visual progress bars
+□ Get alerts for overspending
+
+GOALS
+-----
+□ Set financial goals
+□ Track progress
+□ View empty state messages if no goals exist
+□ Create your first goal
+
+SEARCH & NAVIGATION
+-------------------
+□ Use global search (Ctrl+K or Cmd+K)
+□ Navigate between pages
+□ Test on both desktop and mobile views
+□ Check responsive design
+
+================================================================================
+BROWSER TESTING
+================================================================================
+
+Please test on any of these browsers if possible:
+
+DESKTOP:
+□ Chrome
+□ Firefox
+□ Safari (Mac)
+□ Edge
+
+MOBILE:
+□ Safari (iPhone/iPad)
+□ Chrome (Android)
+
+================================================================================
+WHAT TO LOOK FOR
+================================================================================
+
+✓ Does everything work smoothly?
+✓ Are there any confusing parts?
+✓ Do pages load quickly?
+✓ Is text readable and clear?
+✓ Do buttons and links work?
+✓ Any error messages?
+✓ Does it work well on mobile?
+
+================================================================================
+REPORTING ISSUES
+================================================================================
+
+If you find any issues or have suggestions, please note:
+
+1. What you were trying to do
+2. What happened instead
+3. Any error messages you saw
+4. Which browser/device you were using
+5. Screenshots if possible
+
+You can report issues to the development team through:
+- Email: [Developer will provide contact]
+- Or compile a list to share later
+
+================================================================================
+IMPORTANT NOTES
+================================================================================
+
+• This is a TEST environment - no real financial data should be entered
+• Use only the test credit cards provided above
+• Your data is private and separate from other users
+• The app may be updated during testing - refresh if you see issues
+• All subscription features are in TEST MODE - no real charges
+
+================================================================================
+THANK YOU!
+================================================================================
+
+Your feedback is invaluable in making WealthTracker the best personal finance
+app possible. We appreciate your time and thorough testing!
+
+If you have any questions about these instructions, please don't hesitate to ask.
+
+Happy Testing!
+- The WealthTracker Team
+
+================================================================================

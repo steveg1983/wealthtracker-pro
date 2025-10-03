@@ -1,0 +1,19 @@
+{
+  "timestamp": "2025-09-02T19:04:31.409Z",
+  "totalTests": 45,
+  "realTests": 0,
+  "mockedTests": 0,
+  "cleanTests": 45,
+  "progress": "0.0",
+  "categories": {
+    "services": 8,
+    "components": 8,
+    "hooks": 2,
+    "utils": 17,
+    "contexts": 2,
+    "store": 3,
+    "integration": 1,
+    "other": 4
+  },
+  "filesWithMocks": []
+}

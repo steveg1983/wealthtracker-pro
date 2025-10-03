@@ -1,0 +1,83 @@
+name: Handoff Snapshot Consistency
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [ "**" ]
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: wealthtracker-web
+
+jobs:
+  check-snapshots:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: wealthtracker-web/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run handoff snapshot update
+        run: npm run handoff:update
+
+      - name: Verify snapshots are committed
+        run: |
+          if ! git diff --quiet; then
+            echo "::error::Context snapshots are out of date. Run 'npm run handoff:update' and commit the changes." >&2
+            echo "Changed files:" >&2
+            git --no-pager diff --name-only >&2
+            exit 1
+          fi
+
+  quality-gates:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: wealthtracker-web/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Run build:check
+        env:
+          CI: true
+        run: npm run build:check
+
+      - name: Run tests (CI)
+        env:
+          CI: true
+        run: npm run test:ci

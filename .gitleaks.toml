@@ -1,0 +1,25 @@
+title = "WealthTracker gitleaks config"
+
+# Use default rules; allow common placeholders to reduce false positives
+[rules]
+
+[allowlist]
+description = "Allow test placeholders and obvious fake values"
+regexes = [
+  "pk_test_[A-Za-z0-9_\-]{10,}",
+  "sk_test_[A-Za-z0-9_\-]{10,}",
+  "your-.*-here",
+  "example\.com",
+  "localhost",
+  "dummy",
+  "PLACEHOLDER",
+]
+
+paths = [
+  "^.github/workflows/.*$",
+  "^wealthtracker-web/\.env\.example$",
+  "^wealthtracker-web/\.env\.production\.example$",
+  "^wealthtracker-web/\.env\.test\.example$",
+  "^wealthtracker-web/src/test/.*$",
+]
+

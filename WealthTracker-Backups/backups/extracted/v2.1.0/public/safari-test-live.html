@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Safari Diagnostic - WealthTracker</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; }
+        .test {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 8px;
+            background: white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .pass {
+            border-left: 4px solid #4CAF50;
+            background: #f1f8f4;
+        }
+        .fail {
+            border-left: 4px solid #f44336;
+            background: #fef1f1;
+        }
+        .pending {
+            border-left: 4px solid #ff9800;
+            background: #fffbf0;
+        }
+        .test-name { 
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .test-result {
+            color: #666;
+            font-size: 14px;
+        }
+        .error-detail {
+            color: #d32f2f;
+            font-family: monospace;
+            font-size: 12px;
+            margin-top: 5px;
+            padding: 5px;
+            background: #fff;
+            border-radius: 4px;
+        }
+        .action-button {
+            background: #8EA9DB;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .action-button:hover {
+            background: #7A95C7;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Safari Diagnostic for WealthTracker</h1>
+    <p>This page tests Safari compatibility with the WealthTracker app.</p>
+    
+    <div id="tests"></div>
+    
+    <button class="action-button" onclick="runAllTests()">Re-run All Tests</button>
+    <button class="action-button" onclick="tryMainApp()">Try Loading Main App</button>
+    
+    <script>
+        const testsContainer = document.getElementById('tests');
+        let testResults = {};
+        
+        function addTest(name, status, result, error = null) {
+            testResults[name] = { status, result, error };
+            updateDisplay();
+        }
+        
+        function updateDisplay() {
+            testsContainer.innerHTML = '';
+            Object.entries(testResults).forEach(([name, data]) => {
+                const div = document.createElement('div');
+                div.className = `test ${data.status}`;
+                div.innerHTML = `
+                    <div class="test-name">${name}</div>
+                    <div class="test-result">${data.result}</div>
+                    ${data.error ? `<div class="error-detail">${data.error}</div>` : ''}
+                `;
+                testsContainer.appendChild(div);
+            });
+        }
+        
+        async function runAllTests() {
+            testResults = {};
+            
+            // Test 1: Browser Detection
+            const userAgent = navigator.userAgent;
+            const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+            const safariVersion = userAgent.match(/Version\/(\d+)/);
+            addTest('Browser Detection', 'pass', 
+                `Safari: ${isSafari ? 'Yes' : 'No'}, Version: ${safariVersion ? safariVersion[1] : 'Unknown'}`);
+            
+            // Test 2: JavaScript Version
+            try {
+                eval('const test = () => {}; let x = 1; const [a, b] = [1, 2];');
+                addTest('ES6+ Support', 'pass', 'Modern JavaScript supported');
+            } catch (e) {
+                addTest('ES6+ Support', 'fail', 'Modern JavaScript not supported', e.message);
+            }
+            
+            // Test 3: ES Modules
+            const moduleSupport = 'noModule' in document.createElement('script');
+            addTest('ES Module Support', moduleSupport ? 'pass' : 'fail', 
+                moduleSupport ? 'ES modules supported' : 'ES modules not supported');
+            
+            // Test 4: import.meta support
+            try {
+                // This will fail if import.meta is not supported
+                const testScript = document.createElement('script');
+                testScript.type = 'module';
+                testScript.textContent = `
+                    try {
+                        if (typeof import.meta !== 'undefined') {
+                            window.__importMetaTest = 'supported';
+                        } else {
+                            window.__importMetaTest = 'not supported';
+                        }
+                    } catch (e) {
+                        window.__importMetaTest = 'error: ' + e.message;
+                    }
+                `;
+                document.head.appendChild(testScript);
+                
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const result = window.__importMetaTest || 'unknown';
+                addTest('import.meta Support', 
+                    result === 'supported' ? 'pass' : 'fail',
+                    result);
+            } catch (e) {
+                addTest('import.meta Support', 'fail', 'Not supported', e.message);
+            }
+            
+            // Test 5: Fetch API
+            addTest('Fetch API', typeof fetch !== 'undefined' ? 'pass' : 'fail',
+                typeof fetch !== 'undefined' ? 'Available' : 'Not available');
+            
+            // Test 6: Local Storage
+            try {
+                localStorage.setItem('test', '1');
+                localStorage.removeItem('test');
+                addTest('Local Storage', 'pass', 'Working');
+            } catch (e) {
+                addTest('Local Storage', 'fail', 'Not working', e.message);
+            }
+            
+            // Test 7: Service Workers
+            if ('serviceWorker' in navigator) {
+                addTest('Service Workers', 'pass', 'Supported');
+            } else {
+                addTest('Service Workers', 'fail', 'Not supported');
+            }
+            
+            // Test 8: Content Security Policy
+            try {
+                // Check if CSP is blocking something
+                const testImg = new Image();
+                testImg.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=';
+                await new Promise((resolve, reject) => {
+                    testImg.onload = resolve;
+                    testImg.onerror = reject;
+                    setTimeout(reject, 1000);
+                });
+                addTest('CSP Data URIs', 'pass', 'Data URIs allowed');
+            } catch (e) {
+                addTest('CSP Data URIs', 'fail', 'Data URIs blocked');
+            }
+            
+            // Test 9: External Resources
+            try {
+                const response = await fetch('https://www.google.com/favicon.ico', { mode: 'no-cors' });
+                addTest('External Resources', 'pass', 'Can fetch external resources');
+            } catch (e) {
+                addTest('External Resources', 'fail', 'Cannot fetch external resources', e.message);
+            }
+            
+            // Test 10: Cookies
+            addTest('Cookies', navigator.cookieEnabled ? 'pass' : 'fail',
+                navigator.cookieEnabled ? 'Enabled' : 'Disabled (app requires cookies)');
+            
+            // Test 11: Check Vite module loading
+            try {
+                const moduleTest = await fetch('/src/main.tsx');
+                if (moduleTest.ok) {
+                    addTest('Vite Modules', 'pass', 'Module files accessible');
+                } else {
+                    addTest('Vite Modules', 'fail', `HTTP ${moduleTest.status}`);
+                }
+            } catch (e) {
+                addTest('Vite Modules', 'fail', 'Cannot access module files', e.message);
+            }
+            
+            // Test 12: Check for Mixed Content
+            const isHttps = location.protocol === 'https:';
+            addTest('HTTPS', isHttps ? 'pass' : 'fail',
+                isHttps ? 'Secure connection' : 'Insecure connection (app requires HTTPS)');
+        }
+        
+        function tryMainApp() {
+            window.location.href = '/';
+        }
+        
+        // Run tests on load
+        runAllTests();
+        
+        // Listen for errors
+        window.addEventListener('error', (event) => {
+            addTest('Runtime Error', 'fail', event.message, 
+                `File: ${event.filename}, Line: ${event.lineno}, Col: ${event.colno}`);
+        });
+        
+        window.addEventListener('unhandledrejection', (event) => {
+            addTest('Unhandled Promise Rejection', 'fail', 'Promise rejected', event.reason);
+        });
+    </script>
+</body>
+</html>

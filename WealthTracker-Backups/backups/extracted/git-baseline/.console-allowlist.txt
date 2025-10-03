@@ -1,0 +1,3 @@
+# Files where console.log is allowed (setup/mock files)
+src/setup/consoleToLogger.ts
+src/mocks/syncServer.ts

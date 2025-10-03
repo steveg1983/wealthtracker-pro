@@ -1,0 +1,100 @@
+
+> wealth-tracker@1.4.5 build:check
+> tsc -b && vite build
+
+src/App.tsx(49,17): error TS2503: Cannot find namespace 'JSX'.
+src/AppWrapper.tsx(40,39): error TS2503: Cannot find namespace 'JSX'.
+src/components/AccountBalancesChart.tsx(7,21): error TS2339: Property 'getDecimalAccounts' does not exist on type 'AppContextType'.
+src/components/AddAccountModal.tsx(20,85): error TS2503: Cannot find namespace 'JSX'.
+src/components/AddTransactionModal.tsx(29,93): error TS2503: Cannot find namespace 'JSX'.
+src/components/AdvancedAnalytics.tsx(336,90): error TS2304: Cannot find name 'toDecimal'.
+src/components/AdvancedSearch.tsx(38,26): error TS2503: Cannot find namespace 'JSX'.
+src/components/AdvancedSearch.tsx(175,52): error TS18047: 'filter.value' is possibly 'null'.
+src/components/AdvancedSearch.tsx(175,65): error TS2339: Property 'toLowerCase' does not exist on type 'string | number | boolean | string[]'.
+  Property 'toLowerCase' does not exist on type 'number'.
+src/components/AdvancedSearch.tsx(181,28): error TS2339: Property 'length' does not exist on type 'string | number | true | string[]'.
+  Property 'length' does not exist on type 'number'.
+src/components/AdvancedSearch.tsx(182,43): error TS18047: 'filter.value' is possibly 'null'.
+src/components/AdvancedSearch.tsx(182,56): error TS2339: Property 'includes' does not exist on type 'string | number | boolean | string[]'.
+  Property 'includes' does not exist on type 'number'.
+src/components/AdvancedSearch.tsx(187,28): error TS2339: Property 'length' does not exist on type 'string | number | true | string[]'.
+  Property 'length' does not exist on type 'number'.
+src/components/AdvancedSearch.tsx(188,43): error TS18047: 'filter.value' is possibly 'null'.
+src/components/AdvancedSearch.tsx(188,56): error TS2339: Property 'includes' does not exist on type 'string | number | boolean | string[]'.
+  Property 'includes' does not exist on type 'number'.
+src/components/AdvancedSearch.tsx(194,42): error TS2345: Argument of type 'string | number | true | string[]' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/AdvancedSearch.tsx(201,42): error TS2345: Argument of type 'string | number | true | string[]' is not assignable to parameter of type 'string'.
+  Type 'number' is not assignable to type 'string'.
+src/components/AdvancedSearch.tsx(208,39): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | number | true | string[]' is not assignable to parameter of type 'string | number | Date'.
+      Type 'boolean' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | number | true | string[]' is not assignable to parameter of type 'string | number'.
+      Type 'boolean' is not assignable to type 'string | number'.
+src/components/AdvancedSearch.tsx(215,37): error TS2769: No overload matches this call.
+  Overload 1 of 4, '(value: string | number | Date): Date', gave the following error.
+    Argument of type 'string | number | true | string[]' is not assignable to parameter of type 'string | number | Date'.
+      Type 'boolean' is not assignable to type 'string | number | Date'.
+  Overload 2 of 4, '(value: string | number): Date', gave the following error.
+    Argument of type 'string | number | true | string[]' is not assignable to parameter of type 'string | number'.
+      Type 'boolean' is not assignable to type 'string | number'.
+src/components/AdvancedSearch.tsx(299,48): error TS2503: Cannot find namespace 'JSX'.
+src/components/AdvancedSearch.tsx(305,13): error TS2322: Type 'string | number | boolean | string[] | null' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'null' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/AdvancedSearch.tsx(316,13): error TS2322: Type 'string | number | boolean | string[] | null' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'null' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/AdvancedSearch.tsx(327,13): error TS2322: Type 'string | number | boolean | string[] | null' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'null' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/AdvancedSearch.tsx(337,13): error TS2322: Type 'string | number | boolean | string[] | null' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'null' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/AdvancedSearch.tsx(356,28): error TS18047: 'filter.value' is possibly 'null'.
+src/components/AdvancedSearch.tsx(356,41): error TS2339: Property 'includes' does not exist on type 'string | number | boolean | string[]'.
+  Property 'includes' does not exist on type 'number'.
+src/components/AdvancedSearch.tsx(359,29): error TS2488: Type 'string | number | boolean | string[] | null' must have a '[Symbol.iterator]()' method that returns an iterator.
+src/components/AdvancedSearch.tsx(360,25): error TS18047: 'filter.value' is possibly 'null'.
+src/components/AdvancedSearch.tsx(360,38): error TS2339: Property 'filter' does not exist on type 'string | number | boolean | string[]'.
+  Property 'filter' does not exist on type 'string'.
+src/components/AllocationAnalysis.tsx(39,21): error TS2339: Property 'investments' does not exist on type 'AppContextType'.
+src/components/AllocationAnalysis.tsx(39,34): error TS2339: Property 'formatAmount' does not exist on type 'AppContextType'.
+src/components/AllocationAnalysis.tsx(40,11): error TS2339: Property 'symbol' does not exist on type '{ displayCurrency: string; currencySymbol: string; formatCurrency: (amount: number, originalCurrency?: string | undefined) => string; convertAndFormat: (amount: number, fromCurrency: string) => Promise<...>; convert: (amount: number, fromCurrency: string) => Promise<...>; convertAndSum: (amounts: { ...; }[]) => Prom...'.
+src/components/AllocationAnalysis.tsx(50,17): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+src/components/AllocationAnalysis.tsx(51,14): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+src/components/AllocationAnalysis.tsx(62,46): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/components/AllocationAnalysis.tsx(62,51): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+src/components/AllocationAnalysis.tsx(64,27): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+src/components/AllocationAnalysis.tsx(84,46): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/components/AllocationAnalysis.tsx(84,51): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+src/components/AllocationAnalysis.tsx(86,27): error TS7006: Parameter 'inv' implicitly has an 'any' type.
+src/components/AllocationAnalysis.tsx(271,59): error TS18048: 'percent' is possibly 'undefined'.
+src/components/BalanceReconciliationModal.tsx(33,38): error TS2503: Cannot find namespace 'JSX'.
+src/components/BalanceReconciliationModal.tsx(63,15): error TS2322: Type 'void' is not assignable to type 'ReactNode'.
+src/components/BankFormatSelector.tsx(135,115): error TS2503: Cannot find namespace 'JSX'.
+src/components/BankFormatSelector.tsx(159,77): error TS7053: Element implicitly has an 'any' type because expression of type 'string' can't be used to index type '{ UK: string; US: string; EU: string; Canada: string; Australia: string; Asia: string; Global: string; }'.
+  No index signature with a parameter of type 'string' was found on type '{ UK: string; US: string; EU: string; Canada: string; Australia: string; Asia: string; Global: string; }'.
+src/components/BatchImportModal.tsx(38,87): error TS2503: Cannot find namespace 'JSX'.
+src/components/BatchImportModal.tsx(129,52): error TS2339: Property 'generatePreview' does not exist on type 'EnhancedCsvImportService'.
+src/components/BatchImportModal.tsx(133,40): error TS7006: Parameter 't' implicitly has an 'any' type.
+src/components/BatchImportModal.tsx(167,35): error TS2339: Property 'suggestedAccountId' does not exist on type 'OFXParseResult'.
+src/components/BatchImportModal.tsx(171,38): error TS2339: Property 'date' does not exist on type 'OFXTransaction'.
+src/components/BatchImportModal.tsx(173,45): error TS2339: Property 'description' does not exist on type 'OFXTransaction'.
+src/components/BatchImportModal.tsx(177,36): error TS2345: Argument of type '{ accountId: string; type: string; datePosted: string; amount: number; fitId: string; name: string; memo?: string; checkNum?: string; refNum?: string; }' is not assignable to parameter of type 'Omit<Transaction, "id">'.
+  Type '{ accountId: string; type: string; datePosted: string; amount: number; fitId: string; name: string; memo?: string | undefined; checkNum?: string | undefined; refNum?: string | undefined; }' is missing the following properties from type 'Omit<Transaction, "id">': date, description, category
+src/components/BatchImportModal.tsx(195,15): error TS2367: This comparison appears to be unintentional because the types 'Date' and 'string' have no overlap.
+src/components/BatchImportModal.tsx(197,45): error TS2339: Property 'description' does not exist on type 'QIFTransaction'.
+src/components/BatchImportModal.tsx(201,36): error TS2345: Argument of type '{ accountId: string; date: string; amount: number; payee?: string; memo?: string; category?: string; checkNumber?: string; cleared?: boolean; }' is not assignable to parameter of type 'Omit<Transaction, "id">'.
+  Type '{ accountId: string; date: string; amount: number; payee?: string | undefined; memo?: string | undefined; category?: string | undefined; checkNumber?: string | undefined; cleared?: boolean | undefined; }' is missing the following properties from type 'Omit<Transaction, "id">': type, description
+src/components/BatchImportModal.tsx(304,7): error TS2322: Type '{ children: Element; isOpen: boolean; onClose: () => void; title: string; className: string; }' is not assignable to type 'IntrinsicAttributes & ModalProps'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & ModalProps'.
+src/components/BatchImportModal.tsx(511,21): error TS2322: Type '{ children: Element; onClick: () => Promise<void>; disabled: boolean; loading: boolean; className: string; }' is not assignable to type 'IntrinsicAttributes & LoadingButtonProps'.
+  Property 'loading' does not exist on type 'IntrinsicAttributes & LoadingButtonProps'. Did you mean 'isLoading'?
+src/components/BillManagement.tsx(191,20): error TS2345: Argument of type '{ id: string; date: string; description: string; amount: number; category: string; accountId: string; type: "expense"; cleared: boolean; }' is not assignable to parameter of type 'Omit<Transaction, "id">'.
+  Types of property 'date' are incompatible.
+    Type 'string' is not assignable to type 'Date'.
+src/components/BudgetModal.tsx(20,85): error TS2503: Cannot find namespace 'JSX'.
+src/components/BudgetRollover.tsx(55,23): error TS2339: Property 'getDecimalTransactions' does not exist on type 'AppContextType'.
+src/components/BudgetRollover.tsx(55,47): error TS2339: Property 'getDecimalBudgets' does not exist on type 'AppContextType'.
+src/components/BudgetRollover.tsx(92,49): error TS7006: Parameter 'db' implicitly has an 'any' type.
+src/components/BulkOperationsToolbar.tsx(19,36): error TS2503: Cannot find namespace 'JSX'.
+src/components/BulkOperationsToolbar.tsx(106,38): error TS2769: No overload matches this call.

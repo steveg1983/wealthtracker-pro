@@ -1,0 +1,20 @@
+src/components/BatchImportModal.tsx(188,15): error TS2353: Object literal may only specify known properties, and 'accountId' does not exist in type '{ categories?: Category[] | undefined; autoCategorize?: boolean | undefined; }'.
+src/components/EnhancedImportWizard.tsx(214,19): error TS2353: Object literal may only specify known properties, and 'accountId' does not exist in type '{ categories?: Category[] | undefined; autoCategorize?: boolean | undefined; }'.
+src/components/OFXImportModal.tsx(118,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Omit<Transaction, "id">'.
+src/components/QIFImportModal.tsx(109,11): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'Omit<Transaction, "id">'.
+src/components/RecurringTransactionModal.tsx(53,11): error TS2353: Object literal may only specify known properties, and 'nextDate' does not exist in type 'Omit<RecurringTransaction, "id" | "nextDate">'.
+src/contexts/AppContext.tsx(420,17): error TS2353: Object literal may only specify known properties, and 'spent' does not exist in type 'DecimalBudget'.
+src/contexts/AppContext.tsx(501,9): error TS2353: Object literal may only specify known properties, and 'spent' does not exist in type 'Budget'.
+src/contexts/AppContext.tsx(624,13): error TS2353: Object literal may only specify known properties, and 'recurringTransactionId' does not exist in type 'Transaction'.
+src/data/defaultTestData.ts(508,7): error TS2353: Object literal may only specify known properties, and 'startDate' does not exist in type 'Budget'.
+src/data/defaultTestData.ts(516,7): error TS2353: Object literal may only specify known properties, and 'startDate' does not exist in type 'Budget'.
+src/data/defaultTestData.ts(524,7): error TS2353: Object literal may only specify known properties, and 'startDate' does not exist in type 'Budget'.
+src/data/defaultTestData.ts(532,7): error TS2353: Object literal may only specify known properties, and 'startDate' does not exist in type 'Budget'.
+src/data/defaultTestData.ts(546,7): error TS2353: Object literal may only specify known properties, and 'category' does not exist in type 'Goal'.
+src/data/defaultTestData.ts(555,7): error TS2353: Object literal may only specify known properties, and 'category' does not exist in type 'Goal'.
+src/data/newTestData.ts(519,7): error TS2353: Object literal may only specify known properties, and 'startDate' does not exist in type 'Budget'.
+src/data/newTestData.ts(527,7): error TS2353: Object literal may only specify known properties, and 'startDate' does not exist in type 'Budget'.
+src/data/newTestData.ts(535,7): error TS2353: Object literal may only specify known properties, and 'startDate' does not exist in type 'Budget'.
+src/data/newTestData.ts(543,7): error TS2353: Object literal may only specify known properties, and 'startDate' does not exist in type 'Budget'.
+src/data/newTestData.ts(557,7): error TS2353: Object literal may only specify known properties, and 'category' does not exist in type 'Goal'.
+src/data/newTestData.ts(566,7): error TS2353: Object literal may only specify known properties, and 'category' does not exist in type 'Goal'.

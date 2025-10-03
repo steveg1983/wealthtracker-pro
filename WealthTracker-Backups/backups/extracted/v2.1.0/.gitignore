@@ -1,0 +1,48 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.env
+.env.*
+*.tar.gz
+
+# Sentry
+.sentryclirc
+.vercel
+
+# Testing
+coverage/
+*.coverage
+playwright-report/
+src/pages/coverage/
+
+# Claude Config Manager Extension - Security Rules
+# Prevents accidental commit of private conversation data
+.claude/.chats/
+.claude/.chats/**
+.claude/settings.local.json
+
+# Team-sharable Claude Code files (tracked by git):
+# .claude/settings.json     # Team settings (official Claude Code)
+# .claude/commands/         # Team slash commands (official Claude Code)
+# .claude/.plans/           # Project documentation (extension-specific)

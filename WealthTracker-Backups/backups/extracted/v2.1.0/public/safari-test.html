@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Safari Compatibility Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .pass { background-color: #d4edda; color: #155724; }
+        .fail { background-color: #f8d7da; color: #721c24; }
+        .warn { background-color: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>Safari Compatibility Test</h1>
+    <div id="results"></div>
+    
+    <script>
+        const results = [];
+        
+        // Test 1: Browser Detection
+        const ua = navigator.userAgent;
+        const isSafari = ua.includes('Safari') && !ua.includes('Chrome') && !ua.includes('Chromium');
+        results.push({
+            test: 'Browser Detection',
+            result: `User Agent: ${ua}`,
+            status: isSafari ? 'warn' : 'pass'
+        });
+        
+        // Test 2: import.meta support
+        try {
+            const hasImportMeta = typeof import.meta !== 'undefined';
+            results.push({
+                test: 'import.meta support',
+                result: hasImportMeta ? 'Supported' : 'Not supported',
+                status: hasImportMeta ? 'pass' : 'fail'
+            });
+        } catch (e) {
+            results.push({
+                test: 'import.meta support',
+                result: `Error: ${e.message}`,
+                status: 'fail'
+            });
+        }
+        
+        // Test 3: IndexedDB support
+        const hasIndexedDB = 'indexedDB' in window;
+        results.push({
+            test: 'IndexedDB API',
+            result: hasIndexedDB ? 'Available' : 'Not available',
+            status: hasIndexedDB ? 'pass' : 'fail'
+        });
+        
+        // Test 4: IndexedDB functionality
+        if (hasIndexedDB) {
+            try {
+                const request = indexedDB.open('_test_db_', 1);
+                request.onsuccess = () => {
+                    results.push({
+                        test: 'IndexedDB Open',
+                        result: 'Successfully opened database',
+                        status: 'pass'
+                    });
+                    request.result.close();
+                    indexedDB.deleteDatabase('_test_db_');
+                    updateDisplay();
+                };
+                request.onerror = (e) => {
+                    results.push({
+                        test: 'IndexedDB Open',
+                        result: `Failed: ${e.target.error?.message || 'Unknown error'}`,
+                        status: 'fail'
+                    });
+                    updateDisplay();
+                };
+            } catch (e) {
+                results.push({
+                    test: 'IndexedDB Open',
+                    result: `Exception: ${e.message}`,
+                    status: 'fail'
+                });
+            }
+        }
+        
+        // Test 5: localStorage
+        try {
+            localStorage.setItem('_test_', 'test');
+            localStorage.removeItem('_test_');
+            results.push({
+                test: 'localStorage',
+                result: 'Available and working',
+                status: 'pass'
+            });
+        } catch (e) {
+            results.push({
+                test: 'localStorage',
+                result: `Error: ${e.message}`,
+                status: 'fail'
+            });
+        }
+        
+        // Test 6: Service Worker
+        const hasSW = 'serviceWorker' in navigator;
+        results.push({
+            test: 'Service Worker API',
+            result: hasSW ? 'Available' : 'Not available',
+            status: hasSW ? 'pass' : 'fail'
+        });
+        
+        // Test 7: crypto.randomUUID
+        const hasRandomUUID = typeof crypto.randomUUID === 'function';
+        results.push({
+            test: 'crypto.randomUUID',
+            result: hasRandomUUID ? 'Available' : 'Not available',
+            status: hasRandomUUID ? 'pass' : 'warn'
+        });
+        
+        // Test 8: Private Browsing Detection
+        const checkPrivate = async () => {
+            try {
+                const test = await navigator.storage.estimate();
+                const quota = test.quota || 0;
+                // In private mode, quota is often very limited
+                const possiblyPrivate = quota < 120000000; // Less than 120MB
+                results.push({
+                    test: 'Private Browsing Check',
+                    result: possiblyPrivate ? `Possibly private mode (quota: ${quota} bytes)` : `Normal mode (quota: ${quota} bytes)`,
+                    status: possiblyPrivate ? 'warn' : 'pass'
+                });
+            } catch (e) {
+                results.push({
+                    test: 'Private Browsing Check',
+                    result: 'Could not determine',
+                    status: 'warn'
+                });
+            }
+            updateDisplay();
+        };
+        
+        function updateDisplay() {
+            const container = document.getElementById('results');
+            container.innerHTML = results.map(r => `
+                <div class="test-result ${r.status}">
+                    <strong>${r.test}:</strong> ${r.result}
+                </div>
+            `).join('');
+        }
+        
+        // Initial display
+        updateDisplay();
+        
+        // Check private browsing
+        checkPrivate();
+    </script>
+</body>
+</html>

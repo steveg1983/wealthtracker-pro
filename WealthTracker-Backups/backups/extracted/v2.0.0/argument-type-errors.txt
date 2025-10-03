@@ -1,0 +1,20 @@
+src/components/BatchImportModal.tsx(186,13): error TS2345: Argument of type 'Account[]' is not assignable to parameter of type 'string'.
+src/components/BillManagement.tsx(191,20): error TS2345: Argument of type '{ id: string; date: string; description: string; amount: number; category: string; accountId: string; type: "expense"; cleared: boolean; }' is not assignable to parameter of type 'Omit<Transaction, "id">'.
+src/components/BulkTransactionEdit.tsx(101,63): error TS2345: Argument of type '"income" | "expense" | "transfer"' is not assignable to parameter of type '"income" | "expense"'.
+src/components/CSVImportWizard.tsx(163,26): error TS2345: Argument of type 'Partial<Account> | Partial<Transaction>' is not assignable to parameter of type 'Omit<Transaction, "id">'.
+src/components/DocumentManager.tsx(66,18): error TS2345: Argument of type 'Promise<Document[]>' is not assignable to parameter of type 'SetStateAction<Document[]>'.
+src/components/EnhancedImportWizard.tsx(211,17): error TS2345: Argument of type 'Account[]' is not assignable to parameter of type 'string'.
+src/components/EnhancedPortfolioView.tsx(46,13): error TS2345: Argument of type 'number' is not assignable to parameter of type 'Decimal'.
+src/components/ExcelExport.tsx(203,32): error TS2345: Argument of type '{}' is not assignable to parameter of type 'TransactionRow'.
+src/components/ExcelExport.tsx(233,32): error TS2345: Argument of type '{}' is not assignable to parameter of type 'TransactionRow'.
+src/components/OCRTest.tsx(35,24): error TS2345: Argument of type 'ExtractedData | undefined' is not assignable to parameter of type 'SetStateAction<ExtractedData | null>'.
+src/components/ReduxMigrationWrapper.tsx(50,22): error TS2345: Argument of type 'Tag[]' is not assignable to parameter of type 'string[]'.
+src/hooks/useFormattedValues.ts(25,24): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/hooks/useTransactionFilters.ts(33,20): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+src/pages/Accounts.tsx(192,51): error TS2345: Argument of type '{ balance: Decimal; initialBalance: Decimal | undefined; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 10 more ...; mask?: string | undefined; }[]' is not assignable to parameter of type 'DecimalAccount[]'.
+src/pages/Analytics.tsx(84,55): error TS2345: Argument of type '{ balance: Decimal; initialBalance: Decimal | undefined; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 10 more ...; mask?: string | undefined; }[]' is not assignable to parameter of type 'DecimalAccount[]'.
+src/pages/MonthlyNetWorth.tsx(47,32): error TS2345: Argument of type '{ convertedBalance: Decimal; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 11 more ...; mask?: string | undefined; }[]' is not assignable to parameter of type 'SetStateAction<ConvertedAccount[]>'.
+src/pages/NetWorthSummary.tsx(59,32): error TS2345: Argument of type '{ convertedBalance: Decimal; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 11 more ...; mask?: string | undefined; }[]' is not assignable to parameter of type 'SetStateAction<ConvertedAccount[]>'.
+src/services/documentService.ts(172,47): error TS2345: Argument of type 'Document' is not assignable to parameter of type 'Record<string, unknown>'.
+src/services/encryptedStorageService.ts(77,36): error TS2345: Argument of type 'T' is not assignable to parameter of type 'JsonValue'.
+src/services/encryptedStorageService.ts(178,52): error TS2345: Argument of type 'BulkStorageItem[]' is not assignable to parameter of type '{ key: string; value: Record<string, unknown>; }[]'.

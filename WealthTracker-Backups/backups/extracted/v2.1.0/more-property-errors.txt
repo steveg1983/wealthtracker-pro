@@ -1,0 +1,30 @@
+src/components/AllocationAnalysis.tsx(43,11): error TS2339: Property 'symbol' does not exist on type '{ displayCurrency: string; currencySymbol: string; formatCurrency: (amount: number, originalCurrency?: string | undefined) => string; convertAndFormat: (amount: number, fromCurrency: string) => Promise<...>; convert: (amount: number, fromCurrency: string) => Promise<...>; convertAndSum: (amounts: { ...; }[]) => Prom...'.
+src/components/BatchImportModal.tsx(129,52): error TS2339: Property 'generatePreview' does not exist on type 'EnhancedCsvImportService'.
+src/components/BatchImportModal.tsx(167,35): error TS2339: Property 'suggestedAccountId' does not exist on type 'OFXParseResult'.
+src/components/BatchImportModal.tsx(171,38): error TS2339: Property 'date' does not exist on type 'OFXTransaction'.
+src/components/BatchImportModal.tsx(173,45): error TS2339: Property 'description' does not exist on type 'OFXTransaction'.
+src/components/BatchImportModal.tsx(197,45): error TS2339: Property 'description' does not exist on type 'QIFTransaction'.
+src/components/BudgetRollover.tsx(93,33): error TS2339: Property 'spent' does not exist on type 'Budget'.
+src/components/BulkTransactionEdit.tsx(118,75): error TS2339: Property 'toNumber' does not exist on type 'never'.
+src/components/BulkTransactionEdit.tsx(464,81): error TS2339: Property 'toNumber' does not exist on type 'never'.
+src/components/DividendTracker.tsx(39,11): error TS2339: Property 'symbol' does not exist on type '{ displayCurrency: string; currencySymbol: string; formatCurrency: (amount: number, originalCurrency?: string | undefined) => string; convertAndFormat: (amount: number, fromCurrency: string) => Promise<...>; convert: (amount: number, fromCurrency: string) => Promise<...>; convertAndSum: (amounts: { ...; }[]) => Prom...'.
+src/components/EnhancedImportWizard.tsx(166,56): error TS2339: Property 'generatePreview' does not exist on type 'EnhancedCsvImportService'.
+src/components/EnhancedImportWizard.tsx(192,42): error TS2339: Property 'date' does not exist on type 'OFXTransaction'.
+src/components/EnhancedImportWizard.tsx(194,49): error TS2339: Property 'description' does not exist on type 'OFXTransaction'.
+src/components/EnhancedImportWizard.tsx(213,49): error TS2339: Property 'description' does not exist on type 'QIFTransaction'.
+src/components/EnvelopeBudgeting.tsx(86,22): error TS2339: Property 'name' does not exist on type 'Budget'.
+src/components/EnvelopeBudgeting.tsx(91,23): error TS2339: Property 'color' does not exist on type 'Budget'.
+src/components/EnvelopeBudgeting.tsx(94,26): error TS2339: Property 'priority' does not exist on type 'Budget'.
+src/components/ExcelExport.tsx(51,27): error TS2339: Property 'currencySymbol' does not exist on type '{ formatCurrency: (amount: number | Decimal, originalCurrency?: string | undefined) => string; convertAndFormat: (amount: number | Decimal, fromCurrency: string) => Promise<...>; convert: (amount: number | Decimal, fromCurrency: string) => Promise<...>; convertAndSum: (amounts: { ...; }[]) => Promise<...>; displayCu...'.
+src/components/PortfolioRebalancer.tsx(40,11): error TS2339: Property 'symbol' does not exist on type '{ displayCurrency: string; currencySymbol: string; formatCurrency: (amount: number, originalCurrency?: string | undefined) => string; convertAndFormat: (amount: number, fromCurrency: string) => Promise<...>; convert: (amount: number, fromCurrency: string) => Promise<...>; convertAndSum: (amounts: { ...; }[]) => Prom...'.
+src/components/PreferencesRedux.tsx(65,34): error TS2339: Property 'email' does not exist on type 'PreferencesState'.
+src/components/PreferencesRedux.tsx(151,36): error TS2339: Property 'emailNotifications' does not exist on type 'PreferencesState'.
+src/components/PreferencesRedux.tsx(161,36): error TS2339: Property 'budgetAlerts' does not exist on type 'PreferencesState'.
+src/components/PreferencesRedux.tsx(171,36): error TS2339: Property 'transactionReminders' does not exist on type 'PreferencesState'.
+src/components/RecurringBudgetTemplates.tsx(72,20): error TS2339: Property 'name' does not exist on type 'Budget'.
+src/components/RecurringBudgetTemplates.tsx(75,21): error TS2339: Property 'color' does not exist on type 'Budget'.
+src/components/RecurringBudgetTemplates.tsx(76,24): error TS2339: Property 'priority' does not exist on type 'Budget'.
+src/components/ReduxMigrationWrapper.tsx(34,11): error TS2339: Property 'preferences' does not exist on type 'PreferencesContextType'.
+src/components/ThemeCustomizer.tsx(11,28): error TS2339: Property 'accentColor' does not exist on type 'PreferencesContextType'.
+src/components/ThemeCustomizer.tsx(11,41): error TS2339: Property 'setAccentColor' does not exist on type 'PreferencesContextType'.
+src/components/TransactionReconciliation.tsx(73,73): error TS2339: Property 'toNumber' does not exist on type 'never'.
