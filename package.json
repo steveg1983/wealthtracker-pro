@@ -1,6 +1,30 @@
 {
+  "name": "wealthtracker-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "prepare": "husky",
+    "handoff:update": "npm run handoff:update --workspace apps/web",
+    "build:check": "npm run build:check --workspace apps/web",
+    "lint": "npm run lint --workspace apps/web",
+    "lint:web": "npm run lint --workspace apps/web",
+    "test": "npm run test --workspace apps/web",
+    "test:smoke": "npm run test:smoke --workspace apps/web",
+    "bundle:check": "npm run bundle:check --workspace apps/web",
+    "test:unit": "npm run test:unit --workspace apps/web",
+    "test:integration": "npm run test:integration --workspace apps/web",
+    "test:real": "npm run test:real --workspace apps/web",
+    "test:supabase-smoke": "npm run test:supabase-smoke --workspace apps/web",
+    "test:ci": "npm run test:ci --workspace apps/web",
+    "typecheck:strict": "npm run typecheck:strict --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "start": "npm run dev --workspace apps/web",
+    "dev": "npm run dev --workspace apps/web"
+  },
   "devDependencies": {
-    "@types/plotly.js": "^3.0.6",
-    "@types/react-plotly.js": "^2.6.3"
+    "husky": "^9.1.7"
   }
 }
