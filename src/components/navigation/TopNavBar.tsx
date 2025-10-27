@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { useTranslation } from '../../hooks/useTranslation';
 import { useNotifications } from '../../contexts/NotificationContext';
@@ -8,32 +8,9 @@ import AddAccountModal from '../AddAccountModal';
 import AddTransactionModal from '../AddTransactionModal';
 import CategoryCreationModal from '../CategoryCreationModal';
 import AddInvestmentModal from '../AddInvestmentModal';
-import { 
-  HomeIcon, 
-  ChartBarIcon, 
-  CurrencyDollarIcon,
-  DocumentTextIcon,
-  CogIcon,
-  QuestionMarkCircleIcon,
-  BellIcon,
-  UserCircleIcon,
-  ChevronDownIcon,
-  PlusIcon,
-  ArrowTrendingUpIcon,
-  BanknotesIcon,
-  CalculatorIcon,
-  ChartPieIcon,
-  FlagIcon,
-  SparklesIcon,
-  DocumentChartBarIcon,
-  CreditCardIcon,
-  BuildingLibraryIcon,
-  PlusCircleIcon,
-  BanknotesIcon as TransactionIcon,
-  FolderPlusIcon,
-  TagIcon,
-  TrophyIcon
-} from '@heroicons/react/24/outline';
+import { ProfessionalIcon, type ProfessionalIconName } from '../icons/ProfessionalIcons';
+
+type TimeoutHandle = ReturnType<typeof globalThis.setTimeout>;
 
 interface MenuItem {
   label: string;
@@ -44,60 +21,70 @@ interface MenuItem {
   action?: () => void;
 }
 
+const renderNavIcon = (name: ProfessionalIconName, className = '', size = 16) => (
+  <ProfessionalIcon name={name} size={size} className={className} />
+);
+
 // Navigation items will be populated with translations in the component
 const getNavigationItems = (t: (key: string) => string): MenuItem[] => [
   {
     label: t('navigation.dashboard'),
     path: '/dashboard',
-    icon: <HomeIcon className="w-4 h-4" />
+    icon: renderNavIcon('home')
   },
   {
     label: t('navigation.money'),
-    icon: <CurrencyDollarIcon className="w-4 h-4" />,
+    icon: renderNavIcon('dollar'),
     children: [
-      { label: t('navigation.accounts'), path: '/accounts', icon: <BuildingLibraryIcon className="w-4 h-4" /> },
-      { label: t('navigation.transactions'), path: '/transactions', icon: <BanknotesIcon className="w-4 h-4" /> },
-      { label: t('navigation.transferCenter'), path: '/transfer-center', icon: <ArrowTrendingUpIcon className="w-4 h-4" /> },
+      { label: t('navigation.accounts'), path: '/accounts', icon: renderNavIcon('building') },
+      { label: t('navigation.transactions'), path: '/transactions', icon: renderNavIcon('transactions') },
+      { label: t('navigation.transferCenter'), path: '/transfer-center', icon: renderNavIcon('trendingUp') },
       { label: 'divider', divider: true },
-      { label: t('navigation.bankConnections'), path: '/settings/bank-connections', icon: <CreditCardIcon className="w-4 h-4" /> },
-      { label: t('navigation.importData'), path: '/import', icon: <DocumentTextIcon className="w-4 h-4" /> },
-      { label: t('navigation.exportData'), path: '/export', icon: <DocumentChartBarIcon className="w-4 h-4" /> }
+      { label: t('navigation.bankConnections'), path: '/settings/bank-connections', icon: renderNavIcon('creditCard') },
+      { label: t('navigation.importData'), path: '/import', icon: renderNavIcon('document') },
+      { label: t('navigation.exportData'), path: '/export', icon: renderNavIcon('analyticsReport') }
     ]
   },
   {
     label: t('navigation.planning'),
-    icon: <ChartBarIcon className="w-4 h-4" />,
+    icon: renderNavIcon('chartBar'),
     children: [
-      { label: t('navigation.budget'), path: '/budget', icon: <CalculatorIcon className="w-4 h-4" /> },
-      { label: t('navigation.goals'), path: '/goals', icon: <FlagIcon className="w-4 h-4" /> },
-      { label: t('navigation.financialPlanning'), path: '/financial-planning', icon: <ChartPieIcon className="w-4 h-4" /> },
+      { label: t('navigation.budget'), path: '/budget', icon: renderNavIcon('calculator') },
+      { label: t('navigation.goals'), path: '/goals', icon: renderNavIcon('flag') },
+      { label: t('navigation.financialPlanning'), path: '/financial-planning', icon: renderNavIcon('chartPie') },
       { label: 'divider', divider: true },
-      { label: t('navigation.forecasting'), path: '/forecasting', icon: <ArrowTrendingUpIcon className="w-4 h-4" /> },
-      { label: t('navigation.scenarios'), path: '/scenarios', icon: <SparklesIcon className="w-4 h-4" /> }
+      { label: t('navigation.forecasting'), path: '/forecasting', icon: renderNavIcon('trendingUp') },
+      { label: t('navigation.scenarios'), path: '/scenarios', icon: renderNavIcon('magicWand') }
     ]
   },
   {
     label: t('navigation.analytics'),
-    icon: <ChartPieIcon className="w-4 h-4" />,
+    icon: renderNavIcon('chartPie'),
     children: [
-      { label: t('navigation.reports'), path: '/analytics', icon: <DocumentChartBarIcon className="w-4 h-4" /> },
-      { label: t('navigation.customReports'), path: '/custom-reports', icon: <DocumentTextIcon className="w-4 h-4" /> },
-      { label: t('navigation.advancedAnalytics'), path: '/advanced-analytics', icon: <ChartBarIcon className="w-4 h-4" /> },
+      { label: t('navigation.reports'), path: '/analytics', icon: renderNavIcon('analyticsReport') },
+      { label: t('navigation.customReports'), path: '/custom-reports', icon: renderNavIcon('document') },
+      { label: t('navigation.advancedAnalytics'), path: '/advanced-analytics', icon: renderNavIcon('chartBar') },
       { label: 'divider', divider: true },
-      { label: t('navigation.cashFlow'), path: '/cash-flow', icon: <BanknotesIcon className="w-4 h-4" /> },
-      { label: t('navigation.netWorth'), path: '/net-worth', icon: <CurrencyDollarIcon className="w-4 h-4" /> }
+      { label: t('navigation.cashFlow'), path: '/cash-flow', icon: renderNavIcon('banknote') },
+      { label: t('navigation.netWorth'), path: '/net-worth', icon: renderNavIcon('dollar') }
     ]
   },
   {
     label: t('navigation.investments'),
     path: '/investments',
-    icon: <ArrowTrendingUpIcon className="w-4 h-4" />
+    icon: renderNavIcon('trendingUp')
   }
 ];
 
+type AddContext = {
+  type: 'account' | 'transaction' | 'category' | 'investment' | 'budget' | 'goal';
+  label: string;
+  icon: React.ReactNode;
+  accountId?: string;
+};
+
 export default function TopNavBar(): React.JSX.Element {
   const location = useLocation();
-  const navigate = useNavigate();
   const { signOut } = useAuth();
   const { user } = useUser();
   const { t } = useTranslation();
@@ -115,10 +102,9 @@ export default function TopNavBar(): React.JSX.Element {
   const [hoveredUserMenuIndex, setHoveredUserMenuIndex] = useState<number | null>(null);
   const [dropdownItemPositions, setDropdownItemPositions] = useState<{ [key: string]: number[] }>({});
   const [userMenuPositions, setUserMenuPositions] = useState<number[]>([]);
-  const dropdownItemRefs = useRef<{ [key: string]: (HTMLElement | null)[] }>({});
   const dropdownRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const userMenuTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<TimeoutHandle | null>(null);
+  const userMenuTimeoutRef = useRef<TimeoutHandle | null>(null);
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -144,13 +130,13 @@ export default function TopNavBar(): React.JSX.Element {
 
   const handleMouseEnter = (label: string) => {
     if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
+      globalThis.clearTimeout(timeoutRef.current);
     }
     setActiveDropdown(label);
   };
 
   const handleMouseLeave = () => {
-    timeoutRef.current = setTimeout(() => {
+    timeoutRef.current = globalThis.setTimeout(() => {
       setActiveDropdown(null);
     }, 100);
   };
@@ -165,91 +151,90 @@ export default function TopNavBar(): React.JSX.Element {
     return false;
   };
 
-  // Get context for the Add button based on current route
-  const getAddContext = (): { type: string; label: string; icon: React.ReactNode; accountId?: string } => {
+  const addContext = useMemo<AddContext>(() => {
     const path = location.pathname;
-    
-    // Extract account ID from path if on account detail page
     const accountMatch = path.match(/\/accounts\/([^/]+)/);
     const accountId = accountMatch ? accountMatch[1] : undefined;
-    
+
     if (path === '/accounts') {
-      return { 
-        type: 'account', 
+      return {
+        type: 'account',
         label: t('actions.addAccount'),
-        icon: <BuildingLibraryIcon className="w-4 h-4" />
+        icon: renderNavIcon('building')
       };
     }
-    
+
     if (path.startsWith('/accounts/')) {
-      const context = {
+      const context: AddContext = {
         type: 'transaction',
         label: t('actions.addTransaction'),
-        icon: <TransactionIcon className="w-4 h-4" />
+        icon: renderNavIcon('transactions'),
       };
-      return accountId ? { ...context, accountId } : context;
+
+      if (accountId) {
+        return { ...context, accountId };
+      }
+
+      return context;
     }
-    
+
     if (path === '/transactions') {
       return {
         type: 'transaction',
         label: t('actions.addTransaction'),
-        icon: <TransactionIcon className="w-4 h-4" />
+        icon: renderNavIcon('transactions')
       };
     }
-    
+
     if (path.includes('/categories')) {
       return {
         type: 'category',
         label: t('actions.addCategory'),
-        icon: <TagIcon className="w-4 h-4" />
+        icon: renderNavIcon('tags')
       };
     }
-    
+
     if (path === '/investments') {
       return {
         type: 'investment',
         label: t('actions.addInvestment'),
-        icon: <ArrowTrendingUpIcon className="w-4 h-4" />
+        icon: renderNavIcon('trendingUp')
       };
     }
-    
+
     if (path === '/budget') {
       return {
         type: 'budget',
         label: t('actions.addBudgetItem'),
-        icon: <CalculatorIcon className="w-4 h-4" />
+        icon: renderNavIcon('calculator')
       };
     }
-    
+
     if (path === '/goals') {
       return {
         type: 'goal',
         label: t('actions.addGoal'),
-        icon: <TrophyIcon className="w-4 h-4" />
+        icon: renderNavIcon('trophy')
       };
     }
-    
-    // Default to transaction for most pages
+
     return {
       type: 'transaction',
       label: t('navigation.add'),
-      icon: <PlusIcon className="w-4 h-4" />
+      icon: renderNavIcon('add')
     };
-  };
+  }, [location.pathname, t]);
 
   // Handle Add button click based on context
-  const handleAddClick = (): void => {
-    const context = getAddContext();
-    
-    switch (context.type) {
+  const handleAddClick = useCallback((): void => {
+    switch (addContext.type) {
       case 'account':
         setShowAddAccountModal(true);
         break;
       case 'transaction':
         // Set pre-selected account if we're on an account detail page
-        if (context.accountId) {
-          setPreSelectedAccountId(context.accountId);
+        if (addContext.accountId) {
+          setPreSelectedAccountId(addContext.accountId);
         }
         setShowAddTransactionModal(true);
         break;
@@ -267,9 +252,7 @@ export default function TopNavBar(): React.JSX.Element {
       default:
         setShowAddTransactionModal(true);
     }
-  };
-
-  const addContext = getAddContext();
+  }, [addContext]);
   
   // Keyboard shortcut for context-aware add
   useEffect(() => {
@@ -282,7 +265,7 @@ export default function TopNavBar(): React.JSX.Element {
     
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [location.pathname]); // Re-bind when route changes
+  }, [handleAddClick]); // Re-bind when route changes
 
   return (
     <>
@@ -347,9 +330,13 @@ export default function TopNavBar(): React.JSX.Element {
                     {item.icon}
                     <span className="ml-2">{item.label}</span>
                     {item.children && (
-                      <ChevronDownIcon className={`ml-1 w-4 h-4 transition-transform ${
-                        activeDropdown === item.label ? 'rotate-180' : ''
-                      }`} />
+                      <ProfessionalIcon
+                        name="chevronDown"
+                        size={16}
+                        className={`ml-1 transition-transform ${
+                          activeDropdown === item.label ? 'rotate-180' : ''
+                        }`}
+                      />
                     )}
                   </button>
                 )}
@@ -464,7 +451,7 @@ export default function TopNavBar(): React.JSX.Element {
                 onClick={() => setShowHelp(!showHelp)}
                 className="flex items-center gap-2 px-4 py-2 bg-secondary text-white hover:bg-secondary/80 rounded-lg transition-all duration-200 hover:scale-105"
               >
-                <QuestionMarkCircleIcon className="w-4 h-4" />
+                <ProfessionalIcon name="info" size={16} />
                 <span className="text-sm">{t('navigation.help')}</span>
               </button>
               
@@ -504,7 +491,7 @@ export default function TopNavBar(): React.JSX.Element {
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="flex items-center gap-2 px-4 py-2 bg-secondary text-white hover:bg-secondary/80 rounded-lg transition-all duration-200 hover:scale-105 relative"
               >
-                <BellIcon className="w-4 h-4" />
+                <ProfessionalIcon name="notification" size={16} />
                 <span className="text-sm">Notifications</span>
                 {unreadCount > 0 && (
                   <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
@@ -586,7 +573,7 @@ export default function TopNavBar(): React.JSX.Element {
                       ))
                     ) : (
                       <div className="p-8 text-center">
-                        <BellIcon className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                        <ProfessionalIcon name="notification" size={48} className="text-gray-300 dark:text-gray-600 mx-auto mb-3" />
                         <p className="text-sm text-gray-500 dark:text-gray-400">
                           No notifications yet
                         </p>
@@ -623,12 +610,12 @@ export default function TopNavBar(): React.JSX.Element {
               className="user-menu-container relative"
               onMouseEnter={() => {
                 if (userMenuTimeoutRef.current) {
-                  clearTimeout(userMenuTimeoutRef.current);
+                  globalThis.clearTimeout(userMenuTimeoutRef.current);
                 }
                 setShowUserMenu(true);
               }}
               onMouseLeave={() => {
-                userMenuTimeoutRef.current = setTimeout(() => {
+                userMenuTimeoutRef.current = globalThis.setTimeout(() => {
                   setShowUserMenu(false);
                   setHoveredUserMenuIndex(null);
                 }, 100);
@@ -637,9 +624,13 @@ export default function TopNavBar(): React.JSX.Element {
               <button
                 className="flex items-center space-x-2 p-2 bg-secondary text-white hover:bg-secondary/80 rounded-lg transition-all duration-200 hover:scale-105"
               >
-                <UserCircleIcon className="w-5 h-5" />
+                <ProfessionalIcon name="userCircle" size={20} />
                 <span className="text-sm font-medium">{user?.firstName || t('navigation.account')}</span>
-                <ChevronDownIcon className={`w-4 h-4 transition-transform ${showUserMenu ? 'rotate-180' : ''}`} />
+                <ProfessionalIcon
+                  name="chevronDown"
+                  size={16}
+                  className={`transition-transform ${showUserMenu ? 'rotate-180' : ''}`}
+                />
               </button>
 
               {showUserMenu && (
@@ -693,7 +684,11 @@ export default function TopNavBar(): React.JSX.Element {
                       setHoveredUserMenuIndex(null);
                     }}
                   >
-                    <CogIcon className={`w-4 h-4 mr-2 transition-all duration-200 ${hoveredUserMenuIndex === 0 ? 'scale-110' : 'scale-100'}`} />
+                    <ProfessionalIcon
+                      name="settings"
+                      size={16}
+                      className={`mr-2 transition-all duration-200 ${hoveredUserMenuIndex === 0 ? 'scale-110' : 'scale-100'}`}
+                    />
                     <span className={`font-medium transition-all duration-200 ${
                       hoveredUserMenuIndex === 0 
                         ? 'text-gray-600 dark:text-gray-500' 
