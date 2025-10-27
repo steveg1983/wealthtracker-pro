@@ -6,20 +6,11 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useAuth } from '../contexts/AuthContext';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { dashboardWidgetService } from '../services/dashboardWidgetService';
-import { WidgetRegistry } from '../components/widgets/WidgetRegistry';
+import { dashboardWidgetService, type WidgetConfig } from '../services/dashboardWidgetService';
+import { WidgetRegistry, type WidgetInstance, type WidgetSize } from '../components/widgets/WidgetRegistry';
 import PageWrapper from '../components/PageWrapper';
 import { SkeletonCard } from '../components/loading/Skeleton';
-import { 
-  CogIcon,
-  PlusIcon,
-  Squares2X2Icon,
-  LockClosedIcon,
-  LockOpenIcon,
-  BookmarkIcon,
-  ArrowDownTrayIcon,
-  ArrowPathIcon
-} from '@heroicons/react/24/outline';
+import { ProfessionalIcon } from '../components/icons/ProfessionalIcons';
 import { lazyLogger } from '../services/serviceFactory';
 
 const logger = lazyLogger.getLogger('DashboardV2');
@@ -27,13 +18,117 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
+const breakpointKeys = ['lg', 'md', 'sm', 'xs', 'xxs'] as const;
+type BreakpointKey = typeof breakpointKeys[number];
+type ResponsiveLayouts = Record<BreakpointKey, Layout[]>;
+
+const createEmptyLayouts = (): ResponsiveLayouts => {
+  return breakpointKeys.reduce<ResponsiveLayouts>((acc, key) => {
+    acc[key] = [];
+    return acc;
+  }, {} as ResponsiveLayouts);
+};
+
+const isLayoutItem = (value: unknown): value is Layout => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Partial<Layout>;
+  return (
+    typeof candidate.i === 'string' &&
+    typeof candidate.x === 'number' &&
+    typeof candidate.y === 'number' &&
+    typeof candidate.w === 'number' &&
+    typeof candidate.h === 'number'
+  );
+};
+
+const normalizeLayouts = (raw: unknown): ResponsiveLayouts => {
+  const base = createEmptyLayouts();
+  if (!raw || typeof raw !== 'object') {
+    return base;
+  }
+
+  const source = raw as Record<string, unknown>;
+  for (const key of breakpointKeys) {
+    const items = source[key];
+    if (Array.isArray(items)) {
+      base[key] = items.filter(isLayoutItem).map(item => ({ ...item }));
+    }
+  }
+
+  return base;
+};
+
+const isWidgetConfig = (value: unknown): value is WidgetConfig => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const candidate = value as Partial<WidgetConfig>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.type === 'string' &&
+    typeof candidate.title === 'string' &&
+    typeof candidate.size === 'string' &&
+    typeof candidate.isVisible === 'boolean' &&
+    typeof candidate.settings === 'object' &&
+    candidate.settings !== null
+  );
+};
+
+const normalizeWidgets = (raw: unknown): WidgetConfig[] => {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  return raw
+    .filter(isWidgetConfig)
+    .map(widget => ({
+      ...widget,
+      settings: widget.settings ?? {}
+    }));
+};
+
+const widgetDimension = (size: WidgetSize): { width: number; height: number } => {
+  switch (size) {
+    case 'full':
+      return { width: 12, height: 4 };
+    case 'large':
+      return { width: 6, height: 4 };
+    case 'medium':
+      return { width: 4, height: 3 };
+    default:
+      return { width: 2, height: 2 };
+  }
+};
+
+const toWidgetConfig = (widget: WidgetInstance): WidgetConfig => {
+  const base: WidgetConfig = {
+    id: widget.id,
+    type: widget.type,
+    title: widget.title,
+    size: widget.size,
+    position: widget.position ?? { x: 0, y: 0 },
+    isVisible: widget.isVisible,
+    settings: widget.settings
+  };
+
+  if (widget.order !== undefined) {
+    base.order = widget.order;
+  }
+
+  return base;
+};
+
+const breakpointSizes: Record<BreakpointKey, number> = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
+const breakpointColumns: Record<BreakpointKey, number> = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
 
 // Lazy load modals
 const AddWidgetModal = lazy(() => import('../components/dashboard/AddWidgetModal'));
 const ExportModal = lazy(() => import('../components/export/ExportModal'));
 const LayoutTemplatesModal = lazy(() => import('../components/dashboard/LayoutTemplatesModal'));
-
-interface DashboardV2Props {}
 
 export default function DashboardV2(): React.JSX.Element {
   const navigate = useNavigate();
@@ -45,9 +140,8 @@ export default function DashboardV2(): React.JSX.Element {
   // Dashboard state
   const [isLoading, setIsLoading] = useState(true);
   const [isEditMode, setIsEditMode] = useState(false);
-  const [layouts, setLayouts] = useState<any>({});
-  const [widgets, setWidgets] = useState<any[]>([]);
-  const [selectedLayout, setSelectedLayout] = useState<string>('default');
+  const [layouts, setLayouts] = useState<ResponsiveLayouts>(() => createEmptyLayouts());
+  const [widgets, setWidgets] = useState<WidgetConfig[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   // Modal state
@@ -55,136 +149,164 @@ export default function DashboardV2(): React.JSX.Element {
   const [showExport, setShowExport] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   
-  // Breakpoints for responsive design
-  const breakpoints = { lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 };
-  const cols = { lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 };
-  
-  // Load saved layout on mount
-  useEffect(() => {
-    loadDashboardLayout();
-  }, [user]);
-  
-  // Load dashboard layout from service
-  const loadDashboardLayout = async () => {
+  const generateDefaultLayouts = useCallback((widgetList: WidgetConfig[]): ResponsiveLayouts => {
+    const base = createEmptyLayouts();
+
+    widgetList.forEach((widget, index) => {
+      const { width, height } = widgetDimension(widget.size);
+
+      for (const breakpoint of breakpointKeys) {
+        const maxCols = breakpointColumns[breakpoint];
+        const clampedWidth = Math.min(width, maxCols);
+        const xPosition = Math.min((index % 3) * 4, Math.max(0, maxCols - clampedWidth));
+
+        base[breakpoint].push({
+          i: widget.id,
+          x: xPosition,
+          y: Math.floor(index / 3) * 3,
+          w: clampedWidth,
+          h: height,
+          minW: 2,
+          minH: 2,
+          static: !isEditMode
+        });
+      }
+    });
+
+    return base;
+  }, [isEditMode]);
+
+  const loadDefaultLayout = useCallback(() => {
+    const defaultWidgets = dashboardWidgetService.getDefaultWidgets();
+    setLayouts(generateDefaultLayouts(defaultWidgets));
+    setWidgets(defaultWidgets);
+  }, [generateDefaultLayouts]);
+
+  const loadDashboardLayout = useCallback(async () => {
     try {
       setIsLoading(true);
-      
+
       if (user) {
-        // Load from database
         const savedLayout = await dashboardWidgetService.getLayout(user.id);
         if (savedLayout) {
-          setLayouts(savedLayout.layoutConfig);
-          setWidgets(savedLayout.widgets);
-        } else {
-          // Use default layout
-          loadDefaultLayout();
+          const normalizedLayouts = normalizeLayouts(savedLayout.layoutConfig);
+          const normalizedWidgets = normalizeWidgets(savedLayout.widgets);
+
+          if (normalizedWidgets.length > 0) {
+            setLayouts(normalizedLayouts);
+            setWidgets(normalizedWidgets);
+            return;
+          }
         }
-      } else {
-        // Use localStorage for demo mode
-        const savedLayouts = localStorage.getItem('dashboardV2Layouts');
-        if (savedLayouts) {
-          const parsed = JSON.parse(savedLayouts);
-          setLayouts(parsed.layouts);
-          setWidgets(parsed.widgets);
-        } else {
-          loadDefaultLayout();
+
+        loadDefaultLayout();
+        return;
+      }
+
+      const savedLayouts = localStorage.getItem('dashboardV2Layouts');
+      if (savedLayouts) {
+        try {
+          const parsed = JSON.parse(savedLayouts) as { layouts?: unknown; widgets?: unknown };
+          const normalizedLayouts = normalizeLayouts(parsed.layouts);
+          const normalizedWidgets = normalizeWidgets(parsed.widgets);
+
+          if (normalizedWidgets.length > 0) {
+            setLayouts(normalizedLayouts);
+            setWidgets(normalizedWidgets);
+            return;
+          }
+        } catch (parseError) {
+          logger.warn('Failed to parse dashboard layouts from localStorage', parseError);
         }
       }
+
+      loadDefaultLayout();
     } catch (error) {
       logger.error('Failed to load dashboard layout:', error);
       loadDefaultLayout();
     } finally {
       setIsLoading(false);
     }
-  };
-  
-  // Load default layout
-  const loadDefaultLayout = () => {
-    const defaultWidgets = dashboardWidgetService.getDefaultWidgets();
-    const defaultLayouts = generateDefaultLayouts(defaultWidgets);
-    setLayouts(defaultLayouts);
-    setWidgets(defaultWidgets);
-  };
-  
-  // Generate default layouts for all breakpoints
-  const generateDefaultLayouts = (widgets: any[]) => {
-    const layouts: any = {};
-    
-    ['lg', 'md', 'sm', 'xs', 'xxs'].forEach(breakpoint => {
-      layouts[breakpoint] = widgets.map((widget, index) => ({
-        i: widget.id,
-        x: (index % 3) * 4,
-        y: Math.floor(index / 3) * 3,
-        w: widget.size === 'large' ? 6 : widget.size === 'medium' ? 4 : 2,
-        h: widget.size === 'large' ? 4 : widget.size === 'medium' ? 3 : 2,
-        minW: 2,
-        minH: 2,
-        static: !isEditMode
-      }));
-    });
-    
-    return layouts;
-  };
+  }, [loadDefaultLayout, user]);
+
+  useEffect(() => {
+    void loadDashboardLayout();
+  }, [loadDashboardLayout]);
   
   // Handle layout change
-  const handleLayoutChange = useCallback((layout: Layout[], layouts: any) => {
-    setLayouts(layouts);
-    
-    // Save to database or localStorage
+  const handleLayoutChange = useCallback((_: Layout[], updatedLayouts: Record<string, Layout[]>) => {
+    const normalized = normalizeLayouts(updatedLayouts);
+    setLayouts(normalized);
+
     if (user) {
       dashboardWidgetService.saveLayout(user.id, {
-        name: selectedLayout,
-        layoutConfig: layouts,
-        widgets: widgets
+        name: 'default',
+        layoutConfig: normalized,
+        widgets
       });
     } else {
-      localStorage.setItem('dashboardV2Layouts', JSON.stringify({
-        layouts,
-        widgets
-      }));
+      localStorage.setItem(
+        'dashboardV2Layouts',
+        JSON.stringify({ layouts: normalized, widgets })
+      );
     }
-  }, [user, widgets, selectedLayout]);
+  }, [user, widgets]);
   
   // Add new widget
   const handleAddWidget = (widgetType: string) => {
-    const newWidget = WidgetRegistry.createWidget(widgetType);
-    if (newWidget) {
-      setWidgets([...widgets, newWidget]);
-      
-      // Add to layouts
-      const newLayouts = { ...layouts };
-      Object.keys(newLayouts).forEach(breakpoint => {
-        newLayouts[breakpoint].push({
-          i: newWidget.id,
-          x: 0,
-          y: 1000, // Put at bottom
-          w: newWidget.size === 'large' ? 6 : newWidget.size === 'medium' ? 4 : 2,
-          h: newWidget.size === 'large' ? 4 : newWidget.size === 'medium' ? 3 : 2,
-          minW: 2,
-          minH: 2
-        });
-      });
-      setLayouts(newLayouts);
+    const widgetInstance = WidgetRegistry.createWidget(widgetType);
+    if (!widgetInstance) {
+      setShowAddWidget(false);
+      return;
     }
+
+    const widgetConfig = toWidgetConfig(widgetInstance);
+    const { width, height } = widgetDimension(widgetConfig.size);
+
+    setWidgets(prev => [...prev, widgetConfig]);
+    setLayouts(prev => {
+      const next = { ...prev };
+
+      for (const breakpoint of breakpointKeys) {
+        const maxCols = breakpointColumns[breakpoint];
+        const clampedWidth = Math.min(width, maxCols);
+        next[breakpoint] = [
+          ...next[breakpoint],
+          {
+            i: widgetConfig.id,
+            x: 0,
+            y: 1000,
+            w: clampedWidth,
+            h: height,
+            minW: 2,
+            minH: 2
+          }
+        ];
+      }
+
+      return next;
+    });
+
     setShowAddWidget(false);
   };
   
   // Remove widget
   const handleRemoveWidget = (widgetId: string) => {
-    setWidgets(widgets.filter(w => w.id !== widgetId));
-    
-    // Remove from layouts
-    const newLayouts = { ...layouts };
-    Object.keys(newLayouts).forEach(breakpoint => {
-      newLayouts[breakpoint] = newLayouts[breakpoint].filter((item: any) => item.i !== widgetId);
+    setWidgets(prev => prev.filter(widget => widget.id !== widgetId));
+
+    setLayouts(prev => {
+      const next = { ...prev };
+      for (const breakpoint of breakpointKeys) {
+        next[breakpoint] = prev[breakpoint].filter(item => item.i !== widgetId);
+      }
+      return next;
     });
-    setLayouts(newLayouts);
   };
   
   // Update widget settings
   const handleUpdateWidget = (widgetId: string, settings: Record<string, unknown>) => {
-    setWidgets(widgets.map(w => 
-      w.id === widgetId ? { ...w, settings } : w
+    setWidgets(prev => prev.map(widget =>
+      widget.id === widgetId ? { ...widget, settings } : widget
     ));
   };
   
@@ -200,17 +322,22 @@ export default function DashboardV2(): React.JSX.Element {
   
   // Toggle edit mode
   const toggleEditMode = () => {
-    setIsEditMode(!isEditMode);
-    
-    // Update static property in layouts
-    const newLayouts = { ...layouts };
-    Object.keys(newLayouts).forEach(breakpoint => {
-      newLayouts[breakpoint] = newLayouts[breakpoint].map((item: any) => ({
-        ...item,
-        static: isEditMode // Will be opposite after toggle
-      }));
+    setIsEditMode(prev => {
+      const nextEditMode = !prev;
+
+      setLayouts(previousLayouts => {
+        const nextLayouts = { ...previousLayouts };
+        for (const breakpoint of breakpointKeys) {
+          nextLayouts[breakpoint] = previousLayouts[breakpoint].map(item => ({
+            ...item,
+            static: !nextEditMode
+          }));
+        }
+        return nextLayouts;
+      });
+
+      return nextEditMode;
     });
-    setLayouts(newLayouts);
   };
   
   // Calculate key metrics for welcome message
@@ -280,7 +407,11 @@ export default function DashboardV2(): React.JSX.Element {
                   className="p-2 bg-gray-100/20 hover:bg-gray-100/30 dark:bg-gray-700/20 dark:hover:bg-gray-700/30 rounded-lg transition-colors text-gray-600 dark:text-gray-300"
                   title="Refresh data"
                 >
-                  <ArrowPathIcon className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                  <ProfessionalIcon
+                    name="refresh"
+                    size={20}
+                    className={isRefreshing ? 'animate-spin' : ''}
+                  />
                 </button>
                 
                 {/* Export Button */}
@@ -289,7 +420,7 @@ export default function DashboardV2(): React.JSX.Element {
                   className="p-2 bg-gray-100/20 hover:bg-gray-100/30 dark:bg-gray-700/20 dark:hover:bg-gray-700/30 rounded-lg transition-colors text-gray-600 dark:text-gray-300"
                   title="Export data"
                 >
-                  <ArrowDownTrayIcon className="h-5 w-5" />
+                  <ProfessionalIcon name="download" size={20} />
                 </button>
                 
                 {/* Templates Button */}
@@ -298,7 +429,7 @@ export default function DashboardV2(): React.JSX.Element {
                   className="p-2 bg-gray-100/20 hover:bg-gray-100/30 dark:bg-gray-700/20 dark:hover:bg-gray-700/30 rounded-lg transition-colors text-gray-600 dark:text-gray-300"
                   title="Layout templates"
                 >
-                  <Squares2X2Icon className="h-5 w-5" />
+                  <ProfessionalIcon name="grid" size={20} />
                 </button>
                 
                 {/* Add Widget Button */}
@@ -307,7 +438,7 @@ export default function DashboardV2(): React.JSX.Element {
                   className="p-2 bg-gray-100/20 hover:bg-gray-100/30 dark:bg-gray-700/20 dark:hover:bg-gray-700/30 rounded-lg transition-colors text-gray-600 dark:text-gray-300"
                   title="Add widget"
                 >
-                  <PlusIcon className="h-5 w-5" />
+                  <ProfessionalIcon name="add" size={20} />
                 </button>
                 
                 {/* Edit Mode Toggle */}
@@ -320,11 +451,10 @@ export default function DashboardV2(): React.JSX.Element {
                   }`}
                   title={isEditMode ? 'Lock layout' : 'Edit layout'}
                 >
-                  {isEditMode ? (
-                    <LockOpenIcon className="h-5 w-5" />
-                  ) : (
-                    <LockClosedIcon className="h-5 w-5" />
-                  )}
+                  <ProfessionalIcon
+                    name={isEditMode ? 'unlock' : 'lock'}
+                    size={20}
+                  />
                 </button>
               </div>
             </div>
@@ -344,8 +474,8 @@ export default function DashboardV2(): React.JSX.Element {
               className="layout"
               layouts={layouts}
               onLayoutChange={handleLayoutChange}
-              breakpoints={breakpoints}
-              cols={cols}
+              breakpoints={breakpointSizes}
+              cols={breakpointColumns}
               rowHeight={60}
               isDraggable={isEditMode}
               isResizable={isEditMode}
@@ -416,8 +546,8 @@ export default function DashboardV2(): React.JSX.Element {
               isOpen={showTemplates}
               onClose={() => setShowTemplates(false)}
               onSelect={(template) => {
-                setLayouts(template.layouts);
-                setWidgets(template.widgets);
+                setLayouts(normalizeLayouts(template.layouts));
+                setWidgets(normalizeWidgets(template.widgets));
                 setShowTemplates(false);
               }}
             />
