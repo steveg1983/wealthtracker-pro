@@ -69,6 +69,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@headlessui/react": "^2.2.7",
+    "@heroicons/react": "^2.2.0",
     "@reduxjs/toolkit": "^2.8.2",
     "@sentry/react": "^9.46.0",
     "@stripe/react-stripe-js": "^3.9.0",
