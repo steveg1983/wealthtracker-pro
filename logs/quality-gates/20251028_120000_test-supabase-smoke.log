@@ -1,0 +1,94 @@
+
+> wealth-tracker@1.4.5 test:supabase-smoke
+> node scripts/run-supabase-smoke.mjs
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/test/integration/BudgetWorkflowIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/test/integration/CurrencyIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/test/integration/DashboardInteractionsIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/test/integration/UserWorkflowIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/test/integration/ComponentInteraction.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+stdout | src/test/integration/DecimalFinancialIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/test/integration/AppFlow.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/test/integration/InvestmentPortfolioIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/test/integration/ErrorHandlingIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stderr | src/test/integration/ErrorHandlingIntegration.real.test.tsx
+Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+stderr | src/test/integration/DashboardInteractionsIntegration.real.test.tsx
+Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+stderr | src/test/integration/CurrencyIntegration.real.test.tsx
+Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+stderr | src/test/integration/AppFlow.real.test.tsx
+Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+stderr | src/test/integration/InvestmentPortfolioIntegration.real.test.tsx
+Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+stderr | src/test/integration/ComponentInteraction.real.test.tsx
+Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+stderr | src/test/integration/DecimalFinancialIntegration.real.test.tsx
+Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+stderr | src/test/integration/BudgetWorkflowIntegration.real.test.tsx
+Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+stderr | src/test/integration/UserWorkflowIntegration.real.test.tsx
+Multiple GoTrueClient instances detected in the same browser context. It is not an error, but this should be avoided as it may produce undefined behavior when used concurrently under the same storage key.
+
+ ✓ src/test/integration/CurrencyIntegration.real.test.tsx (1 test) 2125ms
+   ✓ CurrencyIntegration - REAL DATABASE TESTS > can create test data in REAL database  2124ms
+ ✓ src/test/integration/InvestmentPortfolioIntegration.real.test.tsx (1 test) 2176ms
+   ✓ InvestmentPortfolioIntegration - REAL DATABASE TESTS > can create test data in REAL database  2175ms
+ ✓ src/test/integration/UserWorkflowIntegration.real.test.tsx (1 test) 2270ms
+   ✓ UserWorkflowIntegration - REAL DATABASE TESTS > can create test data in REAL database  2269ms
+ ✓ src/test/integration/AppFlow.real.test.tsx (1 test) 2273ms
+   ✓ AppFlow - REAL DATABASE TESTS > can create test data in REAL database  2272ms
+ ✓ src/test/integration/DecimalFinancialIntegration.real.test.tsx (1 test) 2331ms
+   ✓ DecimalFinancialIntegration - REAL DATABASE TESTS > can create test data in REAL database  2330ms
+ ✓ src/test/integration/BudgetWorkflowIntegration.real.test.tsx (1 test) 2353ms
+   ✓ BudgetWorkflowIntegration - REAL DATABASE TESTS > can create test data in REAL database  2352ms
+ ✓ src/test/integration/ComponentInteraction.real.test.tsx (1 test) 2467ms
+   ✓ ComponentInteraction - REAL DATABASE TESTS > can create test data in REAL database  2466ms
+ ✓ src/test/integration/ErrorHandlingIntegration.real.test.tsx (1 test) 2577ms
+   ✓ ErrorHandlingIntegration - REAL DATABASE TESTS > can create test data in REAL database  2577ms
+ ✓ src/test/integration/DashboardInteractionsIntegration.real.test.tsx (1 test) 2610ms
+   ✓ DashboardInteractionsIntegration - REAL DATABASE TESTS > can create test data in REAL database  2609ms
+
+ Test Files  9 passed (9)
+      Tests  9 passed (9)
+   Start at  12:02:00
+   Duration  3.63s (transform 141ms, setup 1.59s, collect 2.06s, tests 21.18s, environment 3.37s, prepare 755ms)
+
