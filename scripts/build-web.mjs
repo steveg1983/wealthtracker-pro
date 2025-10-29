@@ -8,7 +8,8 @@ const appDir = existsSync(resolve(cwd, 'apps/web/package.json'))
   ? resolve(cwd, 'apps/web')
   : cwd;
 
-const result = spawnSync('npm', ['run', 'build'], {
+// Call vite build directly to avoid potential recursion
+const result = spawnSync('npx', ['vite', 'build'], {
   cwd: appDir,
   stdio: 'inherit',
   shell: false,
