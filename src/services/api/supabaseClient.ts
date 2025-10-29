@@ -1,62 +1,53 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 import type { Database } from '../../types/supabase';
-import { logger } from '../loggingService';
-import {
-  supabase as sharedSupabase,
-  ensureSupabaseClient,
-  isSupabaseConfigured as baseIsSupabaseConfigured,
-  subscribeSupabase
-} from '../../lib/supabase';
 
-let configurationWarningLogged = false;
+// Get environment variables
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-const castClient = (client: unknown): (SupabaseClient<Database> & { __isStub?: boolean }) =>
-  client as SupabaseClient<Database> & { __isStub?: boolean };
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn('Supabase credentials not configured. Using localStorage fallback.');
+}
 
-const shouldUseSupabase = (client: SupabaseClient<Database> & { __isStub?: boolean }): boolean => {
-  return baseIsSupabaseConfigured() && !(client as { __isStub?: boolean }).__isStub;
+// Create Supabase client
+export const supabase = supabaseUrl && supabaseAnonKey 
+  ? createClient<Database>(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
+      realtime: {
+        params: {
+          eventsPerSecond: 10,
+        },
+      },
+    })
+  : null;
+
+// Check if Supabase is configured
+export const isSupabaseConfigured = (): boolean => {
+  return supabase !== null;
 };
 
-export let supabase: SupabaseClient<Database> | null = null;
-
-const updateSupabaseReference = (client: unknown): void => {
-  const typedClient = castClient(client);
-  supabase = shouldUseSupabase(typedClient) ? typedClient : null;
-
-  if (!baseIsSupabaseConfigured() && !configurationWarningLogged && typeof window !== 'undefined') {
-    logger.warn('Supabase credentials not configured. Using localStorage fallback.');
-    configurationWarningLogged = true;
-  }
-};
-
-updateSupabaseReference(sharedSupabase);
-subscribeSupabase(updateSupabaseReference);
-
-export const isSupabaseConfigured = (): boolean => baseIsSupabaseConfigured();
-
+// Helper to get current user ID
 export const getCurrentUserId = async (): Promise<string | null> => {
-  const client = await ensureSupabaseClient();
-  const typedClient = castClient(client);
-  if (!shouldUseSupabase(typedClient)) {
-    return null;
-  }
-
-  const { data: { user } } = await typedClient.auth.getUser();
-  return user?.id ?? null;
+  if (!supabase) return null;
+  
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id || null;
 };
 
-export const handleSupabaseError = (error: unknown): string => {
-  const normalisedError = error as { message?: string; details?: string; hint?: string } | undefined;
-
-  if (normalisedError?.message) {
-    return normalisedError.message;
+// Helper to handle Supabase errors
+export const handleSupabaseError = (error: any): string => {
+  if (error?.message) {
+    return error.message;
   }
-  if (normalisedError?.details) {
-    return normalisedError.details;
+  if (error?.details) {
+    return error.details;
   }
-  if (normalisedError?.hint) {
-    return normalisedError.hint;
+  if (error?.hint) {
+    return error.hint;
   }
-
   return 'An unexpected error occurred';
 };

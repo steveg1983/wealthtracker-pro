@@ -1,0 +1,133 @@
+/* Accessibility Color Overrides for WCAG Compliance */
+
+/* Fix red color contrast - Change from #ef4444 to #dc2626 for 4.5:1 ratio */
+.text-red-500 {
+  color: #dc2626 !important; /* red-600 - passes WCAG AA */
+}
+
+.text-red-400 {
+  color: #ef4444 !important; /* red-500 - better contrast than red-400 */
+}
+
+.text-red-600 {
+  color: #b91c1c !important; /* red-700 - even better contrast */
+}
+
+/* Dark mode red colors */
+.dark .dark\:text-red-400 {
+  color: #f87171 !important; /* red-400 but check against dark bg */
+}
+
+/* Fix green color contrast - Change from #10b981 to #059669 for better ratio */
+.text-green-500 {
+  color: #059669 !important; /* green-600 - passes WCAG AA */
+}
+
+.text-green-400 {
+  color: #10b981 !important; /* green-500 - better contrast than green-400 */
+}
+
+.text-green-600 {
+  color: #047857 !important; /* green-700 - even better contrast */
+}
+
+/* Dark mode green colors */
+.dark .dark\:text-green-400 {
+  color: #34d399 !important; /* green-400 for dark mode */
+}
+
+/* Skip links - ensure they're visible and have good contrast */
+.skip-link {
+  position: absolute !important;
+  left: -9999px !important;
+  z-index: 999 !important;
+  background-color: #1e40af !important; /* blue-800 for better contrast */
+  color: #ffffff !important;
+  padding: 0.75rem 1.5rem !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  border-radius: 0.375rem !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+  min-height: 44px !important; /* Ensure minimum touch target */
+  min-width: 44px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.skip-link:focus {
+  position: static !important;
+  left: auto !important;
+  top: 1rem !important;
+  outline: 3px solid #3b82f6 !important;
+  outline-offset: 2px !important;
+}
+
+/* Focus indicators - ensure 3:1 contrast */
+*:focus-visible {
+  outline: 3px solid #1e40af !important;
+  outline-offset: 2px !important;
+}
+
+/* Button focus states */
+button:focus-visible {
+  outline: 3px solid #1e40af !important;
+  outline-offset: 2px !important;
+}
+
+/* Link focus states */
+a:focus-visible {
+  outline: 3px solid #1e40af !important;
+  outline-offset: 1px !important;
+}
+
+/* Form field focus states */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #1e40af !important;
+  outline-offset: 0px !important;
+  border-color: #1e40af !important;
+}
+
+/* Ensure table headers have proper contrast */
+.bg-secondary th {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+/* Ensure sufficient contrast for placeholder text */
+::placeholder {
+  color: #6b7280 !important; /* gray-500 - passes WCAG AA */
+  opacity: 1 !important;
+}
+
+/* Error text contrast */
+.text-red-500[role="alert"],
+.text-red-600[role="alert"] {
+  font-weight: 500 !important; /* Make errors slightly bolder for visibility */
+}
+
+/* Gray text contrast improvements */
+.text-gray-500 {
+  color: #4b5563 !important; /* gray-600 for better contrast */
+}
+
+.text-gray-400 {
+  color: #6b7280 !important; /* gray-500 for better contrast */
+}
+
+/* Widget and card text contrast */
+.text-xs.text-gray-500,
+.text-sm.text-gray-500 {
+  color: #374151 !important; /* gray-700 for small text */
+}
+
+/* Dark mode gray text */
+.dark .dark\:text-gray-400 {
+  color: #9ca3af !important; /* gray-400 but ensure sufficient contrast */
+}
+
+.dark .dark\:text-gray-500 {
+  color: #d1d5db !important; /* gray-300 for better contrast in dark mode */
+}

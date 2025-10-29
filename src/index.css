@@ -1,0 +1,661 @@
+/* Import enhanced borders and shadows */
+@import './styles/borders.css';
+/* Import accessibility color overrides */
+@import './styles/accessibility-colors.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Pull to Refresh Styles */
+.pull-to-refresh {
+  position: relative;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Touch Target Optimization */
+@media (hover: none) and (pointer: coarse) {
+  /* Ensure all interactive elements have minimum touch target size */
+  .touch-target,
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  [role="button"],
+  [role="link"],
+  [role="menuitem"],
+  [role="tab"] {
+    position: relative;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
+  /* For inline elements that can't be resized, expand touch area */
+  a:not(.touch-target-expanded),
+  button:not(.touch-target-expanded) {
+    position: relative;
+  }
+  
+  /* Invisible expanded touch area for small elements */
+  .touch-target-small::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 44px;
+    height: 44px;
+    min-width: 100%;
+    min-height: 100%;
+  }
+  
+  /* Ensure proper spacing between touch targets */
+  .touch-target-spacing > * + * {
+    margin-top: 8px;
+  }
+  
+  /* Touch-friendly form elements */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  select,
+  textarea {
+    min-height: 44px;
+    padding: 8px 12px;
+  }
+  
+  /* Touch-friendly checkboxes and radio buttons */
+  input[type="checkbox"],
+  input[type="radio"] {
+    width: 24px;
+    height: 24px;
+    margin: 10px; /* Total 44px with margin */
+  }
+}
+
+/* Default color values - Blue Theme */
+:root {
+  --color-primary: #7ba8d1;
+  --color-secondary: #5a729a;
+  --color-tertiary: #b8d4f1;
+  --color-light-bg: #f8fafc;
+  --color-light-card: #ffffff;
+  --color-light-border: #e5e7eb;
+  --color-light-accent: #f0f9ff;
+  --color-sidebar: #5a729a; /* Changed from #8ea9db to meet contrast requirements */
+  --color-sidebar-active: #b8d4f1;
+  --color-sidebar-border: #4a6fa5;
+}
+
+/* Blue Theme (Default) */
+.theme-blue {
+  --color-primary: #7ba8d1;
+  --color-secondary: #5a729a;
+  --color-tertiary: #b8d4f1;
+  --color-sidebar: #5a729a; /* Changed from #8ea9db to meet contrast requirements */
+  --color-sidebar-active: #b8d4f1;
+  --color-sidebar-border: #4a6fa5;
+  --color-light-accent: #f0f9ff;
+  --color-dark-accent: #1e3a5f;
+}
+
+/* Green Theme */
+.theme-green {
+  --color-primary: #a9d08e;
+  --color-secondary: #7fa86b;
+  --color-tertiary: #d4e6c4;
+  --color-sidebar: #bcdba5;
+  --color-sidebar-active: #d4e6c4;
+  --color-sidebar-border: #6b9555;
+  --color-light-accent: #f8fcf4;
+  --color-dark-accent: #2a3d22;
+}
+
+/* Red Theme */
+.theme-red {
+  --color-primary: #e2a8a8;
+  --color-secondary: #b88585;
+  --color-tertiary: #f1d4d4;
+  --color-sidebar: #e8b8b8;
+  --color-sidebar-active: #f1d4d4;
+  --color-sidebar-border: #c47a7a;
+  --color-light-accent: #fef8f8;
+  --color-dark-accent: #4a2a2a;
+}
+
+/* Pink Theme */
+.theme-pink {
+  --color-primary: #e2a8d4;
+  --color-secondary: #b885a5;
+  --color-tertiary: #f1d4e8;
+  --color-sidebar: #e8b8dc;
+  --color-sidebar-active: #f1d4e8;
+  --color-sidebar-border: #c47aa5;
+  --color-light-accent: #fef8fc;
+  --color-dark-accent: #4a2a3c;
+}
+
+/* Apply primary color to common elements */
+.bg-primary {
+  background-color: var(--color-primary) !important;
+}
+
+.text-primary {
+  color: var(--color-primary) !important;
+}
+
+/* Animation for fade in and out notifications */
+@keyframes fade-in-out {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  10% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  90% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.animate-fade-in-out {
+  animation: fade-in-out 4s ease-in-out forwards;
+}
+
+.border-primary {
+  border-color: var(--color-primary) !important;
+}
+
+.ring-primary {
+  --tw-ring-color: var(--color-primary) !important;
+}
+
+.hover\:bg-secondary:hover {
+  background-color: var(--color-secondary) !important;
+}
+
+.focus\:ring-primary:focus {
+  --tw-ring-color: var(--color-primary) !important;
+}
+
+.bg-secondary {
+  background-color: var(--color-secondary) !important;
+}
+
+.bg-tertiary {
+  background-color: var(--color-tertiary) !important;
+}
+
+.bg-sidebar {
+  background-color: var(--color-sidebar) !important;
+}
+
+.bg-sidebar-active {
+  background-color: var(--color-sidebar-active) !important;
+}
+
+.border-sidebar {
+  border-color: var(--color-sidebar-border) !important;
+}
+
+.text-secondary {
+  color: var(--color-secondary) !important;
+}
+
+.text-tertiary {
+  color: var(--color-tertiary) !important;
+}
+
+.text-theme-heading {
+  color: var(--color-secondary) !important;
+}
+
+.bg-theme-accent {
+  background-color: var(--color-light-accent) !important;
+}
+
+.border-theme-accent {
+  border-color: var(--color-light-accent) !important;
+}
+
+.dark .dark\:text-blue-400 {
+  color: var(--color-primary) !important;
+}
+
+.dark .dark\:border-blue-400 {
+  border-color: var(--color-primary) !important;
+}
+
+.dark .dark\:bg-blue-600 {
+  background-color: var(--color-primary) !important;
+}
+
+/* Smooth transitions - excluding font properties */
+* {
+  transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+  /* Note: font-weight is NOT included to prevent flickering */
+}
+
+/* Default button styling to prevent square corners */
+button {
+  border-radius: 0.5rem; /* Default to rounded-lg */
+}
+
+/* Touch gesture styles */
+.swipeable-item {
+  position: relative;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.swipeable-item .swipe-action-left,
+.swipeable-item .swipe-action-right {
+  transition: opacity 0.2s ease;
+}
+
+.swipeable-item.swipe-left .swipe-action-left {
+  opacity: 1 !important;
+}
+
+.swipeable-item.swipe-right .swipe-action-right {
+  opacity: 1 !important;
+}
+
+/* Pull to refresh styles */
+.pull-to-refresh {
+  position: relative;
+  overflow: hidden;
+}
+
+.pull-to-refresh-indicator {
+  position: absolute;
+  top: -60px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease;
+}
+
+.pull-to-refresh-indicator.pulling {
+  transform: translateX(-50%) translateY(calc(var(--pull-distance) * 1px));
+}
+
+.pull-to-refresh-indicator.refreshing {
+  transform: translateX(-50%) translateY(80px);
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: translateX(-50%) translateY(80px) rotate(360deg); }
+}
+
+/* Override for buttons that need to be less rounded */
+button.rounded-sm {
+  border-radius: 0.125rem;
+}
+
+/* Override for buttons that need to be square */
+button.rounded-none {
+  border-radius: 0;
+}
+
+/* Fix for button shadows respecting border-radius */
+button[style*="borderRadius"], button.rounded-full {
+  box-shadow: none !important;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+/* Completely remove all borders and outlines from circular buttons */
+button.rounded-full,
+.no-border-button {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+  background-clip: padding-box !important;
+}
+
+button.rounded-full:focus,
+button.rounded-full:active,
+button.rounded-full:hover,
+button.rounded-full:focus-visible,
+.no-border-button:focus,
+.no-border-button:active,
+.no-border-button:hover,
+.no-border-button:focus-visible {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  appearance: none !important;
+}
+
+/* Specific fix for the lock button */
+.lock-button {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background-clip: padding-box !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+/* Selected transaction row with Apple-style glass effect */
+.selected-transaction-row {
+  @apply relative z-30 transform scale-[1.01];
+  background: linear-gradient(135deg, rgba(255,255,255,0.9) 0%, rgba(239,246,255,0.85) 100%) !important;
+  backdrop-filter: blur(12px) saturate(1.5);
+  -webkit-backdrop-filter: blur(12px) saturate(1.5);
+  border-radius: 12px !important;
+  margin: 4px 8px !important;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 0 0 1px rgba(107, 134, 179, 0.3),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5) !important;
+  font-weight: 600 !important;
+  border: 1px solid rgba(107, 134, 179, 0.2) !important;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.dark .selected-transaction-row {
+  background: linear-gradient(135deg, rgba(30, 58, 138, 0.4) 0%, rgba(30, 58, 138, 0.3) 100%) !important;
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.3),
+    0 2px 4px -1px rgba(0, 0, 0, 0.2),
+    0 10px 15px -3px rgba(0, 0, 0, 0.3),
+    0 0 0 1px rgba(107, 134, 179, 0.5),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(107, 134, 179, 0.3) !important;
+}
+
+/* Remove border-bottom from selected rows to avoid double borders */
+.selected-transaction-row.border-b {
+  border-bottom: none !important;
+}
+
+/* Ensure hover states don't affect selected rows */
+.selected-transaction-row:hover {
+  font-weight: 600 !important;
+}
+
+/* Prevent font weight changes on all transaction text */
+.virtualized-table [class*="text-gray"],
+.virtualized-table [class*="text-green"],
+.virtualized-table [class*="text-red"],
+.virtualized-table [class*="font-medium"] {
+  transition: color 0.15s, background-color 0.15s !important;
+  /* Explicitly exclude font-weight from transitions */
+}
+
+/* Loading animations */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.2) 20%,
+    rgba(255, 255, 255, 0.5) 50%,
+    rgba(255, 255, 255, 0.2) 80%,
+    transparent 100%
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* Mobile-specific improvements */
+@layer utilities {
+  /* Better touch targets for mobile */
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+  }
+  
+  /* Safe area padding for devices with notches */
+  .safe-padding-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-padding-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* Improved scrolling on mobile */
+  .smooth-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  
+  /* Prevent text size adjustment on orientation change */
+  @media screen and (max-width: 640px) {
+    html {
+      -webkit-text-size-adjust: 100%;
+    }
+    
+    /* Ensure modals don't have rounded corners at bottom on mobile */
+    .rounded-t-lg {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    
+    /* Better tap highlighting */
+    button, a, .cursor-pointer {
+      -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    }
+  }
+  
+  /* Improved focus states for mobile */
+  @media (hover: none) {
+    button:focus, a:focus {
+      outline: 2px solid var(--color-primary);
+      outline-offset: 2px;
+    }
+  }
+  
+  /* Animation for modal entrance */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 0.2s ease-out;
+  }
+  
+  @keyframes fadeInScale {
+    from {
+      opacity: 0;
+      transform: scale(0.9) translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  
+  .animate-fadeInScale {
+    animation: fadeInScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  /* Mobile touch improvements */
+  .touch-friendly {
+    @apply min-h-[48px] min-w-[48px] touch-target;
+  }
+  
+  /* Improved mobile form elements */
+  @media screen and (max-width: 768px) {
+    input[type="number"],
+    input[type="text"],
+    input[type="email"],
+    input[type="password"],
+    select,
+    textarea {
+      @apply text-base; /* Prevent zoom on iOS */
+      padding: 12px 16px;
+      border-radius: 8px;
+    }
+    
+    /* Larger buttons on mobile */
+    button {
+      @apply min-h-[48px] touch-target;
+      padding: 12px 24px;
+    }
+    
+    /* Better modal spacing on mobile */
+    .modal-content {
+      @apply p-6 m-4;
+    }
+    
+    /* Improved table responsiveness */
+    .table-responsive {
+      @apply overflow-x-auto;
+    }
+    
+    .table-responsive table {
+      @apply min-w-full;
+    }
+  }
+  
+  /* Focus indicators for accessibility */
+  .focus-visible {
+    @apply outline-2 outline-offset-2 outline-[var(--color-primary)];
+  }
+  
+  /* Skip link for screen readers */
+  .skip-link {
+    @apply absolute -top-10 left-4 z-50 bg-[var(--color-primary)] text-white px-4 py-2 rounded-md;
+    @apply focus:top-4 transition-all duration-200;
+  }
+  
+  /* Slide up animation */
+  @keyframes slide-up {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  .animate-slide-up {
+    animation: slide-up 0.3s ease-out;
+  }
+}
+
+/* Additional Accessibility Styles */
+@layer utilities {
+  /* Screen Reader Only Content */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+  
+  /* Focus visible screen reader content */
+  .focus\:not-sr-only:focus {
+    position: static;
+    width: auto;
+    height: auto;
+    padding: inherit;
+    margin: inherit;
+    overflow: visible;
+    clip: auto;
+    white-space: normal;
+  }
+
+  /* Focus Visible for Better Keyboard Navigation */
+  :focus-visible {
+    outline: 2px solid #4285f4;
+    outline-offset: 2px;
+  }
+
+  /* Remove default focus styles for mouse users */
+  :focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  /* High Contrast Mode Support */
+  @media (prefers-contrast: high) {
+    :focus-visible {
+      outline: 3px solid;
+      outline-offset: 3px;
+    }
+    
+    .border {
+      border-width: 2px;
+    }
+  }
+
+  /* Reduced Motion Support */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Minimum touch target size */
+  .touch-target-min {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* Visually hidden but accessible */
+  .visually-hidden {
+    position: absolute !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    height: 1px !important;
+    width: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    border: 0 !important;
+  }
+}
+/* Force deployment Sun Aug  3 21:32:13 BST 2025 */

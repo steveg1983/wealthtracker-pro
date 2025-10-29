@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "apps/web/src/*"
+      ],
+      "@testing": [
+        "packages/testing/index.d.ts"
+      ],
+      "@testing/*": [
+        "packages/testing/*"
+      ],
+      "@app-types/*": [
+        "packages/types/*"
+      ],
+      "@wealthtracker/core": [
+        "packages/core/index.ts"
+      ],
+      "@wealthtracker/core/*": [
+        "packages/core/*"
+      ],
+      "@wealthtracker/utils": [
+        "packages/utils/index.ts"
+      ],
+      "@wealthtracker/utils/*": [
+        "packages/utils/*"
+      ],
+      "@wealthtracker/types": [
+        "packages/types/index.ts"
+      ],
+      "@wealthtracker/types/*": [
+        "packages/types/*"
+      ]
+    }
+  },
+  "references": []
+}
