@@ -39,7 +39,9 @@ RUN_SUPABASE_REAL_TESTS=true node apps/web/scripts/run-supabase-smoke.mjs
 
 The script validates the environment before invoking Vitest and fails fast if any value is missing. When the flag is not present, the individual `*.real.test.*` suites automatically skip via `describeSupabase`. The real-test harness instantiates a single shared Supabase client per worker—never call `createClient` directly inside tests or helpers, and treat any GoTrue "multiple client" warning as a regression.
 
-**Status**: ✅ **PASSING** (2025-10-29 15:50) - All 9 test suites passing with service-role credentials. Script updated to use `npx vitest` for proper execution. Service role key now stored in `.env.local` for persistent local testing.
+**Status**: ✅ **PASSING** (2025-10-29 16:40) - All 9 test suites passing with service-role credentials. Script updated to use `npx vitest` for proper execution. Service role key now stored in `.env.local` for persistent local testing.
+
+**Build Fix**: Package.json now uses `cd apps/web && npm run build` for Vercel compatibility (no workspace support required).
 
 ## Temporarily Bypassing the Hook
 
