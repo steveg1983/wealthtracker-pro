@@ -4,67 +4,46 @@ import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const cwd = process.cwd();
+console.log('Build helper invoked from:', cwd);
 
-console.log('Starting build from:', cwd);
-
-// Try to find the app directory
-let appDir = null;
-
-// List of possible locations to check
-const possiblePaths = [
-  resolve(cwd, 'apps/web'),           // From monorepo root
-  resolve(cwd, '../apps/web'),        // One level up
-  resolve(cwd, '../../apps/web'),     // Two levels up
-  cwd,                                 // Current directory might be apps/web
+const candidatePaths = [
+  resolve(cwd, 'apps/web'),
+  resolve(cwd, '../apps/web'),
+  resolve(cwd, '../../apps/web'),
+  cwd,
 ];
 
-// Find the first path that contains both index.html and package.json
-for (const path of possiblePaths) {
-  const hasIndex = existsSync(resolve(path, 'index.html'));
-  const hasPackage = existsSync(resolve(path, 'package.json'));
-  const hasSrc = existsSync(resolve(path, 'src'));
-  console.log(`Checking: ${path}`);
-  console.log(`  - has index.html: ${hasIndex}`);
-  console.log(`  - has package.json: ${hasPackage}`);
-  console.log(`  - has src dir: ${hasSrc}`);
-  if (hasPackage && hasSrc) {
-    // index.html check only needed when we're in monorepo root
-    appDir = path;
-    console.log(`Found candidate app directory at: ${path}`);
-    break;
+const findAppDir = () => {
+  for (const path of candidatePaths) {
+    const pkg = existsSync(resolve(path, 'package.json'));
+    const src = existsSync(resolve(path, 'src'));
+    console.log(`Checking ${path}\n  - package.json: ${pkg}\n  - src dir: ${src}`);
+    if (pkg && src) {
+      return path;
+    }
   }
-}
+  return null;
+};
 
-// If still not found, check if apps/web exists but maybe without some files
-if (!appDir && existsSync(resolve(cwd, 'apps/web'))) {
-  appDir = resolve(cwd, 'apps/web');
-  console.log('Found apps/web directory, will try to build from there');
+let appDir = findAppDir();
+
+// If script executed inside app already (no src at cwd but apps/web exists), prefer apps/web
+const appsWeb = resolve(cwd, 'apps/web');
+if (appDir === cwd && existsSync(appsWeb)) {
+  console.log('Preferring apps/web subdirectory');
+  appDir = appsWeb;
 }
 
 if (!appDir) {
-  console.error('ERROR: Could not locate the app directory');
-  console.error('Current directory:', cwd);
-  console.error('Checked paths:', possiblePaths);
-  try {
-    console.error('Root contents:', readdirSync(cwd).slice(0, 20));
-    if (existsSync(resolve(cwd, 'apps'))) {
-      console.error('Apps directory contents:', readdirSync(resolve(cwd, 'apps')));
-    }
-  } catch (e) {
-    console.error('Could not read directory contents:', e.message);
-  }
+  console.error('ERROR: Unable to locate apps/web directory');
+  console.error('Contents of current directory:', readdirSync(cwd));
   process.exit(1);
 }
 
-console.log('Build directory:', appDir);
-console.log('Checking files in build directory:');
-console.log('  index.html:', existsSync(resolve(appDir, 'index.html')));
-console.log('  package.json:', existsSync(resolve(appDir, 'package.json')));
-console.log('  vite.config.ts:', existsSync(resolve(appDir, 'vite.config.ts')));
-console.log('  src directory:', existsSync(resolve(appDir, 'src')));
+console.log('Using app directory:', appDir);
 
-// Call vite build directly
-const result = spawnSync('npx', ['vite', 'build'], {
+// Call the workspace's build script instead of raw vite
+const result = spawnSync('npm', ['run', 'build'], {
   cwd: appDir,
   stdio: 'inherit',
   shell: false,
