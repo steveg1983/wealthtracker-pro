@@ -20,14 +20,18 @@ const possiblePaths = [
 
 // Find the first path that contains both index.html and package.json
 for (const path of possiblePaths) {
+  const hasIndex = existsSync(resolve(path, 'index.html'));
+  const hasPackage = existsSync(resolve(path, 'package.json'));
+  const hasSrc = existsSync(resolve(path, 'src'));
   console.log(`Checking: ${path}`);
-  if (existsSync(resolve(path, 'index.html')) && existsSync(resolve(path, 'package.json'))) {
-    // Extra check: make sure it has a src directory (characteristic of our app)
-    if (existsSync(resolve(path, 'src'))) {
-      appDir = path;
-      console.log(`Found app directory at: ${path}`);
-      break;
-    }
+  console.log(`  - has index.html: ${hasIndex}`);
+  console.log(`  - has package.json: ${hasPackage}`);
+  console.log(`  - has src dir: ${hasSrc}`);
+  if (hasPackage && hasSrc) {
+    // index.html check only needed when we're in monorepo root
+    appDir = path;
+    console.log(`Found candidate app directory at: ${path}`);
+    break;
   }
 }
 
