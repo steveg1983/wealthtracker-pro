@@ -20,7 +20,7 @@
     "test:supabase-smoke": "npm run test:supabase-smoke --workspace apps/web",
     "test:ci": "npm run test:ci --workspace apps/web",
     "typecheck:strict": "npm run typecheck:strict --workspace apps/web",
-    "build": "npm --prefix apps/web run build",
+    "build": "cd apps/web && npm run build",
     "start": "npm run dev --workspace apps/web",
     "dev": "npm run dev --workspace apps/web"
   },
