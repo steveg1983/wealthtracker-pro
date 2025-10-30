@@ -244,7 +244,7 @@ describe('GoalAchievementService', () => {
       
       expect(message).toMatch(/savings|saving/i);
       // Savings messages can contain different emojis: 🎉, 💰, or 🌟
-      expect(message).toMatch(/[🎉💰🌟]/);
+      expect(message).toMatch(/[🎉💰🌟]/u);
     });
 
     it('returns message for debt-payoff goals', () => {
