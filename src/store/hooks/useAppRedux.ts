@@ -6,39 +6,45 @@ import {
   deleteTransaction as deleteTransactionThunk,
   loadAllData
 } from '../thunks';
-import { saveTags } from '../slices/tagsSlice';
+import { setTransactions } from '../slices/transactionsSlice';
+import { saveTags, setTags } from '../slices/tagsSlice';
 import type { BackupData } from '../../utils/backupRestore';
-import { 
+import {
   addAccount as addAccountAction,
   updateAccount as updateAccountAction,
   deleteAccount as deleteAccountAction,
   createAccountInSupabase,
   updateAccountInSupabase,
-  deleteAccountFromSupabase
+  deleteAccountFromSupabase,
+  setAccounts
 } from '../slices/accountsSlice';
 import {
   addBudget as addBudgetAction,
   updateBudget as updateBudgetAction,
   deleteBudget as deleteBudgetAction,
-  createBudgetInSupabase
+  createBudgetInSupabase,
+  setBudgets
 } from '../slices/budgetsSlice';
 import {
   addCategory as addCategoryAction,
   updateCategory as updateCategoryAction,
   deleteCategory as deleteCategoryAction,
-  saveCategories
+  saveCategories,
+  setCategories
 } from '../slices/categoriesSlice';
 import {
   addGoal as addGoalAction,
   updateGoal as updateGoalAction,
   deleteGoal as deleteGoalAction,
-  createGoalInSupabase
+  createGoalInSupabase,
+  setGoals
 } from '../slices/goalsSlice';
 import {
   addRecurringTransaction as addRecurringTransactionAction,
   updateRecurringTransaction as updateRecurringTransactionAction,
   deleteRecurringTransaction as deleteRecurringTransactionAction,
-  saveRecurringTransactions
+  saveRecurringTransactions,
+  setRecurringTransactions
 } from '../slices/recurringTransactionsSlice';
 import type { Account, Transaction, Budget, Category, Goal, RecurringTransaction } from '../../types';
 

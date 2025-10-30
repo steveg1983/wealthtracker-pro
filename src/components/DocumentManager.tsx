@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { documentService } from '../services/documentService';
 import type { Document, DocumentFilter } from '../services/documentService';
 import DocumentUpload from './DocumentUpload';
@@ -6,17 +6,13 @@ import {
   FileTextIcon,
   ImageIcon,
   SearchIcon,
-  FilterIcon,
   DownloadIcon,
   DeleteIcon,
   EditIcon,
   XIcon,
-  CalendarIcon,
   TagIcon,
   FolderIcon,
-  AlertCircleIcon,
   CheckCircleIcon,
-  EyeIcon,
   PaperclipIcon,
   UploadIcon,
   RefreshCwIcon
@@ -30,6 +26,23 @@ interface DocumentManagerProps {
   onDocumentSelect?: (document: Document) => void;
 }
 
+interface StorageStats {
+  totalDocuments: number;
+  totalSize: number;
+  totalSizeMB: number;
+  byType: Record<string, number>;
+  oldestDocument: Date | null;
+  indexedDBUsage: number;
+  indexedDBQuota: number;
+  usagePercentage: number;
+}
+
+const documentTypeValues = ['receipt', 'invoice', 'statement', 'contract', 'other'] as const;
+type DocumentType = typeof documentTypeValues[number];
+type DocumentTypeFilter = DocumentType | 'all';
+const isDocumentType = (value: string): value is DocumentType =>
+  (documentTypeValues as readonly string[]).includes(value);
+
 export default function DocumentManager({
   transactionId,
   accountId,
@@ -42,22 +55,13 @@ export default function DocumentManager({
   const [showUpload, setShowUpload] = useState(false);
   const [showViewer, setShowViewer] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<Document['type'] | 'all'>('all');
+  const [filterType, setFilterType] = useState<DocumentTypeFilter>('all');
   const [filterTags, setFilterTags] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Document | null>(null);
-  const [storageStats, setStorageStats] = useState<any>(null);
+  const [storageStats, setStorageStats] = useState<StorageStats | null>(null);
 
-  useEffect(() => {
-    loadDocuments();
-    loadStorageStats();
-  }, [transactionId, accountId]);
-
-  useEffect(() => {
-    applyFilters();
-  }, [documents, searchTerm, filterType, filterTags]);
-
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async () => {
     setIsLoading(true);
     const filter: DocumentFilter = {};
     if (transactionId) filter.transactionId = transactionId;
@@ -66,14 +70,14 @@ export default function DocumentManager({
     const docs = await documentService.getDocuments(filter);
     setDocuments(docs);
     setIsLoading(false);
-  };
+  }, [transactionId, accountId]);
 
-  const loadStorageStats = () => {
-    const stats = documentService.getStorageStats();
+  const loadStorageStats = useCallback(async () => {
+    const stats = await documentService.getStorageStats();
     setStorageStats(stats);
-  };
+  }, []);
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...documents];
 
     // Apply type filter
@@ -100,9 +104,18 @@ export default function DocumentManager({
     }
 
     setFilteredDocuments(filtered);
-  };
+  }, [documents, filterType, filterTags, searchTerm]);
 
-  const handleDocumentUpload = (document: Document) => {
+  useEffect(() => {
+    loadDocuments();
+    loadStorageStats();
+  }, [loadDocuments, loadStorageStats]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
+
+  const handleDocumentUpload = (_document: Document) => {
     loadDocuments();
     loadStorageStats();
   };
@@ -262,7 +275,14 @@ export default function DocumentManager({
           {/* Type Filter */}
           <select
             value={filterType}
-            onChange={(e) => setFilterType(e.target.value as any)}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (value === 'all') {
+                setFilterType('all');
+              } else if (isDocumentType(value)) {
+                setFilterType(value);
+              }
+            }}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
           >
             <option value="all">All Types</option>

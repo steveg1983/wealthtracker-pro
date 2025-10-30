@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { dividendService } from '../services/dividendService';
 import type { Dividend, DividendSummary, DividendProjection } from '../services/dividendService';
 import { useApp } from '../contexts/AppContextSupabase';
@@ -10,14 +10,11 @@ import {
   CalendarIcon,
   DollarSignIcon,
   PieChartIcon,
-  BarChart3Icon,
   PlusIcon,
   EditIcon,
   DeleteIcon,
   DownloadIcon,
-  RefreshCwIcon,
-  AlertCircleIcon,
-  CheckCircleIcon
+  AlertCircleIcon
 } from './icons';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 
@@ -26,18 +23,39 @@ interface DividendTrackerProps {
   investmentId?: string;
 }
 
+const dateRangeValues = ['ytd', '1y', '3y', 'all'] as const;
+type DateRangeOption = typeof dateRangeValues[number];
+const isDateRangeOption = (value: string): value is DateRangeOption =>
+  (dateRangeValues as readonly string[]).includes(value);
+
+const dividendFrequencyValues = ['monthly', 'quarterly', 'semi-annual', 'annual', 'special'] as const;
+type DividendFrequencyOption = typeof dividendFrequencyValues[number];
+const isDividendFrequency = (value: string): value is DividendFrequencyOption =>
+  (dividendFrequencyValues as readonly string[]).includes(value);
+
+const dividendTypeValues = ['regular', 'special', 'return-of-capital', 'qualified', 'non-qualified'] as const;
+type DividendTypeOption = typeof dividendTypeValues[number];
+const isDividendType = (value: string): value is DividendTypeOption =>
+  (dividendTypeValues as readonly string[]).includes(value);
+
 export default function DividendTracker({ accountId, investmentId }: DividendTrackerProps) {
   const [dividends, setDividends] = useState<Dividend[]>([]);
   const [summary, setSummary] = useState<DividendSummary | null>(null);
   const [projections, setProjections] = useState<DividendProjection[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingDividend, setEditingDividend] = useState<Dividend | null>(null);
-  const [dateRange, setDateRange] = useState<'ytd' | '1y' | '3y' | 'all'>('1y');
+  const [dateRange, setDateRange] = useState<DateRangeOption>('1y');
   const [selectedSymbol, setSelectedSymbol] = useState<string>('');
   
   const { accounts } = useApp();
   const { currencySymbol } = useCurrency();
   const { formatCurrency } = useCurrencyDecimal();
+
+  const handleDateRangeChange = (value: string) => {
+    if (isDateRangeOption(value)) {
+      setDateRange(value);
+    }
+  };
 
   // Extract investments from accounts with holdings
   const investments = useMemo(() => {
@@ -65,11 +83,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
   }, [accounts]);
 
   // Load data
-  useEffect(() => {
-    loadDividends();
-  }, [accountId, investmentId, dateRange, selectedSymbol]);
-
-  const loadDividends = () => {
+  const loadDividends = useCallback(() => {
     // Calculate date range
     let startDate: Date | undefined;
     const today = new Date();
@@ -115,7 +129,11 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
     
     const proj = dividendService.getDividendProjections(holdings);
     setProjections(proj);
-  };
+  }, [accountId, investmentId, dateRange, selectedSymbol, investments]);
+
+  useEffect(() => {
+    loadDividends();
+  }, [loadDividends]);
 
   // Get unique symbols from investments
   const symbols = Array.from(new Set(investments.map(inv => inv.symbol))).sort();
@@ -190,7 +208,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
         <div className="flex items-center gap-4">
           <select
             value={dateRange}
-            onChange={(e) => setDateRange(e.target.value as any)}
+            onChange={(e) => handleDateRangeChange(e.target.value)}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
           >
             <option value="ytd">Year to Date</option>
@@ -479,6 +497,18 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
     notes: dividend?.notes || ''
   });
 
+  const handleFrequencyChange = (value: string) => {
+    if (isDividendFrequency(value)) {
+      setFormData(prev => ({ ...prev, frequency: value }));
+    }
+  };
+
+  const handleTypeChange = (value: string) => {
+    if (isDividendType(value)) {
+      setFormData(prev => ({ ...prev, type: value }));
+    }
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
@@ -545,7 +575,7 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
               <label className="block text-sm font-medium mb-1">Frequency</label>
               <select
                 value={formData.frequency}
-                onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
+                onChange={(e) => handleFrequencyChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
               >
                 <option value="monthly">Monthly</option>
@@ -560,7 +590,7 @@ function DividendModal({ dividend, symbols, onSave, onClose }: DividendModalProp
               <label className="block text-sm font-medium mb-1">Type</label>
               <select
                 value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                onChange={(e) => handleTypeChange(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
               >
                 <option value="regular">Regular</option>

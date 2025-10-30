@@ -7,7 +7,6 @@ import {
   CameraIcon,
   XIcon,
   CheckIcon,
-  AlertCircleIcon,
   ImageIcon,
   TagIcon,
   RefreshCwIcon,
