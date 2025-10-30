@@ -11,24 +11,10 @@ import {
   DatabaseIcon, 
   CheckCircleIcon,
   AlertCircleIcon,
-  XCircleIcon,
   ArrowRightIcon,
-  SettingsIcon,
   MagicWandIcon,
   CreditCardIcon
 } from './icons';
-
-interface ImportResult {
-  success: boolean;
-  message: string;
-  stats?: {
-    accounts: number;
-    transactions: number;
-    categories: number;
-    budgets: number;
-  };
-  errors?: string[];
-}
 
 interface ExportOptions {
   format: 'csv' | 'json' | 'excel';
@@ -113,7 +99,7 @@ const BANK_TEMPLATES = [
 ];
 
 export default function DataImportExport() {
-  const { accounts, transactions, categories, addAccount, addTransaction, addCategory } = useApp();
+  const { accounts, transactions, categories } = useApp();
   const { budgets } = useBudgets();
   
   const [activeTab, setActiveTab] = useState<'import' | 'export'>('import');
@@ -322,25 +308,78 @@ export default function DataImportExport() {
                   Smart Import Features
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600 dark:text-gray-400">
-                  <div>
-                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">CSV: Intelligent Mapping</h4>
-                    <p>Automatically detects and maps columns from your CSV files to the appropriate fields</p>
+                  <div className="flex items-start gap-3">
+                    <CheckCircleIcon className="mt-1 text-[var(--color-primary)]" size={16} />
+                    <div>
+                      <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">CSV: Intelligent Mapping</h4>
+                      <p>Automatically detects and maps columns from your CSV files to the appropriate fields.</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">OFX: Automatic Account Matching</h4>
-                    <p>Matches OFX files to your accounts using account numbers and sort codes</p>
+                  <div className="flex items-start gap-3">
+                    <CheckCircleIcon className="mt-1 text-[var(--color-primary)]" size={16} />
+                    <div>
+                      <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">OFX: Automatic Account Matching</h4>
+                      <p>Matches OFX files to your accounts using account numbers and sort codes.</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Bank Templates</h4>
-                    <p>Pre-configured templates for 20+ UK banks and building societies</p>
+                  <div className="flex items-start gap-3">
+                    <CheckCircleIcon className="mt-1 text-[var(--color-primary)]" size={16} />
+                    <div>
+                      <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Bank Templates</h4>
+                      <p>Pre-configured templates for 20+ UK banks and building societies.</p>
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Duplicate Prevention</h4>
-                    <p>Uses transaction IDs and smart matching to prevent duplicate imports</p>
+                  <div className="flex items-start gap-3">
+                    <CheckCircleIcon className="mt-1 text-[var(--color-primary)]" size={16} />
+                    <div>
+                      <h4 className="font-medium text-gray-800 dark:text-gray-200 mb-1">Duplicate Prevention</h4>
+                      <p>Uses transaction IDs and smart matching to prevent duplicate imports.</p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Supported Templates */}
+          <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <FileTextIcon size={20} className="text-[var(--color-primary)]" />
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Supported Bank Templates
+              </h4>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {BANK_TEMPLATES.map(template => (
+                <div
+                  key={template.id}
+                  className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50/80 dark:bg-gray-900/40"
+                >
+                  <h5 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    {template.name}
+                  </h5>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {template.description}
+                  </p>
+                  <ul className="mt-3 space-y-1 text-xs text-gray-500 dark:text-gray-400">
+                    {Object.entries(template.mapping).map(([source, target]) => (
+                      <li key={`${template.id}-${source}`} className="flex items-center gap-2">
+                        <span className="font-medium text-gray-700 dark:text-gray-300">{source}</span>
+                        <ArrowRightIcon size={12} className="text-gray-400" />
+                        <span>{target}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4">
+            <AlertCircleIcon className="text-yellow-600 dark:text-yellow-400 mt-0.5" size={18} />
+            <p className="text-sm text-yellow-700 dark:text-yellow-300">
+              Always preview imported data before saving to ensure column mappings match your expectations.
+            </p>
           </div>
         </div>
       )}

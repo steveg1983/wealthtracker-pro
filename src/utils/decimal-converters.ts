@@ -85,7 +85,9 @@ export function fromDecimalGoal(goal: DecimalGoal): Goal {
   return {
     ...goal,
     targetAmount: toStorageNumber(goal.targetAmount),
-    currentAmount: toStorageNumber(goal.currentAmount)
+    currentAmount: toStorageNumber(goal.currentAmount),
+    progress: goal.progress || 0,
+    updatedAt: goal.updatedAt || new Date()
   };
 }
 

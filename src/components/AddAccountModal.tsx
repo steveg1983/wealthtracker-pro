@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { Building2, Wallet, CreditCard, TrendingUp, PiggyBank, Banknote, Package, AlertCircle } from 'lucide-react';
+import type { Account } from '../types';
 
 interface AddAccountModalProps {
   isOpen: boolean;
@@ -89,15 +90,21 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
         throw new Error('Please enter a valid balance');
       }
       
-      // Create the account
-      const result = await addAccount({
+      const newAccountPayload: Omit<Account, 'id'> & { initialBalance?: number } = {
         name: formData.name.trim(),
         type: formData.type === 'checking' ? 'current' : formData.type,
+        balance,
         initialBalance: balance,
         currency: formData.currency,
-        institution: formData.institution.trim() || '',
+        institution: formData.institution.trim() || undefined,
+        lastUpdated: new Date(),
+        openingBalance: balance,
+        openingBalanceDate: new Date(),
         isActive: true,
-      } as any);
+      };
+
+      // Create the account
+      const result = await addAccount(newAccountPayload);
       
       console.log('[AddAccountModal] Account added successfully:', result);
       

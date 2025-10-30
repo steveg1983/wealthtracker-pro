@@ -183,6 +183,19 @@ export function DarkModeRefinements({
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
+  const themeOptions: Array<{ value: DarkModeSettings['mode']; icon: React.ReactNode; label: string }> = [
+    { value: 'light', icon: <SunIcon size={16} />, label: 'Light' },
+    { value: 'dark', icon: <MoonIcon size={16} />, label: 'Dark' },
+    { value: 'system', icon: <MonitorIcon size={16} />, label: 'System' },
+    { value: 'auto', icon: <ClockIcon size={16} />, label: 'Auto' }
+  ];
+
+  const contrastOptions: Array<{ value: DarkModeSettings['contrastMode']; label: string; desc: string }> = [
+    { value: 'normal', label: 'Normal', desc: 'WCAG AA compliant' },
+    { value: 'high', label: 'High', desc: 'Enhanced contrast' },
+    { value: 'highest', label: 'Highest', desc: 'Maximum contrast' }
+  ];
+
   return (
     <>
       {/* Theme Toggle Button */}
@@ -240,15 +253,10 @@ export function DarkModeRefinements({
                   Theme Mode
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {[
-                    { value: 'light', icon: <SunIcon size={16} />, label: 'Light' },
-                    { value: 'dark', icon: <MoonIcon size={16} />, label: 'Dark' },
-                    { value: 'system', icon: <MonitorIcon size={16} />, label: 'System' },
-                    { value: 'auto', icon: <ClockIcon size={16} />, label: 'Auto' }
-                  ].map(option => (
+                  {themeOptions.map(option => (
                     <button
                       key={option.value}
-                      onClick={() => updateSetting('mode', option.value as any)}
+                      onClick={() => updateSetting('mode', option.value)}
                       className={`
                         flex items-center justify-center gap-2 px-3 py-2 rounded-lg border transition-all
                         ${settings.mode === option.value
@@ -324,11 +332,7 @@ export function DarkModeRefinements({
                   Contrast Level
                 </label>
                 <div className="space-y-2">
-                  {[
-                    { value: 'normal', label: 'Normal', desc: 'WCAG AA compliant' },
-                    { value: 'high', label: 'High', desc: 'Enhanced contrast' },
-                    { value: 'highest', label: 'Highest', desc: 'Maximum contrast' }
-                  ].map(option => (
+                  {contrastOptions.map(option => (
                     <label
                       key={option.value}
                       className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-900/70 transition-colors"
@@ -338,7 +342,7 @@ export function DarkModeRefinements({
                         name="contrast"
                         value={option.value}
                         checked={settings.contrastMode === option.value}
-                        onChange={() => updateSetting('contrastMode', option.value as any)}
+                        onChange={() => updateSetting('contrastMode', option.value)}
                         className="text-primary"
                       />
                       <div className="flex-1">

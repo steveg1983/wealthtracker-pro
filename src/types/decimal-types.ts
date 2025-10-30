@@ -73,7 +73,6 @@ export interface DecimalTransaction {
 
 export interface DecimalBudget extends Omit<Budget, 'amount'> {
   amount: DecimalInstance;
-  category: string;
 }
 
 export interface DecimalGoal {
