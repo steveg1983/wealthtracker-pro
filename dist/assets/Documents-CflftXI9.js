@@ -1,1 +1,0 @@
-function r(){return s.jsx(t,{title:"Documents",children:s.jsx(o,{})})}import{j as s}from"./index-Pkjq0qn3.js";import{P as t}from"./chunk-BnYLBI7x.js";import{D as o}from"./chunk-ybZz33tU.js";import"./chunk-BWx9oMeS.js";import"./chunk-BN8kgYrt.js";import"./chunk-Drd-K-oK.js";import"./chunk-qYdZW6fT.js";export{r as default};

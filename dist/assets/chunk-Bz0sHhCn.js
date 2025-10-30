@@ -1,0 +1,1 @@
+function t(t,e,a){const s=n(t,a?.in);if(isNaN(e))return r(t,NaN);if(!e)return s;const o=s.getDate(),i=r(t,s.getTime());return i.setMonth(s.getMonth()+e+1,0),o>=i.getDate()?i:(s.setFullYear(i.getFullYear(),i.getMonth(),o),s)}function e(e,n,r){return t(e,-n,r)}import{aO as n,b5 as r}from"./index-CgJz7Gw0.js";export{t as a,e as s};

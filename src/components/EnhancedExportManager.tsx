@@ -18,9 +18,11 @@ import {
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths } from 'date-fns';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+
+// Dynamic imports for heavy libraries (loaded on demand)
+let jsPDF: typeof import('jspdf').jsPDF | null = null;
+let autoTable: typeof import('jspdf-autotable').default | null = null;
+let XLSX: typeof import('xlsx') | null = null;
 
 type ExportFormat = 'pdf' | 'excel' | 'csv';
 type ReportType = 'transactions' | 'summary' | 'budget' | 'tax' | 'investment' | 'networth' | 'custom';
@@ -158,6 +160,16 @@ export default function EnhancedExportManager(): React.JSX.Element {
   };
 
   const generatePDF = async () => {
+    // Load jsPDF dynamically if not already loaded
+    if (!jsPDF) {
+      const jsPDFModule = await import('jspdf');
+      jsPDF = jsPDFModule.jsPDF;
+    }
+    if (!autoTable) {
+      const autoTableModule = await import('jspdf-autotable');
+      autoTable = autoTableModule.default;
+    }
+
     const pdf = new jsPDF({
       orientation: options.orientation,
       unit: 'mm',
@@ -275,6 +287,11 @@ export default function EnhancedExportManager(): React.JSX.Element {
   };
 
   const generateExcel = async () => {
+    // Load XLSX dynamically if not already loaded
+    if (!XLSX) {
+      XLSX = await import('xlsx');
+    }
+
     const workbook = XLSX.utils.book_new();
     const dateRange = getDateRange();
 
