@@ -26,11 +26,12 @@ Target journeys: **Dashboard**, **Budgeting**, **Data Imports**.
 
 - Added a `window.scrollTo` shim in `src/test/setup.ts` to eliminate jsdom noise while preserving modal behaviour.
 - Dashboard, budget, and import journeys rely on restored Tabler icon bundle; the logger guard prevents unresolved import errors during SSR/Vitest startup.
+- Budget regression suite now covers legacy category-string budgets via the AppContext test harness overrides.
+- Excel export normalises category names/IDs before grouping so summary sheets honour legacy data alongside UUID-based datasets.
 - Supabase smoke suite validates DELETE RLS policy (anon deletions blocked) and end-to-end CRUD flows with live credentials.
 
 ## Recommended Follow-up
 
-1. Add a quick regression around `categoryNameById` to lock in the new compatibility path (legacy `category` vs. `categoryId`).
-2. Monitor nightly Supabase workflow for lint failures now that the CLI check is in place.
+1. Monitor nightly Supabase workflow for lint failures now that the CLI check is in place.
 
 Logs are stored beside earlier audits for easy diffing under `logs/quality-gates/`.

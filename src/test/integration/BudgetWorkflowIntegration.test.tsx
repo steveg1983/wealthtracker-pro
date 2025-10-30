@@ -8,6 +8,7 @@ import { NotificationProvider } from '../../contexts/NotificationContext';
 import { BudgetProvider } from '../../contexts/BudgetContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { __resetAppContextValue, __setAppContextValue } from '../../test/mocks/AppContextSupabase';
+import type { Budget } from '../../types';
 
 // Mock localStorage
 const localStorageMock = {
@@ -201,15 +202,15 @@ describe('Budget Workflow Integration', () => {
         id: 'legacy-budget-1',
         category: 'Legacy Travel',
         amount: 150,
-        period: 'monthly',
+        period: 'monthly' as const,
         isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
         spent: 0
-      }];
+      }] satisfies Array<Omit<Budget, 'categoryId'>>;
 
       __setAppContextValue({
-        budgets: legacyBudgets as any,
+        budgets: legacyBudgets as unknown as Budget[],
         categories: []
       });
 

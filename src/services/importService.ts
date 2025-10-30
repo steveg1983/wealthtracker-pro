@@ -1,6 +1,6 @@
 // Import service for handling file imports (CSV, QIF, OFX)
 
-import { parse as parseCSV } from 'csv-parse/browser/esm';
+import { parse as parseCSV } from 'csv-parse/sync';
 import type { Transaction, Account } from '../types';
 
 export interface ImportResult {

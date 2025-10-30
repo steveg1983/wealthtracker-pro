@@ -301,7 +301,7 @@ export default function AutomaticBackupSettings() {
           </div>
         ) : (
           <div className="space-y-2">
-            {backupHistory.map((entry, index) => (
+            {backupHistory.map((entry: any, index) => (
               <div
                 key={index}
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
