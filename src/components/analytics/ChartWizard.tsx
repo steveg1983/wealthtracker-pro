@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   BarChart3Icon,
   LineChartIcon,
@@ -11,40 +11,42 @@ import {
   LightbulbIcon
 } from '../icons';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { analyticsEngine } from '../../services/analyticsEngine';
+import {
+  LineChart,
+  Line,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  RadarChart,
+  Radar,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  ScatterChart,
+  Scatter,
+  ComposedChart,
+  Treemap,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  FunnelChart,
+  Funnel,
+  LabelList
+} from 'recharts';
 
-// Dynamic Plotly loader component
-let PlotlyComponent: any = null;
-
-const DynamicPlot = ({ data, layout, config, style }: any) => {
-  const [Plot, setPlot] = useState<any>(null);
-
-  useEffect(() => {
-    if (!PlotlyComponent) {
-      import('react-plotly.js').then((module) => {
-        PlotlyComponent = module.default;
-        setPlot(() => PlotlyComponent);
-      });
-    } else {
-      setPlot(() => PlotlyComponent);
-    }
-  }, []);
-
-  if (!Plot) {
-    return <div className="flex items-center justify-center h-full">Loading chart...</div>;
-  }
-
-  return <Plot data={data} layout={layout} config={config} style={style} />;
-};
-
-export type ChartType = 
+export type ChartType =
   | 'line' | 'multi-line' | 'area' | 'stacked-area'
   | 'bar' | 'grouped-bar' | 'stacked-bar' | 'horizontal-bar'
-  | 'pie' | 'donut' | 'sunburst'
-  | 'scatter' | 'bubble' | 'heatmap'
-  | 'waterfall' | 'funnel' | 'treemap'
-  | 'candlestick' | 'box' | 'violin'
-  | 'sankey' | 'radar' | 'gauge';
+  | 'pie' | 'donut'
+  | 'scatter' | 'bubble'
+  | 'radar' | 'treemap' | 'funnel';
 
 interface ChartConfig {
   type: ChartType;
@@ -103,7 +105,7 @@ const CHART_CATALOG: ChartConfig[] = [
       fillOpacity: 0.7
     }
   },
-  
+
   // Bar Charts
   {
     type: 'bar',
@@ -138,7 +140,7 @@ const CHART_CATALOG: ChartConfig[] = [
       showTotals: true
     }
   },
-  
+
   // Pie Charts
   {
     type: 'pie',
@@ -162,18 +164,7 @@ const CHART_CATALOG: ChartConfig[] = [
       showCenterMetric: true
     }
   },
-  {
-    type: 'sunburst',
-    name: 'Sunburst',
-    description: 'Hierarchical pie chart',
-    icon: PieChartIcon,
-    requiredDataShape: 'hierarchical',
-    defaultOptions: {
-      maxDepth: 3,
-      showPath: true
-    }
-  },
-  
+
   // Scatter & Distribution
   {
     type: 'scatter',
@@ -197,66 +188,7 @@ const CHART_CATALOG: ChartConfig[] = [
       showScale: true
     }
   },
-  {
-    type: 'heatmap',
-    name: 'Heatmap',
-    description: 'Density visualization',
-    icon: GridIcon,
-    requiredDataShape: 'correlation',
-    defaultOptions: {
-      colorScale: 'Viridis',
-      showScale: true
-    }
-  },
-  
-  // Financial Charts
-  {
-    type: 'waterfall',
-    name: 'Waterfall',
-    description: 'Show incremental changes',
-    icon: TrendingUpIcon,
-    requiredDataShape: 'single-series',
-    defaultOptions: {
-      showConnectors: true,
-      showTotals: true
-    }
-  },
-  {
-    type: 'candlestick',
-    name: 'Candlestick',
-    description: 'OHLC financial data',
-    icon: BarChart3Icon,
-    requiredDataShape: 'time-series',
-    defaultOptions: {
-      increasingColor: '#059669',
-      decreasingColor: '#dc2626'
-    }
-  },
-  
-  // Statistical Charts
-  {
-    type: 'box',
-    name: 'Box Plot',
-    description: 'Statistical distribution',
-    icon: BarChart3Icon,
-    requiredDataShape: 'multi-series',
-    defaultOptions: {
-      showOutliers: true,
-      boxMean: 'sd'
-    }
-  },
-  {
-    type: 'violin',
-    name: 'Violin Plot',
-    description: 'Distribution density',
-    icon: BarChart3Icon,
-    requiredDataShape: 'multi-series',
-    defaultOptions: {
-      showBox: true,
-      meanline: true
-    }
-  },
-  
+
   // Advanced Visualizations
   {
     type: 'treemap',
@@ -267,17 +199,6 @@ const CHART_CATALOG: ChartConfig[] = [
     defaultOptions: {
       tiling: 'squarify',
       showPath: true
-    }
-  },
-  {
-    type: 'sankey',
-    name: 'Sankey Diagram',
-    description: 'Flow visualization',
-    icon: LayersIcon,
-    requiredDataShape: 'hierarchical',
-    defaultOptions: {
-      nodeThickness: 15,
-      nodePadding: 10
     }
   },
   {
@@ -301,19 +222,19 @@ const CHART_CATALOG: ChartConfig[] = [
       fillOpacity: 0.25,
       showAngularAxis: true
     }
-  },
-  {
-    type: 'gauge',
-    name: 'Gauge Chart',
-    description: 'KPI indicator',
-    icon: TrendingUpIcon,
-    requiredDataShape: 'single-series',
-    defaultOptions: {
-      min: 0,
-      max: 100,
-      showThresholds: true
-    }
   }
+];
+
+// Color palette for charts
+const COLORS = [
+  '#3b82f6', // blue
+  '#10b981', // emerald
+  '#f59e0b', // amber
+  '#ef4444', // red
+  '#8b5cf6', // violet
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#84cc16', // lime
 ];
 
 interface ChartWizardProps {
@@ -325,257 +246,294 @@ interface ChartWizardProps {
 export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps): React.JSX.Element {
   const [selectedChart, setSelectedChart] = useState<ChartType | null>(null);
   const [chartTitle, setChartTitle] = useState('');
-  const [chartData, setChartData] = useState<any>(null);
-  const [chartLayout, setChartLayout] = useState<any>({});
+  const [transformedData, setTransformedData] = useState<any[]>([]);
   const [chartConfig, setChartConfig] = useState<any>({});
-  const [previewMode, setPreviewMode] = useState(false);
 
   useEffect(() => {
     if (selectedChart && data) {
-      generateChartData();
+      transformDataForChart();
     }
   }, [selectedChart, data]);
 
-  const generateChartData = () => {
+  const transformDataForChart = () => {
     const chart = CHART_CATALOG.find(c => c.type === selectedChart);
     if (!chart) return;
 
-    // Transform data based on chart type
-    let traces: any[] = [];
-    const layout: any = {
-      title: chartTitle || `${chart.name} Analysis`,
-      showlegend: true,
-      hovermode: 'closest',
-      paper_bgcolor: 'rgba(0,0,0,0)',
-      plot_bgcolor: 'rgba(0,0,0,0)',
-      font: {
-        color: '#6b7280'
-      },
-      margin: { t: 40, r: 20, b: 40, l: 60 }
+    // Transform data based on chart type and expected Recharts format
+    let transformed: any[] = [];
+
+    // Handle different input data formats
+    if (Array.isArray(data)) {
+      transformed = data;
+    } else if (data.labels && data.values) {
+      // Transform label/value pairs to Recharts format
+      transformed = data.labels.map((label: string, i: number) => ({
+        name: label,
+        value: data.values[i],
+        ...(data.categories && { category: data.categories[i] })
+      }));
+    } else if (data.categories && data.amounts) {
+      transformed = data.categories.map((cat: string, i: number) => ({
+        name: cat,
+        value: data.amounts[i]
+      }));
+    } else if (data.x && data.y) {
+      transformed = data.x.map((xVal: any, i: number) => ({
+        x: xVal,
+        y: data.y[i],
+        ...(data.sizes && { z: data.sizes[i] })
+      }));
+    } else {
+      // Fallback: use data as-is if it's already in the right format
+      transformed = Object.keys(data).map(key => ({
+        name: key,
+        value: data[key]
+      }));
+    }
+
+    setTransformedData(transformed);
+  };
+
+  const renderChart = () => {
+    if (!selectedChart || !transformedData.length) return null;
+
+    const commonProps = {
+      width: '100%',
+      height: 400,
+      data: transformedData,
+      margin: { top: 20, right: 30, left: 20, bottom: 60 }
     };
 
     switch (selectedChart) {
       case 'line':
       case 'multi-line':
-        traces = [{
-          type: 'scatter',
-          mode: 'lines+markers',
-          x: data.labels || data.x,
-          y: data.values || data.y,
-          name: data.name || 'Series 1',
-          line: { shape: 'spline', smoothing: 1.3 }
-        }];
-        break;
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={transformedData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="value"
+                stroke="#3b82f6"
+                strokeWidth={2}
+                dot={{ fill: '#3b82f6', r: 4 }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        );
 
       case 'area':
       case 'stacked-area':
-        traces = [{
-          type: 'scatter',
-          mode: 'lines',
-          x: data.labels || data.x,
-          y: data.values || data.y,
-          fill: 'tozeroy',
-          fillcolor: 'rgba(59, 130, 246, 0.3)',
-          line: { color: '#3b82f6' }
-        }];
-        break;
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <AreaChart data={transformedData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              />
+              <Legend />
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="#3b82f6"
+                fill="#3b82f6"
+                fillOpacity={0.3}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        );
 
       case 'bar':
       case 'grouped-bar':
       case 'stacked-bar':
-        traces = [{
-          type: 'bar',
-          x: data.labels || data.categories,
-          y: data.values || data.amounts,
-          marker: {
-            color: '#3b82f6',
-            line: { width: 1, color: 'rgba(0,0,0,0.1)' }
-          }
-        }];
-        if (selectedChart === 'stacked-bar') {
-          layout.barmode = 'stack';
-        } else if (selectedChart === 'grouped-bar') {
-          layout.barmode = 'group';
-        }
-        break;
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={transformedData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="name" stroke="#6b7280" />
+              <YAxis stroke="#6b7280" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              />
+              <Legend />
+              <Bar dataKey="value" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        );
 
       case 'horizontal-bar':
-        traces = [{
-          type: 'bar',
-          orientation: 'h',
-          y: data.labels || data.categories,
-          x: data.values || data.amounts,
-          marker: {
-            color: '#3b82f6'
-          }
-        }];
-        break;
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={transformedData} layout="horizontal">
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis type="number" stroke="#6b7280" />
+              <YAxis type="category" dataKey="name" stroke="#6b7280" />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              />
+              <Legend />
+              <Bar dataKey="value" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        );
 
       case 'pie':
       case 'donut':
-        traces = [{
-          type: 'pie',
-          labels: data.labels || data.categories,
-          values: data.values || data.amounts,
-          hole: selectedChart === 'donut' ? 0.4 : 0,
-          textposition: 'inside',
-          textinfo: 'label+percent'
-        }];
-        break;
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <PieChart>
+              <Pie
+                data={transformedData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                outerRadius={selectedChart === 'donut' ? 120 : 150}
+                innerRadius={selectedChart === 'donut' ? 60 : 0}
+                fill="#8884d8"
+                dataKey="value"
+              >
+                {transformedData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                ))}
+              </Pie>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        );
 
       case 'scatter':
       case 'bubble':
-        traces = [{
-          type: 'scatter',
-          mode: 'markers',
-          x: data.x || data.xValues,
-          y: data.y || data.yValues,
-          marker: {
-            size: selectedChart === 'bubble' ? (data.sizes || 10) : 8,
-            color: data.colors || '#3b82f6',
-            showscale: selectedChart === 'bubble'
-          }
-        }];
-        break;
-
-      case 'heatmap':
-        traces = [{
-          type: 'heatmap',
-          z: data.z || data.matrix,
-          x: data.x || data.xLabels,
-          y: data.y || data.yLabels,
-          colorscale: 'Viridis'
-        }];
-        break;
-
-      case 'waterfall':
-        traces = [{
-          type: 'waterfall',
-          x: data.labels || data.categories,
-          y: data.values || data.changes,
-          connector: { line: { color: 'rgb(63, 63, 63)' } }
-        }];
-        break;
-
-      case 'funnel':
-        traces = [{
-          type: 'funnel',
-          y: data.labels || data.stages,
-          x: data.values || data.amounts,
-          textposition: 'inside',
-          textinfo: 'value+percent initial'
-        }];
-        break;
-
-      case 'treemap':
-        traces = [{
-          type: 'treemap',
-          labels: data.labels || data.names,
-          parents: data.parents || [''],
-          values: data.values || data.amounts,
-          textinfo: 'label+value+percent parent'
-        }];
-        break;
-
-      case 'sunburst':
-        traces = [{
-          type: 'sunburst',
-          labels: data.labels || data.names,
-          parents: data.parents || [''],
-          values: data.values || data.amounts
-        }];
-        break;
-
-      case 'box':
-      case 'violin':
-        traces = [{
-          type: selectedChart,
-          y: data.values || data.distribution,
-          name: data.name || 'Distribution',
-          box: { visible: true },
-          meanline: { visible: true }
-        }];
-        break;
-
-      case 'candlestick':
-        traces = [{
-          type: 'candlestick',
-          x: data.dates || data.x,
-          open: data.open,
-          high: data.high,
-          low: data.low,
-          close: data.close
-        }];
-        break;
-
-      case 'sankey':
-        traces = [{
-          type: 'sankey',
-          node: {
-            label: data.nodeLabels || data.nodes,
-            color: data.nodeColors || '#3b82f6'
-          },
-          link: {
-            source: data.linkSource || data.sources,
-            target: data.linkTarget || data.targets,
-            value: data.linkValue || data.values
-          }
-        }];
-        break;
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <ScatterChart>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis type="number" dataKey="x" stroke="#6b7280" />
+              <YAxis type="number" dataKey="y" stroke="#6b7280" />
+              <Tooltip
+                cursor={{ strokeDasharray: '3 3' }}
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              />
+              <Scatter
+                data={transformedData}
+                fill="#3b82f6"
+              />
+            </ScatterChart>
+          </ResponsiveContainer>
+        );
 
       case 'radar':
-        traces = [{
-          type: 'scatterpolar',
-          r: data.values || data.r,
-          theta: data.categories || data.theta,
-          fill: 'toself',
-          fillcolor: 'rgba(59, 130, 246, 0.3)',
-          line: { color: '#3b82f6' }
-        }];
-        layout.polar = {
-          radialaxis: {
-            visible: true,
-            range: [0, Math.max(...(data.values || [100]))]
-          }
-        };
-        break;
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <RadarChart data={transformedData}>
+              <PolarGrid stroke="#e5e7eb" />
+              <PolarAngleAxis dataKey="name" stroke="#6b7280" />
+              <PolarRadiusAxis stroke="#6b7280" />
+              <Radar
+                dataKey="value"
+                stroke="#3b82f6"
+                fill="#3b82f6"
+                fillOpacity={0.3}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              />
+            </RadarChart>
+          </ResponsiveContainer>
+        );
 
-      case 'gauge':
-        traces = [{
-          type: 'indicator',
-          mode: 'gauge+number',
-          value: data.value || 0,
-          title: { text: data.label || 'Metric' },
-          gauge: {
-            axis: { range: [null, data.max || 100] },
-            bar: { color: '#3b82f6' },
-            steps: data.steps || [
-              { range: [0, 50], color: 'rgba(239, 68, 68, 0.3)' },
-              { range: [50, 80], color: 'rgba(251, 191, 36, 0.3)' },
-              { range: [80, 100], color: 'rgba(34, 197, 94, 0.3)' }
-            ]
-          }
-        }];
-        break;
+      case 'treemap':
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <Treemap
+              data={transformedData}
+              dataKey="value"
+              aspectRatio={4 / 3}
+              stroke="#fff"
+              fill="#3b82f6"
+            >
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              />
+            </Treemap>
+          </ResponsiveContainer>
+        );
+
+      case 'funnel':
+        return (
+          <ResponsiveContainer width="100%" height={400}>
+            <FunnelChart>
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px'
+                }}
+              />
+              <Funnel
+                dataKey="value"
+                data={transformedData}
+                isAnimationActive
+              >
+                <LabelList position="center" fill="#fff" />
+              </Funnel>
+            </FunnelChart>
+          </ResponsiveContainer>
+        );
 
       default:
-        traces = [{
-          type: 'scatter',
-          x: [1, 2, 3],
-          y: [1, 2, 3]
-        }];
+        return null;
     }
-
-    setChartData(traces);
-    setChartLayout(layout);
   };
 
   const handleSave = () => {
     const config = {
       type: selectedChart,
       title: chartTitle,
-      data: chartData,
-      layout: chartLayout,
+      data: transformedData,
       options: chartConfig
     };
     onSave(config);
@@ -616,7 +574,7 @@ export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps
               className="w-full px-3 py-2 mb-4 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg"
               placeholder="Chart Title"
             />
-            
+
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Select Chart Type</h3>
             <div className="space-y-2">
               {CHART_CATALOG.map((chart) => (
@@ -645,24 +603,11 @@ export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps
 
           {/* Chart Preview */}
           <div className="flex-1 p-6">
-            {selectedChart && chartData ? (
+            {selectedChart && transformedData.length > 0 ? (
               <div className="h-full">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Preview</h3>
                 <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 h-[calc(100%-3rem)]">
-                  <DynamicPlot
-                    data={chartData}
-                    layout={{
-                      ...chartLayout,
-                      autosize: true,
-                      paper_bgcolor: 'transparent',
-                      plot_bgcolor: 'transparent'
-                    }}
-                    config={{
-                      responsive: true,
-                      displayModeBar: false
-                    }}
-                    style={{ width: '100%', height: '100%' }}
-                  />
+                  {renderChart()}
                 </div>
               </div>
             ) : (

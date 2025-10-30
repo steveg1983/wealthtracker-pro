@@ -49,10 +49,6 @@ export default defineConfig({
         manualChunks: (id) => {
           // Custom function to better control chunking
           if (id.includes('node_modules')) {
-            // Plotly needs its own chunk due to size
-            if (id.includes('plotly') || id.includes('react-plotly')) {
-              return 'plotly';
-            }
             // Excel/CSV libraries
             if (id.includes('xlsx') || id.includes('sheetjs')) {
               return 'excel';
@@ -61,8 +57,8 @@ export default defineConfig({
             if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('autotable')) {
               return 'pdf';
             }
-            // Charts (excluding plotly)
-            if (id.includes('recharts') || id.includes('d3-') || id.includes('victory')) {
+            // Charts - Recharts and related libraries
+            if (id.includes('recharts') || id.includes('d3-') || id.includes('victory') || id.includes('chart')) {
               return 'charts';
             }
             // Core React ecosystem

@@ -1,0 +1,1 @@
+import{H as o}from"./chunk-DowOIOga.js";import{b1 as r}from"./index-qHm2isZb.js";const s=s=>o.jsxs(r,{...s,children:[o.jsx("path",{d:"M18 6L6 18",stroke:"currentColor",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round"}),o.jsx("path",{d:"M6 6L18 18",stroke:"currentColor",strokeWidth:"2",strokeLinecap:"round",strokeLinejoin:"round"})]});export{s as X};
