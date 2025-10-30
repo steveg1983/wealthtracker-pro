@@ -44,7 +44,7 @@ export class StripeService {
   /**
    * Get subscription plans configuration
    */
-  static getSubscriptionPlans(): SubscriptionPlan[] {
+  static getSubscriptionPlans(): any[] {
     return [
       {
         id: 'free',

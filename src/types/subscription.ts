@@ -9,6 +9,7 @@ export interface Subscription {
   id: string;
   userId: string;
   plan: SubscriptionPlan;
+  tier?: SubscriptionPlan; // Alias for plan for backward compatibility
   status: SubscriptionStatus;
   billingPeriod: BillingPeriod;
   currentPeriodStart: Date;

@@ -22,6 +22,7 @@ export interface AppState {
   categories: Category[];
   tags: Tag[];
   recurringTransactions: RecurringTransaction[];
+  investments?: Investment[]; // Optional for backward compatibility
 
   // State flags
   isLoading: boolean;
