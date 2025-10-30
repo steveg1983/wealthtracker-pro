@@ -9,7 +9,6 @@ export const isSafari = () => {
 export const getEnvVar = (key: string, defaultValue: string = '') => {
   // Safari might have issues with import.meta.env
   try {
-    // @ts-expect-error
     if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
       return import.meta.env[key];
     }

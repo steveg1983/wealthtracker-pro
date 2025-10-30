@@ -28,7 +28,7 @@ export const AccessibilityDashboard: React.FC = () => {
   } = useAccessibilityAudit({ autoAudit: true });
 
   const [activeTab, setActiveTab] = React.useState<'overview' | 'issues' | 'colors' | 'guidelines'>('overview');
-  const [colorContrastResults, setColorContrastResults] = React.useState<Array<{ fg: string; bg: string; result: unknown }>>([]);
+  const [colorContrastResults, setColorContrastResults] = React.useState<Array<{ fg: string; bg: string; result: ReturnType<typeof ColorContrastChecker.checkContrast> }>>([]);
 
   React.useEffect(() => {
     // Run color contrast audit
@@ -189,7 +189,7 @@ export const AccessibilityDashboard: React.FC = () => {
 
       <div className="grid gap-4">
         {colorContrastResults.map((combo, index) => {
-          const passes = (combo.result as any).passes.normal.aa;
+          const passes = combo.result.passes.normal.aa;
           return (
             <div
               key={index}

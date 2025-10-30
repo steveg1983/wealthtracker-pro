@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { CheckCircle, XCircle, AlertCircle } from './icons';
-import { AccessibilityAuditor } from '../utils/accessibility-audit';
 import { checkHeadingHierarchy } from '../utils/accessibility-fixes';
 
 interface ChecklistItem {

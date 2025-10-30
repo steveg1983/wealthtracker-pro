@@ -363,7 +363,7 @@ class ExportService {
     return doc.output('arraybuffer');
   }
 
-  private async addAccountsSummaryToPDF(doc: typeof jsPDF.prototype, accounts: Account[], yPosition: number): Promise<number> {
+  private async addAccountsSummaryToPDF(doc: any, accounts: Account[], yPosition: number): Promise<number> {
     doc.setFontSize(16);
     doc.text('Accounts Summary', 20, yPosition);
     yPosition += 10;
@@ -415,7 +415,7 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addInvestmentsSummaryToPDF(doc: typeof jsPDF.prototype, investments: Investment[], yPosition: number): Promise<number> {
+  private async addInvestmentsSummaryToPDF(doc: any, investments: Investment[], yPosition: number): Promise<number> {
     doc.setFontSize(16);
     doc.text('Investments Summary', 20, yPosition);
     yPosition += 10;
@@ -438,7 +438,7 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addBudgetsSummaryToPDF(doc: typeof jsPDF.prototype, budgets: Budget[], yPosition: number): Promise<number> {
+  private async addBudgetsSummaryToPDF(doc: any, budgets: Budget[], yPosition: number): Promise<number> {
     doc.setFontSize(16);
     doc.text('Budget Summary', 20, yPosition);
     yPosition += 10;
@@ -461,7 +461,7 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addChartsToPDF(doc: typeof jsPDF.prototype, data: ChartData, yPosition: number): Promise<void> {
+  private async addChartsToPDF(doc: any, data: ChartData, yPosition: number): Promise<void> {
     // This would capture chart elements from the DOM and add them to PDF
     // For now, we'll add a placeholder
     doc.setFontSize(14);

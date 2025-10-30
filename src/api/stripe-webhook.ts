@@ -1,10 +1,35 @@
 import { Stripe } from 'stripe';
+import type { IncomingHttpHeaders } from 'node:http';
+import type { Readable } from 'node:stream';
 import { processWebhookEvent, HANDLED_EVENTS } from '../lib/stripe-webhooks';
 
 // Initialize Stripe with secret key
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
   apiVersion: '2025-08-27.basil',
 });
+
+interface ExpressRequestLike {
+  headers: IncomingHttpHeaders;
+  body: string | Buffer;
+}
+
+interface ExpressResponseLike {
+  status: (code: number) => ExpressResponseLike;
+  json: (body: unknown) => ExpressResponseLike | void;
+  send: (body: unknown) => ExpressResponseLike | void;
+}
+
+interface NextApiRequestLike extends ExpressRequestLike, AsyncIterable<Uint8Array | string> {
+  method?: string;
+}
+
+interface NextApiResponseLike {
+  setHeader: (name: string, value: string) => void;
+  status: (code: number) => NextApiResponseLike;
+  end: (body?: string) => void;
+  send: (body: unknown) => void;
+  json: (body: unknown) => void;
+}
 
 /**
  * Stripe webhook endpoint handler
@@ -17,9 +42,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 // Express.js Implementation
 // ============================================
 export function createExpressWebhookHandler() {
-  return async (req: any, res: any) => {
+  return async (req: ExpressRequestLike, res: ExpressResponseLike) => {
     const sig = req.headers['stripe-signature'];
-    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
 
     let event: Stripe.Event;
 
@@ -30,9 +55,10 @@ export function createExpressWebhookHandler() {
         sig,
         webhookSecret
       );
-    } catch (err: any) {
-      console.error('Webhook signature verification failed:', err);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error('Unknown webhook error');
+      console.error('Webhook signature verification failed:', error);
+      return res.status(400).send(`Webhook Error: ${error.message}`);
     }
 
     // Process the event
@@ -49,7 +75,7 @@ export function createExpressWebhookHandler() {
 // ============================================
 // Next.js API Route Implementation
 // ============================================
-export async function handleNextJsWebhook(req: any, res: any) {
+export async function handleNextJsWebhook(req: NextApiRequestLike, res: NextApiResponseLike) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST');
     return res.status(405).end('Method Not Allowed');
@@ -57,7 +83,7 @@ export async function handleNextJsWebhook(req: any, res: any) {
 
   const buf = await buffer(req);
   const sig = req.headers['stripe-signature'];
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
 
   let event: Stripe.Event;
 
@@ -67,9 +93,10 @@ export async function handleNextJsWebhook(req: any, res: any) {
       sig,
       webhookSecret
     );
-  } catch (err: any) {
-    console.error('Webhook signature verification failed:', err);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Unknown webhook error');
+    console.error('Webhook signature verification failed:', error);
+    return res.status(400).send(`Webhook Error: ${error.message}`);
   }
 
   // Process the event
@@ -91,15 +118,16 @@ export async function handleVercelEdgeWebhook(request: Request) {
   }
 
   const body = await request.text();
-  const sig = request.headers.get('stripe-signature')!;
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+  const sig = request.headers.get('stripe-signature') ?? '';
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
 
   let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
-  } catch (err: any) {
-    console.error('Webhook signature verification failed:', err);
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error('Unknown webhook error');
+    console.error('Webhook signature verification failed:', error);
     return new Response(
       JSON.stringify({ error: 'Webhook signature verification failed' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -141,10 +169,10 @@ export function getWebhookConfig() {
 }
 
 // Helper function for Next.js to get raw body
-async function buffer(readable: any) {
-  const chunks = [];
+async function buffer(readable: Readable | AsyncIterable<Uint8Array | string>) {
+  const chunks: Uint8Array[] = [];
   for await (const chunk of readable) {
-    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+    chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : Buffer.from(chunk));
   }
   return Buffer.concat(chunks);
 }
@@ -153,8 +181,8 @@ async function buffer(readable: any) {
 // Testing Helper
 // ============================================
 export function createTestWebhookEvent(
-  type: string,
-  data: any
+  type: Stripe.Event.Type,
+  data: Stripe.Event.Data.Object
 ): Stripe.Event {
   return {
     id: 'evt_test_' + Date.now(),
@@ -171,6 +199,6 @@ export function createTestWebhookEvent(
       id: null,
       idempotency_key: null
     },
-    type: type as any
+    type
   };
 }

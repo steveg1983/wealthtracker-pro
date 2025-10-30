@@ -24,7 +24,6 @@ export function register(config?: Config): void {
     // Safari compatibility: use fallback for import.meta.env
     let baseUrl = '/';
     try {
-      // @ts-expect-error - Safari might not support import.meta.env
       if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) {
         baseUrl = import.meta.env.BASE_URL;
       }

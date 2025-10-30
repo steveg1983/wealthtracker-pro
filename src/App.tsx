@@ -24,13 +24,10 @@ import { lazyWithPreload, preloadWhenIdle } from './utils/lazyWithPreload';
 import { initSafariCompat } from './utils/safariCompat';
 import { initClerkSafariCompat } from './utils/clerkSafarifix';
 import DiagnosticReport from './DiagnosticReport';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import { PublicRoute } from './components/auth/PublicRoute';
 import { ProtectedSuspense } from './components/auth/ProtectedSuspense';
 import RealtimeSyncTest from './components/RealtimeSyncTest';
 import SafariWarning from './components/SafariWarning';
 import { isDemoMode, initializeDemoData } from './utils/demoData';
-import DebugInfo from './components/DebugInfo';
 import { DebugErrorBoundary } from './components/DebugErrorBoundary';
 
 // Lazy load all pages for code splitting with preload support
@@ -88,7 +85,7 @@ function App(): React.JSX.Element {
         // Safari compatibility mode enabled
 
         // Apply Clerk-specific Safari fixes
-        const clerkCompat = await initClerkSafariCompat();
+        await initClerkSafariCompat();
         // Clerk Safari compatibility applied
       }
     };

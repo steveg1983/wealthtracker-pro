@@ -16,11 +16,21 @@ import {
   // CalendarIcon // Currently unused
 } from './icons';
 
+type BackupHistoryEntry = {
+  timestamp: number;
+  success: boolean;
+  format?: string;
+  filesCreated?: number;
+  error?: string;
+};
+
+type StoredBackup = Awaited<ReturnType<typeof automaticBackupService.getStoredBackups>>[number];
+
 export default function AutomaticBackupSettings() {
   const { addNotification } = useNotifications();
   const [config, setConfig] = useState<BackupConfig>(automaticBackupService.getBackupConfig());
-  const [backupHistory, setBackupHistory] = useState<unknown[]>([]);
-  const [storedBackups, setStoredBackups] = useState<unknown[]>([]);
+  const [backupHistory, setBackupHistory] = useState<BackupHistoryEntry[]>([]);
+  const [storedBackups, setStoredBackups] = useState<StoredBackup[]>([]);
   // const [loading, setLoading] = useState(false); // Currently unused
   const [testingBackup, setTestingBackup] = useState(false);
 
@@ -30,7 +40,7 @@ export default function AutomaticBackupSettings() {
 
   const loadBackupData = async () => {
     try {
-      const history = JSON.parse(localStorage.getItem('money_management_backup_history') || '[]');
+      const history = JSON.parse(localStorage.getItem('money_management_backup_history') || '[]') as BackupHistoryEntry[];
       setBackupHistory(history.slice(0, 10)); // Show last 10 entries
       
       const stored = await automaticBackupService.getStoredBackups();
@@ -301,7 +311,7 @@ export default function AutomaticBackupSettings() {
           </div>
         ) : (
           <div className="space-y-2">
-            {backupHistory.map((entry: any, index) => (
+            {backupHistory.map((entry, index) => (
               <div
                 key={index}
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
