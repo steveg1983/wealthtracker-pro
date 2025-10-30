@@ -86,9 +86,9 @@ export const addTransaction = createAsyncThunk<
       }
       
       // Update budget spent
-      if (transactionData.type === 'expense' && transactionData.categoryId) {
-        const budgets = state.budgets.budgets.filter(b => 
-          b.categoryId === transactionData.categoryId &&
+      if (transactionData.type === 'expense' && transactionData.category) {
+        const budgets = state.budgets.budgets.filter(b =>
+          b.categoryId === transactionData.category &&
           isTransactionInBudgetPeriod(transactionData.date, b)
         );
         
@@ -201,9 +201,9 @@ export const deleteTransaction = createAsyncThunk<
       }
       
       // Recalculate affected budgets
-      if (transaction.type === 'expense' && transaction.categoryId) {
-        const budgets = stateAfter.budgets.budgets.filter(b => 
-          b.categoryId === transaction.categoryId &&
+      if (transaction.type === 'expense' && transaction.category) {
+        const budgets = stateAfter.budgets.budgets.filter(b =>
+          b.categoryId === transaction.category &&
           isTransactionInBudgetPeriod(transaction.date, b)
         );
         
@@ -254,7 +254,7 @@ function calculateBudgetSpent(
 ): number {
   const budgetTransactions = transactions.filter(t =>
     t.type === 'expense' &&
-    t.categoryId === budget.categoryId &&
+    t.category === budget.categoryId &&
     isTransactionInBudgetPeriod(t.date, budget)
   );
   
@@ -324,18 +324,18 @@ function recalculateAffectedBudgets(
   const affectedBudgetIds = new Set<string>();
   
   // Check old transaction's budget
-  if (oldTransaction.type === 'expense' && oldTransaction.categoryId) {
-    const oldBudgets = state.budgets.budgets.filter(b => 
-      b.categoryId === oldTransaction.categoryId &&
+  if (oldTransaction.type === 'expense' && oldTransaction.category) {
+    const oldBudgets = state.budgets.budgets.filter(b =>
+      b.categoryId === oldTransaction.category &&
       isTransactionInBudgetPeriod(oldTransaction.date, b)
     );
     oldBudgets.forEach(b => affectedBudgetIds.add(b.id));
   }
   
   // Check new transaction's budget
-  if (newTransaction.type === 'expense' && newTransaction.categoryId) {
-    const newBudgets = state.budgets.budgets.filter(b => 
-      b.categoryId === newTransaction.categoryId &&
+  if (newTransaction.type === 'expense' && newTransaction.category) {
+    const newBudgets = state.budgets.budgets.filter(b =>
+      b.categoryId === newTransaction.category &&
       isTransactionInBudgetPeriod(newTransaction.date, b)
     );
     newBudgets.forEach(b => affectedBudgetIds.add(b.id));

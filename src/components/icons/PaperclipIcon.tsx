@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconProps } from './IconBase';
+import type { IconProps } from './IconBase';
 
 export default function PaperclipIcon({ size = 24, color = 'currentColor', className = '', ...props }: IconProps) {
   return (

@@ -21,7 +21,16 @@
     "noUnusedParameters": false,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": false
+    "noUncheckedSideEffectImports": false,
+
+    /* Path mappings */
+    "baseUrl": ".",
+    "paths": {
+      "@wealthtracker/utils": ["./packages/utils/index.ts"],
+      "@wealthtracker/utils/*": ["./packages/utils/*"],
+      "@wealthtracker/types/*": ["./packages/types/*"],
+      "@app-types/*": ["./src/types/*"]
+    }
   },
   "include": ["src"],
   "exclude": [

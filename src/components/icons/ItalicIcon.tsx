@@ -1,5 +1,6 @@
 import React from 'react';
-import { IconBase, IconProps } from './IconBase';
+import { IconBase } from './IconBase';
+import type { IconProps } from './IconBase';
 
 export const ItalicIcon: React.FC<IconProps> = (props) => (
   <IconBase {...props}>

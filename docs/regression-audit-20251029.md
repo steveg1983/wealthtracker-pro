@@ -9,7 +9,7 @@ Target journeys: **Dashboard**, **Budgeting**, **Data Imports**.
 | Dashboard widgets & navigation | `npx vitest run src/test/integration/DashboardInteractionsIntegration.test.tsx --environment jsdom` | ✅ Passing (log: `logs/quality-gates/20251029_dashboard-vitest.log`) – onboarding/test-data modals are suppressed in setup, and assertions now key off the restored “Your Net Worth” hero + quick-actions CTA. |
 | Budget workflows | `npx vitest run src/test/integration/BudgetWorkflowIntegration.test.tsx --environment jsdom` | ✅ Passes (log: `logs/quality-gates/20251029_budget-vitest.log`) – only jsdom’s `window.scrollTo` warning emitted. |
 | Import modals (CSV/OFX/QIF/batch) | `npx vitest run src/components/{ImportDataModal,CSVImportWizard,OFXImportModal,QIFImportModal,BatchImportModal}.test.tsx --environment jsdom` | ✅ Passing (log: `logs/quality-gates/20251029_import-vitest.log`) – tests now mock `useApp` via the Supabase context, so CTA enablement works without hitting the real onboarding/test-data flows. |
-| Supabase smoke (real DB) | `npm run test:supabase-smoke` | ✅ Seeds profile/account, writes a transaction with service-role client, verifies read via anon client, asserts anon delete is blocked (RLS), cleans up. Requires Supabase secrets present. Nightly CI job defined in `.github/workflows/supabase-smoke.yml`. |
+| Supabase smoke (real DB) | `npm run test:supabase-smoke` | ⚠️ **CRITICAL SECURITY ISSUE FOUND** (2025-10-30): RLS DELETE policy missing on transactions table. Anonymous users can delete any transaction. Fix created in `supabase/migrations/20251030004000__fix-transactions-rls-delete.sql` - awaiting application via Supabase Dashboard. |
 
 ## Findings
 
@@ -36,6 +36,34 @@ Target journeys: **Dashboard**, **Budgeting**, **Data Imports**.
    - Dashboard quick filters (ensure Supabase data loader mock loads seed data).
    - Budget rollovers (verify Decimal math after restore).
    - CSV/QIF import happy paths (reuse `enhancedCsvImportService` fixtures).
+
+## 🔴 CRITICAL SECURITY VULNERABILITY - 2025-10-30
+
+### RLS Policy Missing on Transactions Table
+
+**Issue:** The Supabase smoke test revealed that anonymous users can delete ANY transaction in the database, not just their own.
+
+**Test Output:**
+```
+❯ src/test/supabase/supabase-smoke.test.ts (2 tests | 1 failed)
+   ✓ creates a transaction via service role and reads it as anon user 255ms
+   × enforces RLS by blocking anon deletion 193ms
+     → expected null to be truthy (no error returned when it should be blocked)
+```
+
+**Root Cause:** Missing DELETE RLS policy on the `transactions` table. While SELECT, INSERT, and UPDATE policies exist, there's no policy restricting DELETE operations.
+
+**Fix Created:** `supabase/migrations/20251030004000__fix-transactions-rls-delete.sql`
+- Adds proper DELETE policy ensuring users can only delete their own transactions
+- Service role retains full access for administrative operations
+
+**Action Required:**
+1. **IMMEDIATE**: Apply the fix in [Supabase SQL Editor](https://app.supabase.com/project/nqbacrjjgdjabygqtcah/editor)
+2. Run the SQL from `20251030004000__fix-transactions-rls-delete.sql`
+3. Re-run `npm run test:supabase-smoke` to confirm fix
+4. Update this audit once confirmed resolved
+
+**Risk Level:** CRITICAL - Any authenticated user could potentially delete all transaction data
 
 ## Frontend Stream Updates - 23:55 UTC
 

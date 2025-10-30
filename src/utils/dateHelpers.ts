@@ -2,6 +2,9 @@
  * Utility functions for handling dates in Redux state
  */
 
+// Type for function inputs that accept either Date or string
+export type DateInput = Date | string | undefined | null;
+
 /**
  * Convert a Date object or ISO string to ISO string for Redux storage
  */
