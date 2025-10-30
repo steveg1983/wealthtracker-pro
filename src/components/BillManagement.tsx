@@ -9,15 +9,10 @@ import {
   CalendarIcon, 
   AlertCircleIcon, 
   CheckCircleIcon,
-  CreditCardIcon,
-  BellIcon,
-  XCircleIcon,
-  EditIcon,
   DeleteIcon,
   ClockIcon,
   RepeatIcon,
-  DollarSignIcon,
-  InfoIcon
+  DollarSignIcon
 } from './icons';
 
 export interface Bill {
@@ -55,8 +50,6 @@ export default function BillManagement() {
   const { formatCurrency } = useCurrencyDecimal();
   const [bills, setBills] = useLocalStorage<Bill[]>('bills', []);
   const [showAddBill, setShowAddBill] = useState(false);
-  const [editingBill, setEditingBill] = useState<Bill | null>(null);
-  const [selectedBill, setSelectedBill] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'upcoming' | 'overdue' | 'all' | 'history'>('upcoming');
   
   const [newBill, setNewBill] = useState({
@@ -275,20 +268,16 @@ export default function BillManagement() {
           
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setEditingBill(bill)}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <EditIcon size={16} />
-            </button>
-            <button
               onClick={() => handleToggleActive(bill.id)}
               className={`p-2 ${bill.isActive ? 'text-green-600' : 'text-gray-400'} hover:text-green-700`}
+              aria-label={bill.isActive ? 'Mark bill inactive' : 'Mark bill active'}
             >
               <CheckCircleIcon size={16} />
             </button>
             <button
               onClick={() => handleDeleteBill(bill.id)}
               className="p-2 text-gray-400 hover:text-red-500"
+              aria-label="Delete bill"
             >
               <DeleteIcon size={16} />
             </button>
@@ -329,13 +318,6 @@ export default function BillManagement() {
           >
             <CheckCircleIcon size={16} />
             Pay Now
-          </button>
-          <button
-            onClick={() => setSelectedBill(bill.id)}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-          >
-            <InfoIcon size={16} />
-            Details
           </button>
         </div>
       </div>

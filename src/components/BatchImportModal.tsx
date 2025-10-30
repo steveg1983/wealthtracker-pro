@@ -6,12 +6,9 @@ import { qifImportService } from '../services/qifImportService';
 import { Modal } from './common/Modal';
 import { 
   UploadIcon, 
-  FileTextIcon, 
   CheckIcon, 
   XIcon,
   AlertCircleIcon,
-  ChevronRightIcon,
-  ChevronLeftIcon,
   FolderIcon,
   PlayIcon,
   StopIcon

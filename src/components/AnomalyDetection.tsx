@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { anomalyDetectionService, type Anomaly, type AnomalyDetectionConfig } from '../services/anomalyDetectionService';
 import { 
@@ -25,11 +25,7 @@ export default function AnomalyDetection() {
   const [showSettings, setShowSettings] = useState(false);
   const [selectedAnomaly, setSelectedAnomaly] = useState<Anomaly | null>(null);
 
-  useEffect(() => {
-    detectAnomalies();
-  }, [transactions, categories]);
-
-  const detectAnomalies = async () => {
+  const detectAnomalies = useCallback(async () => {
     setLoading(true);
     try {
       const detected = await anomalyDetectionService.detectAnomalies(transactions, categories);
@@ -38,7 +34,11 @@ export default function AnomalyDetection() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [transactions, categories]);
+
+  useEffect(() => {
+    detectAnomalies();
+  }, [detectAnomalies]);
 
   const handleDismissAnomaly = (anomalyId: string) => {
     anomalyDetectionService.dismissAnomaly(anomalyId);

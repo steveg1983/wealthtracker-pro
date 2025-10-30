@@ -547,7 +547,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       goals,
       categories,
       tags,
-      recurringTransactions
+      recurringTransactions,
+      isLoading: false,
+      isSyncing: false,
+      isUsingSupabase: true,
+      hasTestData: false,
+      error: null,
+      lastSync: null,
+      userId: null,
+      userName: null,
+      userEmail: null
     };
   }, [accounts, transactions, budgets, goals, categories, tags, recurringTransactions]);
 

@@ -154,7 +154,7 @@ export class AccessibilityTester {
       
       if (index === 0 && level !== 1) {
         issues.push({
-          element: heading,
+          element: heading as HTMLElement,
           type: 'warning',
           category: 'Structure',
           message: 'Page should start with an h1',
@@ -164,7 +164,7 @@ export class AccessibilityTester {
       
       if (level > lastLevel + 1) {
         issues.push({
-          element: heading,
+          element: heading as HTMLElement,
           type: 'warning',
           category: 'Structure',
           message: `Heading level skipped from h${lastLevel} to h${level}`,

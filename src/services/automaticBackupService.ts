@@ -1,5 +1,5 @@
 import { exportService } from './exportService';
-import type { ExportOptions } from '../types/export';
+import type { ExportOptions } from './exportService';
 
 export interface BackupConfig {
   enabled: boolean;

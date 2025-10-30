@@ -5,7 +5,7 @@
 
 import React from 'react';
 
-import { serviceWorkerRegistration } from '../utils/serviceWorkerRegistration';
+import { getRegistration } from '../utils/serviceWorkerRegistration';
 
 interface NotificationOptions {
   title: string;

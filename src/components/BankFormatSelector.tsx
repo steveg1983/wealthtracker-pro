@@ -1,14 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { enhancedCsvImportService } from '../services/enhancedCsvImportService';
 import { 
   SearchIcon, 
   CheckIcon, 
   GlobeIcon, 
-  Building2Icon as BankIcon, 
-  CreditCardIcon,
-  LineChartIcon,
-  DollarSignIcon as BitcoinIcon,
-  BriefcaseIcon,
+  Building2Icon as BankIcon,
   SettingsIcon
 } from './icons';
 
@@ -123,20 +118,10 @@ const TYPE_GROUPS: Record<string, string> = {
   'business': 'Business Software'
 };
 
-const TYPE_ICONS = {
-  'traditional': BankIcon,
-  'digital': CreditCardIcon,
-  'investment': LineChartIcon,
-  'crypto': BitcoinIcon,
-  'payment': CreditCardIcon,
-  'business': BriefcaseIcon
-};
-
 export default function BankFormatSelector({ onBankSelected, selectedBank, className }: BankFormatSelectorProps): React.JSX.Element {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRegion, setSelectedRegion] = useState<string>('all');
   const [selectedType, setSelectedType] = useState<string>('all');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   const filteredBanks = useMemo(() => {
     return BANK_FORMATS.filter(bank => {
@@ -155,7 +140,6 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
     const groups: Record<string, BankFormat[]> = {};
     
     filteredBanks.forEach(bank => {
-      const groupKey = selectedRegion !== 'all' ? bank.type : bank.region;
       const groupName = selectedRegion !== 'all' ? TYPE_GROUPS[bank.type] : REGION_GROUPS[bank.region];
       
       if (!groups[groupName]) {
@@ -227,67 +211,36 @@ export default function BankFormatSelector({ onBankSelected, selectedBank, class
               {groupName} ({banks.length})
             </h3>
             
-            {viewMode === 'grid' ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {banks.map(bank => {
-                  const isSelected = selectedBank === bank.key;
-                  return (
-                    <button
-                      key={bank.key}
-                      onClick={() => handleBankSelect(bank)}
-                      className={`p-4 rounded-lg border-2 text-left transition-all hover:shadow-md ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                      }`}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-gray-900 dark:text-white text-sm">
-                            {bank.name}
-                          </h4>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {bank.region} • {TYPE_GROUPS[bank.type]}
-                          </p>
-                        </div>
-                        {isSelected && (
-                          <CheckIcon size={16} className="text-blue-500 flex-shrink-0" />
-                        )}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {banks.map(bank => {
-                  const isSelected = selectedBank === bank.key;
-                  return (
-                    <button
-                      key={bank.key}
-                      onClick={() => handleBankSelect(bank)}
-                      className={`w-full p-3 rounded-lg border text-left transition-all flex items-center justify-between ${
-                        isSelected
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                      }`}
-                    >
-                      <div>
-                        <h4 className="font-medium text-gray-900 dark:text-white">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {banks.map(bank => {
+                const isSelected = selectedBank === bank.key;
+                return (
+                  <button
+                    key={bank.key}
+                    onClick={() => handleBankSelect(bank)}
+                    className={`p-4 rounded-lg border-2 text-left transition-all hover:shadow-md ${
+                      isSelected
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-gray-900 dark:text-white text-sm">
                           {bank.name}
                         </h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                           {bank.region} • {TYPE_GROUPS[bank.type]}
                         </p>
                       </div>
                       {isSelected && (
-                        <CheckIcon size={20} className="text-blue-500" />
+                        <CheckIcon size={16} className="text-blue-500 flex-shrink-0" />
                       )}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         ))}
         

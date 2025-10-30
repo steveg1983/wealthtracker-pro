@@ -360,7 +360,7 @@ class ExportService {
       await this.addChartsToPDF(doc, data, yPosition);
     }
 
-    return doc.output('arraybuffer');
+    return doc.output('arraybuffer') as any as Uint8Array;
   }
 
   private async addAccountsSummaryToPDF(doc: any, accounts: Account[], yPosition: number): Promise<number> {
