@@ -11,9 +11,12 @@ files=(
   "src/components/ExcelExport.tsx"
   "src/components/SmartCategorization.tsx"
   "src/components/CategorySuggestion.tsx"
+  "src/components/VisualBudgetProgress.tsx"
   "src/utils/calculations.ts"
   "src/utils/calculations-decimal.ts"
   "src/hooks/useActivityLogger.ts"
+  "src/services/budgetRecommendationService.ts"
+  "src/services/financialSummaryService.ts"
 )
 
 for file in "${files[@]}"; do

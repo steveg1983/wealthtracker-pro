@@ -89,7 +89,7 @@ export default function RecurringTransactions(): React.JSX.Element {
     try {
       // Create transaction from template
       const transaction: Omit<Transaction, 'id'> = {
-        date: template.nextDate,
+        date: new Date(template.nextDate),
         description: template.description,
         amount: template.amount,
         category: template.category,

@@ -121,8 +121,8 @@ export async function createAccount(
     const localAccount: Account = {
       ...account,
       id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
     
     const accounts = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS) || [];

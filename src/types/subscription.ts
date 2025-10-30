@@ -19,6 +19,10 @@ export interface Subscription {
   updatedAt: Date;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
+  stripePriceId?: string;
+  trialStart?: Date;
+  trialEnd?: Date;
+  cancelledAt?: Date;
 }
 
 // Alias for compatibility
@@ -128,4 +132,22 @@ export interface BillingDetails {
     country: string;
   };
   taxId?: string;
+}
+
+// Subscription usage tracking
+export interface SubscriptionUsage {
+  subscriptionId: string;
+  period: {
+    start: Date;
+    end: Date;
+  };
+  usage: UsageMetrics;
+  limits: FeatureLimits;
+  percentageUsed: {
+    accounts: number;
+    transactions: number;
+    budgets: number;
+    goals: number;
+    storage: number;
+  };
 }
