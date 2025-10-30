@@ -331,8 +331,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
           t.description,
           t.category,
           accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-          parseFloat(t.amount),
-          parseFloat(t.amount) > 0 ? 'Income' : 'Expense',
+          t.amount,
+          t.amount > 0 ? 'Income' : 'Expense',
           0 // Would calculate running balance in production
         ])
       ];

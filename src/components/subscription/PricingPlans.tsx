@@ -40,7 +40,7 @@ export default function PricingPlans({
   const plans = StripeService.getSubscriptionPlans();
   const displayPlans = showFreePlan ? plans : plans.filter(p => p.tier !== 'free');
 
-  const handleSelectPlan = async (plan: SubscriptionPlan) => {
+  const handleSelectPlan = async (plan: any) => {
     if (plan.tier === currentTier) return;
     if (plan.tier === 'free') return; // Free plan doesn't need payment
 

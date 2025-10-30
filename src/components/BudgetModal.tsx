@@ -30,7 +30,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
     {
       onSubmit: (data) => {
         const budgetData = {
-          category: data.category,
+          categoryId: data.category,
           amount: parseFloat(data.amount),
           period: data.period,
           isActive: data.isActive
