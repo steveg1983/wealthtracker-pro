@@ -83,7 +83,7 @@ export default function SharedBudgetsGoals() {
       const sharedBudget = sharedFinanceService.createSharedBudget(
         {
           name: budgetForm.name,
-          categoryId: budgetForm.categoryIdId,
+          categoryId: budgetForm.categoryId,
           amount: Number(budgetForm.amount),
           period: budgetForm.period,
           isActive: true
@@ -131,7 +131,6 @@ export default function SharedBudgetsGoals() {
           targetAmount: Number(goalForm.targetAmount),
           currentAmount: 0,
           targetDate: new Date(goalForm.targetDate),
-          categoryId: goalForm.categoryId,
           description: goalForm.description,
           isCompleted: false
         },
@@ -146,7 +145,6 @@ export default function SharedBudgetsGoals() {
         name: goalForm.name,
         targetAmount: Number(goalForm.targetAmount),
         targetDate: new Date(goalForm.targetDate),
-        categoryId: goalForm.categoryId,
         description: goalForm.description
       });
 

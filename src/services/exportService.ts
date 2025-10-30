@@ -316,8 +316,8 @@ class ExportService {
       const module = await import('jspdf');
       jsPDF = module.jsPDF;
     }
-    
-    const doc = new jsPDF();
+
+    const doc = new jsPDF!();
     let yPosition = 20;
 
     // Add header
@@ -415,7 +415,7 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addInvestmentsSummaryToPDF(doc: jsPDF, investments: Investment[], yPosition: number): Promise<number> {
+  private async addInvestmentsSummaryToPDF(doc: typeof jsPDF.prototype, investments: Investment[], yPosition: number): Promise<number> {
     doc.setFontSize(16);
     doc.text('Investments Summary', 20, yPosition);
     yPosition += 10;
@@ -438,7 +438,7 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addBudgetsSummaryToPDF(doc: jsPDF, budgets: Budget[], yPosition: number): Promise<number> {
+  private async addBudgetsSummaryToPDF(doc: typeof jsPDF.prototype, budgets: Budget[], yPosition: number): Promise<number> {
     doc.setFontSize(16);
     doc.text('Budget Summary', 20, yPosition);
     yPosition += 10;
@@ -461,7 +461,7 @@ class ExportService {
     return yPosition + 15;
   }
 
-  private async addChartsToPDF(doc: jsPDF, data: ChartData, yPosition: number): Promise<void> {
+  private async addChartsToPDF(doc: typeof jsPDF.prototype, data: ChartData, yPosition: number): Promise<void> {
     // This would capture chart elements from the DOM and add them to PDF
     // For now, we'll add a placeholder
     doc.setFontSize(14);
