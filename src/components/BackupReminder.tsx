@@ -108,7 +108,7 @@ export default function BackupReminder(): React.JSX.Element {
           a.click();
           URL.revokeObjectURL(url);
         } else if (format === 'csv') {
-          const csv = exportService.exportToCSV(transactions);
+          const csv = await exportService.exportToCSV(transactions);
           const blob = new Blob([csv], { type: 'text/csv' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');

@@ -1,7 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home, Chrome } from 'lucide-react';
-import { handleClerkSafariError } from '../../utils/clerkSafarifix';
-import { isSafari } from '../../utils/safariCompat';
+import { handleClerkSafariError } from '../utils/clerkSafarifix';
+import { isSafari } from '../utils/safariCompat';
 
 interface Props {
   children: ReactNode;

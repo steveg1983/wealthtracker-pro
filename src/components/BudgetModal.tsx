@@ -13,7 +13,7 @@ interface BudgetModalProps {
 interface FormData {
   category: string;
   amount: string;
-  period: 'monthly' | 'weekly' | 'yearly';
+  period: 'monthly' | 'weekly' | 'yearly' | 'custom' | 'quarterly';
   isActive: boolean;
 }
 
