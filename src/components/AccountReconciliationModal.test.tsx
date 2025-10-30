@@ -18,10 +18,10 @@ vi.mock('./CategoryCreationModal', () => ({
 
 // Mock icons
 vi.mock('./icons', () => ({
-  XIcon: ({}: { size?: number }) => <div data-testid="x-icon">X</div>,
-  CalendarIcon: ({}: { size?: number }) => <div data-testid="calendar-icon">Cal</div>,
-  BanknoteIcon: ({}: { size?: number }) => <div data-testid="banknote-icon">Bank</div>,
-  CalculatorIcon: ({}: { size?: number }) => <div data-testid="calculator-icon">Calc</div>,
+  XIcon: (_props: { size?: number }) => <div data-testid="x-icon">X</div>,
+  CalendarIcon: (_props: { size?: number }) => <div data-testid="calendar-icon">Cal</div>,
+  BanknoteIcon: (_props: { size?: number }) => <div data-testid="banknote-icon">Bank</div>,
+  CalculatorIcon: (_props: { size?: number }) => <div data-testid="calculator-icon">Calc</div>,
 }));
 
 // Mock utility functions

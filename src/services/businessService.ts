@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import Decimal from 'decimal.js';
 import type { Transaction, Account } from '../types';
 import type { SavedInvoice, SavedMileageEntry, SavedBusinessExpense } from '../types/business';
 

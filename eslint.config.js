@@ -46,4 +46,11 @@ export default tseslint.config([
       'react-refresh/only-export-components': 'warn'
     }
   },
+  {
+    files: ['**/*.test.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'no-empty-pattern': 'off'
+    }
+  }
 ])

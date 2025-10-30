@@ -16,10 +16,10 @@ interface DashboardChartsProps {
 export default function DashboardCharts(_: DashboardChartsProps): React.JSX.Element {
   return (
     <div className="space-y-4">
-      <NetWorthWidget />
-      <CashFlowWidget />
-      <ExpenseBreakdownWidget />
-      <BudgetSummaryWidget />
+      <NetWorthWidget size="medium" settings={{}} />
+      <CashFlowWidget size="medium" settings={{}} />
+      <ExpenseBreakdownWidget size="medium" settings={{}} />
+      <BudgetSummaryWidget size="medium" settings={{}} />
     </div>
   );
 }

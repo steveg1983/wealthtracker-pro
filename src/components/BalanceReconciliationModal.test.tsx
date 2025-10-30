@@ -6,7 +6,7 @@ import type { ReconciliationOption } from './BalanceReconciliationModal';
 
 // Mock Modal component
 vi.mock('./common/Modal', () => ({
-  Modal: ({ isOpen, onClose, title, children }: any) => 
+  Modal: ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) => 
     isOpen ? (
       <div role="dialog" aria-label={title}>
         <h2>{title}</h2>
@@ -18,11 +18,11 @@ vi.mock('./common/Modal', () => ({
 
 // Mock icons
 vi.mock('./icons', () => ({
-  AlertCircleIcon: ({ size, className }: any) => <div data-testid="alert-icon" className={className}>Alert</div>,
-  ArrowRightIcon: ({ size, className }: any) => <div data-testid="arrow-icon" className={className}>→</div>,
-  CalendarIcon: ({ size, className }: any) => <div data-testid="calendar-icon" className={className}>Calendar</div>,
-  PlusCircleIcon: ({ size, className }: any) => <div data-testid="plus-icon" className={className}>Plus</div>,
-  BanknoteIcon: ({ size, className }: any) => <div data-testid="banknote-icon" className={className}>Banknote</div>,
+  AlertCircleIcon: ({ className }: { size?: number; className?: string }) => <div data-testid="alert-icon" className={className}>Alert</div>,
+  ArrowRightIcon: ({ className }: { size?: number; className?: string }) => <div data-testid="arrow-icon" className={className}>→</div>,
+  CalendarIcon: ({ className }: { size?: number; className?: string }) => <div data-testid="calendar-icon" className={className}>Calendar</div>,
+  PlusCircleIcon: ({ className }: { size?: number; className?: string }) => <div data-testid="plus-icon" className={className}>Plus</div>,
+  BanknoteIcon: ({ className }: { size?: number; className?: string }) => <div data-testid="banknote-icon" className={className}>Banknote</div>,
 }));
 
 // Mock useCurrencyDecimal hook

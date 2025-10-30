@@ -229,7 +229,7 @@ class AutoSyncService {
               description: transaction.description,
               date: transaction.date,
               category: transaction.category,
-              subcategory: transaction.subcategory || null,
+              subcategory: transaction.category || null,
               type: transaction.type,
               is_recurring: transaction.isRecurring || false,
               notes: transaction.notes || null,

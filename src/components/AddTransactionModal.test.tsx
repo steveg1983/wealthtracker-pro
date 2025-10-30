@@ -245,7 +245,6 @@ describe('AddTransactionModal', () => {
       renderModal();
       
       // Find the category select (it has "Select category" as an option)
-      const categorySelect = screen.getByRole('combobox', { name: '' });
       const categorySelects = screen.getAllByRole('combobox');
       // The second select is the category select (first is account)
       const actualCategorySelect = categorySelects[1];

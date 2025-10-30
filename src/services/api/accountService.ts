@@ -209,7 +209,7 @@ export class AccountService {
       
       if (index !== -1) {
         accounts[index].balance = newBalance;
-        accounts[index].updated_at = new Date().toISOString();
+        accounts[index].updatedAt = new Date().toISOString();
         await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);
       }
       return;

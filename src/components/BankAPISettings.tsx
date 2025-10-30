@@ -25,7 +25,7 @@ export default function BankAPISettings() {
 
   useEffect(() => {
     // Load existing config (would need to implement secure retrieval)
-    const status = bankConnectionService.getConfigStatus();
+    bankConnectionService.getConfigStatus();
     // For security, we don't load actual secrets back into the form
   }, []);
 

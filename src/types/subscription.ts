@@ -151,3 +151,22 @@ export interface SubscriptionUsage {
     storage: number;
   };
 }
+
+// API Request/Response types
+export interface CreateSubscriptionRequest {
+  userId: string;
+  plan: SubscriptionPlan;
+  billingPeriod: BillingPeriod;
+  paymentMethodId?: string;
+}
+
+export interface CreateSubscriptionResponse {
+  subscription: Subscription;
+  clientSecret?: string;
+}
+
+export interface UpdateSubscriptionRequest {
+  plan?: SubscriptionPlan;
+  billingPeriod?: BillingPeriod;
+  cancelAtPeriodEnd?: boolean;
+}

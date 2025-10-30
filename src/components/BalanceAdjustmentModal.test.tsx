@@ -5,7 +5,7 @@ import type { Account, Category } from '../types';
 
 // Mock child components
 vi.mock('./CategoryCreationModal', () => ({
-  default: ({ isOpen, onClose }: any) => 
+  default: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => 
     isOpen ? (
       <div data-testid="category-creation-modal">
         <button onClick={onClose}>Close Category Modal</button>
@@ -15,9 +15,9 @@ vi.mock('./CategoryCreationModal', () => ({
 
 // Mock icons
 vi.mock('./icons', () => ({
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
-  CalendarIcon: ({ size }: any) => <div data-testid="calendar-icon">Cal</div>,
-  TagIcon: ({ size }: any) => <div data-testid="tag-icon">Tag</div>,
+  XIcon: (_props: { size?: number }) => <div data-testid="x-icon">X</div>,
+  CalendarIcon: (_props: { size?: number }) => <div data-testid="calendar-icon">Cal</div>,
+  TagIcon: (_props: { size?: number }) => <div data-testid="tag-icon">Tag</div>,
 }));
 
 // Mock utility functions

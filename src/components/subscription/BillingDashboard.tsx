@@ -345,7 +345,7 @@ export default function BillingDashboard({
       )}
 
       {/* Billing History */}
-      {billingHistory?.invoices && billingHistory.invoices.length > 0 && (
+      {billingHistory?.invoiceId && billingHistory.invoiceId.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Billing History
@@ -373,7 +373,7 @@ export default function BillingDashboard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {billingHistory.invoices.map((invoice: any) => (
+                {billingHistory.invoiceId.map((invoice: any) => (
                   <tr key={invoice.id}>
                     <td className="py-4 text-sm text-gray-900 dark:text-white">
                       {formatDate(invoice.createdAt)}

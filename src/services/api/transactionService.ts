@@ -70,7 +70,7 @@ export class TransactionService {
       }
 
       // Update account balance
-      await this.updateAccountBalance(transaction.account_id, transaction.amount);
+      await this.updateAccountBalance(transaction.accountId, transaction.amount);
 
       return data;
     } catch (error) {
@@ -126,7 +126,7 @@ export class TransactionService {
       // Update account balance if amount changed
       if (oldTransaction && updates.amount !== undefined && updates.amount !== oldTransaction.amount) {
         const difference = (updates.amount as number) - oldTransaction.amount;
-        await this.updateAccountBalance(oldTransaction.account_id, difference);
+        await this.updateAccountBalance(oldTransaction.accountId, difference);
       }
 
       return data;
@@ -168,7 +168,7 @@ export class TransactionService {
 
       // Update account balance
       if (transaction) {
-        await this.updateAccountBalance(transaction.account_id, -transaction.amount);
+        await this.updateAccountBalance(transaction.accountId, -transaction.amount);
       }
     } catch (error) {
       console.error('TransactionService.deleteTransaction error:', error);
@@ -219,7 +219,7 @@ export class TransactionService {
   static async getTransactionsByAccount(accountId: string): Promise<Transaction[]> {
     if (!isSupabaseConfigured()) {
       const transactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
-      return transactions.filter(t => t.account_id === accountId);
+      return transactions.filter(t => t.accountId === accountId);
     }
 
     try {
@@ -307,7 +307,7 @@ export class TransactionService {
 
       // Update account balances
       for (const transaction of data || []) {
-        await this.updateAccountBalance(transaction.account_id, transaction.amount);
+        await this.updateAccountBalance(transaction.accountId, transaction.amount);
       }
 
       return data || [];

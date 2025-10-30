@@ -197,7 +197,7 @@ export function QuickFiltersAndSearch({
           const query = search.query.toLowerCase();
           if (!t.description.toLowerCase().includes(query) &&
               !t.category?.toLowerCase().includes(query) &&
-              !t.note?.toLowerCase().includes(query)) {
+              !t.notes?.toLowerCase().includes(query)) {
             return false;
           }
         }
@@ -265,7 +265,7 @@ export function QuickFiltersAndSearch({
       const q = query.toLowerCase();
       return t.description.toLowerCase().includes(q) ||
              t.category?.toLowerCase().includes(q) ||
-             t.note?.toLowerCase().includes(q) ||
+             t.notes?.toLowerCase().includes(q) ||
              t.accountId.toLowerCase().includes(q);
     };
     

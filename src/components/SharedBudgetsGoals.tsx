@@ -131,8 +131,7 @@ export default function SharedBudgetsGoals() {
           targetAmount: Number(goalForm.targetAmount),
           currentAmount: 0,
           targetDate: new Date(goalForm.targetDate),
-          description: goalForm.description,
-          isCompleted: false
+          description: goalForm.description
         },
         household.id,
         currentMember.id,

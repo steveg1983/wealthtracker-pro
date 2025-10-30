@@ -5,9 +5,11 @@ import AccountSelectionModal from './AccountSelectionModal';
 
 // Mock icons
 vi.mock('./icons', () => ({
-  CheckIcon: ({}: { size?: number }) => <div data-testid="check-icon">Check</div>,
-  AlertCircleIcon: ({ className }: { size?: number; className?: string }) => <div data-testid="alert-icon" className={className}>Alert</div>,
-  FileTextIcon: ({}: { size?: number }) => <div data-testid="file-icon">File</div>,
+  CheckIcon: (_props: { size?: number }) => <div data-testid="check-icon">Check</div>,
+  AlertCircleIcon: ({ className }: { size?: number; className?: string }) => (
+    <div data-testid="alert-icon" className={className}>Alert</div>
+  ),
+  FileTextIcon: (_props: { size?: number }) => <div data-testid="file-icon">File</div>,
 }));
 
 describe('AccountSelectionModal', () => {

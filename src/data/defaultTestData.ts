@@ -567,7 +567,7 @@ export const getDefaultTestBudgets = (): Budget[] => {
   return [
     {
       id: '1',
-      category: 'Groceries',
+      categoryId: 'Groceries',
       amount: 600,
       period: 'monthly',
       isActive: true,
@@ -575,7 +575,7 @@ export const getDefaultTestBudgets = (): Budget[] => {
     },
     {
       id: '2',
-      category: 'Transport',
+      categoryId: 'Transport',
       amount: 300,
       period: 'monthly',
       isActive: true,
@@ -583,7 +583,7 @@ export const getDefaultTestBudgets = (): Budget[] => {
     },
     {
       id: '3',
-      category: 'Utilities',
+      categoryId: 'Utilities',
       amount: 200,
       period: 'monthly',
       isActive: true,
@@ -591,7 +591,7 @@ export const getDefaultTestBudgets = (): Budget[] => {
     },
     {
       id: '4',
-      category: 'Entertainment',
+      categoryId: 'Entertainment',
       amount: 400,
       period: 'monthly',
       isActive: true,
@@ -610,7 +610,9 @@ export const getDefaultTestGoals = (): Goal[] => {
       targetDate: new Date('2025-12-31'),
       type: 'savings',
       createdAt: ACCOUNT_OPENING_DATE,
-      isActive: true
+      isActive: true,
+      progress: 50,
+      updatedAt: ACCOUNT_OPENING_DATE
     },
     {
       id: '2',
@@ -620,7 +622,9 @@ export const getDefaultTestGoals = (): Goal[] => {
       targetDate: new Date('2025-08-01'),
       type: 'savings',
       createdAt: ACCOUNT_OPENING_DATE,
-      isActive: true
+      isActive: true,
+      progress: 40,
+      updatedAt: ACCOUNT_OPENING_DATE
     }
   ];
 };

@@ -1,4 +1,4 @@
-import { Decimal } from 'decimal.js';
+import Decimal from 'decimal.js';
 import type { Transaction, Category } from '../types';
 import type {
   SavedMerchantData,
