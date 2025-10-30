@@ -260,12 +260,8 @@ export default function AccountTransactions() {
       cleared: false
     };
     
-    // Add category or transfer_account_id based on type
-    if (quickAddForm.type === 'transfer') {
-      transactionData.transfer_account_id = quickAddForm.category;
-    } else {
-      transactionData.category = quickAddForm.category;
-    }
+    // Add category based on type
+    transactionData.category = quickAddForm.category;
     
     const newTransaction = await addTransaction(transactionData);
     

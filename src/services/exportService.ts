@@ -425,7 +425,7 @@ class ExportService {
       const currentValue = new Decimal(investment.currentValue || 0);
       const costBasis = new Decimal(investment.costBasis || investment.quantity * investment.purchasePrice);
       const gainLoss = currentValue.minus(costBasis);
-      const gainLossPercent = costBasis.gt(0) ? gainLoss.div(costBasis).mul(100) : new Decimal(0);
+      const gainLossPercent = costBasis.gt(0) ? gainLoss.div(costBasis).times(100) : new Decimal(0);
 
       doc.text(
         `${investment.symbol}: ${this.formatCurrency(currentValue.toNumber())} (${gainLoss.gte(0) ? '+' : ''}${gainLossPercent.toFixed(2)}%)`,
@@ -448,7 +448,7 @@ class ExportService {
       const spent = new Decimal(budget.spent || 0);
       const budgeted = new Decimal(budget.budgeted);
       const remaining = budgeted.minus(spent);
-      const percentSpent = budgeted.gt(0) ? spent.div(budgeted).mul(100) : new Decimal(0);
+      const percentSpent = budgeted.gt(0) ? spent.div(budgeted).times(100) : new Decimal(0);
 
       doc.text(
         `${budget.categoryId}: ${this.formatCurrency(spent.toNumber())} / ${this.formatCurrency(budgeted.toNumber())} (${percentSpent.toFixed(1)}%)`,

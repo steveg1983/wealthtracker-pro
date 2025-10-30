@@ -93,6 +93,8 @@ const AVAILABLE_WIDGETS = [
   { type: 'data-intelligence', title: 'Data Intelligence', description: 'Smart insights, subscription management, and spending pattern analysis' }
 ] as const;
 
+type AvailableWidgetType = typeof AVAILABLE_WIDGETS[number]['type'];
+
 export default function CustomizableDashboard(): React.JSX.Element {
   const [widgets, setWidgets] = useLocalStorage<WidgetConfig[]>('dashboard-widgets', DEFAULT_WIDGETS);
   const [isDragMode, setIsDragMode] = useState(false);
@@ -108,13 +110,13 @@ export default function CustomizableDashboard(): React.JSX.Element {
     setWidgets(prev => prev.filter(w => w.id !== widgetId));
   }, [setWidgets]);
 
-  const handleAddWidget = useCallback((type: string) => {
+  const handleAddWidget = useCallback((type: AvailableWidgetType) => {
     const widgetTemplate = AVAILABLE_WIDGETS.find(w => w.type === type);
     if (!widgetTemplate) return;
 
     const newWidget: WidgetConfig = {
       id: `${type}-${Date.now()}`,
-      type: type as any,
+      type,
       title: widgetTemplate.title,
       size: 'medium',
       position: { x: 0, y: 0 },

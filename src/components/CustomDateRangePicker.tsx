@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import {
   CalendarIcon,
   ChevronLeftIcon,
@@ -82,7 +82,7 @@ export function CustomDateRangePicker({
   }, [isOpen]);
 
   // Preset ranges
-  const presetRanges: PresetRange[] = [
+  const presetRanges: PresetRange[] = useMemo(() => [
     {
       label: 'Today',
       icon: <CalendarIcon size={14} />,
@@ -213,7 +213,7 @@ export function CustomDateRangePicker({
         return { start: null, end: null, label: 'All time' };
       }
     }
-  ];
+  ], [fiscalYearStart]);
 
   // Parse natural language input
   const parseNaturalLanguage = useCallback((input: string): DateRange | null => {

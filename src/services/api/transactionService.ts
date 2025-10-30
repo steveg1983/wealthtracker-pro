@@ -44,7 +44,7 @@ export class TransactionService {
         ...transaction,
         id: crypto.randomUUID(),
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updatedAt: new Date().toISOString()
       };
       
       const transactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
@@ -96,7 +96,7 @@ export class TransactionService {
       transactions[index] = {
         ...transactions[index],
         ...updates,
-        updated_at: new Date().toISOString()
+        updatedAt: new Date().toISOString()
       };
       
       await storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, transactions);
@@ -279,7 +279,7 @@ export class TransactionService {
         ...t,
         id: crypto.randomUUID(),
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updatedAt: new Date().toISOString()
       }));
       
       const stored = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];

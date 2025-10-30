@@ -410,11 +410,11 @@ class FinancialPlanningService {
 
     // Calculate future value of current savings
     const currentSavingsFV = new Decimal(plan.currentSavings)
-      .mul(new Decimal(1 + monthlyReturn).pow(monthsToRetirement));
+      .times(new Decimal(1 + monthlyReturn).pow(monthsToRetirement));
 
     // Calculate future value of monthly contributions (annuity)
     const monthlyContributionsFV = new Decimal(plan.monthlyContribution)
-      .mul(new Decimal(1 + monthlyReturn).pow(monthsToRetirement).minus(1))
+      .times(new Decimal(1 + monthlyReturn).pow(monthsToRetirement).minus(1))
       .div(monthlyReturn);
 
     const totalSavingsAtRetirement = currentSavingsFV.plus(monthlyContributionsFV).toNumber();
@@ -435,7 +435,7 @@ class FinancialPlanningService {
       const additionalNeeded = shortfall * 12 / withdrawalRate;
       const additionalContribution = new Decimal(additionalNeeded)
         .div(new Decimal(1 + monthlyReturn).pow(monthsToRetirement).minus(1))
-        .mul(monthlyReturn)
+        .times(monthlyReturn)
         .toNumber();
       recommendedMonthlyContribution = plan.monthlyContribution + additionalContribution;
     }
@@ -480,8 +480,8 @@ class FinancialPlanningService {
     
     // Calculate monthly payment using standard mortgage formula
     const monthlyPayment = new Decimal(loanAmount)
-      .mul(monthlyRate)
-      .mul(new Decimal(1 + monthlyRate).pow(numberOfPayments))
+      .times(monthlyRate)
+      .times(new Decimal(1 + monthlyRate).pow(numberOfPayments))
       .div(new Decimal(1 + monthlyRate).pow(numberOfPayments).minus(1))
       .toNumber();
 
@@ -583,11 +583,11 @@ class FinancialPlanningService {
 
     // Calculate future value of current savings
     const currentSavingsFV = new Decimal(plan.currentSavings)
-      .mul(new Decimal(1 + monthlyReturn).pow(monthsToCollegeStart));
+      .times(new Decimal(1 + monthlyReturn).pow(monthsToCollegeStart));
 
     // Calculate future value of monthly contributions
     const monthlyContributionsFV = new Decimal(plan.monthlyContribution)
-      .mul(new Decimal(1 + monthlyReturn).pow(monthsToCollegeStart).minus(1))
+      .times(new Decimal(1 + monthlyReturn).pow(monthsToCollegeStart).minus(1))
       .div(monthlyReturn);
 
     const totalSavingsAtCollegeStart = currentSavingsFV.plus(monthlyContributionsFV).toNumber();
@@ -603,7 +603,7 @@ class FinancialPlanningService {
     if (shortfall > 0) {
       recommendedMonthlyContribution = new Decimal(shortfall)
         .div(new Decimal(1 + monthlyReturn).pow(monthsToCollegeStart).minus(1))
-        .mul(monthlyReturn)
+        .times(monthlyReturn)
         .plus(plan.monthlyContribution)
         .toNumber();
     }
@@ -753,12 +753,12 @@ class FinancialPlanningService {
 
     // Calculate future value of current savings
     const currentSavingsFV = new Decimal(goal.currentSavings)
-      .mul(new Decimal(1 + monthlyReturn).pow(monthsToGoal));
+      .times(new Decimal(1 + monthlyReturn).pow(monthsToGoal));
 
     // Calculate future value of monthly contributions
     const monthlyContributionsFV = monthsToGoal > 1 
       ? new Decimal(goal.monthlyContribution)
-          .mul(new Decimal(1 + monthlyReturn).pow(monthsToGoal).minus(1))
+          .times(new Decimal(1 + monthlyReturn).pow(monthsToGoal).minus(1))
           .div(monthlyReturn)
       : new Decimal(goal.monthlyContribution);
 
@@ -771,7 +771,7 @@ class FinancialPlanningService {
     if (shortfall > 0) {
       recommendedMonthlyContribution = new Decimal(shortfall)
         .div(new Decimal(1 + monthlyReturn).pow(monthsToGoal).minus(1))
-        .mul(monthlyReturn)
+        .times(monthlyReturn)
         .plus(goal.monthlyContribution)
         .toNumber();
     }

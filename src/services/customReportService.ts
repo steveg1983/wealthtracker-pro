@@ -185,7 +185,7 @@ class CustomReportService {
       .reduce((sum, t) => sum.plus(Math.abs(t.amount)), new Decimal(0));
     
     const netIncome = income.minus(expenses);
-    const savingsRate = income.gt(0) ? netIncome.div(income).mul(100) : new Decimal(0);
+    const savingsRate = income.gt(0) ? netIncome.div(income).times(100) : new Decimal(0);
 
     const stats: Record<string, any> = {
       income: income.toNumber(),
@@ -408,7 +408,7 @@ class CustomReportService {
     return Array.from(categoryData.entries()).map(([categoryId, data]) => {
       const category = categories.find(c => c.id === categoryId);
       const variance = data.budget.gt(0) 
-        ? data.actual.minus(data.budget).div(data.budget).mul(100)
+        ? data.actual.minus(data.budget).div(data.budget).times(100)
         : new Decimal(0);
 
       return {
