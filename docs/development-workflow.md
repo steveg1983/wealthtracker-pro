@@ -64,11 +64,15 @@ The workflow is guarded so it silently skips when any secret is missing. Coordin
 
   # diff dashboard changes into a migration file
   SUPABASE_DB_URL=... npm run db:diff
+
+  # export complete schema (initial baseline capture)
+  npx supabase db dump --db-url "$SUPABASE_DB_URL" --schema public --data false --file supabase/migrations/$(date +%Y%m%d%H%M%S)__initial-schema.sql
   ```
 
 - Keep the DSN scoped to staging/test databases—never run migrations against production without approval + backup.
 - After applying migrations, always run `npm run test:supabase-smoke` to confirm CRUD/RLS behaviours.
 - For full end-to-end instructions see `supabase/README.md`.
+- **Initial schema export**: See `supabase/migrations/SCHEMA_EXPORT_REPORT.md` for capturing baseline schema with RLS policies.
 
 **Build Fix**: `scripts/build-web.mjs` now shells out to `npx vite build`, so Vercel can build the flat layout without workspace shims.
 

@@ -35,7 +35,7 @@ export interface Tag {
   updatedAt: Date;
 }
 
-interface AppContextType extends AppState {
+export interface AppContextType extends AppState {
   // Account operations
   addAccount: (account: Omit<Account, 'id' | 'balance'>) => void;
   updateAccount: (id: string, updates: Partial<Account>) => void;

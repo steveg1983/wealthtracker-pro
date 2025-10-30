@@ -200,6 +200,9 @@ export interface Investment {
   createdAt: Date;
 }
 
+// Export AppState
+export type { AppState, Tag } from './app-state';
+
 export interface RecurringTransaction {
   id: string;
   description: string;

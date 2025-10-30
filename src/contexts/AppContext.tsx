@@ -65,7 +65,7 @@ interface DecimalRecurringTransaction extends Omit<RecurringTransaction, 'amount
   amount: DecimalInstance;
 }
 
-interface AppContextType {
+export interface AppContextType {
   accounts: Account[];
   transactions: Transaction[];
   budgets: Budget[];
