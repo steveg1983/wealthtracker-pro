@@ -1,0 +1,8 @@
+Vitest Focused Run: csvImport
+UTC Timestamp: 2025-10-23 23:42:53
+Command: npm run test -- --run src/utils/csvImport.test.ts
+Result: 33 tests (33 passed / 0 failed)
+Notes:
+- Transitioned CSV import tests to spy on structured logger instead of console output per Phase 3 logging guidelines.
+- Added account balance normalization for parentheses-wrapped values while preserving negative balances from minus-prefixed inputs.
+- Confirmed large synthetic CSV (1000 rows) parses fully after restoring global Date and handling logger spy expectations.

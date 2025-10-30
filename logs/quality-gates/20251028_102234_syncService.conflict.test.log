@@ -1,0 +1,18 @@
+
+> wealth-tracker@1.4.5 test
+> vitest --run src/services/__tests__/syncService.conflict.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/services/__tests__/syncService.conflict.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+ ✓ src/services/__tests__/syncService.conflict.test.ts (3 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  10:22:35
+   Duration  1.22s (transform 99ms, setup 115ms, collect 639ms, tests 3ms, environment 187ms, prepare 46ms)
+

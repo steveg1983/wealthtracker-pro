@@ -1,0 +1,7 @@
+Vitest Focused Run: xss-protection
+UTC Timestamp: 2025-10-24 08:51:48
+Command: npm run test -- --run src/security/__tests__/xss-protection.test.ts
+Result: 31 tests (31 passed / 0 failed)
+Notes:
+- Mocked `serviceFactory` to supply a test logger, unblocking sentry/logging dependencies during sanitization tests.
+- Hardened `sanitizeNumber` and `sanitizeDecimal` to catch `Decimal.js` parse errors and return safe defaults while logging warnings.

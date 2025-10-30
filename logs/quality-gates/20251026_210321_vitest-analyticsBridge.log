@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/services/__tests__/analyticsBridge.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/services/__tests__/analyticsBridge.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/services/__tests__/analyticsBridge.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+ ✓ src/services/__tests__/analyticsBridge.test.ts (5 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  5 passed (5)
+   Start at  21:03:21
+   Duration  1.13s (transform 90ms, setup 126ms, collect 547ms, tests 5ms, environment 270ms, prepare 46ms)
+

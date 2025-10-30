@@ -1,0 +1,8 @@
+Vitest Focused Run: PageWrapper
+UTC Timestamp: 2025-10-23 23:57:32
+Command: npm run test -- --run src/components/PageWrapper.test.tsx
+Result: 22 tests (22 passed / 0 failed)
+Notes:
+- Updated expectations to reflect wrapper structure and responsive width classes on the header container.
+- Ensured tests inspect the logger-friendly markup rather than relying on parent-less elements or globals.
+- Confirmed reduced header width logic relies on `md:w-[80%]` breakpoint while keeping small screens full width.

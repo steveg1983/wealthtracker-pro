@@ -1,0 +1,8 @@
+Vitest Focused Run: mnyParser
+UTC Timestamp: 2025-10-23 23:43:14
+Command: npm run test -- --run src/utils/__tests__/mnyParser.test.ts
+Result: 29 tests (29 passed / 0 failed)
+Notes:
+- Replaced console spies with logger-based assertions and ensured debug/info logging emits expected payloads.
+- Tightened currency validation in applyMappingToData to skip records lacking numeric content instead of coercing to zero.
+- Validated MBF/MNY diagnostic logging remains observable while respecting test-mode logger guards.

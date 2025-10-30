@@ -1,0 +1,53 @@
+
+> test
+> npm run test --workspace apps/web --run src/hooks/__tests__/useKeyboardShortcuts.real.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/hooks/__tests__/useKeyboardShortcuts.real.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/hooks/__tests__/useKeyboardShortcuts.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/__tests__/useKeyboardShortcuts.real.test.ts [ src/hooks/__tests__/useKeyboardShortcuts.real.test.ts ]
+Error: Transform failed with 1 error:
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/hooks/__tests__/useKeyboardShortcuts.real.test.ts:26:20: ERROR: Expected ">" but found "initialEntries"
+  Plugin: vite:esbuild
+  File: /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/hooks/__tests__/useKeyboardShortcuts.real.test.ts:26:20
+  
+  Expected ">" but found "initialEntries"
+  24 |  
+  25 |      const wrapper = ({ children }: { children: React.ReactNode }) => (
+  26 |        <MemoryRouter initialEntries={['/']}>{children}</MemoryRouter>
+     |                      ^
+  27 |      );
+  28 |      
+  
+ ❯ failureErrorWithLog node_modules/esbuild/lib/main.js:1465:15
+ ❯ node_modules/esbuild/lib/main.js:734:50
+ ❯ responseCallbacks.<computed> node_modules/esbuild/lib/main.js:601:9
+ ❯ handleIncomingPacket node_modules/esbuild/lib/main.js:656:12
+ ❯ Socket.readFromStdout node_modules/esbuild/lib/main.js:579:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  15:26:13
+   Duration  2.44s (transform 49ms, setup 506ms, collect 0ms, tests 0ms, environment 1.68s, prepare 92ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/hooks/__tests__/useKeyboardShortcuts.real.test.ts

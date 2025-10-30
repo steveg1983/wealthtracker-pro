@@ -1,0 +1,731 @@
+import type { Transaction } from '../types';
+import { logger } from './loggingService';
+
+export interface HouseholdMember {
+  id: string;
+  name: string;
+  email: string;
+  role: 'owner' | 'admin' | 'member' | 'viewer';
+  avatar?: string;
+  color: string;
+  joinedAt: Date;
+  lastActive?: Date;
+  permissions: MemberPermissions;
+}
+
+export interface MemberPermissions {
+  canViewAccounts: boolean;
+  canEditAccounts: boolean;
+  canViewTransactions: boolean;
+  canEditTransactions: boolean;
+  canViewBudgets: boolean;
+  canEditBudgets: boolean;
+  canViewGoals: boolean;
+  canEditGoals: boolean;
+  canInviteMembers: boolean;
+  canRemoveMembers: boolean;
+}
+
+export interface Household {
+  id: string;
+  name: string;
+  createdAt: Date;
+  createdBy: string;
+  members: HouseholdMember[];
+  settings: HouseholdSettings;
+}
+
+export interface HouseholdSettings {
+  currency: string;
+  timezone: string;
+  fiscalYearStart: number; // 1-12
+  allowMemberExpenses: boolean;
+  requireApprovalForLargeTransactions: boolean;
+  largeTransactionThreshold: number;
+  sharedCategories: boolean;
+  memberVisibility: 'all' | 'summary' | 'none';
+}
+
+export interface HouseholdInvite {
+  id: string;
+  householdId: string;
+  email: string;
+  role: HouseholdMember['role'];
+  invitedBy: string;
+  invitedAt: Date;
+  expiresAt: Date;
+  status: 'pending' | 'accepted' | 'declined' | 'expired';
+  token: string;
+}
+
+export interface MemberActivity {
+  id: string;
+  memberId: string;
+  memberName: string;
+  action: 'added_transaction' | 'edited_transaction' | 'deleted_transaction' | 
+          'added_account' | 'edited_budget' | 'achieved_goal' | 'joined_household';
+  details: string;
+  timestamp: Date;
+  entityId?: string;
+  entityType?: 'transaction' | 'account' | 'budget' | 'goal';
+}
+
+export interface MemberContribution {
+  memberId: string;
+  memberName: string;
+  totalIncome: number;
+  totalExpenses: number;
+  netContribution: number;
+  transactionCount: number;
+  percentageOfHousehold: number;
+}
+
+class HouseholdService {
+  private readonly STORAGE_KEY = 'household_data';
+  private readonly INVITES_KEY = 'household_invites';
+  private readonly ACTIVITIES_KEY = 'household_activities';
+  
+  private household: Household | null = null;
+  private invites: HouseholdInvite[] = [];
+  private activities: MemberActivity[] = [];
+
+  constructor() {
+    this.loadData();
+  }
+
+  private loadData() {
+    try {
+      const householdData = localStorage.getItem(this.STORAGE_KEY);
+      if (householdData) {
+        const parsed = JSON.parse(householdData);
+        this.household = this.normalizeHousehold(this.toRecord(parsed));
+      }
+
+      const invitesData = localStorage.getItem(this.INVITES_KEY);
+      if (invitesData) {
+        const parsedInvites: unknown = JSON.parse(invitesData);
+        this.invites = Array.isArray(parsedInvites)
+          ? parsedInvites.map(invite => this.normalizeInvite(this.toRecord(invite)))
+          : [];
+      }
+
+      const activitiesData = localStorage.getItem(this.ACTIVITIES_KEY);
+      if (activitiesData) {
+        const parsedActivities: unknown = JSON.parse(activitiesData);
+        this.activities = Array.isArray(parsedActivities)
+          ? parsedActivities.map(activity => this.normalizeActivity(this.toRecord(activity)))
+          : [];
+      }
+    } catch (error) {
+      logger.error('Failed to load household data:', error);
+    }
+  }
+
+  private toRecord(value: unknown): Record<string, unknown> {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      return value as Record<string, unknown>;
+    }
+    return {};
+  }
+
+  private normalizeHousehold(raw: Record<string, unknown>): Household {
+    const membersInput = Array.isArray(raw.members) ? (raw.members as unknown[]) : [];
+    const members: HouseholdMember[] = membersInput.map((member, index) =>
+      this.normalizeMember(this.toRecord(member), index)
+    );
+
+    return {
+      id: typeof raw.id === 'string' ? (raw.id as string) : this.generateId(),
+      name: typeof raw.name === 'string' ? (raw.name as string) : 'Household',
+      createdAt: raw.createdAt ? new Date(raw.createdAt as string | number | Date) : new Date(),
+      createdBy: typeof raw.createdBy === 'string'
+        ? (raw.createdBy as string)
+        : members[0]?.id ?? this.generateId(),
+      members,
+      settings: this.normalizeSettings(this.toRecord(raw.settings))
+    };
+  }
+
+  private normalizeMember(raw: Record<string, unknown>, index: number): HouseholdMember {
+    const rawRole = raw.role;
+    const role: HouseholdMember['role'] =
+      typeof rawRole === 'string' && ['owner', 'admin', 'member', 'viewer'].includes(rawRole)
+        ? (rawRole as HouseholdMember['role'])
+        : 'member';
+
+    const permissionsSource = this.toRecord(raw.permissions);
+    const permissions: MemberPermissions =
+      Object.keys(permissionsSource).length > 0
+        ? {
+            canViewAccounts: Boolean(permissionsSource.canViewAccounts),
+            canEditAccounts: Boolean(permissionsSource.canEditAccounts),
+            canViewTransactions: Boolean(permissionsSource.canViewTransactions),
+            canEditTransactions: Boolean(permissionsSource.canEditTransactions),
+            canViewBudgets: Boolean(permissionsSource.canViewBudgets),
+            canEditBudgets: Boolean(permissionsSource.canEditBudgets),
+            canViewGoals: Boolean(permissionsSource.canViewGoals),
+            canEditGoals: Boolean(permissionsSource.canEditGoals),
+            canInviteMembers: Boolean(permissionsSource.canInviteMembers),
+            canRemoveMembers: Boolean(permissionsSource.canRemoveMembers)
+          }
+        : this.getDefaultPermissions(role);
+
+    const member: HouseholdMember = {
+      id: typeof raw.id === 'string' ? (raw.id as string) : this.generateId(),
+      name: typeof raw.name === 'string' ? (raw.name as string) : `Member ${index + 1}`,
+      email: typeof raw.email === 'string' ? (raw.email as string) : `member${index + 1}@example.com`,
+      role,
+      color: typeof raw.color === 'string' ? (raw.color as string) : this.generateMemberColor(index),
+      joinedAt: raw.joinedAt ? new Date(raw.joinedAt as string | number | Date) : new Date(),
+      permissions
+    };
+
+    if (typeof raw.avatar === 'string' && raw.avatar.length > 0) {
+      member.avatar = raw.avatar;
+    }
+
+    if (raw.lastActive) {
+      member.lastActive = new Date(raw.lastActive as string | number | Date);
+    }
+
+    return member;
+  }
+
+  private normalizeSettings(raw: Record<string, unknown>): HouseholdSettings {
+    return {
+      currency: typeof raw.currency === 'string' ? (raw.currency as string) : 'USD',
+      timezone: typeof raw.timezone === 'string'
+        ? (raw.timezone as string)
+        : Intl.DateTimeFormat().resolvedOptions().timeZone,
+      fiscalYearStart: typeof raw.fiscalYearStart === 'number'
+        ? Math.max(1, Math.min(12, raw.fiscalYearStart))
+        : 1,
+      allowMemberExpenses: raw.allowMemberExpenses === undefined
+        ? true
+        : Boolean(raw.allowMemberExpenses),
+      requireApprovalForLargeTransactions: Boolean(raw.requireApprovalForLargeTransactions),
+      largeTransactionThreshold: typeof raw.largeTransactionThreshold === 'number'
+        ? raw.largeTransactionThreshold
+        : 1000,
+      sharedCategories: raw.sharedCategories === undefined
+        ? true
+        : Boolean(raw.sharedCategories),
+      memberVisibility: typeof raw.memberVisibility === 'string' && ['all', 'summary', 'none'].includes(raw.memberVisibility)
+        ? (raw.memberVisibility as HouseholdSettings['memberVisibility'])
+        : 'all'
+    };
+  }
+
+  private normalizeInvite(raw: Record<string, unknown>): HouseholdInvite {
+    return {
+      id: typeof raw.id === 'string' ? (raw.id as string) : this.generateId(),
+      householdId: typeof raw.householdId === 'string'
+        ? (raw.householdId as string)
+        : this.household?.id ?? this.generateId(),
+      email: typeof raw.email === 'string' ? (raw.email as string) : '',
+      role: typeof raw.role === 'string' && ['owner', 'admin', 'member', 'viewer'].includes(raw.role)
+        ? (raw.role as HouseholdMember['role'])
+        : 'member',
+      invitedBy: typeof raw.invitedBy === 'string'
+        ? (raw.invitedBy as string)
+        : this.household?.createdBy ?? this.generateId(),
+      invitedAt: raw.invitedAt ? new Date(raw.invitedAt as string | number | Date) : new Date(),
+      expiresAt: raw.expiresAt
+        ? new Date(raw.expiresAt as string | number | Date)
+        : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      status: typeof raw.status === 'string' && ['pending', 'accepted', 'declined', 'expired'].includes(raw.status)
+        ? (raw.status as HouseholdInvite['status'])
+        : 'pending',
+      token: typeof raw.token === 'string' ? (raw.token as string) : this.generateToken()
+    };
+  }
+
+  private normalizeActivity(raw: Record<string, unknown>): MemberActivity {
+    const activity: MemberActivity = {
+      id: typeof raw.id === 'string' ? (raw.id as string) : this.generateId(),
+      memberId: typeof raw.memberId === 'string'
+        ? (raw.memberId as string)
+        : this.household?.createdBy ?? this.generateId(),
+      memberName: typeof raw.memberName === 'string' ? (raw.memberName as string) : 'Member',
+      action: this.normalizeActivityAction(raw.action),
+      details: typeof raw.details === 'string' ? (raw.details as string) : '',
+      timestamp: raw.timestamp ? new Date(raw.timestamp as string | number | Date) : new Date()
+    };
+
+    if (typeof raw.entityId === 'string') {
+      activity.entityId = raw.entityId as string;
+    }
+
+    if (typeof raw.entityType === 'string' && ['transaction', 'account', 'budget', 'goal'].includes(raw.entityType)) {
+      activity.entityType = raw.entityType as MemberActivity['entityType'];
+    }
+
+    return activity;
+  }
+
+  private normalizeActivityAction(action: unknown): MemberActivity['action'] {
+    const actions: MemberActivity['action'][] = [
+      'added_transaction',
+      'edited_transaction',
+      'deleted_transaction',
+      'added_account',
+      'edited_budget',
+      'achieved_goal',
+      'joined_household'
+    ];
+    return typeof action === 'string' && (actions as string[]).includes(action)
+      ? (action as MemberActivity['action'])
+      : 'joined_household';
+  }
+
+  private saveData() {
+    try {
+      if (this.household) {
+        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.household));
+      }
+      localStorage.setItem(this.INVITES_KEY, JSON.stringify(this.invites));
+      localStorage.setItem(this.ACTIVITIES_KEY, JSON.stringify(this.activities));
+    } catch (error) {
+      logger.error('Failed to save household data:', error);
+    }
+  }
+
+  // Create a new household
+  createHousehold(name: string, creatorEmail: string, creatorName: string): Household {
+    const creator: HouseholdMember = {
+      id: this.generateId(),
+      name: creatorName,
+      email: creatorEmail,
+      role: 'owner',
+      color: this.generateMemberColor(0),
+      joinedAt: new Date(),
+      permissions: this.getDefaultPermissions('owner')
+    };
+
+    this.household = {
+      id: this.generateId(),
+      name,
+      createdAt: new Date(),
+      createdBy: creator.id,
+      members: [creator],
+      settings: {
+        currency: 'USD',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        fiscalYearStart: 1,
+        allowMemberExpenses: true,
+        requireApprovalForLargeTransactions: false,
+        largeTransactionThreshold: 1000,
+        sharedCategories: true,
+        memberVisibility: 'all'
+      }
+    };
+
+    this.saveData();
+    this.logActivity(creator.id, creator.name, 'joined_household', 'Created the household');
+    
+    return this.household;
+  }
+
+  // Get current household
+  getHousehold(): Household | null {
+    return this.household;
+  }
+
+  // Update household settings
+  updateHouseholdSettings(settings: Partial<HouseholdSettings>): void {
+    if (!this.household) return;
+    
+    this.household.settings = {
+      ...this.household.settings,
+      ...settings
+    };
+    
+    this.saveData();
+  }
+
+  // Invite a member
+  inviteMember(
+    email: string, 
+    role: HouseholdMember['role'], 
+    invitedBy: string,
+    inviterName: string
+  ): HouseholdInvite {
+    const household = this.household;
+    if (!household) throw new Error('No household exists');
+
+    // Check if already a member
+    if (household.members.some(m => m.email === email)) {
+      throw new Error('User is already a member');
+    }
+
+    // Check for existing pending invite
+    const existingInvite = this.invites.find(
+      i => i.email === email && i.status === 'pending' && i.householdId === household.id
+    );
+    if (existingInvite) {
+      throw new Error('An invitation is already pending for this email');
+    }
+
+    const invite: HouseholdInvite = {
+      id: this.generateId(),
+      householdId: household.id,
+      email,
+      role,
+      invitedBy,
+      invitedAt: new Date(),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      status: 'pending',
+      token: this.generateToken()
+    };
+
+    this.invites.push(invite);
+    this.saveData();
+    this.logActivity(invitedBy, inviterName, 'joined_household', `Invited ${email} to join as ${role}`);
+    
+    return invite;
+  }
+
+  // Accept an invite
+  acceptInvite(token: string, name: string): HouseholdMember {
+    const invite = this.invites.find(i => i.token === token && i.status === 'pending');
+    if (!invite) throw new Error('Invalid or expired invitation');
+    
+    if (new Date() > invite.expiresAt) {
+      invite.status = 'expired';
+      this.saveData();
+      throw new Error('Invitation has expired');
+    }
+
+    const household = this.household;
+    if (!household || household.id !== invite.householdId) {
+      throw new Error('Household not found');
+    }
+
+    const newMember: HouseholdMember = {
+      id: this.generateId(),
+      name,
+      email: invite.email,
+      role: invite.role,
+      color: this.generateMemberColor(household.members.length),
+      joinedAt: new Date(),
+      permissions: this.getDefaultPermissions(invite.role)
+    };
+
+    household.members.push(newMember);
+    invite.status = 'accepted';
+    this.saveData();
+    this.logActivity(newMember.id, newMember.name, 'joined_household', 'Joined the household');
+    
+    return newMember;
+  }
+
+  // Remove a member
+  removeMember(memberId: string, removedBy: string, removerName: string): void {
+    const household = this.household;
+    if (!household) return;
+
+    const member = household.members.find(m => m.id === memberId);
+    if (!member) throw new Error('Member not found');
+    
+    // Can't remove the owner
+    if (member.role === 'owner') {
+      throw new Error('Cannot remove the household owner');
+    }
+    
+    // Check permissions
+    const remover = household.members.find(m => m.id === removedBy);
+    if (!remover || !remover.permissions.canRemoveMembers) {
+      throw new Error('Insufficient permissions to remove members');
+    }
+
+    household.members = household.members.filter(m => m.id !== memberId);
+    this.saveData();
+    this.logActivity(removedBy, removerName, 'joined_household', `Removed ${member.name} from household`);
+  }
+
+  // Update member role
+  updateMemberRole(memberId: string, newRole: HouseholdMember['role'], updatedBy: string): void {
+    const household = this.household;
+    if (!household) return;
+
+    const member = household.members.find(m => m.id === memberId);
+    if (!member) throw new Error('Member not found');
+    
+    // Check permissions
+    const updater = household.members.find(m => m.id === updatedBy);
+    if (!updater || updater.role !== 'owner') {
+      throw new Error('Only the owner can change member roles');
+    }
+    
+    // Can't change owner role
+    if (member.role === 'owner' && newRole !== 'owner') {
+      throw new Error('Cannot change owner role. Transfer ownership first.');
+    }
+
+    member.role = newRole;
+    member.permissions = this.getDefaultPermissions(newRole);
+    this.saveData();
+  }
+
+  // Get member by ID
+  getMemberById(memberId: string): HouseholdMember | undefined {
+    return this.household?.members.find(m => m.id === memberId);
+  }
+
+  // Log activity
+  logActivity(
+    memberId: string, 
+    memberName: string,
+    action: MemberActivity['action'], 
+    details: string,
+    entityId?: string,
+    entityType?: MemberActivity['entityType']
+  ): void {
+    const activity: MemberActivity = {
+      id: this.generateId(),
+      memberId,
+      memberName,
+      action,
+      details,
+      timestamp: new Date()
+    };
+
+    if (entityId) {
+      activity.entityId = entityId;
+    }
+
+    if (entityType) {
+      activity.entityType = entityType;
+    }
+
+    this.activities.unshift(activity);
+    
+    // Keep only last 100 activities
+    if (this.activities.length > 100) {
+      this.activities = this.activities.slice(0, 100);
+    }
+    
+    this.saveData();
+  }
+
+  // Get recent activities
+  getRecentActivities(limit: number = 20): MemberActivity[] {
+    return this.activities.slice(0, limit);
+  }
+
+  // Calculate member contributions
+  calculateMemberContributions(transactions: Transaction[]): MemberContribution[] {
+    const household = this.household;
+    if (!household) return [];
+
+    const contributions = new Map<string, MemberContribution>();
+    let totalHouseholdExpenses = 0;
+
+    // Initialize contributions for all members
+    household.members.forEach(member => {
+      contributions.set(member.id, {
+        memberId: member.id,
+        memberName: member.name,
+        totalIncome: 0,
+        totalExpenses: 0,
+        netContribution: 0,
+        transactionCount: 0,
+        percentageOfHousehold: 0
+      });
+    });
+    
+    // Calculate contributions
+    transactions.forEach(transaction => {
+      const memberId = transaction.addedBy || household.createdBy;
+      const contribution = contributions.get(memberId);
+      
+      if (contribution) {
+        contribution.transactionCount++;
+        
+        if (transaction.type === 'income') {
+          contribution.totalIncome += Math.abs(transaction.amount);
+        } else if (transaction.type === 'expense') {
+          contribution.totalExpenses += Math.abs(transaction.amount);
+          totalHouseholdExpenses += Math.abs(transaction.amount);
+        }
+      }
+    });
+
+    // Calculate net contributions and percentages
+    contributions.forEach(contribution => {
+      contribution.netContribution = contribution.totalIncome - contribution.totalExpenses;
+      if (totalHouseholdExpenses > 0) {
+        contribution.percentageOfHousehold = (contribution.totalExpenses / totalHouseholdExpenses) * 100;
+      }
+    });
+
+    return Array.from(contributions.values());
+  }
+
+  // Check if user can perform action
+  canMemberPerformAction(
+    memberId: string, 
+    action: keyof MemberPermissions
+  ): boolean {
+    const member = this.household?.members.find(m => m.id === memberId);
+    return member ? member.permissions[action] : false;
+  }
+
+  // Get default permissions for role
+  private getDefaultPermissions(role: HouseholdMember['role']): MemberPermissions {
+    switch (role) {
+      case 'owner':
+        return {
+          canViewAccounts: true,
+          canEditAccounts: true,
+          canViewTransactions: true,
+          canEditTransactions: true,
+          canViewBudgets: true,
+          canEditBudgets: true,
+          canViewGoals: true,
+          canEditGoals: true,
+          canInviteMembers: true,
+          canRemoveMembers: true
+        };
+      case 'admin':
+        return {
+          canViewAccounts: true,
+          canEditAccounts: true,
+          canViewTransactions: true,
+          canEditTransactions: true,
+          canViewBudgets: true,
+          canEditBudgets: true,
+          canViewGoals: true,
+          canEditGoals: true,
+          canInviteMembers: true,
+          canRemoveMembers: false
+        };
+      case 'member':
+        return {
+          canViewAccounts: true,
+          canEditAccounts: false,
+          canViewTransactions: true,
+          canEditTransactions: true,
+          canViewBudgets: true,
+          canEditBudgets: false,
+          canViewGoals: true,
+          canEditGoals: false,
+          canInviteMembers: false,
+          canRemoveMembers: false
+        };
+      case 'viewer':
+        return {
+          canViewAccounts: true,
+          canEditAccounts: false,
+          canViewTransactions: true,
+          canEditTransactions: false,
+          canViewBudgets: true,
+          canEditBudgets: false,
+          canViewGoals: true,
+          canEditGoals: false,
+          canInviteMembers: false,
+          canRemoveMembers: false
+        };
+    }
+  }
+
+  // Generate member color
+  private generateMemberColor(index: number): string {
+    const colors = [
+      '#3B82F6', // blue
+      '#10B981', // green
+      '#F59E0B', // amber
+      '#EF4444', // red
+      '#8B5CF6', // purple
+      '#06B6D4', // cyan
+      '#F97316', // orange
+      '#EC4899', // pink
+    ];
+    return colors[index % colors.length] || '#3B82F6';
+  }
+
+  // Generate unique ID
+  private generateId(): string {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  }
+
+  // Generate invite token
+  private generateToken(): string {
+    return Math.random().toString(36).substr(2) + Math.random().toString(36).substr(2);
+  }
+
+  // Transfer ownership
+  transferOwnership(currentOwnerId: string, newOwnerId: string): void {
+    const household = this.household;
+    if (!household) return;
+
+    const currentOwner = household.members.find(m => m.id === currentOwnerId);
+    const newOwner = household.members.find(m => m.id === newOwnerId);
+    
+    if (!currentOwner || currentOwner.role !== 'owner') {
+      throw new Error('Only the current owner can transfer ownership');
+    }
+    
+    if (!newOwner) {
+      throw new Error('New owner not found');
+    }
+
+    // Update roles
+    currentOwner.role = 'admin';
+    currentOwner.permissions = this.getDefaultPermissions('admin');
+    newOwner.role = 'owner';
+    newOwner.permissions = this.getDefaultPermissions('owner');
+    
+    household.createdBy = newOwnerId;
+    this.saveData();
+  }
+
+  // Leave household
+  leaveHousehold(memberId: string): void {
+    const household = this.household;
+    if (!household) return;
+
+    const member = household.members.find(m => m.id === memberId);
+    if (!member) return;
+    
+    if (member.role === 'owner' && household.members.length > 1) {
+      throw new Error('Owner must transfer ownership before leaving');
+    }
+    
+    if (household.members.length === 1) {
+      // Last member leaving, delete household
+      this.household = null;
+      this.invites = [];
+      this.activities = [];
+      localStorage.removeItem(this.STORAGE_KEY);
+      localStorage.removeItem(this.INVITES_KEY);
+      localStorage.removeItem(this.ACTIVITIES_KEY);
+    } else {
+      household.members = household.members.filter(m => m.id !== memberId);
+      this.saveData();
+    }
+  }
+
+  // Get pending invites
+  getPendingInvites(): HouseholdInvite[] {
+    const household = this.household;
+    if (!household) return [];
+
+    return this.invites.filter(
+      i => i.householdId === household.id && 
+           i.status === 'pending' &&
+           new Date() <= i.expiresAt
+    );
+  }
+
+  // Cancel invite
+  cancelInvite(inviteId: string): void {
+    const invite = this.invites.find(i => i.id === inviteId);
+    if (invite && invite.status === 'pending') {
+      invite.status = 'declined';
+      this.saveData();
+    }
+  }
+}
+
+export const householdService = new HouseholdService();

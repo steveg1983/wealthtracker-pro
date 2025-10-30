@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/services/__tests__/goalService.real.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/services/__tests__/goalService.real.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/services/__tests__/goalService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+ ↓ src/services/__tests__/goalService.real.test.ts (17 tests | 17 skipped)
+
+ Test Files  1 skipped (1)
+      Tests  17 skipped (17)
+   Start at  14:55:37
+   Duration  675ms (transform 98ms, setup 108ms, collect 196ms, tests 0ms, environment 182ms, prepare 62ms)
+

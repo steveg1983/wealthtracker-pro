@@ -1,0 +1,3 @@
+packages/testing/templates/component-real-test-template.tsx(129,55): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+packages/testing/templates/component-real-test-template.tsx(132,39): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.
+packages/testing/templates/component-real-test-template.tsx(150,57): error TS2339: Property 'toBeInTheDocument' does not exist on type 'Assertion<HTMLElement>'.

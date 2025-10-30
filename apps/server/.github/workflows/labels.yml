@@ -1,0 +1,34 @@
+name: Ensure Labels
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - .github/workflows/labels.yml
+
+jobs:
+  labels:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure deps-approved label
+        uses: peter-evans/create-or-update-label@v4
+        with:
+          name: deps-approved
+          color: 2ea043
+          description: "Dependency changes have been reviewed and approved"
+
+      - name: Ensure needs-approval label
+        uses: peter-evans/create-or-update-label@v4
+        with:
+          name: needs-approval
+          color: fbca04
+          description: "Requires maintainer approval"
+
+      - name: Ensure db-no-migration-justified label
+        uses: peter-evans/create-or-update-label@v4
+        with:
+          name: db-no-migration-justified
+          color: 9e9e9e
+          description: "DB change justified without new migration"
+

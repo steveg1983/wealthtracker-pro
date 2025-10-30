@@ -1,0 +1,616 @@
+/**
+ * Supabase Redux Thunks - Async operations for Supabase data layer
+ * 
+ * This file contains Redux thunks for all Supabase operations:
+ * - Accounts CRUD operations
+ * - Transactions CRUD operations  
+ * - Budgets CRUD operations
+ * - Goals CRUD operations
+ * 
+ * Features:
+ * - Authentication-aware (requires valid user)
+ * - Offline fallback to localStorage
+ * - Optimistic updates for better UX
+ * - Proper error handling and loading states
+ * - Type-safe with full TypeScript support
+ */
+
+import { createAsyncThunk } from '@reduxjs/toolkit';
+import { SupabaseService } from '../../services/supabaseService';
+import { storageAdapter } from '../../services/storageAdapter';
+import { userIdService } from '../../services/userIdService';
+import type { Account, Transaction, Budget, Goal } from '../../types';
+import { logger } from '../../services/loggingService';
+
+type ClerkWindow = Window & {
+  Clerk?: {
+    user?: { id?: string | null } | null;
+  };
+};
+
+type OfflineUpdateQueueItem<T> = {
+  id: string;
+  updates: Partial<T>;
+};
+
+// Helper to get database user ID (not Clerk ID)
+async function getCurrentDatabaseUserId(): Promise<string | null> {
+  // First try to get from userIdService (cached)
+  const cachedId = userIdService.getCurrentDatabaseUserId();
+  if (cachedId) {
+    return cachedId;
+  }
+
+  // If not cached, get Clerk ID and convert
+  let clerkId: string | null = null;
+  
+  // In the browser environment, we can access the global Clerk instance
+  if (typeof window !== 'undefined') {
+    const clerk = (window as ClerkWindow).Clerk;
+    const user = clerk?.user;
+    clerkId = (typeof user?.id === 'string' && user.id.length > 0) ? user.id : null;
+  }
+  
+  // Fallback for SSR or when Clerk is not available
+  if (!clerkId && typeof window !== 'undefined') {
+    clerkId = sessionStorage.getItem('current_user_id') || null;
+  }
+  
+  if (!clerkId) {
+    return null;
+  }
+
+  // Convert Clerk ID to database UUID
+  const databaseId = await userIdService.getDatabaseUserId(clerkId);
+  return databaseId;
+}
+
+// =============================================================================
+// ACCOUNTS THUNKS
+// =============================================================================
+
+export const fetchAccountsFromSupabase = createAsyncThunk(
+  'accounts/fetchFromSupabase',
+  async (_, { rejectWithValue }) => {
+    try {
+      const userId = await getCurrentDatabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const accounts = await SupabaseService.getAccounts(userId);
+      
+      // Cache to localStorage for offline access
+      await storageAdapter.set('accounts', accounts);
+      
+      return accounts;
+    } catch (error) {
+      logger.error('Failed to fetch accounts from Supabase:', error);
+      
+      // Fallback to localStorage
+      try {
+        const cachedAccounts = await storageAdapter.get<Account[]>('accounts') || [];
+        return cachedAccounts;
+      } catch (cacheError) {
+        logger.warn('No cached accounts available after Supabase fetch failure', cacheError);
+        return rejectWithValue('Failed to fetch accounts and no cached data available');
+      }
+    }
+  }
+);
+
+export const createAccountInSupabase = createAsyncThunk(
+  'accounts/createInSupabase',
+  async (accountData: Omit<Account, 'id' | 'lastUpdated'>) => {
+    try {
+      const userId = await getCurrentDatabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const newAccount = await SupabaseService.createAccount(userId, accountData);
+      
+      if (!newAccount) {
+        throw new Error('Failed to create account in Supabase');
+      }
+
+      // Update local cache
+      const cachedAccounts = await storageAdapter.get<Account[]>('accounts') || [];
+      await storageAdapter.set('accounts', [...cachedAccounts, newAccount]);
+      
+      return newAccount;
+    } catch (error) {
+      logger.error('Failed to create account in Supabase:', error);
+      
+      // Offline fallback - create locally with temp ID
+      const tempAccount: Account = {
+        ...accountData,
+        id: `temp-${crypto.randomUUID()}`,
+        lastUpdated: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      // Store in localStorage with sync flag
+      const cachedAccounts = await storageAdapter.get<Account[]>('accounts') || [];
+      const offlineAccounts = await storageAdapter.get<Account[]>('offline_accounts') || [];
+      await storageAdapter.set('accounts', [...cachedAccounts, tempAccount]);
+      await storageAdapter.set('offline_accounts', [...offlineAccounts, tempAccount]);
+      
+      return tempAccount;
+    }
+  }
+);
+
+export const updateAccountInSupabase = createAsyncThunk(
+  'accounts/updateInSupabase',
+  async ({ id, updates }: { id: string; updates: Partial<Account> }, { rejectWithValue }) => {
+    try {
+      const updatedAccount = await SupabaseService.updateAccount(id, updates);
+      
+      if (!updatedAccount) {
+        throw new Error('Failed to update account in Supabase');
+      }
+
+      // Update local cache
+      const cachedAccounts = await storageAdapter.get<Account[]>('accounts') || [];
+      const updatedCache = cachedAccounts.map(acc => 
+        acc.id === id ? updatedAccount : acc
+      );
+      await storageAdapter.set('accounts', updatedCache);
+      
+      return updatedAccount;
+    } catch (error) {
+      logger.error('Failed to update account in Supabase:', error);
+      
+      // Offline fallback - update locally
+      const cachedAccounts = await storageAdapter.get<Account[]>('accounts') || [];
+      const accountIndex = cachedAccounts.findIndex(acc => acc.id === id);
+      
+      if (accountIndex !== -1) {
+        const { id: _omitId, ...restUpdates } = updates;
+        const cleanedUpdates = Object.fromEntries(
+          Object.entries(restUpdates).filter(([, value]) => value !== undefined)
+        ) as Partial<Account>;
+        const timestamp = new Date();
+        const updatedAccount: Account = {
+          ...cachedAccounts[accountIndex]!,
+          ...cleanedUpdates,
+          id: cachedAccounts[accountIndex]!.id,
+          lastUpdated: cleanedUpdates.lastUpdated ?? cachedAccounts[accountIndex]!.lastUpdated ?? timestamp,
+          updatedAt: timestamp,
+        };
+
+        if (cleanedUpdates.lastUpdated && !(cleanedUpdates.lastUpdated instanceof Date)) {
+          updatedAccount.lastUpdated = new Date(cleanedUpdates.lastUpdated as Date | string);
+        }
+        cachedAccounts[accountIndex] = updatedAccount;
+        
+        await storageAdapter.set('accounts', cachedAccounts);
+        
+        // Track for later sync
+        const offlineUpdates =
+          await storageAdapter.get<OfflineUpdateQueueItem<Account>[]>('offline_account_updates') || [];
+        await storageAdapter.set('offline_account_updates', [...offlineUpdates, { id, updates }]);
+        
+        return updatedAccount;
+      }
+      
+      return rejectWithValue('Account not found');
+    }
+  }
+);
+
+export const deleteAccountFromSupabase = createAsyncThunk(
+  'accounts/deleteFromSupabase',
+  async (id: string) => {
+    try {
+      const success = await SupabaseService.deleteAccount(id);
+      
+      if (!success) {
+        throw new Error('Failed to delete account from Supabase');
+      }
+
+      // Update local cache
+      const cachedAccounts = await storageAdapter.get<Account[]>('accounts') || [];
+      const filteredAccounts = cachedAccounts.filter(acc => acc.id !== id);
+      await storageAdapter.set('accounts', filteredAccounts);
+      
+      return id;
+    } catch (error) {
+      logger.error('Failed to delete account from Supabase:', error);
+      
+      // Offline fallback - mark as deleted locally
+      const cachedAccounts = await storageAdapter.get<Account[]>('accounts') || [];
+      const filteredAccounts = cachedAccounts.filter(acc => acc.id !== id);
+      await storageAdapter.set('accounts', filteredAccounts);
+      
+      // Track for later sync
+      const offlineDeletes = await storageAdapter.get<string[]>('offline_account_deletes') || [];
+      await storageAdapter.set('offline_account_deletes', [...offlineDeletes, id]);
+      
+      return id;
+    }
+  }
+);
+
+// =============================================================================
+// TRANSACTIONS THUNKS
+// =============================================================================
+
+export const fetchTransactionsFromSupabase = createAsyncThunk(
+  'transactions/fetchFromSupabase',
+  async (limit: number = 1000, { rejectWithValue }) => {
+    try {
+      const userId = await getCurrentDatabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const transactions = await SupabaseService.getTransactions(userId, limit);
+      
+      // Cache to localStorage for offline access
+      await storageAdapter.set('transactions', transactions);
+      
+      return transactions;
+    } catch (error) {
+      logger.error('Failed to fetch transactions from Supabase:', error);
+      
+      // Fallback to localStorage
+      try {
+        const cachedTransactions = await storageAdapter.get<Transaction[]>('transactions') || [];
+        return cachedTransactions;
+      } catch (cacheError) {
+        logger.warn('No cached transactions available after Supabase fetch failure', cacheError);
+        return rejectWithValue('Failed to fetch transactions and no cached data available');
+      }
+    }
+  }
+);
+
+export const createTransactionInSupabase = createAsyncThunk(
+  'transactions/createInSupabase',
+  async (transactionData: Omit<Transaction, 'id'>) => {
+    try {
+      const userId = await getCurrentDatabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const newTransaction = await SupabaseService.createTransaction(userId, transactionData);
+      
+      if (!newTransaction) {
+        throw new Error('Failed to create transaction in Supabase');
+      }
+
+      // Update local cache
+      const cachedTransactions = await storageAdapter.get<Transaction[]>('transactions') || [];
+      await storageAdapter.set('transactions', [...cachedTransactions, newTransaction]);
+      
+      return newTransaction;
+    } catch (error) {
+      logger.error('Failed to create transaction in Supabase:', error);
+      
+      // Offline fallback - create locally with temp ID
+      const tempTransaction: Transaction = {
+        ...transactionData,
+        id: `temp-${crypto.randomUUID()}`,
+      };
+      
+      // Store in localStorage with sync flag
+      const cachedTransactions = await storageAdapter.get<Transaction[]>('transactions') || [];
+      const offlineTransactions = await storageAdapter.get<Transaction[]>('offline_transactions') || [];
+      await storageAdapter.set('transactions', [...cachedTransactions, tempTransaction]);
+      await storageAdapter.set('offline_transactions', [...offlineTransactions, tempTransaction]);
+      
+      return tempTransaction;
+    }
+  }
+);
+
+export const updateTransactionInSupabase = createAsyncThunk(
+  'transactions/updateInSupabase',
+  async ({ id, updates }: { id: string; updates: Partial<Transaction> }, { rejectWithValue }) => {
+    try {
+      const updatedTransaction = await SupabaseService.updateTransaction(id, updates);
+      
+      if (!updatedTransaction) {
+        throw new Error('Failed to update transaction in Supabase');
+      }
+
+      // Update local cache
+      const cachedTransactions = await storageAdapter.get<Transaction[]>('transactions') || [];
+      const updatedCache = cachedTransactions.map(txn => 
+        txn.id === id ? updatedTransaction : txn
+      );
+      await storageAdapter.set('transactions', updatedCache);
+      
+      return updatedTransaction;
+    } catch (error) {
+      logger.error('Failed to update transaction in Supabase:', error);
+      
+      // Offline fallback - update locally
+      const cachedTransactions = await storageAdapter.get<Transaction[]>('transactions') || [];
+      const transactionIndex = cachedTransactions.findIndex(txn => txn.id === id);
+      
+      if (transactionIndex !== -1) {
+        const { id: _omitId, ...restUpdates } = updates;
+        const sanitized = Object.fromEntries(
+          Object.entries(restUpdates).filter(([, value]) => value !== undefined)
+        ) as Partial<Transaction>;
+        const existing = cachedTransactions[transactionIndex]!;
+        const updatedTransaction: Transaction = {
+          ...existing,
+          ...sanitized,
+          id: existing.id,
+        };
+
+        if (sanitized.date !== undefined) {
+          updatedTransaction.date = sanitized.date instanceof Date
+            ? sanitized.date
+            : new Date(sanitized.date as Date | string);
+        }
+
+        if (sanitized.reconciledDate !== undefined) {
+          updatedTransaction.reconciledDate = sanitized.reconciledDate instanceof Date
+            ? sanitized.reconciledDate
+            : new Date(sanitized.reconciledDate as Date | string);
+        }
+
+        cachedTransactions[transactionIndex] = updatedTransaction;
+        
+        await storageAdapter.set('transactions', cachedTransactions);
+        
+        // Track for later sync
+        const offlineUpdates =
+          await storageAdapter.get<OfflineUpdateQueueItem<Transaction>[]>('offline_transaction_updates') || [];
+        await storageAdapter.set('offline_transaction_updates', [...offlineUpdates, { id, updates }]);
+        
+        return updatedTransaction;
+      }
+      
+      return rejectWithValue('Transaction not found');
+    }
+  }
+);
+
+export const deleteTransactionFromSupabase = createAsyncThunk(
+  'transactions/deleteFromSupabase',
+  async (id: string) => {
+    try {
+      const success = await SupabaseService.deleteTransaction(id);
+      
+      if (!success) {
+        throw new Error('Failed to delete transaction from Supabase');
+      }
+
+      // Update local cache
+      const cachedTransactions = await storageAdapter.get<Transaction[]>('transactions') || [];
+      const filteredTransactions = cachedTransactions.filter(txn => txn.id !== id);
+      await storageAdapter.set('transactions', filteredTransactions);
+      
+      return id;
+    } catch (error) {
+      logger.error('Failed to delete transaction from Supabase:', error);
+      
+      // Offline fallback - mark as deleted locally
+      const cachedTransactions = await storageAdapter.get<Transaction[]>('transactions') || [];
+      const filteredTransactions = cachedTransactions.filter(txn => txn.id !== id);
+      await storageAdapter.set('transactions', filteredTransactions);
+      
+      // Track for later sync
+      const offlineDeletes = await storageAdapter.get<string[]>('offline_transaction_deletes') || [];
+      await storageAdapter.set('offline_transaction_deletes', [...offlineDeletes, id]);
+      
+      return id;
+    }
+  }
+);
+
+// =============================================================================
+// BUDGETS THUNKS
+// =============================================================================
+
+export const fetchBudgetsFromSupabase = createAsyncThunk(
+  'budgets/fetchFromSupabase',
+  async (_, { rejectWithValue }) => {
+    try {
+      const userId = await getCurrentDatabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const budgets = await SupabaseService.getBudgets(userId);
+      
+      // Cache to localStorage for offline access
+      await storageAdapter.set('budgets', budgets);
+      
+      return budgets;
+    } catch (error) {
+      logger.error('Failed to fetch budgets from Supabase:', error);
+      
+      // Fallback to localStorage
+      try {
+        const cachedBudgets = await storageAdapter.get<Budget[]>('budgets') || [];
+        return cachedBudgets;
+      } catch (cacheError) {
+        logger.warn('No cached budgets available after Supabase fetch failure', cacheError);
+        return rejectWithValue('Failed to fetch budgets and no cached data available');
+      }
+    }
+  }
+);
+
+export const createBudgetInSupabase = createAsyncThunk(
+  'budgets/createInSupabase',
+  async (
+    budgetData: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>
+  ) => {
+    try {
+      const userId = await getCurrentDatabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const newBudget = await SupabaseService.createBudget(userId, budgetData);
+      
+      if (!newBudget) {
+        throw new Error('Failed to create budget in Supabase');
+      }
+
+      // Update local cache
+      const cachedBudgets = await storageAdapter.get<Budget[]>('budgets') || [];
+      await storageAdapter.set('budgets', [...cachedBudgets, newBudget]);
+      
+      return newBudget;
+    } catch (error) {
+      logger.error('Failed to create budget in Supabase:', error);
+      
+      // Offline fallback - create locally with temp ID
+      const timestamp = new Date();
+      const tempBudget: Budget = {
+        ...budgetData,
+        id: `temp-${crypto.randomUUID()}`,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        spent: budgetData.spent ?? 0,
+      };
+      
+      // Store in localStorage with sync flag
+      const cachedBudgets = await storageAdapter.get<Budget[]>('budgets') || [];
+      const offlineBudgets = await storageAdapter.get<Budget[]>('offline_budgets') || [];
+      await storageAdapter.set('budgets', [...cachedBudgets, tempBudget]);
+      await storageAdapter.set('offline_budgets', [...offlineBudgets, tempBudget]);
+      
+      return tempBudget;
+    }
+  }
+);
+
+// =============================================================================
+// GOALS THUNKS
+// =============================================================================
+
+export const fetchGoalsFromSupabase = createAsyncThunk(
+  'goals/fetchFromSupabase',
+  async (_, { rejectWithValue }) => {
+    try {
+      const userId = await getCurrentDatabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const goals = await SupabaseService.getGoals(userId);
+      
+      // Cache to localStorage for offline access
+      await storageAdapter.set('goals', goals);
+      
+      return goals;
+    } catch (error) {
+      logger.error('Failed to fetch goals from Supabase:', error);
+      
+      // Fallback to localStorage
+      try {
+        const cachedGoals = await storageAdapter.get<Goal[]>('goals') || [];
+        return cachedGoals;
+      } catch (cacheError) {
+        logger.warn('No cached goals available after Supabase fetch failure', cacheError);
+        return rejectWithValue('Failed to fetch goals and no cached data available');
+      }
+    }
+  }
+);
+
+export const createGoalInSupabase = createAsyncThunk(
+  'goals/createInSupabase',
+  async (
+    goalData: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>
+  ) => {
+    try {
+      const userId = await getCurrentDatabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      const newGoal = await SupabaseService.createGoal(userId, goalData);
+      
+      if (!newGoal) {
+        throw new Error('Failed to create goal in Supabase');
+      }
+
+      // Update local cache
+      const cachedGoals = await storageAdapter.get<Goal[]>('goals') || [];
+      await storageAdapter.set('goals', [...cachedGoals, newGoal]);
+      
+      return newGoal;
+    } catch (error) {
+      logger.error('Failed to create goal in Supabase:', error);
+      
+      // Offline fallback - create locally with temp ID
+      const timestamp = new Date();
+      const targetAmount = goalData.targetAmount ?? 0;
+      const currentAmount = goalData.currentAmount ?? 0;
+      const progress = targetAmount === 0 ? 0 : (currentAmount / targetAmount) * 100;
+
+      const tempGoal: Goal = {
+        ...goalData,
+        id: `temp-${crypto.randomUUID()}`,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+        currentAmount,
+        progress,
+        isActive: goalData.isActive ?? true,
+      };
+      
+      // Store in localStorage with sync flag
+      const cachedGoals = await storageAdapter.get<Goal[]>('goals') || [];
+      const offlineGoals = await storageAdapter.get<Goal[]>('offline_goals') || [];
+      await storageAdapter.set('goals', [...cachedGoals, tempGoal]);
+      await storageAdapter.set('offline_goals', [...offlineGoals, tempGoal]);
+      
+      return tempGoal;
+    }
+  }
+);
+
+// =============================================================================
+// SYNC UTILITIES
+// =============================================================================
+
+export const syncOfflineData = createAsyncThunk(
+  'app/syncOfflineData',
+  async (_, { dispatch, rejectWithValue }) => {
+    try {
+      const userId = await getCurrentDatabaseUserId();
+      if (!userId) {
+        throw new Error('User not authenticated');
+      }
+
+      // Sync offline accounts
+      const offlineAccounts = await storageAdapter.get<Account[]>('offline_accounts') || [];
+      for (const account of offlineAccounts) {
+        if (account.id.startsWith('temp-')) {
+          await dispatch(createAccountInSupabase(account));
+        }
+      }
+
+      // Sync offline transactions
+      const offlineTransactions = await storageAdapter.get<Transaction[]>('offline_transactions') || [];
+      for (const transaction of offlineTransactions) {
+        if (transaction.id.startsWith('temp-')) {
+          await dispatch(createTransactionInSupabase(transaction));
+        }
+      }
+
+      // Clear offline data after successful sync
+      await storageAdapter.remove('offline_accounts');
+      await storageAdapter.remove('offline_transactions');
+      await storageAdapter.remove('offline_budgets');
+      await storageAdapter.remove('offline_goals');
+      
+      return true;
+    } catch (error) {
+      logger.error('Failed to sync offline data:', error);
+      return rejectWithValue('Failed to sync offline data');
+    }
+  }
+);

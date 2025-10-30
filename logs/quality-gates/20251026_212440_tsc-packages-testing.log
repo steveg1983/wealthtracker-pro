@@ -1,0 +1,102 @@
+apps/web/src/services/autoSyncSupabaseProcessor.ts(126,82): error TS2322: Type 'T' is not assignable to type 'Record<string, unknown>'.
+  Type 'object' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type '{}'.
+packages/testing/databaseTestUtils.ts(146,11): error TS2304: Cannot find name 'faker'.
+packages/testing/databaseTestUtils.ts(148,13): error TS2304: Cannot find name 'faker'.
+packages/testing/databaseTestUtils.ts(149,22): error TS2304: Cannot find name 'faker'.
+packages/testing/databaseTestUtils.ts(150,23): error TS2304: Cannot find name 'faker'.
+packages/testing/databaseTestUtils.ts(151,20): error TS2304: Cannot find name 'faker'.
+packages/testing/databaseTestUtils.ts(152,17): error TS2304: Cannot find name 'faker'.
+packages/testing/realDatabase.ts(256,48): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(relation: "users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"): PostgrestQueryBuilder<...>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+  Overload 2 of 2, '(relation: never): PostgrestQueryBuilder<{ PostgrestVersion: "12"; }, { Tables: { users: { Row: { id: string; clerk_id: string; email: string; first_name: string | null; last_name: string | null; avatar_url: string | null; ... 12 more ...; has_mfa: boolean | null; }; Insert: { ...; }; Update: { ...; }; Relationships: []; }; ... 25 more ...; audit_log: { ...; }; }; Views: {}; Functions: { ...; }; Enums: {}; }, never, never, never>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type 'never'.
+packages/testing/realDatabase.ts(262,48): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(relation: "users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"): PostgrestQueryBuilder<...>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+  Overload 2 of 2, '(relation: never): PostgrestQueryBuilder<{ PostgrestVersion: "12"; }, { Tables: { users: { Row: { id: string; clerk_id: string; email: string; first_name: string | null; last_name: string | null; avatar_url: string | null; ... 12 more ...; has_mfa: boolean | null; }; Insert: { ...; }; Update: { ...; }; Relationships: []; }; ... 25 more ...; audit_log: { ...; }; }; Views: {}; Functions: { ...; }; Enums: {}; }, never, never, never>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type 'never'.
+packages/testing/realDatabase.ts(283,44): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(relation: "users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"): PostgrestQueryBuilder<...>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+  Overload 2 of 2, '(relation: never): PostgrestQueryBuilder<{ PostgrestVersion: "12"; }, { Tables: { users: { Row: { id: string; clerk_id: string; email: string; first_name: string | null; last_name: string | null; avatar_url: string | null; ... 12 more ...; has_mfa: boolean | null; }; Insert: { ...; }; Update: { ...; }; Relationships: []; }; ... 25 more ...; audit_log: { ...; }; }; Views: {}; Functions: { ...; }; Enums: {}; }, never, never, never>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type 'never'.
+packages/testing/realTestFramework.tsx(1,42): error TS7016: Could not find a declaration file for module 'react'. '/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react/index.js' implicitly has an 'any' type.
+  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
+packages/testing/realTestFramework.tsx(2,44): error TS2307: Cannot find module '@testing-library/react' or its corresponding type declarations.
+packages/testing/realTestFramework.tsx(3,31): error TS2307: Cannot find module '@clerk/clerk-react' or its corresponding type declarations.
+packages/testing/realTestFramework.tsx(4,31): error TS2307: Cannot find module 'react-router-dom' or its corresponding type declarations.
+packages/testing/realTestFramework.tsx(32,5): error TS7016: Could not find a declaration file for module 'react/jsx-runtime'. '/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
+  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
+packages/testing/realTestFramework.tsx(37,16): error TS2739: Type '{ children: Element; }' is missing the following properties from type '{ children: ReactNode; navigate: (path: string) => void; setCurrentPage: (page: string) => void; setSelectedAccountId: (accountId: string | null) => void; }': navigate, setCurrentPage, setSelectedAccountId
+packages/testing/supabaseMock.ts(19,64): error TS2344: Type 'typeof vi.fn<Args, Return>' does not satisfy the constraint '(...args: any) => any'.
+  Type 'typeof vi.fn<Args, Return>' provides no match for the signature '(...args: any): any'.
+packages/testing/supabaseMock.ts(19,77): error TS2635: Type '<T extends AnyFunction>(implementation?: T | undefined) => Mock<T>' has no signatures for which the type argument list is applicable.
+packages/testing/supabaseMock.ts(51,45): error TS2312: An interface can only extend an object type or intersection of object types with statically known members.
+packages/testing/supabaseMock.ts(60,17): error TS2558: Expected 1 type arguments, but got 2.
+packages/testing/supabaseMock.ts(66,17): error TS2558: Expected 1 type arguments, but got 2.
+packages/testing/supabaseMock.ts(66,56): error TS2339: Property 'mockReturnValue' does not exist on type 'Mock<[string]>'.
+packages/testing/supabaseMock.ts(71,15): error TS2558: Expected 1 type arguments, but got 2.
+packages/testing/supabaseMock.ts(72,24): error TS2558: Expected 1 type arguments, but got 2.
+packages/testing/supabaseMock.ts(73,19): error TS2558: Expected 1 type arguments, but got 2.
+packages/testing/supabaseMock.ts(84,27): error TS2322: Type '{ select: any; insert: any; upsert: Mock<[TableInsert<Table> | TableInsert<Table>[], ({ onConflict?: string; } | undefined)?]>; }' is not assignable to type 'MockedQuery<Table>'.
+  Type '{ select: any; insert: any; upsert: Mock<[TableInsert<Table> | TableInsert<Table>[], ({ onConflict?: string; } | undefined)?]>; }' is not assignable to type 'SupabaseQueryBuilderLike<TableRow<Table>, TableInsert<Table>>'.
+    The types returned by 'upsert(...)' are incompatible between these types.
+      Type 'unknown' is not assignable to type 'PromiseLike<SupabaseQueryResult<TableRow<Table>>>'.
+packages/testing/supabaseMock.ts(85,17): error TS2558: Expected 1 type arguments, but got 2.
+packages/testing/supabaseMock.ts(85,50): error TS2339: Property 'mockReturnValue' does not exist on type 'Mock<[string]>'.
+packages/testing/supabaseMock.ts(86,17): error TS2558: Expected 1 type arguments, but got 2.
+packages/testing/supabaseMock.ts(86,85): error TS2339: Property 'mockReturnValue' does not exist on type 'Mock<[TableInsert<Table> | TableInsert<Table>[]]>'.
+packages/testing/supabaseMock.ts(88,5): error TS2558: Expected 1 type arguments, but got 2.
+packages/testing/supabaseRealTest.ts(42,3): error TS2322: Type 'SupabaseClient<Database, "public" extends Exclude<keyof Database, "__InternalSupabase"> ? "public" : string & Exclude<keyof Database, "__InternalSupabase">, SchemaNameOrClientOptions extends string & Exclude<...> ? SchemaNameOrClientOptions : "public" extends Exclude<...> ? "public" : string & Exclude<...>, Omit<......' is not assignable to type 'SupabaseTestClient'.
+  Type 'SchemaNameOrClientOptions extends string & Exclude<keyof Database, "__InternalSupabase"> ? SchemaNameOrClientOptions : "public" extends Exclude<...> ? "public" : string & Exclude<...>' is not assignable to type '"public"'.
+    Type '(string & Exclude<keyof Database, "__InternalSupabase"> extends string & Exclude<keyof Database, "__InternalSupabase"> ? string & Exclude<...> : "public" extends Exclude<...> ? "public" : string & Exclude<...>) | ({ ...; } extends string & Exclude<...> ? string & ... 1 more ... & { ...; } : "public" extends Exclude<...' is not assignable to type '"public"'.
+      Type 'string & Exclude<keyof Database, "__InternalSupabase"> extends string & Exclude<keyof Database, "__InternalSupabase"> ? string & Exclude<...> : "public" extends Exclude<...> ? "public" : string & Exclude<...>' is not assignable to type '"public"'.
+        Type 'string extends string & Exclude<keyof Database, "__InternalSupabase"> ? string & Exclude<keyof Database, "__InternalSupabase"> : "public" extends Exclude<...> ? "public" : string & Exclude<...>' is not assignable to type '"public"'.
+          Type '(string & Exclude<keyof Database, "__InternalSupabase">) | ("public" extends Exclude<keyof Database, "__InternalSupabase"> ? "public" : string & Exclude<...>)' is not assignable to type '"public"'.
+            Type 'string & Exclude<keyof Database, "__InternalSupabase">' is not assignable to type '"public"'.
+packages/testing/supabaseRealTest.ts(42,33): error TS2345: Argument of type 'string | true' is not assignable to parameter of type 'string'.
+  Type 'boolean' is not assignable to type 'string'.
+packages/testing/templates/component-real-test-template.tsx(10,10): error TS2305: Module '"vitest"' has no exported member 'describe'.
+packages/testing/templates/component-real-test-template.tsx(10,20): error TS2305: Module '"vitest"' has no exported member 'it'.
+packages/testing/templates/component-real-test-template.tsx(10,24): error TS2305: Module '"vitest"' has no exported member 'expect'.
+packages/testing/templates/component-real-test-template.tsx(10,32): error TS2305: Module '"vitest"' has no exported member 'beforeAll'.
+packages/testing/templates/component-real-test-template.tsx(10,43): error TS2305: Module '"vitest"' has no exported member 'afterAll'.
+packages/testing/templates/component-real-test-template.tsx(10,53): error TS2305: Module '"vitest"' has no exported member 'beforeEach'.
+packages/testing/templates/component-real-test-template.tsx(10,65): error TS2305: Module '"vitest"' has no exported member 'afterEach'.
+packages/testing/templates/component-real-test-template.tsx(11,33): error TS2307: Cannot find module '@testing-library/react' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(12,23): error TS2307: Cannot find module '@testing-library/user-event' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(13,27): error TS2307: Cannot find module './ComponentName' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(42,44): error TS2345: Argument of type '{ name: string; type: string; }' is not assignable to parameter of type 'string'.
+packages/testing/templates/component-real-test-template.tsx(62,23): error TS2304: Cannot find name 'vi'.
+packages/testing/templates/component-real-test-template.tsx(65,9): error TS7016: Could not find a declaration file for module 'react/jsx-runtime'. '/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
+  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
+packages/testing/templates/component-real-test-template.tsx(94,67): error TS2345: Argument of type '{ amount: number; description: string; }' is not assignable to parameter of type 'string'.
+packages/testing/templates/component-real-test-template.tsx(113,23): error TS2339: Property 'description' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; } | ... 25 more ... | { ...; }'.
+  Property 'description' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; }'.
+packages/testing/templates/component-real-test-template.tsx(145,24): error TS2339: Property 'amount' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; } | ... 25 more ... | { ...; }'.
+  Property 'amount' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; }'.
+packages/testing/templates/component-real-test-template.tsx(204,30): error TS2552: Cannot find name 'testDb'. Did you mean 'test'?
+packages/testing/templates/component-real-test-template.tsx(227,39): error TS2551: Property 'getTransactions' does not exist on type 'RealTestDatabase'. Did you mean 'createTransaction'?
+packages/testing/templates/component-real-test-template.tsx(231,18): error TS2339: Property 'deleteAccount' does not exist on type 'RealTestDatabase'.
+packages/testing/templates/component-real-test-template.tsx(232,47): error TS2551: Property 'getTransactions' does not exist on type 'RealTestDatabase'. Did you mean 'createTransaction'?
+packages/testing/templates/component-real-test-template.tsx(242,46): error TS2345: Argument of type '{ amount: number; description: string; }' is not assignable to parameter of type 'string'.
+packages/testing/vitest-setup.ts(1,10): error TS2305: Module '"vitest"' has no exported member 'afterAll'.
+packages/testing/vitest-setup.ts(1,20): error TS2305: Module '"vitest"' has no exported member 'afterEach'.
+packages/testing/vitest-setup.ts(1,31): error TS2305: Module '"vitest"' has no exported member 'beforeAll'.
+packages/testing/vitest-setup.ts(12,8): error TS2339: Property 'doMock' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(17,25): error TS2339: Property 'importActual' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(24,8): error TS2339: Property 'clearAllMocks' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(30,8): error TS2339: Property 'spyOn' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(31,8): error TS2339: Property 'spyOn' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(35,41): error TS2345: Argument of type '(query: string) => { matches: boolean; media: string; onchange: null; addListener: Mock<AnyFunction>; removeListener: Mock<AnyFunction>; addEventListener: Mock<...>; removeEventListener: Mock<...>; dispatchEvent: Mock<...>; }' is not assignable to parameter of type 'AnyFunction'.
+  Types of parameters 'query' and 'args' are incompatible.
+    Type 'unknown' is not assignable to type 'string'.
+packages/testing/vitest-setup.ts(47,5): error TS2322: Type 'Mock<AnyFunction>' is not assignable to type '{ new (callback: IntersectionObserverCallback, options?: IntersectionObserverInit | undefined): IntersectionObserver; prototype: IntersectionObserver; }'.
+  Type 'Mock<AnyFunction>' provides no match for the signature 'new (callback: IntersectionObserverCallback, options?: IntersectionObserverInit | undefined): IntersectionObserver'.
+packages/testing/vitest-setup.ts(57,5): error TS2322: Type 'Mock<AnyFunction>' is not assignable to type '{ new (callback: ResizeObserverCallback): ResizeObserver; prototype: ResizeObserver; }'.
+  Type 'Mock<AnyFunction>' provides no match for the signature 'new (callback: ResizeObserverCallback): ResizeObserver'.
+packages/testing/vitest-setup.ts(67,9): error TS2322: Type '() => `test-uuid-${string}`' is not assignable to type '() => `${string}-${string}-${string}-${string}-${string}`'.
+  Type '`test-uuid-${string}`' is not assignable to type '`${string}-${string}-${string}-${string}-${string}`'.
+packages/testing/vitest-setup.ts(82,8): error TS2339: Property 'restoreAllMocks' does not exist on type 'Vi'.

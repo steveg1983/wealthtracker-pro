@@ -1,0 +1,455 @@
+
+> lint
+> npm run lint --workspace apps/web --no-cache
+
+
+> wealth-tracker@1.4.5 lint
+> eslint .
+
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/mocks/syncServer.ts
+  127:41  warning  'data' is assigned a value but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  127:47  warning  'timestamp' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  236:27  warning  'clientId' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/security/__tests__/encryption.test.ts
+  211:13  warning  'encrypted' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/security/csp.ts
+   16:5   warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+   36:7   warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  212:7   warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  240:29  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  241:37  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  241:47  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  241:58  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  265:37  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  265:47  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  265:58  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/security/csrf-protection.ts
+  182:25  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  210:18  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  210:28  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  210:39  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/security/global-sanitizer.ts
+   67:63  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   67:69  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  198:51  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  209:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/security/index.ts
+  62:3  warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/security/rate-limiting.ts
+    6:10  warning  'environment' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   11:28  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+   47:25  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+   82:27  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  121:25  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  223:23  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  224:33  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  232:23  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  246:26  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  254:16  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  254:26  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  254:37  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  280:28  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  283:49  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+  317:17  warning  'options' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  343:32  warning  Unexpected any. Specify a different type                                            @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/security/xss-protection.ts
+   48:7   warning  'MARKDOWN_CONFIG' is assigned a value but never used. Allowed unused vars must match /^_/u                           @typescript-eslint/no-unused-vars
+  155:34  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  155:40  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  165:22  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  276:56  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  277:20  warning  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  301:35  warning  'initialValue' is assigned a value but never used. Allowed unused args must match /^_/u                              @typescript-eslint/no-unused-vars
+  328:3   warning  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/__tests__/accountService.real.test.ts
+  143:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/__tests__/goalService.real.test.ts
+  594:59  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/__tests__/transactionService.real.test.ts
+  139:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/__tests__/validationService.test.ts
+  200:13  warning  'invalidBudget' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/advancedAnalyticsService.ts
+  703:31  warning  'key' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/alphaVantageService.ts
+   73:46  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  169:40  warning  Unexpected any. Specify a different type                                  @typescript-eslint/no-explicit-any
+  397:39  warning  'symbol' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/anomalyDetectionService.ts
+    4:10  warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  433:15  warning  'dayOfWeek' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  472:41  warning  'key' is defined but never used. Allowed unused args must match /^_/u                 @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/api/budgetService.ts
+  324:12  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/api/dataService.ts
+  7:10  warning  'UserService' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/api/investmentService.ts
+  117:7  warning  'requireString' is assigned a value but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  140:7  warning  'parseOptionalDate' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/api/plaidBackendService.ts
+  144:24  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  323:60  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  373:14  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  411:64  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/api/simpleAccountService.ts
+  155:7  warning  'ensureSupabase' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/api/transactionService.ts
+  458:9  warning  'now' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/api/userService.ts
+  100:79  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  126:73  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/autoSyncSupabaseProcessor.ts
+  1055:18  warning  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/bankConnectionService.ts
+    1:15  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+    1:24  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+   79:25  warning  'country' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  169:29  warning  'code' is defined but never used. Allowed unused args must match /^_/u              @typescript-eslint/no-unused-vars
+  169:43  warning  'state' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/businessService.ts
+  2:15  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  2:28  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/cashFlowForecastService.ts
+  4:80  warning  'startOfMonth' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  4:94  warning  'endOfMonth' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/collaborationService.ts
+    1:15  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+    1:28  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+    1:45  warning  'Goal' is defined but never used. Allowed unused vars must match /^_/u         @typescript-eslint/no-unused-vars
+  364:20  warning  'householdId' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/conflictResolutionService.ts
+    7:10  warning  'differenceWith' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+    7:26  warning  'intersectionWith' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+   11:13  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+   12:13  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+   22:16  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+   34:29  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+   34:47  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+   78:17  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+   79:17  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  141:41  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  141:52  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  164:17  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  165:17  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  232:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  233:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  234:5   warning  'entityType' is defined but never used. Allowed unused args must match /^_/u           @typescript-eslint/no-unused-vars
+  277:17  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  278:17  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  282:6   warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  330:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  331:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  335:6   warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  351:13  warning  'serverTime' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  370:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  371:18  warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+  374:6   warning  Unexpected any. Specify a different type                                               @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/customReportService.ts
+    5:101  warning  'subYears' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+   51:14   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+   91:41   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  169:14   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  202:69   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  202:75   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  214:33   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  238:13   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  239:6    warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  286:13   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  287:6    warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  325:5    warning  'dateRange' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  326:5    warning  'config' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  326:13   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  327:6    warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  358:13   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  359:6    warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  427:5    warning  'config' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  427:13   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  428:6    warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  488:5    warning  'config' is defined but never used. Allowed unused args must match /^_/u     @typescript-eslint/no-unused-vars
+  488:13   warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+  489:6    warning  Unexpected any. Specify a different type                                     @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/debtCalculationService.ts
+  410:11  warning  'monthlyRate' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/dividendService.ts
+  342:47  warning  'symbol' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/documentService.ts
+  230:37  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/encryptedStorageService.ts
+  202:18  warning  'error' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/enhancedCsvImportService.ts
+  4:15  warning  'DecimalInstance' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/exportService.ts
+     3:7    warning  'html2canvas' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+     4:37   warning  'Category' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+    11:3    warning  'GroupedData' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+   294:39   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   294:44   warning  'options' is defined but never used. Allowed unused args must match /^_/u               @typescript-eslint/no-unused-vars
+   333:43   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   347:60   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   366:53   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   381:41   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   387:62   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   387:100  warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   419:58   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   442:51   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   465:66   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   484:66   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   515:35   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   530:39   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   551:58   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   561:51   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   571:66   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+   786:13   warning  'remaining' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+  1335:15   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+  1336:18   warning  Unexpected any. Specify a different type                                                @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/financialPlanningService.ts
+  12:3  warning  'FinancialPlanUpdate' is defined but never used. Allowed unused vars must match /^_/u        @typescript-eslint/no-unused-vars
+  16:3  warning  'MortgageCalculationUpdate' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  18:3  warning  'RetirementPlan' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  19:3  warning  'RetirementPlanCreate' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  20:3  warning  'RetirementPlanUpdate' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  21:3  warning  'InvestmentPlan' is defined but never used. Allowed unused vars must match /^_/u             @typescript-eslint/no-unused-vars
+  22:3  warning  'InvestmentPlanCreate' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  23:3  warning  'InvestmentPlanUpdate' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  26:3  warning  'SavedCalculationUpdate' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  68:7  warning  'toOptionalDate' is assigned a value but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/householdService.ts
+    1:15  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u                        @typescript-eslint/no-unused-vars
+    1:37  warning  'Budget' is defined but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+    1:45  warning  'Goal' is defined but never used. Allowed unused vars must match /^_/u                           @typescript-eslint/no-unused-vars
+  124:35  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  126:34  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  139:32  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  180:34  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  199:32  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  215:34  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  236:43  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  491:9   warning  'totalHouseholdIncome' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/importRulesService.ts
+   39:30  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   58:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   75:46  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  157:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  170:40  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/investmentEnhancementService.ts
+    1:27  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+    2:21  warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  263:11  warning  'esgRatings' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/loggingService.ts
+   16:10  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   32:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   41:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   50:32  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   59:34  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   73:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  121:56  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/mobileService.ts
+    1:28  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  150:15  warning  'registration' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  215:30  warning  'transaction' is defined but never used. Allowed unused args must match /^_/u            @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/notificationService.ts
+    2:42  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  400:11  warning  'now' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/ocrService.ts
+    5:47  warning  'TesseractLogMessage' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  273:36  warning  'file' is defined but never used. Allowed unused args must match /^_/u                 @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/ofxImportService.ts
+  287:11  warning  'expenseTypes' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/plaidService.ts
+    8:10  warning  'useUser' is defined but never used. Allowed unused vars must match /^_/u                @typescript-eslint/no-unused-vars
+  201:13  warning  'access_token' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  418:65  warning  'endDate' is assigned a value but never used. Allowed unused args must match /^_/u       @typescript-eslint/no-unused-vars
+  597:29  warning  Do not access Object.prototype method 'hasOwnProperty' from target object                no-prototype-builtins
+  649:42  warning  'endpoint' is defined but never used. Allowed unused args must match /^_/u               @typescript-eslint/no-unused-vars
+  649:60  warning  'params' is defined but never used. Allowed unused args must match /^_/u                 @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/portfolioCalculationService.test.ts
+  6:44  warning  'vi' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+  9:8   warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/portfolioCalculationService.ts
+  253:5   warning  'transactions' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  392:25  warning  'transaction' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+  397:31  warning  'transaction' is defined but never used. Allowed unused args must match /^_/u   @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/portfolioOptimizationService.ts
+    1:8   warning  'Decimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  489:19  warning  Unexpected any. Specify a different type                                   @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/pushNotificationService.ts
+    7:10  warning  'getRegistration' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   16:10  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  307:52  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/qifImportService.ts
+  1:28  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/scheduledReportService.ts
+  234:33  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  244:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  244:80  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  273:41  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  273:52  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  293:43  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  293:54  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  347:31  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  361:23  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/securityService.ts
+    1:15  warning  'Transaction' is defined but never used. Allowed unused vars must match /^_/u                  @typescript-eslint/no-unused-vars
+    1:28  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u                      @typescript-eslint/no-unused-vars
+    1:37  warning  'Budget' is defined but never used. Allowed unused vars must match /^_/u                       @typescript-eslint/no-unused-vars
+    1:45  warning  'Goal' is defined but never used. Allowed unused vars must match /^_/u                         @typescript-eslint/no-unused-vars
+    1:51  warning  'Investment' is defined but never used. Allowed unused vars must match /^_/u                   @typescript-eslint/no-unused-vars
+    2:47  warning  'BiometricAvailabilityResult' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  475:23  warning  Do not access Object.prototype method 'hasOwnProperty' from target object                      no-prototype-builtins
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/sharedFinanceService.ts
+    2:33  warning  'HouseholdMember' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   94:62  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  104:58  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  109:48  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  118:60  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  127:62  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/smartCacheService.ts
+   68:7   warning  'staleWhileRevalidate' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  119:7   warning  'dependencies' is assigned a value but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+  236:25  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  403:28  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  444:28  warning  Unexpected any. Specify a different type                                                         @typescript-eslint/no-explicit-any
+  545:22  warning  'e' is defined but never used                                                                    @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/smartCategorizationService.test.ts
+  374:13  warning  'mcdonaldsResult' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/smartCategorizationService.ts
+  28:54  warning  'categories' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/stateTaxService.ts
+  97:48  warning  'type' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/stockPriceService.ts
+  245:11  warning  'results' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  256:37  warning  'index' is defined but never used. Allowed unused args must match /^_/u             @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/stripeService.ts
+   25:3  warning  'Invoice' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  240:5  warning  'request' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/syncService.ts
+  209:11  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/taxDataService.ts
+  353:11  warning  'year' is assigned a value but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+  572:53  warning  Unexpected any. Specify a different type                                                     @typescript-eslint/no-explicit-any
+  688:13  warning  'expectedChecksum' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  805:17  warning  'data' is assigned a value but never used. Allowed unused vars must match /^_/u              @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/taxPlanningService.ts
+  49:17  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/themeSchedulingService.ts
+  524:13  warning  'currentTime' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  549:13  warning  'currentTime' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/timeSeriesAnalysis.ts
+    9:10  warning  'format' is defined but never used. Allowed unused vars must match /^_/u          @typescript-eslint/no-unused-vars
+    9:18  warning  'subMonths' is defined but never used. Allowed unused vars must match /^_/u       @typescript-eslint/no-unused-vars
+    9:29  warning  'startOfMonth' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+    9:43  warning  'endOfMonth' is defined but never used. Allowed unused vars must match /^_/u      @typescript-eslint/no-unused-vars
+  341:13  warning  'trend' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  408:5   warning  'forecast' is defined but never used. Allowed unused args must match /^_/u        @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/transactionAnalyticsService.ts
+    3:38  warning  'Account' is defined but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  225:11  warning  'endDate' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  291:5   warning  'categories' is defined but never used. Allowed unused args must match /^_/u        @typescript-eslint/no-unused-vars
+  306:36  warning  'categoryId' is defined but never used. Allowed unused args must match /^_/u        @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/ukMortgageService.ts
+  72:5  warning  'mortgageType' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  73:5  warning  'fixedTermYears' is defined but never used. Allowed unused args must match /^_/u         @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/ukRetirementService.ts
+  263:6  warning  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/usMortgageService.ts
+   68:11  warning  'ltv' is assigned a value but never used. Allowed unused vars must match /^_/u           @typescript-eslint/no-unused-vars
+  204:5   warning  'filingStatus' is assigned a value but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/services/validationService.ts
+  4:3  warning  'sanitizeNumber' is defined but never used. Allowed unused vars must match /^_/u   @typescript-eslint/no-unused-vars
+  5:3  warning  'sanitizeDecimal' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  6:3  warning  'sanitizeDate' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  8:3  warning  'sanitizeQuery' is defined but never used. Allowed unused vars must match /^_/u    @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/store/thunks/index.ts
+   6:21  warning  'addTransactionAction' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+   7:24  warning  'updateTransactionAction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+   8:24  warning  'deleteTransactionAction' is defined but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+  14:3   warning  'updateAccountBalance' is defined but never used. Allowed unused vars must match /^_/u     @typescript-eslint/no-unused-vars
+  26:27  warning  'saveTags' is defined but never used. Allowed unused vars must match /^_/u                 @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/store/thunks/supabaseThunks.ts
+   89:16  warning  'cacheError' is defined but never used                                             @typescript-eslint/no-unused-vars
+   98:62  warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+   98:79  warning  'dispatch' is defined but never used. Allowed unused args must match /^_/u         @typescript-eslint/no-unused-vars
+  185:57  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  198:24  warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  255:16  warning  'cacheError' is defined but never used                                             @typescript-eslint/no-unused-vars
+  264:54  warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  356:57  warning  Unexpected any. Specify a different type                                           @typescript-eslint/no-explicit-any
+  369:24  warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  426:16  warning  'cacheError' is defined but never used                                             @typescript-eslint/no-unused-vars
+  437:7   warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+  506:16  warning  'cacheError' is defined but never used                                             @typescript-eslint/no-unused-vars
+  517:7   warning  'rejectWithValue' is defined but never used. Allowed unused args must match /^_/u  @typescript-eslint/no-unused-vars
+
+✖ 302 problems (0 errors, 302 warnings)
+

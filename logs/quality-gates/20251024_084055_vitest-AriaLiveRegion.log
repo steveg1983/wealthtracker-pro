@@ -1,0 +1,7 @@
+Vitest Focused Run: AriaLiveRegion
+UTC Timestamp: 2025-10-24 08:40:55
+Command: npm run test -- --run src/components/common/AriaLiveRegion.test.tsx
+Result: 22 tests (22 passed / 0 failed)
+Notes:
+- Updated the accessibility hook import to reference the shared utilities module instead of the component file.
+- Refactored `useAriaAnnounce` to expose a real function component announcer without violating React hook rules.

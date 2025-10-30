@@ -1,0 +1,12 @@
+
+> wealth-tracker@1.4.5 test:supabase-smoke
+> node scripts/run-supabase-smoke.mjs
+
+[supabase:smoke] Missing configuration. Ensure RUN_SUPABASE_REAL_TESTS=true and Supabase credentials are provided (missing: VITE_SUPABASE_SERVICE_ROLE_KEY).
+npm error Lifecycle script `test:supabase-smoke` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c node scripts/run-supabase-smoke.mjs

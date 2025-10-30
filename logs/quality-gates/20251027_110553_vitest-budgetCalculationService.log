@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/services/__tests__/budgetCalculationService.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/services/__tests__/budgetCalculationService.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/services/__tests__/budgetCalculationService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+ ✓ src/services/__tests__/budgetCalculationService.test.ts (12 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  11:05:53
+   Duration  657ms (transform 93ms, setup 122ms, collect 188ms, tests 6ms, environment 184ms, prepare 35ms)
+

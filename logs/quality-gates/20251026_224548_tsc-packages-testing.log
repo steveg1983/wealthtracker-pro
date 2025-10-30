@@ -1,0 +1,2 @@
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(270,13): error TS2304: Cannot find name 'activeClerkId'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(283,80): error TS2304: Cannot find name 'activeClerkId'.

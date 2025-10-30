@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/mbfParser.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/mbfParser.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/mbfParser.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+ ✓ src/utils/__tests__/mbfParser.test.ts (17 tests) 7ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  15:37:51
+   Duration  751ms (transform 81ms, setup 118ms, collect 142ms, tests 7ms, environment 215ms, prepare 32ms)
+

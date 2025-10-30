@@ -1,0 +1,13 @@
+# CODEOWNERS — critical paths (replace with real users/teams)
+
+# Core governance
+.github/**                                  @steveg1983
+.github/workflows/**                        @steveg1983
+
+# API and security
+src/middleware/**                           @steveg1983
+src/routes/**                               @steveg1983
+src/services/**                             @steveg1983
+
+# Default fallback
+*                                            @steveg1983

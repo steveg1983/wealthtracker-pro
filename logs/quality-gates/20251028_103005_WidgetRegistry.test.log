@@ -1,0 +1,18 @@
+
+> wealth-tracker@1.4.5 test
+> vitest --run src/components/widgets/__tests__/WidgetRegistry.test.tsx
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/components/widgets/__tests__/WidgetRegistry.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+ ✓ src/components/widgets/__tests__/WidgetRegistry.test.tsx (3 tests) 13ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  10:30:05
+   Duration  1.84s (transform 328ms, setup 116ms, collect 1.24s, tests 13ms, environment 180ms, prepare 36ms)
+

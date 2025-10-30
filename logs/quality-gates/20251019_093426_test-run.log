@@ -1,0 +1,1674 @@
+
+> wealth-tracker@1.4.5 test
+> vitest --run
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/contexts/__tests__/CombinedProvider.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/store/__tests__/reduxMigration.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/hooks/__tests__/useCashFlowForecast.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/contexts/__tests__/AppContext.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/components/PageWrapper.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/contexts/__tests__/PreferencesContextSafe.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/components/__tests__/DashboardWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/services/__tests__/budgetService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/utils/__tests__/mnyParser.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/utils/csvImport.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/components/LoadingScreen.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+stdout | src/services/__tests__/goalService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/utils/__tests__/mbfParser.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/hooks/__tests__/useGlobalSearch.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/components/__tests__/Layout.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+ ❯ src/components/LoadingScreen.test.tsx (28 tests | 1 failed) 60ms
+   ✓ LoadingScreen > Basic Rendering > renders the loading screen 12ms
+   ✓ LoadingScreen > Basic Rendering > renders waving hand emoji with animation 2ms
+   ✓ LoadingScreen > Basic Rendering > renders spinner element 2ms
+   ✓ LoadingScreen > Layout and Structure > uses full screen height 1ms
+   ✓ LoadingScreen > Layout and Structure > centers content vertically and horizontally 1ms
+   ✓ LoadingScreen > Layout and Structure > centers text content 1ms
+   ✓ LoadingScreen > Layout and Structure > has correct DOM structure 1ms
+   × LoadingScreen > Styling > applies correct background colors 4ms
+     → [2mexpect([22m[31melement[39m[2m).toHaveClass([22m[32m[32m"bg-gray-50 dark:bg-gray-900"[32m[39m[2m)[22m
+
+Expected the element to have class:
+[32m  bg-gray-50 dark:bg-gray-900[39m
+Received:
+[31m  min-h-screen bg-blue-50 dark:bg-gray-900 flex items-center justify-center[39m
+   ✓ LoadingScreen > Styling > applies correct title styling 19ms
+   ✓ LoadingScreen > Styling > applies correct loading text styling 1ms
+   ✓ LoadingScreen > Styling > styles spinner correctly 1ms
+   ✓ LoadingScreen > Content > displays app name in title 3ms
+   ✓ LoadingScreen > Content > displays loading message 1ms
+   ✓ LoadingScreen > Content > emoji is part of the heading 2ms
+   ✓ LoadingScreen > Animations > spinner has spin animation 0ms
+   ✓ LoadingScreen > Animations > emoji has bounce animation 0ms
+   ✓ LoadingScreen > Animations > spinner is circular 0ms
+   ✓ LoadingScreen > Accessibility > has semantic heading structure 1ms
+   ✓ LoadingScreen > Accessibility > loading text is readable 1ms
+   ✓ LoadingScreen > Accessibility > maintains proper contrast in dark mode 2ms
+   ✓ LoadingScreen > Spinner Styling > spinner has correct dimensions 1ms
+   ✓ LoadingScreen > Spinner Styling > spinner has bottom border only 1ms
+   ✓ LoadingScreen > Spinner Styling > spinner uses primary color 0ms
+   ✓ LoadingScreen > Spinner Styling > spinner is horizontally centered 1ms
+   ✓ LoadingScreen > Performance > renders minimal DOM elements 0ms
+   ✓ LoadingScreen > Performance > uses CSS animations only 1ms
+   ✓ LoadingScreen > Dark Mode Support > has dark mode background variant 0ms
+   ✓ LoadingScreen > Dark Mode Support > has dark mode text color variants 1ms
+ ❯ src/components/PageWrapper.test.tsx (22 tests | 5 failed) 79ms
+   ✓ PageWrapper > Basic rendering > renders with minimal props 12ms
+   ✓ PageWrapper > Basic rendering > renders title as h1 element 21ms
+   ✓ PageWrapper > Basic rendering > applies default header styles 2ms
+   ✓ PageWrapper > Basic rendering > renders children in content area 1ms
+   ✓ PageWrapper > Header content > renders header content when provided 1ms
+   × PageWrapper > Header content > renders header content after title 13ms
+     → expected <div …(1)><p …(1)></p></div> to be <p data-testid="header-content"></p> // Object.is equality
+   ✓ PageWrapper > Right content > renders right content when provided without reducedHeaderWidth 5ms
+   ✓ PageWrapper > Right content > positions right content absolutely within header when not reduced 1ms
+   × PageWrapper > Right content > does not render right content inside header when reducedHeaderWidth is true 2ms
+     → container is not defined
+   ✓ PageWrapper > Right content > renders right content outside header when reducedHeaderWidth is true 1ms
+   × PageWrapper > Reduced header width > applies reduced width class when reducedHeaderWidth is true 2ms
+     → [2mexpect([22m[31melement[39m[2m).toHaveClass([22m[32m[32m"w-[80%]"[32m[39m[2m)[22m
+
+Expected the element to have class:
+[32m  w-[80%][39m
+Received:
+[31m  relative bg-secondary dark:bg-gray-700 rounded-2xl shadow shadow-lg p-4 md:p-6[39m
+   ✓ PageWrapper > Reduced header width > does not apply reduced width class when reducedHeaderWidth is false 1ms
+   ✓ PageWrapper > Reduced header width > does not apply reduced width class by default 1ms
+   ✓ PageWrapper > Layout structure > wraps header in relative positioned container 1ms
+   ✓ PageWrapper > Layout structure > wraps children in relative positioned container 1ms
+   × PageWrapper > Layout structure > maintains header margin bottom 1ms
+     → [2mexpect([22m[31melement[39m[2m).toHaveClass([22m[32m[32m"mb-6"[32m[39m[2m)[22m
+
+Expected the element to have class:
+[32m  mb-6[39m
+Received:
+[31m  relative w-full[39m
+   ✓ PageWrapper > Complex scenarios > renders all optional props together 1ms
+   ✓ PageWrapper > Complex scenarios > handles React fragments as children 1ms
+   ✓ PageWrapper > Complex scenarios > handles complex header content 7ms
+   ✓ PageWrapper > Styling and dark mode > includes dark mode classes 1ms
+   × PageWrapper > Styling and dark mode > applies title styling 2ms
+     → [2mexpect([22m[31melement[39m[2m).toHaveClass([22m[32m[32m"text-3xl font-bold text-white"[32m[39m[2m)[22m
+
+Expected the element to have class:
+[32m  text-3xl font-bold text-white[39m
+Received:
+[31m  text-2xl font-bold[39m
+   ✓ PageWrapper > Styling and dark mode > applies shadow to header 1ms
+ ❯ src/utils/__tests__/mbfParser.test.ts (17 tests | 1 failed) 12ms
+   ✓ mbfParser > parseMNY > handles empty buffer 2ms
+   × mbfParser > parseMNY > logs file signature 4ms
+     → expected "log" to be called with arguments: [ 'File signature:', …(1) ][90m
+
+Number of calls: [1m0[22m
+[39m
+   ✓ mbfParser > parseMNY > creates default account when none found 1ms
+   ✓ mbfParser > parseMNY > finds account patterns in data 0ms
+   ✓ mbfParser > parseMNY > detects account types from context 1ms
+   ✓ mbfParser > parseMNY > parses transactions with OLE date format 0ms
+   ✓ mbfParser > parseMNY > parses transactions with days since 1900 format 0ms
+   ✓ mbfParser > parseMNY > parses transactions with Unix timestamp 0ms
+   ✓ mbfParser > parseMNY > extracts payee information 0ms
+   ✓ mbfParser > parseMNY > handles Unicode strings 0ms
+   ✓ mbfParser > parseMNY > removes duplicate transactions 0ms
+   ✓ mbfParser > parseMNY > sorts transactions by date 0ms
+   ✓ mbfParser > parseMNY > handles transaction blocks with record markers 0ms
+   ✓ mbfParser > parseMNY > skips invalid date values 0ms
+   ✓ mbfParser > parseMNY > handles errors gracefully 0ms
+   ✓ mbfParser > parseMNY > searches multiple account patterns 0ms
+   ✓ mbfParser > parseMNY > validates account names 0ms
+ ❯ src/utils/csvImport.test.ts (33 tests | 3 failed) 18ms
+   ✓ CSV Import > importTransactionsFromCSV > imports basic transactions correctly 2ms
+   ✓ CSV Import > importTransactionsFromCSV > imports transactions with all optional fields 0ms
+   ✓ CSV Import > importTransactionsFromCSV > handles CSV with quoted fields containing commas 0ms
+   ✓ CSV Import > importTransactionsFromCSV > handles different column orders and mixed case headers 0ms
+   ✓ CSV Import > importTransactionsFromCSV > handles partial column headers 0ms
+   ✓ CSV Import > importTransactionsFromCSV > handles missing optional columns gracefully 0ms
+   ✓ CSV Import > importTransactionsFromCSV > skips rows with invalid dates 0ms
+   ✓ CSV Import > importTransactionsFromCSV > skips incomplete rows 0ms
+   ✓ CSV Import > importTransactionsFromCSV > handles various amount formats 0ms
+   ✓ CSV Import > importTransactionsFromCSV > handles zero and invalid amounts 0ms
+   ✓ CSV Import > importTransactionsFromCSV > maps accounts correctly and handles unknown accounts 0ms
+   ✓ CSV Import > importTransactionsFromCSV > handles empty account map 0ms
+   ✓ CSV Import > importTransactionsFromCSV > parses tags correctly 0ms
+   ✓ CSV Import > importTransactionsFromCSV > handles cleared status variations 0ms
+   ✓ CSV Import > importTransactionsFromCSV > returns empty array for empty CSV 0ms
+   ✓ CSV Import > importTransactionsFromCSV > returns empty array for headers only 0ms
+   ✓ CSV Import > importTransactionsFromCSV > handles CSV with extra empty lines 0ms
+   × CSV Import > importTransactionsFromCSV > logs errors for problematic rows but continues processing 4ms
+     → expected "error" to be called at least once
+   ✓ CSV Import > importAccountsFromCSV > imports basic accounts correctly 0ms
+   ✓ CSV Import > importAccountsFromCSV > handles missing optional fields 0ms
+   ✓ CSV Import > importAccountsFromCSV > validates and corrects account types 0ms
+   ✓ CSV Import > importAccountsFromCSV > handles different column orders and mixed case headers 0ms
+   ✓ CSV Import > importAccountsFromCSV > handles partial column headers 0ms
+   × CSV Import > importAccountsFromCSV > handles various balance formats 1ms
+     → expected -500 to be 500 // Object.is equality
+   ✓ CSV Import > importAccountsFromCSV > skips accounts with missing names 0ms
+   ✓ CSV Import > importAccountsFromCSV > skips incomplete rows 0ms
+   ✓ CSV Import > importAccountsFromCSV > handles zero and invalid balances 0ms
+   ✓ CSV Import > importAccountsFromCSV > returns empty array for empty CSV 0ms
+   ✓ CSV Import > importAccountsFromCSV > returns empty array for headers only 0ms
+   ✓ CSV Import > importAccountsFromCSV > logs errors for problematic rows but continues processing 0ms
+   ✓ CSV Import > importAccountsFromCSV > handles CSV with quoted fields containing commas 0ms
+   ✓ CSV Import > CSV parsing edge cases > handles malformed CSV gracefully 0ms
+   × CSV Import > CSV parsing edge cases > handles very large CSV files efficiently 4ms
+     → expected [ Array(964) ] to have a length of 1000 but got 964
+ ❯ src/utils/__tests__/mnyParser.test.ts (29 tests | 6 failed) 38ms
+   ✓ mnyParser > parseMNY > handles empty file 2ms
+   ✓ mnyParser > parseMNY > handles small file without structured data 0ms
+   ✓ mnyParser > parseMNY > extracts potential records from structured data 0ms
+   × mnyParser > parseMNY > handles large files with progress logging 16ms
+     → expected "log" to be called with arguments: [ StringContaining "Scanned" ][90m
+
+Number of calls: [1m0[22m
+[39m
+   ✓ mnyParser > parseMNY > extracts UTF-16 strings correctly 0ms
+   ✓ mnyParser > parseMNY > filters out records with insufficient data 0ms
+   ✓ mnyParser > parseMNY > handles various numeric formats 0ms
+   ✓ mnyParser > applyMappingToData > converts raw data to transactions correctly 0ms
+   ✓ mnyParser > applyMappingToData > creates accounts from transactions 0ms
+   ✓ mnyParser > applyMappingToData > calculates account balances correctly 0ms
+   ✓ mnyParser > applyMappingToData > handles missing optional fields 0ms
+   ✓ mnyParser > applyMappingToData > handles payee field when mapped 0ms
+   ✓ mnyParser > applyMappingToData > skips records with invalid dates 0ms
+   × mnyParser > applyMappingToData > skips records with invalid amounts 2ms
+     → expected [ { …(6) }, { …(6) }, { …(6) } ] to have a length of 2 but got 3
+   ✓ mnyParser > applyMappingToData > handles Date objects in raw data 0ms
+   ✓ mnyParser > applyMappingToData > handles string dates 0ms
+   ✓ mnyParser > applyMappingToData > rounds amounts to 2 decimal places 0ms
+   ✓ mnyParser > applyMappingToData > handles multiple accounts 0ms
+   ✓ mnyParser > applyMappingToData > handles errors gracefully 0ms
+   ✓ mnyParser > parseMBF > handles empty MBF file 0ms
+   × mnyParser > parseMBF > logs file header for debugging 0ms
+     → expected undefined to be defined
+   × mnyParser > parseMBF > calculates text percentage in file 0ms
+     → expected "log" to be called with arguments: [ StringContaining "50.0%" ][90m
+
+Number of calls: [1m0[22m
+[39m
+   × mnyParser > parseMBF > tries multiple record sizes 1ms
+     → expected "log" to be called with arguments: [ StringContaining{…} ][90m
+
+Number of calls: [1m0[22m
+[39m
+   ✓ mnyParser > parseMBF > extracts records with different record sizes 0ms
+   × mnyParser > parseMBF > tries pattern-based extraction as fallback 9ms
+     → expected "log" to be called with arguments: [ StringContaining{…} ][90m
+
+Number of calls: [1m0[22m
+[39m
+   ✓ mnyParser > parseMBF > handles dates as days since 1900 2ms
+   ✓ mnyParser > parseMBF > handles amounts in different formats 0ms
+   ✓ mnyParser > parseMBF > extracts descriptions from various positions 0ms
+   ✓ mnyParser > parseMBF > limits number of records extracted 1ms
+ ❯ src/contexts/__tests__/PreferencesContextSafe.test.tsx (17 tests | 1 failed) 61ms
+   ✓ PreferencesContextSafe > PreferencesProvider > provides default values 7ms
+   × PreferencesContextSafe > PreferencesProvider > logs initialization messages 6ms
+     → expected "log" to be called with arguments: [ Array(1) ][90m
+
+Number of calls: [1m0[22m
+[39m
+   ✓ PreferencesContextSafe > PreferencesProvider > renders children 7ms
+   ✓ PreferencesContextSafe > usePreferences hook > throws error when used outside provider 10ms
+   ✓ PreferencesContextSafe > usePreferences hook > updates compactView 2ms
+   ✓ PreferencesContextSafe > usePreferences hook > updates currency 1ms
+   ✓ PreferencesContextSafe > usePreferences hook > updates theme 1ms
+   ✓ PreferencesContextSafe > usePreferences hook > updates color theme 1ms
+   ✓ PreferencesContextSafe > usePreferences hook > updates first name 1ms
+   ✓ PreferencesContextSafe > usePreferences hook > updates theme schedule 0ms
+   ✓ PreferencesContextSafe > usePreferences hook > updates page visibility settings 0ms
+   ✓ PreferencesContextSafe > usePreferences hook > updates goal celebrations setting 0ms
+   ✓ PreferencesContextSafe > usePreferences hook > maintains actualTheme as light 0ms
+   ✓ PreferencesContextSafe > usePreferences hook > preserves state across re-renders 0ms
+   ✓ PreferencesContextSafe > usePreferences hook > handles multiple simultaneous updates 2ms
+   ✓ PreferencesContextSafe > Component integration > provides preferences to nested components 1ms
+   ✓ PreferencesContextSafe > Component integration > updates are reflected in all consumers 21ms
+ ❯ src/services/__tests__/budgetService.real.test.ts (12 tests | 6 failed) 22ms
+   × BudgetService - REAL Database Tests > createBudget - REAL > should create a real budget in the database 7ms
+     → expected undefined to be 'Real Monthly Groceries Budget' // Object.is equality
+   ✓ BudgetService - REAL Database Tests > createBudget - REAL > should handle yearly budget creation 1ms
+   × BudgetService - REAL Database Tests > createBudget - REAL > should enforce category foreign key constraint 5ms
+     → promise resolved "{ …(10) }" instead of rejecting
+   × BudgetService - REAL Database Tests > getBudgets - REAL > should retrieve real budgets from database 1ms
+     → expected 0 to be greater than or equal to 2
+   × BudgetService - REAL Database Tests > getBudget - REAL > should retrieve a specific budget by ID 1ms
+     → expected undefined to be 'f26b2838-50a9-404b-9259-d0af39d3cdd8' // Object.is equality
+   ✓ BudgetService - REAL Database Tests > getBudget - REAL > should return null for non-existent budget 0ms
+   × BudgetService - REAL Database Tests > updateBudget - REAL > should update a real budget in the database 1ms
+     → Budget update returned no data
+   ✓ BudgetService - REAL Database Tests > deleteBudget - REAL > should delete a real budget from database 1ms
+   ✓ BudgetService - REAL Database Tests > Budget Calculation Functions > should calculate budget progress correctly 0ms
+   ✓ BudgetService - REAL Database Tests > Budget Calculation Functions > should identify when budget is over limit 0ms
+   ✓ BudgetService - REAL Database Tests > Budget Calculation Functions > should determine when to alert about budget 0ms
+   × BudgetService - REAL Database Tests > Real Database Budget Constraints > should handle concurrent budget operations correctly 4ms
+     → actual value must be number or bigint, received "undefined"
+ ❯ src/services/__tests__/goalService.real.test.ts (17 tests | 11 failed) 28ms
+   × GoalService - REAL Database Tests > createGoal - REAL > should create a real goal in the database 7ms
+     → expected undefined to be 'Real Emergency Fund Goal' // Object.is equality
+   ✓ GoalService - REAL Database Tests > createGoal - REAL > should create investment goal correctly 1ms
+   × GoalService - REAL Database Tests > createGoal - REAL > should handle goal without target date 2ms
+     → expected undefined to be an instance of Date
+   × GoalService - REAL Database Tests > getGoals - REAL > should retrieve real goals from database 2ms
+     → expected 0 to be greater than or equal to 3
+   × GoalService - REAL Database Tests > getGoal - REAL > should retrieve a specific goal by ID 1ms
+     → expected undefined to be '33cbf3dc-324b-4c2b-8247-bf9396ae79bf' // Object.is equality
+   ✓ GoalService - REAL Database Tests > getGoal - REAL > should return null for non-existent goal 0ms
+   × GoalService - REAL Database Tests > updateGoal - REAL > should update a real goal in the database 1ms
+     → Goal not found
+   × GoalService - REAL Database Tests > updateGoal - REAL > should mark goal as completed when target reached 1ms
+     → Goal not found
+   × GoalService - REAL Database Tests > contributeToGoal - REAL > should add contribution to goal 1ms
+     → Goal not found
+   × GoalService - REAL Database Tests > contributeToGoal - REAL > should handle negative contribution (withdrawal) 1ms
+     → Goal not found
+   ✓ GoalService - REAL Database Tests > deleteGoal - REAL > should delete a real goal from database 1ms
+   × GoalService - REAL Database Tests > Goal Filtering Functions > should get only active goals 2ms
+     → expected +0 to be 1 // Object.is equality
+   × GoalService - REAL Database Tests > Goal Filtering Functions > should get only completed goals 1ms
+     → expected +0 to be 1 // Object.is equality
+   ✓ GoalService - REAL Database Tests > Goal Calculation Functions > should calculate days remaining correctly 1ms
+   ✓ GoalService - REAL Database Tests > Goal Calculation Functions > should calculate monthly contribution needed 1ms
+   ✓ GoalService - REAL Database Tests > Goal Calculation Functions > should return 0 for completed goals 0ms
+   × GoalService - REAL Database Tests > Real Database Goal Operations > should handle concurrent goal operations correctly 3ms
+     → actual value must be number or bigint, received "undefined"
+stdout | src/hooks/__tests__/useRealTimePrices.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/hooks/__tests__/useReconciliation.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/hooks/__tests__/useBulkOperations.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/components/OFXImportModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/hooks/__tests__/useStockPrices.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/store/__tests__/slices.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+ ❯ src/hooks/__tests__/useBulkOperations.real.test.ts (1 test | 1 failed) 14ms
+   × useBulkOperations - REAL Tests > handles bulk operations correctly 13ms
+     → Cannot read properties of undefined (reading 'length')
+ ❯ src/hooks/__tests__/useReconciliation.real.test.ts (1 test | 1 failed) 14ms
+   × useReconciliation - REAL Tests > reconciles real transactions correctly 13ms
+     → Cannot read properties of undefined (reading 'map')
+ ❯ src/hooks/__tests__/useRealTimePrices.real.test.ts (1 test | 1 failed) 12ms
+   × useRealTimePrices - REAL Tests > handles real-time price data 11ms
+     → Cannot read properties of undefined (reading 'length')
+stdout | src/services/__tests__/budgetCalculationService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/utils/__tests__/decimal-converters.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/test/integration/ErrorHandlingIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/hooks/__tests__/useKeyboardShortcuts.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+ ❯ src/hooks/__tests__/useStockPrices.real.test.ts (1 test | 1 failed) 13ms
+   × useStockPrices - REAL Tests > fetches and caches stock prices 12ms
+     → expected { prices: Map{}, loading: true, …(3) } to have property "refresh"
+stdout | src/services/__tests__/transactionService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/utils/__tests__/investmentUtils.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+ ❯ src/store/__tests__/slices.test.ts (32 tests | 30 failed) 12ms
+   ✓ Redux Slices > Accounts Slice > initializes with empty state 1ms
+   × Redux Slices > Accounts Slice > adds new account 5ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Accounts Slice > updates existing account 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Accounts Slice > removes account 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Accounts Slice > calculates total balance correctly 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Transactions Slice > adds new transaction 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Transactions Slice > updates transaction with Decimal.js precision 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Transactions Slice > removes transaction 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Transactions Slice > manages multiple transactions 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Transactions Slice > handles bulk delete operations 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Transactions Slice > categorizes transactions correctly 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Budgets Slice > adds budget with initial spent amount 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Budgets Slice > updates budget spent amount 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Budgets Slice > calculates budget progress correctly 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Budgets Slice > handles budget period changes 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Budgets Slice > manages active/inactive budgets 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Goals Slice > adds new goal with progress calculation 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Goals Slice > updates goal progress 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Goals Slice > marks goal as completed when target reached 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Goals Slice > handles goal priority updates 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Categories Slice > adds hierarchical categories 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Categories Slice > manages category colors 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Categories Slice > handles category activation/deactivation 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   ✓ Redux Slices > Preferences Slice > initializes with default preferences 0ms
+   × Redux Slices > Preferences Slice > updates currency preference 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Preferences Slice > updates theme preference 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Preferences Slice > updates page visibility settings 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Preferences Slice > handles batch preference updates 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Cross-Slice Interactions > maintains data consistency between accounts and transactions 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > Cross-Slice Interactions > updates budget spent amounts when transactions change 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > State Selectors and Derived Data > calculates derived financial metrics 0ms
+     → Cannot read properties of undefined (reading 'actions')
+   × Redux Slices > State Selectors and Derived Data > maintains performance with large datasets 1ms
+     → Cannot read properties of undefined (reading 'actions')
+ ❯ src/services/__tests__/budgetCalculationService.test.ts (12 tests | 1 failed) 11ms
+   ✓ BudgetCalculationService > getCurrentPeriod > should calculate correct monthly period 1ms
+   × BudgetCalculationService > getCurrentPeriod > should calculate correct quarterly period 4ms
+     → expected 'custom' to be 'quarterly' // Object.is equality
+   ✓ BudgetCalculationService > getCurrentPeriod > should calculate correct yearly period 0ms
+   ✓ BudgetCalculationService > calculateBudgetSpending > should calculate spending correctly for current period 1ms
+   ✓ BudgetCalculationService > calculateBudgetSpending > should detect over budget scenarios 0ms
+   ✓ BudgetCalculationService > calculateBudgetSpending > should detect near limit scenarios 0ms
+   ✓ BudgetCalculationService > calculateAllBudgetSpending > should aggregate multiple budgets correctly 0ms
+   ✓ BudgetCalculationService > projectEndOfPeriodSpending > should project spending based on current rate 0ms
+   ✓ BudgetCalculationService > compareSpendingPeriods > should calculate spending trend correctly 1ms
+   ✓ BudgetCalculationService > compareSpendingPeriods > should detect stable spending 0ms
+   ✓ BudgetCalculationService > compareSpendingPeriods > should detect decreased spending 0ms
+   ✓ BudgetCalculationService > getBudgetAlerts > should generate appropriate alerts 1ms
+ ❯ src/hooks/__tests__/useKeyboardShortcuts.real.test.ts (1 test | 1 failed) 10ms
+   × useKeyboardShortcuts - REAL Tests > registers and handles keyboard shortcuts 9ms
+     → Cannot read properties of undefined (reading 'registerShortcut')
+ ❯ src/utils/__tests__/investmentUtils.test.ts (27 tests | 1 failed) 10ms
+   ✓ investmentUtils > parseInvestmentTransaction > parses valid investment transaction with all fields 1ms
+   ✓ investmentUtils > parseInvestmentTransaction > parses sell transaction correctly 0ms
+   ✓ investmentUtils > parseInvestmentTransaction > returns null for non-investment transaction 0ms
+   ✓ investmentUtils > parseInvestmentTransaction > returns null for transaction without notes 0ms
+   ✓ investmentUtils > parseInvestmentTransaction > returns null for transaction with missing required fields 0ms
+   ✓ investmentUtils > parseInvestmentTransaction > handles zero values correctly 0ms
+   ✓ investmentUtils > parseInvestmentTransaction > handles malformed notes gracefully 0ms
+   ✓ investmentUtils > parseInvestmentTransaction > handles description without ticker symbol 0ms
+   ✓ investmentUtils > parseInvestmentTransaction > handles Investment prefix in description 0ms
+   ✓ investmentUtils > parseInvestmentTransaction > handles decimal shares correctly 0ms
+   ✓ investmentUtils > parseInvestmentTransaction > handles extra whitespace in notes 0ms
+   × investmentUtils > parseInvestmentTransaction > handles missing fees field 6ms
+     → expected { ticker: 'AAPL', …(5) } to deeply equal { ticker: 'AAPL', …(5) }
+   ✓ investmentUtils > updateHoldings > adds new holding for buy transaction 0ms
+   ✓ investmentUtils > updateHoldings > updates existing holding for buy transaction 0ms
+   ✓ investmentUtils > updateHoldings > removes holding when all shares are sold 0ms
+   ✓ investmentUtils > updateHoldings > updates holding when partial shares are sold 0ms
+   ✓ investmentUtils > updateHoldings > handles sell transaction for non-existent holding 0ms
+   ✓ investmentUtils > updateHoldings > handles holding without averageCost when selling 0ms
+   ✓ investmentUtils > updateHoldings > handles overselling (selling more shares than owned) 0ms
+   ✓ investmentUtils > updateHoldings > preserves other holdings when updating one 0ms
+   ✓ investmentUtils > updateHoldings > handles buy transaction with zero fees 0ms
+   ✓ investmentUtils > updateHoldings > handles decimal shares correctly 0ms
+   ✓ investmentUtils > calculateHoldingsValue > calculates total value for multiple holdings 0ms
+   ✓ investmentUtils > calculateHoldingsValue > returns 0 for empty holdings array 0ms
+   ✓ investmentUtils > calculateHoldingsValue > handles single holding 0ms
+   ✓ investmentUtils > calculateHoldingsValue > handles holdings with zero value 0ms
+   ✓ investmentUtils > calculateHoldingsValue > handles decimal values correctly 0ms
+ ❯ src/services/__tests__/transactionService.real.test.ts (9 tests | 7 failed) 8ms
+   × TransactionService - REAL Database Tests > createTransaction - REAL > should create a real transaction in the database 4ms
+     → Transaction creation returned no data
+   ✓ TransactionService - REAL Database Tests > createTransaction - REAL > should handle real database constraints for transactions 1ms
+   × TransactionService - REAL Database Tests > createTransaction - REAL > should create income transaction correctly 0ms
+     → Transaction creation returned no data
+   × TransactionService - REAL Database Tests > getTransactions - REAL > should retrieve real transactions from database 0ms
+     → Transaction creation returned no data
+   ✓ TransactionService - REAL Database Tests > getTransactions - REAL > should return empty array for user with no transactions 0ms
+   × TransactionService - REAL Database Tests > updateTransaction - REAL > should update a real transaction in the database 0ms
+     → Transaction creation returned no data
+   × TransactionService - REAL Database Tests > deleteTransaction - REAL > should delete a real transaction from database 0ms
+     → Transaction creation returned no data
+   × TransactionService - REAL Database Tests > Real Database Transaction Filters > should filter transactions by date range 0ms
+     → Transaction creation returned no data
+   × TransactionService - REAL Database Tests > Real Database Transaction Filters > should handle concurrent transaction operations correctly 0ms
+     → Transaction creation returned no data
+stdout | src/components/widgets/SecurityWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/components/widgets/MonthlySummaryWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/components/widgets/TaxPlanningWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/test/database-connection.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/test/integration/ComponentInteraction.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+ ❯ src/hooks/__tests__/useGlobalSearch.real.test.ts (1 test | 1 failed) 14ms
+   × useGlobalSearch - REAL Tests > searches through real data correctly 13ms
+     → useApp must be used within an AppProvider
+ ❯ src/hooks/__tests__/useCashFlowForecast.real.test.ts (1 test | 1 failed) 15ms
+   × useCashFlowForecast - REAL Tests > calculates real cash flow forecasts 14ms
+     → useApp must be used within an AppProvider
+stdout | src/components/AccountSettingsModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/components/EmptyState.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/components/BalanceReconciliationModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+ ❯ src/store/__tests__/reduxMigration.test.tsx (3 tests | 3 failed) 34ms
+   × Redux Migration > should sync accounts from context to Redux 30ms
+     → @clerk/clerk-react: The publishableKey passed to Clerk is invalid. You can get your Publishable key at https://dashboard.clerk.com/last-active?path=api-keys. (key=pk_test)
+   × Redux Migration > should sync transactions from context to Redux 2ms
+     → @clerk/clerk-react: The publishableKey passed to Clerk is invalid. You can get your Publishable key at https://dashboard.clerk.com/last-active?path=api-keys. (key=pk_test)
+   × Redux Migration > should maintain data consistency between context and Redux 1ms
+     → @clerk/clerk-react: The publishableKey passed to Clerk is invalid. You can get your Publishable key at https://dashboard.clerk.com/last-active?path=api-keys. (key=pk_test)
+stdout | src/components/BalanceAdjustmentModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/common/AccessibleFormField.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/components/__tests__/BalanceReconciliationModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/components/ExcelExport.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/components/BulkCheckbox.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+stdout | src/components/widgets/BudgetSummaryWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/components/widgets/CashFlowWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/components/charts/LineChart.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/components/ReconciliationModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/components/__tests__/EditTransactionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/BudgetModal.proper.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/StockQuoteWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/components/RealTimePortfolio.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/test/integration/DecimalFinancialIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/pages/Dashboard.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/components/CashFlowForecast.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/BudgetModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/components/PortfolioRebalancer.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/components/widgets/MobileAppWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/components/BudgetProgress.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/components/AddTransactionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/components/ThemeSwitcher.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/components/GoalCelebrationModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/components/QIFImportModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/components/FixSummaryModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/widgets/BusinessWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+stdout | src/pages/Reports.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+stdout | src/components/__tests__/BulkTransactionEdit.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/components/widgets/FinancialPlanningWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/components/__tests__/DuplicateDetection.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+stdout | src/components/ValidationTransactionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/components/charts/LazyChart.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/test/integration/DashboardInteractionsIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/components/charts/DoughnutChart.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/components/OfflineIndicator.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/components/IncomeVsExpensesChart.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/components/AccountBalancesChart.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/components/common/Button.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/components/common/AccessibleTable.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/components/TransactionDetailsModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/components/CategorySelect.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/components/__tests__/TransactionCard.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/test/integration/InvestmentPortfolioIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/components/BatchImportModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/components/CategoryCreationModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/TransactionReconciliation.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/components/ImportDataModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/components/Breadcrumbs.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/components/__tests__/BudgetModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/components/TestDataWarningModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/__tests__/AddTransactionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/components/__tests__/BudgetRollover.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/components/common/Card.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/components/TransactionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/components/widgets/InvestmentEnhancementWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/components/widgets/AIAnalyticsWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/components/__tests__/RecurringTransactionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/components/__tests__/VirtualizedTransactionList.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+stdout | src/components/widgets/InvestmentSummaryWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/components/SplitTransactionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/components/common/Modal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/pages/Analytics.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/services/__tests__/accountService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/components/charts/TreemapChart.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+ ❯ src/services/__tests__/accountService.real.test.ts (6 tests | 6 failed) 4ms
+   × AccountService - REAL Database Tests > createAccount - REAL > should create a real account in the database 2ms
+     → Cannot read properties of null (reading 'user')
+   × AccountService - REAL Database Tests > createAccount - REAL > should coerce unsupported types to "other" rather than failing 0ms
+     → Cannot read properties of null (reading 'user')
+   × AccountService - REAL Database Tests > getAccounts - REAL > should retrieve real accounts from database 0ms
+     → Cannot read properties of null (reading 'user')
+   × AccountService - REAL Database Tests > updateAccount - REAL > should update a real account in the database 0ms
+     → Cannot read properties of null (reading 'user')
+   × AccountService - REAL Database Tests > deleteAccount - REAL > should soft delete a real account 0ms
+     → Cannot read properties of null (reading 'user')
+   × AccountService - REAL Database Tests > Real Database Transactions > should handle concurrent operations correctly 0ms
+     → Cannot read properties of null (reading 'user')
+stdout | src/components/__tests__/SplitTransactionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/components/__tests__/GlobalSearch.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/test/integration/UserWorkflowIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/components/MerchantLogo.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/components/widgets/DataIntelligenceWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/components/common/ResponsiveTable.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/components/NetWorthTrendChart.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/components/CSVImportWizard.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/components/CategoryTransactionsModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/widgets/NetWorthWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/components/AddAccountModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/components/simple-component.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/test/sentry-simple.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/components/MnyMappingModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/widgets/UpcomingBillsWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+ ❯ src/test/sentry-simple.test.ts (2 tests | 1 failed) 4ms
+   × Sentry Integration > exports SentryErrorBoundary correctly 3ms
+     → expected undefined to be [Function ErrorBoundary] // Object.is equality
+   ✓ Sentry Integration > captures exceptions in production mode 0ms
+stdout | src/components/__tests__/AccountSettingsModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/pages/Transactions.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/services/__tests__/categoryService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/components/EnvelopeBudgeting.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/components/DashboardModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+stdout | src/components/AddInvestmentModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+stdout | src/components/widgets/BankConnectionsWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/components/GoalModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+stdout | src/components/NotificationBell.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+ ❯ src/services/__tests__/categoryService.real.test.ts (10 tests | 10 failed) 4ms
+   × CategoryService - REAL Database Tests > createCategory - REAL > should create a real category in the database 2ms
+     → Cannot read properties of null (reading 'user')
+   × CategoryService - REAL Database Tests > createCategory - REAL > should create income category correctly 0ms
+     → Cannot read properties of null (reading 'user')
+   × CategoryService - REAL Database Tests > createCategory - REAL > should create subcategory with parent 0ms
+     → Cannot read properties of null (reading 'user')
+   × CategoryService - REAL Database Tests > getCategories - REAL > should retrieve real categories from database 0ms
+     → Cannot read properties of null (reading 'user')
+   × CategoryService - REAL Database Tests > getCategories - REAL > should retrieve categories with hierarchy 0ms
+     → Cannot read properties of null (reading 'user')
+   × CategoryService - REAL Database Tests > updateCategory - REAL > should update a real category in the database 0ms
+     → Cannot read properties of null (reading 'user')
+   × CategoryService - REAL Database Tests > deleteCategory - REAL > should delete a real category from database 0ms
+     → Cannot read properties of null (reading 'user')
+   × CategoryService - REAL Database Tests > deleteCategory - REAL > should handle deletion of category with subcategories 0ms
+     → Cannot read properties of null (reading 'user')
+   × CategoryService - REAL Database Tests > Real Database Category Operations > should enforce unique category names per user 0ms
+     → Cannot read properties of null (reading 'user')
+   × CategoryService - REAL Database Tests > Real Database Category Operations > should handle concurrent category operations correctly 0ms
+     → Cannot read properties of null (reading 'user')
+stdout | src/test/integration/CurrencyIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/components/__tests__/GoalModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/pages/Accounts.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/components/SpendingByCategoryChart.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/components/__tests__/CategorySelector.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/components/widgets/ExpenseBreakdownWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/AccountSelectionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/components/widgets/RecentTransactionsWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/components/TagSelector.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/components/common/MobileInput.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/components/__tests__/TransactionRow.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/components/widgets/WeeklySummaryWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/components/__tests__/ErrorBoundary.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/components/ErrorBoundary.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+stdout | src/components/TransactionRow.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/components/ExpenseSplitModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/components/EnhancedExportModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/components/charts/SankeyChart.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/test/integration/BudgetWorkflowIntegration.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/components/EnhancedPortfolioView.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/components/OnboardingModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/pages/Budget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/test/integration/AppFlow.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+stdout | src/components/AccountReconciliationModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/components/RecurringTransactionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/EditTransactionModal.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/components/loading/LoadingState.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/components/widgets/CollaborationWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/components/widgets/GoalProgressWidget.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+stdout | src/components/__tests__/DataValidation.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/services/__tests__/validationService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/security/__tests__/xss-protection.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/test/integration/CriticalWorkflows.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/security/__tests__/encryption.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/components/loading/Skeleton.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+stdout | src/components/common/__tests__/Modal.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/components/PageHeader.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/utils/__tests__/financialCalculations.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/components/common/AriaLiveRegion.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/contexts/LayoutContext.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/components/PageLoader.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+ ✓ src/components/loading/Skeleton.test.tsx (30 tests) 84ms
+stdout | src/services/__tests__/debtCalculationService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/hooks/__tests__/useAdvancedSearch.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+ ✓ src/contexts/LayoutContext.test.tsx (24 tests) 40ms
+stdout | src/hooks/__tests__/useDebounce.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+ ✓ src/components/PageHeader.test.tsx (20 tests) 54ms
+ ✓ src/components/PageLoader.test.tsx (23 tests) 39ms
+ ✓ src/security/__tests__/encryption.test.ts (15 tests) 318ms
+stdout | src/utils/formatters.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+ ❯ src/components/common/AriaLiveRegion.test.tsx (22 tests | 5 failed) 69ms
+   ✓ AriaLiveRegion > Basic rendering > renders with message 12ms
+   ✓ AriaLiveRegion > Basic rendering > renders with screen reader only class 16ms
+   ✓ AriaLiveRegion > Basic rendering > sets role as status 2ms
+   ✓ AriaLiveRegion > Basic rendering > sets aria-atomic to true 3ms
+   ✓ AriaLiveRegion > aria-live attribute > defaults to polite 4ms
+   ✓ AriaLiveRegion > aria-live attribute > can be set to assertive 2ms
+   ✓ AriaLiveRegion > aria-live attribute > can be explicitly set to polite 2ms
+   ✓ AriaLiveRegion > Message clearing > clears message after default timeout 5ms
+   ✓ AriaLiveRegion > Message clearing > clears message after custom timeout 2ms
+   ✓ AriaLiveRegion > Message clearing > does not clear when clearAfter is 0 1ms
+   ✓ AriaLiveRegion > Message clearing > does not clear when clearAfter is negative 1ms
+   ✓ AriaLiveRegion > Message updates > updates message when prop changes 1ms
+   ✓ AriaLiveRegion > Message updates > resets timer when message changes 1ms
+   ✓ AriaLiveRegion > Message updates > clears previous timer when message changes 1ms
+   ✓ AriaLiveRegion > Edge cases > handles empty message 1ms
+   ✓ AriaLiveRegion > Edge cases > handles message with special characters 0ms
+   ✓ AriaLiveRegion > Edge cases > does not set timer for empty message 1ms
+   × useAriaAnnounce > initializes with empty announcement 10ms
+     → (0 , useAriaAnnounce) is not a function
+   × useAriaAnnounce > announces message after delay 1ms
+     → (0 , useAriaAnnounce) is not a function
+   × useAriaAnnounce > clears previous announcement before new one 1ms
+     → (0 , useAriaAnnounce) is not a function
+   × useAriaAnnounce > AriaAnnouncer component renders with announcement 1ms
+     → (0 , useAriaAnnounce) is not a function
+   × useAriaAnnounce > supports multiple rapid announcements 1ms
+     → (0 , useAriaAnnounce) is not a function
+ ✓ src/hooks/__tests__/useAdvancedSearch.test.ts (15 tests) 21ms
+ ✓ src/services/__tests__/debtCalculationService.test.ts (13 tests) 24ms
+stdout | src/store/slices/layoutSlice.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+ ✓ src/hooks/__tests__/useDebounce.test.ts (11 tests) 20ms
+stdout | src/contexts/__tests__/AppContextSupabase.reconciliation.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+ ❯ src/utils/formatters.test.ts (56 tests | 17 failed) 24ms
+   ✓ Formatters > formatCurrency > formats GBP currency by default 9ms
+   ✓ Formatters > formatCurrency > formats USD currency correctly 0ms
+   ✓ Formatters > formatCurrency > formats EUR currency correctly 0ms
+   ✓ Formatters > formatCurrency > formats JPY currency correctly 0ms
+   ✓ Formatters > formatCurrency > handles zero amounts 0ms
+   ✓ Formatters > formatCurrency > handles negative amounts correctly 0ms
+   ✓ Formatters > formatCurrency > formats very large amounts 0ms
+   ✓ Formatters > formatCurrency > formats very small amounts 0ms
+   ✓ Formatters > formatCurrency > handles decimal precision correctly 0ms
+   ✓ Formatters > formatCurrency > rounds to 2 decimal places 0ms
+   ✓ Formatters > formatCurrency > handles edge case with no decimal part 0ms
+   ✓ Formatters > formatCurrency > handles all supported currency codes 0ms
+   ✓ Formatters > formatCurrency > handles unknown currency codes 0ms
+   ✓ Formatters > formatCurrency > handles empty currency parameter 0ms
+   ✓ Formatters > formatNumber > formats positive numbers with 2 decimal places 0ms
+   ✓ Formatters > formatNumber > formats negative numbers 0ms
+   ✓ Formatters > formatNumber > formats zero 0ms
+   ✓ Formatters > formatNumber > adds trailing zeros for whole numbers 0ms
+   ✓ Formatters > formatNumber > formats single decimal places 0ms
+   ✓ Formatters > formatNumber > rounds to 2 decimal places 0ms
+   ✓ Formatters > formatNumber > handles very large numbers 0ms
+   ✓ Formatters > formatNumber > handles very small positive numbers 0ms
+   ✓ Formatters > formatNumber > handles very small negative numbers 0ms
+   ✓ Formatters > formatNumber > formats numbers with many decimal places 0ms
+   × Formatters > formatNumber > handles edge case of NaN 4ms
+     → expected 'N.aN' to be 'NaN' // Object.is equality
+   × Formatters > formatNumber > handles edge case of Infinity 0ms
+     → expected 'Infini.ty' to be 'Infinity' // Object.is equality
+   × Formatters > formatNumber > handles edge case of negative Infinity 0ms
+     → expected '-Infini.ty' to be '-Infinity' // Object.is equality
+   ✓ Formatters > formatCompactNumber > formats millions with M suffix 0ms
+   ✓ Formatters > formatCompactNumber > formats thousands with K suffix 0ms
+   ✓ Formatters > formatCompactNumber > uses formatNumber for numbers under 1000 0ms
+   × Formatters > formatCompactNumber > formats exactly 1 million 0ms
+     → expected '1M' to be '1.0M' // Object.is equality
+   × Formatters > formatCompactNumber > formats exactly 1 thousand 0ms
+     → expected '1K' to be '1.0K' // Object.is equality
+   × Formatters > formatCompactNumber > rounds to 1 decimal place for millions 0ms
+     → expected '1,234.6M' to be '1234.6M' // Object.is equality
+   ✓ Formatters > formatCompactNumber > rounds to 1 decimal place for thousands 0ms
+   ✓ Formatters > formatCompactNumber > handles zero 0ms
+   × Formatters > formatCompactNumber > handles negative millions (falls through to formatNumber) 1ms
+     → expected '-2.5M' to be '-2,500,000.00' // Object.is equality
+   × Formatters > formatCompactNumber > handles negative thousands (falls through to formatNumber) 0ms
+     → expected '-1.5K' to be '-1,500.00' // Object.is equality
+   ✓ Formatters > formatCompactNumber > handles negative small numbers 0ms
+   × Formatters > formatCompactNumber > formats boundary cases correctly 0ms
+     → expected '1K' to be '1.0K' // Object.is equality
+   × Formatters > formatCompactNumber > handles very large numbers 0ms
+     → expected '9,876,543.2M' to be '9876543.2M' // Object.is equality
+   ✓ Formatters > formatCompactNumber > formats decimal inputs correctly for millions 0ms
+   ✓ Formatters > formatCompactNumber > formats decimal inputs correctly for thousands 0ms
+   × Formatters > formatCompactNumber > handles rounding edge cases in millions 0ms
+     → expected '1.5M' to be '1.4M' // Object.is equality
+   × Formatters > formatCompactNumber > handles rounding edge cases in thousands 0ms
+     → expected '1.5K' to be '1.4K' // Object.is equality
+   × Formatters > formatCompactNumber > preserves precision for edge values 0ms
+     → expected '1M' to be '1.0M' // Object.is equality
+   × Formatters > formatCompactNumber > handles fractional millions correctly 0ms
+     → expected '1M' to be '1.0M' // Object.is equality
+   × Formatters > formatCompactNumber > handles fractional thousands correctly 0ms
+     → expected '1K' to be '1.0K' // Object.is equality
+   × Formatters > formatCompactNumber > handles special number values 0ms
+     → expected 'N.aN' to be 'NaN' // Object.is equality
+   ✓ Formatters > integration tests > maintains consistency between formatNumber and compact formatting for small numbers 0ms
+   ✓ Formatters > integration tests > handles currency formatting with all number ranges 0ms
+   × Formatters > integration tests > handles negative numbers consistently across all formatters 0ms
+     → expected '-1.2M' to be '-1,234,567.00' // Object.is equality
+   ✓ Formatters > integration tests > maintains precision requirements across formatters 0ms
+   ✓ Formatters > error handling and edge cases > handles string input that can be coerced to number 0ms
+   ✓ Formatters > error handling and edge cases > handles very large numbers without overflow 0ms
+   ✓ Formatters > error handling and edge cases > handles very small numbers near zero 0ms
+   ✓ Formatters > error handling and edge cases > handles locale-specific formatting correctly 0ms
+stdout | src/contexts/__tests__/NotificationContext.rehydration.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/services/api/__tests__/userIdService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+ ✓ src/store/slices/layoutSlice.test.ts (22 tests) 21ms
+stdout | src/utils/__tests__/currency.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/hooks/__tests__/useLocalStorage.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/hooks/__tests__/useErrorHandler.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/utils/__tests__/calculations-decimal.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/utils/__tests__/qifParser.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/services/transactionAnalyticsService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+ ❯ src/services/api/__tests__/userIdService.test.ts (7 tests | 3 failed) 29ms
+   ✓ isDatabaseUuid > returns true for valid UUIDs 19ms
+   ✓ isDatabaseUuid > returns false for Clerk IDs or empty strings 1ms
+   ✓ resolveDatabaseUserId > returns database UUID as-is without calling Supabase 1ms
+   × resolveDatabaseUserId > delegates to Supabase when resolving Clerk IDs 4ms
+     → expected null to be 'resolved-id' // Object.is equality
+   ✓ resolveDatabaseUserId > returns null and logs warning when mapping is missing 1ms
+   × resolveDatabaseUserId > returns null and logs error when Supabase lookup throws 1ms
+     → expected "spy" to be called with arguments: [ …(2) ][90m
+
+Number of calls: [1m0[22m
+[39m
+   × resolveDatabaseUserId > falls back to Clerk IDs when Supabase is not configured 1ms
+     → expected null to be 'user_offline' // Object.is equality
+stdout | src/services/smartCategorizationService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/services/__tests__/transactionAnalyticsService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/utils/__tests__/calculations.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+ ✓ src/utils/__tests__/currency.test.ts (21 tests) 14ms
+ ✓ src/hooks/__tests__/useErrorHandler.real.test.ts (2 tests) 8ms
+ ✓ src/hooks/__tests__/useLocalStorage.real.test.ts (1 test) 10ms
+ ✓ src/utils/__tests__/qifParser.test.ts (40 tests) 8ms
+ ✓ src/services/smartCategorizationService.test.ts (23 tests) 6ms
+stdout | src/services/portfolioCalculationService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+ ✓ src/services/transactionAnalyticsService.test.ts (19 tests) 8ms
+ ✓ src/services/__tests__/transactionAnalyticsService.test.ts (10 tests) 5ms
+ ✓ src/contexts/__tests__/NotificationContext.rehydration.test.tsx (2 tests) 18ms
+ ✓ src/contexts/__tests__/AppContextSupabase.reconciliation.test.tsx (1 test) 18ms
+stdout | src/services/__tests__/autoSyncSupabaseProcessor.conflict.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+ ✓ src/services/portfolioCalculationService.test.ts (19 tests) 6ms
+stdout | src/services/__tests__/analyticsBridge.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/services/__tests__/portfolioCalculationService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/test/integration/realtime-analytics.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+stdout | src/utils/__tests__/recalculateBalances.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/utils/__tests__/decimal.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/test/decimal-integration.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/utils/__tests__/currency-decimal.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/services/__tests__/conflictResolutionService.telemetry.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+ ✓ src/test/integration/CriticalWorkflows.test.tsx (6 tests) 1174ms
+   ✓ Critical Workflows Integration Tests > End-to-End Financial Workflow > should handle a complete monthly financial cycle  548ms
+stdout | src/services/storageAdapter.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+ ✓ src/utils/__tests__/recalculateBalances.test.ts (18 tests) 5ms
+stdout | src/contexts/TransactionContext.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+ ✓ src/test/decimal-integration.test.tsx (6 tests) 3ms
+ ✓ src/services/__tests__/portfolioCalculationService.test.ts (11 tests) 5ms
+stdout | src/utils/__tests__/formatters.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/services/__tests__/importRulesService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+ ✓ src/utils/__tests__/currency-decimal.test.ts (2 tests) 3ms
+ ✓ src/services/storageAdapter.real.test.ts (1 test) 2ms
+stdout | src/services/__tests__/storageAdapter.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+ ✓ src/utils/__tests__/formatters.test.ts (6 tests) 2ms
+ ✓ src/contexts/TransactionContext.real.test.tsx (1 test) 3ms
+ ✓ src/services/__tests__/autoSyncSupabaseProcessor.conflict.test.ts (3 tests) 6ms
+ ✓ src/services/__tests__/importRulesService.real.test.ts (1 test) 2ms
+ ✓ src/services/__tests__/analyticsBridge.test.ts (5 tests) 7ms
+ ✓ src/services/__tests__/storageAdapter.real.test.ts (1 test) 2ms
+stdout | src/services/__tests__/userIdService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+ ✓ src/services/__tests__/conflictResolutionService.telemetry.test.ts (1 test) 3ms
+stdout | src/services/financialSummaryService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/services/ofxImportService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/test/integration/realtime-analytics.real.test.tsx > Real-time Analytics Integration - REAL > Market Data Integration (Rate Limited) > should fetch real market quotes with proper rate limiting
+Skipping market data test - no API key configured
+
+ ✓ src/test/integration/realtime-analytics.real.test.tsx (7 tests) 4ms
+stdout | src/utils/__tests__/reconciliation.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/utils/__tests__/backupRestore.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/services/securityService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/services/searchService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+ ✓ src/services/__tests__/userIdService.real.test.ts (1 test) 1ms
+ ✓ src/services/ofxImportService.real.test.ts (1 test) 2ms
+ ✓ src/services/financialSummaryService.real.test.ts (1 test) 1ms
+ ✓ src/utils/__tests__/reconciliation.test.ts (6 tests) 2ms
+ ✓ src/utils/__tests__/backupRestore.real.test.ts (1 test) 3ms
+stdout | src/store/slices/recurringTransactionsSlice.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/services/api/database-operations.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+stdout | src/store/slices/notificationsSlice.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/services/stockPriceService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+ ✓ src/services/securityService.real.test.ts (1 test) 2ms
+stdout | src/utils/__tests__/csvImport.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+ ✓ src/services/searchService.real.test.ts (1 test) 2ms
+stdout | src/store/slices/preferencesSlice.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+ ✓ src/store/slices/recurringTransactionsSlice.real.test.ts (1 test) 2ms
+ ✓ src/services/api/database-operations.real.test.ts (1 test) 2ms
+ ✓ src/store/slices/notificationsSlice.real.test.ts (1 test) 2ms
+ ✓ src/services/stockPriceService.real.test.ts (1 test) 2ms
+ ✓ src/utils/__tests__/csvImport.test.ts (6 tests) 2ms
+ ✓ src/store/slices/preferencesSlice.real.test.ts (1 test) 2ms
+stdout | src/services/budgetCalculationService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/services/indexedDBService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+stdout | src/contexts/NavigationContext.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+ ✓ src/services/budgetCalculationService.real.test.ts (1 test) 1ms
+ ✓ src/services/indexedDBService.real.test.ts (1 test) 2ms
+stdout | src/store/slices/categoriesSlice.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/services/cashFlowForecastService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/services/realtimePriceService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+stdout | src/hooks/useCurrencyDecimal.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+
+stdout | src/services/performanceService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+ ✓ src/contexts/NavigationContext.real.test.tsx (1 test) 1ms
+stdout | src/services/themeSchedulingService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+ ✓ src/store/slices/categoriesSlice.real.test.ts (1 test) 1ms
+ ✓ src/hooks/useCurrencyDecimal.real.test.ts (1 test) 1ms
+ ✓ src/services/cashFlowForecastService.real.test.ts (1 test) 2ms
+stdout | src/services/__tests__/encryptedStorageService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+ ✓ src/services/realtimePriceService.real.test.ts (1 test) 3ms
+stdout | src/contexts/AccountContext.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/services/exportService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+stdout | src/utils/__tests__/currency-decimal.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+ ✓ src/services/performanceService.real.test.ts (1 test) 1ms
+stdout | src/services/encryptedStorageService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+ ✓ src/services/themeSchedulingService.real.test.ts (1 test) 2ms
+stdout | src/services/notificationService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+ ✓ src/services/__tests__/encryptedStorageService.real.test.ts (1 test) 2ms
+ ✓ src/contexts/AccountContext.real.test.tsx (1 test) 2ms
+ ✓ src/utils/__tests__/currency-decimal.real.test.ts (1 test) 1ms
+ ✓ src/services/exportService.real.test.ts (1 test) 1ms
+ ✓ src/services/encryptedStorageService.real.test.ts (1 test) 2ms
+ ✓ src/services/notificationService.real.test.ts (1 test) 2ms
+stdout | src/services/offlineService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+stdout | src/services/financialPlanningService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/utils/csvExport.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+ ✓ src/services/offlineService.real.test.ts (1 test) 2ms
+ ✓ src/services/financialPlanningService.real.test.ts (1 test) 2ms
+stdout | src/contexts/GoalContext.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/services/portfolioRebalanceService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/services/merchantLogoService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+stdout | src/services/investmentEnhancementService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+ ✓ src/utils/csvExport.real.test.ts (1 test) 1ms
+stdout | src/store/slices/transactionsSlice.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/contexts/CategoryContext.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+ ✓ src/contexts/GoalContext.real.test.tsx (1 test) 1ms
+ ✓ src/services/portfolioRebalanceService.real.test.ts (1 test) 2ms
+ ✓ src/services/merchantLogoService.real.test.ts (1 test) 2ms
+stdout | src/contexts/PreferencesContext.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+stdout | src/hooks/useModalForm.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+ ✓ src/services/investmentEnhancementService.real.test.ts (1 test) 2ms
+stdout | src/store/slices/budgetsSlice.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+stdout | src/services/qifImportService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+ ✓ src/store/slices/transactionsSlice.real.test.ts (1 test) 2ms
+ ✓ src/contexts/CategoryContext.real.test.tsx (1 test) 2ms
+stdout | src/services/enhancedCsvImportService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+stdout | src/services/goalAchievementService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+ ✓ src/hooks/useModalForm.real.test.ts (1 test) 2ms
+ ✓ src/contexts/PreferencesContext.real.test.tsx (1 test) 2ms
+ ✓ src/store/slices/budgetsSlice.real.test.ts (1 test) 1ms
+ ✓ src/services/qifImportService.real.test.ts (1 test) 2ms
+ ✓ src/services/enhancedCsvImportService.real.test.ts (1 test) 2ms
+ ✓ src/services/goalAchievementService.real.test.ts (1 test) 2ms
+stdout | src/services/base/BaseService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+stdout | src/utils/__tests__/pdfExport.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+stdout | src/utils/__tests__/api-error-handler.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+ ✓ src/utils/__tests__/pdfExport.real.test.ts (1 test) 2ms
+ ✓ src/services/base/BaseService.real.test.ts (1 test) 2ms
+stdout | src/store/slices/accountsSlice.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/services/bankConnectionService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+stdout | src/services/errorHandlingService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+
+stdout | src/store/slices/goalsSlice.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+ ✓ src/utils/__tests__/api-error-handler.real.test.ts (1 test) 2ms
+stdout | src/contexts/BudgetContext.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+stdout | src/contexts/AppContext.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+ ✓ src/store/slices/accountsSlice.real.test.ts (1 test) 1ms
+ ✓ src/services/bankConnectionService.real.test.ts (1 test) 1ms
+ ✓ src/services/errorHandlingService.real.test.ts (1 test) 2ms
+ ✓ src/store/slices/goalsSlice.real.test.ts (1 test) 1ms
+stdout | src/hooks/useLocalStorage.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+stdout | src/contexts/NotificationContext.real.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+stdout | src/services/localMerchantLogoService.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+stdout | src/store/slices/tagsSlice.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+
+ ✓ src/contexts/BudgetContext.real.test.tsx (1 test) 1ms
+ ✓ src/contexts/AppContext.real.test.tsx (1 test) 1ms
+ ✓ src/hooks/useLocalStorage.real.test.ts (1 test) 1ms
+ ✓ src/store/slices/tagsSlice.real.test.ts (1 test) 2ms
+ ✓ src/services/localMerchantLogoService.real.test.ts (1 test) 2ms
+ ✓ src/contexts/NotificationContext.real.test.tsx (1 test) 2ms
+
+ Test Files  163 failed | 89 passed (252)
+      Tests  125 failed | 689 passed (814)
+   Start at  10:34:28
+   Duration  17.33s (transform 1.60s, setup 52.53s, collect 16.76s, tests 2.66s, environment 142.33s, prepare 13.94s)
+

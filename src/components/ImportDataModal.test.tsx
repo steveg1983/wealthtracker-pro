@@ -111,7 +111,7 @@ const mockAccounts = [
   { id: '1', name: 'Checking', type: 'current', balance: 1000, currency: 'GBP', isActive: true }
 ];
 
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: vi.fn()
 }));
 

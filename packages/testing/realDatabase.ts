@@ -1,8 +1,9 @@
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'node:crypto';
 import type { Database } from '@app-types/supabase';
 import { logger } from '@/services/loggingService';
 import { shouldRunSupabaseRealTests } from './supabaseRealTest';
+import { getSupabaseTestClient } from './supabaseClient';
 
 const randomString = (prefix: string) => `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
 
@@ -38,34 +39,11 @@ const PRIORITY_LEVELS = ['low', 'medium', 'high'] as const;
 const FREQUENCIES = ['monthly', 'weekly', 'yearly'] as const;
 const NOTIFICATION_TYPES = ['info', 'success', 'warning', 'error'] as const;
 
-const TEST_SUPABASE_URL = process.env.VITE_SUPABASE_URL || '';
-const TEST_SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY || '';
+const hasServiceRoleKey = Boolean(
+  process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY,
+);
 
 let testDbInstance: SupabaseClient | null = null;
-
-const ensureCredentials = () => {
-  if (!TEST_SUPABASE_URL || !TEST_SUPABASE_ANON_KEY) {
-    throw new Error(
-      'Supabase test database not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env.test (or provide credentials via RUN_SUPABASE_REAL_TESTS).',
-    );
-  }
-};
-
-const createTestClient = (): SupabaseClient => {
-  ensureCredentials();
-  return createClient(TEST_SUPABASE_URL, TEST_SUPABASE_ANON_KEY, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      storage: {
-        getItem: () => null,
-        setItem: () => {},
-        removeItem: () => {},
-      },
-    },
-  });
-};
 
 const getActiveClient = (): SupabaseClient => {
   if (!shouldRunSupabaseRealTests) {
@@ -74,7 +52,10 @@ const getActiveClient = (): SupabaseClient => {
     );
   }
   if (!testDbInstance) {
-    testDbInstance = createTestClient();
+    testDbInstance = getSupabaseTestClient({
+      mode: hasServiceRoleKey ? 'service' : 'anon',
+      fallbackToAnon: true,
+    });
   }
   return testDbInstance;
 };

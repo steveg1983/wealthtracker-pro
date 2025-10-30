@@ -1,0 +1,267 @@
+import React, { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useApp } from '../../../contexts/AppContextSupabase';
+import { useCurrencyDecimal } from '../../../hooks/useCurrencyDecimal';
+import { TrendingUpIcon, TrendingDownIcon, WalletIcon } from '../../icons';
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip
+} from 'recharts';
+import type { TooltipContentProps } from 'recharts';
+import type { ValueType, NameType } from 'recharts/types/component/DefaultTooltipContent';
+import { format, subMonths } from 'date-fns';
+import { formatSignedPercentageValue, toDecimal } from '@wealthtracker/utils';
+import { generateChartColors } from '../../charts/optimizedChartHelpers';
+
+interface NetWorthTrendWidgetProps {
+  isCompact?: boolean;
+}
+
+export default function NetWorthTrendWidget({ isCompact = false }: NetWorthTrendWidgetProps): React.JSX.Element {
+  const navigate = useNavigate();
+  const { accounts, transactions } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
+  const [trendStrokeUp, trendStrokeDown] = useMemo(() => {
+    const palette = generateChartColors(2);
+    return [palette[0] ?? '#22c55e', palette[1] ?? '#ef4444'];
+  }, []);
+  const [trendFillUp, trendFillDown] = useMemo(() => {
+    const palette = generateChartColors(2, 0.15);
+    return [palette[0] ?? 'rgba(34, 197, 94, 0.15)', palette[1] ?? 'rgba(239, 68, 68, 0.15)'];
+  }, []);
+
+  const netWorthData = useMemo(() => {
+    // Calculate current net worth
+    const totalAssets = accounts
+      .filter(acc => acc.balance > 0)
+      .reduce((sum, acc) => sum.plus(toDecimal(acc.balance)), toDecimal(0));
+    
+    const totalLiabilities = accounts
+      .filter(acc => acc.balance < 0)
+      .reduce((sum, acc) => sum.plus(toDecimal(Math.abs(acc.balance))), toDecimal(0));
+    
+    const currentNetWorth = totalAssets.minus(totalLiabilities);
+
+    // Generate historical data (mock - in production, this would come from snapshots)
+    const months = 6;
+    const historicalData = [];
+    const today = new Date();
+    
+    for (let i = months; i >= 0; i--) {
+      const date = subMonths(today, i);
+      
+      // Simulate historical net worth based on transaction patterns
+      let historicalValue = currentNetWorth.toNumber();
+      
+      // Apply rough historical adjustments based on transactions
+      const monthTransactions = transactions.filter(t => {
+        const tDate = new Date(t.date);
+        return tDate.getMonth() === date.getMonth() && 
+               tDate.getFullYear() === date.getFullYear();
+      });
+      
+      const monthIncome = monthTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      const monthExpenses = monthTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + Math.abs(t.amount), 0);
+      
+      // Adjust historical value based on cumulative changes
+      const monthlyChange = monthIncome - monthExpenses;
+      historicalValue -= (monthlyChange * (i + 1));
+      
+      // Add some realistic variation
+      historicalValue *= (1 + (Math.random() - 0.5) * 0.05);
+      
+      historicalData.push({
+        date: format(date, 'MMM'),
+        value: Math.max(0, historicalValue)
+      });
+    }
+
+    // Calculate changes
+    const lastMonthIndex = historicalData.length - 2;
+    const lastMonthEntry = lastMonthIndex >= 0 ? historicalData[lastMonthIndex] : undefined;
+    const lastMonth = lastMonthEntry?.value ?? currentNetWorth.toNumber();
+    const firstEntry = historicalData[0];
+    const sixMonthsAgo = firstEntry?.value ?? currentNetWorth.toNumber();
+    
+    const monthChange = currentNetWorth.toNumber() - lastMonth;
+    const monthChangePercent = lastMonth !== 0 ? (monthChange / lastMonth) * 100 : 0;
+    
+    const sixMonthChange = currentNetWorth.toNumber() - sixMonthsAgo;
+    const sixMonthChangePercent = sixMonthsAgo !== 0 ? (sixMonthChange / sixMonthsAgo) * 100 : 0;
+
+    // Calculate growth rate
+    const firstDataValue = firstEntry?.value ?? null;
+    const monthlyGrowthRate = (historicalData.length > 1 && firstDataValue && firstDataValue !== 0)
+      ? ((currentNetWorth.toNumber() - firstDataValue) / historicalData.length / firstDataValue) * 100
+      : 0;
+
+    // Find min and max for the period
+    const allValues = historicalData.map(d => d.value);
+    const safeValues = allValues.length > 0
+      ? allValues
+      : [currentNetWorth.toNumber()];
+    const minValue = Math.min(...safeValues);
+    const maxValue = Math.max(...safeValues);
+
+    return {
+      current: currentNetWorth,
+      assets: totalAssets,
+      liabilities: totalLiabilities,
+      historicalData,
+      monthChange,
+      monthChangePercent,
+      sixMonthChange,
+      sixMonthChangePercent,
+      monthlyGrowthRate,
+      minValue,
+      maxValue,
+      trend: monthChange >= 0 ? 'up' : 'down'
+    };
+  }, [accounts, transactions]);
+
+  const chartData = netWorthData.historicalData.map(entry => ({
+    date: entry.date,
+    value: entry.value
+  }));
+
+  const tooltipFormatter = ({ active, payload }: TooltipContentProps<ValueType, NameType>) => {
+    if (!active || !payload?.length) {
+      return null;
+    }
+
+    const rawValue = payload[0]?.value ?? 0;
+    const value = typeof rawValue === 'number' ? rawValue : Number(rawValue);
+    return (
+      <div className="rounded-md bg-white px-3 py-2 shadow-md dark:bg-gray-800">
+        <p className="text-xs text-gray-500 dark:text-gray-400">Net Worth</p>
+        <p className="text-sm font-medium text-gray-900 dark:text-white">
+          {formatCurrency(value)}
+        </p>
+      </div>
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Current Net Worth */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm text-gray-600 dark:text-gray-400">Net Worth</span>
+          <WalletIcon size={16} className="text-gray-400" />
+        </div>
+        <div className="text-3xl font-bold text-gray-900 dark:text-white">
+          {formatCurrency(netWorthData.current.toNumber())}
+        </div>
+        <div className="flex items-center gap-2 mt-2">
+          {netWorthData.monthChange >= 0 ? (
+            <TrendingUpIcon size={14} className="text-green-600" />
+          ) : (
+            <TrendingDownIcon size={14} className="text-red-600" />
+          )}
+          <span className={`text-sm font-medium ${
+            netWorthData.monthChange >= 0 ? 'text-green-600' : 'text-red-600'
+          }`}>
+            {netWorthData.monthChange >= 0 ? '+' : ''}{formatCurrency(netWorthData.monthChange)}
+            {' '}({formatSignedPercentageValue(netWorthData.monthChangePercent, 1)})
+          </span>
+          <span className="text-xs text-gray-400">vs last month</span>
+        </div>
+      </div>
+
+      {/* Trend Chart */}
+      <div className={isCompact ? 'h-24' : 'h-40'}>
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={chartData} margin={{ top: 8, right: 0, bottom: 8, left: 0 }}>
+            {!isCompact && <CartesianGrid strokeDasharray="3 3" stroke="rgba(148, 163, 184, 0.25)" />}
+            <XAxis dataKey="date" hide={isCompact} axisLine={false} tickLine={false} />
+            <YAxis
+              hide={isCompact}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={value => formatCurrency(Number(value))}
+            />
+            <RechartsTooltip content={tooltipFormatter} />
+            <Area
+              type="monotone"
+              dataKey="value"
+              stroke={netWorthData.trend === 'up' ? trendStrokeUp : trendStrokeDown}
+              fill={netWorthData.trend === 'up' ? trendFillUp : trendFillDown}
+              strokeWidth={2}
+              dot={!isCompact}
+              activeDot={{ r: 4 }}
+            />
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Assets vs Liabilities */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-3">
+          <div className="text-xs text-green-700 dark:text-green-300 mb-1">Assets</div>
+          <div className="text-lg font-bold text-green-600 dark:text-green-400">
+            {formatCurrency(netWorthData.assets.toNumber())}
+          </div>
+        </div>
+        
+        <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3">
+          <div className="text-xs text-red-700 dark:text-red-300 mb-1">Liabilities</div>
+          <div className="text-lg font-bold text-red-600 dark:text-red-400">
+            {formatCurrency(netWorthData.liabilities.toNumber())}
+          </div>
+        </div>
+      </div>
+
+      {/* Period Comparisons */}
+      {!isCompact && (
+        <div className="grid grid-cols-2 gap-2">
+          <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+            <div className="text-xs text-gray-500 dark:text-gray-400">6 Month Change</div>
+            <div className={`text-sm font-semibold ${
+              netWorthData.sixMonthChange >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {netWorthData.sixMonthChange >= 0 ? '+' : ''}{formatCurrency(netWorthData.sixMonthChange)}
+            </div>
+            <div className="text-xs text-gray-500 dark:text-gray-400">
+              ({formatSignedPercentageValue(netWorthData.sixMonthChangePercent, 1)})
+            </div>
+          </div>
+          
+          <div className="text-center p-2 bg-gray-50 dark:bg-gray-800 rounded">
+            <div className="text-xs text-gray-500 dark:text-gray-400">Avg Monthly Growth</div>
+            <div className={`text-sm font-semibold ${
+              netWorthData.monthlyGrowthRate >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {formatSignedPercentageValue(netWorthData.monthlyGrowthRate, 1)}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Min/Max Values */}
+      {!isCompact && (
+        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 pt-2 border-t border-gray-200 dark:border-gray-700">
+          <span>Low: {formatCurrency(netWorthData.minValue)}</span>
+          <span>High: {formatCurrency(netWorthData.maxValue)}</span>
+        </div>
+      )}
+
+      {/* View Details Button */}
+      <button
+        onClick={() => navigate('/analytics')}
+        className="w-full text-sm text-gray-600 hover:text-blue-700 dark:text-gray-500 dark:hover:text-gray-300 text-center py-2"
+      >
+        View Full Analysis →
+      </button>
+    </div>
+  );
+}

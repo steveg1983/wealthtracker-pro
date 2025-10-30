@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/components/__tests__/Layout.test.tsx
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/components/__tests__/Layout.test.tsx
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/components/__tests__/Layout.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+ ✓ src/components/__tests__/Layout.test.tsx (2 tests) 85ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  11:01:28
+   Duration  2.08s (transform 388ms, setup 111ms, collect 1.44s, tests 85ms, environment 181ms, prepare 36ms)
+

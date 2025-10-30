@@ -1,0 +1,24 @@
+packages/testing/mock-indexeddb.ts(5,20): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
+packages/testing/realTestFramework.tsx(2,44): error TS2307: Cannot find module '@testing-library/react' or its corresponding type declarations.
+packages/testing/realTestFramework.tsx(3,31): error TS2307: Cannot find module '@clerk/clerk-react' or its corresponding type declarations.
+packages/testing/realTestFramework.tsx(4,31): error TS2307: Cannot find module 'react-router-dom' or its corresponding type declarations.
+packages/testing/supabaseMock.ts(1,20): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
+packages/testing/supabaseRealTest.ts(2,26): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(10,86): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(11,33): error TS2307: Cannot find module '@testing-library/react' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(12,23): error TS2307: Cannot find module '@testing-library/user-event' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(13,27): error TS2307: Cannot find module './ComponentName' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(42,44): error TS2345: Argument of type '{ name: string; type: string; }' is not assignable to parameter of type 'string'.
+packages/testing/templates/component-real-test-template.tsx(79,46): error TS2345: Argument of type '"table_name"' is not assignable to parameter of type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+packages/testing/templates/component-real-test-template.tsx(83,43): error TS2345: Argument of type '"table_name"' is not assignable to parameter of type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+packages/testing/templates/component-real-test-template.tsx(94,67): error TS2345: Argument of type '{ amount: number; description: string; }' is not assignable to parameter of type 'string'.
+packages/testing/templates/component-real-test-template.tsx(113,23): error TS2339: Property 'description' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; } | ... 25 more ... | { ...; }'.
+  Property 'description' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; }'.
+packages/testing/templates/component-real-test-template.tsx(145,24): error TS2339: Property 'amount' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; } | ... 25 more ... | { ...; }'.
+  Property 'amount' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; }'.
+packages/testing/templates/component-real-test-template.tsx(204,30): error TS2552: Cannot find name 'testDb'. Did you mean 'test'?
+packages/testing/templates/component-real-test-template.tsx(227,39): error TS2551: Property 'getTransactions' does not exist on type 'RealTestDatabase'. Did you mean 'createTransaction'?
+packages/testing/templates/component-real-test-template.tsx(231,18): error TS2339: Property 'deleteAccount' does not exist on type 'RealTestDatabase'.
+packages/testing/templates/component-real-test-template.tsx(232,47): error TS2551: Property 'getTransactions' does not exist on type 'RealTestDatabase'. Did you mean 'createTransaction'?
+packages/testing/templates/component-real-test-template.tsx(242,46): error TS2345: Argument of type '{ amount: number; description: string; }' is not assignable to parameter of type 'string'.
+packages/testing/vitest-setup.ts(1,52): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.

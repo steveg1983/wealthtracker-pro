@@ -1,0 +1,5 @@
+Command: rg "parseFloat|toFixed|Math\.round" apps/web/src | wc -l
+Output: 39
+
+Command: rg "parseFloat|toFixed|Math\.round" apps/web/src --glob '!*.backup*' --glob '!**/__tests__/**' --glob '!**/*.test.*' | wc -l
+Output: 0

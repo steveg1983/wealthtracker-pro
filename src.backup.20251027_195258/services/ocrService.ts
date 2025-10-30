@@ -1,0 +1,309 @@
+// OCR Service using Tesseract.js for client-side OCR
+// Note: In production, you might want to use a server-side OCR service like Google Vision API or AWS Textract
+
+import type { ExtractedData, ExtractedItem } from './documentService';
+import type { TesseractWorker, TesseractLine } from '../types/tesseract';
+import { logger } from './loggingService';
+import { parseCurrencyDecimal } from '../utils/currency-decimal';
+import { toStorageNumber } from '@wealthtracker/utils';
+
+interface OCRResult {
+  text: string;
+  confidence: number;
+  lines: string[];
+}
+
+class OCRService {
+  private tesseractLoaded = false;
+  private tesseractWorker: TesseractWorker | null = null;
+
+  async initialize() {
+    if (this.tesseractLoaded) return;
+
+    try {
+      // Dynamically import Tesseract.js to avoid bundling it if not used
+      const Tesseract = await import('tesseract.js');
+      const worker = await Tesseract.createWorker('eng');
+      this.tesseractWorker = worker as TesseractWorker;
+
+      if (this.tesseractWorker) {
+        await this.tesseractWorker.loadLanguage('eng');
+        await this.tesseractWorker.initialize('eng');
+      }
+      
+      this.tesseractLoaded = true;
+    } catch (error) {
+      logger.error('Failed to initialize OCR:', error);
+      throw new Error('OCR initialization failed');
+    }
+  }
+
+  async extractTextFromImage(imageUrl: string): Promise<OCRResult> {
+    await this.initialize();
+
+    try {
+      if (!this.tesseractWorker) {
+        throw new Error('OCR worker not initialized');
+      }
+      const { data } = await this.tesseractWorker.recognize(imageUrl);
+      
+      return {
+        text: data.text,
+        confidence: data.confidence / 100, // Convert to 0-1 range
+        lines: data.lines.map((line: TesseractLine) => line.text)
+      };
+    } catch (error) {
+      logger.error('OCR extraction failed:', error);
+      throw new Error('Failed to extract text from image');
+    }
+  }
+
+  async extractDataFromDocument(file: File): Promise<ExtractedData> {
+    // For PDFs, we would need a different approach (pdf.js)
+    if (file.type === 'application/pdf') {
+      return this.extractDataFromPDF(file);
+    }
+
+    // For images, use Tesseract.js
+    if (file.type.startsWith('image/')) {
+      const imageUrl = URL.createObjectURL(file);
+      try {
+        const ocrResult = await this.extractTextFromImage(imageUrl);
+        const extractedData = this.parseReceiptText(ocrResult.text, ocrResult.lines);
+        
+        return {
+          ...extractedData,
+          confidence: ocrResult.confidence,
+          rawText: ocrResult.text
+        };
+      } finally {
+        URL.revokeObjectURL(imageUrl);
+      }
+    }
+
+    // For other file types, return minimal data
+    return {
+      confidence: 0,
+      rawText: ''
+    };
+  }
+
+  private parseReceiptText(text: string, lines: string[]): Partial<ExtractedData> {
+    const data: Partial<ExtractedData> = {};
+    
+    // Extract merchant name (usually one of the first lines)
+    const merchantPatterns = [
+      /^([A-Z][A-Za-z\s&'-]+)$/m, // All caps or title case at start
+      /(?:from|at|@)\s+([A-Za-z\s&'-]+)/i, // After "from" or "at"
+    ];
+    
+    for (const pattern of merchantPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        data.merchant = match[1].trim();
+        break;
+      }
+    }
+
+    // Extract date
+    const datePatterns = [
+      /(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/,
+      /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})/i,
+      /(?:Date|DATE|Date:)\s*([^\n]+)/i,
+    ];
+
+    for (const pattern of datePatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const dateStr = match[1].trim();
+        const parsedDate = this.parseDate(dateStr);
+        if (parsedDate) {
+          data.date = parsedDate;
+          break;
+        }
+      }
+    }
+
+    // Extract amounts
+    const amountPatterns = [
+      /(?:Total|TOTAL|Total:)\s*[£$€]?\s*(\d+[.,]\d{2})/i,
+      /(?:Amount|AMOUNT|Amount:)\s*[£$€]?\s*(\d+[.,]\d{2})/i,
+      /(?:Grand Total|GRAND TOTAL):\s*[£$€]?\s*(\d+[.,]\d{2})/i,
+      /[£$€]\s*(\d+[.,]\d{2})(?:\s|$)/g, // Any currency amounts
+    ];
+
+    const amounts: number[] = [];
+    for (const pattern of amountPatterns) {
+      const matches = text.matchAll(pattern instanceof RegExp && pattern.global ? pattern : new RegExp(pattern, 'g'));
+      for (const match of matches) {
+        if (match[1]) {
+          const amountDecimal = parseCurrencyDecimal(match[1]);
+          if (!amountDecimal.isNaN()) {
+            amounts.push(toStorageNumber(amountDecimal));
+          }
+        }
+      }
+    }
+
+    // The largest amount is likely the total
+    if (amounts.length > 0) {
+      data.totalAmount = Math.max(...amounts);
+    }
+
+    // Extract tax amount
+    const taxPatterns = [
+      /(?:Tax|TAX|VAT|GST)\s*[£$€]?\s*(\d+[.,]\d{2})/i,
+      /(?:Sales Tax|SALES TAX):\s*[£$€]?\s*(\d+[.,]\d{2})/i,
+    ];
+
+    for (const pattern of taxPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const taxDecimal = parseCurrencyDecimal(match[1]);
+        if (!taxDecimal.isNaN()) {
+          data.taxAmount = toStorageNumber(taxDecimal);
+          break;
+        }
+      }
+    }
+
+    // Extract currency
+    const currencyMatch = text.match(/[£$€]/);
+    if (currencyMatch) {
+      switch (currencyMatch[0]) {
+        case '£': data.currency = 'GBP'; break;
+        case '$': data.currency = 'USD'; break;
+        case '€': data.currency = 'EUR'; break;
+      }
+    }
+
+    // Extract line items (basic implementation)
+    data.items = this.extractLineItems(lines);
+
+    // Extract payment method
+    const paymentPatterns = [
+      /(?:paid by|payment method|pay by):\s*([^\n]+)/i,
+      /(?:VISA|MASTERCARD|AMEX|CASH|DEBIT|CREDIT)(?:\s*CARD)?/i,
+      /\*{4}\s*\d{4}/, // Masked card number
+    ];
+
+    for (const pattern of paymentPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        data.paymentMethod = match[0].trim();
+        break;
+      }
+    }
+
+    return data;
+  }
+
+  private extractLineItems(lines: string[]): ExtractedItem[] {
+    const items: ExtractedItem[] = [];
+    
+    // Look for lines that appear to be items with prices
+    const itemPattern = /^(.+?)\s+[£$€]?\s*(\d+[.,]\d{2})$/;
+    const quantityPattern = /(\d+)\s*[xX@]\s*[£$€]?\s*(\d+[.,]\d{2})/;
+
+    for (const line of lines) {
+      const itemMatch = line.match(itemPattern);
+      if (itemMatch && itemMatch[1] && itemMatch[2]) {
+        const description = itemMatch[1].trim();
+        const priceDecimal = parseCurrencyDecimal(itemMatch[2]);
+        const price = toStorageNumber(priceDecimal);
+        
+        // Check if line contains quantity information
+        const qtyMatch = line.match(quantityPattern);
+        if (qtyMatch && qtyMatch[0]) {
+          items.push({
+            description: description.replace(qtyMatch[0], '').trim(),
+            quantity: parseInt(qtyMatch[1] || '1'),
+            unitPrice: toStorageNumber(parseCurrencyDecimal(qtyMatch[2] || '0')),
+            totalPrice: price
+          });
+        } else {
+          items.push({
+            description,
+            totalPrice: price
+          });
+        }
+      }
+    }
+
+    return items;
+  }
+
+  private parseDate(dateStr: string): Date | undefined {
+    // Try different date formats
+    const formats = [
+      // US format: MM/DD/YYYY or MM-DD-YYYY
+      /^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/,
+      // UK format: DD/MM/YYYY or DD-MM-YYYY
+      /^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/,
+      // Text format: 15 Jan 2024
+      /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{2,4})$/,
+    ];
+
+    // Try parsing with Date constructor first
+    const parsed = new Date(dateStr);
+    if (!isNaN(parsed.getTime())) {
+      return parsed;
+    }
+
+    // Try manual parsing for ambiguous formats
+    for (const format of formats) {
+      const match = dateStr.match(format);
+      if (match) {
+        // For DD/MM vs MM/DD ambiguity, we'll default to UK format (DD/MM)
+        // In a real app, this should be configurable based on user locale
+        const day = parseInt(match[1] || '1');
+        const month = parseInt(match[2] || '1') - 1; // JavaScript months are 0-indexed
+        const year = parseInt(match[3] || '2024');
+        
+        const date = new Date(year < 100 ? 2000 + year : year, month, day);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  private async extractDataFromPDF(_file: File): Promise<ExtractedData> {
+    // This is a placeholder for PDF extraction
+    // In a real implementation, you would use pdf.js or a similar library
+    logger.warn('PDF extraction not yet implemented');
+    
+    return {
+      confidence: 0,
+      rawText: 'PDF extraction not yet implemented'
+    };
+  }
+
+  async cleanup() {
+    if (this.tesseractWorker) {
+      await this.tesseractWorker.terminate();
+      this.tesseractWorker = null;
+      this.tesseractLoaded = false;
+    }
+  }
+}
+
+// Export singleton instance
+export const ocrService = new OCRService();
+
+// Export function to use in document service
+export async function performOCR(file: File): Promise<ExtractedData> {
+  try {
+    return await ocrService.extractDataFromDocument(file);
+  } catch (error) {
+    logger.error('OCR failed:', error);
+    // Return minimal data on error
+    return {
+      confidence: 0,
+      rawText: '',
+      error: error instanceof Error ? error.message : 'OCR extraction failed'
+    };
+  }
+}

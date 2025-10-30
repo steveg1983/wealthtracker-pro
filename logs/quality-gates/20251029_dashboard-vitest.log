@@ -1,0 +1,23 @@
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER
+
+stderr | src/test/integration/DashboardInteractionsIntegration.test.tsx > Dashboard Interactions Integration > Widget Clicks → Navigation → Data Updates > should expose quick actions shortcuts
+Error: Not implemented: window.scrollTo
+    at module.exports (/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/jsdom/lib/jsdom/browser/not-implemented.js:9:17)
+    at /Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/jsdom/lib/jsdom/browser/Window.js:960:7
+    at /Users/stevegreen/PROJECT_WEALTHTRACKER/src/components/common/Modal.tsx:123:16
+    at safelyCallDestroy (/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react-dom/cjs/react-dom.development.js:22971:5)
+    at commitHookEffectListUnmount (/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react-dom/cjs/react-dom.development.js:23139:11)
+    at commitPassiveUnmountOnFiber (/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react-dom/cjs/react-dom.development.js:25073:11)
+    at commitPassiveUnmountEffects_complete (/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react-dom/cjs/react-dom.development.js:25046:7)
+    at commitPassiveUnmountEffects_begin (/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react-dom/cjs/react-dom.development.js:25035:7)
+    at commitPassiveUnmountEffects (/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react-dom/cjs/react-dom.development.js:24980:3)
+    at flushPassiveEffectsImpl (/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react-dom/cjs/react-dom.development.js:27077:3) [90mundefined[39m
+
+ ✓ src/test/integration/DashboardInteractionsIntegration.test.tsx (10 tests) 466ms
+
+ Test Files  1 passed (1)
+      Tests  10 passed (10)
+   Start at  22:38:36
+   Duration  1.26s (transform 155ms, setup 89ms, collect 243ms, tests 466ms, environment 180ms, prepare 27ms)
+

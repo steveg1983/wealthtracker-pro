@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/test/sentry-simple.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/test/sentry-simple.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/test/sentry-simple.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+ ✓ src/test/sentry-simple.test.ts (2 tests) 2ms
+
+ Test Files  1 passed (1)
+      Tests  2 passed (2)
+   Start at  00:57:06
+   Duration  582ms (transform 75ms, setup 111ms, collect 126ms, tests 2ms, environment 194ms, prepare 33ms)
+

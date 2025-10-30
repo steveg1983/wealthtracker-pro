@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/calculations-decimal.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/calculations-decimal.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/calculations-decimal.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+ ✓ src/utils/__tests__/calculations-decimal.test.ts (44 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  44 passed (44)
+   Start at  11:02:21
+   Duration  495ms (transform 51ms, setup 113ms, collect 40ms, tests 6ms, environment 177ms, prepare 34ms)
+

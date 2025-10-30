@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/store/__tests__/reduxMigration.test.tsx
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/store/__tests__/reduxMigration.test.tsx
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/store/__tests__/reduxMigration.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+ ✓ src/store/__tests__/reduxMigration.test.tsx (3 tests) 323ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  00:53:36
+   Duration  5.13s (transform 286ms, setup 610ms, collect 1.30s, tests 323ms, environment 2.63s, prepare 85ms)
+

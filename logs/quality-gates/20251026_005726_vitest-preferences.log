@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/contexts/__tests__/PreferencesContextSafe.test.tsx
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/contexts/__tests__/PreferencesContextSafe.test.tsx
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/contexts/__tests__/PreferencesContextSafe.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+ ✓ src/contexts/__tests__/PreferencesContextSafe.test.tsx (17 tests) 42ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  00:57:26
+   Duration  593ms (transform 75ms, setup 105ms, collect 127ms, tests 42ms, environment 163ms, prepare 40ms)
+

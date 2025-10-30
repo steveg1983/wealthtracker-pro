@@ -1,0 +1,7 @@
+Vitest Focused Run: Layout component
+UTC Timestamp: 2025-10-24 09:35:34
+Command: npm run test -- --run src/components/__tests__/Layout.test.tsx
+Result: 2 tests (2 passed / 0 failed)
+Notes:
+- Added local render/test utilities to decouple from the shared testing package dependencies.
+- Mocked Clerk, realtime alerts, offline/indexedDB services to avoid hitting network/IDB when running headless tests.

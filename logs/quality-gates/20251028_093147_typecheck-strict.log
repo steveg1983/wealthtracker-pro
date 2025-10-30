@@ -1,0 +1,4 @@
+
+> wealth-tracker@1.4.5 typecheck:strict
+> NODE_OPTIONS="--max-old-space-size=4096" tsc -p tsconfig.strict.json --noEmit
+

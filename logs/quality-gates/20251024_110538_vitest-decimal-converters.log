@@ -1,0 +1,51 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/decimal-converters.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/decimal-converters.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/decimal-converters.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/utils/__tests__/decimal-converters.test.ts [ src/utils/__tests__/decimal-converters.test.ts ]
+Error: Failed to resolve import "../decimal" from "src/utils/__tests__/decimal-converters.test.ts". Does the file exist?
+  Plugin: vite:import-analysis
+  File: /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/utils/__tests__/decimal-converters.test.ts:14:26
+  12 |    fromDecimalHolding
+  13 |  } from "../decimal-converters";
+  14 |  import { toDecimal } from "../decimal";
+     |                             ^
+  15 |  describe("Decimal Converters", () => {
+  16 |    describe("toDecimalAccount", () => {
+ ❯ TransformPluginContext._formatLog node_modules/vite/dist/node/chunks/dep-DZ2tZksn.js:31435:43
+ ❯ TransformPluginContext.error node_modules/vite/dist/node/chunks/dep-DZ2tZksn.js:31432:14
+ ❯ normalizeUrl node_modules/vite/dist/node/chunks/dep-DZ2tZksn.js:29978:18
+ ❯ node_modules/vite/dist/node/chunks/dep-DZ2tZksn.js:30036:32
+ ❯ TransformPluginContext.transform node_modules/vite/dist/node/chunks/dep-DZ2tZksn.js:30004:4
+ ❯ EnvironmentPluginContainer.transform node_modules/vite/dist/node/chunks/dep-DZ2tZksn.js:31249:14
+ ❯ loadAndTransform node_modules/vite/dist/node/chunks/dep-DZ2tZksn.js:26419:26
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  11:05:39
+   Duration  564ms (transform 34ms, setup 115ms, collect 0ms, tests 0ms, environment 176ms, prepare 41ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/utils/__tests__/decimal-converters.test.ts

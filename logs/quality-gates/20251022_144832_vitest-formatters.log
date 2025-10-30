@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/formatters.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/formatters.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/formatters.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+ ✓ src/utils/formatters.test.ts (56 tests) 15ms
+
+ Test Files  1 passed (1)
+      Tests  56 passed (56)
+   Start at  14:48:33
+   Duration  725ms (transform 80ms, setup 112ms, collect 146ms, tests 15ms, environment 194ms, prepare 37ms)
+

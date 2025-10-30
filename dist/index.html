@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#8EA9DB" />
+    <meta name="description" content="Personal finance tracking application" />
+    <title>Wealth Tracker - Track Your Finances</title>
+    
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    
+    <!-- Critical CSS for faster initial render -->
+    <style>
+      /* Critical CSS inline - optimized for LCP */
+      *,*::before,*::after{box-sizing:border-box}
+      html{-webkit-text-size-adjust:100%;-moz-text-size-adjust:100%;text-size-adjust:100%}
+      body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Roboto',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;line-height:1.5}
+      #root{min-height:100vh;isolation:isolate}
+      .app-loading{display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f3f4f6}
+      /* Prevent layout shift */
+      img,video,canvas,svg{display:block;max-width:100%}
+      input,button,textarea,select{font:inherit}
+      /* Accessibility preserved */
+      .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border-width:0}
+      /* Loading spinner animation */
+      @keyframes spin{to{transform:rotate(360deg)}}
+      .spinner{width:48px;height:48px;border:3px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto}
+      @media(max-width:768px){body{font-size:16px}button,a,input,select,textarea{min-height:44px;touch-action:manipulation}}
+    </style>
+    
+    <!-- Resource hints for performance -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <script type="module" crossorigin src="/assets/index-Pkjq0qn3.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/chunk-BWx9oMeS.js">
+    <link rel="modulepreload" crossorigin href="/assets/chunk-BN8kgYrt.js">
+    <link rel="modulepreload" crossorigin href="/assets/chunk-Drd-K-oK.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-Bkln43Xj.css">
+  </head>
+  <body>
+    <div id="root">
+      <!-- Loading state while JS loads -->
+      <div class="app-loading">
+        <div style="text-align:center">
+          <div style="width:48px;height:48px;border:3px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto"></div>
+          <p style="margin-top:16px;color:#6b7280">Loading Wealth Tracker...</p>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Add loading animation -->
+    <style>
+      @keyframes spin{to{transform:rotate(360deg)}}
+    </style>
+    
+    
+    <!-- Defer non-critical scripts -->
+    <script>
+      // Check if user prefers reduced motion
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.documentElement.classList.add('reduce-motion');
+      }
+    </script>
+  </body>
+</html>

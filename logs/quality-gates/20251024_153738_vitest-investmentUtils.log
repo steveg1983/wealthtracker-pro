@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/investmentUtils.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/investmentUtils.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/investmentUtils.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+ ✓ src/utils/__tests__/investmentUtils.test.ts (27 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  27 passed (27)
+   Start at  15:37:39
+   Duration  718ms (transform 79ms, setup 110ms, collect 138ms, tests 4ms, environment 180ms, prepare 43ms)
+

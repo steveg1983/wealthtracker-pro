@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/security/__tests__/encryption.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/security/__tests__/encryption.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/security/__tests__/encryption.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+ ✓ src/security/__tests__/encryption.test.ts (15 tests) 267ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  15:37:10
+   Duration  1.26s (transform 51ms, setup 192ms, collect 50ms, tests 267ms, environment 517ms, prepare 105ms)
+

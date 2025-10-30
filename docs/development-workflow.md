@@ -3,10 +3,10 @@
 ## Husky Pre-commit Guard
 
 - `husky` is configured at the repository root. Running `npm install` (or `npm ci`) triggers the `prepare` script and installs hooks automatically.
-- The `pre-commit` hook now executes from the workspace root and runs the following quality gates:
+- The `pre-commit` hook now runs from the repo root and executes:
   1. `npm run lint -- --no-cache`
   2. `npm run test:smoke`
-- Both commands rely on workspace-aware scripts (`package.json` delegates to `apps/web`) so monorepo contributors only need to run the commit from the repo root.
+- Both commands execute directly against the flat app—no workspace forwarding required.
 
 ## Manual Execution
 
@@ -21,7 +21,7 @@ npm run test:smoke
 
 Real integration suites are opt-in. To exercise them locally or in CI you must:
 
-1. Provide Supabase credentials: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and a privileged `VITE_SUPABASE_SERVICE_ROLE_KEY` (stored in `.env.local`).
+1. Provide Supabase credentials: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and a privileged `VITE_SUPABASE_SERVICE_ROLE_KEY`. Store them in `.env.test.local` (preferred) so the smoke helper can load them automatically. `.env.local` is used only for interactive dev.
 2. Explicitly opt-in via `RUN_SUPABASE_REAL_TESTS=true`.
 3. Run the dedicated command:
 
@@ -31,17 +31,46 @@ RUN_SUPABASE_REAL_TESTS=true \
 VITE_SUPABASE_URL=https://nqbacrjjgdjabygqtcah.supabase.co \
 VITE_SUPABASE_ANON_KEY=... \
 VITE_SUPABASE_SERVICE_ROLE_KEY=... \
-node apps/web/scripts/run-supabase-smoke.mjs
+node scripts/run-supabase-smoke.mjs
 
-# Or if credentials are in .env.local, just set the flag
-RUN_SUPABASE_REAL_TESTS=true node apps/web/scripts/run-supabase-smoke.mjs
+# Or rely on .env.test.local via npm script
+npm run test:supabase-smoke
 ```
 
-The script validates the environment before invoking Vitest and fails fast if any value is missing. When the flag is not present, the individual `*.real.test.*` suites automatically skip via `describeSupabase`. The real-test harness instantiates a single shared Supabase client per worker—never call `createClient` directly inside tests or helpers, and treat any GoTrue "multiple client" warning as a regression.
+The helper loads `.env.test.local` / `.env.test` / `.env.local`, validates the required keys, and runs the Supabase Vitest battery under the Node environment. If no smoke suites are present it logs a warning and exits gracefully.
 
-**Status**: ✅ **PASSING** (2025-10-29 16:40) - All 9 test suites passing with service-role credentials. Script updated to use `npx vitest` for proper execution. Service role key now stored in `.env.local` for persistent local testing.
+**Status**: ✅ **Operational** (2025-10-29) – `src/test/supabase/supabase-smoke.test.ts` seeds a profile + account, writes a transaction via the service role, verifies it via the anon client, asserts anon deletes are blocked by RLS, and cleans up. A dedicated workflow (`.github/workflows/supabase-smoke.yml`) runs nightly and on demand when the following repository secrets are present:
 
-**Build Fix**: Package.json now uses `cd apps/web && npm run build` for Vercel compatibility (no workspace support required).
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_SUPABASE_SERVICE_ROLE_KEY`
+
+The workflow is guarded so it silently skips when any secret is missing. Coordinate with DevOps before enabling it in production to manage costs and rate limits.
+
+## Supabase migrations
+
+- Migration files live under `supabase/migrations/` and follow the naming convention `YYYYMMDDHHMM__slug.sql`.
+- Use the Supabase CLI to create/apply migrations:
+
+  ```sh
+  # create a new migration skeleton
+  npm run db:migration:new add_accounts_index
+
+  # apply migrations to the target database (requires SUPABASE_DB_URL)
+  SUPABASE_DB_URL=postgresql://postgres:<password>@<host>:5432/postgres npm run db:migrate
+
+  # lint migrations before committing
+  SUPABASE_DB_URL=... npm run db:lint
+
+  # diff dashboard changes into a migration file
+  SUPABASE_DB_URL=... npm run db:diff
+  ```
+
+- Keep the DSN scoped to staging/test databases—never run migrations against production without approval + backup.
+- After applying migrations, always run `npm run test:supabase-smoke` to confirm CRUD/RLS behaviours.
+- For full end-to-end instructions see `supabase/README.md`.
+
+**Build Fix**: `scripts/build-web.mjs` now shells out to `npx vite build`, so Vercel can build the flat layout without workspace shims.
 
 ## Temporarily Bypassing the Hook
 
@@ -70,10 +99,10 @@ Follow up every bypass with the full lint + smoke suite before merging.
 
 ### Coverage thresholds
 
-Unit coverage is now treated as a gate. After `npm run test:coverage --workspace apps/web`, CI executes:
+Unit coverage is now treated as a gate. After `npm run test:coverage`, CI executes:
 
 ```sh
-node scripts/verify-coverage-threshold.mjs apps/web/coverage/coverage-final.json --statements=75 --branches=55
+node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55
 ```
 
 If either percentage drops below the threshold the workflow fails. Run the same command locally whenever you touch shared services to confirm you're still above **75 % statements / 55 % branches** before pushing.

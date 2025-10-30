@@ -9,13 +9,13 @@ export default defineConfig({
     react(),
     // Add gzip compression for better mobile performance
     compression({
-      algorithm: 'gzip',
+      algorithms: ['gzip'],
       threshold: 1024, // Compress files larger than 1kb for mobile
       deleteOriginalAssets: false,
     }),
     // Add brotli compression for modern browsers
     compression({
-      algorithm: 'brotliCompress',
+      algorithms: ['brotliCompress'],
       threshold: 1024,
       deleteOriginalAssets: false,
     })
@@ -70,14 +70,14 @@ export default defineConfig({
           return `assets/${facadeModuleId}-[hash].js`;
         },
         assetFileNames: 'assets/[name]-[hash].[ext]'
+      },
+      // Aggressive tree-shaking optimizations
+      treeshake: {
+        preset: 'recommended',
+        moduleSideEffects: false,
+        propertyReadSideEffects: false,
+        manualPureFunctions: ['console.log', 'console.warn', 'console.debug', 'console.info']
       }
-    },
-    // Aggressive tree-shaking optimizations
-    treeshake: {
-      preset: 'recommended',
-      moduleSideEffects: false,
-      propertyReadSideEffects: false,
-      manualPureFunctions: ['console.log', 'console.warn', 'console.debug', 'console.info']
     },
     // Use terser for better minification
     minify: 'terser',

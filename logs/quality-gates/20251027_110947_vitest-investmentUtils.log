@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/investmentUtils.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/investmentUtils.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/investmentUtils.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+ ✓ src/utils/__tests__/investmentUtils.test.ts (27 tests) 4ms
+
+ Test Files  1 passed (1)
+      Tests  27 passed (27)
+   Start at  11:09:47
+   Duration  765ms (transform 83ms, setup 119ms, collect 162ms, tests 4ms, environment 178ms, prepare 53ms)
+

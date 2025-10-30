@@ -1,0 +1,46 @@
+
+> test
+> npm run test --workspace apps/web --run src/hooks/__tests__/useStockPrices.real.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/hooks/__tests__/useStockPrices.real.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/hooks/__tests__/useStockPrices.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/__tests__/useStockPrices.real.test.ts [ src/hooks/__tests__/useStockPrices.real.test.ts ]
+Error: [vitest] There was an error when mocking a module. If you are using "vi.mock" factory, make sure there are no top level variables inside, since this call is hoisted to top of the file. Read more: https://vitest.dev/api/vi.html#vi-mock
+ ❯ src/hooks/useStockPrices.ts:2:1
+      1| import { useState, useEffect, useCallback } from 'react';
+      2| import { getStockQuote, getMultipleStockQuotes } from '../services/sto…
+       | ^
+      3| import type { Holding } from '../types';
+      4| import { logger } from '../services/loggingService';
+
+Caused by: ReferenceError: Cannot access 'mockGetMultipleStockQuotes' before initialization
+ ❯ src/hooks/__tests__/useStockPrices.real.test.ts:32:29
+ ❯ src/hooks/useStockPrices.ts:2:1
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  15:29:05
+   Duration  557ms (transform 47ms, setup 119ms, collect 0ms, tests 0ms, environment 211ms, prepare 66ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/hooks/__tests__/useStockPrices.real.test.ts

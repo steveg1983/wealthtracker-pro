@@ -78,6 +78,14 @@ jobs:
           CI: true
         run: npm run test:smoke
 
+      - name: Run coverage
+        env:
+          CI: true
+        run: npm run test:coverage
+
+      - name: Verify coverage thresholds
+        run: node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55
+
       - name: Run build:check
         env:
           CI: true

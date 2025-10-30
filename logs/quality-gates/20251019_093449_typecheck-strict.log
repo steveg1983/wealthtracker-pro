@@ -1,0 +1,21 @@
+
+> wealth-tracker@1.4.5 typecheck:strict
+> NODE_OPTIONS="--max-old-space-size=4096" tsc -p tsconfig.strict.json --noEmit
+
+src/components/DocumentManager.tsx(21,10): error TS2300: Duplicate identifier 'Decimal'.
+src/components/DocumentManager.tsx(22,10): error TS2300: Duplicate identifier 'Decimal'.
+src/components/retirement/NIYearsTracker.tsx(136,11): error TS2451: Cannot redeclare block-scoped variable 'contractedOutYears'.
+src/components/retirement/NIYearsTracker.tsx(142,11): error TS2451: Cannot redeclare block-scoped variable 'contractedOutYears'.
+src/contexts/RealtimeSyncProvider.tsx(168,17): error TS2749: 'Decimal' refers to a value, but is being used as a type here. Did you mean 'typeof Decimal'?
+src/pages/Reports.tsx(236,33): error TS2345: Argument of type '{ title: string; dateRange: string; summary: { income: number; expenses: number; netIncome: number; savingsRateDecimal: decimal.Decimal; }; categoryBreakdown: { category: string; amount: number; percentage: number; }[]; topTransactions: Transaction[]; chartElements: HTMLDivElement[]; }' is not assignable to parameter of type 'ReportData'.
+  Types of property 'summary' are incompatible.
+    Property 'savingsRate' is missing in type '{ income: number; expenses: number; netIncome: number; savingsRateDecimal: decimal.Decimal; }' but required in type '{ income: number; expenses: number; netIncome: number; savingsRate: number; }'.
+src/pages/Reports.tsx(238,33): error TS2345: Argument of type '{ title: string; dateRange: string; summary: { income: number; expenses: number; netIncome: number; savingsRateDecimal: decimal.Decimal; }; categoryBreakdown: { category: string; amount: number; percentage: number; }[]; topTransactions: Transaction[]; chartElements: HTMLDivElement[]; }' is not assignable to parameter of type 'ReportData'.
+  Types of property 'summary' are incompatible.
+    Property 'savingsRate' is missing in type '{ income: number; expenses: number; netIncome: number; savingsRateDecimal: decimal.Decimal; }' but required in type '{ income: number; expenses: number; netIncome: number; savingsRate: number; }'.
+src/services/dataIntelligenceService.ts(797,40): error TS2339: Property 'currency' does not exist on type 'Subscription'.
+src/services/dataIntelligenceService.ts(797,55): error TS2339: Property 'currency' does not exist on type 'Subscription'.
+src/types/money.ts(16,18): error TS2345: Argument of type 'Decimal' is not assignable to parameter of type 'string | number'.
+../../packages/utils/decimal.ts(22,46): error TS18048: 'base' is possibly 'undefined'.
+../../packages/utils/decimal.ts(34,44): error TS18048: 'integerPart' is possibly 'undefined'.
+../../packages/utils/decimal.ts(39,24): error TS18048: 'integerPart' is possibly 'undefined'.

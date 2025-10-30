@@ -1,0 +1,12 @@
+Vitest Focused Run: mnyParser
+UTC Timestamp: 2025-10-23 23:30:00
+Command: npm run test -- --run src/utils/__tests__/mnyParser.test.ts
+Result: 29 tests (23 passed / 6 failed)
+Failures:
+1. parseMNY handles large files with progress logging -> expected console.log calls missing.
+2. applyMappingToData skips records with invalid amounts -> invalid amount still included in results (3 vs 2).
+3. parseMBF logs file header for debugging -> header log not emitted.
+4. parseMBF calculates text percentage in file -> no console.log for percentage summary.
+5. parseMBF tries multiple record sizes -> diagnostic log not emitted when iterating sizes.
+6. parseMBF tries pattern-based extraction as fallback -> missing log for fallback path.
+Next Steps: Restore structured logging hooks around MBF/MNY parsers and harden invalid amount filtering.

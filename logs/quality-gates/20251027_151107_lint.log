@@ -1,0 +1,8 @@
+
+> lint
+> npm run lint --workspace apps/web --quiet
+
+
+> wealth-tracker@1.4.5 lint
+> eslint .
+

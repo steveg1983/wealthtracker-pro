@@ -66,7 +66,7 @@ const mockCategories = [
   { id: 'cat2', name: 'Transport' }
 ];
 
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     accounts: mockAccounts,
     transactions: mockTransactions,

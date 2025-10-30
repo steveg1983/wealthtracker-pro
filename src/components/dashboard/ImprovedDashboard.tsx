@@ -243,7 +243,7 @@ export function ImprovedDashboard() {
         </div>
         
         {/* Quick stats */}
-        <div className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/20">
+        <div data-testid="dashboard-grid" className="grid grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/20">
           <div>
             <p className="text-sm opacity-70">Assets</p>
             <p className="text-xl font-semibold text-green-300">

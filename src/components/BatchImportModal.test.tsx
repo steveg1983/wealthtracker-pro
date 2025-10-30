@@ -63,7 +63,7 @@ vi.mock('./icons', () => ({
 }));
 
 // Mock useApp hook
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: vi.fn(() => ({
     accounts: [
       { id: 'acc1', name: 'Checking', type: 'checking', balance: 1000, createdAt: new Date(), currency: 'USD' }

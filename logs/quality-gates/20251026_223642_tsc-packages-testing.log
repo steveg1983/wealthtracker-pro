@@ -1,0 +1,19 @@
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(175,13): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(176,13): error TS18048: 'user.emailAddresses' is possibly 'undefined'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(185,46): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(188,15): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(189,15): error TS18048: 'user.emailAddresses' is possibly 'undefined'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(256,13): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(269,80): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+packages/testing/index.ts(6,10): error TS2459: Module '"./realTestFramework"' declares 'RealTestProvider' locally, but it is not exported.
+packages/testing/supabaseRealTest.ts(12,14): error TS2739: Type '(title: string, factory: () => void) => void' is missing the following properties from type 'typeof describe': skip, only
+packages/testing/supabaseRealTest.ts(56,10): error TS2352: Conversion of type 'SupabaseClient<Database, "public" extends Exclude<keyof Database, "__InternalSupabase"> ? "public" : string & Exclude<keyof Database, "__InternalSupabase">, SchemaNameOrClientOptions extends string & Exclude<...> ? SchemaNameOrClientOptions : "public" extends Exclude<...> ? "public" : string & Exclude<...>, Omit<......' to type 'SupabaseTestClient' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Omit<Database, "__InternalSupabase">[SchemaNameOrClientOptions extends string & Exclude<keyof Database, "__InternalSupabase"> ? SchemaNameOrClientOptions : "public" extends Exclude<...> ? "public" : string & Exclude<...>] extends GenericSchema ? Omit<...>[SchemaNameOrClientOptions extends string & Exclude<...> ? Sch...' is not comparable to type '{ Tables: { users: { Row: { id: string; clerk_id: string; email: string; first_name: string | null; last_name: string | null; avatar_url: string | null; full_name: string | null; image_url: string | null; ... 10 more ...; has_mfa: boolean | null; }; Insert: { ...; }; Update: { ...; }; Relationships: []; }; ... 25 mo...'.
+    Property 'Enums' is missing in type 'GenericSchema & Omit<Database, "__InternalSupabase">[SchemaNameOrClientOptions extends string & Exclude<...> ? SchemaNameOrClientOptions : "public" extends Exclude<...> ? "public" : string & Exclude<...>]' but required in type '{ Tables: { users: { Row: { id: string; clerk_id: string; email: string; first_name: string | null; last_name: string | null; avatar_url: string | null; full_name: string | null; image_url: string | null; ... 10 more ...; has_mfa: boolean | null; }; Insert: { ...; }; Update: { ...; }; Relationships: []; }; ... 25 mo...'.
+packages/testing/supabaseRealTest.ts(56,33): error TS2345: Argument of type 'string | true' is not assignable to parameter of type 'string'.
+  Type 'boolean' is not assignable to type 'string'.

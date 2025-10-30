@@ -1,0 +1,23 @@
+{
+  "name": "@wealthtracker/config",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "exports": {
+    ".": {
+      "import": "./index.js"
+    },
+    "./eslint-react": {
+      "import": "./eslint.react.js"
+    },
+    "./vitest-react": {
+      "import": "./vitest.react.js"
+    },
+    "./vitest-react-integration": {
+      "import": "./vitest.react.integration.js"
+    },
+    "./vitest-react-unit": {
+      "import": "./vitest.react.unit.js"
+    }
+  }
+}

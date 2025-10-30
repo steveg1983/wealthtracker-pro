@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/components/LoadingScreen.test.tsx
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/components/LoadingScreen.test.tsx
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/components/LoadingScreen.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+ ✓ src/components/LoadingScreen.test.tsx (28 tests) 49ms
+
+ Test Files  1 passed (1)
+      Tests  28 passed (28)
+   Start at  08:02:07
+   Duration  621ms (transform 43ms, setup 117ms, collect 16ms, tests 49ms, environment 181ms, prepare 33ms)
+

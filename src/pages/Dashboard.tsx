@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import PageWrapper from '../components/PageWrapper';
 import { SkeletonCard } from '../components/loading/Skeleton';
+import LazyErrorBoundary from '../components/LazyErrorBoundary';
 
 // Lazy load only modals and heavy features for better performance
 const TestDataWarningModal = lazy(() => import('../components/TestDataWarningModal'));
@@ -33,15 +34,13 @@ export default function Dashboard() {
           
           setSupabaseConnected(!error);
           if (!error) {
-            console.log('✅ Supabase connected successfully');
-            
             // Silent auto-migration - no user interaction needed
             // Migration happens automatically in AppContextSupabase
           } else {
-            console.warn('⚠️ Supabase connection issue:', error.message);
+            // Supabase connection issue - handled silently
           }
         } catch (err) {
-          console.error('❌ Supabase connection failed:', err);
+          // Supabase connection failed - handled silently
           setSupabaseConnected(false);
         }
       } else {
@@ -91,25 +90,35 @@ export default function Dashboard() {
   return (
     <PageWrapper title="Dashboard">
       {/* Render the consolidated dashboard */}
-      <Suspense fallback={<SkeletonCard className="h-96" />}>
-        <ImprovedDashboard />
-      </Suspense>
-      
+      <LazyErrorBoundary componentName="Dashboard">
+        <Suspense fallback={<SkeletonCard className="h-96" />}>
+          <ImprovedDashboard />
+        </Suspense>
+      </LazyErrorBoundary>
+
       {/* Test Data Warning Modal */}
-      <TestDataWarningModal
-        isOpen={showTestDataWarning}
-        onClose={handleTestDataWarningClose}
-        onClearData={() => {
-          clearAllData();
-          handleTestDataWarningClose();
-        }}
-      />
+      <LazyErrorBoundary componentName="Test Data Warning">
+        <Suspense fallback={null}>
+          <TestDataWarningModal
+            isOpen={showTestDataWarning}
+            onClose={handleTestDataWarningClose}
+            onClearData={() => {
+              clearAllData();
+              handleTestDataWarningClose();
+            }}
+          />
+        </Suspense>
+      </LazyErrorBoundary>
 
       {/* Onboarding Modal */}
-      <OnboardingModal
-        isOpen={showOnboarding}
-        onComplete={handleOnboardingComplete}
-      />
+      <LazyErrorBoundary componentName="Onboarding">
+        <Suspense fallback={null}>
+          <OnboardingModal
+            isOpen={showOnboarding}
+            onComplete={handleOnboardingComplete}
+          />
+        </Suspense>
+      </LazyErrorBoundary>
     </PageWrapper>
   );
 }

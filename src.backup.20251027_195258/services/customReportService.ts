@@ -1,0 +1,937 @@
+import type { CustomReport, ReportComponent } from '../components/CustomReportBuilder';
+import type { Transaction, Account, Budget, Category } from '../types';
+import type { DecimalInstance } from '../types/decimal-types';
+import Decimal from 'decimal.js';
+import {
+  startOfMonth,
+  endOfMonth,
+  startOfQuarter,
+  endOfQuarter,
+  startOfYear,
+  endOfYear,
+  subMonths,
+  parseISO,
+  format
+} from 'date-fns';
+import { logger } from './loggingService';
+
+type SummaryStatsMetric =
+  | 'income'
+  | 'expenses'
+  | 'netIncome'
+  | 'savingsRate'
+  | 'transactionCount'
+  | 'avgTransaction';
+
+interface SummaryStatsBaseline {
+  income: number;
+  expenses: number;
+  netIncome: number;
+  savingsRate: number;
+  transactionCount: number;
+  avgTransaction: number;
+}
+
+type SummaryStatsResult = Partial<SummaryStatsBaseline>;
+
+interface SummaryStatsConfig {
+  metrics?: SummaryStatsMetric[];
+}
+
+type LineChartDataType = 'income-vs-expenses' | 'income' | 'expenses' | 'both';
+
+interface LineChartConfig {
+  dataType: LineChartDataType;
+}
+
+interface ChartDataset {
+  label: string;
+  data: number[];
+  borderColor?: string;
+  backgroundColor?: string;
+  borderWidth?: number;
+}
+
+interface LineChartResult {
+  labels: string[];
+  datasets: ChartDataset[];
+}
+
+interface PieChartConfig {
+  limit?: number;
+}
+
+interface PieChartResult {
+  labels: string[];
+  data: number[];
+}
+
+interface BarChartConfig {
+  limit?: number;
+  orientation?: 'vertical' | 'horizontal';
+}
+
+interface BarChartResult {
+  labels: string[];
+  datasets: ChartDataset[];
+  orientation: 'vertical' | 'horizontal';
+}
+
+type TableSortKey =
+  | 'amount'
+  | 'category'
+  | 'date'
+  | 'description'
+  | 'accountId'
+  | 'type';
+
+interface TableConfig {
+  sortBy?: TableSortKey;
+  sortOrder?: 'asc' | 'desc';
+  limit?: number;
+}
+
+interface TableRow {
+  date: string;
+  description: string;
+  category: string;
+  account: string;
+  amount: number;
+  type: Transaction['type'];
+}
+
+interface TextBlockConfig {
+  content?: string;
+  fontSize?: string;
+}
+
+interface TextBlockResult {
+  content: string;
+  fontSize?: string;
+}
+
+interface CategoryBreakdownConfig {
+  comparisonType?: 'budget' | 'previous-period';
+  showSubcategories?: boolean;
+}
+
+interface CategoryBreakdownEntry {
+  category: string;
+  actual: number;
+  budget: number;
+  variance: number;
+  count: number;
+  status: 'under' | 'over';
+  comparisonType?: CategoryBreakdownConfig['comparisonType'];
+  showSubcategories?: boolean;
+}
+
+type DateComparisonMetric = 'income' | 'expenses' | 'netIncome';
+
+interface DateComparisonConfig {
+  metric?: DateComparisonMetric;
+}
+
+interface DateComparisonResult {
+  current: {
+    income: number;
+    expenses: number;
+    netIncome: number;
+    transactionCount: number;
+  };
+  previous: {
+    income: number;
+    expenses: number;
+    netIncome: number;
+    transactionCount: number;
+  };
+  changes: {
+    income: number;
+    expenses: number;
+    netIncome: number;
+  };
+  focusMetric: DateComparisonMetric;
+  focusMetricChange: number;
+  periodLabel: {
+    current: string;
+    previous: string;
+  };
+}
+
+type ReportComponentResult =
+  | SummaryStatsResult
+  | LineChartResult
+  | PieChartResult
+  | BarChartResult
+  | TableRow[]
+  | TextBlockResult
+  | CategoryBreakdownEntry[]
+  | DateComparisonResult
+  | null;
+
+export interface GeneratedReport {
+  report: CustomReport;
+  dateRange: DateRange;
+  data: Record<string, ReportComponentResult>;
+}
+
+interface DateRange {
+  startDate: Date;
+  endDate: Date;
+}
+
+const SUMMARY_METRICS: readonly SummaryStatsMetric[] = [
+  'income',
+  'expenses',
+  'netIncome',
+  'savingsRate',
+  'transactionCount',
+  'avgTransaction'
+] as const;
+
+const LINE_CHART_DATA_TYPES: readonly LineChartDataType[] = [
+  'income-vs-expenses',
+  'income',
+  'expenses',
+  'both'
+] as const;
+
+const SORTABLE_TRANSACTION_FIELDS: readonly TableSortKey[] = [
+  'amount',
+  'category',
+  'date',
+  'description',
+  'accountId',
+  'type'
+] as const;
+
+const CATEGORY_COMPARISON_TYPES: readonly NonNullable<CategoryBreakdownConfig['comparisonType']>[] = [
+  'budget',
+  'previous-period'
+] as const;
+
+const DATE_COMPARISON_METRICS: readonly DateComparisonMetric[] = [
+  'income',
+  'expenses',
+  'netIncome'
+] as const;
+
+const SUMMARY_METRICS_SET = new Set<SummaryStatsMetric>(SUMMARY_METRICS);
+const LINE_CHART_DATA_TYPES_SET = new Set<LineChartDataType>(LINE_CHART_DATA_TYPES);
+const SORTABLE_TRANSACTION_FIELD_SET = new Set<TableSortKey>(SORTABLE_TRANSACTION_FIELDS);
+const CATEGORY_COMPARISON_TYPE_SET = new Set<NonNullable<CategoryBreakdownConfig['comparisonType']>>(CATEGORY_COMPARISON_TYPES);
+const DATE_COMPARISON_METRIC_SET = new Set<DateComparisonMetric>(DATE_COMPARISON_METRICS);
+
+const isSummaryStatsMetric = (value: unknown): value is SummaryStatsMetric =>
+  typeof value === 'string' && SUMMARY_METRICS_SET.has(value as SummaryStatsMetric);
+
+const isLineChartDataType = (value: unknown): value is LineChartDataType =>
+  typeof value === 'string' && LINE_CHART_DATA_TYPES_SET.has(value as LineChartDataType);
+
+const isTableSortKey = (value: unknown): value is TableSortKey =>
+  typeof value === 'string' && SORTABLE_TRANSACTION_FIELD_SET.has(value as TableSortKey);
+
+const isCategoryComparisonType = (
+  value: unknown
+): value is NonNullable<CategoryBreakdownConfig['comparisonType']> =>
+  typeof value === 'string' && CATEGORY_COMPARISON_TYPE_SET.has(value as NonNullable<CategoryBreakdownConfig['comparisonType']>);
+
+const isDateComparisonMetric = (value: unknown): value is DateComparisonMetric =>
+  typeof value === 'string' && DATE_COMPARISON_METRIC_SET.has(value as DateComparisonMetric);
+
+class CustomReportService {
+  private readonly STORAGE_KEY = 'money_management_custom_reports';
+
+  // Get all custom reports
+  getCustomReports(): CustomReport[] {
+    try {
+      const stored = localStorage.getItem(this.STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch (error) {
+      logger.error('Failed to load custom reports:', error);
+      return [];
+    }
+  }
+
+  // Save a custom report
+  saveCustomReport(report: CustomReport): void {
+    const reports = this.getCustomReports();
+    const index = reports.findIndex(r => r.id === report.id);
+    
+    if (index >= 0) {
+      reports[index] = report;
+    } else {
+      reports.push(report);
+    }
+    
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
+  }
+
+  // Delete a custom report
+  deleteCustomReport(reportId: string): void {
+    const reports = this.getCustomReports().filter(r => r.id !== reportId);
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
+  }
+
+  // Generate report data based on configuration
+  async generateReportData(
+    report: CustomReport,
+    data: {
+      transactions: Transaction[];
+      accounts: Account[];
+      budgets: Budget[];
+      categories: Category[];
+    }
+  ): Promise<GeneratedReport> {
+    // Apply date filters
+    const customRange = this.normaliseCustomDateRange(
+      report.filters.customStartDate,
+      report.filters.customEndDate
+    );
+
+    const { startDate, endDate } = this.getDateRange(
+      report.filters.dateRange,
+      customRange
+    );
+
+    // Filter transactions
+    let filteredTransactions = data.transactions.filter(t => {
+      const transDate = new Date(t.date);
+      return transDate >= startDate && transDate <= endDate;
+    });
+
+    // Apply account filters
+    if (report.filters.accounts && report.filters.accounts.length > 0) {
+      filteredTransactions = filteredTransactions.filter(t => 
+        report.filters.accounts!.includes(t.accountId)
+      );
+    }
+
+    // Apply category filters
+    if (report.filters.categories && report.filters.categories.length > 0) {
+      filteredTransactions = filteredTransactions.filter(t => 
+        report.filters.categories!.includes(t.category)
+      );
+    }
+
+    // Apply tag filters
+    if (report.filters.tags && report.filters.tags.length > 0) {
+      filteredTransactions = filteredTransactions.filter(t => 
+        t.tags && t.tags.some(tag => report.filters.tags!.includes(tag))
+      );
+    }
+
+    // Generate component data
+    const componentData: Record<string, ReportComponentResult> = {};
+    
+    for (const component of report.components) {
+      componentData[component.id] = await this.generateComponentData(
+        component,
+        {
+          transactions: filteredTransactions,
+          accounts: data.accounts,
+          budgets: data.budgets,
+          categories: data.categories,
+          dateRange: { startDate, endDate }
+        }
+      );
+    }
+
+    return {
+      report,
+      dateRange: { startDate, endDate },
+      data: componentData
+    };
+  }
+
+  private normaliseCustomDateRange(
+    start?: string | null,
+    end?: string | null
+  ): { start?: string; end?: string } | undefined {
+    const range: { start?: string; end?: string } = {};
+
+    if (start) {
+      range.start = start;
+    }
+
+    if (end) {
+      range.end = end;
+    }
+
+    return Object.keys(range).length > 0 ? range : undefined;
+  }
+
+  private getDateRange(
+    rangeType: 'month' | 'quarter' | 'year' | 'custom',
+    custom?: { start?: string; end?: string }
+  ): DateRange {
+    const now = new Date();
+    
+    switch (rangeType) {
+      case 'month':
+        return {
+          startDate: startOfMonth(now),
+          endDate: endOfMonth(now)
+        };
+      case 'quarter':
+        return {
+          startDate: startOfQuarter(now),
+          endDate: endOfQuarter(now)
+        };
+      case 'year':
+        return {
+          startDate: startOfYear(now),
+          endDate: endOfYear(now)
+        };
+      case 'custom':
+        return {
+          startDate: custom?.start ? parseISO(custom.start) : subMonths(now, 1),
+          endDate: custom?.end ? parseISO(custom.end) : now
+        };
+    }
+  }
+
+  private async generateComponentData(
+    component: ReportComponent,
+    context: {
+      transactions: Transaction[];
+      accounts: Account[];
+      budgets: Budget[];
+      categories: Category[];
+      dateRange: DateRange;
+    }
+  ): Promise<ReportComponentResult> {
+    const { transactions, accounts, budgets, categories, dateRange } = context;
+
+    switch (component.type) {
+      case 'summary-stats':
+        return this.generateSummaryStats(
+          transactions,
+          this.parseSummaryStatsConfig(component.config)
+        );
+      
+      case 'line-chart':
+        return this.generateLineChartData(
+          transactions,
+          this.parseLineChartConfig(component.config)
+        );
+      
+      case 'pie-chart':
+        return this.generatePieChartData(
+          transactions,
+          categories,
+          this.parsePieChartConfig(component.config)
+        );
+      
+      case 'bar-chart':
+        return this.generateBarChartData(
+          transactions,
+          this.parseBarChartConfig(component.config)
+        );
+      
+      case 'table':
+        return this.generateTableData(
+          transactions,
+          accounts,
+          this.parseTableConfig(component.config)
+        );
+      
+      case 'text-block':
+        return this.generateTextBlockData(
+          this.parseTextBlockConfig(component.config)
+        );
+      
+      case 'category-breakdown':
+        return this.generateCategoryBreakdown(
+          transactions,
+          categories,
+          budgets,
+          this.parseCategoryBreakdownConfig(component.config)
+        );
+      
+      case 'date-comparison':
+        return this.generateDateComparison(
+          transactions,
+          dateRange,
+          this.parseDateComparisonConfig(component.config)
+        );
+      
+      default:
+        return null;
+    }
+  }
+
+  private generateSummaryStats(
+    transactions: Transaction[],
+    config: SummaryStatsConfig
+  ): SummaryStatsResult {
+    const income = transactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum.plus(t.amount), new Decimal(0));
+    
+    const expenses = transactions
+      .filter(t => t.type === 'expense')
+      .reduce((sum, t) => sum.plus(Math.abs(t.amount)), new Decimal(0));
+    
+    const netIncome = income.minus(expenses);
+    const savingsRate = income.gt(0) ? netIncome.div(income).times(100) : new Decimal(0);
+
+    const stats: SummaryStatsBaseline = {
+      income: income.toNumber(),
+      expenses: expenses.toNumber(),
+      netIncome: netIncome.toNumber(),
+      savingsRate: savingsRate.toNumber(),
+      transactionCount: transactions.length,
+      avgTransaction: transactions.length > 0 
+        ? expenses.div(transactions.filter(t => t.type === 'expense').length).toNumber()
+        : 0
+    };
+
+    // Filter based on config
+    if (config.metrics && config.metrics.length > 0) {
+      return config.metrics.reduce<SummaryStatsResult>((accumulator, metric) => {
+        accumulator[metric] = stats[metric];
+        return accumulator;
+      }, {});
+    }
+
+    return stats;
+  }
+
+  private generateLineChartData(
+    transactions: Transaction[],
+    config: LineChartConfig
+  ): LineChartResult {
+    // Group transactions by month
+    const monthlyData = new Map<string, { income: DecimalInstance; expenses: DecimalInstance }>();
+    
+    transactions.forEach(t => {
+      const monthKey = format(new Date(t.date), 'yyyy-MM');
+      
+      if (!monthlyData.has(monthKey)) {
+        monthlyData.set(monthKey, {
+          income: new Decimal(0),
+          expenses: new Decimal(0)
+        });
+      }
+      
+      const data = monthlyData.get(monthKey)!;
+      if (t.type === 'income') {
+        data.income = data.income.plus(t.amount);
+      } else if (t.type === 'expense') {
+        data.expenses = data.expenses.plus(Math.abs(t.amount));
+      }
+    });
+
+    // Convert to chart format
+    const labels = Array.from(monthlyData.keys()).sort();
+    const datasets: ChartDataset[] = [];
+
+    if (
+      config.dataType === 'income-vs-expenses' ||
+      config.dataType === 'both' ||
+      config.dataType === 'income'
+    ) {
+      datasets.push({
+        label: 'Income',
+        data: labels.map(month => monthlyData.get(month)!.income.toNumber()),
+        borderColor: 'rgb(34, 197, 94)',
+        backgroundColor: 'rgba(34, 197, 94, 0.1)'
+      });
+    }
+
+    if (
+      config.dataType === 'income-vs-expenses' ||
+      config.dataType === 'both' ||
+      config.dataType === 'expenses'
+    ) {
+      datasets.push({
+        label: 'Expenses',
+        data: labels.map(month => monthlyData.get(month)!.expenses.toNumber()),
+        borderColor: 'rgb(239, 68, 68)',
+        backgroundColor: 'rgba(239, 68, 68, 0.1)'
+      });
+    }
+
+    return { labels, datasets };
+  }
+
+  private generatePieChartData(
+    transactions: Transaction[],
+    categories: Category[],
+    config: PieChartConfig
+  ): PieChartResult {
+    // Group expenses by category
+    const categoryTotals = new Map<string, DecimalInstance>();
+    
+    transactions
+      .filter(t => t.type === 'expense')
+      .forEach(t => {
+        const current = categoryTotals.get(t.category) || new Decimal(0);
+        categoryTotals.set(t.category, current.plus(Math.abs(t.amount)));
+      });
+
+    // Sort by amount and apply limit
+    const limit = typeof config.limit === 'number' && Number.isFinite(config.limit)
+      ? Math.max(config.limit, 1)
+      : 10;
+
+    const sortedCategories = Array.from(categoryTotals.entries())
+      .sort((a, b) => b[1].toNumber() - a[1].toNumber())
+      .slice(0, limit);
+
+    // If there are more categories, group them as "Other"
+    if (categoryTotals.size > sortedCategories.length) {
+      const otherTotal = Array.from(categoryTotals.entries())
+        .slice(sortedCategories.length)
+        .reduce((sum, [_, amount]) => sum.plus(amount), new Decimal(0));
+      
+      if (otherTotal.gt(0)) {
+        sortedCategories.push(['Other', otherTotal]);
+      }
+    }
+
+    const labels = sortedCategories.map(([cat]) => 
+      categories.find(c => c.id === cat)?.name || cat
+    );
+    
+    const data = sortedCategories.map(([_, amount]) => amount.toNumber());
+
+    return { labels, data };
+  }
+
+  private generateBarChartData(
+    transactions: Transaction[],
+    config: BarChartConfig
+  ): BarChartResult {
+    // Similar to line chart but with bar format
+    const monthlyExpenses = new Map<string, DecimalInstance>();
+    
+    transactions
+      .filter(t => t.type === 'expense')
+      .forEach(t => {
+        const monthKey = format(new Date(t.date), 'MMM yyyy');
+        const current = monthlyExpenses.get(monthKey) || new Decimal(0);
+        monthlyExpenses.set(monthKey, current.plus(Math.abs(t.amount)));
+      });
+
+    let sortedMonths = Array.from(monthlyExpenses.keys()).sort((a, b) => 
+      new Date(a).getTime() - new Date(b).getTime()
+    );
+
+    const monthLimit = typeof config.limit === 'number' && Number.isFinite(config.limit)
+      ? Math.max(Math.floor(config.limit), 1)
+      : undefined;
+
+    if (monthLimit && sortedMonths.length > monthLimit) {
+      sortedMonths = sortedMonths.slice(-monthLimit);
+    }
+
+    const orientation = config.orientation ?? 'vertical';
+
+    return {
+      labels: sortedMonths,
+      datasets: [{
+        label: 'Monthly Expenses',
+        data: sortedMonths.map(month => monthlyExpenses.get(month)!.toNumber()),
+        backgroundColor: 'rgba(99, 102, 241, 0.5)',
+        borderColor: 'rgb(99, 102, 241)',
+        borderWidth: 1
+      }],
+      orientation
+    };
+  }
+
+  private generateTableData(
+    transactions: Transaction[],
+    accounts: Account[],
+    config: TableConfig
+  ): TableRow[] {
+    let sortedTransactions = [...transactions];
+
+    // Apply sorting
+    if (config.sortBy) {
+      sortedTransactions.sort((a, b) => {
+        const aVal = a[config.sortBy as keyof Transaction];
+        const bVal = b[config.sortBy as keyof Transaction];
+
+        if (aVal === undefined || bVal === undefined) {
+          return 0;
+        }
+
+        const aComparable = this.toComparableValue(aVal);
+        const bComparable = this.toComparableValue(bVal);
+
+        if (aComparable === bComparable) {
+          return 0;
+        }
+
+        const comparison = typeof aComparable === 'number' && typeof bComparable === 'number'
+          ? aComparable - bComparable
+          : String(aComparable).localeCompare(String(bComparable));
+
+        return config.sortOrder === 'desc' ? -comparison : comparison;
+      });
+    }
+
+    // Apply limit
+    if (config.limit) {
+      sortedTransactions = sortedTransactions.slice(0, config.limit);
+    }
+
+    // Map to table format
+    return sortedTransactions.map(t => ({
+      date: format(new Date(t.date), 'MMM d, yyyy'),
+      description: t.description,
+      category: t.category,
+      account: accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
+      amount: t.amount,
+      type: t.type
+    }));
+  }
+
+  private generateTextBlockData(config: TextBlockConfig): TextBlockResult {
+    return {
+      content: config.content ?? '',
+      fontSize: config.fontSize
+    };
+  }
+
+  private toComparableValue(value: unknown): number | string {
+    if (value instanceof Date) {
+      return value.getTime();
+    }
+
+    if (typeof value === 'number') {
+      return value;
+    }
+
+    if (typeof value === 'string') {
+      return value.toLowerCase();
+    }
+
+    if (typeof value === 'boolean') {
+      return value ? 1 : 0;
+    }
+
+    return String(value ?? '');
+  }
+
+  private generateCategoryBreakdown(
+    transactions: Transaction[],
+    categories: Category[],
+    budgets: Budget[],
+    config: CategoryBreakdownConfig
+  ): CategoryBreakdownEntry[] {
+    // Group by category with budget comparison
+    const categoryData = new Map<string, {
+      actual: DecimalInstance;
+      budget: DecimalInstance;
+      count: number;
+    }>();
+
+    // Calculate actuals
+    transactions
+      .filter(t => t.type === 'expense')
+      .forEach(t => {
+        const current = categoryData.get(t.category) || {
+          actual: new Decimal(0),
+          budget: new Decimal(0),
+          count: 0
+        };
+        
+        current.actual = current.actual.plus(Math.abs(t.amount));
+        current.count++;
+        categoryData.set(t.category, current);
+      });
+
+    // Add budget data
+    budgets.forEach(budget => {
+      const categoryKey = budget.categoryId;
+      if (!categoryKey) {
+        return;
+      }
+
+      const current = categoryData.get(categoryKey) || {
+        actual: new Decimal(0),
+        budget: new Decimal(0),
+        count: 0
+      };
+      current.budget = new Decimal(budget.amount);
+      categoryData.set(categoryKey, current);
+    });
+
+    // Convert to array format
+    return Array.from(categoryData.entries()).map(([categoryId, data]) => {
+      const category = categories.find(c => c.id === categoryId);
+      const variance = data.budget.gt(0) 
+        ? data.actual.minus(data.budget).div(data.budget).times(100)
+        : new Decimal(0);
+
+      return {
+        category: category?.name || categoryId,
+        actual: data.actual.toNumber(),
+        budget: data.budget.toNumber(),
+        variance: variance.toNumber(),
+        count: data.count,
+        status: data.actual.lte(data.budget) ? 'under' : 'over',
+        comparisonType: config.comparisonType,
+        showSubcategories: config.showSubcategories
+      };
+    });
+  }
+
+  private generateDateComparison(
+    transactions: Transaction[],
+    dateRange: DateRange,
+    config: DateComparisonConfig
+  ): DateComparisonResult {
+    // Calculate period length
+    const periodLength = new Decimal(dateRange.endDate.getTime())
+      .minus(dateRange.startDate.getTime())
+      .dividedBy(1000 * 60 * 60 * 24)
+      .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+      .toNumber();
+    
+    // Get previous period
+    const previousStart = new Date(dateRange.startDate);
+    previousStart.setDate(previousStart.getDate() - periodLength);
+    const previousEnd = new Date(dateRange.startDate);
+    previousEnd.setDate(previousEnd.getDate() - 1);
+
+    // Filter transactions for both periods
+    const currentPeriod = transactions.filter(t => {
+      const tDate = new Date(t.date);
+      return tDate >= dateRange.startDate && tDate <= dateRange.endDate;
+    });
+
+    const previousPeriod = transactions.filter(t => {
+      const tDate = new Date(t.date);
+      return tDate >= previousStart && tDate <= previousEnd;
+    });
+
+    // Calculate metrics for both periods
+    const calculateMetrics = (trans: Transaction[]) => {
+      const income = trans
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum.plus(t.amount), new Decimal(0));
+      
+      const expenses = trans
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum.plus(Math.abs(t.amount)), new Decimal(0));
+      
+      return {
+        income: income.toNumber(),
+        expenses: expenses.toNumber(),
+        netIncome: income.minus(expenses).toNumber(),
+        transactionCount: trans.length
+      };
+    };
+
+    const current = calculateMetrics(currentPeriod);
+    const previous = calculateMetrics(previousPeriod);
+
+    // Calculate changes
+    const changes = {
+      income: previous.income > 0 
+        ? ((current.income - previous.income) / previous.income) * 100 
+        : 0,
+      expenses: previous.expenses > 0 
+        ? ((current.expenses - previous.expenses) / previous.expenses) * 100 
+        : 0,
+      netIncome: previous.netIncome !== 0 
+        ? ((current.netIncome - previous.netIncome) / Math.abs(previous.netIncome)) * 100 
+        : 0
+    };
+
+    const focusMetric = config.metric ?? 'netIncome';
+
+    return {
+      current,
+      previous,
+      changes,
+      focusMetric,
+      focusMetricChange: changes[focusMetric],
+      periodLabel: {
+        current: `${format(dateRange.startDate, 'MMM d')} - ${format(dateRange.endDate, 'MMM d, yyyy')}`,
+        previous: `${format(previousStart, 'MMM d')} - ${format(previousEnd, 'MMM d, yyyy')}`
+      }
+    };
+  }
+
+  private parseSummaryStatsConfig(config: ReportComponent['config']): SummaryStatsConfig {
+    const candidate = config.metrics;
+    const metrics = Array.isArray(candidate)
+      ? candidate.filter((metric): metric is SummaryStatsMetric => isSummaryStatsMetric(metric))
+      : undefined;
+
+    return { metrics };
+  }
+
+  private parseLineChartConfig(config: ReportComponent['config']): LineChartConfig {
+    const candidate = config.dataType;
+    const dataType = isLineChartDataType(candidate) ? candidate : 'income-vs-expenses';
+    return { dataType };
+  }
+
+  private parsePieChartConfig(config: ReportComponent['config']): PieChartConfig {
+    const limitValue = config.limit;
+    return {
+      limit: typeof limitValue === 'number' && Number.isFinite(limitValue) ? Math.floor(limitValue) : undefined
+    };
+  }
+
+  private parseBarChartConfig(config: ReportComponent['config']): BarChartConfig {
+    const limitValue = config.limit;
+    const orientationValue = config.orientation;
+
+    return {
+      limit: typeof limitValue === 'number' && Number.isFinite(limitValue) ? Math.floor(limitValue) : undefined,
+      orientation: orientationValue === 'horizontal' || orientationValue === 'vertical' ? orientationValue : undefined
+    };
+  }
+
+  private parseTableConfig(config: ReportComponent['config']): TableConfig {
+    const sortByCandidate = config.sortBy;
+    const sortOrderCandidate = config.sortOrder;
+    const limitCandidate = config.limit;
+
+    return {
+      sortBy: isTableSortKey(sortByCandidate) ? sortByCandidate : undefined,
+      sortOrder: sortOrderCandidate === 'asc' || sortOrderCandidate === 'desc' ? sortOrderCandidate : 'desc',
+      limit: typeof limitCandidate === 'number' && Number.isFinite(limitCandidate)
+        ? Math.max(Math.floor(limitCandidate), 0)
+        : undefined
+    };
+  }
+
+  private parseTextBlockConfig(config: ReportComponent['config']): TextBlockConfig {
+    const contentValue = config.content;
+    const fontSizeValue = config.fontSize;
+
+    return {
+      content: typeof contentValue === 'string' ? contentValue : '',
+      fontSize: typeof fontSizeValue === 'string' ? fontSizeValue : undefined
+    };
+  }
+
+  private parseCategoryBreakdownConfig(config: ReportComponent['config']): CategoryBreakdownConfig {
+    const comparisonCandidate = config.comparisonType;
+    const showSubcategoriesCandidate = config.showSubcategories;
+
+    return {
+      comparisonType: isCategoryComparisonType(comparisonCandidate) ? comparisonCandidate : undefined,
+      showSubcategories: typeof showSubcategoriesCandidate === 'boolean' ? showSubcategoriesCandidate : undefined
+    };
+  }
+
+  private parseDateComparisonConfig(config: ReportComponent['config']): DateComparisonConfig {
+    const metricCandidate = config.metric;
+
+    return {
+      metric: isDateComparisonMetric(metricCandidate) ? metricCandidate : undefined
+    };
+  }
+}
+
+export const customReportService = new CustomReportService();

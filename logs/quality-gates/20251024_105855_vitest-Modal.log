@@ -1,0 +1,53 @@
+
+> test
+> npm run test --workspace apps/web --run src/components/common/__tests__/Modal.test.tsx
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/components/common/__tests__/Modal.test.tsx
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/components/common/__tests__/Modal.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  override existing env vars with { override: true }
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/components/common/__tests__/Modal.test.tsx [ src/components/common/__tests__/Modal.test.tsx ]
+Error: Transform failed with 1 error:
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/test/mocks/appServices.ts:29:25: ERROR: Expected ">" but found "data"
+  Plugin: vite:esbuild
+  File: /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/test/mocks/appServices.ts:29:25
+  
+  Expected ">" but found "data"
+  27 |  
+  28 |  vi.mock('@clerk/clerk-react', () => ({
+  29 |    UserButton: () => <div data-testid="user-button" />,
+     |                           ^
+  30 |    ClerkProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  31 |    useUser: () => ({
+  
+ ❯ failureErrorWithLog node_modules/esbuild/lib/main.js:1465:15
+ ❯ node_modules/esbuild/lib/main.js:734:50
+ ❯ responseCallbacks.<computed> node_modules/esbuild/lib/main.js:601:9
+ ❯ handleIncomingPacket node_modules/esbuild/lib/main.js:656:12
+ ❯ Socket.readFromStdout node_modules/esbuild/lib/main.js:579:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  10:58:56
+   Duration  1.11s (transform 41ms, setup 187ms, collect 0ms, tests 0ms, environment 460ms, prepare 110ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/components/common/__tests__/Modal.test.tsx

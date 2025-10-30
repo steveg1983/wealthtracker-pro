@@ -1,0 +1,53 @@
+
+> test
+> npm run test --workspace apps/web --run src/hooks/__tests__/useGlobalSearch.real.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/hooks/__tests__/useGlobalSearch.real.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/hooks/__tests__/useGlobalSearch.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  enable debug logging with { debug: true }
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/__tests__/useGlobalSearch.real.test.ts [ src/hooks/__tests__/useGlobalSearch.real.test.ts ]
+Error: Transform failed with 1 error:
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/hooks/__tests__/useGlobalSearch.real.test.ts:177:27: ERROR: Expected ">" but found "value"
+  Plugin: vite:esbuild
+  File: /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/hooks/__tests__/useGlobalSearch.real.test.ts:177:27
+  
+  Expected ">" but found "value"
+  175|  
+  176|      const wrapper = ({ children }: { children: React.ReactNode }) => (
+  177|        <AppContext.Provider value={mockContext}>{children}</AppContext.Provider>
+     |                             ^
+  178|      );
+  179|  
+  
+ ❯ failureErrorWithLog node_modules/esbuild/lib/main.js:1465:15
+ ❯ node_modules/esbuild/lib/main.js:734:50
+ ❯ responseCallbacks.<computed> node_modules/esbuild/lib/main.js:601:9
+ ❯ handleIncomingPacket node_modules/esbuild/lib/main.js:656:12
+ ❯ Socket.readFromStdout node_modules/esbuild/lib/main.js:579:7
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  no tests
+   Start at  15:26:48
+   Duration  549ms (transform 31ms, setup 108ms, collect 0ms, tests 0ms, environment 178ms, prepare 38ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/hooks/__tests__/useGlobalSearch.real.test.ts

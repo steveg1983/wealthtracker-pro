@@ -1,0 +1,84 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/financialCalculations.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/financialCalculations.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/financialCalculations.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+ ❯ src/utils/__tests__/financialCalculations.test.ts (32 tests | 1 failed) 40ms
+   ✓ Financial Calculations > Income and Expense Calculations > calculates total income correctly 1ms
+   ✓ Financial Calculations > Income and Expense Calculations > calculates total expenses correctly 0ms
+   ✓ Financial Calculations > Income and Expense Calculations > handles empty transaction list 0ms
+   ✓ Financial Calculations > Income and Expense Calculations > filters by date range 0ms
+   ✓ Financial Calculations > Income and Expense Calculations > handles decimal precision correctly 0ms
+   ✓ Financial Calculations > Net Worth Calculations > calculates net worth correctly 0ms
+   ✓ Financial Calculations > Net Worth Calculations > handles negative net worth 0ms
+   ✓ Financial Calculations > Net Worth Calculations > excludes inactive accounts if specified 0ms
+   ✓ Financial Calculations > Category Analysis > calculates spending by category 0ms
+   ✓ Financial Calculations > Category Analysis > gets top spending categories 0ms
+   ✓ Financial Calculations > Category Analysis > limits number of top categories returned 0ms
+   ✓ Financial Calculations > Category Analysis > handles case with no expenses 0ms
+   ✓ Financial Calculations > Time-Based Analysis > gets recent transactions 0ms
+   ✓ Financial Calculations > Time-Based Analysis > calculates monthly trends 0ms
+   ✓ Financial Calculations > Budget Analysis > calculates budget progress 0ms
+   × Financial Calculations > Budget Analysis > identifies over-budget scenarios 4ms
+     → expected 100 to be 120 // Object.is equality
+   ✓ Financial Calculations > Budget Analysis > calculates average spending rate 0ms
+   ✓ Financial Calculations > Goal Tracking > calculates goal progress 0ms
+   ✓ Financial Calculations > Goal Tracking > identifies completed goals 0ms
+   ✓ Financial Calculations > Goal Tracking > calculates time-based goal projections 0ms
+   ✓ Financial Calculations > Cash Flow Analysis > calculates monthly cash flow 0ms
+   ✓ Financial Calculations > Cash Flow Analysis > handles negative cash flow 0ms
+   ✓ Financial Calculations > Growth and Trend Analysis > calculates growth rate between periods 0ms
+   ✓ Financial Calculations > Growth and Trend Analysis > handles negative growth 0ms
+   ✓ Financial Calculations > Growth and Trend Analysis > handles zero previous period 0ms
+   ✓ Financial Calculations > Financial Ratios > calculates debt-to-income ratio 0ms
+   ✓ Financial Calculations > Financial Ratios > calculates emergency fund coverage 0ms
+   ✓ Financial Calculations > Financial Ratios > identifies inadequate emergency fund 0ms
+   ✓ Financial Calculations > Performance and Edge Cases > handles large datasets efficiently 30ms
+   ✓ Financial Calculations > Performance and Edge Cases > handles missing or undefined values gracefully 0ms
+   ✓ Financial Calculations > Performance and Edge Cases > maintains precision with decimal calculations 0ms
+   ✓ Financial Calculations > Performance and Edge Cases > handles extreme values 0ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/utils/__tests__/financialCalculations.test.ts > Financial Calculations > Budget Analysis > identifies over-budget scenarios
+AssertionError: expected 100 to be 120 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 120[39m
+[31m+ 100[39m
+
+ ❯ src/utils/__tests__/financialCalculations.test.ts:350:35
+    348|       const progress = calculateBudgetProgress(overBudget);
+    349|       
+    350|       expect(progress.percentage).toBe(120);
+       |                                   ^
+    351|       expect(progress.remaining).toBe(-100);
+    352|       expect(progress.status).toBe('danger');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 31 passed (32)
+   Start at  11:07:53
+   Duration  1.80s (transform 266ms, setup 117ms, collect 1.13s, tests 40ms, environment 192ms, prepare 37ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/utils/__tests__/financialCalculations.test.ts

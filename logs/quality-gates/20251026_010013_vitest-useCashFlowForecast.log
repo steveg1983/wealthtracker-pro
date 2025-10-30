@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/hooks/__tests__/useCashFlowForecast.real.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/hooks/__tests__/useCashFlowForecast.real.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/hooks/__tests__/useCashFlowForecast.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+
+ ✓ src/hooks/__tests__/useCashFlowForecast.real.test.ts (1 test) 10ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  01:00:14
+   Duration  1.19s (transform 150ms, setup 98ms, collect 725ms, tests 10ms, environment 177ms, prepare 39ms)
+

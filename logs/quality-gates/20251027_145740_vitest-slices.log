@@ -1,0 +1,55 @@
+
+> test
+> npm run test --workspace apps/web --run src/store/__tests__/slices.test.ts --reporter verbose
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/store/__tests__/slices.test.ts verbose
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/store/__tests__/slices.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+ ❯ src/store/__tests__/slices.test.ts (32 tests | 1 failed) 234ms
+   ✓ Redux Slices > Accounts Slice > initializes with empty state 1ms
+   ✓ Redux Slices > Accounts Slice > adds new account 1ms
+   ✓ Redux Slices > Accounts Slice > updates existing account 0ms
+   ✓ Redux Slices > Accounts Slice > removes account 0ms
+   ✓ Redux Slices > Accounts Slice > calculates total balance correctly 0ms
+   ✓ Redux Slices > Transactions Slice > adds new transaction 0ms
+   ✓ Redux Slices > Transactions Slice > updates transaction with Decimal.js precision 0ms
+   ✓ Redux Slices > Transactions Slice > removes transaction 0ms
+   ✓ Redux Slices > Transactions Slice > manages multiple transactions 1ms
+   ✓ Redux Slices > Transactions Slice > handles bulk delete operations 0ms
+   ✓ Redux Slices > Transactions Slice > categorizes transactions correctly 0ms
+   ✓ Redux Slices > Budgets Slice > adds budget with initial spent amount 0ms
+   ✓ Redux Slices > Budgets Slice > updates budget spent amount 0ms
+   ✓ Redux Slices > Budgets Slice > calculates budget progress correctly 0ms
+   ✓ Redux Slices > Budgets Slice > handles budget period changes 0ms
+   ✓ Redux Slices > Budgets Slice > manages active/inactive budgets 0ms
+   ✓ Redux Slices > Goals Slice > adds new goal with progress calculation 0ms
+   ✓ Redux Slices > Goals Slice > updates goal progress 0ms
+   × Redux Slices > Goals Slice > marks goal as completed when target reached 3ms
+     → expected false to be true // Object.is equality
+   ✓ Redux Slices > Goals Slice > handles goal priority updates 0ms
+   ✓ Redux Slices > Categories Slice > adds hierarchical categories 0ms
+   ✓ Redux Slices > Categories Slice > manages category colors 0ms
+   ✓ Redux Slices > Categories Slice > handles category activation/deactivation 0ms
+   ✓ Redux Slices > Preferences Slice > initializes with default preferences 0ms
+   ✓ Redux Slices > Preferences Slice > updates currency preference 0ms
+   ✓ Redux Slices > Preferences Slice > updates theme preference 0ms
+   ✓ Redux Slices > Preferences Slice > updates page visibility settings 0ms
+   ✓ Redux Slices > Preferences Slice > handles batch preference updates 0ms
+   ✓ Redux Slices > Cross-Slice Interactions > maintains data consistency between accounts and transactions 0ms
+   ✓ Redux Slices > Cross-Slice Interactions > updates budget spent amounts when transactions change 0ms
+   ✓ Redux Slices > State Selectors and Derived Data > calculates derived financial metrics 0ms
+   ✓ Redux Slices > State Selectors and Derived Data > maintains performance with large datasets 221ms
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 31 passed (32)
+   Start at  14:57:42
+   Duration  2.74s (transform 205ms, setup 216ms, collect 438ms, tests 234ms, environment 1.60s, prepare 78ms)
+

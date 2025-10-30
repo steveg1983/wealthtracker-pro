@@ -1,0 +1,124 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/calculations.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/calculations.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/calculations.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+
+ ❯ src/utils/__tests__/calculations.test.ts (32 tests | 3 failed | 1 skipped) 8ms
+   ✓ Calculation Utilities > calculateTotalBalance > calculates total balance correctly 1ms
+   ✓ Calculation Utilities > calculateTotalBalance > handles empty array 0ms
+   ✓ Calculation Utilities > calculateNetWorth > calculates net worth correctly 0ms
+   ✓ Calculation Utilities > calculateNetWorth > handles no liabilities 0ms
+   ✓ Calculation Utilities > calculateTotalIncome > calculates total income correctly 0ms
+   ✓ Calculation Utilities > calculateTotalIncome > returns 0 when no income transactions 0ms
+   ✓ Calculation Utilities > calculateTotalExpenses > calculates total expenses correctly 0ms
+   ✓ Calculation Utilities > calculateTotalExpenses > returns 0 when no expense transactions 0ms
+   ✓ Calculation Utilities > calculateBudgetUsage > calculates budget usage correctly 0ms
+   ✓ Calculation Utilities > calculateBudgetUsage > returns 0 when no matching transactions 0ms
+   ✓ Calculation Utilities > calculateBudgetUsage > ignores income transactions 0ms
+   × Calculation Utilities > calculateBudgetProgress > calculates budget progress percentage correctly 3ms
+     → expected +0 to be 50 // Object.is equality
+   × Calculation Utilities > calculateBudgetProgress > handles overspending 0ms
+     → expected +0 to be 120 // Object.is equality
+   ✓ Calculation Utilities > calculateBudgetProgress > returns 0 when budget amount is 0 0ms
+   ✓ Calculation Utilities > calculateGoalProgress > calculates goal progress percentage correctly 0ms
+   ✓ Calculation Utilities > calculateGoalProgress > handles completed goals 0ms
+   ✓ Calculation Utilities > calculateGoalProgress > handles exceeded goals 0ms
+   × Calculation Utilities > calculateGoalProgress > returns 0 when target amount is 0 0ms
+     → expected +0 to be 100 // Object.is equality
+   ✓ Calculation Utilities > getTransactionsByCategory > filters transactions by category 0ms
+   ✓ Calculation Utilities > getTransactionsByCategory > returns empty array when no matches 0ms
+   ✓ Calculation Utilities > getTransactionsByDateRange > filters transactions by date range 0ms
+   ✓ Calculation Utilities > getTransactionsByDateRange > includes transactions on boundary dates 0ms
+   ✓ Calculation Utilities > calculateCashFlow > calculates cash flow correctly 0ms
+   ✓ Calculation Utilities > calculateCashFlow > handles negative cash flow 0ms
+   ✓ Calculation Utilities > calculateSavingsRate > calculates savings rate correctly 0ms
+   ✓ Calculation Utilities > calculateSavingsRate > returns 0 when no income 0ms
+   ✓ Calculation Utilities > calculateSavingsRate > handles negative savings rate 0ms
+   ✓ Calculation Utilities > getCategoryIcon > returns correct icon for known categories 0ms
+   ✓ Calculation Utilities > getCategoryIcon > returns default icon for unknown categories 0ms
+   ✓ Calculation Utilities > getAccountTypeIcon > returns correct icon for known account types 0ms
+   ✓ Calculation Utilities > getAccountTypeIcon > returns default icon for unknown account types 0ms
+   ↓ Pending aggregate calculation helpers > awaits fixture coverage for advanced aggregation helpers
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/utils/__tests__/calculations.test.ts > Calculation Utilities > calculateBudgetProgress > calculates budget progress percentage correctly
+AssertionError: expected +0 to be 50 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 50[39m
+[31m+ 0[39m
+
+ ❯ src/utils/__tests__/calculations.test.ts:137:72
+    135|         createMockTransaction({ category: 'groceries', amount: 250, ty…
+    136|       ];
+    137|       expect(calculateBudgetProgress(budget, transactions).percentage)…
+       |                                                                        ^
+    138|     });
+    139| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+ FAIL  src/utils/__tests__/calculations.test.ts > Calculation Utilities > calculateBudgetProgress > handles overspending
+AssertionError: expected +0 to be 120 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 120[39m
+[31m+ 0[39m
+
+ ❯ src/utils/__tests__/calculations.test.ts:145:72
+    143|         createMockTransaction({ category: 'groceries', amount: 600, ty…
+    144|       ];
+    145|       expect(calculateBudgetProgress(budget, transactions).percentage)…
+       |                                                                        ^
+    146|     });
+    147| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯
+
+ FAIL  src/utils/__tests__/calculations.test.ts > Calculation Utilities > calculateGoalProgress > returns 0 when target amount is 0
+AssertionError: expected +0 to be 100 // Object.is equality
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 100[39m
+[31m+ 0[39m
+
+ ❯ src/utils/__tests__/calculations.test.ts:175:54
+    173|     it('returns 0 when target amount is 0', () => {
+    174|       const goal = createMockGoal({ targetAmount: 0, currentAmount: 10…
+    175|       expect(calculateGoalProgress(goal).percentage).toBe(100); // Ret…
+       |                                                      ^
+    176|     });
+    177|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed | 28 passed | 1 skipped (32)
+   Start at  11:03:22
+   Duration  1.54s (transform 241ms, setup 121ms, collect 1.03s, tests 8ms, environment 207ms, prepare 34ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/utils/__tests__/calculations.test.ts

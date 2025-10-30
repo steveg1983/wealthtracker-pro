@@ -1,0 +1,98 @@
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(156,78): error TS2339: Property 'id' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(163,18): error TS2339: Property 'id' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(164,18): error TS2339: Property 'emailAddresses' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(165,18): error TS2339: Property 'firstName' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(166,18): error TS2339: Property 'lastName' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(173,51): error TS2339: Property 'id' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(176,20): error TS2339: Property 'id' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(177,20): error TS2339: Property 'emailAddresses' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(178,20): error TS2339: Property 'firstName' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(179,20): error TS2339: Property 'lastName' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(244,18): error TS2339: Property 'id' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(257,85): error TS2339: Property 'id' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(343,18): error TS2339: Property 'id' does not exist on type '{}'.
+apps/web/src/contexts/AppContextSupabaseProvider.tsx(355,72): error TS2339: Property 'id' does not exist on type '{}'.
+apps/web/src/test/utils/renderWithProviders.tsx(69,23): error TS2322: Type 'FunctionComponent<{ children: ReactNode; }>' is not assignable to type 'ComponentType<{ children?: ReactNode; }> | undefined'.
+  Type 'FunctionComponent<{ children: ReactNode; }>' is not assignable to type 'FunctionComponent<{ children?: ReactNode; }>'.
+    Types of parameters 'props' and 'props' are incompatible.
+      Type '{ children?: ReactNode; }' is not assignable to type '{ children: ReactNode; }'.
+        Property 'children' is optional in type '{ children?: ReactNode; }' but required in type '{ children: ReactNode; }'.
+packages/testing/realTestFramework.tsx(37,16): error TS2739: Type '{ children: Element; }' is missing the following properties from type '{ children: ReactNode; navigate: (path: string) => void; setCurrentPage: (page: string) => void; setSelectedAccountId: (accountId: string | null) => void; }': navigate, setCurrentPage, setSelectedAccountId
+packages/testing/realTestFramework.tsx(63,5): error TS2322: Type '({ children }: RealTestProviderProps) => Element' is not assignable to type 'ComponentType<{ children?: ReactNode; }> | undefined'.
+  Type '({ children }: RealTestProviderProps) => Element' is not assignable to type 'FunctionComponent<{ children?: ReactNode; }>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Type '{ children?: ReactNode; }' is not assignable to type 'RealTestProviderProps'.
+        Property 'children' is optional in type '{ children?: ReactNode; }' but required in type 'RealTestProviderProps'.
+packages/testing/supabaseMock.ts(51,45): error TS2312: An interface can only extend an object type or intersection of object types with statically known members.
+packages/testing/supabaseMock.ts(112,29): error TS2352: Conversion of type 'SupabaseTableMock<Table>' to type 'SupabaseTableMock<"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log">' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"' is not comparable to type 'Table'.
+    '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"' is assignable to the constraint of type 'Table', but 'Table' could be instantiated with a different subtype of constraint '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+      Type '"audit_log"' is not comparable to type 'Table'.
+        '"audit_log"' is assignable to the constraint of type 'Table', but 'Table' could be instantiated with a different subtype of constraint '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+packages/testing/supabaseMock.ts(114,12): error TS2352: Conversion of type 'SupabaseTableMock<"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log">' to type 'SupabaseTableMock<Table>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'query' are incompatible.
+    Type 'MockedQuery<"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log">' is not comparable to type 'MockedQuery<Table>'.
+      Type 'MockedQuery<"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log">' is not comparable to type '{ select: MockInstance<[string], MockedFilter<Table>>; insert: MockInstance<[TableInsert<Table> | TableInsert<Table>[]], MockedInsert<...>>; upsert: MockInstance<...>; }'.
+        The types returned by 'insert.mockReturnValue(...)(...)' are incompatible between these types.
+          Type 'MockedInsert<"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log">' is not comparable to type 'MockedInsert<Table>'.
+            Type 'MockedInsert<"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log">' is not comparable to type '{ select: MockInstance<[string], MockedInsertSelect<Table>>; }'.
+              The types returned by 'select.mockReturnValue(...)(...)' are incompatible between these types.
+                Type 'MockedInsertSelect<"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log">' is not comparable to type 'MockedInsertSelect<Table>'.
+                  Type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"' is not comparable to type 'Table'.
+                    '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"' is assignable to the constraint of type 'Table', but 'Table' could be instantiated with a different subtype of constraint '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+                      Type '"audit_log"' is not comparable to type 'Table'.
+                        '"audit_log"' is assignable to the constraint of type 'Table', but 'Table' could be instantiated with a different subtype of constraint '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+packages/testing/supabaseRealTest.ts(11,62): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+packages/testing/supabaseRealTest.ts(11,73): error TS2582: Cannot find name 'describe'. Do you need to install type definitions for a test runner? Try `npm i --save-dev @types/jest` or `npm i --save-dev @types/mocha`.
+packages/testing/supabaseRealTest.ts(42,3): error TS2322: Type 'SupabaseClient<Database, "public" extends Exclude<keyof Database, "__InternalSupabase"> ? "public" : string & Exclude<keyof Database, "__InternalSupabase">, SchemaNameOrClientOptions extends string & Exclude<...> ? SchemaNameOrClientOptions : "public" extends Exclude<...> ? "public" : string & Exclude<...>, Omit<......' is not assignable to type 'SupabaseTestClient'.
+  Type 'SchemaNameOrClientOptions extends string & Exclude<keyof Database, "__InternalSupabase"> ? SchemaNameOrClientOptions : "public" extends Exclude<...> ? "public" : string & Exclude<...>' is not assignable to type '"public"'.
+    Type '(string & Exclude<keyof Database, "__InternalSupabase"> extends string & Exclude<keyof Database, "__InternalSupabase"> ? string & Exclude<...> : "public" extends Exclude<...> ? "public" : string & Exclude<...>) | ({ ...; } extends string & Exclude<...> ? string & ... 1 more ... & { ...; } : "public" extends Exclude<...' is not assignable to type '"public"'.
+      Type 'string & Exclude<keyof Database, "__InternalSupabase"> extends string & Exclude<keyof Database, "__InternalSupabase"> ? string & Exclude<...> : "public" extends Exclude<...> ? "public" : string & Exclude<...>' is not assignable to type '"public"'.
+        Type 'string extends string & Exclude<keyof Database, "__InternalSupabase"> ? string & Exclude<keyof Database, "__InternalSupabase"> : "public" extends Exclude<...> ? "public" : string & Exclude<...>' is not assignable to type '"public"'.
+          Type '(string & Exclude<keyof Database, "__InternalSupabase">) | ("public" extends Exclude<keyof Database, "__InternalSupabase"> ? "public" : string & Exclude<...>)' is not assignable to type '"public"'.
+            Type 'string & Exclude<keyof Database, "__InternalSupabase">' is not assignable to type '"public"'.
+packages/testing/supabaseRealTest.ts(42,33): error TS2345: Argument of type 'string | true' is not assignable to parameter of type 'string'.
+  Type 'boolean' is not assignable to type 'string'.
+packages/testing/templates/component-real-test-template.tsx(10,10): error TS2305: Module '"vitest"' has no exported member 'describe'.
+packages/testing/templates/component-real-test-template.tsx(10,20): error TS2305: Module '"vitest"' has no exported member 'it'.
+packages/testing/templates/component-real-test-template.tsx(10,24): error TS2305: Module '"vitest"' has no exported member 'expect'.
+packages/testing/templates/component-real-test-template.tsx(10,32): error TS2305: Module '"vitest"' has no exported member 'beforeAll'.
+packages/testing/templates/component-real-test-template.tsx(10,43): error TS2305: Module '"vitest"' has no exported member 'afterAll'.
+packages/testing/templates/component-real-test-template.tsx(10,53): error TS2305: Module '"vitest"' has no exported member 'beforeEach'.
+packages/testing/templates/component-real-test-template.tsx(10,65): error TS2305: Module '"vitest"' has no exported member 'afterEach'.
+packages/testing/templates/component-real-test-template.tsx(11,10): error TS2305: Module '"@testing-library/react"' has no exported member 'screen'.
+packages/testing/templates/component-real-test-template.tsx(11,18): error TS2305: Module '"@testing-library/react"' has no exported member 'waitFor'.
+packages/testing/templates/component-real-test-template.tsx(12,23): error TS2307: Cannot find module '@testing-library/user-event' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(13,27): error TS2307: Cannot find module './ComponentName' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(42,44): error TS2345: Argument of type '{ name: string; type: string; }' is not assignable to parameter of type 'string'.
+packages/testing/templates/component-real-test-template.tsx(62,23): error TS2304: Cannot find name 'vi'.
+packages/testing/templates/component-real-test-template.tsx(79,46): error TS2345: Argument of type '"table_name"' is not assignable to parameter of type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+packages/testing/templates/component-real-test-template.tsx(83,43): error TS2345: Argument of type '"table_name"' is not assignable to parameter of type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+packages/testing/templates/component-real-test-template.tsx(94,67): error TS2345: Argument of type '{ amount: number; description: string; }' is not assignable to parameter of type 'string'.
+packages/testing/templates/component-real-test-template.tsx(113,23): error TS2339: Property 'description' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; } | ... 25 more ... | { ...; }'.
+  Property 'description' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; }'.
+packages/testing/templates/component-real-test-template.tsx(145,24): error TS2339: Property 'amount' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; } | ... 25 more ... | { ...; }'.
+  Property 'amount' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; }'.
+packages/testing/templates/component-real-test-template.tsx(204,30): error TS2304: Cannot find name 'testDb'.
+packages/testing/templates/component-real-test-template.tsx(227,39): error TS2551: Property 'getTransactions' does not exist on type 'RealTestDatabase'. Did you mean 'createTransaction'?
+packages/testing/templates/component-real-test-template.tsx(231,18): error TS2339: Property 'deleteAccount' does not exist on type 'RealTestDatabase'.
+packages/testing/templates/component-real-test-template.tsx(232,47): error TS2551: Property 'getTransactions' does not exist on type 'RealTestDatabase'. Did you mean 'createTransaction'?
+packages/testing/templates/component-real-test-template.tsx(242,46): error TS2345: Argument of type '{ amount: number; description: string; }' is not assignable to parameter of type 'string'.
+packages/testing/vitest-setup.ts(1,10): error TS2305: Module '"vitest"' has no exported member 'afterAll'.
+packages/testing/vitest-setup.ts(1,20): error TS2305: Module '"vitest"' has no exported member 'afterEach'.
+packages/testing/vitest-setup.ts(1,31): error TS2305: Module '"vitest"' has no exported member 'beforeAll'.
+packages/testing/vitest-setup.ts(12,8): error TS2339: Property 'doMock' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(17,25): error TS2339: Property 'importActual' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(24,8): error TS2339: Property 'clearAllMocks' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(30,8): error TS2339: Property 'spyOn' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(31,8): error TS2339: Property 'spyOn' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(47,5): error TS2322: Type 'MockInstance<any[], any>' is not assignable to type '{ new (callback: IntersectionObserverCallback, options?: IntersectionObserverInit | undefined): IntersectionObserver; prototype: IntersectionObserver; }'.
+  Type 'MockInstance<any[], any>' provides no match for the signature 'new (callback: IntersectionObserverCallback, options?: IntersectionObserverInit | undefined): IntersectionObserver'.
+packages/testing/vitest-setup.ts(57,5): error TS2322: Type 'MockInstance<any[], any>' is not assignable to type '{ new (callback: ResizeObserverCallback): ResizeObserver; prototype: ResizeObserver; }'.
+  Type 'MockInstance<any[], any>' provides no match for the signature 'new (callback: ResizeObserverCallback): ResizeObserver'.
+packages/testing/vitest-setup.ts(63,5): error TS2322: Type 'MockInstance<[x: number, y: number], void>' is not assignable to type '{ (options?: ScrollToOptions | undefined): void; (x: number, y: number): void; } & { (options?: ScrollToOptions | undefined): void; (x: number, y: number): void; }'.
+  Type 'MockInstance<[x: number, y: number], void>' is not assignable to type '{ (options?: ScrollToOptions | undefined): void; (x: number, y: number): void; }'.
+    Target signature provides too few arguments. Expected 2 or more, but got 1.
+packages/testing/vitest-setup.ts(67,9): error TS2322: Type '() => `test-uuid-${string}`' is not assignable to type '() => `${string}-${string}-${string}-${string}-${string}`'.
+  Type '`test-uuid-${string}`' is not assignable to type '`${string}-${string}-${string}-${string}-${string}`'.
+packages/testing/vitest-setup.ts(82,8): error TS2339: Property 'restoreAllMocks' does not exist on type 'Vi'.

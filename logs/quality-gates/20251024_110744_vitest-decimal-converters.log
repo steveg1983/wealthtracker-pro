@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/decimal-converters.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/decimal-converters.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/decimal-converters.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+ ✓ src/utils/__tests__/decimal-converters.test.ts (24 tests) 6ms
+
+ Test Files  1 passed (1)
+      Tests  24 passed (24)
+   Start at  11:07:44
+   Duration  676ms (transform 47ms, setup 133ms, collect 31ms, tests 6ms, environment 190ms, prepare 61ms)
+

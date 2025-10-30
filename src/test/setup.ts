@@ -1,6 +1,54 @@
 import '@testing-library/jest-dom';
 import { cleanup } from '@testing-library/react';
+import React from 'react';
 import { afterEach, beforeEach, vi } from 'vitest';
+
+vi.mock('@clerk/clerk-react', () => ({
+  useUser: () => ({ user: null, isLoaded: true }),
+  useAuth: () => ({ signOut: vi.fn(), getToken: vi.fn() }),
+  useSession: () => ({ session: null }),
+}));
+
+vi.mock('@/contexts/AuthContext', () => {
+  const mockValue = {
+    user: null,
+    isLoading: false,
+    isAuthenticated: false,
+    securityScore: 0,
+    securityRecommendations: [],
+    signOut: vi.fn(),
+    refreshSession: vi.fn(),
+  };
+
+  const AuthContext = React.createContext(mockValue);
+
+  const AuthProvider = ({ children }: { children: React.ReactNode }) =>
+    React.createElement(AuthContext.Provider, { value: mockValue }, children);
+
+  const useAuth = () => mockValue;
+
+  const useRequireAuth = () => ({
+    isAuthenticated: mockValue.isAuthenticated,
+    isLoading: mockValue.isLoading,
+  });
+
+  const usePremiumFeatures = () => ({
+    hasPasskey: false,
+    hasMFA: false,
+    hasEnhancedSecurity: false,
+  });
+
+  return {
+    AuthProvider,
+    useAuth,
+    useRequireAuth,
+    usePremiumFeatures,
+  };
+});
+
+vi.mock('../contexts/AppContextSupabase', async () => {
+  return await import('../test/mocks/AppContextSupabase');
+});
 
 // Cleanup after each test
 afterEach(() => {
@@ -54,6 +102,33 @@ const localStorageMock = (() => {
 })();
 
 global.localStorage = localStorageMock as any;
+
+// Expose React globally for legacy test files using classic runtime
+(global as unknown as { React?: typeof React }).React = React;
+
+// Mock sessionStorage with similar implementation
+const sessionStorageMock = (() => {
+  let store: Record<string, string> = {};
+
+  return {
+    getItem: vi.fn((key: string) => store[key] ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      store[key] = value.toString();
+    }),
+    removeItem: vi.fn((key: string) => {
+      delete store[key];
+    }),
+    clear: vi.fn(() => {
+      store = {};
+    }),
+    get length() {
+      return Object.keys(store).length;
+    },
+    key: vi.fn((index: number) => Object.keys(store)[index] ?? null),
+  };
+})();
+
+global.sessionStorage = sessionStorageMock as any;
 
 // Mock IntersectionObserver
 global.IntersectionObserver = class IntersectionObserver {

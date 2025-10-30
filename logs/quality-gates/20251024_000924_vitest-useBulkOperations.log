@@ -1,0 +1,7 @@
+Vitest Focused Run: useBulkOperations real hook
+UTC Timestamp: 2025-10-24 00:09:24
+Command: npm run test -- --run src/hooks/__tests__/useBulkOperations.real.test.ts
+Result: 1 test (1 passed / 0 failed)
+Notes:
+- Updated the suite to call `useBulkOperations` with explicit items and operations, mirroring the live hook contract.
+- Validated selection toggles, async operation execution, and automatic selection reset with logger-safe error handling in place.

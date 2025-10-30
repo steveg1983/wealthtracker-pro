@@ -1,0 +1,27 @@
+
+> lint
+> npm run lint --workspace apps/web --quiet
+
+
+> wealth-tracker@1.4.5 lint
+> eslint .
+
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/contexts/AppContextSupabaseProvider.tsx
+  340:6  warning  React Hook useEffect has a missing dependency: 'clerkId'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/hooks/__tests__/useRealTimePrices.real.test.ts
+  19:7  warning  'offMock' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/test/utils/renderWithProviders.tsx
+   53:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   72:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   84:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   95:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  110:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  126:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  137:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  164:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+✖ 10 problems (0 errors, 10 warnings)
+

@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/components/common/__tests__/Modal.test.tsx
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/components/common/__tests__/Modal.test.tsx
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/components/common/__tests__/Modal.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+ ✓ src/components/common/__tests__/Modal.test.tsx (4 tests) 65ms
+
+ Test Files  1 passed (1)
+      Tests  4 passed (4)
+   Start at  10:59:15
+   Duration  1.86s (transform 287ms, setup 119ms, collect 1.20s, tests 65ms, environment 209ms, prepare 32ms)
+

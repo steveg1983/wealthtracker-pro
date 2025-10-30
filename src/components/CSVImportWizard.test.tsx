@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import CSVImportWizard from './CSVImportWizard';
 
 // Mock all dependencies
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     accounts: [
       { id: 'acc-1', name: 'Checking Account', type: 'checking' },

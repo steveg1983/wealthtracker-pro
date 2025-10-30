@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/decimal.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/decimal.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/decimal.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+
+ ✓ src/utils/__tests__/decimal.test.ts (18 tests) 3ms
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  01:00:28
+   Duration  573ms (transform 36ms, setup 103ms, collect 15ms, tests 3ms, environment 173ms, prepare 47ms)
+

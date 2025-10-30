@@ -1,0 +1,24 @@
+
+> test
+> npm run test --workspace apps/web --run src/store/__tests__/LoadingScreen.test.tsx
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/store/__tests__/LoadingScreen.test.tsx
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+No test files found, exiting with code 1
+
+filter: src/store/__tests__/LoadingScreen.test.tsx
+include: **/*.test.ts, **/*.test.tsx, **/*.real.test.ts, **/*.real.test.tsx
+exclude:  **/node_modules/**, **/dist/**, dist/**, **/e2e/**, **/*.spec.ts, **/*.spec.tsx, src.backup.*, src.backup.*/**, **/src.backup.*/**, **/*.backup.*/**, **/CLAUDE.md.backup.*
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/store/__tests__/LoadingScreen.test.tsx

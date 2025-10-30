@@ -1,0 +1,18 @@
+
+> wealth-tracker@1.4.5 test
+> vitest --run src/components/LoadingScreen.test.tsx
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/components/LoadingScreen.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+ ✓ src/components/LoadingScreen.test.tsx (28 tests) 46ms
+
+ Test Files  1 passed (1)
+      Tests  28 passed (28)
+   Start at  09:32:57
+   Duration  613ms (transform 40ms, setup 114ms, collect 13ms, tests 46ms, environment 158ms, prepare 33ms)
+

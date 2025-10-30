@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/hooks/__tests__/useReconciliation.real.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/hooks/__tests__/useReconciliation.real.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/hooks/__tests__/useReconciliation.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+ ✓ src/hooks/__tests__/useReconciliation.real.test.ts (1 test) 5ms
+
+ Test Files  1 passed (1)
+      Tests  1 passed (1)
+   Start at  10:59:48
+   Duration  627ms (transform 85ms, setup 118ms, collect 162ms, tests 5ms, environment 181ms, prepare 36ms)
+

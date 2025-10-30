@@ -1,0 +1,23 @@
+{
+  "name": "@wealthtracker/core",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./supabase": "./supabase.ts",
+    "./serviceFactory": "./serviceFactory.ts",
+    "./realtime": "./realtime.ts",
+    "./userIdService": "./userIdService.ts",
+    "./realtimeEntities": "./realtimeEntities.ts",
+    "./supabaseSubscriptionService": "./supabaseSubscriptionService.ts",
+    "./storageAdapter": "./storageAdapter.ts",
+    "./autoSync": "./autoSync.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "@wealthtracker/types": "workspace:*",
+    "@wealthtracker/utils": "workspace:*"
+  }
+}

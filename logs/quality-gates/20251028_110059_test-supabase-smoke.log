@@ -1,0 +1,4 @@
+
+> wealth-tracker@1.4.5 test:supabase-smoke
+> node scripts/run-supabase-smoke.mjs
+

@@ -1,0 +1,31 @@
+{
+  "name": "@wealthtracker/testing",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./load-vite-test-env": "./load-vite-test-env.js",
+    "./create-test-store": "./createTestStore.ts",
+    "./factories": "./factories.ts",
+    "./templates/*": "./templates/*",
+    "./real-test-framework": "./realTestFramework.tsx",
+    "./supabaseRealTest": "./supabaseRealTest.ts",
+    "./database-test-utils": "./databaseTestUtils.ts",
+    "./mock-indexeddb": "./mock-indexeddb.ts",
+    "./vitest-setup": "./vitest-setup.ts"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.43.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "dotenv": "^17.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0"
+  }
+}

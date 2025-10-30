@@ -85,11 +85,11 @@ function App(): React.JSX.Element {
       // Check Safari compatibility first
       const safariCompat = await initSafariCompat();
       if (safariCompat.safari) {
-        console.log('Safari compatibility mode:', safariCompat);
-        
+        // Safari compatibility mode enabled
+
         // Apply Clerk-specific Safari fixes
         const clerkCompat = await initClerkSafariCompat();
-        console.log('Clerk Safari compatibility:', clerkCompat);
+        // Clerk Safari compatibility applied
       }
     };
     
@@ -98,12 +98,12 @@ function App(): React.JSX.Element {
     // Initialize demo mode if requested
     if (isDemoMode()) {
       initializeDemoData();
-      console.log('🎭 Demo mode activated - Using sample data for UI/UX testing');
+      // Demo mode activated - Using sample data for UI/UX testing
     }
     
     // Simplified storage check - don't auto-clear
-    console.log('App starting with clean storage');
-    
+    // App starting with clean storage
+
     // Preload common merchant logos in the background
     merchantLogoService.preloadCommonLogos();
     

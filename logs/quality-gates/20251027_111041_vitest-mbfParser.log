@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/mbfParser.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/mbfParser.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/mbfParser.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 👥 sync secrets across teammates & machines: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+ ✓ src/utils/__tests__/mbfParser.test.ts (17 tests) 7ms
+
+ Test Files  1 passed (1)
+      Tests  17 passed (17)
+   Start at  11:10:41
+   Duration  736ms (transform 84ms, setup 115ms, collect 165ms, tests 7ms, environment 190ms, prepare 36ms)
+

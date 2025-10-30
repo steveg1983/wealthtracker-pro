@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/services/__tests__/budgetCalculationService.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/services/__tests__/budgetCalculationService.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/services/__tests__/budgetCalculationService.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  override existing env vars with { override: true }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+ ✓ src/services/__tests__/budgetCalculationService.test.ts (12 tests) 5ms
+
+ Test Files  1 passed (1)
+      Tests  12 passed (12)
+   Start at  15:37:25
+   Duration  664ms (transform 104ms, setup 109ms, collect 195ms, tests 5ms, environment 190ms, prepare 37ms)
+

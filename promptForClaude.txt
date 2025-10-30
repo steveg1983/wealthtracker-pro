@@ -1,0 +1,15 @@
+Hey Claude,
+
+We’re coordinating front-end work while the back-end stream continues. Here are the collaboration rules you must follow:
+
+1. Keep the quality gates green: every branch must pass `npm run lint`, `npm run typecheck:strict`, and the dashboard/import Vitest suites (`npx vitest run src/test/integration/DashboardInteractionsIntegration.test.tsx --environment jsdom`, etc.).
+2. Do not change Supabase schema or API contracts unless you’ve paired with the back-end stream and there is a matching Supabase smoke update or feature flag.
+3. Log any multi-file UI refactor or bundle-impacting change in `docs/regression-audit-20251029.md` (or the current audit doc) so the back-end team sees what journeys changed.
+4. For shared files (contexts, hooks, shared services), open a PR draft and @mention the back-end owner before merging.
+5. Run `npm run test:coverage` before PRs and keep coverage above the enforced thresholds (≥75% statements / ≥55% branches).
+6. Never bypass Husky/CI hooks; if you must for a hotfix, rerun the full suite immediately afterward.
+7. Keep component copy and DOM IDs stable unless the change is part of a planned UX update; regression tests rely on specific selectors.
+
+Work within those guardrails and coordinate with me before altering shared contracts. Let me know when you pick up a frontend ticket so we can stay in sync.
+
+Thanks!

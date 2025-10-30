@@ -1,0 +1,378 @@
+
+> wealth-tracker@1.4.5 typecheck:strict
+> NODE_OPTIONS="--max-old-space-size=4096" tsc -p tsconfig.strict.json --noEmit --pretty false
+
+src/components/ActivityLoggerProvider.tsx(2,10): error TS2305: Module '"../hooks/useActivityLogger"' has no exported member 'useActivityLogger'.
+src/components/DebtPayoffPlanner.tsx(360,9): error TS2322: Type '{ strategy: "custom" | "avalanche" | "snowball"; extraPayment: number; totalDebt: number; debtAccounts: { accountId: string; accountName: string; balance: number; apr: number; minimumPayment: number; isSelected: boolean; }[]; projection: PayoffStrategy; }' is not assignable to type 'JsonObject'.
+  Property 'projection' is incompatible with index signature.
+    Type 'PayoffStrategy' is not assignable to type 'JsonValue'.
+      Type 'PayoffStrategy' is not assignable to type 'JsonObject'.
+        Index signature for type 'string' is missing in type 'PayoffStrategy'.
+src/components/NetWorthProjector.tsx(166,30): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'SetStateAction<number>'.
+  Type 'string' is not assignable to type 'SetStateAction<number>'.
+src/components/NetWorthProjector.tsx(167,32): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'SetStateAction<number>'.
+  Type 'string' is not assignable to type 'SetStateAction<number>'.
+src/components/NetWorthProjector.tsx(168,29): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'SetStateAction<number>'.
+  Type 'string' is not assignable to type 'SetStateAction<number>'.
+src/components/NetWorthProjector.tsx(270,11): error TS2322: Type 'NetWorthProjection | null' is not assignable to type 'JsonValue'.
+  Type 'NetWorthProjection' is not assignable to type 'JsonValue'.
+    Type 'NetWorthProjection' is not assignable to type 'JsonObject'.
+      Index signature for type 'string' is missing in type 'NetWorthProjection'.
+src/components/pwa/EnhancedConflictResolutionModal.tsx(70,9): error TS2345: Argument of type 'string | number | boolean | Record<string, unknown> | unknown[] | SyncData<keyof EntityDataMap>' is not assignable to parameter of type 'EntityRecord'.
+  Type 'string' is not assignable to type 'EntityRecord'.
+src/components/RetirementPlanner.tsx(130,31): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/components/RetirementPlanner.tsx(130,47): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/components/RetirementPlanner.tsx(132,27): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/components/RetirementPlanner.tsx(135,31): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'string | number | Decimal'.
+  Type 'boolean' is not assignable to type 'string | number | Decimal'.
+src/components/RetirementPlanner.tsx(140,46): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'string | number | Decimal'.
+  Type 'boolean' is not assignable to type 'string | number | Decimal'.
+src/components/RetirementPlanner.tsx(145,31): error TS2365: Operator '+' cannot be applied to types 'number' and 'string | number | boolean | JsonObject | JsonArray'.
+src/components/RetirementPlanner.tsx(150,14): error TS2365: Operator '+' cannot be applied to types 'string | number | boolean | JsonObject | JsonArray' and 'number'.
+src/components/RetirementPlanner.tsx(158,39): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'string | number | Decimal'.
+  Type 'boolean' is not assignable to type 'string | number | Decimal'.
+src/components/RetirementPlanner.tsx(165,42): error TS2365: Operator '+' cannot be applied to types 'number' and 'string | number | boolean | JsonObject | JsonArray'.
+src/components/RetirementPlanner.tsx(166,32): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/components/RetirementPlanner.tsx(173,42): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/components/RetirementPlanner.tsx(173,68): error TS2365: Operator '+' cannot be applied to types 'number' and 'string | number | boolean | JsonObject | JsonArray'.
+src/components/RetirementPlanner.tsx(175,49): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/RetirementPlanner.tsx(183,7): error TS2322: Type 'string | number | true | JsonObject | JsonArray' is not assignable to type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/RetirementPlanner.tsx(303,30): error TS2322: Type 'string | number | true | JsonObject | JsonArray' is not assignable to type 'ReactNode'.
+  Type 'JsonObject' is not assignable to type 'ReactNode'.
+    Type 'JsonObject' is missing the following properties from type 'ReactPortal': children, type, props, key
+src/components/RetirementPlanner.tsx(303,62): error TS2322: Type 'string | number | true | JsonObject | JsonArray' is not assignable to type 'ReactNode'.
+  Type 'JsonObject' is not assignable to type 'ReactNode'.
+    Type 'JsonObject' is missing the following properties from type 'ReactPortal': children, type, props, key
+src/components/RetirementPlanner.tsx(304,42): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/RetirementPlanner.tsx(390,83): error TS2322: Type 'string | number | true | JsonObject | JsonArray' is not assignable to type 'ReactNode'.
+  Type 'JsonObject' is not assignable to type 'ReactNode'.
+    Type 'JsonObject' is missing the following properties from type 'ReactPortal': children, type, props, key
+src/components/RetirementPlanner.tsx(395,43): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/RetirementPlanner.tsx(400,83): error TS2322: Type 'string | number | true | JsonObject | JsonArray' is not assignable to type 'ReactNode'.
+  Type 'JsonObject' is not assignable to type 'ReactNode'.
+    Type 'JsonObject' is missing the following properties from type 'ReactPortal': children, type, props, key
+src/components/RetirementPlanner.tsx(405,43): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/RetirementPlanner.tsx(411,41): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/RetirementPlanner.tsx(417,41): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/RetirementPlanner.tsx(423,41): error TS2345: Argument of type 'string | number | true | JsonObject | JsonArray' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/RetirementPlanner.tsx(720,29): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/components/RetirementPlanner.tsx(720,54): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/components/RetirementPlanner.tsx(721,40): error TS2365: Operator '+' cannot be applied to types 'number' and 'string | number | boolean | JsonObject | JsonArray'.
+src/components/RetirementPlanner.tsx(722,37): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/components/RetirementPlanner.tsx(787,19): error TS2322: Type 'string | number | boolean | JsonObject | JsonArray' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'false' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/RetirementPlanner.tsx(801,19): error TS2322: Type 'string | number | boolean | JsonObject | JsonArray' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'false' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/RetirementPlanner.tsx(817,17): error TS2322: Type 'string | number | true | JsonObject | JsonArray' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/RetirementPlanner.tsx(834,17): error TS2322: Type 'string | number | true | JsonObject | JsonArray' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/RetirementPlanner.tsx(851,46): error TS2345: Argument of type 'string | number | boolean | JsonObject | JsonArray' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/RetirementPlanner.tsx(879,46): error TS2345: Argument of type 'string | number | boolean | JsonObject | JsonArray' is not assignable to parameter of type 'number'.
+  Type 'string' is not assignable to type 'number'.
+src/components/RetirementPlanner.tsx(907,17): error TS2322: Type 'string | number | true | JsonObject | JsonArray' is not assignable to type 'string | number | readonly string[] | undefined'.
+  Type 'true' is not assignable to type 'string | number | readonly string[] | undefined'.
+src/components/RetirementPlanner.tsx(916,16): error TS2365: Operator '>' cannot be applied to types 'string | number | boolean | JsonObject | JsonArray' and 'number'.
+src/components/RetirementPlanner.tsx(920,31): error TS2362: The left-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/components/RetirementPlanner.tsx(920,56): error TS2363: The right-hand side of an arithmetic operation must be of type 'any', 'number', 'bigint' or an enum type.
+src/components/RetirementPlanner.tsx(921,47): error TS2345: Argument of type 'string | number | boolean | JsonObject | JsonArray' is not assignable to parameter of type 'number | Decimal'.
+  Type 'string' is not assignable to type 'number | Decimal'.
+src/components/widgets/ExpenseBreakdownWidget.tsx(138,26): error TS2352: Conversion of type 'LegendPayload' to type '{ payload?: ExpenseDatum; }' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Types of property 'payload' are incompatible.
+    Type '{ strokeDasharray?: string | number; value?: any; }' is missing the following properties from type 'ExpenseDatum': name, amount
+src/components/widgets/WidgetRegistry.tsx(81,7): error TS2322: Type '({ size }: NetWorthWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size }: NetWorthWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'NetWorthWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(95,7): error TS2322: Type '({ size, settings }: CashFlowWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size, settings }: CashFlowWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'CashFlowWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(109,7): error TS2322: Type '({ size: _size, settings: _settings }: MonthlySummaryWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size: _size, settings: _settings }: MonthlySummaryWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'MonthlySummaryWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(122,7): error TS2322: Type '({ size: _size, settings: _settings }: WeeklySummaryWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size: _size, settings: _settings }: WeeklySummaryWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'WeeklySummaryWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(136,7): error TS2322: Type '({ size, settings }: BudgetSummaryWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size, settings }: BudgetSummaryWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'BudgetSummaryWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(150,7): error TS2322: Type '({ budgets, transactions, formatCurrency, navigate, settings }: BudgetVsActualWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ budgets, transactions, formatCurrency, navigate, settings }: BudgetVsActualWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Type 'WidgetComponentProps' is missing the following properties from type 'BudgetVsActualWidgetProps': budgets, transactions, formatCurrency, navigate
+src/components/widgets/WidgetRegistry.tsx(164,7): error TS2322: Type '({ size, settings }: ExpenseBreakdownWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size, settings }: ExpenseBreakdownWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'ExpenseBreakdownWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(178,7): error TS2322: Type '({ accounts, formatCurrency, navigate, settings }: DebtTrackerWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ accounts, formatCurrency, navigate, settings }: DebtTrackerWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Type 'WidgetComponentProps' is missing the following properties from type 'DebtTrackerWidgetProps': accounts, formatCurrency, navigate
+src/components/widgets/WidgetRegistry.tsx(192,7): error TS2322: Type '({ transactions, formatCurrency, navigate, settings }: BillReminderWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ transactions, formatCurrency, navigate, settings }: BillReminderWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Type 'WidgetComponentProps' is missing the following properties from type 'BillReminderWidgetProps': transactions, formatCurrency, navigate
+src/components/widgets/WidgetRegistry.tsx(206,7): error TS2322: Type '({ size, settings }: UpcomingBillsWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size, settings }: UpcomingBillsWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'UpcomingBillsWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(220,7): error TS2322: Type '({ size, settings }: InvestmentSummaryWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size, settings }: InvestmentSummaryWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'InvestmentSummaryWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(235,7): error TS2322: Type '({ size }: BaseWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size }: BaseWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Type 'WidgetComponentProps' is not assignable to type 'BaseWidgetProps' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+        Types of property 'settings' are incompatible.
+          Type 'Record<string, unknown>' is not assignable to type 'WidgetSettings'.
+            'string' index signatures are incompatible.
+              Type 'unknown' is not assignable to type 'JsonValue'.
+src/components/widgets/WidgetRegistry.tsx(263,7): error TS2322: Type '({ size }: GoalProgressWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size }: GoalProgressWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'GoalProgressWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(289,7): error TS2322: Type '({ size }: BaseWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size }: BaseWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Type 'WidgetComponentProps' is not assignable to type 'BaseWidgetProps' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+        Types of property 'settings' are incompatible.
+          Type 'Record<string, unknown>' is not assignable to type 'WidgetSettings'.
+            'string' index signatures are incompatible.
+              Type 'unknown' is not assignable to type 'JsonValue'.
+src/components/widgets/WidgetRegistry.tsx(303,7): error TS2322: Type '({ size, settings }: RecentTransactionsWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size, settings }: RecentTransactionsWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'RecentTransactionsWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(316,7): error TS2322: Type '({ size }: BankConnectionsWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ size }: BankConnectionsWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'size' is missing in type 'WidgetComponentProps' but required in type 'BankConnectionsWidgetProps'.
+src/components/widgets/WidgetRegistry.tsx(329,7): error TS2322: Type '({ accounts, settings }: SyncStatusWidgetProps) => Element' is not assignable to type 'ComponentType<WidgetComponentProps>'.
+  Type '({ accounts, settings }: SyncStatusWidgetProps) => Element' is not assignable to type 'FunctionComponent<WidgetComponentProps>'.
+    Types of parameters '__0' and 'props' are incompatible.
+      Property 'accounts' is missing in type 'WidgetComponentProps' but required in type 'SyncStatusWidgetProps'.
+src/hooks/useConflictResolution.ts(163,5): error TS2345: Argument of type 'string | number | boolean | Record<string, unknown> | unknown[] | SyncData<keyof EntityDataMap>' is not assignable to parameter of type 'EntityRecord'.
+  Type 'string' is not assignable to type 'EntityRecord'.
+src/hooks/useConflictResolution.ts(233,62): error TS2379: Argument of type 'ConflictAnalysis<EntityDataMap, keyof EntityDataMap>' is not assignable to parameter of type 'ConflictAnalysis' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'mergedData' are incompatible.
+    Type 'SyncData<EntityDataMap, keyof EntityDataMap>' is not assignable to type 'EntityRecord'.
+      Type 'Account' is not assignable to type 'EntityRecord'.
+        Index signature for type 'string' is missing in type 'Account'.
+src/hooks/useConflictResolution.ts(234,43): error TS2379: Argument of type 'ConflictAnalysis<EntityDataMap, keyof EntityDataMap>' is not assignable to parameter of type 'ConflictAnalysis' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'mergedData' are incompatible.
+    Type 'SyncData<EntityDataMap, keyof EntityDataMap>' is not assignable to type 'EntityRecord'.
+      Type 'Account' is not assignable to type 'EntityRecord'.
+        Index signature for type 'string' is missing in type 'Account'.
+src/hooks/useConflictResolution.ts(319,26): error TS2352: Conversion of type 'EntityRecord' to type 'SyncData<keyof EntityDataMap>' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'EntityRecord' is missing the following properties from type 'Transaction': id, date, amount, description, and 3 more.
+src/hooks/useConflictResolution.ts(401,7): error TS2345: Argument of type 'ConflictRawValue' is not assignable to parameter of type 'EntityRecord'.
+  Type 'undefined' is not assignable to type 'EntityRecord'.
+src/hooks/useDataSync.ts(130,56): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'SyncData<EntityDataMap, keyof EntityDataMap>'.
+src/hooks/useOffline.ts(162,44): error TS2345: Argument of type 'Account | Budget | Goal | StoredTransaction' is not assignable to parameter of type 'Transaction | StoredTransaction'.
+  Type 'Account' is not assignable to type 'Transaction | StoredTransaction' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Type 'Account' is not assignable to type 'StoredTransaction' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+      Type 'Account' is missing the following properties from type 'Transaction': date, amount, description, category, accountId
+src/hooks/useSanitizedForm.ts(53,7): error TS2322: Type 'string | null | undefined' is not assignable to type 'T[K]'.
+  'string | null | undefined' is assignable to the constraint of type 'T[K]', but 'T[K]' could be instantiated with a different subtype of constraint 'unknown'.
+    Type 'undefined' is not assignable to type 'T[K]'.
+      'undefined' is assignable to the constraint of type 'T[K]', but 'T[K]' could be instantiated with a different subtype of constraint 'unknown'.
+src/mocks/syncServer.ts(189,34): error TS2345: Argument of type '{ entity: string; data: Record<string, unknown>; timestamp: number; lastModified: Date; }' is not assignable to parameter of type 'StoredEntityRecord'.
+  Property 'entityId' is missing in type '{ entity: string; data: Record<string, unknown>; timestamp: number; lastModified: Date; }' but required in type 'OperationData'.
+src/pages/Analytics.tsx(463,32): error TS2345: Argument of type 'Transaction[]' is not assignable to parameter of type 'Record<string, unknown>[]'.
+  Type 'Transaction' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'Transaction'.
+src/pages/Analytics.tsx(466,32): error TS2345: Argument of type 'Account[]' is not assignable to parameter of type 'Record<string, unknown>[]'.
+  Type 'Account' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'Account'.
+src/pages/Analytics.tsx(469,32): error TS2345: Argument of type 'Budget[]' is not assignable to parameter of type 'Record<string, unknown>[]'.
+  Type 'Budget' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'Budget'.
+src/pages/Analytics.tsx(472,32): error TS2345: Argument of type 'Goal[]' is not assignable to parameter of type 'Record<string, unknown>[]'.
+  Type 'Goal' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'Goal'.
+src/pages/Analytics.tsx(475,32): error TS2345: Argument of type 'Investment[]' is not assignable to parameter of type 'Record<string, unknown>[]'.
+  Type 'Investment' is not assignable to type 'Record<string, unknown>'.
+    Index signature for type 'string' is missing in type 'Investment'.
+src/security/csrf-protection.ts(185,39): error TS2339: Property 'startsWith' does not exist on type '{}'.
+src/security/csrf-protection.ts(186,39): error TS2339: Property 'startsWith' does not exist on type '{}'.
+src/security/csrf-protection.ts(193,39): error TS2339: Property 'toUpperCase' does not exist on type '{}'.
+src/security/csrf-protection.ts(198,11): error TS18046: 'config.headers' is of type 'unknown'.
+src/security/csrf-protection.ts(221,31): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'string'.
+src/security/rate-limiting.ts(52,34): error TS2345: Argument of type 'RateLimitContext | undefined' is not assignable to parameter of type 'RateLimitContext'.
+  Type 'undefined' is not assignable to type 'RateLimitContext'.
+src/security/rate-limiting.ts(91,34): error TS2345: Argument of type 'RateLimitContext | undefined' is not assignable to parameter of type 'RateLimitContext'.
+  Type 'undefined' is not assignable to type 'RateLimitContext'.
+src/security/rate-limiting.ts(126,34): error TS2345: Argument of type 'RateLimitContext | undefined' is not assignable to parameter of type 'RateLimitContext'.
+  Type 'undefined' is not assignable to type 'RateLimitContext'.
+src/security/rate-limiting.ts(216,5): error TS2322: Type '(context: RateLimitContext) => {}' is not assignable to type '(context: RateLimitContext) => string'.
+  Type '{}' is not assignable to type 'string'.
+src/security/rate-limiting.ts(250,26): error TS2304: Cannot find name 'RateLimitRequest'.
+src/security/rate-limiting.ts(258,16): error TS2304: Cannot find name 'RateLimitRequest'.
+src/security/rate-limiting.ts(258,39): error TS2304: Cannot find name 'RateLimitResponse'.
+src/services/alphaVantageService.ts(177,30): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/services/analyticsEngine.ts(324,7): error TS2353: Object literal may only specify known properties, and 'points' does not exist in type 'RegressionResult'.
+src/services/api/accountService.ts(294,9): error TS2375: Type '{ openingBalance: number | undefined; lastUpdated: Date; updatedAt: Date; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 16 more ...; createdAt?: Date | string; }' is not assignable to type 'Account & Record<string, unknown>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Type '{ openingBalance: number | undefined; lastUpdated: Date; updatedAt: Date; id: string; name: string; type: "current" | "savings" | "credit" | "loan" | "investment" | "asset" | "mortgage" | "assets" | "other" | "checking"; ... 16 more ...; createdAt?: Date | string; }' is not assignable to type 'Account' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'openingBalance' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/services/api/userService.ts(110,19): error TS2322: Type 'Record<string, unknown>' is not assignable to type 'Json'.
+  Type 'Record<string, unknown>' is missing the following properties from type 'Json[]': length, pop, push, concat, and 29 more.
+src/services/api/userService.ts(136,19): error TS2322: Type 'Record<string, unknown>' is not assignable to type 'Json'.
+  Type 'Record<string, unknown>' is missing the following properties from type 'Json[]': length, pop, push, concat, and 29 more.
+src/services/collaborationService.ts(78,38): error TS2304: Cannot find name 'Budget'.
+src/services/collaborationService.ts(491,7): error TS2353: Object literal may only specify known properties, and 'id' does not exist in type 'JointBudget'.
+src/services/customReportService.ts(694,5): error TS2375: Type '{ content: string; fontSize: string | undefined; }' is not assignable to type 'TextBlockResult' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'fontSize' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/services/customReportService.ts(765,5): error TS2322: Type '{ category: string; actual: number; budget: number; variance: number; count: number; status: "over" | "under"; comparisonType: "budget" | "previous-period" | undefined; showSubcategories: boolean | undefined; }[]' is not assignable to type 'CategoryBreakdownEntry[]'.
+  Type '{ category: string; actual: number; budget: number; variance: number; count: number; status: "over" | "under"; comparisonType: "budget" | "previous-period" | undefined; showSubcategories: boolean | undefined; }' is not assignable to type 'CategoryBreakdownEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'showSubcategories' are incompatible.
+      Type 'boolean | undefined' is not assignable to type 'boolean'.
+        Type 'undefined' is not assignable to type 'boolean'.
+src/services/customReportService.ts(868,5): error TS2375: Type '{ metrics: SummaryStatsMetric[] | undefined; }' is not assignable to type 'SummaryStatsConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'metrics' are incompatible.
+    Type 'SummaryStatsMetric[] | undefined' is not assignable to type 'SummaryStatsMetric[]'.
+      Type 'undefined' is not assignable to type 'SummaryStatsMetric[]'.
+src/services/customReportService.ts(879,5): error TS2375: Type '{ limit: number | undefined; }' is not assignable to type 'PieChartConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'limit' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/services/customReportService.ts(888,5): error TS2375: Type '{ limit: number | undefined; orientation: "horizontal" | "vertical" | undefined; }' is not assignable to type 'BarChartConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'limit' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+src/services/customReportService.ts(899,5): error TS2375: Type '{ sortBy: TableSortKey | undefined; sortOrder: "desc" | "asc"; limit: number | undefined; }' is not assignable to type 'TableConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'sortBy' are incompatible.
+    Type 'TableSortKey | undefined' is not assignable to type 'TableSortKey'.
+      Type 'undefined' is not assignable to type 'TableSortKey'.
+src/services/customReportService.ts(912,5): error TS2375: Type '{ content: string; fontSize: string | undefined; }' is not assignable to type 'TextBlockConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'fontSize' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/services/customReportService.ts(922,5): error TS2375: Type '{ comparisonType: NonNullable<"budget" | "previous-period" | undefined> | undefined; showSubcategories: boolean | undefined; }' is not assignable to type 'CategoryBreakdownConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'comparisonType' are incompatible.
+    Type 'NonNullable<"budget" | "previous-period" | undefined> | undefined' is not assignable to type '"budget" | "previous-period"'.
+      Type 'undefined' is not assignable to type '"budget" | "previous-period"'.
+src/services/customReportService.ts(931,5): error TS2375: Type '{ metric: DateComparisonMetric | undefined; }' is not assignable to type 'DateComparisonConfig' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'metric' are incompatible.
+    Type 'DateComparisonMetric | undefined' is not assignable to type 'DateComparisonMetric'.
+      Type 'undefined' is not assignable to type 'DateComparisonMetric'.
+src/services/documentService.ts(245,89): error TS2345: Argument of type '(doc: LegacyStoredDocument) => { uploadDate: string; expiryDate: string | undefined; extractedData: { date: string | undefined; error?: string; currency?: string; ... 7 more ...; totalAmount?: number; } | undefined; ... 12 more ...; cloudId?: string; }' is not assignable to parameter of type '(data: LegacyStoredDocument) => LegacyStoredDocument'.
+  Type '{ uploadDate: string; expiryDate: string | undefined; extractedData: { date: string | undefined; error?: string; currency?: string; amount?: number; merchant?: string; confidence: number; ... 4 more ...; totalAmount?: number; } | undefined; ... 12 more ...; cloudId?: string; }' is not assignable to type 'LegacyStoredDocument' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Type '{ uploadDate: string; expiryDate: string | undefined; extractedData: { date: string | undefined; error?: string; currency?: string; amount?: number; merchant?: string; confidence: number; ... 4 more ...; totalAmount?: number; } | undefined; ... 12 more ...; cloudId?: string; }' is not assignable to type '{ uploadDate: string | Date; expiryDate?: string | Date; extractedData?: LegacyExtractedData; }' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+      Types of property 'expiryDate' are incompatible.
+        Type 'string | undefined' is not assignable to type 'string | Date'.
+          Type 'undefined' is not assignable to type 'string | Date'.
+src/services/exportService.ts(509,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/services/exportService.ts(510,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/services/exportService.ts(511,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/services/exportService.ts(512,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/services/exportService.ts(532,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/services/exportService.ts(533,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/services/exportService.ts(534,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/services/exportService.ts(535,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/services/exportService.ts(557,11): error TS2322: Type 'number' is not assignable to type 'string'.
+src/services/financialPlanningService.ts(87,5): error TS2322: Type 'Record<string, unknown>' is not assignable to type 'JsonObject'.
+  'string' index signatures are incompatible.
+    Type 'unknown' is not assignable to type 'JsonValue'.
+src/services/financialPlanningService.ts(108,5): error TS2322: Type 'Record<string, unknown>' is not assignable to type 'JsonObject'.
+  'string' index signatures are incompatible.
+    Type 'unknown' is not assignable to type 'JsonValue'.
+src/services/financialPlanningService.ts(109,5): error TS2322: Type 'Record<string, unknown>' is not assignable to type 'JsonObject'.
+  'string' index signatures are incompatible.
+    Type 'unknown' is not assignable to type 'JsonValue'.
+src/services/financialPlanningService.ts(144,5): error TS2322: Type 'Record<string, unknown>' is not assignable to type 'JsonObject'.
+  'string' index signatures are incompatible.
+    Type 'unknown' is not assignable to type 'JsonValue'.
+src/services/householdService.ts(260,7): error TS2412: Type '"transaction" | "account" | "budget" | "goal" | undefined' is not assignable to type '"transaction" | "account" | "budget" | "goal"' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+  Type 'undefined' is not assignable to type '"transaction" | "account" | "budget" | "goal"'.
+src/services/importRulesService.ts(44,11): error TS2375: Type '{ id: string; name: string; description: string | undefined; enabled: boolean; priority: number; conditions: ImportRuleCondition[]; actions: ImportRuleAction[]; createdAt: Date; updatedAt: Date; }' is not assignable to type 'ImportRule' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'description' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/services/importRulesService.ts(97,33): error TS2345: Argument of type 'unknown' is not assignable to parameter of type '"description" | "amount" | "date" | "accountId"'.
+src/services/importRulesService.ts(102,36): error TS2345: Argument of type 'unknown' is not assignable to parameter of type '"endsWith" | "startsWith" | "equals" | "contains" | "between" | "regex" | "greaterThan" | "lessThan"'.
+src/services/importRulesService.ts(106,57): error TS2345: Argument of type 'unknown' is not assignable to parameter of type '"description" | "amount" | "date" | "accountId"'.
+src/services/importRulesService.ts(112,9): error TS2322: Type 'unknown' is not assignable to type '"description" | "amount" | "date" | "accountId"'.
+src/services/importRulesService.ts(113,9): error TS2322: Type 'unknown' is not assignable to type '"endsWith" | "startsWith" | "equals" | "contains" | "between" | "regex" | "greaterThan" | "lessThan"'.
+src/services/importRulesService.ts(119,56): error TS2345: Argument of type 'unknown' is not assignable to parameter of type '"description" | "amount" | "date" | "accountId"'.
+src/services/ocrService.ts(27,30): error TS2352: Conversion of type 'Worker' to type 'TesseractWorker' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Worker' is missing the following properties from type 'TesseractWorker': loadLanguage, initialize
+src/services/plaidService.ts(391,25): error TS2339: Property 'category' does not exist on type '{ id: string; user_id: string; account_id: string; category_id: string | null; description: string; amount: number; type: "income" | "expense" | "transfer"; date: string; notes: string | null; ... 6 more ...; metadata: Json; }'.
+src/services/plaidService.ts(392,24): error TS2339: Property 'pending' does not exist on type '{ id: string; user_id: string; account_id: string; category_id: string | null; description: string; amount: number; type: "income" | "expense" | "transfer"; date: string; notes: string | null; ... 6 more ...; metadata: Json; }'.
+src/services/plaidService.ts(393,35): error TS2339: Property 'plaid_transaction_id' does not exist on type '{ id: string; user_id: string; account_id: string; category_id: string | null; description: string; amount: number; type: "income" | "expense" | "transfer"; date: string; notes: string | null; ... 6 more ...; metadata: Json; }'.
+src/services/plaidService.ts(394,25): error TS2339: Property 'merchant_name' does not exist on type '{ id: string; user_id: string; account_id: string; category_id: string | null; description: string; amount: number; type: "income" | "expense" | "transfer"; date: string; notes: string | null; ... 6 more ...; metadata: Json; }'.
+src/services/plaidService.ts(395,31): error TS2339: Property 'payment_channel' does not exist on type '{ id: string; user_id: string; account_id: string; category_id: string | null; description: string; amount: number; type: "income" | "expense" | "transfer"; date: string; notes: string | null; ... 6 more ...; metadata: Json; }'.
+src/services/plaidService.ts(398,20): error TS2339: Property 'location_city' does not exist on type '{ id: string; user_id: string; account_id: string; category_id: string | null; description: string; amount: number; type: "income" | "expense" | "transfer"; date: string; notes: string | null; ... 6 more ...; metadata: Json; }'.
+src/services/plaidService.ts(402,27): error TS2339: Property 'location_city' does not exist on type '{ id: string; user_id: string; account_id: string; category_id: string | null; description: string; amount: number; type: "income" | "expense" | "transfer"; date: string; notes: string | null; ... 6 more ...; metadata: Json; }'.
+src/services/plaidService.ts(404,30): error TS2339: Property 'location_country' does not exist on type '{ id: string; user_id: string; account_id: string; category_id: string | null; description: string; amount: number; type: "income" | "expense" | "transfer"; date: string; notes: string | null; ... 6 more ...; metadata: Json; }'.
+src/services/scheduledReportService.ts(239,9): error TS2353: Object literal may only specify known properties, and 'format' does not exist in type 'ReportHistoryEntry'.
+src/services/scheduledReportService.ts(279,5): error TS2375: Type '{ reportId: string; reportName: string; runTime: string; success: boolean; error: string | undefined; }' is not assignable to type 'ReportHistoryStorageEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'error' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/services/scheduledReportService.ts(406,5): error TS2322: Type '{ reportId: string; reportName: string; runTime: Date; success: boolean; error: string | undefined; }[]' is not assignable to type 'ReportHistoryEntry[]'.
+  Type '{ reportId: string; reportName: string; runTime: Date; success: boolean; error: string | undefined; }' is not assignable to type 'ReportHistoryEntry' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'error' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/services/sharedFinanceService.ts(96,11): error TS2322: Type '{ memberAllocations: { memberId: string; memberName: string; amount: number; percentage: number; isResponsible: boolean; }[] | undefined; createdAt: Date; updatedAt: Date | undefined; ... 24 more ...; notes?: string; }[]' is not assignable to type 'SharedBudget[]'.
+  Type '{ memberAllocations: { memberId: string; memberName: string; amount: number; percentage: number; isResponsible: boolean; }[] | undefined; createdAt: Date; updatedAt: Date | undefined; ... 24 more ...; notes?: string; }' is not assignable to type 'SharedBudget' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'memberAllocations' are incompatible.
+      Type '{ memberId: string; memberName: string; amount: number; percentage: number; isResponsible: boolean; }[] | undefined' is not assignable to type 'BudgetAllocation[]'.
+        Type 'undefined' is not assignable to type 'BudgetAllocation[]'.
+src/services/sharedFinanceService.ts(119,11): error TS2322: Type '{ contributors: { lastContribution: Date | undefined; memberId: string; memberName: string; targetAmount: number; currentAmount: number; percentage: number; }[]; createdAt: Date; ... 29 more ...; completedAt?: string; }[]' is not assignable to type 'SharedGoal[]'.
+  Type '{ contributors: { lastContribution: Date | undefined; memberId: string; memberName: string; targetAmount: number; currentAmount: number; percentage: number; }[]; createdAt: Date; ... 29 more ...; completedAt?: string; }' is not assignable to type 'SharedGoal' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'contributors' are incompatible.
+      Type '{ lastContribution: Date | undefined; memberId: string; memberName: string; targetAmount: number; currentAmount: number; percentage: number; }[]' is not assignable to type 'GoalContributor[]'.
+        Type '{ lastContribution: Date | undefined; memberId: string; memberName: string; targetAmount: number; currentAmount: number; percentage: number; }' is not assignable to type 'GoalContributor' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+          Types of property 'lastContribution' are incompatible.
+            Type 'Date | undefined' is not assignable to type 'Date'.
+              Type 'undefined' is not assignable to type 'Date'.
+src/services/sharedFinanceService.ts(147,11): error TS2322: Type '{ requestedAt: Date; reviewedAt: Date | undefined; id: string; budgetId: string; requestedBy: string; requestedByName: string; amount: number; reason: string; status: "pending" | "rejected" | "approved"; reviewedBy?: string; comments?: string; }[]' is not assignable to type 'BudgetApproval[]'.
+  Type '{ requestedAt: Date; reviewedAt: Date | undefined; id: string; budgetId: string; requestedBy: string; requestedByName: string; amount: number; reason: string; status: "pending" | "approved" | "rejected"; reviewedBy?: string; comments?: string; }' is not assignable to type 'BudgetApproval' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+    Types of property 'reviewedAt' are incompatible.
+      Type 'Date | undefined' is not assignable to type 'Date'.
+        Type 'undefined' is not assignable to type 'Date'.
+src/services/syncService.ts(322,7): error TS2345: Argument of type 'SyncData<EntityDataMap, keyof EntityDataMap>' is not assignable to parameter of type 'EntityRecord'.
+  Type 'Account' is not assignable to type 'EntityRecord'.
+    Index signature for type 'string' is missing in type 'Account'.
+src/services/syncService.ts(340,11): error TS2345: Argument of type 'EntityRecord' is not assignable to parameter of type 'SyncData<keyof EntityDataMap>'.
+  Type 'EntityRecord' is missing the following properties from type 'Transaction': id, date, amount, description, and 3 more.
+src/services/syncService.ts(357,9): error TS2412: Type 'EntityRecord | undefined' is not assignable to type 'SyncData<EntityDataMap, keyof EntityDataMap> | undefined' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the type of the target.
+src/services/syncService.ts(367,9): error TS2375: Type 'ConflictAnalysis' is not assignable to type 'ConflictAnalysis<EntityDataMap, keyof EntityDataMap>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'mergedData' are incompatible.
+    Type 'EntityRecord' is not assignable to type 'SyncData<EntityDataMap, keyof EntityDataMap>'.
+      Type 'EntityRecord' is missing the following properties from type 'Transaction': id, date, amount, description, and 3 more.
+src/services/syncService.ts(372,63): error TS2379: Argument of type 'ConflictAnalysis' is not assignable to parameter of type 'ConflictAnalysis<EntityDataMap, keyof EntityDataMap>' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'mergedData' are incompatible.
+    Type 'EntityRecord' is not assignable to type 'SyncData<EntityDataMap, keyof EntityDataMap>'.
+      Type 'EntityRecord' is missing the following properties from type 'Transaction': id, date, amount, description, and 3 more.
+src/services/syncService.ts(374,57): error TS2345: Argument of type 'EntityRecord | undefined' is not assignable to parameter of type 'SyncData<keyof EntityDataMap> | undefined'.
+  Type 'EntityRecord' is not assignable to type 'SyncData<keyof EntityDataMap> | undefined'.
+    Type 'EntityRecord' is missing the following properties from type 'Transaction': id, date, amount, description, and 3 more.
+src/services/taxDataService.ts(583,12): error TS2532: Object is possibly 'undefined'.
+src/services/ukRetirementService.ts(389,5): error TS2375: Type '{ isa?: ISAProjection; workplacePension?: WorkplacePensionCalculation; statePension: UKStatePensionCalculation; personalPension: PersonalPensionProjection | undefined; totalRetirementIncome: { ...; }; taxOnRetirement: { ...; }; }' is not assignable to type 'UKRetirementProjection' with 'exactOptionalPropertyTypes: true'. Consider adding 'undefined' to the types of the target's properties.
+  Types of property 'personalPension' are incompatible.
+    Type 'PersonalPensionProjection | undefined' is not assignable to type 'PersonalPensionProjection'.
+      Type 'undefined' is not assignable to type 'PersonalPensionProjection'.
+src/store/slices/goalsSlice.ts(98,25): error TS2345: Argument of type '"isCompleted"' is not assignable to parameter of type 'keyof Goal'.
+src/store/thunks/index.ts(9,36): error TS2300: Duplicate identifier 'loadTransactions'.
+src/store/thunks/index.ts(24,43): error TS2300: Duplicate identifier 'loadTransactions'.

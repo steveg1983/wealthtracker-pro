@@ -1,0 +1,96 @@
+
+> test
+> npm run test --workspace apps/web --run src/utils/__tests__/decimal-converters.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/utils/__tests__/decimal-converters.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/utils/__tests__/decimal-converters.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+
+ ❯ src/utils/__tests__/decimal-converters.test.ts (24 tests | 2 failed) 9ms
+   ✓ Decimal Converters > toDecimalAccount > converts account with all properties 1ms
+   ✓ Decimal Converters > toDecimalAccount > handles account without optional properties 0ms
+   ✓ Decimal Converters > toDecimalAccount > handles zero and negative balances 0ms
+   ✓ Decimal Converters > toDecimalTransaction > converts transaction with all properties 0ms
+   ✓ Decimal Converters > toDecimalTransaction > handles floating point precision amounts 0ms
+   ✓ Decimal Converters > toDecimalBudget > converts budget correctly 0ms
+   ✓ Decimal Converters > toDecimalGoal > converts goal correctly 0ms
+   ✓ Decimal Converters > toDecimalHolding > converts holding with all properties 0ms
+   ✓ Decimal Converters > toDecimalHolding > handles holding with minimal properties 0ms
+   ✓ Decimal Converters > fromDecimalAccount > converts decimal account back to regular account 0ms
+   ✓ Decimal Converters > fromDecimalAccount > handles decimal account without optional properties 0ms
+   ✓ Decimal Converters > fromDecimalTransaction > converts decimal transaction back to regular transaction 0ms
+   × Decimal Converters > fromDecimalBudget > converts decimal budget back to regular budget 3ms
+     → expected undefined to be 'groceries' // Object.is equality
+   ✓ Decimal Converters > fromDecimalGoal > converts decimal goal back to regular goal 0ms
+   ✓ Decimal Converters > fromDecimalHolding > converts decimal holding back to regular holding 0ms
+   ✓ Decimal Converters > Round-trip Conversion > maintains data integrity for account round-trip conversion 0ms
+   ✓ Decimal Converters > Round-trip Conversion > maintains data integrity for transaction round-trip conversion 0ms
+   × Decimal Converters > Round-trip Conversion > maintains data integrity for budget round-trip conversion 0ms
+     → expected undefined to be 'groceries' // Object.is equality
+   ✓ Decimal Converters > Round-trip Conversion > maintains data integrity for goal round-trip conversion 0ms
+   ✓ Decimal Converters > Edge Cases > handles zero values correctly 0ms
+   ✓ Decimal Converters > Edge Cases > handles negative values correctly 0ms
+   ✓ Decimal Converters > Edge Cases > handles very small decimal amounts 0ms
+   ✓ Decimal Converters > Edge Cases > handles very large amounts 0ms
+   ✓ Decimal Converters > Performance Tests > handles large arrays of conversions efficiently 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/utils/__tests__/decimal-converters.test.ts > Decimal Converters > fromDecimalBudget > converts decimal budget back to regular budget
+AssertionError: expected undefined to be 'groceries' // Object.is equality
+
+[32m- Expected:[39m 
+"groceries"
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ src/utils/__tests__/decimal-converters.test.ts:313:31
+    311| 
+    312|       expect(result.amount).toBe(500.25);
+    313|       expect(result.category).toBe('groceries');
+       |                               ^
+    314|       expect(result.spent).toBe(150.50);
+    315|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  src/utils/__tests__/decimal-converters.test.ts > Decimal Converters > Round-trip Conversion > maintains data integrity for budget round-trip conversion
+AssertionError: expected undefined to be 'groceries' // Object.is equality
+
+[32m- Expected:[39m 
+"groceries"
+
+[31m+ Received:[39m 
+undefined
+
+ ❯ src/utils/__tests__/decimal-converters.test.ts:417:34
+    415| 
+    416|       expect(converted.amount).toBe(originalBudget.amount);
+    417|       expect(converted.category).toBe(originalBudget.category);
+       |                                  ^
+    418|       expect(converted.period).toBe(originalBudget.period);
+    419|     });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 22 passed (24)
+   Start at  11:05:55
+   Duration  614ms (transform 49ms, setup 117ms, collect 33ms, tests 9ms, environment 184ms, prepare 35ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/utils/__tests__/decimal-converters.test.ts

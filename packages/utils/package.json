@@ -1,0 +1,17 @@
+{
+  "name": "@wealthtracker/utils",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "types": "./index.ts",
+  "exports": {
+    ".": "./index.ts",
+    "./decimal": "./decimal.ts"
+  },
+  "dependencies": {
+    "decimal.js": "^10.6.0"
+  },
+  "devDependencies": {
+    "@types/decimal.js": "^0.0.32"
+  }
+}

@@ -1,0 +1,22 @@
+
+> test
+> npm run test --workspace apps/web --run src/security/__tests__/encryption.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/security/__tests__/encryption.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/security/__tests__/encryption.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+ ✓ src/security/__tests__/encryption.test.ts (15 tests) 271ms
+
+ Test Files  1 passed (1)
+      Tests  15 passed (15)
+   Start at  11:05:46
+   Duration  948ms (transform 55ms, setup 120ms, collect 49ms, tests 271ms, environment 210ms, prepare 51ms)
+

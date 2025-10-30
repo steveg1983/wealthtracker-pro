@@ -1,0 +1,55 @@
+
+> test
+> npm run test --workspace apps/web --run src/store/__tests__/reduxMigration.test.tsx
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/store/__tests__/reduxMigration.test.tsx
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/store/__tests__/reduxMigration.test.tsx
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+ ❯ src/store/__tests__/reduxMigration.test.tsx (3 tests | 3 failed) 22ms
+   × Redux Migration > should sync accounts from context to Redux 18ms
+     → @clerk/clerk-react: The publishableKey passed to Clerk is invalid. You can get your Publishable key at https://dashboard.clerk.com/last-active?path=api-keys. (key=pk_test)
+   × Redux Migration > should sync transactions from context to Redux 2ms
+     → @clerk/clerk-react: The publishableKey passed to Clerk is invalid. You can get your Publishable key at https://dashboard.clerk.com/last-active?path=api-keys. (key=pk_test)
+   × Redux Migration > should maintain data consistency between context and Redux 1ms
+     → @clerk/clerk-react: The publishableKey passed to Clerk is invalid. You can get your Publishable key at https://dashboard.clerk.com/last-active?path=api-keys. (key=pk_test)
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/store/__tests__/reduxMigration.test.tsx > Redux Migration > should sync accounts from context to Redux
+ FAIL  src/store/__tests__/reduxMigration.test.tsx > Redux Migration > should sync transactions from context to Redux
+ FAIL  src/store/__tests__/reduxMigration.test.tsx > Redux Migration > should maintain data consistency between context and Redux
+Error: @clerk/clerk-react: The publishableKey passed to Clerk is invalid. You can get your Publishable key at https://dashboard.clerk.com/last-active?path=api-keys. (key=pk_test)
+ ❯ Object.throwInvalidPublishableKeyError node_modules/@clerk/shared/src/error.ts:405:13
+ ❯ ClerkProviderBase node_modules/@clerk/clerk-react/src/contexts/ClerkProvider.tsx:18:20
+ ❯ renderWithHooks node_modules/react-dom/cjs/react-dom.development.js:15486:18
+ ❯ mountIndeterminateComponent node_modules/react-dom/cjs/react-dom.development.js:20103:13
+ ❯ beginWork node_modules/react-dom/cjs/react-dom.development.js:21626:16
+ ❯ beginWork$1 node_modules/react-dom/cjs/react-dom.development.js:27465:14
+ ❯ performUnitOfWork node_modules/react-dom/cjs/react-dom.development.js:26599:12
+ ❯ workLoopSync node_modules/react-dom/cjs/react-dom.development.js:26505:5
+ ❯ renderRootSync node_modules/react-dom/cjs/react-dom.development.js:26473:7
+ ❯ recoverFromConcurrentError node_modules/react-dom/cjs/react-dom.development.js:25889:20
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  3 failed (3)
+   Start at  15:30:15
+   Duration  1.63s (transform 251ms, setup 112ms, collect 1.03s, tests 22ms, environment 196ms, prepare 37ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/store/__tests__/reduxMigration.test.tsx

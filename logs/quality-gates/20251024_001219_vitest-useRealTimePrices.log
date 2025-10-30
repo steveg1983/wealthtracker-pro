@@ -1,0 +1,7 @@
+Vitest Focused Run: useRealTimePrices real hook
+UTC Timestamp: 2025-10-24 00:12:19
+Command: npm run test -- --run src/hooks/__tests__/useRealTimePrices.real.test.ts
+Result: 1 test (1 passed / 0 failed)
+Notes:
+- Adjusted the suite to supply the options object expected by `useRealTimePrices` and mocked realtime service methods for deterministic updates.
+- Verified the quotes map is populated from realtime callbacks and that refresh delegates to `fetchAndBroadcast` for each symbol.

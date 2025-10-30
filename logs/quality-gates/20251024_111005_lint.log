@@ -1,0 +1,26 @@
+
+> lint
+> npm run lint --workspace apps/web --no-cache
+
+npm warn invalid config cache=false set in command line options
+npm warn invalid config Must be valid filesystem path
+
+> wealth-tracker@1.4.5 lint
+> eslint .
+
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/hooks/__tests__/useRealTimePrices.real.test.ts
+  19:7  warning  'offMock' is assigned a value but never used. Allowed unused vars must match /^_/u  @typescript-eslint/no-unused-vars
+
+/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/src/test/utils/renderWithProviders.tsx
+   68:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+   87:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  100:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  110:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  125:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  139:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  151:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+  178:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+✖ 9 problems (0 errors, 9 warnings)
+

@@ -1,0 +1,24 @@
+
+> bundle:check
+> npm run bundle:check --workspace apps/web
+
+
+> wealth-tracker@1.4.5 bundle:check
+> node scripts/bundle-size-check.js
+
+❌ Failed to load @wealthtracker/utils. Build utilities or install ts-node.
+❌ Bundle size check failed to initialize: TypeError: Unknown file extension ".ts" for /Users/stevegreen/PROJECT_WEALTHTRACKER/packages/utils/index.ts
+    at Object.getFileProtocolModuleFormat [as file:] (node:internal/modules/esm/get_format:219:9)
+    at defaultGetFormat (node:internal/modules/esm/get_format:245:36)
+    at defaultLoad (node:internal/modules/esm/load:120:22)
+    at async ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:580:32)
+    at async ModuleJob._link (node:internal/modules/esm/module_job:154:19) {
+  code: 'ERR_UNKNOWN_FILE_EXTENSION'
+}
+npm error Lifecycle script `bundle:check` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c node scripts/bundle-size-check.js

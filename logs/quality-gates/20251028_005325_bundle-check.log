@@ -1,0 +1,206 @@
+
+> bundle:check
+> npm run bundle:check --workspace apps/web
+
+
+> wealth-tracker@1.4.5 bundle:check
+> node scripts/bundle-size-check.js
+
+⚠️  Falling back to internal decimal helpers.
+📦 Bundle Size Analysis
+=======================
+
+📄 index.html: 1.59 KB
+
+📜 JavaScript Files:
+  AIFeatures-C2wlof5j.js: 8.14 KB
+  AccessibilityDashboard-CUFxpHQO.js: 6.73 KB
+  AccessibilitySettings-LfO1Kv-A.js: 6.65 KB
+  AccountTransactions-dd1XhTKH.js: 5.79 KB
+  Accounts-DgyuG67K.js: 7.92 KB
+  AddWidgetModal-BaKSbcjQ.js: 2.08 KB
+  Advanced-gisDI1h9.js: 1.08 KB
+  AdvancedAnalytics-DB93je0T.js: 4.35 KB
+  AlertTriangleIcon-kaq52Yr7.js: 713.00 Bytes
+  Analytics-wpUtUW91.js: 6.52 KB
+  AppSettings-4Kng9jcX.js: 6.39 KB
+  AreaChartWrapper-Rt7s4aCO.js: 292.00 Bytes
+  AuditLogs-BmQjIa9C.js: 2.21 KB
+  AutomaticBackupSettings-a5Bt6CaY.js: 3.34 KB
+  BankAPISettings-BRwOiARH.js: 1.93 KB
+  BankConnections-BN2CbCw7.js: 2.55 KB
+  BarChartWrapper-DFuHlAuM.js: 292.00 Bytes
+  BatchImportModal-CWFOz1pA.js: 3.46 KB
+  Budget-6wpuqFnQ.js: 14.57 KB
+  BulkTransactionEdit-D7wAEnYT.js: 4.06 KB
+  CSVImportWizard-D56PxDsU.js: 5.19 KB
+  Categories-AfxPurDz.js: 6.28 KB
+  ChartComponents-CgEVVHdE.js: 899.00 Bytes
+  ChartWizard-4YfjDalP.js: 5.26 KB
+  CheckCircleIcon-TdpwSaAR.js: 750.00 Bytes
+  ComposedChartWrapper-rjNdPSh7.js: 292.00 Bytes
+  CustomReports-6TzB9OLq.js: 10.08 KB
+  Dashboard-BI-x6uUf.js: 1.59 KB
+  DashboardBuilder-BU_6sfAy.js: 3.33 KB
+  DashboardV2-D6Z_iFyG.js: 5.51 KB
+  DataIntelligence-Bw89WquV.js: 10.34 KB
+  DataManagement-DC50h7zZ.js: 3.92 KB
+  DataMigrationWizard-D7OSOtxm.js: 3.71 KB
+  DataValidation-VaGfS49k.js: 7.10 KB
+  DeletedAccounts-CTutrjU-.js: 1.99 KB
+  DocumentManager-CXSsz_Tx.js: 5.34 KB
+  Documents-D99tXV4L.js: 808.00 Bytes
+  DuplicateDetection-DCl7qqh7.js: 3.69 KB
+  EditTransactionModal-BVa9ILlb.js: 4.65 KB
+  EnhancedDraggableDashboard-5UHad-NX.js: 15.45 KB
+  EnhancedExportManager-Cp51fhbB.js: 4.69 KB
+  EnhancedImport-tAyaPBLw.js: 7.07 KB
+  EnhancedInvestments-DApT2LnC.js: 16.66 KB
+  ExcelExport-DICMMqWr.js: 3.37 KB
+  ExportManager-CifjnQE3.js: 3.63 KB
+  ExportModal-5tMiNQLA.js: 2.94 KB
+  FinancialPlanning-Br_wjIgw.js: 64.99 KB
+  FinancialSummaries-4RyG6SkF.js: 1.53 KB
+  FinancialSummary-UARHN8bs.js: 3.17 KB
+  Goals-BC1jeZB1.js: 6.80 KB
+  IconButton-C2sWmTFP.js: 865.00 Bytes
+  ImportDataModal-CAjX2obe.js: 8.29 KB
+  ImportRulesManager-enereQio.js: 3.65 KB
+  ImprovedDashboard-DqR0KVDF.js: 4.92 KB
+  Investments-BICZdUof.js: 21.32 KB
+  LayoutTemplatesModal-CMVKbzxD.js: 2.94 KB
+  LineChartWrapper-BGCdtcKZ.js: 292.00 Bytes
+  Login-DbG_0-Wv.js: 806.00 Bytes
+  MobileFeatures-CN-EM0k9.js: 7.65 KB
+  Notifications-D9LjMmRz.js: 2.07 KB
+  OCRTest-HeInQA_X.js: 1.44 KB
+  OFXImportModal-Cq-mk4no.js: 2.72 KB
+  OnboardingModal-1lUzTP0_.js: 1.38 KB
+  OpenBanking-p-5sr_wC.js: 6.60 KB
+  OptimizedCharts-BeqpouyL.js: 928.00 Bytes
+  PageWrapper-xqqid2WL.js: 797.00 Bytes
+  PageWrapperNew-CxKzcBYa.js: 747.00 Bytes
+  Performance-CCbBXCwm.js: 3.58 KB
+  PieChartWrapper-B8TuKO_u.js: 292.00 Bytes
+  QIFImportModal-BklcWSqS.js: 2.67 KB
+  QueryBuilder-C-LzKMVv.js: 2.52 KB
+  QuickDateFilters-CL78L5tf.js: 1.12 KB
+  RadioCheckbox-CWHs2KUk.js: 841.00 Bytes
+  Reconciliation-Dj_lv8ma.js: 6.08 KB
+  SecuritySettings-DhpafA_Y.js: 2.82 KB
+  Settings-PFo742OB.js: 6.15 KB
+  SmartCategorizationSettings-CDd_QbiF.js: 2.63 KB
+  Subscription-B1zFyhaO.js: 6.60 KB
+  Tags-mxZvTNKg.js: 2.30 KB
+  TestDataWarningModal-C3xP_85p.js: 1.42 KB
+  TransactionDetailsView-DVjmwbo2.js: 1.54 KB
+  TransactionReconciliation-Cbnukrt7.js: 2.79 KB
+  Transactions-BJ-66MLM.js: 26.22 KB
+  TransactionsComparison-CTiUcNtA.js: 2.63 KB
+  TransferCenter-BmEwE-aZ.js: 5.30 KB
+  TreemapWrapper-BlU9UYlM.js: 292.00 Bytes
+  VirtualizedTable-CQ62QSa3.js: 1.99 KB
+  VirtualizedTransactionList-C-StJ4uS.js: 2.15 KB
+  Welcome-BtXOQANo.js: 1.76 KB
+  WidgetRegistry-DzUPSN6f.js: 19.89 KB
+  XIcon-DkW14bWd.js: 409.00 Bytes
+  advancedAnalyticsService-DQZZNFND.js: 6.95 KB
+  anomalyDetectionService-CE6u3ySz.js: 2.96 KB
+  bankConnectionService-BDv2pa57.js: 1.28 KB
+  calculations-decimal-C8j1oKl8.js: 578.00 Bytes
+  dataIntelligenceService-BXyPJ268.js: 5.07 KB
+  documentService-DhETw9E5.js: 4.10 KB
+  enhancedCsvImportService-hCb06F7D.js: 4.21 KB
+  errorHandlingService-C_wKiKor.js: 2.17 KB
+  exportService-BIfAeyim.js: 6.83 KB
+  financialPlanningService-BJb7HzL9.js: 3.99 KB
+  importRulesService-t0taTO8c.js: 2.22 KB
+  index-DG2qdv0a.js: 151.62 KB
+  ✅ index-DG2qdv0a.js within limit (10%)
+  ofxImportService-D1hVuiW0.js: 1.91 KB
+  optimizedChartHelpers-COXERyW1.js: 770.00 Bytes
+  plotlyLight-hqOt98ol.js: 361.00 Bytes
+  qifImportService-CEyeECwt.js: 1.07 KB
+  securityService-C8I9WUI7.js: 2.29 KB
+  smartCategorizationService-Q3QC1bhl.js: 1.81 KB
+  taxDataService-CGYrfzWl.js: 6.47 KB
+  useFormattedValues-DJU_T_EW.js: 415.00 Bytes
+  useLocalStorage-Dvreiyh7.js: 1017.00 Bytes
+  useRegionalCurrency-DvZhvJMr.js: 533.00 Bytes
+  useRegionalSettings-CFrhmlCR.js: 532.00 Bytes
+  vendor-analytics-BfT0Mtnq.js: 2.68 KB
+  ✅ vendor-analytics-BfT0Mtnq.js within limit (0%)
+  vendor-auth-BViU1iwe.js: 15.10 KB
+  ✅ vendor-auth-BViU1iwe.js within limit (1%)
+  vendor-charting-C4paO_e1.js: 71.31 KB
+  ✅ vendor-charting-C4paO_e1.js within limit (3%)
+  vendor-core-DhrOmULG.js: 16.38 KB
+  ✅ vendor-core-DhrOmULG.js within limit (1%)
+  vendor-date-fns-DZWccdiI.js: 7.39 KB
+  ✅ vendor-date-fns-DZWccdiI.js within limit (0%)
+  vendor-dnd-D5NDreKK.js: 15.74 KB
+  ✅ vendor-dnd-D5NDreKK.js within limit (1%)
+  vendor-export-Cr55j3Qk.js: 353.84 KB
+  ✅ vendor-export-Cr55j3Qk.js within limit (17%)
+  vendor-floating-ui-B4AjYJ8F.js: 41.00 Bytes
+  ✅ vendor-floating-ui-B4AjYJ8F.js within limit (0%)
+  vendor-grid-C79cKHak.js: 143.18 KB
+  ✅ vendor-grid-C79cKHak.js within limit (7%)
+  vendor-icons-nBDK6PLE.js: 10.58 KB
+  ✅ vendor-icons-nBDK6PLE.js within limit (1%)
+  vendor-motion-B4AjYJ8F.js: 41.00 Bytes
+  ✅ vendor-motion-B4AjYJ8F.js within limit (0%)
+  vendor-plotly-BV_TfIMr.js: 426.96 KB
+  ✅ vendor-plotly-BV_TfIMr.js within limit (21%)
+  vendor-react-core-D28Q2z0q.js: 44.66 KB
+  ✅ vendor-react-core-D28Q2z0q.js within limit (2%)
+  vendor-react-grid-layout-DzdZsBTZ.js: 12.56 KB
+  ✅ vendor-react-grid-layout-DzdZsBTZ.js within limit (1%)
+  vendor-react-router-Cz65W67j.js: 11.51 KB
+  ✅ vendor-react-router-Cz65W67j.js within limit (1%)
+  vendor-realtime-DtEFkOeq.js: 14.31 KB
+  ✅ vendor-realtime-DtEFkOeq.js within limit (1%)
+  vendor-sentry-CRslv2AF.js: 22.96 KB
+  ✅ vendor-sentry-CRslv2AF.js within limit (1%)
+  vendor-shared-DMtj0ug0.js: 234.70 KB
+  ✅ vendor-shared-DMtj0ug0.js within limit (11%)
+  vendor-state-gxBJRP7a.js: 5.92 KB
+  ✅ vendor-state-gxBJRP7a.js within limit (0%)
+  vendor-stripe-BeLJKxVc.js: 3.65 KB
+  ✅ vendor-stripe-BeLJKxVc.js within limit (0%)
+  vendor-supabase-BwexEMdh.js: 28.53 KB
+  ✅ vendor-supabase-BwexEMdh.js within limit (1%)
+  vendor-virtualization-DLu0aYa3.js: 6.37 KB
+  ✅ vendor-virtualization-DLu0aYa3.js within limit (0%)
+  📊 Total JS: 2.08 MB
+
+📈 Top JS Chunks:
+  1. vendor-plotly-BV_TfIMr.js – 426.96 KB
+  2. vendor-export-Cr55j3Qk.js – 353.84 KB
+  3. vendor-shared-DMtj0ug0.js – 234.70 KB
+  4. index-DG2qdv0a.js – 151.62 KB
+  5. vendor-grid-C79cKHak.js – 143.18 KB
+  6. vendor-charting-C4paO_e1.js – 71.31 KB
+  7. FinancialPlanning-Br_wjIgw.js – 64.99 KB
+  8. vendor-react-core-D28Q2z0q.js – 44.66 KB
+  9. vendor-supabase-BwexEMdh.js – 28.53 KB
+  10. Transactions-BJ-66MLM.js – 26.22 KB
+
+🎨 CSS Files:
+  index-pxBQQ14-.css: 20.35 KB
+  ✅ index-pxBQQ14-.css within limit (20%)
+  vendor-grid-DMpH610J.css: 35.20 KB
+  vendor-icons-CCNfw6fC.css: 813.00 Bytes
+  vendor-react-grid-layout-C9-ySRfk.css: 953.00 Bytes
+  vendor-shared-MGNviBeR.css: 8.95 KB
+  📊 Total CSS: 66.22 KB
+
+📊 Total Bundle Analysis:
+Total Size: 2.15 MB
+  ✅ Total Bundle within limit (54%)
+
+💡 Performance Recommendations:
+  • Consider combining smaller JS chunks
+
+==================================================
+✅ Bundle size check passed

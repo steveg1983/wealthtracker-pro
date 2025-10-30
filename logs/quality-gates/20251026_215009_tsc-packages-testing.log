@@ -1,0 +1,31 @@
+packages/testing/supabaseMock.ts(25,45): error TS2312: An interface can only extend an object type or intersection of object types with statically known members.
+packages/testing/supabaseMock.ts(49,21): error TS2339: Property 'mockResolvedValue' does not exist on type 'MockInstance<any[], any>'.
+packages/testing/supabaseMock.ts(59,21): error TS2339: Property 'mockResolvedValue' does not exist on type 'MockInstance<any[], any>'.
+packages/testing/supabaseRealTest.ts(11,82): error TS2339: Property 'skip' does not exist on type '(name: string, fn: () => void) => void'.
+packages/testing/supabaseRealTest.ts(42,3): error TS2322: Type 'SupabaseClient<Database, "public" extends Exclude<keyof Database, "__InternalSupabase"> ? "public" : string & Exclude<keyof Database, "__InternalSupabase">, SchemaNameOrClientOptions extends string & Exclude<...> ? SchemaNameOrClientOptions : "public" extends Exclude<...> ? "public" : string & Exclude<...>, Omit<......' is not assignable to type 'SupabaseTestClient'.
+  Type 'SchemaNameOrClientOptions extends string & Exclude<keyof Database, "__InternalSupabase"> ? SchemaNameOrClientOptions : "public" extends Exclude<...> ? "public" : string & Exclude<...>' is not assignable to type '"public"'.
+    Type '(string & Exclude<keyof Database, "__InternalSupabase"> extends string & Exclude<keyof Database, "__InternalSupabase"> ? string & Exclude<...> : "public" extends Exclude<...> ? "public" : string & Exclude<...>) | ({ ...; } extends string & Exclude<...> ? string & ... 1 more ... & { ...; } : "public" extends Exclude<...' is not assignable to type '"public"'.
+      Type 'string & Exclude<keyof Database, "__InternalSupabase"> extends string & Exclude<keyof Database, "__InternalSupabase"> ? string & Exclude<...> : "public" extends Exclude<...> ? "public" : string & Exclude<...>' is not assignable to type '"public"'.
+        Type 'string extends string & Exclude<keyof Database, "__InternalSupabase"> ? string & Exclude<keyof Database, "__InternalSupabase"> : "public" extends Exclude<...> ? "public" : string & Exclude<...>' is not assignable to type '"public"'.
+          Type '(string & Exclude<keyof Database, "__InternalSupabase">) | ("public" extends Exclude<keyof Database, "__InternalSupabase"> ? "public" : string & Exclude<...>)' is not assignable to type '"public"'.
+            Type 'string & Exclude<keyof Database, "__InternalSupabase">' is not assignable to type '"public"'.
+packages/testing/supabaseRealTest.ts(42,33): error TS2345: Argument of type 'string | true' is not assignable to parameter of type 'string'.
+  Type 'boolean' is not assignable to type 'string'.
+packages/testing/vitest-setup.ts(1,10): error TS2305: Module '"vitest"' has no exported member 'afterAll'.
+packages/testing/vitest-setup.ts(1,20): error TS2305: Module '"vitest"' has no exported member 'afterEach'.
+packages/testing/vitest-setup.ts(1,31): error TS2305: Module '"vitest"' has no exported member 'beforeAll'.
+packages/testing/vitest-setup.ts(12,8): error TS2339: Property 'doMock' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(17,25): error TS2339: Property 'importActual' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(24,8): error TS2339: Property 'clearAllMocks' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(30,8): error TS2339: Property 'spyOn' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(31,8): error TS2339: Property 'spyOn' does not exist on type 'Vi'.
+packages/testing/vitest-setup.ts(47,5): error TS2322: Type 'MockInstance<any[], any>' is not assignable to type '{ new (callback: IntersectionObserverCallback, options?: IntersectionObserverInit | undefined): IntersectionObserver; prototype: IntersectionObserver; }'.
+  Type 'MockInstance<any[], any>' provides no match for the signature 'new (callback: IntersectionObserverCallback, options?: IntersectionObserverInit | undefined): IntersectionObserver'.
+packages/testing/vitest-setup.ts(57,5): error TS2322: Type 'MockInstance<any[], any>' is not assignable to type '{ new (callback: ResizeObserverCallback): ResizeObserver; prototype: ResizeObserver; }'.
+  Type 'MockInstance<any[], any>' provides no match for the signature 'new (callback: ResizeObserverCallback): ResizeObserver'.
+packages/testing/vitest-setup.ts(63,5): error TS2322: Type 'MockInstance<[x: number, y: number], void>' is not assignable to type '{ (options?: ScrollToOptions | undefined): void; (x: number, y: number): void; } & { (options?: ScrollToOptions | undefined): void; (x: number, y: number): void; }'.
+  Type 'MockInstance<[x: number, y: number], void>' is not assignable to type '{ (options?: ScrollToOptions | undefined): void; (x: number, y: number): void; }'.
+    Target signature provides too few arguments. Expected 2 or more, but got 1.
+packages/testing/vitest-setup.ts(67,9): error TS2322: Type '() => `test-uuid-${string}`' is not assignable to type '() => `${string}-${string}-${string}-${string}-${string}`'.
+  Type '`test-uuid-${string}`' is not assignable to type '`${string}-${string}-${string}-${string}-${string}`'.
+packages/testing/vitest-setup.ts(82,8): error TS2339: Property 'restoreAllMocks' does not exist on type 'Vi'.

@@ -1,0 +1,112 @@
+apps/web/src/contexts/NotificationContextProvider.tsx(11,3): error TS2440: Import declaration conflicts with local declaration of 'Notification'.
+apps/web/src/contexts/NotificationContextProvider.tsx(12,3): error TS2440: Import declaration conflicts with local declaration of 'BudgetAlert'.
+apps/web/src/lib/sentry.ts(6,32): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+apps/web/src/lib/sentry.ts(7,33): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+apps/web/src/lib/sentry.ts(8,29): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+apps/web/src/lib/sentry.ts(9,43): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+apps/web/src/lib/sentry.ts(47,53): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+apps/web/src/services/analyticsEngine.ts(7,24): error TS7016: Could not find a declaration file for module 'regression'. '/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/node_modules/regression/dist/regression.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/regression` if it exists or add a new declaration (.d.ts) file containing `declare module 'regression';`
+apps/web/src/services/analyticsEngine.ts(8,39): error TS7016: Could not find a declaration file for module 'regression'. '/Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web/node_modules/regression/dist/regression.js' implicitly has an 'any' type.
+  Try `npm i --save-dev @types/regression` if it exists or add a new declaration (.d.ts) file containing `declare module 'regression';`
+apps/web/src/services/api/accountService.ts(301,10): error TS2352: Conversion of type 'Record<string, unknown>' to type 'Account' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type 'Record<string, unknown>' is missing the following properties from type 'Account': id, name, type, balance, and 2 more.
+apps/web/src/services/api/simpleAccountService.ts(263,64): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/services/api/simpleAccountService.ts(299,66): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/services/api/simpleAccountService.ts(344,66): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/services/autoSyncSupabaseProcessor.ts(732,7): error TS2345: Argument of type 'Budget' is not assignable to parameter of type 'EntityRecord'.
+  Index signature for type 'string' is missing in type 'Budget'.
+apps/web/src/services/autoSyncSupabaseProcessor.ts(857,7): error TS2345: Argument of type 'Goal' is not assignable to parameter of type 'EntityRecord'.
+  Index signature for type 'string' is missing in type 'Goal'.
+apps/web/src/services/autoSyncSupabaseProcessor.ts(982,7): error TS2345: Argument of type 'Category' is not assignable to parameter of type 'EntityRecord'.
+  Index signature for type 'string' is missing in type 'Category'.
+apps/web/src/services/loggingService.ts(26,39): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+apps/web/src/services/loggingService.ts(27,32): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+apps/web/src/services/loggingService.ts(63,34): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/services/notificationService.ts(143,54): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/services/notificationService.ts(320,38): error TS2304: Cannot find name 'now'.
+apps/web/src/services/notificationService.ts(343,51): error TS2304: Cannot find name 'now'.
+apps/web/src/services/notificationService.ts(359,36): error TS2304: Cannot find name 'now'.
+apps/web/src/services/notificationService.ts(379,49): error TS2304: Cannot find name 'now'.
+apps/web/src/services/serviceFactory.ts(25,68): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/services/serviceFactory.ts(26,66): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/services/serviceFactory.ts(27,66): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/store/index.ts(2,64): error TS2305: Module '"@reduxjs/toolkit"' has no exported member 'PreloadedState'.
+apps/web/src/store/slices/goalsSlice.ts(98,25): error TS2345: Argument of type '"isCompleted"' is not assignable to parameter of type 'keyof Goal'.
+apps/web/src/store/thunks/supabaseThunks.ts(95,82): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/store/thunks/supabaseThunks.ts(263,86): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/store/thunks/supabaseThunks.ts(436,81): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/store/thunks/supabaseThunks.ts(516,79): error TS2345: Argument of type 'unknown' is not assignable to parameter of type 'LogPayload'.
+apps/web/src/test/utils/renderWithProviders.tsx(2,15): error TS2305: Module '"@reduxjs/toolkit"' has no exported member 'PreloadedState'.
+apps/web/src/test/utils/renderWithProviders.tsx(47,28): error TS2322: Type '{ children: Element; initialData: InitialState | undefined; }' is not assignable to type 'IntrinsicAttributes & { children: ReactNode; }'.
+  Property 'initialData' does not exist on type 'IntrinsicAttributes & { children: ReactNode; }'.
+apps/web/src/test/utils/renderWithProviders.tsx(96,3): error TS2353: Object literal may only specify known properties, and 'isReconciled' does not exist in type 'Transaction'.
+apps/web/src/test/utils/renderWithProviders.tsx(105,3): error TS2353: Object literal may only specify known properties, and 'createdAt' does not exist in type 'Account'.
+apps/web/src/test/utils/renderWithProviders.tsx(116,3): error TS2322: Type 'Date' is not assignable to type 'string'.
+apps/web/src/test/utils/renderWithProviders.tsx(117,3): error TS2322: Type 'Date' is not assignable to type 'string'.
+apps/web/src/test/utils/renderWithProviders.tsx(132,3): error TS2561: Object literal may only specify known properties, but 'isCompleted' does not exist in type 'Goal'. Did you mean to write 'completedAt'?
+apps/web/src/test/utils/renderWithProviders.tsx(146,3): error TS2353: Object literal may only specify known properties, and 'createdAt' does not exist in type 'Category'.
+packages/testing/databaseTestUtils.ts(2,23): error TS2307: Cannot find module '@faker-js/faker' or its corresponding type declarations.
+packages/testing/factories.ts(30,3): error TS2561: Object literal may only specify known properties, but 'category' does not exist in type 'Budget'. Did you mean to write 'categoryId'?
+packages/testing/factories.ts(38,73): error TS2322: Type '{ id: string; name: string; type: "savings" | "debt-payoff" | "investment" | "custom"; targetAmount: number; currentAmount: number; targetDate: Date; description?: string | undefined; linkedAccountIds?: string[] | undefined; ... 14 more ...; completedAt?: string | undefined; }' is not assignable to type 'Goal'.
+  Types of property 'progress' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number'.
+      Type 'undefined' is not assignable to type 'number'.
+packages/testing/mock-indexeddb.ts(5,20): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
+packages/testing/realDatabase.ts(222,15): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(values: { id?: string | undefined; user_id: string; name: string; description?: string | null | undefined; target_amount: number; current_amount?: number | undefined; target_date?: string | null | undefined; ... 9 more ...; metadata?: Json | undefined; }, options?: { ...; } | undefined): PostgrestFilterBuilder<...>', gave the following error.
+    Argument of type '{ id: `${string}-${string}-${string}-${string}-${string}`; user_id: string; name: string; description: string; target_amount: number; current_amount: number; target_date: string; priority: "medium" | "low" | "high"; status: string; created_at: string; updated_at: string; }' is not assignable to parameter of type '{ id?: string | undefined; user_id: string; name: string; description?: string | null | undefined; target_amount: number; current_amount?: number | undefined; target_date?: string | null | undefined; ... 9 more ...; metadata?: Json | undefined; }'.
+      Types of property 'status' are incompatible.
+        Type 'string' is not assignable to type '"active" | "paused" | "completed" | "canceled" | undefined'.
+  Overload 2 of 2, '(values: { id?: string | undefined; user_id: string; name: string; description?: string | null | undefined; target_amount: number; current_amount?: number | undefined; target_date?: string | null | undefined; ... 9 more ...; metadata?: Json | undefined; }[], options?: { ...; } | undefined): PostgrestFilterBuilder<...>', gave the following error.
+    Argument of type '{ id: `${string}-${string}-${string}-${string}-${string}`; user_id: string; name: string; description: string; target_amount: number; current_amount: number; target_date: string; priority: "medium" | "low" | "high"; status: string; created_at: string; updated_at: string; }' is not assignable to parameter of type '{ id?: string | undefined; user_id: string; name: string; description?: string | null | undefined; target_amount: number; current_amount?: number | undefined; target_date?: string | null | undefined; ... 9 more ...; metadata?: Json | undefined; }[]'.
+      Type '{ id: `${string}-${string}-${string}-${string}-${string}`; user_id: string; name: string; description: string; target_amount: number; current_amount: number; target_date: string; priority: "medium" | "low" | "high"; status: string; created_at: string; updated_at: string; }' is missing the following properties from type '{ id?: string | undefined; user_id: string; name: string; description?: string | null | undefined; target_amount: number; current_amount?: number | undefined; target_date?: string | null | undefined; ... 9 more ...; metadata?: Json | undefined; }[]': length, pop, push, concat, and 29 more.
+packages/testing/realDatabase.ts(255,48): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(relation: "users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"): PostgrestQueryBuilder<...>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+  Overload 2 of 2, '(relation: never): PostgrestQueryBuilder<{ PostgrestVersion: "12"; }, { Tables: { users: { Row: { id: string; clerk_id: string; email: string; first_name: string | null; last_name: string | null; avatar_url: string | null; ... 12 more ...; has_mfa: boolean | null; }; Insert: { ...; }; Update: { ...; }; Relationships: []; }; ... 25 more ...; audit_log: { ...; }; }; Views: {}; Functions: { ...; }; Enums: {}; }, never, never, never>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type 'never'.
+packages/testing/realDatabase.ts(261,48): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(relation: "users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"): PostgrestQueryBuilder<...>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+  Overload 2 of 2, '(relation: never): PostgrestQueryBuilder<{ PostgrestVersion: "12"; }, { Tables: { users: { Row: { id: string; clerk_id: string; email: string; first_name: string | null; last_name: string | null; avatar_url: string | null; ... 12 more ...; has_mfa: boolean | null; }; Insert: { ...; }; Update: { ...; }; Relationships: []; }; ... 25 more ...; audit_log: { ...; }; }; Views: {}; Functions: { ...; }; Enums: {}; }, never, never, never>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type 'never'.
+packages/testing/realDatabase.ts(282,44): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(relation: "users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"): PostgrestQueryBuilder<...>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type '"users" | "accounts" | "categories" | "transactions" | "tags" | "budgets" | "goals" | "recurring_templates" | "plaid_connections" | "plaid_accounts" | "sync_queue" | "dashboard_layouts" | ... 14 more ... | "audit_log"'.
+  Overload 2 of 2, '(relation: never): PostgrestQueryBuilder<{ PostgrestVersion: "12"; }, { Tables: { users: { Row: { id: string; clerk_id: string; email: string; first_name: string | null; last_name: string | null; avatar_url: string | null; ... 12 more ...; has_mfa: boolean | null; }; Insert: { ...; }; Update: { ...; }; Relationships: []; }; ... 25 more ...; audit_log: { ...; }; }; Views: {}; Functions: { ...; }; Enums: {}; }, never, never, never>', gave the following error.
+    Argument of type 'string' is not assignable to parameter of type 'never'.
+packages/testing/realTestFramework.tsx(1,42): error TS7016: Could not find a declaration file for module 'react'. '/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react/index.js' implicitly has an 'any' type.
+  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
+packages/testing/realTestFramework.tsx(2,44): error TS2307: Cannot find module '@testing-library/react' or its corresponding type declarations.
+packages/testing/realTestFramework.tsx(3,31): error TS2307: Cannot find module '@clerk/clerk-react' or its corresponding type declarations.
+packages/testing/realTestFramework.tsx(4,31): error TS2307: Cannot find module 'react-router-dom' or its corresponding type declarations.
+packages/testing/realTestFramework.tsx(32,5): error TS7016: Could not find a declaration file for module 'react/jsx-runtime'. '/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
+  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
+packages/testing/realTestFramework.tsx(37,16): error TS2739: Type '{ children: Element; }' is missing the following properties from type '{ children: ReactNode; navigate: (path: string) => void; setCurrentPage: (page: string) => void; setSelectedAccountId: (accountId: string | null) => void; }': navigate, setCurrentPage, setSelectedAccountId
+packages/testing/supabaseMock.ts(1,20): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
+packages/testing/supabaseMock.ts(51,45): error TS2312: An interface can only extend an object type or intersection of object types with statically known members.
+packages/testing/supabaseRealTest.ts(5,36): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+packages/testing/supabaseRealTest.ts(6,36): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+packages/testing/supabaseRealTest.ts(7,29): error TS2339: Property 'env' does not exist on type 'ImportMeta'.
+packages/testing/templates/component-real-test-template.tsx(10,82): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(11,33): error TS2307: Cannot find module '@testing-library/react' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(12,23): error TS2307: Cannot find module '@testing-library/user-event' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(13,27): error TS2307: Cannot find module './ComponentName' or its corresponding type declarations.
+packages/testing/templates/component-real-test-template.tsx(42,44): error TS2345: Argument of type '{ name: string; type: string; }' is not assignable to parameter of type 'string'.
+packages/testing/templates/component-real-test-template.tsx(62,23): error TS2304: Cannot find name 'vi'.
+packages/testing/templates/component-real-test-template.tsx(65,9): error TS7016: Could not find a declaration file for module 'react/jsx-runtime'. '/Users/stevegreen/PROJECT_WEALTHTRACKER/node_modules/react/jsx-runtime.js' implicitly has an 'any' type.
+  If the 'react' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react'
+packages/testing/templates/component-real-test-template.tsx(94,67): error TS2345: Argument of type '{ amount: number; description: string; }' is not assignable to parameter of type 'string'.
+packages/testing/templates/component-real-test-template.tsx(113,23): error TS2339: Property 'description' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; } | ... 25 more ... | { ...; }'.
+  Property 'description' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; }'.
+packages/testing/templates/component-real-test-template.tsx(145,24): error TS2339: Property 'amount' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; } | ... 25 more ... | { ...; }'.
+  Property 'amount' does not exist on type '{ id: string; user_id: string; tier: "free" | "premium" | "pro" | "business"; status: "active" | "cancelled" | "incomplete" | "incomplete_expired" | "past_due" | "trialing" | "unpaid" | "paused"; ... 11 more ...; metadata: Json; }'.
+packages/testing/templates/component-real-test-template.tsx(204,30): error TS2552: Cannot find name 'testDb'. Did you mean 'test'?
+packages/testing/templates/component-real-test-template.tsx(227,39): error TS2551: Property 'getTransactions' does not exist on type 'RealTestDatabase'. Did you mean 'createTransaction'?
+packages/testing/templates/component-real-test-template.tsx(231,18): error TS2339: Property 'deleteAccount' does not exist on type 'RealTestDatabase'.
+packages/testing/templates/component-real-test-template.tsx(232,47): error TS2551: Property 'getTransactions' does not exist on type 'RealTestDatabase'. Did you mean 'createTransaction'?
+packages/testing/templates/component-real-test-template.tsx(242,46): error TS2345: Argument of type '{ amount: number; description: string; }' is not assignable to parameter of type 'string'.
+packages/testing/vitest-setup.ts(1,52): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
+packages/testing/vitest-setup.ts(67,9): error TS2322: Type '() => `test-uuid-${string}`' is not assignable to type '() => `${string}-${string}-${string}-${string}-${string}`'.
+  Type '`test-uuid-${string}`' is not assignable to type '`${string}-${string}-${string}-${string}-${string}`'.

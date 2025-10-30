@@ -1,0 +1,9 @@
+Vitest Focused Run: csvImport
+UTC Timestamp: 2025-10-23 23:29:00
+Command: npm run test -- --run src/utils/csvImport.test.ts
+Result: 33 tests (30 passed / 3 failed)
+Failures:
+1. importTransactionsFromCSV logs errors for problematic rows -> console.error not invoked when invalid rows skipped.
+2. importAccountsFromCSV handles various balance formats -> expected parentheses-wrapped negatives to normalize to positive values.
+3. CSV parsing edge cases handles very large CSV files efficiently -> only 964 rows parsed from synthetic 1000-row fixture.
+Next Steps: Investigate error logging pathways, normalize account balances, and revisit chunking limits for large CSV imports.

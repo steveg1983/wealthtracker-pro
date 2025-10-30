@@ -1,0 +1,353 @@
+/**
+ * XSS Protection using DOMPurify
+ * Sanitizes all user inputs to prevent cross-site scripting attacks
+ */
+
+import DOMPurify, { type Config as DOMPurifyConfig } from 'dompurify';
+import type React from 'react';
+import { Decimal, toDecimal, formatDecimalFixed } from '@wealthtracker/utils';
+import { lazyLogger } from '../services/serviceFactory';
+
+const logger = lazyLogger.getLogger('XSSProtection');
+
+type PurifyConfig = DOMPurifyConfig;
+
+type NullableString = string | null | undefined;
+
+const sanitizeString = (dirty: string, config?: PurifyConfig): string => {
+  const result = DOMPurify.sanitize(dirty, config);
+  if (typeof result === 'string') {
+    return result;
+  }
+
+  // Fallback for TrustedHTML or DOM fragments - convert to string safely
+  if (typeof window !== 'undefined' && typeof result === 'object' && result !== null && 'toString' in result) {
+    try {
+      return String(result);
+    } catch {
+      return '';
+    }
+  }
+
+  return '';
+};
+
+// Configure DOMPurify options for different contexts
+const DEFAULT_CONFIG: PurifyConfig = {
+  ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'p', 'span', 'div'],
+  ALLOWED_ATTR: ['class', 'style'],
+  ALLOW_DATA_ATTR: false,
+  USE_PROFILES: { html: true }
+};
+
+const STRICT_CONFIG: PurifyConfig = {
+  ALLOWED_TAGS: [],
+  ALLOWED_ATTR: [],
+  ALLOW_DATA_ATTR: false,
+  KEEP_CONTENT: true
+};
+
+/**
+ * Sanitize HTML content
+ * Use this for any content that might contain HTML
+ */
+export const sanitizeHTML = (dirty: NullableString, config: PurifyConfig = DEFAULT_CONFIG): string => {
+  if (!dirty) return '';
+  return sanitizeString(dirty, config);
+};
+
+/**
+ * Sanitize plain text
+ * Use this for inputs that should not contain any HTML
+ */
+export const sanitizeText = (dirty: NullableString): string => {
+  if (!dirty) return '';
+  return sanitizeString(dirty, STRICT_CONFIG);
+};
+
+/**
+ * Sanitize markdown content
+ * Use this for markdown fields that might be rendered as HTML
+ * Note: This sanitizes the raw markdown, not rendered HTML
+ */
+export const sanitizeMarkdown = (dirty: NullableString): string => {
+  if (!dirty) return '';
+  
+  // First, sanitize any embedded HTML/scripts in the markdown
+  let safe = sanitizeString(dirty, STRICT_CONFIG);
+  
+  // Then remove dangerous markdown patterns
+  // Match markdown links with better handling of nested parentheses
+  safe = safe.replace(/\[([^\]]+)\]\(((?:[^)(]|\([^)]*\))*)\)/gi, (match, linkText, url) => {
+    const lowerUrl = url.toLowerCase().trim();
+    if (lowerUrl.startsWith('javascript:') || 
+        lowerUrl.startsWith('data:') || 
+        lowerUrl.startsWith('vbscript:')) {
+      return `[${linkText}]()`;
+    }
+    return match;
+  });
+  
+  return safe;
+};
+
+/**
+ * Sanitize URL
+ * Prevents javascript: and data: URLs
+ */
+export const sanitizeURL = (url: NullableString): string => {
+  if (!url) return '';
+  
+  // First sanitize as text to remove any HTML/script tags
+  const sanitizedText = sanitizeText(url);
+  
+  // Remove any whitespace and convert to lowercase for checking
+  const cleanUrl = sanitizedText.trim().toLowerCase();
+  
+  // Block dangerous protocols
+  const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:'];
+  if (dangerousProtocols.some(protocol => cleanUrl.startsWith(protocol))) {
+    logger.warn('Blocked dangerous URL:', url);
+    return '';
+  }
+  
+  // Additional URL validation
+  try {
+    const urlObject = new URL(sanitizedText, window.location.origin);
+    // Only allow http(s) and relative URLs
+    if (!['http:', 'https:', ''].includes(urlObject.protocol)) {
+      return '';
+    }
+    return sanitizedText;
+  } catch {
+    // If URL parsing fails, treat as relative URL
+    return sanitizedText;
+  }
+};
+
+/**
+ * Sanitize JSON string
+ * Use this before parsing JSON from user input
+ */
+export const sanitizeJSON = (jsonString: NullableString): string => {
+  if (!jsonString) return '{}';
+  
+  try {
+    // Parse and re-stringify to remove any non-JSON content
+    const parsed = JSON.parse(jsonString);
+    // Recursively sanitize string values in the JSON
+    const sanitized = sanitizeJSONObject(parsed);
+    return JSON.stringify(sanitized);
+  } catch {
+    logger.warn('Invalid JSON input:', jsonString);
+    return '{}';
+  }
+};
+
+/**
+ * Recursively sanitize object values
+ */
+const sanitizeJSONObject = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    return sanitizeText(value);
+  }
+
+  if (Array.isArray(value)) {
+    return value.map(sanitizeJSONObject);
+  }
+
+  if (value && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>).reduce<Record<string, unknown>>(
+      (acc, [key, entryValue]) => {
+        const sanitizedKey = sanitizeText(key);
+        acc[sanitizedKey] = sanitizeJSONObject(entryValue);
+        return acc;
+      },
+      {},
+    );
+  }
+
+  return value;
+};
+
+/**
+ * Sanitize filename
+ * Removes potentially dangerous characters from filenames
+ */
+export const sanitizeFilename = (filename: NullableString): string => {
+  if (!filename) return '';
+  
+  // Remove path traversal attempts
+  let safe = filename.replace(/\.\./g, '');
+  
+  // Remove special characters except for common filename chars
+  safe = safe.replace(/[^a-zA-Z0-9._\- ]/g, '');
+  
+  // Limit length
+  if (safe.length > 255) {
+    safe = safe.substring(0, 255);
+  }
+  
+  return safe;
+};
+
+/**
+ * Sanitize SQL-like input
+ * Use this for search queries or filters
+ */
+export const sanitizeQuery = (query: NullableString): string => {
+  if (!query) return '';
+  
+  // Remove SQL injection attempts
+  let safe = query.replace(/[';\\]/g, '');
+  
+  // Only remove dangerous SQL keywords when combined with special characters
+  // This prevents removing legitimate words like "select" from normal searches
+  const dangerousPatterns = [
+    /;\s*(DROP|DELETE|INSERT|UPDATE|ALTER|CREATE|EXEC)\s+/gi,
+    /UNION\s+SELECT/gi,
+    /SELECT\s+\*\s+FROM/gi,
+    /--\s*$/g,  // SQL comments
+    /\/\*.*?\*\//g  // SQL block comments
+  ];
+  
+  dangerousPatterns.forEach(pattern => {
+    safe = safe.replace(pattern, '');
+  });
+  
+  return sanitizeText(safe);
+};
+
+/**
+ * Sanitize number input
+ * Ensures the input is a valid number
+ */
+export const sanitizeNumber = (input: string | number): number => {
+  try {
+    const decimalValue = toDecimal(input);
+    if (!decimalValue.isFinite()) {
+      return 0;
+    }
+    return decimalValue.toNumber();
+  } catch (error) {
+    logger.warn('Invalid number input detected', { input, error: String(error) });
+    return 0;
+  }
+};
+
+/**
+ * Sanitize decimal/currency input
+ * Ensures the input is a valid decimal number
+ */
+export const sanitizeDecimal = (input: string | number, decimals: number = 2): string => {
+  try {
+    const decimalValue = toDecimal(input);
+    if (!decimalValue.isFinite()) {
+      return formatDecimalFixed(Decimal(0), decimals);
+    }
+    return formatDecimalFixed(decimalValue, decimals);
+  } catch (error) {
+    logger.warn('Invalid decimal input detected', { input, error: String(error) });
+    return formatDecimalFixed(Decimal(0), decimals);
+  }
+};
+
+/**
+ * Sanitize date input
+ * Ensures the input is a valid date
+ */
+export const sanitizeDate = (input: string | Date): Date | null => {
+  if (!input) return null;
+  
+  const date = new Date(input);
+  if (isNaN(date.getTime())) {
+    return null;
+  }
+  
+  // Prevent dates that are too far in the past or future
+  const minDate = new Date('1900-01-01');
+  const maxDate = new Date('2100-12-31');
+  
+  if (date < minDate || date > maxDate) {
+    return null;
+  }
+  
+  return date;
+};
+
+/**
+ * Create a sanitized component props helper
+ * Use this to sanitize all props passed to a component
+ */
+export const sanitizeProps = <T extends Record<string, unknown>>(props: T): T => {
+  const sanitizedEntries: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(props)) {
+    if (typeof value === 'string') {
+      sanitizedEntries[key] = sanitizeText(value);
+    } else if (typeof value === 'number') {
+      sanitizedEntries[key] = sanitizeNumber(value);
+    } else if (value instanceof Date) {
+      sanitizedEntries[key] = sanitizeDate(value);
+    } else if (Array.isArray(value)) {
+      sanitizedEntries[key] = value.map((item) =>
+        typeof item === 'string' ? sanitizeText(item) : item,
+      );
+    } else {
+      sanitizedEntries[key] = value;
+    }
+  }
+
+  return { ...props, ...sanitizedEntries } as T;
+};
+
+/**
+ * Hook to automatically sanitize form inputs
+ */
+export const useSanitizedInput = (type: 'text' | 'html' | 'url' | 'query' = 'text') => {
+  const sanitize = (value: string): string => {
+    switch (type) {
+      case 'html':
+        return sanitizeHTML(value);
+      case 'url':
+        return sanitizeURL(value);
+      case 'query':
+        return sanitizeQuery(value);
+      default:
+        return sanitizeText(value);
+    }
+  };
+
+  return {
+    sanitize,
+    sanitizeOnChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const sanitized = sanitize(e.target.value);
+      e.target.value = sanitized;
+      return sanitized;
+    }
+  };
+};
+
+// Set up DOMPurify hooks for additional security
+if (typeof window !== 'undefined') {
+  // Add a hook to log all sanitization operations in development
+  const mode = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env.MODE : 'production';
+  const isDevelopment = mode === 'development';
+  if (isDevelopment) {
+    DOMPurify.addHook('beforeSanitizeElements', (currentNode) => {
+      if (currentNode instanceof Element) {
+        const tag = currentNode.tagName.toLowerCase();
+        if (['script', 'iframe', 'object', 'embed'].includes(tag)) {
+          logger.warn('DOMPurify blocked dangerous element:', tag);
+        }
+      }
+    });
+  }
+
+  // Add hook to set target="_blank" rel="noopener" on external links
+  DOMPurify.addHook('afterSanitizeAttributes', (currentNode) => {
+    if (currentNode instanceof Element && currentNode.getAttribute('target') === '_blank') {
+      currentNode.setAttribute('rel', 'noopener noreferrer');
+    }
+  });
+}

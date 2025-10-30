@@ -1,0 +1,46 @@
+
+> test
+> npm run test --workspace apps/web --run src/hooks/__tests__/useCashFlowForecast.real.test.ts
+
+
+> wealth-tracker@1.4.5 test
+> vitest src/hooks/__tests__/useCashFlowForecast.real.test.ts
+
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+
+stdout | src/hooks/__tests__/useCashFlowForecast.real.test.ts
+[dotenv@17.2.3] injecting env (0) from .env.test -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+[dotenv@17.2.3] injecting env (2) from .env.test.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+ ❯ src/hooks/__tests__/useCashFlowForecast.real.test.ts (1 test | 1 failed) 9ms
+   × useCashFlowForecast - REAL Tests > calculates real cash flow forecasts 8ms
+     → Cannot read properties of undefined (reading 'toNumber')
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/hooks/__tests__/useCashFlowForecast.real.test.ts > useCashFlowForecast - REAL Tests > calculates real cash flow forecasts
+TypeError: Cannot read properties of undefined (reading 'toNumber')
+ ❯ src/hooks/__tests__/useCashFlowForecast.real.test.ts:115:37
+    113| 
+    114|     expect(result.current.forecast).not.toBeNull();
+    115|     expect(result.current.forecast?.monthlyNetFlow.toNumber()).toBe(15…
+       |                                     ^
+    116|     expect(result.current.forecast?.projections.at(-1)?.balance.toNumb…
+    117|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed (1)
+   Start at  00:57:37
+   Duration  1.29s (transform 156ms, setup 102ms, collect 755ms, tests 9ms, environment 175ms, prepare 36ms)
+
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error workspace wealth-tracker@1.4.5
+npm error location /Users/stevegreen/PROJECT_WEALTHTRACKER/apps/web
+npm error command failed
+npm error command sh -c vitest src/hooks/__tests__/useCashFlowForecast.real.test.ts

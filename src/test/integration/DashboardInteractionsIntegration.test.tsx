@@ -3,22 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import Dashboard from '../../pages/Dashboard';
-import { AppProvider } from '../../contexts/AppContext';
+import { markOnboardingComplete, dismissTestDataWarning } from '../utils/testPreferences';
+import { AppProvider } from '../../contexts/AppContextSupabase';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { BudgetProvider } from '../../contexts/BudgetContext';
-
-// Mock localStorage
-const localStorageMock = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-};
-Object.defineProperty(window, 'localStorage', {
-  value: localStorageMock,
-  writable: true,
-});
+import { ToastProvider } from '../../contexts/ToastContext';
 
 // Mock IntersectionObserver
 global.IntersectionObserver = vi.fn(() => ({
@@ -38,13 +28,15 @@ const renderWithProviders = (ui: React.ReactElement, { route = '/dashboard' } = 
       <PreferencesProvider>
         <AppProvider>
           <NotificationProvider>
-            <BudgetProvider>
-              <Routes>
-                <Route path="/dashboard" element={ui} />
-                <Route path="/accounts" element={<div>Accounts Page</div>} />
-                <Route path="/transactions" element={<div>Transactions Page</div>} />
-              </Routes>
-            </BudgetProvider>
+            <ToastProvider>
+              <BudgetProvider>
+                  <Routes>
+                  <Route path="/dashboard" element={ui} />
+                  <Route path="/accounts" element={<div>Accounts Page</div>} />
+                  <Route path="/transactions" element={<div>Transactions Page</div>} />
+                </Routes>
+              </BudgetProvider>
+            </ToastProvider>
           </NotificationProvider>
         </AppProvider>
       </PreferencesProvider>
@@ -57,7 +49,13 @@ describe('Dashboard Interactions Integration', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorageMock.clear();
+    localStorage.clear();
+    sessionStorage.clear();
+    markOnboardingComplete();
+    dismissTestDataWarning();
+    localStorage.setItem('onboardingCompleted', 'true');
+    localStorage.setItem('testDataWarningDismissed', 'true');
+    localStorage.setItem('dashboardKeyAccounts', JSON.stringify([]));
   });
 
   afterEach(() => {
@@ -74,33 +72,20 @@ describe('Dashboard Interactions Integration', () => {
         expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
       });
 
-      // Should show summary cards - use getAllByText since there might be multiple
-      const netWorthElements = screen.getAllByText(/net worth/i);
-      expect(netWorthElements.length).toBeGreaterThan(0);
-      expect(screen.getByText(/total assets/i)).toBeInTheDocument();
-      expect(screen.getByText(/total liabilities/i)).toBeInTheDocument();
+      const assetsLabel = await screen.findByText(/assets/i, { selector: 'p' });
+      const liabilitiesLabel = await screen.findByText(/liabilities/i, { selector: 'p' });
+      expect(assetsLabel).toBeInTheDocument();
+      expect(liabilitiesLabel).toBeInTheDocument();
     });
 
-    it('should switch between dashboard tabs', async () => {
+    it('should display monthly performance metrics', async () => {
       renderWithProviders(<Dashboard />);
 
-      await waitFor(() => {
-        expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
-      });
-
-      // Find tabs - they might be buttons or tabs
-      const modernTab = screen.getByText(/modern/i);
-      expect(modernTab).toBeInTheDocument();
-
-      // Click modern tab
-      await user.click(modernTab);
-
-      // Modern tab should be active (has different styles)
-      await waitFor(() => {
-        // Check if Modern button has the active class
-        const modernButton = screen.getByText(/modern/i).closest('button');
-        expect(modernButton?.className).toContain('bg-white');
-      });
+      const performanceHeading = await screen.findByText(/this month's performance/i);
+      expect(performanceHeading).toBeInTheDocument();
+      expect(screen.getByText(/income/i)).toBeInTheDocument();
+      expect(screen.getByText(/expenses/i)).toBeInTheDocument();
+      expect(screen.getByText(/saved/i)).toBeInTheDocument();
     });
 
     it('should display recent transactions widget', async () => {
@@ -111,7 +96,7 @@ describe('Dashboard Interactions Integration', () => {
       });
 
       // Should have recent transactions section - might be multiple
-      const recentTransactionsElements = screen.getAllByText(/recent transactions/i);
+      const recentTransactionsElements = await screen.findAllByText(/recent transactions/i);
       expect(recentTransactionsElements.length).toBeGreaterThan(0);
     });
 
@@ -123,27 +108,27 @@ describe('Dashboard Interactions Integration', () => {
       });
 
       // Should have account distribution - might be multiple
-      const accountDistElements = screen.getAllByText(/account distribution/i);
+      const accountDistElements = await screen.findAllByText(/account distribution/i);
       expect(accountDistElements.length).toBeGreaterThan(0);
     });
 
-    it('should display test data warning when using test data', async () => {
-      // Mock to ensure default test data is loaded
-      localStorageMock.getItem.mockReturnValue(null);
-      
+    it('should bypass test data modal for seeded preferences', async () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
       });
 
-      // With default test data, might show a test data warning
-      // Check if either test data warning or regular content is shown
-      const hasTestWarning = screen.queryByText(/test data/i);
-      const netWorthElements = screen.queryAllByText(/net worth/i);
-      const hasRegularContent = netWorthElements.length > 0;
-      
-      expect(hasTestWarning || hasRegularContent).toBeTruthy();
+      const warning = screen.queryByText(/test data active/i);
+      if (warning) {
+        await user.click(screen.getByText(/continue with test data/i));
+        await waitFor(() => {
+          expect(screen.queryByText(/test data active/i)).not.toBeInTheDocument();
+        });
+      }
+
+      const assetsLabel = await screen.findByText(/assets/i, { selector: 'p' });
+      expect(assetsLabel).toBeInTheDocument();
     });
 
     it('should handle modal interactions', async () => {
@@ -176,25 +161,24 @@ describe('Dashboard Interactions Integration', () => {
       }
     });
 
-    it('should show import/export tab', async () => {
+    it('should expose quick actions shortcuts', async () => {
       renderWithProviders(<Dashboard />);
 
       await waitFor(() => {
         expect(screen.getByRole('heading', { name: /dashboard/i })).toBeInTheDocument();
       });
 
-      // Find import/export tab - use getAllByText since there might be multiple
-      const importExportTabs = screen.getAllByText(/import\/export/i);
-      expect(importExportTabs.length).toBeGreaterThan(0);
-      
-      // Click the first import/export tab
-      await user.click(importExportTabs[0]);
+      const addTransactionButton = await screen.findByText(/add transaction/i);
+      await user.click(addTransactionButton);
 
-      // Should show import/export content
       await waitFor(() => {
-        const importTexts = screen.queryAllByText(/import/i);
-        const exportTexts = screen.queryAllByText(/export/i);
-        expect(importTexts.length > 0 || exportTexts.length > 0).toBeTruthy();
+        expect(screen.getByRole('dialog')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
       });
     });
 
@@ -206,8 +190,8 @@ describe('Dashboard Interactions Integration', () => {
       });
 
       // Dashboard should have main content area
-      const mainContent = document.querySelector('.grid') || document.querySelector('[class*="dashboard"]');
-      expect(mainContent).toBeInTheDocument();
+      const mainContent = document.querySelector('[data-testid="dashboard-grid"]');
+      expect(mainContent).not.toBeNull();
     });
 
     it('should handle responsive layout', async () => {
@@ -218,7 +202,7 @@ describe('Dashboard Interactions Integration', () => {
       });
 
       // Check for responsive classes or grid layout
-      const gridElements = document.querySelectorAll('[class*="grid"]');
+      const gridElements = document.querySelectorAll('[data-testid="dashboard-grid"], .grid');
       expect(gridElements.length).toBeGreaterThan(0);
     });
 
