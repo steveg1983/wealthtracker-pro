@@ -360,7 +360,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
         ['Category', 'Budgeted', 'Spent', 'Remaining', '% Used', 'Status'],
         ...budgets.map(b => {
           const spent = Math.abs(filteredTransactions
-            .filter(t => t.categoryId === b.categoryId && parseFloat(t.amount) < 0)
+            .filter(t => t.category === b.categoryId && parseFloat(t.amount) < 0)
             .reduce((sum, t) => sum + parseFloat(t.amount), 0));
           
           const remaining = parseFloat(b.amount) - spent;
@@ -384,14 +384,14 @@ export default function EnhancedExportManager(): React.JSX.Element {
     // Category Summary Sheet
     const categoryGroups = new Map<string, number>();
     filteredTransactions.forEach(t => {
-      const current = categoryGroups.get(t.categoryId) || 0;
-      categoryGroups.set(t.categoryId, current + parseFloat(t.amount));
+      const current = categoryGroups.get(t.category) || 0;
+      categoryGroups.set(t.category, current + parseFloat(t.amount));
     });
 
     const categoryData = [
       ['Category', 'Total Amount', 'Transaction Count', 'Average'],
       ...Array.from(categoryGroups.entries()).map(([category, total]) => {
-        const count = filteredTransactions.filter(t => t.categoryId === category).length;
+        const count = filteredTransactions.filter(t => t.category === category).length;
         return [category, total, count, total / count];
       })
     ];
@@ -445,7 +445,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
     const rows = filteredTransactions.map(t => [
       format(new Date(t.date), 'yyyy-MM-dd'),
       `"${t.description.replace(/"/g, '""')}"`,
-      t.categoryId,
+      t.category,
       accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
       t.amount,
       parseFloat(t.amount) > 0 ? 'Income' : 'Expense'

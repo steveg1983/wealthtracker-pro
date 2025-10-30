@@ -65,7 +65,7 @@ export default function BudgetSummaryWidget() {
                 {warningBudgets.length} budget{warningBudgets.length > 1 ? 's' : ''} need attention
               </p>
               <p className="text-yellow-700">
-                {warningBudgets.map(b => b.category).join(', ')}
+                {warningBudgets.map(b => b.categoryId).join(', ')}
               </p>
             </div>
           </div>

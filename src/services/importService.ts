@@ -43,7 +43,7 @@ class ImportService {
         columns: true,
         skip_empty_lines: true,
         trim: true
-      }, (err, records) => {
+      }, (err: any, records: any) => {
         if (err) {
           errors.push(err.message);
           resolve({ transactions: [], errors, warnings: [] });

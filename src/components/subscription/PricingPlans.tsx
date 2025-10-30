@@ -226,7 +226,7 @@ export default function PricingPlans({
                   What's included:
                 </h4>
                 <ul className="space-y-3">
-                  {plan.features.map((feature, index) => (
+                  {plan.features.map((feature: any, index: any) => (
                     <li key={index} className="flex items-start gap-3">
                       <CheckIcon size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
                       <span className="text-gray-700 dark:text-gray-300 text-sm">

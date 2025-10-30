@@ -324,7 +324,7 @@ export default function Investments() {
               <XAxis dataKey="month" stroke="#9CA3AF" />
               <YAxis 
                 stroke="#9CA3AF" 
-                tickFormatter={(value) => {
+                tickFormatter={(value: any) => {
                   const formatted = formatCurrency(value);
                   if (value >= 1000) {
                     return `${formatted.charAt(0)}${(value / 1000).toFixed(0)}k`;

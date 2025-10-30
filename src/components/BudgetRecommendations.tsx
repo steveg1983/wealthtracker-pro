@@ -49,7 +49,7 @@ export default function BudgetRecommendations() {
       updateBudget(existingBudget.id, { amount: recommendation.recommendedBudget });
     } else {
       addBudget({
-        name: `${recommendation.categoryIdName} Budget`,
+        name: `${recommendation.categoryName} Budget`,
         category: recommendation.categoryId,
         amount: recommendation.recommendedBudget,
         period: 'monthly',
@@ -346,7 +346,7 @@ export default function BudgetRecommendations() {
                   <div className="flex items-start justify-between">
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white">
-                        {recommendation.categoryIdName}
+                        {recommendation.categoryName}
                       </h4>
                       <div className="flex items-center gap-4 mt-2 text-sm">
                         <div className="flex items-center gap-2">

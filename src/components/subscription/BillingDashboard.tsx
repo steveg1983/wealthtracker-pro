@@ -311,7 +311,7 @@ export default function BillingDashboard({
           </h3>
           
           <div className="space-y-3">
-            {billingHistory.paymentMethods.map((method) => (
+            {billingHistory.paymentMethods.map((method: any) => (
               <div key={method.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div className="flex items-center gap-3">
                   <CreditCardIcon size={20} className="text-gray-600 dark:text-gray-400" />
@@ -373,7 +373,7 @@ export default function BillingDashboard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {billingHistory.invoices.map((invoice) => (
+                {billingHistory.invoices.map((invoice: any) => (
                   <tr key={invoice.id}>
                     <td className="py-4 text-sm text-gray-900 dark:text-white">
                       {formatDate(invoice.createdAt)}

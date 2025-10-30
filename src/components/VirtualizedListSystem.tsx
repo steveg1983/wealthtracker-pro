@@ -149,7 +149,7 @@ export function VirtualizedList<T>({
           >
             {({ onItemsRendered, ref }) => (
               <List
-                ref={(list) => {
+                ref={(list: any) => {
                   ref(list);
                   listRef.current = list;
                 }}
