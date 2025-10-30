@@ -121,7 +121,6 @@ export default function Goals() {
           type: 'success',
           title: 'Goal Achieved! 🎉',
           message: `Congratulations! You've achieved your goal: ${goal.name}`,
-          timestamp: new Date(),
           persistent: true
         });
       }
@@ -134,8 +133,7 @@ export default function Goals() {
         addNotification({
           type: 'info',
           title: 'Goal Progress',
-          message: `${goal.name}: ${milestoneMessage}`,
-          timestamp: new Date()
+          message: `${goal.name}: ${milestoneMessage}`
         });
       }
     });
