@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import DashboardModal from './DashboardModal';
@@ -16,15 +16,15 @@ vi.mock('react-router-dom', async () => {
 
 // Mock icons
 vi.mock('./icons/XIcon', () => ({
-  XIcon: ({ size, className }: any) => <div data-testid="x-icon" className={className}>X</div>
+  XIcon: ({ className }: { className?: string }) => <div data-testid="x-icon" className={className}>X</div>
 }));
 
 vi.mock('./icons/MaximizeIcon', () => ({
-  MaximizeIcon: ({ size, className }: any) => <div data-testid="maximize-icon" className={className}>Maximize</div>
+  MaximizeIcon: ({ className }: { className?: string }) => <div data-testid="maximize-icon" className={className}>Maximize</div>
 }));
 
 vi.mock('./icons/MinimizeIcon', () => ({
-  MinimizeIcon: ({ size, className }: any) => <div data-testid="minimize-icon" className={className}>Minimize</div>
+  MinimizeIcon: ({ className }: { className?: string }) => <div data-testid="minimize-icon" className={className}>Minimize</div>
 }));
 
 // Mock recharts components
@@ -43,7 +43,7 @@ vi.mock('recharts', () => ({
   XAxis: ({ dataKey }: any) => <div data-testid="x-axis" data-datakey={dataKey}>XAxis</div>,
   YAxis: () => <div data-testid="y-axis">YAxis</div>,
   CartesianGrid: () => <div data-testid="cartesian-grid">Grid</div>,
-  Tooltip: ({ formatter }: any) => <div data-testid="tooltip">Tooltip</div>,
+  Tooltip: () => <div data-testid="tooltip">Tooltip</div>,
   PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
   Pie: ({ data, onClick }: any) => (
     <div 

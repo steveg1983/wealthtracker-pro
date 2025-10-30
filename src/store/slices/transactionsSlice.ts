@@ -66,7 +66,7 @@ const transactionsSlice = createSlice({
       const idsToUpdate = new Set(action.payload.ids);
       state.transactions = state.transactions.map(t => 
         idsToUpdate.has(t.id) 
-          ? { ...t, ...action.payload.updates, updatedAt: getCurrentISOString() }
+          ? { ...t, ...action.payload.updates, updatedAt: getCurrentISOString() as any }
           : t
       );
     },

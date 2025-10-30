@@ -4,7 +4,6 @@ import {
   CloudOff, 
   RefreshCw, 
   AlertTriangle, 
-  Check,
   X,
   Loader2,
   GitBranch,

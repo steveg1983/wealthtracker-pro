@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useApp } from '../contexts/AppContextSupabase';
@@ -11,17 +11,10 @@ import {
   TrendingUpIcon,
   CalculatorIcon,
   TargetIcon,
-  AlertCircleIcon,
-  CheckCircleIcon,
   InfoIcon,
-  EditIcon,
-  DeleteIcon,
   BarChart3Icon,
-  LineChartIcon,
-  DollarSignIcon,
-  BellIcon
+  DollarSignIcon
 } from './icons';
-import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, BarChart, Bar } from 'recharts';
 import { debtCalculationService } from '../services/debtCalculationService';
 
 export interface Debt {
@@ -83,7 +76,7 @@ export interface CreditScoreEntry {
 }
 
 export default function DebtManagement() {
-  const { accounts, addTransaction } = useApp();
+  const { accounts } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [debts, setDebts] = useLocalStorage<Debt[]>('debts', []);
   const [creditScores, setCreditScores] = useLocalStorage<CreditScoreEntry[]>('credit-scores', []);
@@ -95,8 +88,6 @@ export default function DebtManagement() {
   
   const [showAddDebt, setShowAddDebt] = useState(false);
   const [showAddScore, setShowAddScore] = useState(false);
-  const [selectedDebt, setSelectedDebt] = useState<string | null>(null);
-  const [showCalculator, setShowCalculator] = useState(false);
   const [showAmortization, setShowAmortization] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'payoff' | 'calculator' | 'credit'>('overview');
   
@@ -132,7 +123,7 @@ export default function DebtManagement() {
     startDate: new Date().toISOString().split('T')[0]
   });
 
-  const calculatePayoffProjections = (strategy: PayoffStrategy): PayoffProjection[] => {
+  const calculatePayoffProjections = useCallback((strategy: PayoffStrategy): PayoffProjection[] => {
     const activeDebts = debts.filter(d => d.isActive);
     
     // Convert debts to service-compatible format
@@ -198,9 +189,9 @@ export default function DebtManagement() {
     });
     
     return projections;
-  };
+  }, [debts]);
 
-  const { totalDebt, totalMinimumPayment, totalInterestRate, projections, debtSummary } = useMemo(() => {
+  const { totalDebt, totalMinimumPayment, totalInterestRate, projections } = useMemo(() => {
     const activeDebts = debts.filter(d => d.isActive);
     
     // Convert debts to service-compatible format
@@ -224,10 +215,9 @@ export default function DebtManagement() {
       totalDebt: toDecimal(summary.totalDebt),
       totalMinimumPayment: toDecimal(summary.totalMinimumPayment),
       totalInterestRate: toDecimal(summary.weightedAverageRate),
-      projections,
-      debtSummary: summary
+      projections
     };
-  }, [debts, payoffStrategy]);
+  }, [debts, payoffStrategy, calculatePayoffProjections]);
 
   const handleAddDebt = () => {
     if (!newDebt.name || !newDebt.balance || !newDebt.interestRate || !newDebt.minimumPayment || !newDebt.accountId) return;
@@ -430,14 +420,7 @@ export default function DebtManagement() {
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setSelectedDebt(debt.id)}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <EditIcon size={16} />
-            </button>
-          </div>
+          <div className="flex items-center gap-2" />
         </div>
 
         <div className="space-y-3">
@@ -447,6 +430,11 @@ export default function DebtManagement() {
               {formatCurrency(debt.balance)}
             </span>
           </div>
+          {account && (
+            <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Linked account: {account.name}
+            </div>
+          )}
           
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600 dark:text-gray-400">Interest Rate:</span>

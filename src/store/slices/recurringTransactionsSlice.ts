@@ -45,8 +45,8 @@ const recurringTransactionsSlice = createSlice({
       const newRecurring: RecurringTransaction = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        createdAt: getCurrentISOString() as any,
+        updatedAt: getCurrentISOString() as any,
       };
       state.recurringTransactions.push(newRecurring);
     },
@@ -56,7 +56,7 @@ const recurringTransactionsSlice = createSlice({
         state.recurringTransactions[index] = {
           ...state.recurringTransactions[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString(),
+          updatedAt: getCurrentISOString() as any,
         };
       }
     },

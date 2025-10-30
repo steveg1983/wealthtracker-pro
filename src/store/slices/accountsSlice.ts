@@ -42,8 +42,8 @@ const accountsSlice = createSlice({
       const newAccount: Account = {
         ...action.payload,
         id: crypto.randomUUID(),
-        lastUpdated: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        lastUpdated: getCurrentISOString() as any,
+        updatedAt: getCurrentISOString() as any,
       };
       state.accounts.push(newAccount);
     },
@@ -53,7 +53,7 @@ const accountsSlice = createSlice({
         state.accounts[index] = {
           ...state.accounts[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString(),
+          updatedAt: getCurrentISOString() as any,
         };
       }
     },

@@ -382,7 +382,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
     }
     
     return issues;
-  }, [transactions, accounts, categories]);
+  }, [transactions, accounts, categories, updateTransaction, deleteTransaction, formatCurrency]);
 
   // Group issues by category
   const issuesByCategory = useMemo(() => {
@@ -498,7 +498,7 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
   const handleReconciliationChoice = async (type: 'opening-balance' | 'adjustment-transaction') => {
     if (!reconciliationOption || !pendingFixes) return;
 
-    const { accountId, accountName, currentBalance, calculatedBalance, difference } = reconciliationOption;
+    const { accountId, accountName, difference } = reconciliationOption;
     const fixChanges: ChangeRecord[] = [];
 
     if (type === 'opening-balance') {
@@ -867,4 +867,3 @@ export default function DataValidation({ isOpen, onClose }: DataValidationProps)
     </>
   );
 }
-

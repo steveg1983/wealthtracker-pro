@@ -37,8 +37,8 @@ const goalsSlice = createSlice({
       const newGoal: Goal = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        createdAt: getCurrentISOString() as any,
+        updatedAt: getCurrentISOString() as any,
       };
       state.goals.push(newGoal);
     },
@@ -48,7 +48,7 @@ const goalsSlice = createSlice({
         state.goals[index] = {
           ...state.goals[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString(),
+          updatedAt: getCurrentISOString() as any,
         };
       }
     },

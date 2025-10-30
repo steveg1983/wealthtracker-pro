@@ -6,7 +6,6 @@ import {
   AlertCircle, 
   ArrowRight, 
   ArrowLeft,
-  Download,
   Database,
   Shield,
   Zap,
@@ -116,10 +115,23 @@ const MIGRATION_SOURCES = [
   }
 ];
 
+interface MigrationSummary {
+  accounts: number;
+  transactions: number;
+  categories: number;
+  dateRange: string;
+}
+
+interface MigrationCompletePayload {
+  source: MigrationSource | null;
+  files: File[];
+  data: MigrationSummary | null;
+}
+
 interface DataMigrationWizardProps {
   isOpen: boolean;
   onClose: () => void;
-  onComplete?: (data: any) => void;
+  onComplete?: (data: MigrationCompletePayload) => void;
 }
 
 export default function DataMigrationWizard({ 
@@ -130,7 +142,7 @@ export default function DataMigrationWizard({
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedSource, setSelectedSource] = useState<MigrationSource | null>(null);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [mappedData, setMappedData] = useState<any>(null);
+  const [mappedData, setMappedData] = useState<MigrationSummary | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -174,12 +186,13 @@ export default function DataMigrationWizard({
         });
         
         setIsProcessing(false);
-      } catch (err) {
-        setError('Failed to process files');
-        setIsProcessing(false);
-        return;
-      }
+    } catch (error) {
+      setError('Failed to process files');
+      console.error('File processing failed:', error);
+      setIsProcessing(false);
+      return;
     }
+  }
 
     if (currentStep === 5) {
       // Complete migration
@@ -196,8 +209,9 @@ export default function DataMigrationWizard({
         }
         
         onClose();
-      } catch (err) {
+      } catch (error) {
         setError('Migration failed. Please try again.');
+        console.error('Migration failed:', error);
         setIsProcessing(false);
       }
       return;

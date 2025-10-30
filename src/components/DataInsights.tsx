@@ -21,12 +21,24 @@ interface DataInsightsProps {
   onDataChange?: () => void;
 }
 
+const severityOptions = ['all', 'high', 'medium', 'low'] as const;
+type InsightSeverityFilter = typeof severityOptions[number];
+
+const sortOptions = ['createdAt', 'severity', 'category'] as const;
+type InsightSortKey = typeof sortOptions[number];
+
+const isSeverityFilter = (value: string): value is InsightSeverityFilter =>
+  (severityOptions as readonly string[]).includes(value);
+
+const isSortKey = (value: string): value is InsightSortKey =>
+  (sortOptions as readonly string[]).includes(value);
+
 export default function DataInsights({ onDataChange }: DataInsightsProps) {
   const [insights, setInsights] = useState<SpendingInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<'all' | 'high' | 'medium' | 'low'>('all');
+  const [filter, setFilter] = useState<InsightSeverityFilter>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'createdAt' | 'severity' | 'category'>('createdAt');
+  const [sortBy, setSortBy] = useState<InsightSortKey>('createdAt');
   const [showDismissed, setShowDismissed] = useState(false);
 
   useEffect(() => {
@@ -244,7 +256,11 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
           <FilterIcon size={16} className="text-gray-400" />
           <select
             value={filter}
-            onChange={(e) => setFilter(e.target.value as any)}
+            onChange={(e) => {
+              if (isSeverityFilter(e.target.value)) {
+                setFilter(e.target.value);
+              }
+            }}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           >
             <option value="all">All Severities</option>
@@ -272,7 +288,11 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
           <SortIcon size={16} className="text-gray-400" />
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => {
+              if (isSortKey(e.target.value)) {
+                setSortBy(e.target.value);
+              }
+            }}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           >
             <option value="createdAt">Date Created</option>

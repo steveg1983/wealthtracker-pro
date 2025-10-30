@@ -37,8 +37,8 @@ const budgetsSlice = createSlice({
       const newBudget: Budget = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString(),
-        updatedAt: getCurrentISOString(),
+        createdAt: getCurrentISOString() as any,
+        updatedAt: getCurrentISOString() as any,
       };
       state.budgets.push(newBudget);
     },
@@ -48,7 +48,7 @@ const budgetsSlice = createSlice({
         state.budgets[index] = {
           ...state.budgets[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString(),
+          updatedAt: getCurrentISOString() as any,
         };
       }
     },

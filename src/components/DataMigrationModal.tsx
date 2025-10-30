@@ -17,10 +17,17 @@ interface DataMigrationModalProps {
   onComplete?: () => void;
 }
 
+interface MigrationStats {
+  accounts: { total: number; migrated: number; failed: number };
+  transactions: { total: number; migrated: number; failed: number };
+  budgets: { total: number; migrated: number; failed: number };
+  goals: { total: number; migrated: number; failed: number };
+}
+
 export default function DataMigrationModal({ isOpen, onClose, onComplete }: DataMigrationModalProps) {
   const { userId } = useAuth();
   const [migrationState, setMigrationState] = useState<'idle' | 'migrating' | 'completed' | 'error'>('idle');
-  const [migrationStats, setMigrationStats] = useState<any>(null);
+  const [migrationStats, setMigrationStats] = useState<MigrationStats | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   if (!isOpen) return null;

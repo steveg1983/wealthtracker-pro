@@ -53,7 +53,7 @@ const notificationsSlice = createSlice({
       const newNotification: Notification = {
         ...action.payload,
         id: crypto.randomUUID(),
-        timestamp: getCurrentISOString(),
+        timestamp: getCurrentISOString() as any,
         read: false,
       };
       state.notifications.unshift(newNotification);
