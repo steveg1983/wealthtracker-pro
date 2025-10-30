@@ -4,18 +4,11 @@ import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
-import { calculateBudgetSpending, calculateBudgetRemaining } from '../utils/calculations-decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import {
   ArrowRightIcon,
-  CalendarIcon,
   CheckCircleIcon,
-  AlertCircleIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
   RepeatIcon,
-  InfoIcon,
-  SaveIcon,
   SettingsIcon
 } from './icons';
 
@@ -24,7 +17,7 @@ interface RolloverSettings {
   mode: 'percentage' | 'fixed' | 'all';
   percentage: number; // If mode is percentage
   maxAmount?: number; // Optional cap
-  excludeCategories: string[];
+  excludeCategories: string[]; // Stored as category IDs (legacy name values still respected)
   autoApply: boolean;
   carryNegative: boolean; // Whether to carry over overages as debt
 }
@@ -41,7 +34,8 @@ interface RolloverHistory {
   };
   rollovers: Array<{
     budgetId: string;
-    category: string;
+    categoryId: string;
+    categoryName: string;
     originalBudget: DecimalInstance;
     spent: DecimalInstance;
     remaining: DecimalInstance;
@@ -51,8 +45,20 @@ interface RolloverHistory {
   appliedAt: Date;
 }
 
+interface BudgetRolloverSummary {
+  budgetId: string;
+  categoryId: string;
+  categoryName: string;
+  originalBudget: DecimalInstance;
+  spent: DecimalInstance;
+  remaining: DecimalInstance;
+  rolloverAmount: DecimalInstance;
+  isEligible: boolean;
+  willRollover: boolean;
+}
+
 export default function BudgetRollover() {
-  const { categories, transactions, budgets: appBudgets } = useApp();
+  const { categories, transactions } = useApp();
   const { budgets, updateBudget } = useBudgets();
   const { formatCurrency } = useCurrencyDecimal();
   
@@ -68,7 +74,6 @@ export default function BudgetRollover() {
   const [rolloverHistory, setRolloverHistory] = useLocalStorage<RolloverHistory[]>('rollover-history', []);
   const [showSettings, setShowSettings] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
 
   const currentDate = new Date();
   const currentMonth = currentDate.getMonth();
@@ -79,112 +84,103 @@ export default function BudgetRollover() {
   const previousMonth = previousDate.getMonth();
   const previousYear = previousDate.getFullYear();
 
+  const exclusionSet = useMemo(() => new Set(rolloverSettings.excludeCategories), [rolloverSettings.excludeCategories]);
+
   // Calculate rollover amounts for each budget
-  const rolloverData = useMemo(() => {
-    // Get transactions from previous month
+  const rolloverData = useMemo<BudgetRolloverSummary[]>(() => {
     const startDate = new Date(previousYear, previousMonth, 1);
     const endDate = new Date(previousYear, previousMonth + 1, 0);
-    
-    return budgets.map(budget => {
-      // Convert budget to decimal for calculations
-      const decimalBudget = {
-        ...budget,
-        amount: toDecimal(budget.amount)
-      };
-      
-      // Convert transactions to decimal for calculations
-      const decimalTransactions = transactions.map(t => ({
+
+    const categoryNameLookup = new Map(categories.map(category => [category.id, category.name]));
+    const expenseTransactions = transactions
+      .filter(t => t.type === 'expense')
+      .map(t => ({
         ...t,
         amount: toDecimal(t.amount)
       }));
-      
-      // Calculate spending for this budget's category
-      const spent = decimalTransactions
-        .filter(t => 
-          t.type === 'expense' && 
-          t.category === budget.categoryId &&
+
+    return budgets.map<BudgetRolloverSummary>(budget => {
+      const categoryId = budget.categoryId;
+      const categoryName = categoryNameLookup.get(categoryId) ?? categoryId;
+      const budgetAmount = toDecimal(budget.amount);
+
+      const spent = expenseTransactions
+        .filter(t =>
+          t.category === categoryId &&
           t.date >= startDate &&
           t.date <= endDate
         )
         .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
-      
-      const remaining = decimalBudget.amount.minus(spent);
-      
-      // Calculate rollover amount based on settings
+
+      const remaining = budgetAmount.minus(spent);
+      const isExcluded = exclusionSet.has(categoryId) || exclusionSet.has(categoryName);
+      const isEligible = rolloverSettings.enabled && !isExcluded;
+
       let rolloverAmount = toDecimal(0);
-      
-      if (rolloverSettings.enabled && !rolloverSettings.excludeCategories.includes(budget.categoryId)) {
-        if (remaining.greaterThan(0) || (remaining.lessThan(0) && rolloverSettings.carryNegative)) {
-          switch (rolloverSettings.mode) {
-            case 'all':
-              rolloverAmount = remaining;
-              break;
-            case 'percentage':
-              rolloverAmount = remaining.times(rolloverSettings.percentage / 100);
-              break;
-            case 'fixed':
-              rolloverAmount = remaining.greaterThan(0) ? remaining : toDecimal(0);
-              break;
-          }
-          
-          // Apply max cap if set
-          if (rolloverSettings.maxAmount && rolloverAmount.greaterThan(rolloverSettings.maxAmount)) {
-            rolloverAmount = toDecimal(rolloverSettings.maxAmount);
-          }
+
+      if (isEligible && (remaining.greaterThan(0) || (remaining.lessThan(0) && rolloverSettings.carryNegative))) {
+        switch (rolloverSettings.mode) {
+          case 'all':
+            rolloverAmount = remaining;
+            break;
+          case 'percentage':
+            rolloverAmount = remaining.times(rolloverSettings.percentage / 100);
+            break;
+          case 'fixed':
+            rolloverAmount = remaining.greaterThan(0) ? remaining : toDecimal(0);
+            break;
+        }
+
+        if (rolloverSettings.maxAmount && rolloverAmount.greaterThan(rolloverSettings.maxAmount)) {
+          rolloverAmount = toDecimal(rolloverSettings.maxAmount);
         }
       }
-      
+
       return {
         budgetId: budget.id,
-        category: budget.categoryId,
-        originalBudget: decimalBudget.amount,
+        categoryId,
+        categoryName,
+        originalBudget: budgetAmount,
         spent,
         remaining,
         rolloverAmount,
-        isEligible: rolloverSettings.enabled && !rolloverSettings.excludeCategories.includes(budget.categoryId),
+        isEligible,
         willRollover: rolloverAmount.abs().greaterThan(0)
       };
-    }).filter(Boolean);
-  }, [budgets, transactions, previousMonth, previousYear, rolloverSettings]);
+    });
+  }, [budgets, categories, exclusionSet, previousMonth, previousYear, rolloverSettings, transactions]);
 
-  const totalRollover = rolloverData.reduce((sum, data) => 
-    data ? sum.plus(data.rolloverAmount) : sum, toDecimal(0)
-  );
-
-  const eligibleBudgets = rolloverData.filter(data => data?.isEligible).length;
-  const budgetsWithSurplus = rolloverData.filter(data => data?.remaining.greaterThan(0)).length;
-  const budgetsWithDeficit = rolloverData.filter(data => data?.remaining.lessThan(0)).length;
+  const totalRollover = rolloverData.reduce((sum, data) => sum.plus(data.rolloverAmount), toDecimal(0));
+  const eligibleBudgets = rolloverData.filter(data => data.isEligible).length;
+  const budgetsWithSurplus = rolloverData.filter(data => data.remaining.greaterThan(0)).length;
+  const budgetsWithDeficit = rolloverData.filter(data => data.remaining.lessThan(0)).length;
 
   const applyRollover = () => {
-    const rollovers = rolloverData
-      .filter(data => data?.willRollover)
+    const rollovers: RolloverHistory['rollovers'] = rolloverData
+      .filter(data => data.willRollover)
       .map(data => {
-        if (!data) return null;
-        
-        // Update budget with rollover
         const currentBudget = budgets.find(b => b.id === data.budgetId);
         if (currentBudget) {
           const newAmount = toDecimal(currentBudget.amount).plus(data.rolloverAmount).toNumber();
           updateBudget(data.budgetId, { amount: newAmount });
         }
-        
+
         return {
           budgetId: data.budgetId,
-          category: data.category,
+          categoryId: data.categoryId,
+          categoryName: data.categoryName,
           originalBudget: data.originalBudget,
           spent: data.spent,
           remaining: data.remaining,
           rolledOver: data.rolloverAmount
         };
-      })
-      .filter(Boolean);
+      });
 
-    // Save to history
     const historyEntry: RolloverHistory = {
       id: Date.now().toString(),
       fromPeriod: { month: previousMonth, year: previousYear },
       toPeriod: { month: currentMonth, year: currentYear },
-      rollovers: rollovers as any,
+      rollovers,
       totalRolledOver: totalRollover,
       appliedAt: new Date()
     };
@@ -290,18 +286,15 @@ export default function BudgetRollover() {
       {/* Rollover Details */}
       {rolloverSettings.enabled && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {rolloverData.map((data) => {
-            if (!data || !data.isEligible) return null;
-            
-            const category = categories.find(c => c.name === data.category);
-            
-            return (
+          {rolloverData
+            .filter(data => data.isEligible)
+            .map(data => (
               <div
                 key={data.budgetId}
                 className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-lg shadow border border-white/20 dark:border-gray-700/50 p-4"
               >
                 <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-gray-900 dark:text-white">{data.category}</h4>
+                  <h4 className="font-medium text-gray-900 dark:text-white">{data.categoryName}</h4>
                   {data.willRollover && (
                     <CheckCircleIcon size={16} className="text-green-500" />
                   )}
@@ -336,8 +329,7 @@ export default function BudgetRollover() {
                   )}
                 </div>
               </div>
-            );
-          })}
+            ))}
         </div>
       )}
 
@@ -487,19 +479,20 @@ export default function BudgetRollover() {
                     <label key={category.id} className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        checked={rolloverSettings.excludeCategories.includes(category.name)}
+                        checked={exclusionSet.has(category.id) || exclusionSet.has(category.name)}
                         onChange={(e) => {
+                          const next = new Set(rolloverSettings.excludeCategories);
+                          next.delete(category.name);
+                          next.delete(category.id);
+
                           if (e.target.checked) {
-                            setRolloverSettings({
-                              ...rolloverSettings,
-                              excludeCategories: [...rolloverSettings.excludeCategories, category.name]
-                            });
-                          } else {
-                            setRolloverSettings({
-                              ...rolloverSettings,
-                              excludeCategories: rolloverSettings.excludeCategories.filter(c => c !== category.name)
-                            });
+                            next.add(category.id);
                           }
+
+                          setRolloverSettings({
+                            ...rolloverSettings,
+                            excludeCategories: Array.from(next)
+                          });
                         }}
                         className="rounded"
                       />
@@ -542,19 +535,20 @@ export default function BudgetRollover() {
             
             <div className="space-y-3 mb-6">
               {rolloverData
-                .filter(data => data?.willRollover)
+                .filter(data => data.willRollover)
                 .map((data) => {
-                  if (!data) return null;
-                  
+                  const currentBudgetAmount = budgets.find(b => b.id === data.budgetId)?.amount ?? 0;
+                  const projectedAmount = toDecimal(currentBudgetAmount).plus(data.rolloverAmount);
+
                   return (
                     <div
                       key={data.budgetId}
                       className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg"
                     >
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{data.category}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">{data.categoryName}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {formatCurrency(data.originalBudget)} → {formatCurrency(toDecimal(budgets.find(b => b.id === data.budgetId)?.amount || 0).plus(data.rolloverAmount))}
+                          {formatCurrency(data.originalBudget)} → {formatCurrency(projectedAmount)}
                         </p>
                       </div>
                       <span className={`font-medium ${

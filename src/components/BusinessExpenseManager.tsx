@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { businessService } from '../services/businessService';
 import { 
   DollarSignIcon,
@@ -35,14 +35,14 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
 
   useEffect(() => {
     applyFilters();
-  }, [expenses, filters]);
+  }, [applyFilters]);
 
   const loadExpenses = () => {
     const businessExpenses = businessService.getBusinessExpenses();
     setExpenses(businessExpenses);
   };
 
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...expenses];
 
     if (filters.category) {
@@ -81,7 +81,7 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
     }
 
     setFilteredExpenses(filtered);
-  };
+  }, [expenses, filters]);
 
   const handleCreateExpense = () => {
     setEditingExpense(null);

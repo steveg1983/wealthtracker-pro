@@ -321,7 +321,7 @@ export function CustomDateRangePicker({
     }
     
     return null;
-  }, [presetRanges, fiscalYearStart]);
+  }, [presetRanges]);
 
   // Format date for display
   const formatDate = (date: Date | null): string => {

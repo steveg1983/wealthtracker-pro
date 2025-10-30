@@ -5,16 +5,16 @@
 
 import React from 'react';
 import { render, screen } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, Mock } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import Breadcrumbs from './Breadcrumbs';
 
 // Mock the icons
 vi.mock('./icons', () => ({
-  ChevronRight: ({ size, className }: { size?: number; className?: string }) => (
+  ChevronRight: ({ size: _size, className }: { size?: number; className?: string }) => (
     <span data-testid="chevron-right" className={className}>›</span>
   ),
-  Home: ({ size }: { size?: number }) => (
+  Home: ({ size: _size }: { size?: number }) => (
     <span data-testid="home-icon">🏠</span>
   )
 }));

@@ -18,13 +18,13 @@ interface Particle {
   lifetime: number;
 }
 
+const CONFETTI_COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#FFD93D', '#6BCF7F'];
+
 export default function Confetti({ isActive, duration = 3000, onComplete }: ConfettiProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationFrameRef = useRef<number>(0);
   const particlesRef = useRef<Particle[]>([]);
   const startTimeRef = useRef<number>(0);
-
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#FFD93D', '#6BCF7F'];
 
   useEffect(() => {
     if (!isActive) return;
@@ -50,7 +50,7 @@ export default function Confetti({ isActive, duration = 3000, onComplete }: Conf
         y: canvas.height / 2,
         vx: (Math.random() - 0.5) * 15,
         vy: Math.random() * -15 - 5,
-        color: colors[Math.floor(Math.random() * colors.length)],
+        color: CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
         angle: Math.random() * 360,
         angularVelocity: (Math.random() - 0.5) * 10,
         size: Math.random() * 6 + 4,

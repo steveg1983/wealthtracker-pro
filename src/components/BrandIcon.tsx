@@ -33,11 +33,12 @@ export default function BrandIcon({ domain, size = 'md', className = '' }: Brand
   } else if (brand.icon.startsWith('simple-icons:')) {
     // Simple Icons library reference
     // We'll need to install @iconify/react and @iconify-icons/simple-icons
-    const iconName = brand.icon.replace('simple-icons:', '');
+    const iconSlug = brand.icon.replace('simple-icons:', '');
     return (
       <div 
         className={`${sizeClasses[size]} ${className}`}
         style={{ backgroundColor: brand.color }}
+        data-icon={iconSlug}
       >
         {/* Placeholder - would use Iconify here */}
         <span className="text-white text-xs">{brand.name[0]}</span>

@@ -3,7 +3,6 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal } from './common/Modal';
 import { 
-  EditIcon,
   CheckIcon,
   XIcon,
   TagIcon,
@@ -13,9 +12,6 @@ import {
   FilterIcon,
   CheckCircleIcon,
   AlertCircleIcon,
-  SearchIcon,
-  SelectAllIcon,
-  DeselectAllIcon,
   ArrowRightIcon,
   RefreshCwIcon,
   UndoIcon,
@@ -24,7 +20,6 @@ import {
 } from './icons';
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
-import { toDecimal } from '../utils/decimal';
 
 interface BulkTransactionEditProps {
   isOpen: boolean;
@@ -115,7 +110,7 @@ export default function BulkTransactionEdit({
       }
       
       // Type filter
-      if (filters.types.length > 0 && !filters.types.includes(t.type as any)) {
+      if (filters.types.length > 0 && !filters.types.includes(t.type)) {
         return false;
       }
       
@@ -468,11 +463,16 @@ export default function BulkTransactionEdit({
                           type="checkbox"
                           checked={filters.types.includes('income')}
                           onChange={(e) => {
-                            if (e.target.checked) {
-                              setFilters({ ...filters, types: [...filters.types, 'income'] as any });
-                            } else {
-                              setFilters({ ...filters, types: filters.types.filter(t => t !== 'income') as any });
-                            }
+                            setFilters(prev => {
+                              const hasType = prev.types.includes('income');
+                              if (e.target.checked && !hasType) {
+                                return { ...prev, types: [...prev.types, 'income'] };
+                              }
+                              if (!e.target.checked && hasType) {
+                                return { ...prev, types: prev.types.filter(t => t !== 'income') };
+                              }
+                              return prev;
+                            });
                           }}
                           className="rounded"
                         />
@@ -483,11 +483,16 @@ export default function BulkTransactionEdit({
                           type="checkbox"
                           checked={filters.types.includes('expense')}
                           onChange={(e) => {
-                            if (e.target.checked) {
-                              setFilters({ ...filters, types: [...filters.types, 'expense'] as any });
-                            } else {
-                              setFilters({ ...filters, types: filters.types.filter(t => t !== 'expense') as any });
-                            }
+                            setFilters(prev => {
+                              const hasType = prev.types.includes('expense');
+                              if (e.target.checked && !hasType) {
+                                return { ...prev, types: [...prev.types, 'expense'] };
+                              }
+                              if (!e.target.checked && hasType) {
+                                return { ...prev, types: prev.types.filter(t => t !== 'expense') };
+                              }
+                              return prev;
+                            });
                           }}
                           className="rounded"
                         />
@@ -496,13 +501,18 @@ export default function BulkTransactionEdit({
                       <label className="flex items-center gap-2">
                         <input
                           type="checkbox"
-                          checked={filters.types.includes('transfer' as any)}
+                          checked={filters.types.includes('transfer')}
                           onChange={(e) => {
-                            if (e.target.checked) {
-                              setFilters({ ...filters, types: [...filters.types, 'transfer' as any] });
-                            } else {
-                              setFilters({ ...filters, types: filters.types.filter(t => t !== 'transfer') as any });
-                            }
+                            setFilters(prev => {
+                              const hasType = prev.types.includes('transfer');
+                              if (e.target.checked && !hasType) {
+                                return { ...prev, types: [...prev.types, 'transfer'] };
+                              }
+                              if (!e.target.checked && hasType) {
+                                return { ...prev, types: prev.types.filter(t => t !== 'transfer') };
+                              }
+                              return prev;
+                            });
                           }}
                           className="rounded"
                         />

@@ -552,7 +552,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isSyncing: false,
       isUsingSupabase: true,
       hasTestData: false,
-      error: null,
       lastSync: null,
       userId: null,
       userName: null,

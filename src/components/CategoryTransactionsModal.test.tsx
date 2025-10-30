@@ -6,19 +6,19 @@ import type { Transaction, Account } from '../types';
 
 // Mock icons
 vi.mock('./icons/XIcon', () => ({
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
+  XIcon: ({ size: _size }: any) => <div data-testid="x-icon">X</div>,
 }));
 
 vi.mock('./icons/CalendarIcon', () => ({
-  CalendarIcon: ({ size, className }: any) => <div data-testid="calendar-icon" className={className}>Calendar</div>,
+  CalendarIcon: ({ size: _size, className }: any) => <div data-testid="calendar-icon" className={className}>Calendar</div>,
 }));
 
 vi.mock('./icons/SearchIcon', () => ({
-  SearchIcon: ({ size, className }: any) => <div data-testid="search-icon" className={className}>Search</div>,
+  SearchIcon: ({ size: _size, className }: any) => <div data-testid="search-icon" className={className}>Search</div>,
 }));
 
 vi.mock('./icons/XCircleIcon', () => ({
-  XCircleIcon: ({ size }: any) => <div data-testid="x-circle-icon">XCircle</div>,
+  XCircleIcon: ({ size: _size }: any) => <div data-testid="x-circle-icon">XCircle</div>,
 }));
 
 // Mock hooks

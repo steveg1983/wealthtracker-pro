@@ -524,7 +524,7 @@ export default function FinancialPlanning() {
         )}
 
         {activeTab === 'college' && (
-          <CollegePlanner onDataChange={handleDataChange} />
+          <CollegePlanner />
         )}
 
         {activeTab === 'debt' && (

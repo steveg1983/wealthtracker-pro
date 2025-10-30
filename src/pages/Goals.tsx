@@ -120,8 +120,7 @@ export default function Goals() {
         addNotification({
           type: 'success',
           title: 'Goal Achieved! 🎉',
-          message: `Congratulations! You've achieved your goal: ${goal.name}`,
-          persistent: true
+          message: `Congratulations! You've achieved your goal: ${goal.name}`
         });
       }
       

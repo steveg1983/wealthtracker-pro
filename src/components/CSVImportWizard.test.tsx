@@ -135,7 +135,7 @@ global.FileReader = class FileReader {
   result: string | null = null;
   onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
   
-  readAsText(file: File) {
+  readAsText(_file: File) {
     setTimeout(() => {
       this.result = 'Date,Description,Amount,Account\n2023-01-15,Grocery Store,-85.50,Checking\n2023-01-16,Salary,2000.00,Checking';
       if (this.onload) {
@@ -540,7 +540,6 @@ describe('CSVImportWizard', () => {
     });
 
     it('supports keyboard navigation', async () => {
-      const user = userEvent.setup();
       renderWizard(true);
       
       const fileInput = screen.getByLabelText(/select file/i);
@@ -609,7 +608,6 @@ describe('CSVImportWizard', () => {
     });
 
     it('handles empty file upload', async () => {
-      const user = userEvent.setup();
       renderWizard(true);
       
       const fileInput = screen.getByLabelText(/select file/i);

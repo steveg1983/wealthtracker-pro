@@ -170,3 +170,11 @@ export interface UpdateSubscriptionRequest {
   billingPeriod?: BillingPeriod;
   cancelAtPeriodEnd?: boolean;
 }
+
+export interface SubscriptionPreview {
+  plan: SubscriptionPlan;
+  billingPeriod: BillingPeriod;
+  price: number;
+  nextBillingDate: Date;
+  prorationAmount?: number;
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useCacheStats } from '../hooks/useSmartCache';
 import { 
   TrendingUpIcon, 
@@ -45,12 +45,6 @@ export function CachePerformanceMonitor({
     if (rate >= 0.8) return 'text-green-500';
     if (rate >= 0.5) return 'text-yellow-500';
     return 'text-red-500';
-  };
-
-  const formatSize = (bytes: number): string => {
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   if (compact && !isExpanded) {
@@ -268,27 +262,3 @@ const MinimizeIcon = ({ size }: { size: number }) => (
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
   </svg>
 );
-
-/**
- * Hook to show/hide cache monitor
- */
-export function useCacheMonitor() {
-  const [showMonitor, setShowMonitor] = useState(false);
-
-  useEffect(() => {
-    // Keyboard shortcut to toggle monitor (Ctrl+Shift+C)
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'C') {
-        setShowMonitor(prev => !prev);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
-
-  return {
-    showMonitor,
-    toggleMonitor: () => setShowMonitor(prev => !prev)
-  };
-}

@@ -13,7 +13,6 @@ export default function Breadcrumbs() {
   const { accounts } = useApp();
   const searchParams = new URLSearchParams(location.search);
   const accountId = searchParams.get('account');
-  const isDemoMode = searchParams.get('demo') === 'true';
 
   // Generate breadcrumb items based on current path
   const getBreadcrumbs = (): BreadcrumbItem[] => {

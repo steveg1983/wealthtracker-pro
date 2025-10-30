@@ -6,11 +6,9 @@ import {
   FileTextIcon, 
   CheckIcon, 
   XIcon,
-  AlertCircleIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
   SaveIcon,
-  DownloadIcon,
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
@@ -25,7 +23,7 @@ interface CSVImportWizardProps {
 type WizardStep = 'upload' | 'mapping' | 'preview' | 'result';
 
 export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWizardProps): React.JSX.Element {
-  const { accounts, transactions, addTransaction, addAccount, categories } = useApp();
+  const { accounts, transactions, addTransaction, categories } = useApp();
   const [currentStep, setCurrentStep] = useState<WizardStep>('upload');
   const [csvContent, setCsvContent] = useState('');
   const [headers, setHeaders] = useState<string[]>([]);

@@ -1,21 +1,19 @@
 import React, { useState } from 'react';
-import { format, startOfMonth, endOfMonth, isToday, isFuture } from 'date-fns';
+import { format } from 'date-fns';
 import { useCashFlowForecast } from '../hooks/useCashFlowForecast';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { 
   TrendingUpIcon, 
   TrendingDownIcon, 
   AlertCircleIcon,
-  CalendarIcon,
   RefreshCwIcon,
-  PlusIcon,
   EditIcon,
   DeleteIcon,
   ChevronRightIcon,
   ActivityIcon
 } from './icons';
 import { LoadingState } from './loading/LoadingState';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Area, AreaChart, ReferenceLine } from 'recharts';
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, ReferenceLine } from 'recharts';
 import type { RecurringPattern } from '../services/cashFlowForecastService';
 import type { DecimalInstance } from '../types/decimal-types';
 import { toDecimal } from '../utils/decimal';
@@ -36,7 +34,6 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
     isLoading, 
     error, 
     refresh,
-    updatePattern,
     removePattern 
   } = useCashFlowForecast({
     months: forecastMonths,
@@ -73,6 +70,13 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
   // Group patterns by type
   const incomePatterns = forecast.recurringPatterns.filter(p => p.type === 'income');
   const expensePatterns = forecast.recurringPatterns.filter(p => p.type === 'expense');
+
+  const handlePatternRemove = (patternId: string) => {
+    removePattern(patternId);
+    if (selectedPattern?.id === patternId) {
+      setSelectedPattern(null);
+    }
+  };
 
   return (
     <div className={`space-y-6 ${className}`}>
@@ -269,7 +273,7 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
                       pattern={pattern}
                       formatCurrency={formatCurrency}
                       onEdit={() => setSelectedPattern(pattern)}
-                      onRemove={() => removePattern(pattern.id)}
+                      onRemove={() => handlePatternRemove(pattern.id)}
                     />
                   ))}
                 </div>
@@ -289,12 +293,40 @@ export default function CashFlowForecast({ accountIds, className = '' }: CashFlo
                       pattern={pattern}
                       formatCurrency={formatCurrency}
                       onEdit={() => setSelectedPattern(pattern)}
-                      onRemove={() => removePattern(pattern.id)}
+                      onRemove={() => handlePatternRemove(pattern.id)}
                     />
                   ))}
                 </div>
               </div>
             )}
+          </div>
+        )}
+
+        {showPatterns && selectedPattern && (
+          <div className="mt-4 rounded-lg border border-primary/40 bg-primary/5 p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Selected Pattern
+                </h4>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                  {selectedPattern.description}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  Amount: {formatCurrency(selectedPattern.amount)} • Frequency: {selectedPattern.frequency} • Next occurrence:{' '}
+                  {format(selectedPattern.nextOccurrence, 'MMMM d, yyyy')}
+                </p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Confidence: {selectedPattern.confidence}% • Type: {selectedPattern.type}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedPattern(null)}
+                className="text-sm text-primary hover:text-secondary transition-colors"
+              >
+                Clear
+              </button>
+            </div>
           </div>
         )}
       </div>
