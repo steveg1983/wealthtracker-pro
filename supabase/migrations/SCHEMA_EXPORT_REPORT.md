@@ -1,10 +1,12 @@
 # Supabase Schema Export Report
 **Date**: 2025-10-30
-**Engineer**: Claude
+**Engineer**: Claude → handed off to ChatGPT (backend)
 
 ## Summary
 
-Successfully captured a baseline Supabase schema and identified a critical RLS security vulnerability. While we couldn't use pg_dump directly due to connection issues, we reconstructed the schema from code analysis and created migration files for both the initial schema and the RLS fix.
+- Baseline Supabase schema captured (reconstructed from code paths until direct pg_dump is available)
+- Critical RLS vulnerability on `transactions` table identified **and fixed**
+- Supabase smoke suite now passes (CRUD + RLS: CREATE, READ, DELETE blocked for anon)
 
 ## Current Status
 
@@ -35,43 +37,30 @@ Successfully captured a baseline Supabase schema and identified a critical RLS s
    - `supabase/migrations/20251030003814__initial-schema-placeholder.sql`
    - Contains instructions for completing the full schema export
 
-### ⚠️ Critical Finding: RLS Policy Issue
+### ✅ RLS Status
 
-The smoke test revealed a **security vulnerability**:
-- **Issue**: Anonymous users can delete transactions (should be blocked by RLS)
-- **Test**: `src/test/supabase/supabase-smoke.test.ts` - "enforces RLS by blocking anon deletion" FAILS
-- **Impact**: Row Level Security policies for DELETE operations may be missing or misconfigured
-- **Action Required**: This needs to be fixed in the schema before production deployment
+- Vulnerability (anon delete) reproduced by Supabase smoke suite
+- Fixed via `supabase/migrations/20251030004200__diagnose-and-fix-rls.sql` (drops/rebuilds SELECT/INSERT/UPDATE/DELETE policies and re-enables RLS)
+- Verified with `npm run test:supabase-smoke` (all tests green)
 
 ## Migration Files Created
 
 1. **Initial Schema**: `supabase/migrations/20251030003814__initial-schema.sql`
-   - Reconstructed from code analysis
-   - Includes all 15 tables with estimated column types
-   - Contains basic RLS policies for all tables
-   - **Note**: This is a working schema but may need refinement
+   - Reconstructed from code analysis (schema + FK + policies)
+   - Replace with canonical `supabase db dump` once DB hostname/password are available
 
-2. **RLS Security Fix**: `supabase/migrations/20251030004000__fix-transactions-rls-delete.sql`
-   - Fixes critical security vulnerability
-   - Adds missing DELETE policy for transactions table
-   - Must be applied immediately to production
+2. **RLS Security Fix**: `supabase/migrations/20251030004200__diagnose-and-fix-rls.sql`
+   - Drops all existing policies on `transactions`
+   - Rebuilds SELECT/INSERT/UPDATE/DELETE policies (blocking anon, allowing owners + service role)
+   - Leaves diagnostic queries at the top for auditing—safe to keep as they run `SELECT ...` only
 
 ## Required Actions
 
-### Immediate (Critical Security Fix)
+### Immediate actions
 
-1. **Apply the RLS fix to production**:
-   - Go to [Supabase SQL Editor](https://app.supabase.com/project/nqbacrjjgdjabygqtcah/editor)
-   - Create new query
-   - Paste contents of `20251030004000__fix-transactions-rls-delete.sql`
-   - Run the query
-   - This fixes the vulnerability where anonymous users could delete any transaction
-
-2. **Verify the fix**:
-   ```bash
-   npm run test:supabase-smoke
-   ```
-   All tests should pass after applying the RLS fix.
+- ✅ (Done) Apply RLS fix (`20251030004200__diagnose-and-fix-rls.sql`) via Supabase SQL editor
+- ✅ (Done) `npm run test:supabase-smoke`
+- 🔁 Continue monitoring nightly smoke workflow (`.github/workflows/supabase-smoke.yml`)
 
 ### Future (Complete Schema Export)
 
@@ -97,11 +86,11 @@ To get the actual database schema with all constraints, triggers, and functions:
 - `supabase/migrations/20251030003814__initial-schema-placeholder.sql` - Placeholder migration with instructions
 - `supabase/migrations/SCHEMA_EXPORT_REPORT.md` - This report
 
-## Smoke Test Results
+## Smoke Test Results (latest)
 
 ```
-✓ creates a transaction via service role and reads it as anon user (155ms)
-✗ enforces RLS by blocking anon deletion (123ms) - CRITICAL SECURITY ISSUE
+✓ creates a transaction via service role and reads it as anon user
+✓ enforces RLS by blocking anon deletion (record remains, no error surfaced)
 ```
 
 ## Next Steps

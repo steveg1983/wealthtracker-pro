@@ -131,10 +131,12 @@ async function testRLS() {
       console.log('   Error code:', deleteError.code);
       console.log('   Error message:', deleteError.message);
     } else {
-      console.log('❌ BAD: Anonymous delete succeeded!');
-      console.log('   This is the security vulnerability.');
+      console.log('❌ BAD: Anonymous delete succeeded (no error returned)!');
+      console.log('   Delete response data:', deleteData);
       if (deleteData && deleteData.length > 0) {
-        console.log('   Deleted data:', deleteData);
+        console.log('   Items deleted:', deleteData.length);
+      } else {
+        console.log('   However, no data was actually deleted (empty response)');
       }
     }
 

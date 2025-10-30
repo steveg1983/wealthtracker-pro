@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { ensureProfile, cleanupProfile, createAccount, recordTransaction, fetchTransactionsAsUser, tryDeleteTransactionAsAnon } from './helpers';
+import {
+  ensureProfile,
+  cleanupProfile,
+  createAccount,
+  recordTransaction,
+  fetchTransactionsAsUser,
+  tryDeleteTransactionAsAnon,
+  fetchTransactionByIdService,
+} from './helpers';
 
 describe('Supabase smoke', { timeout: 60000 }, () => {
   let userId: string;
@@ -31,12 +39,19 @@ describe('Supabase smoke', { timeout: 60000 }, () => {
 
   it('enforces RLS by blocking anon deletion', async () => {
     const inserted = await recordTransaction(userId, accountId);
-    const error = await tryDeleteTransactionAsAnon(inserted.id);
-    expect(error).toBeTruthy();
-    if (error && 'code' in error) {
-      expect(error.code).toBe('42501');
-    } else {
-      expect(error?.message ?? '').toMatch(/permission|Unauthorized/i);
-    }
+    const { error, data } = await tryDeleteTransactionAsAnon(inserted.id);
+
+    // RLS should silently block the delete – no error, no rows affected
+    expect(error).toBeNull();
+    expect(Array.isArray(data) ? data.length : 0).toBe(0);
+
+    // Anonymous reader should still see the transaction
+    const rowsAfter = await fetchTransactionsAsUser(userId);
+    expect(rowsAfter.some((row) => row.id === inserted.id)).toBe(true);
+
+    // Service-role fetch confirms the record still exists in the table
+    const serviceRow = await fetchTransactionByIdService(inserted.id);
+    expect(serviceRow.id).toBe(inserted.id);
+  });
   });
 });

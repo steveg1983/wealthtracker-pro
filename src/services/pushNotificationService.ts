@@ -3,6 +3,8 @@
  * Manages push notification subscriptions and interactions
  */
 
+import React from 'react';
+
 import { serviceWorkerRegistration } from '../utils/serviceWorkerRegistration';
 
 interface NotificationOptions {

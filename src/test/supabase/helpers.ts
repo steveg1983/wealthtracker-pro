@@ -78,10 +78,27 @@ export async function fetchTransactionsAsUser(userId: string) {
   return data;
 }
 
+export async function fetchTransactionByIdService(id: string) {
+  if (!supabaseService) {
+    throw new Error('Service role required');
+  }
+
+  const { data, error } = await supabaseService
+    .from('transactions')
+    .select()
+    .eq('id', id)
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
 export async function tryDeleteTransactionAsAnon(id: string) {
-  const { error } = await supabaseAnon
+  const { data, error } = await supabaseAnon
     .from('transactions')
     .delete()
-    .eq('id', id);
-  return error;
+    .eq('id', id)
+    .select('id');
+
+  return { data, error };
 }

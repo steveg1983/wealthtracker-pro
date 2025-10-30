@@ -3,12 +3,13 @@
 export type SubscriptionPlan = 'free' | 'basic' | 'premium' | 'enterprise';
 export type BillingPeriod = 'monthly' | 'yearly';
 export type PaymentStatus = 'pending' | 'succeeded' | 'failed' | 'canceled';
+export type SubscriptionStatus = 'active' | 'inactive' | 'cancelled' | 'past_due' | 'trialing';
 
 export interface Subscription {
   id: string;
   userId: string;
   plan: SubscriptionPlan;
-  status: 'active' | 'inactive' | 'cancelled' | 'past_due';
+  status: SubscriptionStatus;
   billingPeriod: BillingPeriod;
   currentPeriodStart: Date;
   currentPeriodEnd: Date;
@@ -17,6 +18,58 @@ export interface Subscription {
   updatedAt: Date;
   stripeCustomerId?: string;
   stripeSubscriptionId?: string;
+}
+
+// Alias for compatibility
+export type UserSubscription = Subscription;
+
+// Subscription tier with extended properties
+export interface SubscriptionTier {
+  id: string;
+  name: string;
+  plan: SubscriptionPlan;
+  displayName: string;
+  description: string;
+  price: {
+    monthly: number;
+    yearly: number;
+  };
+  features: string[];
+  limits: FeatureLimits;
+  highlighted?: boolean;
+  popular?: boolean;
+}
+
+// Feature limits for each plan
+export interface FeatureLimits {
+  accounts: number;
+  transactions: number;
+  budgets: number;
+  goals: number;
+  categories?: number;
+  tags?: number;
+  attachments?: number;
+  customReports?: number;
+  apiCalls?: number;
+  teamMembers?: number;
+}
+
+// Billing history entry
+export interface BillingHistory {
+  id: string;
+  subscriptionId: string;
+  invoiceId: string;
+  amount: number;
+  currency: string;
+  status: PaymentStatus;
+  description: string;
+  periodStart: Date;
+  periodEnd: Date;
+  createdAt: Date;
+  paidAt?: Date;
+  failureReason?: string;
+  invoiceUrl?: string;
+  receiptUrl?: string;
 }
 
 export interface PricingPlan {
@@ -28,12 +81,7 @@ export interface PricingPlan {
     yearly: number;
   };
   features: string[];
-  limits: {
-    accounts: number;
-    transactions: number;
-    budgets: number;
-    goals: number;
-  };
+  limits: FeatureLimits;
   highlighted?: boolean;
 }
 
