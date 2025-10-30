@@ -9,6 +9,7 @@ export interface Holding {
   gain?: number;
   gainPercent?: number;
   currency?: string;
+  costBasis?: number;
   lastUpdated?: Date;
 }
 
@@ -29,6 +30,7 @@ export interface Account {
   plaidAccountId?: string;
   mask?: string;
   updatedAt?: Date;
+  createdAt?: Date;
   sortCode?: string; // UK bank sort code (XX-XX-XX format)
   accountNumber?: string; // Bank account number (typically 8 digits)
   available?: number;
@@ -67,6 +69,7 @@ export interface Transaction {
   };
   goalId?: string;
   accountName?: string;
+  createdAt?: Date;
   recurringTransactionId?: string;
   addedBy?: string; // Member ID who added this transaction
   linkedTransferId?: string; // ID of the corresponding transfer transaction in the other account

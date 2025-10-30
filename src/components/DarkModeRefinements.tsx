@@ -320,7 +320,7 @@ export function DarkModeRefinements({
               {/* Contrast Mode */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                  <SettingsIcon as ContrastIcon size={16} className="inline mr-1" />
+                  <ContrastIcon size={16} className="inline mr-1" />
                   Contrast Level
                 </label>
                 <div className="space-y-2">

@@ -388,11 +388,11 @@ export function DragDropImport({
                   CSV
                 </div>
                 <div className="flex items-center gap-1">
-                  <FileTextIcon as FileIcon size={16} />
+                  <FileIcon size={16} />
                   QIF
                 </div>
                 <div className="flex items-center gap-1">
-                  <FileTextIcon as FileIcon size={16} />
+                  <FileIcon size={16} />
                   OFX/QFX
                 </div>
               </div>
