@@ -151,21 +151,45 @@ export class SupabaseSubscriptionService {
         if (insertError) throw insertError;
         
         return {
-          accounts: newData.accounts_count,
-          transactions: newData.transactions_count,
-          budgets: newData.budgets_count,
-          goals: newData.goals_count,
-          lastCalculated: new Date(newData.last_calculated)
-        };
+          subscriptionId: userId,
+          period: { start: new Date(), end: new Date() },
+          usage: {
+            accounts: newData.accounts_count,
+            transactions: newData.transactions_count,
+            budgets: newData.budgets_count,
+            goals: newData.goals_count,
+            storage: 0
+          },
+          limits: { accounts: 0, transactions: 0, budgets: 0, goals: 0 },
+          percentageUsed: {
+            accounts: 0,
+            transactions: 0,
+            budgets: 0,
+            goals: 0,
+            storage: 0
+          }
+        } as any;
       }
 
       return {
-        accounts: data.accounts_count,
-        transactions: data.transactions_count,
-        budgets: data.budgets_count,
-        goals: data.goals_count,
-        lastCalculated: new Date(data.last_calculated)
-      };
+        subscriptionId: userId,
+        period: { start: new Date(), end: new Date() },
+        usage: {
+          accounts: data.accounts_count,
+          transactions: data.transactions_count,
+          budgets: data.budgets_count,
+          goals: data.goals_count,
+          storage: 0
+        },
+        limits: { accounts: 0, transactions: 0, budgets: 0, goals: 0 },
+        percentageUsed: {
+          accounts: 0,
+          transactions: 0,
+          budgets: 0,
+          goals: 0,
+          storage: 0
+        }
+      } as any;
     } catch (error) {
       console.error('Error getting subscription usage:', error);
       throw error;

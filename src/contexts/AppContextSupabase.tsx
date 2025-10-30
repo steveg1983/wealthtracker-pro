@@ -551,10 +551,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isLoading: false,
       isSyncing: false,
       isUsingSupabase: true,
-      hasTestData: false,
-      userId: null,
-      userName: null,
-      userEmail: null
+      hasTestData: false
     };
   }, [accounts, transactions, budgets, goals, categories, tags, recurringTransactions]);
 

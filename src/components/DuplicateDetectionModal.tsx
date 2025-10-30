@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AlertTriangle, Check, X, Info } from 'lucide-react';
 import { Transaction } from '../types';
-import { DuplicateMatch, DuplicateDetectionService } from '../services/duplicateDetectionService';
+import { DuplicateMatch } from '../services/duplicateDetectionService';
 import { formatCurrency } from '../utils/formatters';
 import { format } from 'date-fns';
 
@@ -21,7 +21,6 @@ export default function DuplicateDetectionModal({
   onResolveAll
 }: DuplicateDetectionModalProps): React.JSX.Element | null {
   const [resolvedItems, setResolvedItems] = useState<Set<string>>(new Set());
-  const [selectedAction, setSelectedAction] = useState<'keep' | 'skip' | 'both' | null>(null);
 
   if (!isOpen) return null;
 

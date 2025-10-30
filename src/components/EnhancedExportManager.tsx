@@ -122,11 +122,10 @@ const REPORT_TEMPLATES = [
 ];
 
 export default function EnhancedExportManager(): React.JSX.Element {
-  const { accounts, transactions, budgets, goals } = useApp();
+  const { accounts, transactions, budgets } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
-  const [showPreview, setShowPreview] = useState(false);
   
   const [options, setOptions] = useState<ExportOptions>({
     format: 'pdf',
@@ -158,14 +157,16 @@ export default function EnhancedExportManager(): React.JSX.Element {
     switch (options.dateRange) {
       case 'thisMonth':
         return { start: startOfMonth(now), end: endOfMonth(now) };
-      case 'lastMonth':
+      case 'lastMonth': {
         const lastMonth = subMonths(now, 1);
         return { start: startOfMonth(lastMonth), end: endOfMonth(lastMonth) };
+      }
       case 'thisYear':
         return { start: startOfYear(now), end: endOfYear(now) };
-      case 'lastYear':
+      case 'lastYear': {
         const lastYear = new Date(now.getFullYear() - 1, 0, 1);
         return { start: startOfYear(lastYear), end: endOfYear(lastYear) };
+      }
       case 'custom':
         return {
           start: options.startDate ? new Date(options.startDate) : now,
