@@ -33,6 +33,8 @@ export interface Account {
   accountNumber?: string; // Bank account number (typically 8 digits)
   available?: number;
   tags?: string[];
+  creditLimit?: number;
+  subtype?: string;
 }
 
 export interface Transaction {
