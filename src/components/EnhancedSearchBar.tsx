@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SearchIcon, FilterIcon, XIcon, ClockIcon, TagIcon, CalendarIcon, DollarSignIcon, StarIcon as SparklesIcon } from './icons';
+import { SearchIcon, FilterIcon, XIcon, ClockIcon, TagIcon, CalendarIcon, DollarSignIcon, SparklesIcon } from './icons';
 import { Button } from './common/Button';
 import { formatCurrency } from '../utils/formatters';
 import { searchService } from '../services/searchService';
@@ -136,7 +136,7 @@ export function EnhancedSearchBar({
               variant={naturalLanguageMode ? 'primary' : 'secondary'}
               size="md"
               onClick={() => onNaturalLanguageModeChange(!naturalLanguageMode)}
-              leftIcon={StarIcon as SparklesIcon}
+              leftIcon={SparklesIcon}
               title="Toggle natural language search"
             >
               AI

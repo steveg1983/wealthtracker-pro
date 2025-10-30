@@ -32,7 +32,7 @@ export default function DeletedAccounts() {
       setLoading(true);
       try {
         // Now fetch deleted accounts using the database user ID directly
-        const { data, error } = await supabase
+        const { data, error } = await supabase!
           .from('accounts')
           .select('*')
           .eq('user_id', databaseId)
@@ -68,7 +68,7 @@ export default function DeletedAccounts() {
     setRestoringId(accountId);
     try {
       // Update in database
-      const { error } = await supabase
+      const { error } = await supabase!
         .from('accounts')
         .update({ is_active: true, updated_at: new Date().toISOString() })
         .eq('id', accountId);

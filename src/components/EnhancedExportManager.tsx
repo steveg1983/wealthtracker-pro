@@ -195,7 +195,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
       return transactionDate >= dateRange.start && 
              transactionDate <= dateRange.end &&
              (options.accounts.length === 0 || options.accounts.includes(t.accountId)) &&
-             (options.categories.length === 0 || options.categories.includes(t.categoryId));
+             (options.categories.length === 0 || options.categories.includes(t.category));
     });
 
     // Add summary section
@@ -222,7 +222,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
       const tableData = filteredTransactions.map(t => [
         format(new Date(t.date), 'MMM d, yyyy'),
         t.description,
-        t.categoryId,
+        t.category,
         accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
         `£${Math.abs(t.amount).toFixed(2)}`,
         t.amount > 0 ? 'Income' : 'Expense'
@@ -246,7 +246,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
 
       const budgetData = budgets.map(b => {
         const spent = Math.abs(filteredTransactions
-          .filter(t => t.categoryId === b.categoryId && t.amount < 0)
+          .filter(t => t.category === b.categoryId && t.amount < 0)
           .reduce((sum, t) => sum + t.amount, 0));
 
         const percentage = (spent / b.amount) * 100;
@@ -301,7 +301,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
       return transactionDate >= dateRange.start && 
              transactionDate <= dateRange.end &&
              (options.accounts.length === 0 || options.accounts.includes(t.accountId)) &&
-             (options.categories.length === 0 || options.categories.includes(t.categoryId));
+             (options.categories.length === 0 || options.categories.includes(t.category));
     });
 
     // Summary Sheet
@@ -329,7 +329,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
         ...filteredTransactions.map(t => [
           format(new Date(t.date), 'yyyy-MM-dd'),
           t.description,
-          t.categoryId,
+          t.category,
           accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
           parseFloat(t.amount),
           parseFloat(t.amount) > 0 ? 'Income' : 'Expense',
@@ -438,7 +438,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
       return transactionDate >= dateRange.start && 
              transactionDate <= dateRange.end &&
              (options.accounts.length === 0 || options.accounts.includes(t.accountId)) &&
-             (options.categories.length === 0 || options.categories.includes(t.categoryId));
+             (options.categories.length === 0 || options.categories.includes(t.category));
     });
 
     const headers = ['Date', 'Description', 'Category', 'Account', 'Amount', 'Type'];

@@ -89,7 +89,7 @@ export async function createAccount(
     
     console.log('[SimpleAccountService] Creating account with data:', accountData);
     
-    const { data, error } = await supabase
+    const { data, error } = await supabase!
       .from('accounts')
       .insert(accountData)
       .select()
@@ -154,7 +154,7 @@ export async function getAccounts(userIdParam: string): Promise<Account[]> {
     }
     
     // Get accounts for the user
-    const { data, error } = await supabase
+    const { data, error } = await supabase!
       .from('accounts')
       .select('*')
       .eq('user_id', userId)
@@ -188,7 +188,7 @@ export async function updateAccount(
       throw new Error('Supabase not configured');
     }
     
-    const { data, error } = await supabase
+    const { data, error } = await supabase!
       .from('accounts')
       .update(updates)
       .eq('id', accountId)
@@ -226,7 +226,7 @@ export async function deleteAccount(accountId: string): Promise<void> {
       throw new Error('Supabase not configured');
     }
     
-    const { error } = await supabase
+    const { error } = await supabase!
       .from('accounts')
       .delete()
       .eq('id', accountId);

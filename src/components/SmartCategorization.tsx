@@ -3,7 +3,7 @@ import {
   LightbulbIcon, 
   CheckIcon, 
   XIcon, 
-  StarIcon as SparklesIcon,
+  SparklesIcon,
   RefreshCwIcon,
   ChevronRightIcon,
   AlertCircleIcon
@@ -130,7 +130,7 @@ export function SmartCategorization({
   if (showInline) {
     return (
       <div className="flex items-center gap-2 py-1">
-        <StarIcon as SparklesIcon size={14} className="text-purple-500 flex-shrink-0" />
+        <SparklesIcon size={14} className="text-purple-500 flex-shrink-0" />
         <span className="text-xs text-gray-600 dark:text-gray-400 flex-shrink-0">
           AI suggests:
         </span>
@@ -228,7 +228,7 @@ export function SmartCategorization({
     <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <StarIcon as SparklesIcon size={20} className="text-purple-600 dark:text-purple-400" />
+          <SparklesIcon size={20} className="text-purple-600 dark:text-purple-400" />
           <h4 className="font-semibold text-gray-900 dark:text-white">
             AI Category Suggestions
           </h4>
@@ -413,7 +413,7 @@ export function BulkCategorization({
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <StarIcon as SparklesIcon size={24} className="text-purple-600 dark:text-purple-400" />
+              <SparklesIcon size={24} className="text-purple-600 dark:text-purple-400" />
               <div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">
                   Bulk Smart Categorization
@@ -535,7 +535,7 @@ export function BulkCategorization({
                 disabled={selected.size === 0}
                 className="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
               >
-                <StarIcon as SparklesIcon size={16} />
+                <SparklesIcon size={16} />
                 Apply to {selected.size} transactions
               </button>
             </div>

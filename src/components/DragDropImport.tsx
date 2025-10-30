@@ -8,7 +8,7 @@ import {
   RefreshCwIcon,
   FileTextIcon,
   DownloadIcon,
-  StarIcon as SparklesIcon
+  SparklesIcon
 } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { importService } from '../services/importService';
@@ -486,7 +486,7 @@ export function DragDropImport({
               {/* Column Mapping */}
               <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                 <div className="flex items-center gap-2 mb-3">
-                  <StarIcon as SparklesIcon size={20} className="text-blue-600 dark:text-blue-400" />
+                  <SparklesIcon size={20} className="text-blue-600 dark:text-blue-400" />
                   <h4 className="font-medium text-blue-900 dark:text-blue-100">
                     Auto-detected Column Mappings
                   </h4>

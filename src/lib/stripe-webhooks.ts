@@ -79,7 +79,7 @@ async function handleCheckoutSessionCompleted(
   }
 
   // Update user's subscription in database
-  const { error } = await supabase
+  const { error } = await supabase!
     .from('user_profiles')
     .update({
       stripe_customer_id: session.customer as string,
@@ -114,7 +114,7 @@ async function handleSubscriptionUpdate(
   const tier = getPlanFromSubscription(subscription);
 
   // Find user by Stripe customer ID
-  const { data: user, error: userError } = await supabase
+  const { data: user, error: userError } = await supabase!
     .from('user_profiles')
     .select('user_id')
     .eq('stripe_customer_id', subscription.customer as string)
@@ -125,7 +125,7 @@ async function handleSubscriptionUpdate(
   }
 
   // Update subscription details
-  const { error } = await supabase
+  const { error } = await supabase!
     .from('user_profiles')
     .update({
       subscription_status: status,
@@ -155,7 +155,7 @@ async function handleSubscriptionDeleted(
   const subscription = event.data.object;
 
   // Find user
-  const { data: user, error: userError } = await supabase
+  const { data: user, error: userError } = await supabase!
     .from('user_profiles')
     .select('user_id, email')
     .eq('stripe_customer_id', subscription.customer as string)
@@ -166,7 +166,7 @@ async function handleSubscriptionDeleted(
   }
 
   // Downgrade to free tier
-  const { error } = await supabase
+  const { error } = await supabase!
     .from('user_profiles')
     .update({
       subscription_status: 'canceled',
@@ -203,7 +203,7 @@ async function handleInvoicePaid(
   }
 
   // Record payment in database
-  const { error } = await supabase
+  const { error } = await supabase!
     .from('payments')
     .insert({
       stripe_invoice_id: invoice.id,
@@ -230,7 +230,7 @@ async function handlePaymentFailed(
   const invoice = event.data.object;
 
   // Find user
-  const { data: user, error: userError } = await supabase
+  const { data: user, error: userError } = await supabase!
     .from('user_profiles')
     .select('user_id, email')
     .eq('stripe_customer_id', invoice.customer as string)
@@ -241,7 +241,7 @@ async function handlePaymentFailed(
   }
 
   // Update subscription status
-  const { error } = await supabase
+  const { error } = await supabase!
     .from('user_profiles')
     .update({
       subscription_status: 'past_due',
@@ -271,7 +271,7 @@ async function handlePaymentMethodAttached(
   const paymentMethod = event.data.object;
 
   // Update user's default payment method
-  const { error } = await supabase
+  const { error } = await supabase!
     .from('user_profiles')
     .update({
       has_payment_method: true,

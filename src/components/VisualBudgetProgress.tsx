@@ -8,7 +8,7 @@ import {
   DollarSignIcon,
   ClockIcon,
   InfoIcon,
-  StarIcon as SparklesIcon
+  SparklesIcon
 } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -295,7 +295,7 @@ export function VisualBudgetProgress({
           {(velocity.willExceed || !velocity.isOnTrack || percentage >= 90) && (
             <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
               <div className="flex items-start gap-2">
-                <StarIcon as SparklesIcon size={16} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+                <SparklesIcon size={16} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
                 <div className="text-sm">
                   <p className="font-medium text-yellow-800 dark:text-yellow-200 mb-1">
                     Budget Insight

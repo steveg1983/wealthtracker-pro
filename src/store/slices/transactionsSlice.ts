@@ -42,7 +42,7 @@ const transactionsSlice = createSlice({
       const newTransaction: Transaction = {
         ...action.payload,
         id: crypto.randomUUID(),
-        date: toISOString(action.payload.date) || getCurrentISOString(),
+        date: toISOString(action.payload.date) || getCurrentISOString() as any,
       };
       state.transactions.push(newTransaction);
     },

@@ -4,17 +4,23 @@
 ## Connection Details Provided
 - **Direct Connection String:** `postgresql://postgres:[YOUR_PASSWORD]@db.nqbacrjjgdjabygqtcah.supabase.co:5432/postgres`
 - **Hostname:** `db.nqbacrjjgdjabygqtcah.supabase.co`
+- **IPv6 Address:** `2a05:d01c:30c:9d1a:2e6d:94e:3814:4edf` (discovered via DNS lookup)
 - **Password:** `SDzMGtV9FGTfdLun`
 - **Port:** 5432
 - **Database:** postgres
 
 ## Connection Test Results
 
-### ❌ Direct Connection Failed
+### ❌ Direct Connection Failed (IPv6 Only)
 ```bash
-PGPASSWORD="SDzMGtV9FGTfdLun" psql -h db.nqbacrjjgdjabygqtcah.supabase.co -p 5432 -U postgres -d postgres
+# Hostname resolves to IPv6 only (no IPv4 address)
+host db.nqbacrjjgdjabygqtcah.supabase.co
+→ IPv6: 2a05:d01c:30c:9d1a:2e6d:94e:3814:4edf
+
+# Connection attempt fails - no route to IPv6 host
+PGPASSWORD="SDzMGtV9FGTfdLun" psql -h "2a05:d01c:30c:9d1a:2e6d:94e:3814:4edf" -p 5432 -U postgres
 ```
-**Error:** Host name cannot be resolved (DNS lookup fails)
+**Error:** No route to host - IPv6 connectivity not available from current network
 
 ### ❌ Pooler Connection Failed
 ```bash

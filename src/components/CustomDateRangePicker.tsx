@@ -6,7 +6,7 @@ import {
   ClockIcon,
   CheckIcon,
   XIcon,
-  StarIcon as SparklesIcon,
+  SparklesIcon,
   TrendingUpIcon,
   FilterIcon
 } from './icons';
@@ -519,7 +519,7 @@ export function CustomDateRangePicker({
                     : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
                 }`}
               >
-                <StarIcon as SparklesIcon size={14} className="inline mr-1" />
+                <SparklesIcon size={14} className="inline mr-1" />
                 Natural Language
               </button>
             )}
