@@ -93,7 +93,7 @@ export default function AddAccountModal({ isOpen, onClose }: AddAccountModalProp
       const result = await addAccount({
         name: formData.name.trim(),
         type: formData.type === 'checking' ? 'current' : formData.type,
-        openingBalance: balance,
+        initialBalance: balance,
         currency: formData.currency,
         institution: formData.institution.trim() || '',
         isActive: true,

@@ -189,7 +189,7 @@ export const AccessibilityDashboard: React.FC = () => {
 
       <div className="grid gap-4">
         {colorContrastResults.map((combo, index) => {
-          const passes = combo.result.passes.normal.aa;
+          const passes = (combo.result as any).passes.normal.aa;
           return (
             <div
               key={index}

@@ -166,13 +166,13 @@ export function useAppRedux() {
   const clearAllData = useCallback(async () => {
     // Clear all data from Redux and storage
     await Promise.all([
-      dispatch(saveAccounts([])),
-      dispatch(saveTransactions([])),
-      dispatch(saveBudgets([])),
-      dispatch(saveCategories([])),
-      dispatch(saveGoals([])),
-      dispatch(saveTags([])),
-      dispatch(saveRecurringTransactions([]))
+      dispatch(setAccounts([])),
+      dispatch(setTransactions([])),
+      dispatch(setBudgets([])),
+      dispatch(setCategories([])),
+      dispatch(setGoals([])),
+      dispatch(setTags([])),
+      dispatch(setRecurringTransactions([]))
     ]);
   }, [dispatch]);
   
@@ -198,13 +198,13 @@ export function useAppRedux() {
   const importData = useCallback(async (data: BackupData) => {
     // Import data to Redux
     await Promise.all([
-      data.accounts && dispatch(saveAccounts(data.accounts)),
-      data.transactions && dispatch(saveTransactions(data.transactions)),
-      data.budgets && dispatch(saveBudgets(data.budgets)),
-      data.categories && dispatch(saveCategories(data.categories)),
-      data.goals && dispatch(saveGoals(data.goals)),
-      data.tags && dispatch(saveTags(data.tags)),
-      data.recurringTransactions && dispatch(saveRecurringTransactions(data.recurringTransactions))
+      data.accounts && dispatch(setAccounts(data.accounts)),
+      data.transactions && dispatch(setTransactions(data.transactions)),
+      data.budgets && dispatch(setBudgets(data.budgets)),
+      data.categories && dispatch(setCategories(data.categories)),
+      data.goals && dispatch(setGoals(data.goals)),
+      data.tags && dispatch(setTags(data.tags)),
+      data.recurringTransactions && dispatch(setRecurringTransactions(data.recurringTransactions))
     ]);
   }, [dispatch]);
   

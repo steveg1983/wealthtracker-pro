@@ -277,6 +277,7 @@ export default function AccountTransactions() {
         amount: Math.abs(amount), // Positive amount for receiving account
         type: 'transfer',
         accountId: quickAddForm.category, // Target account receives the transfer
+        transfer_account_id: account.id, // Reference back to the source account
         tags: quickAddForm.tags,
         notes: quickAddForm.notes,
         cleared: false

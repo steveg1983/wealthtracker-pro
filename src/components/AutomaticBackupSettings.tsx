@@ -368,7 +368,7 @@ export default function AutomaticBackupSettings() {
                 </tr>
               </thead>
               <tbody>
-                {storedBackups.map((backup) => (
+                {storedBackups.map((backup: any) => (
                   <tr key={backup.id} className="border-b border-gray-100 dark:border-gray-800">
                     <td className="py-3 px-3">
                       <p className="text-sm font-medium text-gray-900 dark:text-white">

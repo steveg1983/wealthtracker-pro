@@ -313,7 +313,7 @@ export function DragDropImport({
       case 'importing':
         return <RefreshCwIcon size={48} className="text-blue-500 animate-spin" />;
       default:
-        return <UploadIcon as UploadCloudIcon size={48} className="text-gray-400" />;
+        return <UploadCloudIcon size={48} className="text-gray-400" />;
     }
   };
 
@@ -331,7 +331,7 @@ export function DragDropImport({
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
         >
-          <UploadIcon as UploadCloudIcon size={20} />
+          <UploadCloudIcon size={20} />
           Import File
         </button>
       </div>

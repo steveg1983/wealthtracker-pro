@@ -1,1 +1,8 @@
 node_modules
+coverage/
+coverage*.json
+coverage.lcov
+logs/
+dist/
+.DS_Store
+coverage-final.json

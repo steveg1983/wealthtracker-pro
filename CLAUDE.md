@@ -36,7 +36,7 @@
 - Never bypass Husky/CI hooks; if a hotfix requires it, follow up with full test runs immediately afterward.
 - Keep component copy/IDs stable unless the change is part of a planned UX update; dashboard/import regression tests rely on those selectors.
 
-- **Coverage Gate**: CI must run `scripts/verify-coverage-threshold.mjs` (≥75 % statements, ≥55 % branches) after `npm run test:coverage`.
+- **Coverage Gate**: CI must run `scripts/verify-coverage-threshold.mjs` (≥75 % statements, ≥55 % branches) after `npm run test:coverage`; the script now auto-merges Vitest shard outputs from `coverage/.tmp` into `coverage/coverage-final.json`, so no manual cleanup is required.
 - **Build Script**: Root `package.json` `"build"` delegates to `node scripts/build-web.mjs` to stay compatible with Vercel’s npm.
 - **Supabase Real Tests**: Set `RUN_SUPABASE_REAL_TESTS=true` and the three Supabase env vars. The script automatically maps `VITE_SUPABASE_SERVICE_ROLE_KEY` → `SUPABASE_SERVICE_ROLE_KEY`.
 - **Supabase Migrations**: Migrations live under `supabase/migrations/` and are managed via Supabase CLI (see `supabase/README.md`). Use npm scripts (`db:migration:new`, `db:migrate`, `db:diff`, `db:lint`, `db:reset`) with `SUPABASE_DB_URL` scoped to staging/test.

@@ -106,7 +106,8 @@ Follow up every bypass with the full lint + smoke suite before merging.
 Unit coverage is now treated as a gate. After `npm run test:coverage`, CI executes:
 
 ```sh
-node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55
+  node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55
+  # The script autogenerates coverage/coverage-final.json by merging Vitest shards from coverage/.tmp
 ```
 
 If either percentage drops below the threshold the workflow fails. Run the same command locally whenever you touch shared services to confirm you're still above **75 % statements / 55 % branches** before pushing.

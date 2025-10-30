@@ -2,7 +2,7 @@
  * AppState interface for application state management
  */
 
-import type { Account, Transaction, Budget, Goal, Category, RecurringTransaction } from './index';
+import type { Account, Transaction, Budget, Goal, Category, RecurringTransaction, Investment } from './index';
 
 export interface Tag {
   id: string;

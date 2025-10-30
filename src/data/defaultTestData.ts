@@ -1,5 +1,5 @@
 // Import types from main types file
-import type { Account, Transaction, Budget, Goal, Investment } from '../types';
+import type { Account, Transaction, Budget, Goal, Investment, Holding } from '../types';
 import { 
   generateMonthlyTransactions, 
   generateCreditCardPayments, 
