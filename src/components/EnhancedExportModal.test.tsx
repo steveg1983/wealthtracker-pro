@@ -2,16 +2,17 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import EnhancedExportModal from './EnhancedExportModal';
-import type { ExportOptions, ExportTemplate } from '../services/exportService';
+import type { ExportTemplate } from '../services/exportService';
 
 // Mock icons
 vi.mock('./icons', () => ({
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
-  DownloadIcon: ({ size }: any) => <div data-testid="download-icon">Download</div>,
-  FileTextIcon: ({ size }: any) => <div data-testid="file-text-icon">FileText</div>,
-  CalendarIcon: ({ size }: any) => <div data-testid="calendar-icon">Calendar</div>,
-  RefreshCwIcon: ({ size, className }: any) => <div data-testid="refresh-icon" className={className}>Refresh</div>,
-  PlayIcon: ({ size }: any) => <div data-testid="play-icon">Play</div>,
+  XIcon: ({ size: _size }: { size?: number }) => <div data-testid="x-icon">X</div>,
+  DownloadIcon: ({ size: _size }: { size?: number }) => <div data-testid="download-icon">Download</div>,
+  FileTextIcon: ({ size: _size }: { size?: number }) => <div data-testid="file-text-icon">FileText</div>,
+  RefreshCwIcon: ({ size: _size, className }: { size?: number; className?: string }) => (
+    <div data-testid="refresh-icon" className={className}>Refresh</div>
+  ),
+  PlayIcon: ({ size: _size }: { size?: number }) => <div data-testid="play-icon">Play</div>,
 }));
 
 // Mock export service
@@ -451,7 +452,6 @@ describe('EnhancedExportModal', () => {
       render(<EnhancedExportModal {...defaultProps} />);
       
       const dateInputs = document.querySelectorAll('input[type="date"]') as NodeListOf<HTMLInputElement>;
-      const originalValue = dateInputs[0].value;
       
       // Try to set an empty value - component should default to today's date
       fireEvent.change(dateInputs[0], { target: { value: '' } });
@@ -477,7 +477,7 @@ describe('EnhancedExportModal', () => {
       };
       
       const originalCreateElement = document.createElement.bind(document);
-      const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
+      vi.spyOn(document, 'createElement').mockImplementation((tagName) => {
         if (tagName === 'a') {
           return mockLink as any;
         }

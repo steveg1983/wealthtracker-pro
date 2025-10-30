@@ -70,6 +70,7 @@ export interface Transaction {
   goalId?: string;
   accountName?: string;
   createdAt?: Date;
+  updatedAt?: Date;
   recurringTransactionId?: string;
   addedBy?: string; // Member ID who added this transaction
   linkedTransferId?: string; // ID of the corresponding transfer transaction in the other account

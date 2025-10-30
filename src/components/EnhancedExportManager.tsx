@@ -3,14 +3,9 @@ import {
   FileText, 
   Download, 
   Calendar,
-  Filter,
-  CheckCircle,
-  Settings,
   FileSpreadsheet,
   FilePlus,
-  Eye,
   X,
-  ChevronDown,
   TrendingUp,
   DollarSign,
   PieChart,
@@ -42,6 +37,28 @@ interface ExportOptions {
   paperSize: 'a4' | 'letter' | 'legal';
   orientation: 'portrait' | 'landscape';
 }
+
+const DATE_RANGE_OPTIONS: ExportOptions['dateRange'][] = [
+  'thisMonth',
+  'lastMonth',
+  'thisYear',
+  'lastYear',
+  'all',
+  'custom'
+];
+
+const PAPER_SIZE_OPTIONS: ExportOptions['paperSize'][] = ['a4', 'letter', 'legal'];
+const PAPER_SIZE_LABELS: Record<ExportOptions['paperSize'], string> = {
+  a4: 'A4',
+  letter: 'Letter',
+  legal: 'Legal'
+};
+
+const ORIENTATION_OPTIONS: ExportOptions['orientation'][] = ['portrait', 'landscape'];
+const ORIENTATION_LABELS: Record<ExportOptions['orientation'], string> = {
+  portrait: 'Portrait',
+  landscape: 'Landscape'
+};
 
 const REPORT_TEMPLATES = [
   {
@@ -592,10 +609,10 @@ export default function EnhancedExportManager(): React.JSX.Element {
                   Date Range
                 </h3>
                 <div className="grid grid-cols-3 gap-3">
-                  {['thisMonth', 'lastMonth', 'thisYear', 'lastYear', 'all', 'custom'].map(range => (
+                  {DATE_RANGE_OPTIONS.map(range => (
                     <button
                       key={range}
-                      onClick={() => setOptions(prev => ({ ...prev, dateRange: range as any }))}
+                      onClick={() => setOptions(prev => ({ ...prev, dateRange: range }))}
                       className={`px-4 py-2 rounded-lg border transition-all ${
                         options.dateRange === range
                           ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
@@ -667,12 +684,16 @@ export default function EnhancedExportManager(): React.JSX.Element {
                       <label className="text-sm text-gray-700 dark:text-gray-300">Paper Size</label>
                       <select
                         value={options.paperSize}
-                        onChange={(e) => setOptions(prev => ({ ...prev, paperSize: e.target.value as any }))}
+                        onChange={(e) =>
+                          setOptions(prev => ({ ...prev, paperSize: e.target.value as ExportOptions['paperSize'] }))
+                        }
                         className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                       >
-                        <option value="a4">A4</option>
-                        <option value="letter">Letter</option>
-                        <option value="legal">Legal</option>
+                        {PAPER_SIZE_OPTIONS.map(size => (
+                          <option key={size} value={size}>
+                            {PAPER_SIZE_LABELS[size]}
+                          </option>
+                        ))}
                       </select>
                     </div>
                     
@@ -680,11 +701,16 @@ export default function EnhancedExportManager(): React.JSX.Element {
                       <label className="text-sm text-gray-700 dark:text-gray-300">Orientation</label>
                       <select
                         value={options.orientation}
-                        onChange={(e) => setOptions(prev => ({ ...prev, orientation: e.target.value as any }))}
+                        onChange={(e) =>
+                          setOptions(prev => ({ ...prev, orientation: e.target.value as ExportOptions['orientation'] }))
+                        }
                         className="w-full mt-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                       >
-                        <option value="portrait">Portrait</option>
-                        <option value="landscape">Landscape</option>
+                        {ORIENTATION_OPTIONS.map(option => (
+                          <option key={option} value={option}>
+                            {ORIENTATION_LABELS[option]}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   </div>

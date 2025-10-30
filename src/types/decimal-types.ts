@@ -86,4 +86,6 @@ export interface DecimalGoal {
   linkedAccountIds?: string[];
   isActive: boolean;
   createdAt: Date;
+  updatedAt?: Date;
+  progress?: number;
 }
