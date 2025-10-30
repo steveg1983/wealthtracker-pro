@@ -1,10 +1,10 @@
 
  RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER
 
- ✓ src/test/integration/DashboardInteractionsIntegration.test.tsx (10 tests) 436ms
+ ✓ src/test/integration/DashboardInteractionsIntegration.test.tsx (10 tests) 483ms
 
  Test Files  1 passed (1)
       Tests  10 passed (10)
-   Start at  18:20:37
-   Duration  1.24s (transform 164ms, setup 89ms, collect 271ms, tests 436ms, environment 194ms, prepare 28ms)
+   Start at  18:34:12
+   Duration  1.32s (transform 163ms, setup 87ms, collect 355ms, tests 483ms, environment 165ms, prepare 28ms)
 

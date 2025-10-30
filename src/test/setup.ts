@@ -76,6 +76,9 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
+// Provide noop scrollTo to silence jsdom warnings during modal transitions
+window.scrollTo = vi.fn();
+
 // Mock localStorage with proper implementation
 const localStorageMock = (() => {
   let store: Record<string, string> = {};

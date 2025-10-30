@@ -55,7 +55,7 @@
 2. ~~**Vercel Monitoring** – Watch next preview deployment to ensure `scripts/build-web.mjs` exits cleanly without timeouts; capture logs and update this file with deployment timestamp.~~ ✅ Logged deployment `wealthtracker-l514dsq11` (2025-10-29 21:33 UTC).
 3. ~~**Bundle Optimisation Plan** – Document an action list for the large chunks (Plotly/export bundles showing >1 MB). Start by identifying candidate routes for dynamic imports.~~ ✅ See `docs/bundle-optimization-plan.md`.
 4. ~~**Documentation Sweep** – Remove or archive references to the old workspace layout (e.g., README snippets, CI docs) so future work doesn’t re-introduce the broken structure.~~ ✅ `docs/` updated for flat layout.
-5. **Regression Audit** – Harness restored and runs logged in `docs/regression-audit-20251029.md`; dashboard + import journeys are now green under Vitest. Keep budgeting/import fixtures in sync with future UI tweaks and re-run the regression triad periodically.
+5. ~~**Regression Audit** – Harness restored and runs logged in `docs/regression-audit-20251029.md`; dashboard + import journeys are now green under Vitest. Keep budgeting/import fixtures in sync with future UI tweaks and re-run the regression triad periodically.~~ ✅ 2025-11-01 triad re-run documented in `docs/regression-audit-20251101.md` (dashboard/budget/import + Supabase smoke).
 
 **Next Major Initiative** – Monitor the new Supabase smoke workflow (`.github/workflows/supabase-smoke.yml`) nightly runs; add targeted cases (RLS edge cases, imports) as coverage gaps appear.
 

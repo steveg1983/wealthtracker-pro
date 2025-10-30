@@ -50,7 +50,7 @@ export default function BudgetRecommendations() {
     } else {
       addBudget({
         name: `${recommendation.categoryName} Budget`,
-        category: recommendation.categoryId,
+        categoryId: recommendation.categoryId,
         amount: recommendation.recommendedBudget,
         period: 'monthly',
         rollover: false,
@@ -78,7 +78,7 @@ export default function BudgetRecommendations() {
       } else if (category) {
         addBudget({
           name: `${category.name} Budget`,
-          category: categoryId,
+          categoryId: categoryId,
           amount,
           period: 'monthly',
           rollover: false,

@@ -37,7 +37,7 @@ export default function SharedBudgetsGoals() {
   // Form states
   const [budgetForm, setBudgetForm] = useState({
     name: '',
-    category: '',
+    categoryId: '',
     amount: '',
     period: 'monthly' as const,
     approvalRequired: false,
@@ -48,7 +48,7 @@ export default function SharedBudgetsGoals() {
     name: '',
     targetAmount: '',
     targetDate: '',
-    category: '',
+    categoryId: '',
     description: '',
     isHouseholdGoal: true
   });
@@ -83,7 +83,7 @@ export default function SharedBudgetsGoals() {
       const sharedBudget = sharedFinanceService.createSharedBudget(
         {
           name: budgetForm.name,
-          category: budgetForm.category,
+          categoryId: budgetForm.categoryIdId,
           amount: Number(budgetForm.amount),
           period: budgetForm.period,
           isActive: true
@@ -100,7 +100,7 @@ export default function SharedBudgetsGoals() {
       // Also create in main app context
       addBudget({
         name: budgetForm.name,
-        category: budgetForm.category,
+        categoryId: budgetForm.categoryId,
         amount: Number(budgetForm.amount),
         period: budgetForm.period
       });
@@ -108,7 +108,7 @@ export default function SharedBudgetsGoals() {
       setShowCreateBudget(false);
       setBudgetForm({
         name: '',
-        category: '',
+        categoryId: '',
         amount: '',
         period: 'monthly',
         approvalRequired: false,
@@ -131,7 +131,7 @@ export default function SharedBudgetsGoals() {
           targetAmount: Number(goalForm.targetAmount),
           currentAmount: 0,
           targetDate: new Date(goalForm.targetDate),
-          category: goalForm.category,
+          categoryId: goalForm.categoryId,
           description: goalForm.description,
           isCompleted: false
         },
@@ -146,7 +146,7 @@ export default function SharedBudgetsGoals() {
         name: goalForm.name,
         targetAmount: Number(goalForm.targetAmount),
         targetDate: new Date(goalForm.targetDate),
-        category: goalForm.category,
+        categoryId: goalForm.categoryId,
         description: goalForm.description
       });
 
@@ -155,7 +155,7 @@ export default function SharedBudgetsGoals() {
         name: '',
         targetAmount: '',
         targetDate: '',
-        category: '',
+        categoryId: '',
         description: '',
         isHouseholdGoal: true
       });
@@ -565,7 +565,7 @@ export default function SharedBudgetsGoals() {
                 </label>
                 <select
                   value={budgetForm.category}
-                  onChange={(e) => setBudgetForm({ ...budgetForm, category: e.target.value })}
+                  onChange={(e) => setBudgetForm({ ...budgetForm, categoryId: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                   required
                 >
@@ -700,7 +700,7 @@ export default function SharedBudgetsGoals() {
                 </label>
                 <select
                   value={goalForm.category}
-                  onChange={(e) => setGoalForm({ ...goalForm, category: e.target.value })}
+                  onChange={(e) => setGoalForm({ ...goalForm, categoryId: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                   required
                 >

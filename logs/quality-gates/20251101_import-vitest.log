@@ -1,0 +1,15 @@
+
+ RUN  v3.2.4 /Users/stevegreen/PROJECT_WEALTHTRACKER
+
+ ✓ src/components/BatchImportModal.test.tsx (8 tests) 62ms
+ ✓ src/components/OFXImportModal.test.tsx (35 tests) 239ms
+ ✓ src/components/QIFImportModal.test.tsx (38 tests) 257ms
+ ✓ src/components/CSVImportWizard.test.tsx (44 tests) 602ms
+ ✓ src/components/ImportDataModal.test.tsx (30 tests) 2229ms
+   ✓ ImportDataModal > Modal Actions > closes modal after successful import  1997ms
+
+ Test Files  5 passed (5)
+      Tests  155 passed (155)
+   Start at  18:25:06
+   Duration  2.89s (transform 328ms, setup 469ms, collect 498ms, tests 3.39s, environment 938ms, prepare 175ms)
+

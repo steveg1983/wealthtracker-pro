@@ -92,6 +92,19 @@ export default function Budget() {
       });
   }, [budgets, transactions, currentMonth, currentYear]);
 
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach(category => {
+      if (category?.id) {
+        map.set(category.id, category.name);
+      }
+      if (category?.name) {
+        map.set(category.name, category.name);
+      }
+    });
+    return map;
+  }, [categories]);
+
   // Set loading to false when data is loaded
   useEffect(() => {
     if (budgets !== undefined && transactions !== undefined && categories !== undefined) {
@@ -104,11 +117,12 @@ export default function Budget() {
     const alerts = budgetsWithSpent
       .filter(budget => budget.isActive)
       .map(budget => {
-        const category = categories.find(c => c.id === budget.categoryId);
+        const category =
+          categoryNameById.get(budget.categoryId ?? (budget as any).category) ?? budget.name ?? (budget as any).category;
         if (budget.percentage >= 100) {
           return {
             budgetId: budget.id,
-            categoryName: category?.name || 'Unknown',
+            categoryName: category || 'Unknown',
             percentage: Math.round(budget.percentage),
             spent: budget.spent,
             budget: budget.amount,
@@ -118,7 +132,7 @@ export default function Budget() {
         } else if (budget.percentage >= alertThreshold) {
           return {
             budgetId: budget.id,
-            categoryName: category?.name || 'Unknown',
+            categoryName: category || 'Unknown',
             percentage: Math.round(budget.percentage),
             spent: budget.spent,
             budget: budget.amount,
@@ -133,7 +147,7 @@ export default function Budget() {
     if (alerts.length > 0) {
       checkBudgetAlerts(alerts);
     }
-  }, [budgetsWithSpent, categories, alertThreshold, checkBudgetAlerts]);
+  }, [budgetsWithSpent, categoryNameById, alertThreshold, checkBudgetAlerts]);
 
   const handleEdit = (budget: Budget) => {
     setEditingBudget(budget);
@@ -348,7 +362,7 @@ export default function Budget() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {budget.categoryId}
+                  {categoryNameById.get(budget.categoryId ?? (budget as any).category) ?? budget.name ?? (budget as any).category ?? 'Budget'}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {budget.period === 'monthly' ? 'Monthly' : 'Yearly'} budget

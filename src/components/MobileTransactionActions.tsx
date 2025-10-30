@@ -4,12 +4,12 @@ import {
   EditIcon, 
   DeleteIcon, 
   CopyIcon, 
-  ShareIcon, 
+  StarIcon as ShareIcon, 
   TagIcon, 
   CalendarIcon,
   CheckCircleIcon,
   FolderIcon,
-  MoreVerticalIcon
+  GripVerticalIcon as MoreVerticalIcon
 } from './icons';
 import type { Transaction } from '../types';
 
@@ -74,7 +74,7 @@ export function MobileTransactionActions({
   // Add share if available
   if (onShare) {
     mainActions.push({
-      icon: <ShareIcon size={20} />,
+      icon: <StarIcon as ShareIcon size={20} />,
       label: 'Share',
       description: 'Send transaction details',
       onClick: () => shareSheet.open()
@@ -93,7 +93,7 @@ export function MobileTransactionActions({
   // Share options
   const shareOptions = [
     {
-      icon: <ShareIcon size={20} />,
+      icon: <StarIcon as ShareIcon size={20} />,
       label: 'Share as Text',
       onClick: () => {
         const text = `${transaction.description}\n${transaction.amount}\n${transaction.date}`;
@@ -120,7 +120,7 @@ export function MobileTransactionActions({
         className="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
         aria-label="Transaction actions"
       >
-        <MoreVerticalIcon size={20} />
+        <GripVerticalIcon as MoreVerticalIcon size={20} />
       </button>
 
       {/* Main Actions Sheet */}
@@ -262,7 +262,7 @@ export function TransactionDetailsSheet({
               <span className="text-xs text-gray-600 dark:text-gray-400">Duplicate</span>
             </button>
             <button className="flex flex-col items-center gap-1 py-3 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
-              <ShareIcon size={20} className="text-gray-600 dark:text-gray-400" />
+              <StarIcon as ShareIcon size={20} className="text-gray-600 dark:text-gray-400" />
               <span className="text-xs text-gray-600 dark:text-gray-400">Share</span>
             </button>
           </div>

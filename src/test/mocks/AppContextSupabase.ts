@@ -66,6 +66,8 @@ const baseValue = {
 
 const AppContext = createContext(baseValue);
 
+const defaultContextValue = { ...baseValue };
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const contextValue = useMemo(() => baseValue, []);
   return React.createElement(AppContext.Provider, { value: contextValue }, children);
@@ -73,4 +75,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 export function useApp() {
   return useContext(AppContext);
+}
+
+export function __setAppContextValue(overrides: Partial<typeof baseValue>) {
+  Object.assign(baseValue, overrides);
+}
+
+export function __resetAppContextValue() {
+  Object.assign(baseValue, defaultContextValue);
 }

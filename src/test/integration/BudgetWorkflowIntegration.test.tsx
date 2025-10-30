@@ -7,6 +7,7 @@ import { AppProvider } from '../../contexts/AppContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import { BudgetProvider } from '../../contexts/BudgetContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
+import { __resetAppContextValue, __setAppContextValue } from '../../test/mocks/AppContextSupabase';
 
 // Mock localStorage
 const localStorageMock = {
@@ -47,6 +48,7 @@ describe('Budget Workflow Integration', () => {
     localStorageMock.clear();
     // Return empty data by default
     localStorageMock.getItem.mockReturnValue(null);
+    __resetAppContextValue();
   });
 
   describe('Create Budget → Track Spending → Alerts', () => {
@@ -121,11 +123,14 @@ describe('Budget Workflow Integration', () => {
       const existingData = {
         budgets: [{
           id: 'budget-1',
-          category: 'Entertainment',
+          categoryId: 'cat-1',
+          name: 'Entertainment',
           amount: 200,
           period: 'monthly',
           isActive: true,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          spent: 0
         }],
         categories: [
           { id: 'cat-1', name: 'Entertainment', type: 'expense', level: 'detail' },
@@ -134,8 +139,8 @@ describe('Budget Workflow Integration', () => {
       };
 
       localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'budgets') return JSON.stringify(existingData.budgets);
-        if (key === 'categories') return JSON.stringify(existingData.categories);
+        if (key === 'money_management_budgets') return JSON.stringify(existingData.budgets);
+        if (key === 'money_management_categories') return JSON.stringify(existingData.categories);
         return null;
       });
 
@@ -157,11 +162,14 @@ describe('Budget Workflow Integration', () => {
       const testData = {
         budgets: [{
           id: 'budget-1',
-          category: 'Groceries',
+          categoryId: 'cat-1',
+          name: 'Groceries',
           amount: 500,
           period: 'monthly',
           isActive: true,
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          spent: 0
         }],
         categories: [
           { id: 'cat-1', name: 'Groceries', type: 'expense', level: 'detail' }
@@ -169,8 +177,8 @@ describe('Budget Workflow Integration', () => {
       };
 
       localStorageMock.getItem.mockImplementation((key) => {
-        if (key === 'budgets') return JSON.stringify(testData.budgets);
-        if (key === 'categories') return JSON.stringify(testData.categories);
+        if (key === 'money_management_budgets') return JSON.stringify(testData.budgets);
+        if (key === 'money_management_categories') return JSON.stringify(testData.categories);
         return null;
       });
 
@@ -185,6 +193,30 @@ describe('Budget Workflow Integration', () => {
       await waitFor(() => {
         const budgetTexts = screen.getAllByText(/500/);
         expect(budgetTexts.length).toBeGreaterThan(0);
+      });
+    });
+
+    it('should render legacy budgets that only store category name', async () => {
+      const legacyBudgets = [{
+        id: 'legacy-budget-1',
+        category: 'Legacy Travel',
+        amount: 150,
+        period: 'monthly',
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        spent: 0
+      }];
+
+      __setAppContextValue({
+        budgets: legacyBudgets as any,
+        categories: []
+      });
+
+      renderWithProviders(<Budget />);
+
+      await waitFor(() => {
+        expect(screen.getByText('Legacy Travel')).toBeInTheDocument();
       });
     });
 
