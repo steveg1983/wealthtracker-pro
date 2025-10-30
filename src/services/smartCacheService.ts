@@ -294,7 +294,7 @@ class SmartCacheService {
     // Track recent filters
     const recentKey = 'filters:recent';
     const recent = this.get<any[]>(recentKey) || [];
-    const updated = [filters, ...recent.filter(f => 
+    const updated = [filters, ...recent.filter((f: any) => 
       JSON.stringify(f) !== JSON.stringify(filters)
     )].slice(0, 10);
     this.set(recentKey, updated);

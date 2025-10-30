@@ -442,7 +442,7 @@ export default function SharedBudgetsGoals() {
                   <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                     <div 
                       className={`h-full transition-all duration-300 ${
-                        goal.isCompleted ? 'bg-green-500' : 'bg-purple-500'
+                        goal.completedAt ? 'bg-green-500' : 'bg-purple-500'
                       }`}
                       style={{ width: `${Math.min(percentage, 100)}%` }}
                     />
@@ -479,7 +479,7 @@ export default function SharedBudgetsGoals() {
                 </div>
 
                 {/* Quick Contribute */}
-                {!goal.isCompleted && myContribution && currentMember?.permissions.canEditGoals && (
+                {!goal.completedAt && myContribution && currentMember?.permissions.canEditGoals && (
                   <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <div className="flex gap-2">
                       {[10, 25, 50, 100].map(amount => (
@@ -495,7 +495,7 @@ export default function SharedBudgetsGoals() {
                   </div>
                 )}
 
-                {goal.isCompleted && (
+                {goal.completedAt && (
                   <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
                     <p className="text-sm text-green-800 dark:text-green-200 font-medium">
                       <CheckIcon size={16} className="inline mr-1" />

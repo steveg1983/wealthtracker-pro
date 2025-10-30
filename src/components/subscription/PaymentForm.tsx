@@ -26,7 +26,7 @@ import {
 } from '../icons';
 
 interface PaymentFormProps {
-  plan: SubscriptionPlan;
+  plan: any;
   onSuccess: (subscriptionId: string) => void;
   onError: (error: string) => void;
   onCancel: () => void;

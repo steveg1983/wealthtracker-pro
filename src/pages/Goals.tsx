@@ -118,7 +118,6 @@ export default function Goals() {
         
         // Add notification
         addNotification({
-          id: `goal-achieved-${goal.id}`,
           type: 'success',
           title: 'Goal Achieved! 🎉',
           message: `Congratulations! You've achieved your goal: ${goal.name}`,
@@ -133,7 +132,6 @@ export default function Goals() {
         sessionStorage.setItem(`milestone-${goal.id}-${Math.floor(progress / 25) * 25}`, 'true');
         
         addNotification({
-          id: `goal-milestone-${goal.id}-${Date.now()}`,
           type: 'info',
           title: 'Goal Progress',
           message: `${goal.name}: ${milestoneMessage}`,

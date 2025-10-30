@@ -53,8 +53,7 @@ export default function BudgetRecommendations() {
         categoryId: recommendation.categoryId,
         amount: recommendation.recommendedBudget,
         period: 'monthly',
-        rollover: false,
-        notifications: true
+        rollover: false
       });
     }
     
@@ -81,8 +80,7 @@ export default function BudgetRecommendations() {
           categoryId: categoryId,
           amount,
           period: 'monthly',
-          rollover: false,
-          notifications: true
+          rollover: false
         });
       }
     });

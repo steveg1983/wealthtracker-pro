@@ -34,7 +34,7 @@ export default function SubscriptionPage({
   const { user, isSignedIn } = useUser();
   const { session } = useSession();
   const [currentView, setCurrentView] = useState<ViewMode>(defaultView);
-  const [selectedPlan, setSelectedPlan] = useState<SubscriptionPlan | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

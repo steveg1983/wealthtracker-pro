@@ -27,9 +27,84 @@ if (Number.isNaN(statementsThreshold) || Number.isNaN(branchesThreshold)) {
   process.exit(1);
 }
 
+const maybeMergeVitestShards = () => {
+  const coverageDir = path.dirname(coveragePath);
+  const tmpDir = path.join(coverageDir, '.tmp');
+  if (!fs.existsSync(tmpDir)) {
+    return false;
+  }
+
+  const shardFiles = fs.readdirSync(tmpDir)
+    .filter(file => file.startsWith('coverage-') && file.endsWith('.json'))
+    .map(file => path.join(tmpDir, file));
+
+  if (shardFiles.length === 0) {
+    return false;
+  }
+
+  const merged = {};
+
+  for (const shardPath of shardFiles) {
+    let shardJson;
+    try {
+      shardJson = JSON.parse(fs.readFileSync(shardPath, 'utf-8'));
+    } catch {
+      continue;
+    }
+
+    for (const [filePath, entry] of Object.entries(shardJson)) {
+      if (!entry || typeof entry !== 'object') continue;
+
+      const current = merged[filePath] ?? {
+        ...entry,
+        s: {},
+        f: {},
+        b: {}
+      };
+
+      const statements = entry.s ?? {};
+      for (const [id, count] of Object.entries(statements)) {
+        current.s[id] = (current.s[id] ?? 0) + (typeof count === 'number' ? count : 0);
+      }
+
+      const functions = entry.f ?? {};
+      for (const [id, count] of Object.entries(functions)) {
+        current.f[id] = (current.f[id] ?? 0) + (typeof count === 'number' ? count : 0);
+      }
+
+      const branches = entry.b ?? {};
+      for (const [id, counts] of Object.entries(branches)) {
+        if (!Array.isArray(counts)) continue;
+        const existing = current.b[id] ?? [];
+        current.b[id] = counts.map((value, idx) => (existing[idx] ?? 0) + (typeof value === 'number' ? value : 0));
+      }
+
+      // Preserve metadata from the latest shard (they should be identical).
+      current.statementMap = entry.statementMap;
+      current.fnMap = entry.fnMap;
+      current.branchMap = entry.branchMap;
+      current.path = entry.path ?? current.path ?? filePath;
+      current.inputSourceMap = entry.inputSourceMap ?? current.inputSourceMap;
+
+      merged[filePath] = current;
+    }
+  }
+
+  if (Object.keys(merged).length === 0) {
+    return false;
+  }
+
+  fs.mkdirSync(path.dirname(coveragePath), { recursive: true });
+  fs.writeFileSync(coveragePath, JSON.stringify(merged, null, 2));
+  return true;
+};
+
 if (!fs.existsSync(coveragePath)) {
-  console.error(`Coverage file not found: ${coveragePath}`);
-  process.exit(1);
+  const merged = maybeMergeVitestShards();
+  if (!merged || !fs.existsSync(coveragePath)) {
+    console.error(`Coverage file not found: ${coveragePath}`);
+    process.exit(1);
+  }
 }
 
 const coverageRaw = fs.readFileSync(coveragePath, 'utf-8');
