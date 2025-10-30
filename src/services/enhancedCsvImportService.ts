@@ -422,7 +422,7 @@ class EnhancedCsvImportService {
               }
             } else if (mapping.targetField === 'date' && !mapping.transform) {
               // Apply date parsing for date fields without transform
-              transaction.date = this.parseDate(value);
+              transaction.date = new Date(this.parseDate(value));
             } else if (mapping.transform) {
               transaction[mapping.targetField as keyof Transaction] = mapping.transform(value);
             } else {
@@ -595,7 +595,7 @@ class EnhancedCsvImportService {
             if (mapping.targetField === 'amount' && !mapping.transform) {
               transaction.amount = this.parseAmount(value);
             } else if (mapping.targetField === 'date' && !mapping.transform) {
-              transaction.date = this.parseDate(value);
+              transaction.date = new Date(this.parseDate(value));
             } else if (mapping.transform) {
               transaction[mapping.targetField as keyof Transaction] = mapping.transform(value);
             } else {

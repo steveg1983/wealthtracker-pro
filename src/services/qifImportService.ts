@@ -184,7 +184,7 @@ export class QIFImportService {
       description = description || 'QIF Transaction';
       
       const transaction: Omit<Transaction, 'id'> = {
-        date: qifTrx.date,
+        date: new Date(qifTrx.date),
         description,
         amount,
         type,

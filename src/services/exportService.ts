@@ -281,7 +281,7 @@ class ExportService {
         const itemDate = 'date' in item ? item.date : 
                         'createdAt' in item ? item.createdAt :
                         new Date();
-        return itemDate >= startDate && itemDate <= endDate;
+        return itemDate! >= startDate && itemDate! <= endDate;
       });
     }
 

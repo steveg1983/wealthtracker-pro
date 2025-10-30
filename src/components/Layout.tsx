@@ -793,7 +793,7 @@ export default function Layout(): React.JSX.Element {
         isOpen={isConflictModalOpen}
         onClose={dismissConflict}
         conflict={currentConflict}
-        analysis={currentAnalysis}
+        analysis={currentAnalysis || undefined}
         onResolve={resolveConflict}
       />
       
@@ -818,7 +818,7 @@ export default function Layout(): React.JSX.Element {
           isOpen={isConflictModalOpen}
           onClose={dismissConflict}
           conflict={currentConflict}
-          analysis={currentAnalysis}
+          analysis={currentAnalysis || undefined}
           onResolve={resolveConflict}
         />
       )}

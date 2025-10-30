@@ -195,7 +195,7 @@ class AnalyticsEngine {
           cohortKey = transaction.category || 'Uncategorized';
           break;
         case 'month':
-          cohortKey = format(parseISO(transaction.date), 'yyyy-MM');
+          cohortKey = format(transaction.date, 'yyyy-MM');
           break;
       }
 
@@ -217,7 +217,7 @@ class AnalyticsEngine {
         const periodEnd = endOfMonth(periodStart);
 
         const periodTransactions = cohortTransactions.filter(t => {
-          const tDate = parseISO(t.date);
+          const tDate = t.date instanceof Date ? t.date : new Date(t.date);
           return isWithinInterval(tDate, { start: periodStart, end: periodEnd });
         });
 
@@ -386,7 +386,7 @@ class AnalyticsEngine {
     
     months.forEach(month => {
       const monthTransactions = transactions.filter(t => 
-        format(parseISO(t.date), 'yyyy-MM') === month
+        format(t.date, 'yyyy-MM') === month
       );
       
       const monthMetrics = new Map<string, number>();
@@ -508,7 +508,7 @@ class AnalyticsEngine {
   
   private filterByTimeRange(transactions: Transaction[], range: TimeRange): Transaction[] {
     return transactions.filter(t => {
-      const date = parseISO(t.date);
+      const date = t.date;
       return isWithinInterval(date, { start: range.start, end: range.end });
     });
   }
@@ -543,7 +543,7 @@ class AnalyticsEngine {
     const grouped = new Map<string, Transaction[]>();
 
     transactions.forEach(transaction => {
-      const date = parseISO(transaction.date);
+      const date = transaction.date;
       let key: string;
 
       switch (period) {
@@ -634,7 +634,7 @@ class AnalyticsEngine {
   private getUniqueMonths(transactions: Transaction[]): string[] {
     const months = new Set<string>();
     transactions.forEach(t => {
-      months.add(format(parseISO(t.date), 'yyyy-MM'));
+      months.add(format(t.date, 'yyyy-MM'));
     });
     return Array.from(months).sort();
   }

@@ -274,7 +274,7 @@ export function DragDropImport({
     if (!previewData) return;
     
     const transactions: Partial<Transaction>[] = previewData.rows.map(row => ({
-      date: previewData.mappings.date !== undefined ? row[previewData.mappings.date] : new Date().toISOString().split('T')[0],
+      date: previewData.mappings.date !== undefined ? new Date(row[previewData.mappings.date]) : new Date(),
       description: previewData.mappings.description !== undefined ? row[previewData.mappings.description] : 'Imported',
       amount: previewData.mappings.amount !== undefined ? parseFloat(row[previewData.mappings.amount]) : 0,
       type: 'expense', // Will be determined by amount

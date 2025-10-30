@@ -357,7 +357,7 @@ export class OFXImportService {
       ].filter(Boolean).join('\n');
       
       const transaction: Omit<Transaction, 'id'> = {
-        date: ofxTrx.datePosted,
+        date: new Date(ofxTrx.datePosted),
         description,
         amount,
         type,
