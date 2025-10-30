@@ -49,10 +49,10 @@ const IGNORE_ACTIONS = [
   // Add any bulk set operations that come from server
 ];
 
-export const syncMiddleware: Middleware = (store) => (next) => (action) => {
+export const syncMiddleware: Middleware = (store) => (next) => (action: any) => {
   // Execute the action first
   const result = next(action);
-  
+
   // Check if this action should be synced
   const actionType = action.type as string;
   
