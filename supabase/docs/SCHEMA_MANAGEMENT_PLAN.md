@@ -1,8 +1,10 @@
 # Schema Management Plan - Alternative Approaches
 **Created:** 2025-10-30
 
-## The Issue
-The Supabase database for project `nqbacrjjgdjabygqtcah` is only accessible via IPv6, which isn't available from your current network. Direct `pg_dump` cannot be used.
+## The Issue (original)
+Initial attempts via the default host (`db.nqbacrjjgdjabygqtcah.supabase.co`) failed because the project only exposed IPv6. By allow-listing our IPv4 (86.161.28.220) and targeting the pooler host `aws-0-eu-west-2.pooler.supabase.com` with user `postgres.nqbacrjjgdjabygqtcah`, we successfully ran `pg_dump --schema-only`.
+
+The options below remain as fallback strategies when working from environments without IPv4 or when automation is required.
 
 ## Alternative Solutions
 

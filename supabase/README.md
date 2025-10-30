@@ -8,6 +8,7 @@
 supabase/
 ├── README.md             ← this file
 ├── migrations/           ← chronologically ordered SQL migrations
+├── docs/                 ← export reports, connection notes, playbooks
 └── seeds/                ← optional seed fixtures (JSON/SQL)
 ```
 

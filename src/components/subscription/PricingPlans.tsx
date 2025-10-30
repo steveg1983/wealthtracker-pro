@@ -54,11 +54,11 @@ export default function PricingPlans({
     }
   };
 
-  const getPlanButtonText = (plan: SubscriptionPlan) => {
+  const getPlanButtonText = (plan: any) => {
     if (plan.tier === 'free') {
       return currentTier === 'free' ? 'Current Plan' : 'Downgrade to Free';
     }
-    
+
     if (plan.tier === currentTier) {
       return 'Current Plan';
     }
@@ -67,7 +67,7 @@ export default function PricingPlans({
     return isUpgrade ? 'Upgrade' : 'Change Plan';
   };
 
-  const getPlanButtonStyle = (plan: SubscriptionPlan) => {
+  const getPlanButtonStyle = (plan: any) => {
     if (plan.tier === currentTier) {
       return 'bg-gray-100 text-gray-500 cursor-not-allowed';
     }

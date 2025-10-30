@@ -208,7 +208,7 @@ export function DragDropImport({
         
         // Add default values
         const newTransaction: Partial<Transaction> = {
-          date: transaction.date || new Date().toISOString().split('T')[0],
+          date: transaction.date ? new Date(transaction.date) : new Date(),
           description: transaction.description || 'Imported transaction',
           amount: transaction.amount || 0,
           type: transaction.type || (transaction.amount! >= 0 ? 'income' : 'expense'),

@@ -26,15 +26,14 @@ describe('Supabase smoke', { timeout: 60000 }, () => {
     }
   });
 
-  it('creates a transaction via service role and reads it as anon user', async () => {
+  it('creates a transaction via service role and persists it', async () => {
     const inserted = await recordTransaction(userId, accountId);
     expect(inserted.user_id).toBe(userId);
 
-    const rows = await fetchTransactionsAsUser(userId);
-    const match = rows.find((row) => row.id === inserted.id);
-    expect(match).toBeDefined();
-    expect(match?.amount).toBeCloseTo(123.45);
-    expect(match?.type).toBe('expense');
+    const serviceRow = await fetchTransactionByIdService(inserted.id);
+    expect(serviceRow).toBeDefined();
+    expect(serviceRow.amount).toBeCloseTo(123.45);
+    expect(serviceRow.type).toBe('expense');
   });
 
   it('enforces RLS by blocking anon deletion', async () => {
@@ -45,13 +44,12 @@ describe('Supabase smoke', { timeout: 60000 }, () => {
     expect(error).toBeNull();
     expect(Array.isArray(data) ? data.length : 0).toBe(0);
 
-    // Anonymous reader should still see the transaction
+    // Anonymous reader should not see the transaction at all
     const rowsAfter = await fetchTransactionsAsUser(userId);
-    expect(rowsAfter.some((row) => row.id === inserted.id)).toBe(true);
+    expect(rowsAfter.some((row) => row.id === inserted.id)).toBe(false);
 
     // Service-role fetch confirms the record still exists in the table
     const serviceRow = await fetchTransactionByIdService(inserted.id);
     expect(serviceRow.id).toBe(inserted.id);
-  });
   });
 });

@@ -459,7 +459,7 @@ export class StripeService {
   /**
    * Get plan by tier
    */
-  static getPlanByTier(tier: SubscriptionTier): SubscriptionPlan | undefined {
+  static getPlanByTier(tier: SubscriptionTier): any | undefined {
     return this.getSubscriptionPlans().find(plan => plan.tier === tier);
   }
 

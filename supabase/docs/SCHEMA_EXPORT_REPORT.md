@@ -33,9 +33,10 @@
    - `scripts/export-schema.mjs` - Initial attempt to export schema
    - `scripts/export-schema-via-api.mjs` - Successfully lists tables and creates placeholder migration
 
-5. **Generated placeholder migration**:
-   - `supabase/migrations/20251030003814__initial-schema-placeholder.sql`
-   - Contains instructions for completing the full schema export
+5. **Captured canonical schema**:
+   - `supabase/migrations/20251030003814__initial-schema.sql`
+   - Generated via `pg_dump --schema-only --no-owner --no-privileges` against pooler host
+   - Includes tables, views, functions, triggers, indexes, and RLS policies
 
 ### ✅ RLS Status
 
@@ -46,8 +47,8 @@
 ## Migration Files Created
 
 1. **Initial Schema**: `supabase/migrations/20251030003814__initial-schema.sql`
-   - Reconstructed from code analysis (schema + FK + policies)
-   - Replace with canonical `supabase db dump` once DB hostname/password are available
+   - Canonical `pg_dump` snapshot (pooler host `aws-0-eu-west-2.pooler.supabase.com`, user `postgres.nqbacrjjgdjabygqtcah`)
+   - Serves as baseline for subsequent migrations
 
 2. **RLS Security Fix**: `supabase/migrations/20251030004200__diagnose-and-fix-rls.sql`
    - Drops all existing policies on `transactions`
@@ -62,29 +63,12 @@
 - ✅ (Done) `npm run test:supabase-smoke`
 - 🔁 Continue monitoring nightly smoke workflow (`.github/workflows/supabase-smoke.yml`)
 
-### Future (Complete Schema Export)
-
-To get the actual database schema with all constraints, triggers, and functions:
-
-1. **Get correct database hostname** from Supabase Dashboard:
-   - The standard `db.nqbacrjjgdjabygqtcah.supabase.co` doesn't resolve
-   - Check Dashboard → Settings → Database for the actual connection string
-   - May need to use IPv6 address or different hostname
-
-2. **Once hostname is confirmed**:
-   ```bash
-   PGPASSWORD="SDzMGtV9FGTfdLun" /opt/homebrew/opt/libpq/bin/pg_dump \
-     -h <correct-hostname> -p 5432 -U postgres -d postgres \
-     --schema=public --no-owner --no-privileges --schema-only \
-     -f supabase/migrations/20251030003814__initial-schema-complete.sql
-   ```
-
 ## Files Created/Modified
 
-- `scripts/export-schema.mjs` - Initial export attempt script
-- `scripts/export-schema-via-api.mjs` - Table discovery script
-- `supabase/migrations/20251030003814__initial-schema-placeholder.sql` - Placeholder migration with instructions
-- `supabase/migrations/SCHEMA_EXPORT_REPORT.md` - This report
+- `scripts/export-schema.mjs` / `scripts/export-schema-via-api.mjs` - Helpers retained for troubleshooting
+- `supabase/migrations/20251030003814__initial-schema.sql` - Canonical schema dump (replaces placeholder)
+- `supabase/migrations/20251030004200__diagnose-and-fix-rls.sql` - RLS rebuild (already applied)
+- `supabase/docs/SCHEMA_EXPORT_REPORT.md` - This report (moved out of migrations directory)
 
 ## Smoke Test Results (latest)
 
@@ -95,10 +79,9 @@ To get the actual database schema with all constraints, triggers, and functions:
 
 ## Next Steps
 
-1. **Immediate**: Get database password and complete schema export
-2. **Critical**: Fix RLS policies for DELETE operations on transactions table
-3. **Verification**: After fixing RLS, ensure all smoke tests pass
-4. **Documentation**: Update this report with the final migration details
+1. Keep the pooler host/service password safe; future migrations should be scripted via the Supabase CLI or pg_dump using the same parameters.
+2. Before major releases, run `pg_dump --schema-only` again and diff against `20251030003814__initial-schema.sql` to confirm migrations are complete.
+3. Ensure nightly smoke workflow remains green; add additional Supabase suites as new features rely on the database.
 
 ## Command Reference
 
