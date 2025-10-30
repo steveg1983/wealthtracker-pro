@@ -6,6 +6,6 @@ export { goalsSlice } from './goalsSlice';
 export { categoriesSlice } from './categoriesSlice';
 export { preferencesSlice } from './preferencesSlice';
 export { notificationsSlice } from './notificationsSlice';
-export { layoutSlice } from './layoutSlice';
-export { tagsSlice } from './tagsSlice';
+export { default as layoutSlice } from './layoutSlice';
+export { default as tagsSlice } from './tagsSlice';
 export { recurringTransactionsSlice } from './recurringTransactionsSlice';

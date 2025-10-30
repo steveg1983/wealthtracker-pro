@@ -415,6 +415,7 @@ export const Landmark = LandmarkIcon;
 export const LineChart = LineChartIcon;
 export const Menu = MenuIcon;
 export const Monitor = MonitorIcon;
+export const ComputerDesktopIcon = MonitorIcon; // Alias for compatibility
 export const Moon = MoonIcon;
 export const Palette = PaletteIcon;
 export const PieChart = PieChartIcon;

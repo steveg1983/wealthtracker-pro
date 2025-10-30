@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useCurrency } from '../hooks/useCurrency';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { portfolioRebalanceService } from '../services/portfolioRebalanceService';
 import type { AssetAllocation } from '../services/portfolioRebalanceService';
 import type { Investment } from '../types';
+import { toDecimal } from '../utils/decimal';
 import {
   PieChartIcon,
   BarChart3Icon,
@@ -32,15 +32,17 @@ interface AllocationAnalysisProps {
   accountId?: string;
 }
 
+type ViewMode = 'pie' | 'bar' | 'treemap';
+type GroupByOption = 'assetClass' | 'account' | 'symbol';
+
 export default function AllocationAnalysis({ accountId }: AllocationAnalysisProps) {
   const [allocations, setAllocations] = useState<AssetAllocation[]>([]);
-  const [viewMode, setViewMode] = useState<'pie' | 'bar' | 'treemap'>('pie');
-  const [groupBy, setGroupBy] = useState<'assetClass' | 'account' | 'symbol'>('assetClass');
+  const [viewMode, setViewMode] = useState<ViewMode>('pie');
+  const [groupBy, setGroupBy] = useState<GroupByOption>('assetClass');
   const [showTargets, setShowTargets] = useState(true);
   
   const { accounts } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
-  const { currencySymbol } = useCurrency();
 
   // Extract investments from accounts with holdings
   const investments = useMemo(() => {
@@ -67,11 +69,7 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
     return allInvestments;
   }, [accounts]);
 
-  useEffect(() => {
-    analyzeAllocations();
-  }, [accountId, investments, groupBy]);
-
-  const analyzeAllocations = () => {
+  const analyzeAllocations = useCallback(() => {
     if (groupBy === 'assetClass') {
       // Use the portfolio rebalance service for asset class allocation
       const holdings = investments
@@ -97,11 +95,11 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
 
       const accountAllocations: AssetAllocation[] = Object.entries(byAccount).map(([name, value]) => ({
         assetClass: name,
-        currentPercent: (value / totalValue) * 100,
-        currentValue: { toNumber: () => value } as any,
+        currentPercent: totalValue > 0 ? (value / totalValue) * 100 : 0,
+        currentValue: toDecimal(value),
         targetPercent: 0,
-        targetValue: { toNumber: () => 0 } as any,
-        difference: { toNumber: () => 0 } as any,
+        targetValue: toDecimal(0),
+        difference: toDecimal(0),
         differencePercent: 0
       }));
 
@@ -120,17 +118,21 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
 
       const symbolAllocations: AssetAllocation[] = Object.entries(bySymbol).map(([symbol, data]) => ({
         assetClass: `${symbol} - ${data.name}`,
-        currentPercent: (data.value / totalValue) * 100,
-        currentValue: { toNumber: () => data.value } as any,
+        currentPercent: totalValue > 0 ? (data.value / totalValue) * 100 : 0,
+        currentValue: toDecimal(data.value),
         targetPercent: 0,
-        targetValue: { toNumber: () => 0 } as any,
-        difference: { toNumber: () => 0 } as any,
+        targetValue: toDecimal(0),
+        difference: toDecimal(0),
         differencePercent: 0
       }));
 
       setAllocations(symbolAllocations.sort((a, b) => b.currentPercent - a.currentPercent));
     }
-  };
+  }, [accountId, accounts, groupBy, investments]);
+
+  useEffect(() => {
+    analyzeAllocations();
+  }, [analyzeAllocations]);
 
   const exportData = () => {
     const data = allocations.map(alloc => ({
@@ -163,9 +165,9 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
     target: alloc.targetPercent
   }));
 
-  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6B7280', '#14B8A6', '#F97316', '#6366F1'];
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6B7280', '#14B8A6', '#F97316', '#6366F1'];
 
-  const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.toNumber(), 0);
+const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.toNumber(), 0);
 
   return (
     <div className="space-y-6">
