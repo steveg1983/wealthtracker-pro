@@ -42,8 +42,10 @@ export class SupabaseSubscriptionService {
       return {
         id: data.id,
         userId: data.user_id,
+        plan: data.tier,
         tier: data.tier,
         status: data.status,
+        billingPeriod: 'monthly',
         stripeCustomerId: data.stripe_customer_id,
         stripeSubscriptionId: data.stripe_subscription_id,
         stripePriceId: data.stripe_price_id,
@@ -95,8 +97,10 @@ export class SupabaseSubscriptionService {
       return {
         id: data.id,
         userId: data.user_id,
+        plan: data.tier,
         tier: data.tier,
         status: data.status,
+        billingPeriod: 'monthly',
         stripeCustomerId: data.stripe_customer_id,
         stripeSubscriptionId: data.stripe_subscription_id,
         stripePriceId: data.stripe_price_id,

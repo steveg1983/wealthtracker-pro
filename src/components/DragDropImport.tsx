@@ -4,7 +4,6 @@ import {
   FileTextIcon as FileIcon,
   CheckCircleIcon,
   XCircleIcon,
-  AlertCircleIcon,
   RefreshCwIcon,
   FileTextIcon,
   DownloadIcon,
@@ -57,7 +56,7 @@ export function DragDropImport({
   onImportComplete,
   compact = false 
 }: DragDropImportProps): React.JSX.Element {
-  const { addTransaction, accounts, categories } = useApp();
+  const { addTransaction, accounts } = useApp();
   const [isDragging, setIsDragging] = useState(false);
   const [importProgress, setImportProgress] = useState<ImportProgress>({
     status: 'idle',
@@ -94,7 +93,7 @@ export function DragDropImport({
   }, []);
 
   // Detect file format based on extension and content
-  const detectFormat = async (file: File): Promise<'csv' | 'qif' | 'ofx' | 'unknown'> => {
+  const detectFormat = useCallback(async (file: File): Promise<'csv' | 'qif' | 'ofx' | 'unknown'> => {
     const extension = file.name.split('.').pop()?.toLowerCase();
     
     // Check by extension first
@@ -111,10 +110,10 @@ export function DragDropImport({
     if (text.includes('<OFX>') || text.includes('OFXHEADER')) return 'ofx';
     
     return 'unknown';
-  };
+  }, []);
 
   // Parse CSV for preview
-  const parseCSVPreview = (text: string): PreviewData => {
+  const parseCSVPreview = useCallback((text: string): PreviewData => {
     const lines = text.split('\n').filter(line => line.trim());
     const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
     const rows = lines.slice(1, 6).map(line => 
@@ -133,10 +132,10 @@ export function DragDropImport({
     });
     
     return { headers, rows, mappings };
-  };
+  }, []);
 
   // Process file
-  const processFile = async (file: File) => {
+  const processFile = useCallback(async (file: File) => {
     setImportProgress({
       status: 'detecting',
       progress: 10,
@@ -187,10 +186,10 @@ export function DragDropImport({
         errors: [error instanceof Error ? error.message : 'Unknown error']
       });
     }
-  };
+  }, [detectFormat, parseCSVPreview, importTransactions]);
 
   // Import transactions
-  const importTransactions = async (transactions: Partial<Transaction>[]) => {
+  const importTransactions = useCallback(async (transactions: Partial<Transaction>[]) => {
     setImportProgress(prev => ({
       ...prev,
       status: 'importing',
@@ -246,7 +245,7 @@ export function DragDropImport({
     if (onImportComplete) {
       onImportComplete(transactions as Transaction[]);
     }
-  };
+  }, [accounts, addTransaction, onImportComplete]);
 
   // Handle file drop
   const handleDrop = useCallback(async (e: React.DragEvent) => {
@@ -259,7 +258,7 @@ export function DragDropImport({
     if (files.length > 0) {
       await processFile(files[0]);
     }
-  }, []);
+  }, [processFile]);
 
   // Handle file selection
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,7 +266,7 @@ export function DragDropImport({
     if (files && files.length > 0) {
       await processFile(files[0]);
     }
-  }, []);
+  }, [processFile]);
 
   // Import from preview
   const importFromPreview = useCallback(async () => {
@@ -286,7 +285,7 @@ export function DragDropImport({
     await importTransactions(transactions);
     setShowMapping(false);
     setPreviewData(null);
-  }, [previewData, accounts]);
+  }, [previewData, accounts, importTransactions]);
 
   // Reset import
   const resetImport = useCallback(() => {

@@ -370,8 +370,8 @@ class BudgetRecommendationService {
       if (!rec.currentBudget && rec.averageSpending > 100) {
         insights.push({
           type: 'unbudgeted',
-          title: `Unbudgeted Spending in ${rec.categoryIdName}`,
-          description: `You're spending an average of $${rec.averageSpending.toFixed(0)} per month in ${rec.categoryIdName} without a budget.`,
+          title: `Unbudgeted Spending in ${rec.categoryName}`,
+          description: `You're spending an average of $${rec.averageSpending.toFixed(0)} per month in ${rec.categoryName} without a budget.`,
           impact: 'negative',
           actionable: true,
           categoryId: rec.categoryId,
@@ -528,7 +528,7 @@ class BudgetRecommendationService {
     ];
 
     analysis.recommendations.forEach(rec => {
-      lines.push(`${rec.categoryIdName}:`);
+      lines.push(`${rec.categoryName}:`);
       lines.push(`  Current Budget: $${rec.currentBudget?.toFixed(2) || '0.00'}`);
       lines.push(`  Recommended: $${rec.recommendedBudget.toFixed(2)}`);
       lines.push(`  Average Spending: $${rec.averageSpending.toFixed(2)}`);

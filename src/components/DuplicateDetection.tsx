@@ -1,14 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal } from './common/Modal';
 import { 
   AlertTriangleIcon,
   CheckIcon,
-  XIcon,
-  RefreshCwIcon,
   TrashIcon,
-  MergeIcon,
   CalendarIcon,
   DollarSignIcon,
   FileTextIcon,
@@ -56,7 +53,7 @@ export default function DuplicateDetection({
   const [autoSelectHighConfidence, setAutoSelectHighConfidence] = useState(true);
 
   // Calculate string similarity using Levenshtein distance
-  const calculateStringSimilarity = (str1: string, str2: string): number => {
+  const calculateStringSimilarity = useCallback((str1: string, str2: string): number => {
     const s1 = str1.toLowerCase().trim();
     const s2 = str2.toLowerCase().trim();
     
@@ -91,10 +88,10 @@ export default function DuplicateDetection({
     const distance = matrix[len2][len1];
     const maxLen = Math.max(len1, len2);
     return Math.round((1 - distance / maxLen) * 100);
-  };
+  }, []);
 
   // Calculate similarity between two transactions
-  const calculateSimilarity = (t1: Transaction, t2: Transaction): SimilarityScore => {
+  const calculateSimilarity = useCallback((t1: Transaction, t2: Transaction): SimilarityScore => {
     // Ensure dates are Date objects
     const date1 = t1.date instanceof Date ? t1.date : new Date(t1.date);
     const date2 = t2.date instanceof Date ? t2.date : new Date(t2.date);
@@ -124,10 +121,10 @@ export default function DuplicateDetection({
       descriptionScore,
       totalScore
     };
-  };
+  }, [dateThreshold, amountThreshold, calculateStringSimilarity]);
 
   // Find duplicates in existing transactions
-  const findExistingDuplicates = useMemo(() => {
+  const existingDuplicateGroups = useMemo(() => {
     const groups: DuplicateGroup[] = [];
     const processed = new Set<string>();
     
@@ -160,10 +157,10 @@ export default function DuplicateDetection({
     }
     
     return groups;
-  }, [transactions, similarityThreshold, dateThreshold, amountThreshold]);
+  }, [transactions, similarityThreshold, calculateSimilarity]);
 
   // Check new transactions against existing ones
-  const checkNewTransactions = () => {
+  const checkNewTransactions = useCallback(() => {
     if (!newTransactions || newTransactions.length === 0) return;
     
     setScanning(true);
@@ -239,18 +236,20 @@ export default function DuplicateDetection({
     setDuplicateGroups(groups);
     setSelectedDuplicates(toRemove);
     setScanning(false);
-  };
+  }, [newTransactions, similarityThreshold, calculateSimilarity, transactions, autoSelectHighConfidence]);
 
   // Run duplicate check when modal opens
   useEffect(() => {
-    if (isOpen) {
-      if (newTransactions) {
-        checkNewTransactions();
-      } else {
-        setDuplicateGroups(findExistingDuplicates);
-      }
+    if (!isOpen) {
+      return;
     }
-  }, [isOpen, newTransactions]);
+
+    if (newTransactions && newTransactions.length > 0) {
+      checkNewTransactions();
+    } else {
+      setDuplicateGroups(existingDuplicateGroups);
+    }
+  }, [isOpen, newTransactions, checkNewTransactions, existingDuplicateGroups]);
 
   const handleToggleDuplicate = (id: string) => {
     const newSelected = new Set(selectedDuplicates);

@@ -184,7 +184,7 @@ export class DataMigrationService {
           amount: Math.abs(transaction.amount), // Store as positive
           type: transaction.type,
           category: transaction.category,
-          subcategory: transaction.subcategory,
+          subcategory: transaction.category,
           tags: transaction.tags,
           notes: transaction.notes,
           merchant: transaction.merchant,
