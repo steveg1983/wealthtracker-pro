@@ -375,3 +375,6 @@ export const AccessibilityDashboard: React.FC = () => {
     </div>
   );
 };
+
+// Add default export for lazy loading
+export default AccessibilityDashboard;

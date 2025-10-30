@@ -1,7 +1,7 @@
 // Isolated module for recharts child components
 // This file is lazy-loaded separately to keep recharts out of the main bundle
 
-export {
+import {
   ResponsiveContainer,
   Tooltip,
   Cell,
@@ -28,6 +28,34 @@ export {
   LabelList
 } from 'recharts';
 
+// Re-export for named imports
+export {
+  ResponsiveContainer,
+  Tooltip,
+  Cell,
+  Pie,
+  Bar,
+  Line,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  RadialBar,
+  Scatter,
+  ZAxis,
+  ErrorBar,
+  ReferenceLine,
+  ReferenceArea,
+  ReferenceDot,
+  Brush,
+  LabelList
+};
+
 // Export color constants commonly used with charts
 export const CHART_COLORS = [
   '#8b5cf6', // Purple
@@ -41,3 +69,34 @@ export const CHART_COLORS = [
   '#f97316', // Orange
   '#84cc16', // Lime
 ];
+
+// Default export for lazy loading - re-exports all named exports
+const ChartComponents = {
+  ResponsiveContainer,
+  Tooltip,
+  Cell,
+  Pie,
+  Bar,
+  Line,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Legend,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar,
+  RadialBar,
+  Scatter,
+  ZAxis,
+  ErrorBar,
+  ReferenceLine,
+  ReferenceArea,
+  ReferenceDot,
+  Brush,
+  LabelList,
+  CHART_COLORS
+};
+
+export default ChartComponents;
