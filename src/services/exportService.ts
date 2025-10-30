@@ -363,7 +363,7 @@ class ExportService {
     return doc.output('arraybuffer');
   }
 
-  private async addAccountsSummaryToPDF(doc: jsPDF, accounts: Account[], yPosition: number): Promise<number> {
+  private async addAccountsSummaryToPDF(doc: typeof jsPDF.prototype, accounts: Account[], yPosition: number): Promise<number> {
     doc.setFontSize(16);
     doc.text('Accounts Summary', 20, yPosition);
     yPosition += 10;

@@ -1,5 +1,7 @@
 // Global type declarations
 
+declare function gtag(...args: any[]): void;
+
 interface Window {
   Sentry?: {
     captureException: (error: Error) => void;
@@ -15,4 +17,5 @@ interface Window {
       getToken: () => Promise<string | null>;
     };
   };
+  gtag?: typeof gtag;
 }

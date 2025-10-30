@@ -4,7 +4,7 @@
 
 ## Summary
 
-- Baseline Supabase schema captured (reconstructed from code paths until direct pg_dump is available)
+- Baseline Supabase schema captured via authoritative `pg_dump --schema-only --no-owner --no-privileges`
 - Critical RLS vulnerability on `transactions` table identified **and fixed**
 - Supabase smoke suite now passes (CRUD + RLS: CREATE, READ, DELETE blocked for anon)
 
@@ -80,14 +80,15 @@
 ## Next Steps
 
 1. Keep the pooler host/service password safe; future migrations should be scripted via the Supabase CLI or pg_dump using the same parameters.
-2. Before major releases, run `pg_dump --schema-only` again and diff against `20251030003814__initial-schema.sql` to confirm migrations are complete.
-3. Ensure nightly smoke workflow remains green; add additional Supabase suites as new features rely on the database.
+2. Before major releases, run `pg_dump --schema-only --no-owner --no-privileges` again and diff against `20251030003814__initial-schema.sql` to confirm migrations are complete.
+3. Maintain the `SUPABASE_DB_URL` GitHub secret so `.github/workflows/handoff-snapshot.yml` can execute `npx supabase db lint --db-url "$SUPABASE_DB_URL"` during quality gates.
+4. Ensure nightly smoke workflow remains green; add additional Supabase suites as new features rely on the database.
 
 ## Command Reference
 
 ```bash
 # After getting the database password:
-export SUPABASE_DB_URL="postgresql://postgres:<password>@db.nqbacrjjgdjabygqtcah.supabase.co:5432/postgres"
+export SUPABASE_DB_URL="postgresql://postgres.nqbacrjjgdjabygqtcah:<password>@aws-0-eu-west-2.pooler.supabase.com:6543/postgres"
 
 # Export full schema
 npx supabase db dump --db-url "$SUPABASE_DB_URL" --schema public --data false --file supabase/migrations/$(date +%Y%m%d%H%M%S)__initial-schema.sql

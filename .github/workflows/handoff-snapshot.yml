@@ -86,6 +86,12 @@ jobs:
       - name: Verify coverage thresholds
         run: node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55
 
+      - name: Lint Supabase migrations
+        if: ${{ secrets.SUPABASE_DB_URL != '' }}
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npx supabase db lint --db-url "$SUPABASE_DB_URL"
+
       - name: Run build:check
         env:
           CI: true

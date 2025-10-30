@@ -118,7 +118,7 @@ export default function RealtimeSyncTest() {
     <div className="fixed top-20 right-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-md max-h-96 overflow-y-auto z-50 border-2 border-blue-500">
       <h3 className="font-bold text-sm mb-2 text-blue-600">🧪 Realtime Sync Test</h3>
       <div className="text-xs space-y-1 font-mono">
-        <div>Clerk ID: {user?.id?.slice(0, 10)}...</div>
+        <div>Clerk ID: {clerkId?.slice(0, 10)}...</div>
         <div>DB ID: {dbUserId?.slice(0, 10)}...</div>
         <div className="mt-2 border-t pt-2">
           {testStatus.map((status, i) => (

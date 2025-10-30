@@ -1,10 +1,10 @@
 # Schema Management Plan - Alternative Approaches
 **Created:** 2025-10-30
 
-## The Issue (original)
-Initial attempts via the default host (`db.nqbacrjjgdjabygqtcah.supabase.co`) failed because the project only exposed IPv6. By allow-listing our IPv4 (86.161.28.220) and targeting the pooler host `aws-0-eu-west-2.pooler.supabase.com` with user `postgres.nqbacrjjgdjabygqtcah`, we successfully ran `pg_dump --schema-only`.
+## Current Approach
+Direct exports now succeed by allow-listing our IPv4 (86.161.28.220) and targeting the pooler host `aws-0-eu-west-2.pooler.supabase.com` with user `postgres.nqbacrjjgdjabygqtcah`. This produced the canonical snapshot `supabase/migrations/20251030003814__initial-schema.sql` via `pg_dump --schema-only --no-owner --no-privileges`.
 
-The options below remain as fallback strategies when working from environments without IPv4 or when automation is required.
+The options below remain as fallback strategies when working from environments without IPv4 or when automation requires alternative paths.
 
 ## Alternative Solutions
 
@@ -119,36 +119,28 @@ FROM pg_indexes
 WHERE schemaname = 'public';
 ```
 
-### Option 5: Continue with Reconstructed Schema
-The current reconstructed schema in `20251030003814__initial-schema.sql` is:
-- ✅ Functional and tested
-- ✅ Has correct RLS policies (security fixed)
-- ✅ Works for application needs
-- ⚠️ Missing some database-specific details
+### Option 5: Use Canonical Snapshot
+The current canonical schema in `20251030003814__initial-schema.sql` is:
+- ✅ Full `pg_dump --schema-only --no-owner --no-privileges` output (tables, views, functions, triggers, policies)
+- ✅ Matches production security posture (RLS rebuild applied 2025-10-30)
+- ✅ Works for application needs and migration authoring
 
-**For now, this is adequate because:**
-- The API works perfectly
-- Smoke tests are passing
-- RLS security is verified
-- New migrations can be applied via Dashboard
+**Lean on this snapshot because:**
+- The API and smoke suites exercise the same objects that ship to production
+- Re-dumping via the pooler host keeps us aligned with Supabase dashboard changes
+- Any delta can be diffed directly against this file prior to releases
 
 ## Recommended Approach
 
 ### Immediate (Continue Development)
-1. **Use the reconstructed schema** as the baseline
-2. **Apply new migrations** via Supabase Dashboard SQL Editor
-3. **Test changes** with smoke tests
-4. **Document all changes** in migration files
+1. **Use the canonical snapshot** (`20251030003814__initial-schema.sql`) as the baseline for new migrations.
+2. **Apply new migrations** via Supabase Dashboard SQL Editor or `supabase db push` (ensure the DSN uses the pooler host).
+3. **Test changes** with smoke tests (`npm run test:supabase-smoke`).
+4. **Document all changes** in migration files and diff against the baseline before releases.
 
-### When IPv6 Access is Available
-1. **Get a complete dump**:
-```bash
-pg_dump "postgresql://postgres:SDzMGtV9FGTfdLun@[2a05:d01c:30c:9d1a:2e6d:94e:3814:4edf]:5432/postgres" \
-  --schema=public --no-owner --no-privileges --schema-only \
-  -f supabase/migrations/complete-schema.sql
-```
-2. **Compare with reconstructed** schema
-3. **Update any discrepancies**
+### When Pooler Access Is Unavailable
+1. **Fall back** to the alternative options (dashboard export, CLI with access token, IPv6-capable environment) outlined above.
+2. **Reconcile** the exported schema with `20251030003814__initial-schema.sql` once connectivity is restored.
 
 ## Migration Workflow Without Direct Access
 
@@ -182,18 +174,18 @@ git commit -m "Add migration: description"
 
 | Aspect | Status | Notes |
 |--------|--------|-------|
-| Database Access | ⚠️ IPv6 Only | No IPv4 address available |
+| Database Access | ✅ Pooler Host | IPv4 allow-listed (86.161.28.220) → `aws-0-eu-west-2.pooler.supabase.com` |
 | API Access | ✅ Working | Via Supabase JS client |
-| Schema Baseline | ✅ Reconstructed | Functional but incomplete |
-| RLS Security | ✅ Fixed | Verified via smoke tests |
-| Migrations | ✅ Can Apply | Via Dashboard SQL Editor |
-| Direct pg_dump | ❌ Blocked | IPv6 connectivity required |
+| Schema Baseline | ✅ Canonical | `pg_dump --schema-only --no-owner --no-privileges` snapshot (20251030003814) |
+| RLS Security | ✅ Fixed | Verified via smoke tests (anon delete blocked) |
+| Migrations | ✅ Can Apply | Via `supabase db push` (pooler DSN) or Dashboard SQL Editor |
+| Direct pg_dump | ✅ Working | Use pooler host with service password |
 
 ## Next Steps
 
-1. **Continue development** with reconstructed schema
-2. **Document new changes** as migrations
-3. **Consider IPv6 solution** for future complete export
-4. **Monitor Supabase updates** - they may add IPv4 support
+1. **Keep `SUPABASE_DB_URL` secret** in sync across environments (quality-gates workflow depends on it for `supabase db lint`).
+2. **Re-run `pg_dump --schema-only --no-owner --no-privileges`** against the pooler host before each release train and diff with `20251030003814__initial-schema.sql`.
+3. **Document new changes** as migrations and ensure smoke tests cover new tables/policies.
+4. **Fallback to alternative exports** only when pooler access is temporarily unavailable, then reconcile with the canonical snapshot.
 
-The application is fully functional and secure. The lack of direct database access is an inconvenience for schema exports but doesn't block development.
+The application is fully functional, Supabase access is aligned across CLI and dashboard, and the canonical snapshot keeps migrations auditable.

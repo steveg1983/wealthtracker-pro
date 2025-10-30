@@ -15,6 +15,7 @@ supabase/
 * Every structural change **must** be captured as a migration in `supabase/migrations/`.
 * File naming convention: `YYYYMMDDHHMM__short-description.sql` (double underscore separates timestamp and slug).
 * Keep migrations idempotent—add guards (`IF NOT EXISTS`) where feasible and write explicit rollbacks when possible.
+* **Baseline snapshot**: `supabase/migrations/20251030003814__initial-schema.sql` is the authoritative export generated with `pg_dump --schema-only --no-owner --no-privileges` against the pooler host `aws-0-eu-west-2.pooler.supabase.com` using user `postgres.nqbacrjjgdjabygqtcah`. Re-run this dump and diff before each release train.
 
 ## Tooling
 
@@ -87,9 +88,10 @@ Never leave schema changes untracked. If you must hotfix via the dashboard, conv
 
 ## CI integration
 
-1. Lint a migration by running `supabase db lint --db-url "$SUPABASE_DB_URL"` (add to CI once CLI is available in the build image).
-2. After migrations are applied in CI / staging, execute `npm run test:supabase-smoke` to verify CRUD + RLS.
-3. Record every migration in the release notes / change log.
+1. Create a repository secret named `SUPABASE_DB_URL` set to the pooler DSN (e.g. `postgresql://postgres.nqbacrjjgdjabygqtcah:<password>@aws-0-eu-west-2.pooler.supabase.com:6543/postgres`). This is required for CLI access during CI.
+2. The `quality-gates` job in `.github/workflows/handoff-snapshot.yml` runs `npx supabase db lint --db-url "$SUPABASE_DB_URL"` whenever that secret is present, alongside lint/typecheck/tests/build checks.
+3. Nightly `.github/workflows/supabase-smoke.yml` uses `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, and `VITE_SUPABASE_SERVICE_ROLE_KEY` secrets to verify CRUD + RLS via `npm run test:supabase-smoke`.
+4. Record every migration in release notes / change log to keep downstream systems informed.
 
 ## Rollbacks
 

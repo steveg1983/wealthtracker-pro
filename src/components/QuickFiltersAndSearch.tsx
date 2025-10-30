@@ -118,7 +118,7 @@ export function QuickFiltersAndSearch({
       id: 'today',
       name: 'Today',
       icon: <CalendarIcon size={16} />,
-      filter: (t) => {
+      filter: (t: any) => {
         const today = new Date();
         const tDate = new Date(t.date);
         return tDate.toDateString() === today.toDateString();
@@ -129,7 +129,7 @@ export function QuickFiltersAndSearch({
       id: 'week',
       name: 'This Week',
       icon: <ClockIcon size={16} />,
-      filter: (t) => {
+      filter: (t: any) => {
         const now = new Date();
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         return new Date(t.date) >= weekAgo;
@@ -140,7 +140,7 @@ export function QuickFiltersAndSearch({
       id: 'month',
       name: 'This Month',
       icon: <CalendarIcon size={16} />,
-      filter: (t) => {
+      filter: (t: any) => {
         const now = new Date();
         const tDate = new Date(t.date);
         return tDate.getMonth() === now.getMonth() && 
@@ -152,35 +152,35 @@ export function QuickFiltersAndSearch({
       id: 'income',
       name: 'Income',
       icon: <TrendingUpIcon size={16} />,
-      filter: (t) => t.type === 'income',
+      filter: (t: any) => t.type === 'income',
       description: 'Income transactions only'
     },
     {
       id: 'expenses',
       name: 'Expenses',
       icon: <TrendingDownIcon size={16} />,
-      filter: (t) => t.type === 'expense',
+      filter: (t: any) => t.type === 'expense',
       description: 'Expense transactions only'
     },
     {
       id: 'large',
       name: 'Large',
       icon: <DollarSignIcon size={16} />,
-      filter: (t) => Math.abs(t.amount) >= 500,
+      filter: (t: any) => Math.abs(t.amount) >= 500,
       description: 'Transactions over $500'
     },
     {
       id: 'uncategorized',
       name: 'Uncategorized',
       icon: <AlertCircleIcon size={16} />,
-      filter: (t) => !t.category || t.category === '',
+      filter: (t: any) => !t.category || t.category === '',
       description: 'Need categorization'
     },
     {
       id: 'uncleared',
       name: 'Uncleared',
       icon: <XIcon size={16} />,
-      filter: (t) => !t.cleared,
+      filter: (t: any) => !t.cleared,
       description: 'Not reconciled'
     }
   ], []);

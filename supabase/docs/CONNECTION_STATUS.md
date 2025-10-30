@@ -2,16 +2,16 @@
 **Last Updated:** 2025-10-30
 
 ## Connection Details Provided
-- **Direct Connection String:** `postgresql://postgres:[YOUR_PASSWORD]@db.nqbacrjjgdjabygqtcah.supabase.co:5432/postgres`
-- **Hostname:** `db.nqbacrjjgdjabygqtcah.supabase.co`
-- **IPv6 Address:** `2a05:d01c:30c:9d1a:2e6d:94e:3814:4edf` (discovered via DNS lookup)
+- **Project Hostname:** `db.nqbacrjjgdjabygqtcah.supabase.co` (IPv6 only)
+- **Pooler Host:** `aws-0-eu-west-2.pooler.supabase.com`
+- **Username:** `postgres.nqbacrjjgdjabygqtcah`
 - **Password:** `SDzMGtV9FGTfdLun`
-- **Port:** 5432
-- **Database:** postgres
+- **Ports:** 5432 (session pooler), 6543 (transaction pooler)
+- **Database:** `postgres`
 
 ## Connection Test Results
 
-### ❌ Direct Connection Failed (IPv6 Only)
+### ⚠️ Direct Project Host (IPv6 Only)
 ```bash
 # Hostname resolves to IPv6 only (no IPv4 address)
 host db.nqbacrjjgdjabygqtcah.supabase.co
@@ -20,17 +20,22 @@ host db.nqbacrjjgdjabygqtcah.supabase.co
 # Connection attempt fails - no route to IPv6 host
 PGPASSWORD="SDzMGtV9FGTfdLun" psql -h "2a05:d01c:30c:9d1a:2e6d:94e:3814:4edf" -p 5432 -U postgres
 ```
-**Error:** No route to host - IPv6 connectivity not available from current network
+**Result:** No route to host when IPv6 connectivity is unavailable
 
-### ❌ Pooler Connection Failed
+### ✅ Pooler Connection (IPv4 Allow-Listed)
+After adding our public IPv4 (`86.161.28.220`) to Supabase → Database → Network Restrictions, the pooler host succeeds:
 ```bash
-# Transaction pooler (port 6543)
-postgresql://postgres.nqbacrjjgdjabygqtcah:SDzMGtV9FGTfdLun@aws-0-us-west-1.pooler.supabase.com:6543/postgres
-
-# Session pooler (port 5432)
-postgresql://postgres.nqbacrjjgdjabygqtcah:SDzMGtV9FGTfdLun@aws-0-us-west-1.pooler.supabase.com:5432/postgres
+PGPASSWORD="SDzMGtV9FGTfdLun" pg_dump \
+  -h aws-0-eu-west-2.pooler.supabase.com \
+  -p 6543 \
+  -U postgres.nqbacrjjgdjabygqtcah \
+  -d postgres \
+  --schema=public \
+  --no-owner --no-privileges --schema-only \
+  -f supabase/migrations/20251030003814__initial-schema.sql
 ```
-**Error:** "Tenant or user not found"
+
+Same credentials work for `psql` connections and Supabase CLI commands (`npx supabase db lint`, `supabase db push`).
 
 ### ✅ API Connection Works
 - Supabase REST API via JS client works perfectly
@@ -52,22 +57,18 @@ postgresql://postgres.nqbacrjjgdjabygqtcah:SDzMGtV9FGTfdLun@aws-0-us-west-1.pool
    - Project might be configured for API-only access
    - Direct PostgreSQL connections might be disabled for security
 
-## Current Workaround
+## Current Baseline
 
-Using the **reconstructed schema** in `20251030003814__initial-schema.sql` which includes:
-- All 15 confirmed tables
-- Basic column types and constraints
-- RLS policies (including security fixes)
-- Foreign key relationships
+Using the **canonical pg_dump snapshot** in `supabase/migrations/20251030003814__initial-schema.sql`, generated via the pooler host:
+- All tables, indexes, constraints, foreign keys
+- Custom types, functions, triggers, and views
+- RLS policies (including the 2025-10-30 DELETE fix)
 
-## What's Missing from Reconstructed Schema
+## What to Watch
 
-- Exact column types and constraints
-- Custom functions and stored procedures
-- Triggers
-- Views
-- Exact index definitions
-- Custom types or enums
+- Keep the pooler allow list current—new IPs must be added before CLI access works.
+- Re-run `pg_dump --schema-only --no-owner --no-privileges` before each release and diff against the existing snapshot.
+- Update `SUPABASE_DB_URL` secret everywhere CI needs to lint migrations.
 
 ## Next Steps to Try
 
@@ -88,41 +89,35 @@ Using the **reconstructed schema** in `20251030003814__initial-schema.sql` which
    - Export via Supabase dashboard if available
    - Use database backup feature if available
 
-## Maintaining Schema Without Direct Access
+## Maintaining Schema
 
-For now, we can maintain the schema using:
+1. **Author migrations locally** against the canonical snapshot and apply via Dashboard SQL Editor or `supabase db push --db-url "$SUPABASE_DB_URL"`.
+2. **Keep `SUPABASE_DB_URL`** (pooler DSN) stored securely for engineers and CI. Rotate alongside Supabase password changes.
+3. **Run nightly smoke tests** (`npm run test:supabase-smoke`) to validate CRUD + RLS after each deploy.
+4. **Use fallback exports** (SQL dashboard queries, access tokens, IPv6 tunnels) only when pooler access is temporarily unavailable, then reconcile with the canonical snapshot.
 
-1. **API-based discovery** - Continue using the reconstructed schema
-2. **Migration testing** - Apply migrations via Dashboard SQL Editor
-3. **Version control** - Track all changes in migration files
-4. **Smoke tests** - Verify schema changes don't break functionality
-
-## Commands That Would Work (if connection was available)
+## Commands Verified
 
 ```bash
-# Full schema export
+# Full schema export via pooler host (transaction pooler port 6543)
 PGPASSWORD="SDzMGtV9FGTfdLun" pg_dump \
-  -h db.nqbacrjjgdjabygqtcah.supabase.co \
-  -p 5432 -U postgres -d postgres \
-  --schema=public --no-owner --no-privileges \
-  --schema-only -v \
-  -f supabase/migrations/$(date +%Y%m%d%H%M%S)__initial-schema-complete.sql
+  -h aws-0-eu-west-2.pooler.supabase.com \
+  -p 6543 \
+  -U postgres.nqbacrjjgdjabygqtcah \
+  -d postgres \
+  --schema=public --no-owner --no-privileges --schema-only \
+  -f supabase/migrations/20251030003814__initial-schema.sql
 
-# With all objects
-PGPASSWORD="SDzMGtV9FGTfdLun" pg_dump \
-  -h db.nqbacrjjgdjabygqtcah.supabase.co \
-  -p 5432 -U postgres -d postgres \
-  --schema=public --no-owner \
-  --include-foreign-data \
-  --no-comments \
-  -f supabase/migrations/complete-schema.sql
+# Lint migrations (requires SUPABASE_DB_URL environment variable)
+SUPABASE_DB_URL="postgresql://postgres.nqbacrjjgdjabygqtcah:SDzMGtV9FGTfdLun@aws-0-eu-west-2.pooler.supabase.com:6543/postgres" \
+  npx supabase db lint --db-url "$SUPABASE_DB_URL"
 ```
 
 ## Status Summary
 
-- ✅ **API Access**: Working perfectly
+- ✅ **API Access**: Working
+- ✅ **Pooler Access**: Working (IPv4 allow-listed)
+- ✅ **Canonical Schema Export**: Captured via `pg_dump --schema-only --no-owner --no-privileges`
 - ✅ **RLS Security**: Fixed and verified
-- ✅ **Smoke Tests**: Passing
-- ✅ **Reconstructed Schema**: Functional but incomplete
-- ❌ **Direct DB Access**: Blocked (DNS/Network issue)
-- ❌ **Complete Schema Export**: Cannot obtain without direct access
+- ✅ **Smoke Tests**: Passing nightly (`.github/workflows/supabase-smoke.yml`)
+- ⚠️ **Direct Project Host (IPv6)**: Still requires IPv6 connectivity or tunnel if needed for diagnostics
