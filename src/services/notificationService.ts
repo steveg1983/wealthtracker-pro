@@ -322,12 +322,12 @@ class NotificationService {
           percentage_spent: percentage, 
           amount_spent: spent,
           budget_amount: budget.amount,
-          category: budget.category,
+          category: budget.categoryId,
           period: budget.period
         })) {
-          const category = categories.find(c => c.name === budget.category);
+          const category = categories.find(c => c.name === budget.categoryId);
           const notification = this.createNotificationFromRule(rule, {
-            categoryName: budget.category,
+            categoryName: budget.categoryId,
             categoryColor: category?.color || '#6B7280',
             percentage: Math.round(percentage),
             spent,
@@ -505,7 +505,7 @@ class NotificationService {
     return transactions
       .filter(transaction => {
         const transactionDate = new Date(transaction.date);
-        return transaction.category === budget.category &&
+        return transaction.category === budget.categoryId &&
                transaction.type === 'expense' &&
                transactionDate >= startDate &&
                transactionDate <= endDate;

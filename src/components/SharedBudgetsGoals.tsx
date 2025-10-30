@@ -335,7 +335,7 @@ export default function SharedBudgetsGoals() {
                   <div>
                     <h3 className="text-lg font-semibold">{budget.name}</h3>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {categories.find(c => c.id === budget.category)?.name} • {budget.period}
+                      {categories.find(c => c.id === budget.categoryId)?.name} • {budget.period}
                     </p>
                   </div>
                   <div className="text-right">

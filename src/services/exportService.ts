@@ -451,7 +451,7 @@ class ExportService {
       const percentSpent = budgeted.gt(0) ? spent.div(budgeted).mul(100) : new Decimal(0);
 
       doc.text(
-        `${budget.category}: ${this.formatCurrency(spent.toNumber())} / ${this.formatCurrency(budgeted.toNumber())} (${percentSpent.toFixed(1)}%)`,
+        `${budget.categoryId}: ${this.formatCurrency(spent.toNumber())} / ${this.formatCurrency(budgeted.toNumber())} (${percentSpent.toFixed(1)}%)`,
         20,
         yPosition
       );

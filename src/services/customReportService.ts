@@ -395,13 +395,13 @@ class CustomReportService {
 
     // Add budget data
     budgets.forEach(budget => {
-      const current = categoryData.get(budget.category) || {
+      const current = categoryData.get(budget.categoryId) || {
         actual: new Decimal(0),
         budget: new Decimal(0),
         count: 0
       };
       current.budget = new Decimal(budget.amount);
-      categoryData.set(budget.category, current);
+      categoryData.set(budget.categoryId, current);
     });
 
     // Convert to array format

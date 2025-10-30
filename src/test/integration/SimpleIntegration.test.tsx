@@ -185,7 +185,7 @@ describe('Simple Integration Tests', () => {
         createMockTransaction({ category: 'dining', amount: 50, type: 'expense' }),
       ];
 
-      const groceryTransactions = transactions.filter(t => t.category === budget.category);
+      const groceryTransactions = transactions.filter(t => t.category === budget.categoryId);
       expect(groceryTransactions).toHaveLength(1);
       expect(groceryTransactions[0].amount).toBe(100);
     });

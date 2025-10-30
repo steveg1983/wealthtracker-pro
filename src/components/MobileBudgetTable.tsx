@@ -28,7 +28,7 @@ export default function MobileBudgetTable({
               style={{ backgroundColor: budget.color }}
             />
           )}
-          <span className="font-medium">{budget.name || budget.category}</span>
+          <span className="font-medium">{budget.name || budget.categoryId}</span>
         </div>
       )
     },

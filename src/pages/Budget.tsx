@@ -104,7 +104,7 @@ export default function Budget() {
     const alerts = budgetsWithSpent
       .filter(budget => budget.isActive)
       .map(budget => {
-        const category = categories.find(c => c.id === budget.category);
+        const category = categories.find(c => c.id === budget.categoryId);
         if (budget.percentage >= 100) {
           return {
             budgetId: budget.id,
@@ -348,7 +348,7 @@ export default function Budget() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {budget.category}
+                  {budget.categoryId}
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   {budget.period === 'monthly' ? 'Monthly' : 'Yearly'} budget

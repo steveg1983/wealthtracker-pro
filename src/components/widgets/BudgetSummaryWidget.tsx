@@ -43,7 +43,7 @@ export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWid
     // Convert budgets to service-compatible format
     const serviceBudgets = budgets.map(budget => ({
       ...budget,
-      categoryId: budget.category,
+      categoryId: budget.categoryId,
       period: budget.period || 'monthly' as const
     }));
     
@@ -60,7 +60,7 @@ export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWid
       
       // Aggregate spending across all categories in this budget
       const categorySpending = summary.budgetsByCategory
-        .filter(bs => bs.categoryId === budget.category)
+        .filter(bs => bs.categoryId === budget.categoryId)
         .reduce((sum, bs) => sum + bs.spentAmount, 0);
       
       const spent = toDecimal(categorySpending);

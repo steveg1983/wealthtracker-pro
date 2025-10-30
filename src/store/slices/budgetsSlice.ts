@@ -87,7 +87,7 @@ const budgetsSlice = createSlice({
         state.loading = false;
         // Remove any temporary budget with the same category
         state.budgets = state.budgets.filter(budget => 
-          !(budget.id.startsWith('temp-') && budget.category === action.payload.category)
+          !(budget.id.startsWith('temp-') && budget.categoryId === action.payload.category)
         );
         // Add the new budget from Supabase
         state.budgets.push(action.payload);

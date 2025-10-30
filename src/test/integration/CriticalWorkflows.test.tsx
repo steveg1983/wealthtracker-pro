@@ -207,18 +207,18 @@ const TestBudgetManager = () => {
       </button>
       <div data-testid="budgets-list">
         {budgets.map(budget => {
-          const spent = spending[budget.category] || 0;
+          const spent = spending[budget.categoryId] || 0;
           const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
           const remaining = Math.max(0, budget.amount - spent);
           
           return (
-            <div key={budget.id} data-testid={`budget-${budget.category}`}>
-              <div>{budget.category}: £{budget.amount}/month</div>
+            <div key={budget.id} data-testid={`budget-${budget.categoryId}`}>
+              <div>{budget.categoryId}: £{budget.amount}/month</div>
               <div>Spent: £{spent.toFixed(2)} ({percentage.toFixed(0)}%)</div>
               <div>Remaining: £{remaining.toFixed(2)}</div>
               <button 
-                onClick={() => recordSpending(budget.category, 50)}
-                data-testid={`spend-${budget.category}`}
+                onClick={() => recordSpending(budget.categoryId, 50)}
+                data-testid={`spend-${budget.categoryId}`}
               >
                 Spend £50
               </button>

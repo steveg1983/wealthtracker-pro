@@ -102,7 +102,7 @@ class BudgetRecommendationService {
       const spending = categorySpending.get(category.id);
       if (!spending || spending.months.length < 3) return; // Need at least 3 months of data
       
-      const currentBudget = budgets.find(b => b.category === category.id);
+      const currentBudget = budgets.find(b => b.categoryId === category.id);
       const recommendation = this.generateRecommendation(
         category,
         spending,
@@ -166,8 +166,8 @@ class BudgetRecommendationService {
       // Group by category
       const monthlySpending = new Map<string, number>();
       monthTransactions.forEach(t => {
-        const current = monthlySpending.get(t.category) || 0;
-        monthlySpending.set(t.category, current + Math.abs(t.amount));
+        const current = monthlySpending.get(t.categoryId) || 0;
+        monthlySpending.set(t.categoryId, current + Math.abs(t.amount));
       });
 
       // Add to category data
@@ -370,8 +370,8 @@ class BudgetRecommendationService {
       if (!rec.currentBudget && rec.averageSpending > 100) {
         insights.push({
           type: 'unbudgeted',
-          title: `Unbudgeted Spending in ${rec.categoryName}`,
-          description: `You're spending an average of $${rec.averageSpending.toFixed(0)} per month in ${rec.categoryName} without a budget.`,
+          title: `Unbudgeted Spending in ${rec.categoryIdName}`,
+          description: `You're spending an average of $${rec.averageSpending.toFixed(0)} per month in ${rec.categoryIdName} without a budget.`,
           impact: 'negative',
           actionable: true,
           categoryId: rec.categoryId,
@@ -382,12 +382,12 @@ class BudgetRecommendationService {
 
     // Check for significant overspending
     budgets.forEach(budget => {
-      const category = categories.find(c => c.id === budget.category);
+      const category = categories.find(c => c.id === budget.categoryId);
       if (!category) return;
       
       const currentMonthSpending = transactions
         .filter(t => 
-          t.category === budget.category &&
+          t.categoryId === budget.categoryId &&
           t.type === 'expense' &&
           new Date(t.date) >= currentMonth
         )
@@ -429,7 +429,7 @@ class BudgetRecommendationService {
 
     // Check for good budget adherence
     const wellManagedBudgets = budgets.filter(budget => {
-      const rec = recommendations.find(r => r.categoryId === budget.category);
+      const rec = recommendations.find(r => r.categoryId === budget.categoryId);
       return rec && Math.abs(rec.recommendedBudget - budget.amount) / budget.amount < 0.1;
     });
     
@@ -463,7 +463,7 @@ class BudgetRecommendationService {
     
     // Deduct points for poorly aligned budgets
     budgets.forEach(budget => {
-      const rec = recommendations.find(r => r.categoryId === budget.category);
+      const rec = recommendations.find(r => r.categoryId === budget.categoryId);
       if (rec) {
         const difference = Math.abs(rec.recommendedBudget - budget.amount) / budget.amount;
         if (difference > 0.3) {
@@ -478,7 +478,7 @@ class BudgetRecommendationService {
     budgets.forEach(budget => {
       const currentSpending = transactions
         .filter(t => 
-          t.category === budget.category &&
+          t.categoryId === budget.categoryId &&
           t.type === 'expense' &&
           new Date(t.date) >= currentMonth
         )
@@ -528,7 +528,7 @@ class BudgetRecommendationService {
     ];
 
     analysis.recommendations.forEach(rec => {
-      lines.push(`${rec.categoryName}:`);
+      lines.push(`${rec.categoryIdName}:`);
       lines.push(`  Current Budget: $${rec.currentBudget?.toFixed(2) || '0.00'}`);
       lines.push(`  Recommended: $${rec.recommendedBudget.toFixed(2)}`);
       lines.push(`  Average Spending: $${rec.averageSpending.toFixed(2)}`);

@@ -237,7 +237,7 @@ export function calculateBudgetSpending(
 ): number {
   const budgetTransactions = transactions.filter(t => 
     t.type === 'expense' &&
-    t.category === budget.category &&
+    t.category === budget.categoryId &&
     new Date(t.date) >= startDate &&
     new Date(t.date) <= endDate
   );
@@ -261,7 +261,7 @@ export function calculateBudgetRemaining(
  */
 export function calculateBudgetUsage(budget: Budget, transactions: Transaction[]): number {
   const expenseTransactions = transactions.filter(t => 
-    t.type === 'expense' && t.category === budget.category
+    t.type === 'expense' && t.category === budget.categoryId
   );
   return expenseTransactions.reduce((sum, t) => sum + t.amount, 0);
 }

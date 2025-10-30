@@ -156,10 +156,10 @@ class FinancialSummaryService {
     // Calculate top spending categories
     const categorySpending = new Map<string, DecimalInstance>();
     periodTransactions
-      .filter(t => t.type === 'expense' && t.category)
+      .filter(t => t.type === 'expense' && t.categoryId)
       .forEach(t => {
-        const current = categorySpending.get(t.category!) || toDecimal(0);
-        categorySpending.set(t.category!, current.plus(toDecimal(t.amount)));
+        const current = categorySpending.get(t.categoryId!) || toDecimal(0);
+        categorySpending.set(t.categoryId!, current.plus(toDecimal(t.amount)));
       });
 
     const topCategories = Array.from(categorySpending.entries())
@@ -198,7 +198,7 @@ class FinancialSummaryService {
     // Budget performance
     const budgetPerformance = budgets.map(budget => {
       const budgetTransactions = periodTransactions.filter(t => 
-        t.type === 'expense' && t.category === budget.category
+        t.type === 'expense' && t.categoryId === budget.categoryId
       );
       const spent = budgetTransactions.reduce(
         (sum, t) => sum.plus(toDecimal(t.amount)), 
@@ -379,7 +379,7 @@ class FinancialSummaryService {
     if (summary.topCategories.length > 0) {
       text += `### Top Spending Categories\n`;
       summary.topCategories.forEach(cat => {
-        text += `- ${cat.category}: ${currencySymbol}${cat.amount.toFixed(2)} (${cat.percentage.toFixed(1)}%)\n`;
+        text += `- ${cat.categoryId}: ${currencySymbol}${cat.amount.toFixed(2)} (${cat.percentage.toFixed(1)}%)\n`;
       });
       text += '\n';
     }

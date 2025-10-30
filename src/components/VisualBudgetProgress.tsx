@@ -53,7 +53,7 @@ export function VisualBudgetProgress({
   const spent = useMemo(() => {
     return transactions
       .filter(t => 
-        t.category === budget.category &&
+        t.categoryId === budget.categoryId &&
         t.type === 'expense' &&
         new Date(t.date) >= new Date(budget.startDate) &&
         new Date(t.date) <= new Date(budget.endDate)
@@ -187,7 +187,7 @@ export function VisualBudgetProgress({
             {budget.name}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {budget.category} • {budget.period}
+            {budget.categoryId} • {budget.period}
           </p>
         </div>
         <div className="text-right">
@@ -356,10 +356,10 @@ export function BudgetDashboard({ compact = false }: BudgetDashboardProps): Reac
       }
       // Sort by percentage spent
       const aSpent = transactions
-        .filter(t => t.category === a.category && t.type === 'expense')
+        .filter(t => t.categoryId === a.categoryId && t.type === 'expense')
         .reduce((sum, t) => sum + Math.abs(t.amount), 0);
       const bSpent = transactions
-        .filter(t => t.category === b.category && t.type === 'expense')
+        .filter(t => t.categoryId === b.categoryId && t.type === 'expense')
         .reduce((sum, t) => sum + Math.abs(t.amount), 0);
       const aPercent = (aSpent / a.amount) * 100;
       const bPercent = (bSpent / b.amount) * 100;

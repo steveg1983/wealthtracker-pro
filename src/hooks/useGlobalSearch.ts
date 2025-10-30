@@ -119,7 +119,7 @@ export function useGlobalSearch(query: string): {
     // Search budgets
     budgets.forEach(budget => {
       try {
-        const categoryScore = calculateScore(getCategoryName(budget.category), searchTerms);
+        const categoryScore = calculateScore(getCategoryName(budget.categoryId), searchTerms);
         const amountScore = calculateScore(budget.amount?.toString() || '', searchTerms);
         const periodScore = calculateScore(budget.period, searchTerms);
         
@@ -131,7 +131,7 @@ export function useGlobalSearch(query: string): {
           results.push({
             id: budget.id,
             type: 'budget',
-            title: `${getCategoryName(budget.category)} Budget`,
+            title: `${getCategoryName(budget.categoryId)} Budget`,
             description: `${budget.period} budget - ${amount} GBP`,
             data: budget,
             score: totalScore,

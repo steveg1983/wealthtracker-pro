@@ -70,12 +70,12 @@ export default function RecurringBudgetTemplates() {
 
     const budgetItems = budgets.map(budget => {
       // Find category name for the budget
-      const categoryName = categories.find(c => c.id === budget.category)?.name || budget.category;
+      const categoryName = categories.find(c => c.id === budget.categoryId)?.name || budget.categoryId;
       
       return {
         name: categoryName,
         amount: budget.amount,
-        categoryIds: [budget.category],
+        categoryIds: [budget.categoryId],
         color: '#3B82F6', // Default color
         priority: 'medium' as const
       };

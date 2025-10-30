@@ -94,10 +94,10 @@ vi.mock('../../pages/Budget', () => ({
     // Calculate budget usage
     const budgetUsage = budgets?.map((budget: any) => {
       const spent = transactions
-        ?.filter((t: any) => t.type === 'expense' && t.category === budget.category)
+        ?.filter((t: any) => t.type === 'expense' && t.category === budget.categoryId)
         .reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
       const percentage = (spent / budget.amount) * 100;
-      const categoryName = categories?.find((c: any) => c.id === budget.category)?.name || budget.category;
+      const categoryName = categories?.find((c: any) => c.id === budget.categoryId)?.name || budget.categoryId;
       
       return {
         ...budget,
@@ -114,7 +114,7 @@ vi.mock('../../pages/Budget', () => ({
         <button onClick={() => setShowModal(true)}>Add Budget</button>
         {budgetUsage.map((budget: any) => (
           <div key={budget.id}>
-            <div>{budget.categoryName}</div>
+            <div>{budget.categoryIdName}</div>
             <div>{budget.percentage.toFixed(0)}%</div>
             {budget.isOverBudget && <div>Over budget!</div>}
           </div>

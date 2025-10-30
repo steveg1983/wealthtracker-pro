@@ -72,7 +72,7 @@ export default function EnvelopeBudgeting() {
         .filter((t: DecimalTransaction) => 
           t.type === 'expense' && 
           t.date.toISOString().startsWith(currentMonth) &&
-          t.category === budget.category
+          t.category === budget.categoryId
         )
         .reduce((sum: DecimalInstance, t: DecimalTransaction) => sum.plus(t.amount), toDecimal(0));
       
@@ -83,7 +83,7 @@ export default function EnvelopeBudgeting() {
         : 0;
 
       // Use category name as envelope name
-      const categoryName = categories.find(c => c.id === budget.category)?.name || budget.category;
+      const categoryName = categories.find(c => c.id === budget.categoryId)?.name || budget.categoryId;
 
       return {
         id: budget.id,
@@ -91,7 +91,7 @@ export default function EnvelopeBudgeting() {
         budgetedAmount,
         spentAmount,
         remainingAmount,
-        categoryIds: [budget.category],
+        categoryIds: [budget.categoryId],
         color: '#3B82F6', // Default color
         isOverspent,
         fillPercentage,

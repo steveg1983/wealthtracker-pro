@@ -180,10 +180,10 @@ class SharedFinanceService {
       'budget_created',
       sharedBudget.id,
       'budget',
-      budget.name || `${budget.category} Budget`,
+      budget.name || `${budget.categoryId} Budget`,
       createdBy,
       createdByName,
-      `Created shared budget for ${budget.category}`,
+      `Created shared budget for ${budget.categoryId}`,
       budget.amount
     );
 
@@ -230,7 +230,7 @@ class SharedFinanceService {
       'budget_modified',
       budgetId,
       'budget',
-      budget.name || `${budget.category} Budget`,
+      budget.name || `${budget.categoryId} Budget`,
       updatedBy,
       updatedByName,
       'Updated shared budget',
@@ -387,7 +387,7 @@ class SharedFinanceService {
 
     transactions
       .filter(t => 
-        t.category === budget.category &&
+        t.category === budget.categoryId &&
         t.type === 'expense' &&
         new Date(t.date) >= startOfPeriod &&
         new Date(t.date) <= endOfPeriod
@@ -519,7 +519,7 @@ class SharedFinanceService {
         'budget_exceeded',
         budgetId,
         'budget',
-        budget.name || `${budget.category} Budget`,
+        budget.name || `${budget.categoryId} Budget`,
         memberId,
         memberName,
         `Budget exceeded! Spent ${currentSpending} of ${budget.amount}`,

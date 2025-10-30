@@ -64,7 +64,7 @@ export function useActivityLogger() {
     // Check for budget alerts
     budgets.forEach(budget => {
       const spent = Math.abs(transactions
-        .filter(t => t.category === budget.category && parseFloat(t.amount) < 0)
+        .filter(t => t.category === budget.categoryId && parseFloat(t.amount) < 0)
         .reduce((sum, t) => sum + parseFloat(t.amount), 0));
       
       const percentage = (spent / parseFloat(budget.amount)) * 100;
@@ -75,7 +75,7 @@ export function useActivityLogger() {
         logActivity({
           type: 'budget',
           title: 'Budget Alert',
-          description: `${budget.category} budget is ${percentage.toFixed(0)}% spent`,
+          description: `${budget.categoryId} budget is ${percentage.toFixed(0)}% spent`,
           actionUrl: '/budget'
         });
         localStorage.setItem(alertKey, 'true');
@@ -83,7 +83,7 @@ export function useActivityLogger() {
         logActivity({
           type: 'budget',
           title: 'Budget Warning',
-          description: `${budget.category} budget is ${percentage.toFixed(0)}% spent`,
+          description: `${budget.categoryId} budget is ${percentage.toFixed(0)}% spent`,
           actionUrl: '/budget'
         });
         localStorage.setItem(alertKey, '75');

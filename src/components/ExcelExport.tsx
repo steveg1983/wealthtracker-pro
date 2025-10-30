@@ -325,7 +325,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           .filter(t => {
             const tDate = t.date instanceof Date ? t.date : new Date(t.date);
             return t.type === 'expense' && 
-              t.category === budget.category &&
+              t.category === budget.categoryId &&
               tDate.getMonth() === new Date().getMonth() &&
               tDate.getFullYear() === new Date().getFullYear();
           })
@@ -337,7 +337,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           : 0;
         
         return {
-          Category: budget.category,
+          Category: budget.categoryId,
           'Budget Amount': toDecimal(budget.amount).toNumber(),
           Spent: spent,
           Remaining: remaining,

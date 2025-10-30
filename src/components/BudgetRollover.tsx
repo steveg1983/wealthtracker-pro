@@ -102,7 +102,7 @@ export default function BudgetRollover() {
       const spent = decimalTransactions
         .filter(t => 
           t.type === 'expense' && 
-          t.category === budget.category &&
+          t.category === budget.categoryId &&
           t.date >= startDate &&
           t.date <= endDate
         )
@@ -113,7 +113,7 @@ export default function BudgetRollover() {
       // Calculate rollover amount based on settings
       let rolloverAmount = toDecimal(0);
       
-      if (rolloverSettings.enabled && !rolloverSettings.excludeCategories.includes(budget.category)) {
+      if (rolloverSettings.enabled && !rolloverSettings.excludeCategories.includes(budget.categoryId)) {
         if (remaining.greaterThan(0) || (remaining.lessThan(0) && rolloverSettings.carryNegative)) {
           switch (rolloverSettings.mode) {
             case 'all':
@@ -136,12 +136,12 @@ export default function BudgetRollover() {
       
       return {
         budgetId: budget.id,
-        category: budget.category,
+        category: budget.categoryId,
         originalBudget: decimalBudget.amount,
         spent,
         remaining,
         rolloverAmount,
-        isEligible: rolloverSettings.enabled && !rolloverSettings.excludeCategories.includes(budget.category),
+        isEligible: rolloverSettings.enabled && !rolloverSettings.excludeCategories.includes(budget.categoryId),
         willRollover: rolloverAmount.abs().greaterThan(0)
       };
     }).filter(Boolean);

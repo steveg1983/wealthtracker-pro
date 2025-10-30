@@ -229,8 +229,8 @@ export class DataMigrationService {
     try {
       const budgetsToInsert = budgets.map(budget => ({
         user_id: userId,
-        name: budget.name || budget.category,
-        category: budget.category,
+        name: budget.name || budget.categoryId,
+        category: budget.categoryId,
         amount: budget.amount,
         period: budget.period || 'monthly',
         start_date: budget.startDate || new Date().toISOString().split('T')[0],

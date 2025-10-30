@@ -22,7 +22,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
   
   const { formData, updateField, handleSubmit, setFormData } = useModalForm<FormData>(
     {
-      category: budget?.category || '',
+      category: budget?.categoryId || '',
       amount: budget?.amount?.toString() || '',
       period: budget?.period || 'monthly',
       isActive: budget?.isActive !== false
@@ -49,7 +49,7 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
   useEffect(() => {
     if (budget) {
       setFormData({
-        category: budget.category || '',
+        category: budget.categoryId || '',
         amount: budget.amount?.toString() || '',
         period: budget.period || 'monthly',
         isActive: budget.isActive !== false

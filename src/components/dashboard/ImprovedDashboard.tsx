@@ -109,7 +109,7 @@ export function ImprovedDashboard() {
     
     const budgetStatus = activeBudgets.map(budget => {
       const categoryTransactions = recentTransactions.filter(t => 
-        t.category === budget.category && t.type === 'expense'
+        t.category === budget.categoryId && t.type === 'expense'
       );
       const spent = categoryTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
       const remaining = budget.amount - spent;
@@ -317,7 +317,7 @@ export function ImprovedDashboard() {
               <div key={budget.id} className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-medium text-gray-700 dark:text-gray-300">
-                    {budget.category}
+                    {budget.categoryId}
                   </span>
                   <span className={`font-medium ${
                     budget.isOverBudget ? 'text-red-600 dark:text-red-400' : 'text-gray-600 dark:text-gray-400'

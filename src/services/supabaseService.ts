@@ -221,7 +221,7 @@ export class SupabaseService {
       .insert({
         user_id: userId,
         name: budget.name,
-        category: budget.category,
+        category: budget.categoryId,
         amount: budget.amount,
         period: budget.period || 'monthly',
         start_date: budget.startDate,

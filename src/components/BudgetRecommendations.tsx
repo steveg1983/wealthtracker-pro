@@ -43,13 +43,13 @@ export default function BudgetRecommendations() {
   };
 
   const handleApplyRecommendation = (recommendation: BudgetRecommendation) => {
-    const existingBudget = budgets.find(b => b.category === recommendation.categoryId);
+    const existingBudget = budgets.find(b => b.categoryId === recommendation.categoryId);
     
     if (existingBudget) {
       updateBudget(existingBudget.id, { amount: recommendation.recommendedBudget });
     } else {
       addBudget({
-        name: `${recommendation.categoryName} Budget`,
+        name: `${recommendation.categoryIdName} Budget`,
         category: recommendation.categoryId,
         amount: recommendation.recommendedBudget,
         period: 'monthly',
@@ -70,7 +70,7 @@ export default function BudgetRecommendations() {
     const updates = budgetRecommendationService.applyRecommendations(recommendations);
     
     updates.forEach(({ categoryId, amount }) => {
-      const existingBudget = budgets.find(b => b.category === categoryId);
+      const existingBudget = budgets.find(b => b.categoryId === categoryId);
       const category = categories.find(c => c.id === categoryId);
       
       if (existingBudget) {
@@ -346,7 +346,7 @@ export default function BudgetRecommendations() {
                   <div className="flex items-start justify-between">
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white">
-                        {recommendation.categoryName}
+                        {recommendation.categoryIdName}
                       </h4>
                       <div className="flex items-center gap-4 mt-2 text-sm">
                         <div className="flex items-center gap-2">

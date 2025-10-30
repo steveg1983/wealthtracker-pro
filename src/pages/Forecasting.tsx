@@ -119,7 +119,7 @@ export default function Forecasting() {
     const alerts = budgetsWithSpent
       .filter(budget => budget.isActive)
       .map(budget => {
-        const category = categories.find(c => c.id === budget.category);
+        const category = categories.find(c => c.id === budget.categoryId);
         if (budget.percentage >= 100) {
           return {
             budgetId: budget.id,
@@ -404,7 +404,7 @@ export default function Forecasting() {
                       <div className="flex justify-between items-start mb-4">
                         <div>
                           <h3 className="font-semibold text-gray-900 dark:text-white">
-                            {categories.find(c => c.id === budget.category)?.name || 'Unknown Category'}
+                            {categories.find(c => c.id === budget.categoryId)?.name || 'Unknown Category'}
                           </h3>
                           <p className="text-sm text-gray-500 dark:text-gray-400">
                             {budget.period === 'monthly' ? 'Monthly' : budget.period === 'weekly' ? 'Weekly' : 'Yearly'} Budget

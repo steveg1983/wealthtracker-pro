@@ -27,7 +27,7 @@ export default function BudgetSummaryWidget() {
   
   // Find budgets that are over 80% spent
   const warningBudgets = activeBudgets.filter(budget => {
-    const spent = monthlySpending[budget.category] || 0;
+    const spent = monthlySpending[budget.categoryId] || 0;
     const percentage = (spent / budget.amount) * 100;
     return percentage >= 80;
   });
@@ -74,13 +74,13 @@ export default function BudgetSummaryWidget() {
       
       <div className="space-y-3">
         {activeBudgets.slice(0, 3).map(budget => {
-          const spent = monthlySpending[budget.category] || 0;
+          const spent = monthlySpending[budget.categoryId] || 0;
           const percentage = Math.min((spent / budget.amount) * 100, 100);
           
           return (
             <div key={budget.id}>
               <div className="flex justify-between text-sm mb-1">
-                <span className="text-gray-700">{budget.category}</span>
+                <span className="text-gray-700">{budget.categoryId}</span>
                 <span className="text-gray-600">
                   £{spent.toFixed(0)}/£{budget.amount.toFixed(0)}
                 </span>

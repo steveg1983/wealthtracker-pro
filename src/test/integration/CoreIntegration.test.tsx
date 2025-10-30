@@ -121,7 +121,7 @@ describe('Core Integration Tests', () => {
       ];
 
       const budgetTransactions = transactions.filter(t => 
-        t.category === budget.category && t.type === 'expense'
+        t.category === budget.categoryId && t.type === 'expense'
       );
       
       expect(budgetTransactions).toHaveLength(2);

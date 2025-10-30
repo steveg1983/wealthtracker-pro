@@ -730,7 +730,7 @@ describe('BudgetContext', () => {
       specialCategories.forEach((category) => {
         const budget = result.current.getBudgetByCategory(category);
         expect(budget).toBeDefined();
-        expect(budget?.category).toBe(category);
+        expect(budget?.categoryId).toBe(category);
       });
     });
 

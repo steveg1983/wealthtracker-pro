@@ -76,7 +76,7 @@ export function calculateBudgetSpending(
 ): DecimalInstance {
   const budgetTransactions = transactions.filter(t => 
     t.type === 'expense' &&
-    t.category === budget.category &&
+    t.category === budget.categoryId &&
     t.date >= startDate &&
     t.date <= endDate
   );
@@ -192,7 +192,7 @@ export function calculateBudgetUsage(
   transactions: DecimalTransaction[]
 ): DecimalInstance {
   const expenseTransactions = transactions.filter(t => 
-    t.type === 'expense' && t.category === budget.category
+    t.type === 'expense' && t.category === budget.categoryId
   );
   return sumDecimals(expenseTransactions.map(t => t.amount));
 }

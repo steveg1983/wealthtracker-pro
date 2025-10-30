@@ -357,7 +357,7 @@ describe('Financial Calculations', () => {
       const daysPassed = 20; // Assuming we're 20 days into the month
       
       const averageSpending = calculateAverageSpending(
-        mockTransactions.filter(t => t.category === budget.category),
+        mockTransactions.filter(t => t.category === budget.categoryId),
         daysPassed
       );
       
