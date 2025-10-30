@@ -1,4 +1,4 @@
-import React, { useState, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import {
   BarChart3Icon,
   LineChartIcon,
@@ -13,8 +13,29 @@ import {
 import { useApp } from '../../contexts/AppContextSupabase';
 import { analyticsEngine } from '../../services/analyticsEngine';
 
-// Lazy load Plotly to reduce bundle size
-const Plot = lazy(() => import('react-plotly.js'));
+// Dynamic Plotly loader component
+let PlotlyComponent: any = null;
+
+const DynamicPlot = ({ data, layout, config, style }: any) => {
+  const [Plot, setPlot] = useState<any>(null);
+
+  useEffect(() => {
+    if (!PlotlyComponent) {
+      import('react-plotly.js').then((module) => {
+        PlotlyComponent = module.default;
+        setPlot(() => PlotlyComponent);
+      });
+    } else {
+      setPlot(() => PlotlyComponent);
+    }
+  }, []);
+
+  if (!Plot) {
+    return <div className="flex items-center justify-center h-full">Loading chart...</div>;
+  }
+
+  return <Plot data={data} layout={layout} config={config} style={style} />;
+};
 
 export type ChartType = 
   | 'line' | 'multi-line' | 'area' | 'stacked-area'
@@ -628,22 +649,20 @@ export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps
               <div className="h-full">
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-4">Preview</h3>
                 <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 h-[calc(100%-3rem)]">
-                  <Suspense fallback={<div className="flex items-center justify-center h-full">Loading chart...</div>}>
-                    <Plot
-                      data={chartData}
-                      layout={{
-                        ...chartLayout,
-                        autosize: true,
-                        paper_bgcolor: 'transparent',
-                        plot_bgcolor: 'transparent'
-                      }}
-                      config={{
-                        responsive: true,
-                        displayModeBar: false
-                      }}
-                      style={{ width: '100%', height: '100%' }}
-                    />
-                  </Suspense>
+                  <DynamicPlot
+                    data={chartData}
+                    layout={{
+                      ...chartLayout,
+                      autosize: true,
+                      paper_bgcolor: 'transparent',
+                      plot_bgcolor: 'transparent'
+                    }}
+                    config={{
+                      responsive: true,
+                      displayModeBar: false
+                    }}
+                    style={{ width: '100%', height: '100%' }}
+                  />
                 </div>
               </div>
             ) : (

@@ -1,1 +1,0 @@
-function s(s,e){const n=t(s,e?.in);return n.setDate(1),n.setHours(0,0,0,0),n}import{aO as t}from"./index-CgJz7Gw0.js";export{s};

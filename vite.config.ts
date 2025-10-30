@@ -46,22 +46,36 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // Optimized chunking - keep React together to avoid module errors
-        manualChunks: {
-          // Core vendor bundle - MUST stay together
-          'vendor': [
-            'react',
-            'react-dom',
-            'react-router-dom',
-            '@reduxjs/toolkit',
-            'react-redux',
-            'redux'
-          ],
-          // Heavy visualization libraries
-          'charts': ['recharts', 'd3-scale', 'd3-shape'],
-          // Excel/CSV processing
-          'excel': ['xlsx'],
-          // PDF generation
-          'pdf': ['jspdf', 'html2canvas']
+        manualChunks: (id) => {
+          // Custom function to better control chunking
+          if (id.includes('node_modules')) {
+            // Plotly needs its own chunk due to size
+            if (id.includes('plotly') || id.includes('react-plotly')) {
+              return 'plotly';
+            }
+            // Excel/CSV libraries
+            if (id.includes('xlsx') || id.includes('sheetjs')) {
+              return 'excel';
+            }
+            // PDF libraries
+            if (id.includes('jspdf') || id.includes('html2canvas') || id.includes('autotable')) {
+              return 'pdf';
+            }
+            // Charts (excluding plotly)
+            if (id.includes('recharts') || id.includes('d3-') || id.includes('victory')) {
+              return 'charts';
+            }
+            // Core React ecosystem
+            if (id.includes('react') || id.includes('redux')) {
+              return 'vendor';
+            }
+            // Date utilities
+            if (id.includes('date-fns') || id.includes('dayjs') || id.includes('moment')) {
+              return 'date-utils';
+            }
+            // All other node_modules
+            return 'vendor';
+          }
         },
         // Use content hash for better caching
         entryFileNames: 'assets/[name]-[hash].js',
