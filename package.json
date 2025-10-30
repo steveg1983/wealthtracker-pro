@@ -48,7 +48,7 @@
     "db:migrate": "supabase db push --include-roles --include-policies --db-url \"$SUPABASE_DB_URL\"",
     "db:migration:new": "supabase migration new",
     "db:diff": "supabase db diff --schema public --file supabase/migrations/$(date +%Y%m%d%H%M)__schema-diff.sql",
-    "db:lint": "supabase db lint --db-url \"$SUPABASE_DB_URL\"",
+    "db:lint": "supabase db lint --linked --fail-on error",
     "db:reset": "supabase db reset --db-url \"$SUPABASE_DB_URL\"",
     "deploy": "./deploy.sh",
     "deploy:prod": "./deploy.sh prod",

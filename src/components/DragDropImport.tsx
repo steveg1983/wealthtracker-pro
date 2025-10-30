@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
-  UploadCloudIcon,
-  FileIcon,
+  UploadIcon as UploadCloudIcon,
+  FileTextIcon as FileIcon,
   CheckCircleIcon,
   XCircleIcon,
   AlertCircleIcon,
@@ -313,7 +313,7 @@ export function DragDropImport({
       case 'importing':
         return <RefreshCwIcon size={48} className="text-blue-500 animate-spin" />;
       default:
-        return <UploadCloudIcon size={48} className="text-gray-400" />;
+        return <UploadIcon as UploadCloudIcon size={48} className="text-gray-400" />;
     }
   };
 
@@ -331,7 +331,7 @@ export function DragDropImport({
           onClick={() => fileInputRef.current?.click()}
           className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary transition-colors"
         >
-          <UploadCloudIcon size={20} />
+          <UploadIcon as UploadCloudIcon size={20} />
           Import File
         </button>
       </div>
@@ -388,11 +388,11 @@ export function DragDropImport({
                   CSV
                 </div>
                 <div className="flex items-center gap-1">
-                  <FileIcon size={16} />
+                  <FileTextIcon as FileIcon size={16} />
                   QIF
                 </div>
                 <div className="flex items-center gap-1">
-                  <FileIcon size={16} />
+                  <FileTextIcon as FileIcon size={16} />
                   OFX/QFX
                 </div>
               </div>

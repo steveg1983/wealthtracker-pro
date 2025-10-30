@@ -59,7 +59,7 @@ The workflow is guarded so it silently skips when any secret is missing. Coordin
   # apply migrations to the target database (requires SUPABASE_DB_URL)
   SUPABASE_DB_URL=postgresql://postgres:<password>@<host>:5432/postgres npm run db:migrate
 
-  # lint migrations before committing
+  # lint migrations before committing (uses `supabase db lint --linked --fail-on error`)
   SUPABASE_DB_URL=... npm run db:lint
 
   # diff dashboard changes into a migration file

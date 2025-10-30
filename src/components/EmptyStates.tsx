@@ -7,7 +7,7 @@ import {
   WalletIcon,
   CalendarIcon,
   SparklesIcon,
-  RocketIcon,
+  StarIcon as RocketIcon,
   BookOpenIcon,
   ChartBarIcon,
   BankIcon,
@@ -132,7 +132,7 @@ export function EmptyState({
       illustration: 'chart'
     },
     default: {
-      icon: <RocketIcon size={48} className="text-primary" />,
+      icon: <StarIcon as RocketIcon size={48} className="text-primary" />,
       title: "Nothing here yet",
       description: "Get started by adding some data. We're here to help you manage your finances effectively!",
       actionLabel: "Get Started",

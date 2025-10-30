@@ -6,6 +6,11 @@ Direct exports now succeed by allow-listing our IPv4 (86.161.28.220) and targeti
 
 The options below remain as fallback strategies when working from environments without IPv4 or when automation requires alternative paths.
 
+### Latest adjustments
+
+- `202511010905__uuid-function-params.sql` updates subscription helper functions (`get_net_worth`, `get_user_subscription`, `has_feature_access`, `update_usage_counts`) to accept `uuid` arguments, removing cross-type comparisons.
+- `202511010912__subscription-usage-uuid-constraint.sql` drops the legacy `user_id_text` unique constraint in `subscription_usage` and replaces it with a `user_id` unique index so upserts target the UUID column.
+
 ## Alternative Solutions
 
 ### Option 1: Use Supabase Dashboard Export (Recommended)
@@ -183,7 +188,7 @@ git commit -m "Add migration: description"
 
 ## Next Steps
 
-1. **Keep `SUPABASE_DB_URL` secret** in sync across environments (quality-gates workflow depends on it for `supabase db lint`).
+1. **Keep `SUPABASE_DB_URL` secret** in sync across environments (quality-gates workflow depends on it for `npx supabase db lint --linked --fail-on error`).
 2. **Re-run `pg_dump --schema-only --no-owner --no-privileges`** against the pooler host before each release train and diff with `20251030003814__initial-schema.sql`.
 3. **Document new changes** as migrations and ensure smoke tests cover new tables/policies.
 4. **Fallback to alternative exports** only when pooler access is temporarily unavailable, then reconcile with the canonical snapshot.

@@ -38,6 +38,11 @@
    - Generated via `pg_dump --schema-only --no-owner --no-privileges` against pooler host
    - Includes tables, views, functions, triggers, indexes, and RLS policies
 
+6. **Aligned subscription helpers with UUID IDs**:
+   - Applied `202511010905__uuid-function-params.sql` so helper functions accept `uuid`.
+   - Applied `202511010912__subscription-usage-uuid-constraint.sql` to add `subscription_usage.user_id` unique constraint.
+   - `npx supabase db lint --linked --fail-on error` now completes with “No schema errors found”.
+
 ### ✅ RLS Status
 
 - Vulnerability (anon delete) reproduced by Supabase smoke suite
@@ -55,6 +60,12 @@
    - Rebuilds SELECT/INSERT/UPDATE/DELETE policies (blocking anon, allowing owners + service role)
    - Leaves diagnostic queries at the top for auditing—safe to keep as they run `SELECT ...` only
 
+3. **UUID Function Parameters**: `supabase/migrations/202511010905__uuid-function-params.sql`
+   - Refactors subscription helper functions to accept `uuid` arguments, eliminating `uuid = text` comparisons flagged by `supabase db lint`.
+
+4. **Subscription Usage Constraint**: `supabase/migrations/202511010912__subscription-usage-uuid-constraint.sql`
+   - Drops the legacy `user_id_text` unique constraint, adds `user_id` unique index to keep the usage upsert aligned with UUID keys.
+
 ## Required Actions
 
 ### Immediate actions
@@ -68,6 +79,8 @@
 - `scripts/export-schema.mjs` / `scripts/export-schema-via-api.mjs` - Helpers retained for troubleshooting
 - `supabase/migrations/20251030003814__initial-schema.sql` - Canonical schema dump (replaces placeholder)
 - `supabase/migrations/20251030004200__diagnose-and-fix-rls.sql` - RLS rebuild (already applied)
+- `supabase/migrations/202511010905__uuid-function-params.sql` - Enforces UUID arguments for subscription helper functions
+- `supabase/migrations/202511010912__subscription-usage-uuid-constraint.sql` - Switches subscription usage upsert target to the UUID column
 - `supabase/docs/SCHEMA_EXPORT_REPORT.md` - This report (moved out of migrations directory)
 
 ## Smoke Test Results (latest)
@@ -81,7 +94,7 @@
 
 1. Keep the pooler host/service password safe; future migrations should be scripted via the Supabase CLI or pg_dump using the same parameters.
 2. Before major releases, run `pg_dump --schema-only --no-owner --no-privileges` again and diff against `20251030003814__initial-schema.sql` to confirm migrations are complete.
-3. Maintain the `SUPABASE_DB_URL` GitHub secret so `.github/workflows/handoff-snapshot.yml` can execute `npx supabase db lint --db-url "$SUPABASE_DB_URL"` during quality gates.
+3. Maintain the `SUPABASE_DB_URL` GitHub secret so `.github/workflows/handoff-snapshot.yml` can execute `npx supabase db lint --linked --fail-on error` during quality gates.
 4. Ensure nightly smoke workflow remains green; add additional Supabase suites as new features rely on the database.
 
 ## Command Reference

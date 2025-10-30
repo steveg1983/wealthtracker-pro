@@ -205,6 +205,15 @@ export interface Investment {
 // Export AppState
 export type { AppState, Tag } from './app-state';
 
+// User type for authentication
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  profileImageUrl?: string;
+  createdAt: Date;
+}
+
 export interface RecurringTransaction {
   id: string;
   description: string;

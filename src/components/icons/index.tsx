@@ -6,7 +6,6 @@
 
 import React from 'react';
 import type { Icon as TablerIconComponent } from '@tabler/icons-react';
-import { logger } from '../../services/loggingService';
 import {
   IconHome,
   IconSettings,
@@ -157,7 +156,6 @@ export interface IconProps {
 
 // Log to verify new icons are loaded
 // Use centralized logger to avoid noisy console in production
-logger.debug('[PROFESSIONAL ICONS] Loading professional icon system');
 
 // Professional icon wrapper for consistent styling
 const createIconComponent = (

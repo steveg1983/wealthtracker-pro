@@ -90,7 +90,7 @@ jobs:
         if: ${{ secrets.SUPABASE_DB_URL != '' }}
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
-        run: npx supabase db lint --db-url "$SUPABASE_DB_URL"
+        run: npx supabase db lint --linked --fail-on error
 
       - name: Run build:check
         env:

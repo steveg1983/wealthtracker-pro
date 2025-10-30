@@ -41,7 +41,9 @@
 - **Supabase Real Tests**: Set `RUN_SUPABASE_REAL_TESTS=true` and the three Supabase env vars. The script automatically maps `VITE_SUPABASE_SERVICE_ROLE_KEY` → `SUPABASE_SERVICE_ROLE_KEY`.
 - **Supabase Migrations**: Migrations live under `supabase/migrations/` and are managed via Supabase CLI (see `supabase/README.md`). Use npm scripts (`db:migration:new`, `db:migrate`, `db:diff`, `db:lint`, `db:reset`) with `SUPABASE_DB_URL` scoped to staging/test.
 - **Supabase Schema Snapshot**: `supabase/migrations/20251030003814__initial-schema.sql` is the authoritative `pg_dump --schema-only --no-owner --no-privileges` export (user `postgres.nqbacrjjgdjabygqtcah`, host `aws-0-eu-west-2.pooler.supabase.com`). Re-dump and diff before major releases; store the DSN in the `SUPABASE_DB_URL` GitHub secret for CI.
+- **Supabase Function Fixes**: `202511010905__uuid-function-params.sql` refactors subscription helper functions to accept `uuid` arguments, and `202511010912__subscription-usage-uuid-constraint.sql` aligns the `subscription_usage` upsert to a `user_id` unique constraint so `supabase db lint` passes cleanly.
 - **CI Secrets**: Repository secrets must include `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DB_URL` (postgres role DSN) so scheduled smoke + lint jobs can execute.
+- **Supabase Linting**: `.github/workflows/handoff-snapshot.yml` runs `npx supabase db lint --linked --fail-on error` whenever `SUPABASE_DB_URL` is present, ensuring migration regressions fail CI.
 - **Vitest Harness**: `vitest.config.ts` drives all suites (JSX automatic runtime, jsdom, backup folders excluded). `src/test/setup.ts` now mocks Clerk/App/Auth providers and polyfills storage.
 - **Remaining Monorepo Artifacts**: Packages under `packages/` remain from the old workspace layout but are not part of the current build. Leave untouched until a deliberate cleanup plan is executed.
 

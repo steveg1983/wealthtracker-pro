@@ -1,8 +1,8 @@
 import React from 'react';
-import NetWorthTrendWidget from './dashboard/widgets/NetWorthTrendWidget';
-import CashFlowWidget from './dashboard/widgets/CashFlowWidget';
-import ExpenseCategoriesWidget from './dashboard/widgets/ExpenseCategoriesWidget';
-import RecentAlertsWidget from './dashboard/widgets/RecentAlertsWidget';
+import NetWorthWidget from './widgets/NetWorthWidget';
+import CashFlowWidget from './widgets/CashFlowWidget';
+import ExpenseBreakdownWidget from './widgets/ExpenseBreakdownWidget';
+import BudgetSummaryWidget from './widgets/BudgetSummaryWidget';
 
 interface DashboardChartsProps {
   /**
@@ -16,10 +16,10 @@ interface DashboardChartsProps {
 export default function DashboardCharts(_: DashboardChartsProps): React.JSX.Element {
   return (
     <div className="space-y-4">
-      <NetWorthTrendWidget isCompact />
-      <CashFlowWidget isCompact />
-      <ExpenseCategoriesWidget isCompact />
-      <RecentAlertsWidget isCompact />
+      <NetWorthWidget />
+      <CashFlowWidget />
+      <ExpenseBreakdownWidget />
+      <BudgetSummaryWidget />
     </div>
   );
 }

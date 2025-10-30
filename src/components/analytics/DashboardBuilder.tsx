@@ -15,7 +15,7 @@ import {
   MinimizeIcon,
   RefreshCwIcon,
   DownloadIcon,
-  ShareIcon,
+  StarIcon as ShareIcon,
   LockIcon,
   UnlockIcon,
   CopyIcon,

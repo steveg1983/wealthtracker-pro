@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { CheckIcon as CheckSquareIcon, XIcon, TagIcon, FolderIcon, TrashIcon, DownloadIcon, CheckCircleIcon, XCircleIcon, MoreVerticalIcon } from './icons';
+import { CheckIcon as CheckSquareIcon, XIcon, TagIcon, FolderIcon, TrashIcon, DownloadIcon, CheckCircleIcon, XCircleIcon, GripVerticalIcon as MoreVerticalIcon } from './icons';
 import { Button } from './common/Button';
 import { formatCurrency } from '../utils/formatters';
 import type { BatchOperation } from '../hooks/useBatchOperations';
@@ -151,7 +151,7 @@ export function BatchOperationsToolbar({
                 variant="secondary"
                 size="sm"
                 onClick={() => setShowMoreMenu(!showMoreMenu)}
-                leftIcon={MoreVerticalIcon}
+                leftIcon={GripVerticalIcon as MoreVerticalIcon}
               >
                 More
               </Button>

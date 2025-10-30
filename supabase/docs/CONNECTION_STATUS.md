@@ -35,7 +35,7 @@ PGPASSWORD="SDzMGtV9FGTfdLun" pg_dump \
   -f supabase/migrations/20251030003814__initial-schema.sql
 ```
 
-Same credentials work for `psql` connections and Supabase CLI commands (`npx supabase db lint`, `supabase db push`).
+Same credentials work for `psql` connections and Supabase CLI commands (`npx supabase db lint --linked --fail-on error`, `supabase db push`).
 
 ### ✅ API Connection Works
 - Supabase REST API via JS client works perfectly
@@ -110,7 +110,7 @@ PGPASSWORD="SDzMGtV9FGTfdLun" pg_dump \
 
 # Lint migrations (requires SUPABASE_DB_URL environment variable)
 SUPABASE_DB_URL="postgresql://postgres.nqbacrjjgdjabygqtcah:SDzMGtV9FGTfdLun@aws-0-eu-west-2.pooler.supabase.com:6543/postgres" \
-  npx supabase db lint --db-url "$SUPABASE_DB_URL"
+  npx supabase db lint --linked --fail-on error
 ```
 
 ## Status Summary
