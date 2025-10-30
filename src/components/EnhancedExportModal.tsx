@@ -5,7 +5,6 @@ import {
   XIcon,
   DownloadIcon,
   FileTextIcon,
-  CalendarIcon,
   RefreshCwIcon,
   PlayIcon
 } from './icons';
