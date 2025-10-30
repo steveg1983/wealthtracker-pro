@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { advancedAnalyticsService, type BillNegotiationSuggestion } from '../services/advancedAnalyticsService';
 import { Modal } from './common/Modal';
@@ -6,7 +6,6 @@ import {
   PhoneIcon, 
   CheckIcon, 
   InfoIcon,
-  TrendingDownIcon,
   DollarSignIcon
 } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -22,14 +21,17 @@ export default function BillNegotiator() {
   const [completedNegotiations, setCompletedNegotiations] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    analyzeBills();
     loadCompletedNegotiations();
-  }, [transactions]);
+  }, []);
 
-  const analyzeBills = () => {
+  const analyzeBills = useCallback(() => {
     const billSuggestions = advancedAnalyticsService.suggestBillNegotiations(transactions);
     setSuggestions(billSuggestions);
-  };
+  }, [transactions]);
+
+  useEffect(() => {
+    analyzeBills();
+  }, [analyzeBills]);
 
   const loadCompletedNegotiations = () => {
     const saved = localStorage.getItem('completedNegotiations');

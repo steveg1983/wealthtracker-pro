@@ -365,7 +365,7 @@ export class OFXImportService {
         category: '',
         cleared: true, // OFX transactions are already cleared
         notes,
-        recurring: false
+        isRecurring: false
       };
       
       // Auto-categorize if enabled

@@ -461,7 +461,7 @@ class CollaborationService {
 
   // Joint Budget Management
   createJointBudget(
-    category: string,
+    categoryId: string,
     amount: number,
     period: 'monthly' | 'weekly' | 'yearly',
     assignedMembers: string[]

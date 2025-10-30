@@ -176,7 +176,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
         <div className="flex items-center gap-4">
           <select
             value={groupBy}
-            onChange={(e) => setGroupBy(e.target.value as any)}
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setGroupBy(e.target.value as GroupByOption)}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
           >
             <option value="assetClass">By Asset Class</option>

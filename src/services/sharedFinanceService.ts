@@ -280,7 +280,7 @@ class SharedFinanceService {
       contributors,
       isHouseholdGoal,
       approvalRequired: false,
-      isCompleted: false
+      completedAt: false
     };
 
     this.sharedGoals.push(sharedGoal);

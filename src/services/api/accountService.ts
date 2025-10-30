@@ -45,7 +45,7 @@ export class AccountService {
         ...account,
         id: crypto.randomUUID(),
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        updatedAt: new Date().toISOString()
       };
       
       const accounts = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS) || [];
@@ -113,7 +113,7 @@ export class AccountService {
       accounts[index] = {
         ...accounts[index],
         ...updates,
-        updated_at: new Date().toISOString()
+        updatedAt: new Date().toISOString()
       };
       
       await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);

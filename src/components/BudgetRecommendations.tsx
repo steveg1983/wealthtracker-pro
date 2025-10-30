@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { budgetRecommendationService, type BudgetAnalysis, type BudgetRecommendation } from '../services/budgetRecommendationService';
 import { 
-  LightbulbIcon,
+  budgetRecommendationService, 
+  type BudgetAnalysis, 
+  type BudgetRecommendation,
+  type RecommendationConfig
+} from '../services/budgetRecommendationService';
+import { 
   TrendingUpIcon,
   TrendingDownIcon,
   ArrowRightIcon,
@@ -22,13 +26,9 @@ export default function BudgetRecommendations() {
   const [loading, setLoading] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [selectedRecommendations, setSelectedRecommendations] = useState<Set<string>>(new Set());
-  const [config, setConfig] = useState(budgetRecommendationService.getConfig());
+  const [config, setConfig] = useState<RecommendationConfig>(() => budgetRecommendationService.getConfig());
 
-  useEffect(() => {
-    analyzeAndRecommend();
-  }, [transactions, categories, budgets]);
-
-  const analyzeAndRecommend = () => {
+  const analyzeAndRecommend = useCallback(() => {
     setLoading(true);
     try {
       const result = budgetRecommendationService.analyzeBudgets(
@@ -40,7 +40,11 @@ export default function BudgetRecommendations() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [budgets, categories, transactions]);
+
+  useEffect(() => {
+    analyzeAndRecommend();
+  }, [analyzeAndRecommend]);
 
   const handleApplyRecommendation = (recommendation: BudgetRecommendation) => {
     const existingBudget = budgets.find(b => b.categoryId === recommendation.categoryId);
@@ -102,7 +106,7 @@ export default function BudgetRecommendations() {
     URL.revokeObjectURL(url);
   };
 
-  const updateConfig = (key: keyof typeof config, value: any) => {
+  const updateConfig = <K extends keyof RecommendationConfig>(key: K, value: RecommendationConfig[K]) => {
     const newConfig = { ...config, [key]: value };
     setConfig(newConfig);
     budgetRecommendationService.saveConfig(newConfig);

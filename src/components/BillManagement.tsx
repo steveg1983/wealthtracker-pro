@@ -304,6 +304,12 @@ export default function BillManagement() {
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600 dark:text-gray-400">Category:</span>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {category?.name ?? 'Uncategorized'}
+            </span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600 dark:text-gray-400">Frequency:</span>
             <span className="font-medium text-gray-900 dark:text-white capitalize">
               {bill.frequency.replace('-', ' ')}

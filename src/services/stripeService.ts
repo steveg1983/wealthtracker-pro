@@ -63,7 +63,7 @@ export class StripeService {
           'Basic reporting',
           'Mobile app access'
         ],
-        maxAccounts: 5,
+        accounts: 5,
         maxTransactions: 100,
         maxBudgets: 3,
         maxGoals: 3,
@@ -93,7 +93,7 @@ export class StripeService {
           'Email support'
         ],
         isPopular: true,
-        maxAccounts: -1, // Unlimited
+        accounts: -1, // Unlimited
         maxTransactions: -1,
         maxBudgets: -1,
         maxGoals: -1,
@@ -122,7 +122,7 @@ export class StripeService {
           'Bulk operations',
           'White-label options'
         ],
-        maxAccounts: -1,
+        accounts: -1,
         maxTransactions: -1,
         maxBudgets: -1,
         maxGoals: -1,
@@ -144,7 +144,7 @@ export class StripeService {
     if (!plan) {
       // Default to free tier limits
       return {
-        maxAccounts: 5,
+        accounts: 5,
         maxTransactions: 100,
         maxBudgets: 3,
         maxGoals: 3,
@@ -156,7 +156,7 @@ export class StripeService {
     }
 
     return {
-      maxAccounts: plan.maxAccounts || 5,
+      accounts: plan.maxAccounts || 5,
       maxTransactions: plan.maxTransactions || 100,
       maxBudgets: plan.maxBudgets || 3,
       maxGoals: plan.maxGoals || 3,
