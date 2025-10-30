@@ -75,7 +75,7 @@ export default function RealtimeSyncTest() {
           is_active: true
         };
 
-        const { data, error } = await supabase
+        const { data, error } = await supabase!
           .from('accounts')
           .insert(testAccount)
           .select()
@@ -90,7 +90,7 @@ export default function RealtimeSyncTest() {
           // Delete after 5 seconds
           setTimeout(async () => {
             addStatus('Deleting test account...');
-            const { error: deleteError } = await supabase
+            const { error: deleteError } = await supabase!
               .from('accounts')
               .delete()
               .eq('id', data.id);

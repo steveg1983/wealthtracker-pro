@@ -117,7 +117,7 @@ export default function BackupReminder(): React.JSX.Element {
           a.click();
           URL.revokeObjectURL(url);
         } else if (format === 'qif') {
-          const qif = exportService.exportToQIF(transactions);
+          const qif = exportService.exportToQIF({ transactions, accounts });
           const blob = new Blob([qif], { type: 'application/qif' });
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');

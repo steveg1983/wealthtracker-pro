@@ -25,7 +25,7 @@ export class SupabaseSubscriptionService {
    */
   static async getCurrentSubscription(userId: string): Promise<UserSubscription | null> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('subscriptions')
         .select('*')
         .eq('user_id', userId)
@@ -82,7 +82,7 @@ export class SupabaseSubscriptionService {
         cancel_at_period_end: subscription.cancelAtPeriodEnd
       };
 
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('subscriptions')
         .upsert(subscriptionData, {
           onConflict: 'stripe_subscription_id'
@@ -120,7 +120,7 @@ export class SupabaseSubscriptionService {
    */
   static async getSubscriptionUsage(userId: string): Promise<SubscriptionUsage> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('subscription_usage')
         .select('*')
         .eq('user_id', userId)
@@ -132,7 +132,7 @@ export class SupabaseSubscriptionService {
 
       if (!data) {
         // Create initial usage record
-        const { data: newData, error: insertError } = await supabase
+        const { data: newData, error: insertError } = await supabase!
           .from('subscription_usage')
           .insert({
             user_id: userId,
@@ -185,7 +185,7 @@ export class SupabaseSubscriptionService {
       if (usage.budgets !== undefined) updateData.budgets_count = usage.budgets;
       if (usage.goals !== undefined) updateData.goals_count = usage.goals;
 
-      const { error } = await supabase
+      const { error } = await supabase!
         .from('subscription_usage')
         .upsert({
           user_id: userId,
@@ -207,7 +207,7 @@ export class SupabaseSubscriptionService {
   static async refreshUsageCounts(userId: string): Promise<void> {
     try {
       // Call the database function to update usage counts
-      const { error } = await supabase.rpc('update_usage_counts', {
+      const { error } = await supabase!.rpc('update_usage_counts', {
         p_user_id: userId
       });
 
@@ -223,7 +223,7 @@ export class SupabaseSubscriptionService {
    */
   static async hasFeatureAccess(userId: string, feature: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase.rpc('has_feature_access', {
+      const { data, error } = await supabase!.rpc('has_feature_access', {
         p_user_id: userId,
         p_feature: feature
       });
@@ -242,7 +242,7 @@ export class SupabaseSubscriptionService {
    */
   static async getPaymentMethods(userId: string): Promise<PaymentMethod[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('payment_methods')
         .select('*')
         .eq('user_id', userId)
@@ -272,7 +272,7 @@ export class SupabaseSubscriptionService {
     paymentMethod: Omit<PaymentMethod, 'isDefault'>
   ): Promise<void> {
     try {
-      const { error } = await supabase
+      const { error } = await supabase!
         .from('payment_methods')
         .insert({
           user_id: userId,
@@ -297,13 +297,13 @@ export class SupabaseSubscriptionService {
   static async setDefaultPaymentMethod(userId: string, paymentMethodId: string): Promise<void> {
     try {
       // First, unset all as default
-      await supabase
+      await supabase!
         .from('payment_methods')
         .update({ is_default: false })
         .eq('user_id', userId);
 
       // Then set the specified one as default
-      const { error } = await supabase
+      const { error } = await supabase!
         .from('payment_methods')
         .update({ is_default: true })
         .eq('user_id', userId)
@@ -321,7 +321,7 @@ export class SupabaseSubscriptionService {
    */
   static async removePaymentMethod(userId: string, paymentMethodId: string): Promise<void> {
     try {
-      const { error } = await supabase
+      const { error } = await supabase!
         .from('payment_methods')
         .delete()
         .eq('user_id', userId)
@@ -339,7 +339,7 @@ export class SupabaseSubscriptionService {
    */
   static async getInvoices(userId: string): Promise<Invoice[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('invoices')
         .select('*')
         .eq('user_id', userId)
@@ -370,7 +370,7 @@ export class SupabaseSubscriptionService {
    */
   static async addInvoice(userId: string, invoice: Omit<Invoice, 'createdAt'>): Promise<void> {
     try {
-      const { error } = await supabase
+      const { error } = await supabase!
         .from('invoices')
         .insert({
           user_id: userId,
@@ -397,7 +397,7 @@ export class SupabaseSubscriptionService {
    */
   static async createUserProfile(clerkUserId: string, email: string, fullName?: string): Promise<void> {
     try {
-      const { error } = await supabase
+      const { error } = await supabase!
         .from('user_profiles')
         .insert({
           clerk_user_id: clerkUserId,
@@ -421,7 +421,7 @@ export class SupabaseSubscriptionService {
    */
   static async getUserProfile(clerkUserId: string): Promise<any> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await supabase!
         .from('user_profiles')
         .select('*')
         .eq('clerk_user_id', clerkUserId)

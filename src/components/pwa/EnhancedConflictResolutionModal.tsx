@@ -190,7 +190,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
               {selectedResolution === 'merge' && analysis.mergedData && isDifferent && (
                 <div className="mt-2 p-2 bg-purple-50 dark:bg-purple-900/20 rounded">
                   <div className="text-xs text-purple-700 dark:text-purple-300 mb-1 flex items-center gap-1">
-                    <SparklesIcon className="h-3 w-3" />
+                    <StarIcon as SparklesIcon className="h-3 w-3" />
                     Smart Merge Result:
                   </div>
                   <div className="font-mono text-xs">
@@ -238,7 +238,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
         {/* Smart Resolution Header */}
         {analysis.canAutoResolve && (
           <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-            <SparklesIcon className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+            <StarIcon as SparklesIcon className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
               <h3 className="font-medium text-green-900 dark:text-green-100">
                 Smart Resolution Available

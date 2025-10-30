@@ -6,7 +6,7 @@ import {
   TrendingUpIcon,
   WalletIcon,
   CalendarIcon,
-  SparklesIcon,
+  StarIcon as SparklesIcon,
   RocketIcon,
   BookOpenIcon,
   ChartBarIcon,
@@ -76,7 +76,7 @@ export function EmptyState({
       description: "Take control of your spending by creating monthly budgets for different categories. We'll help you stay on track!",
       actionLabel: "Create Budget",
       secondaryActions: [
-        { label: "Budget Templates", icon: <SparklesIcon size={16} /> },
+        { label: "Budget Templates", icon: <StarIcon as SparklesIcon size={16} /> },
         { label: "Budget Guide", icon: <BookOpenIcon size={16} /> }
       ],
       illustration: 'chart'
@@ -87,7 +87,7 @@ export function EmptyState({
       description: "Whether it's saving for vacation, paying off debt, or building an emergency fund, set goals to stay motivated!",
       actionLabel: "Set First Goal",
       secondaryActions: [
-        { label: "Goal Ideas", icon: <SparklesIcon size={16} /> }
+        { label: "Goal Ideas", icon: <StarIcon as SparklesIcon size={16} /> }
       ],
       illustration: 'target'
     },
@@ -117,7 +117,7 @@ export function EmptyState({
       description: "Organize your transactions with custom categories that match your lifestyle and spending habits.",
       actionLabel: "Create Category",
       secondaryActions: [
-        { label: "Suggested Categories", icon: <SparklesIcon size={16} /> }
+        { label: "Suggested Categories", icon: <StarIcon as SparklesIcon size={16} /> }
       ],
       illustration: 'chart'
     },
@@ -234,7 +234,7 @@ export function EmptyState({
       <div className="mt-12 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg max-w-sm">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 p-2 bg-blue-100 dark:bg-blue-800/30 rounded-lg">
-            <SparklesIcon size={20} className="text-blue-600 dark:text-blue-400" />
+            <StarIcon as SparklesIcon size={20} className="text-blue-600 dark:text-blue-400" />
           </div>
           <div className="text-left">
             <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
