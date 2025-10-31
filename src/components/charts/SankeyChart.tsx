@@ -19,7 +19,7 @@ interface SankeyChartProps {
   accounts: Account[];
 }
 
-export default function SankeyChart({ transactions, accounts }: SankeyChartProps): React.JSX.Element {
+export default function SankeyChart({ transactions, accounts: _accounts }: SankeyChartProps): React.JSX.Element {
   const { categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
 

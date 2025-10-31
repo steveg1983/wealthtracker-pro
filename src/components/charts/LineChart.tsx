@@ -7,7 +7,9 @@ import {
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  type ChartData,
+  type ChartOptions
 } from 'chart.js';
 import { Line } from 'react-chartjs-2';
 
@@ -23,8 +25,8 @@ ChartJS.register(
 );
 
 interface LineChartProps {
-  data: any;
-  options?: any;
+  data: ChartData<'line'>;
+  options?: ChartOptions<'line'>;
   height?: number;
 }
 

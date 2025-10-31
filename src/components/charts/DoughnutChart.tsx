@@ -3,7 +3,9 @@ import {
   Chart as ChartJS,
   ArcElement,
   Tooltip,
-  Legend
+  Legend,
+  type ChartData,
+  type ChartOptions
 } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 
@@ -15,8 +17,8 @@ ChartJS.register(
 );
 
 interface DoughnutChartProps {
-  data: any;
-  options?: any;
+  data: ChartData<'doughnut'>;
+  options?: ChartOptions<'doughnut'>;
   height?: number;
 }
 

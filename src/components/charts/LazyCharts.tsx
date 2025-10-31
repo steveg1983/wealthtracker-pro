@@ -1,11 +1,21 @@
 import React, { Suspense, lazy } from 'react';
 import { Skeleton } from '../loading/Skeleton';
 
+import type { default as LazyPieChartComponent } from './LazyPieChartComponent';
+import type { default as LazyBarChartComponent } from './LazyBarChartComponent';
+import type { default as LazyLineChartComponent } from './LazyLineChartComponent';
+import type { default as LazyTreemapComponent } from './LazyTreemapComponent';
+
 // Lazy load chart components
 const LazyPieChart = lazy(() => import('./LazyPieChartComponent'));
 const LazyBarChart = lazy(() => import('./LazyBarChartComponent'));
 const LazyLineChart = lazy(() => import('./LazyLineChartComponent'));
 const LazyTreemap = lazy(() => import('./LazyTreemapComponent'));
+
+type PieChartProps = React.ComponentProps<typeof LazyPieChartComponent>;
+type BarChartProps = React.ComponentProps<typeof LazyBarChartComponent>;
+type LineChartProps = React.ComponentProps<typeof LazyLineChartComponent>;
+type TreemapProps = React.ComponentProps<typeof LazyTreemapComponent>;
 
 // Loading component for charts
 function ChartSkeleton({ height = 300 }: { height?: number }) {
@@ -16,46 +26,57 @@ function ChartSkeleton({ height = 300 }: { height?: number }) {
   );
 }
 
+function getFallbackHeight(props: unknown): number {
+  if (props && typeof props === 'object' && 'height' in props) {
+    const potentialHeight = (props as { height?: unknown }).height;
+    if (typeof potentialHeight === 'number') {
+      return potentialHeight;
+    }
+  }
+
+  return 300;
+}
+
 // Wrapper components with loading states
-export function PieChart(props: any) {
+export function PieChart(props: PieChartProps) {
   return (
-    <Suspense fallback={<ChartSkeleton height={props.height || 300} />}>
+    <Suspense fallback={<ChartSkeleton height={getFallbackHeight(props)} />}>
       <LazyPieChart {...props} />
     </Suspense>
   );
 }
 
-export function BarChart(props: any) {
+export function BarChart(props: BarChartProps) {
   return (
-    <Suspense fallback={<ChartSkeleton height={props.height || 300} />}>
+    <Suspense fallback={<ChartSkeleton height={getFallbackHeight(props)} />}>
       <LazyBarChart {...props} />
     </Suspense>
   );
 }
 
-export function LineChart(props: any) {
+export function LineChart(props: LineChartProps) {
   return (
-    <Suspense fallback={<ChartSkeleton height={props.height || 300} />}>
+    <Suspense fallback={<ChartSkeleton height={getFallbackHeight(props)} />}>
       <LazyLineChart {...props} />
     </Suspense>
   );
 }
 
-export function Treemap(props: any) {
+export function Treemap(props: TreemapProps) {
   return (
-    <Suspense fallback={<ChartSkeleton height={props.height || 300} />}>
+    <Suspense fallback={<ChartSkeleton height={getFallbackHeight(props)} />}>
       <LazyTreemap {...props} />
     </Suspense>
   );
 }
 
 // Re-export common chart components that don't need lazy loading
-export { 
-  ResponsiveContainer, 
-  Tooltip, 
-  Cell, 
-  XAxis, 
-  YAxis, 
+export {
+  ResponsiveContainer,
+  Tooltip,
+  Cell,
+  XAxis,
+  YAxis,
   CartesianGrid,
   Legend,
   Pie,

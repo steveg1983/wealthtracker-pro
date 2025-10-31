@@ -1,5 +1,6 @@
 import React from 'react';
 import { Treemap, ResponsiveContainer, Tooltip } from 'recharts';
+import type { TreemapNode } from 'recharts/types/chart/Treemap';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { Transaction } from '../../types';
@@ -127,17 +128,7 @@ export default function TreemapChart({ transactions }: TreemapChartProps): React
     return null;
   };
 
-  interface ContentProps {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    name: string;
-    value: number;
-    index: number;
-  }
-
-  const CustomContent = (props: ContentProps): React.JSX.Element | null => {
+  const CustomContent = (props: TreemapNode): React.JSX.Element | null => {
     const { x, y, width, height, name, value, index } = props;
     if (width < 50 || height < 30) return null;
     
@@ -182,11 +173,11 @@ export default function TreemapChart({ transactions }: TreemapChartProps): React
     <div className="h-full min-h-[300px]">
       <ResponsiveContainer width="100%" height="100%">
         <Treemap
-          data={data.children as any}
+          data={data.children ?? []}
           dataKey="value"
           aspectRatio={4 / 3}
           stroke="#fff"
-          content={(props: any) => <CustomContent {...props} />}
+          content={(props: TreemapNode) => <CustomContent {...props} />}
         >
           <Tooltip content={<CustomTooltip />} />
         </Treemap>
