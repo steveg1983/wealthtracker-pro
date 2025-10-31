@@ -159,7 +159,7 @@ export default function SeasonalTrends({ className = '' }: SeasonalTrendsProps) 
 
         {/* Month-by-month breakdown */}
         <div className="mt-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {chartData.map((data, index) => {
+          {chartData.map((data) => {
             const net = data.income - data.expenses;
             return (
               <div key={data.month} className="text-center p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg">

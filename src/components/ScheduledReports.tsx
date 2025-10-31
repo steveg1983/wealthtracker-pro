@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useNotifications } from '../contexts/NotificationContext';
 import { 
   CalendarIcon, 
   ClockIcon, 
-  MailIcon, 
   DownloadIcon, 
   PlusIcon, 
   XIcon,
@@ -17,8 +16,6 @@ import {
 } from './icons';
 import { generatePDFReport } from '../utils/pdfExport';
 import { exportTransactionsToCSV } from '../utils/csvExport';
-import type { Account, Category } from '../types';
-
 interface ScheduledReport {
   id: string;
   name: string;
@@ -74,7 +71,7 @@ export default function ScheduledReports() {
       
       reports.forEach(report => {
         if (report.enabled && new Date(report.nextRun) <= now) {
-          generateReport(report);
+          void generateReport(report);
           updateNextRunTime(report.id);
         }
       });
@@ -85,9 +82,9 @@ export default function ScheduledReports() {
     checkDueReports(); // Check immediately
 
     return () => clearInterval(interval);
-  }, [reports]);
+  }, [reports, generateReport, updateNextRunTime]);
 
-  const calculateNextRun = (report: ScheduledReport, fromDate: Date = new Date()): Date => {
+  const calculateNextRun = useCallback((report: ScheduledReport, fromDate: Date = new Date()): Date => {
     const [hours, minutes] = report.time.split(':').map(Number);
     const nextRun = new Date(fromDate);
     nextRun.setHours(hours, minutes, 0, 0);
@@ -137,9 +134,9 @@ export default function ScheduledReports() {
     }
 
     return nextRun;
-  };
+  }, []);
 
-  const updateNextRunTime = (reportId: string) => {
+  const updateNextRunTime = useCallback((reportId: string) => {
     setReports(prev => prev.map(report => {
       if (report.id === reportId) {
         const lastRun = new Date();
@@ -148,9 +145,9 @@ export default function ScheduledReports() {
       }
       return report;
     }));
-  };
+  }, [calculateNextRun]);
 
-  const generateReport = async (report: ScheduledReport) => {
+  const generateReport = useCallback(async (report: ScheduledReport) => {
     try {
       // Filter transactions based on report config
       const now = new Date();
@@ -289,7 +286,7 @@ ${Object.entries(
         message: `Failed to generate ${report.name}`
       });
     }
-  };
+  }, [transactions, categories, accounts, formatCurrency, addNotification]);
 
   const handleAddReport = (reportData: Partial<ScheduledReport>) => {
     const newReport: ScheduledReport = {
@@ -488,8 +485,6 @@ ${Object.entries(
       {(showAddReport || editingReport) && (
         <ReportFormModal
           report={editingReport}
-          accounts={accounts}
-          categories={categories}
           onSave={(data) => {
             if (editingReport) {
               handleUpdateReport(editingReport.id, data);
@@ -555,13 +550,11 @@ ${Object.entries(
 // Report Form Modal Component
 interface ReportFormModalProps {
   report: ScheduledReport | null;
-  accounts: Account[];
-  categories: Category[];
   onSave: (data: Partial<ScheduledReport>) => void;
   onClose: () => void;
 }
 
-function ReportFormModal({ report, accounts, categories, onSave, onClose }: ReportFormModalProps) {
+function ReportFormModal({ report, onSave, onClose }: ReportFormModalProps) {
   const [formData, setFormData] = useState<Partial<ScheduledReport>>({
     name: report?.name || '',
     frequency: report?.frequency || 'monthly',
@@ -614,7 +607,12 @@ function ReportFormModal({ report, accounts, categories, onSave, onClose }: Repo
               </label>
               <select
                 value={formData.frequency}
-                onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    frequency: e.target.value as ScheduledReport['frequency']
+                  })
+                }
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="daily">Daily</option>
@@ -684,7 +682,12 @@ function ReportFormModal({ report, accounts, categories, onSave, onClose }: Repo
               </label>
               <select
                 value={formData.format}
-                onChange={(e) => setFormData({ ...formData, format: e.target.value as any })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    format: e.target.value as ScheduledReport['format']
+                  })
+                }
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="summary">Text Summary</option>
@@ -700,13 +703,15 @@ function ReportFormModal({ report, accounts, categories, onSave, onClose }: Repo
               </label>
               <select
                 value={formData.reportConfig?.dateRange}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  reportConfig: { 
-                    ...formData.reportConfig!, 
-                    dateRange: e.target.value as any 
-                  }
-                })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    reportConfig: {
+                      ...formData.reportConfig!,
+                      dateRange: e.target.value as ScheduledReport['reportConfig']['dateRange']
+                    }
+                  })
+                }
                 className="w-full px-3 py-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border border-gray-300/50 dark:border-gray-600/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="month">Last Month</option>

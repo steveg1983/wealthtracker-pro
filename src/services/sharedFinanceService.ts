@@ -321,8 +321,8 @@ class SharedFinanceService {
     goal.progress = (totalCurrent / goal.targetAmount) * 100;
 
     // Check if goal is achieved
-    if (totalCurrent >= goal.targetAmount && !goal.isCompleted) {
-      goal.isCompleted = true;
+    if (totalCurrent >= goal.targetAmount && !goal.completedAt) {
+      goal.completedAt = true;
       goal.completedAt = new Date();
       this.logActivity(
         'goal_achieved',

@@ -1,50 +1,72 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { householdService } from '../services/householdService';
-import { sharedFinanceService, type SharedBudget, type SharedGoal, type BudgetApproval } from '../services/sharedFinanceService';
+import {
+  sharedFinanceService,
+  type SharedBudget,
+  type SharedGoal,
+  type BudgetApproval,
+  type SharedFinanceActivity
+} from '../services/sharedFinanceService';
 import { 
   TargetIcon,
   GoalIcon,
   PlusIcon,
   UsersIcon,
-  DollarSignIcon,
   CheckIcon,
   XIcon,
   AlertCircleIcon,
-  TrendingUpIcon,
-  ClockIcon,
-  EditIcon,
-  TrashIcon
+  ClockIcon
 } from './icons';
 import { useCurrency } from '../hooks/useCurrency';
 import { format } from 'date-fns';
 
+type BudgetPeriod = 'monthly' | 'weekly' | 'yearly';
+
+interface BudgetFormState {
+  name: string;
+  categoryId: string;
+  amount: string;
+  period: BudgetPeriod;
+  approvalRequired: boolean;
+  approvalThreshold: string;
+}
+
+interface GoalFormState {
+  name: string;
+  targetAmount: string;
+  targetDate: string;
+  categoryId: string;
+  description: string;
+  isHouseholdGoal: boolean;
+}
+
 export default function SharedBudgetsGoals() {
-  const { transactions, categories, budgets, goals, addBudget, addGoal, updateBudget, updateGoal } = useApp();
+  const { transactions, categories, addBudget, addGoal } = useApp();
   const { formatCurrency } = useCurrency();
-  const [household, setHousehold] = useState(householdService.getHousehold());
+  const [household] = useState(householdService.getHousehold());
   const [currentMember] = useState(household?.members[0]); // Assume first member is current user
   
   const [sharedBudgets, setSharedBudgets] = useState<SharedBudget[]>([]);
   const [sharedGoals, setSharedGoals] = useState<SharedGoal[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState<BudgetApproval[]>([]);
-  const [activities, setActivities] = useState<any[]>([]);
+  const [activities, setActivities] = useState<SharedFinanceActivity[]>([]);
   
   const [activeTab, setActiveTab] = useState<'budgets' | 'goals'>('budgets');
   const [showCreateBudget, setShowCreateBudget] = useState(false);
   const [showCreateGoal, setShowCreateGoal] = useState(false);
   
   // Form states
-  const [budgetForm, setBudgetForm] = useState({
+  const [budgetForm, setBudgetForm] = useState<BudgetFormState>({
     name: '',
     categoryId: '',
     amount: '',
-    period: 'monthly' as const,
+    period: 'monthly',
     approvalRequired: false,
     approvalThreshold: '100'
   });
   
-  const [goalForm, setGoalForm] = useState({
+  const [goalForm, setGoalForm] = useState<GoalFormState>({
     name: '',
     targetAmount: '',
     targetDate: '',
@@ -53,13 +75,7 @@ export default function SharedBudgetsGoals() {
     isHouseholdGoal: true
   });
 
-  useEffect(() => {
-    if (household) {
-      loadSharedData();
-    }
-  }, [household, transactions]);
-
-  const loadSharedData = () => {
+  const loadSharedData = useCallback(() => {
     if (!household) return;
     
     const budgets = sharedFinanceService.getHouseholdBudgets(household.id, currentMember?.id);
@@ -70,17 +86,22 @@ export default function SharedBudgetsGoals() {
     
     const approvals = sharedFinanceService.getPendingApprovals(household.id);
     setPendingApprovals(approvals);
-    
     const recentActivities = sharedFinanceService.getRecentActivities(household.id);
     setActivities(recentActivities);
-  };
+  }, [currentMember, household]);
+
+  useEffect(() => {
+    if (household) {
+      loadSharedData();
+    }
+  }, [household, loadSharedData, transactions]);
 
   const handleCreateBudget = (e: React.FormEvent) => {
     e.preventDefault();
     if (!household || !currentMember) return;
 
     try {
-      const sharedBudget = sharedFinanceService.createSharedBudget(
+      sharedFinanceService.createSharedBudget(
         {
           name: budgetForm.name,
           categoryId: budgetForm.categoryId,
@@ -89,10 +110,10 @@ export default function SharedBudgetsGoals() {
           isActive: true
         },
         household.id,
-        currentMember!.id,
-        currentMember!.name,
+        currentMember.id,
+        currentMember.name,
         undefined, // Share with all by default
-        [currentMember!.id], // Creator can edit
+        [currentMember.id], // Creator can edit
         budgetForm.approvalRequired,
         Number(budgetForm.approvalThreshold)
       );
@@ -115,8 +136,9 @@ export default function SharedBudgetsGoals() {
         approvalThreshold: '100'
       });
       loadSharedData();
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create shared budget';
+      alert(message);
     }
   };
 
@@ -125,7 +147,7 @@ export default function SharedBudgetsGoals() {
     if (!household || !currentMember) return;
 
     try {
-      const sharedGoal = sharedFinanceService.createSharedGoal(
+      sharedFinanceService.createSharedGoal(
         {
           name: goalForm.name,
           targetAmount: Number(goalForm.targetAmount),
@@ -134,8 +156,8 @@ export default function SharedBudgetsGoals() {
           description: goalForm.description
         },
         household.id,
-        currentMember!.id,
-        currentMember!.name,
+        currentMember.id,
+        currentMember.name,
         goalForm.isHouseholdGoal
       );
 
@@ -157,8 +179,9 @@ export default function SharedBudgetsGoals() {
         isHouseholdGoal: true
       });
       loadSharedData();
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to create shared goal';
+      alert(message);
     }
   };
 
@@ -166,15 +189,11 @@ export default function SharedBudgetsGoals() {
     if (!currentMember) return;
 
     try {
-      sharedFinanceService.updateGoalProgress(
-        goalId,
-        currentMember!.id,
-        currentMember!.name,
-        amount
-      );
+      sharedFinanceService.updateGoalProgress(goalId, currentMember.id, currentMember.name, amount);
       loadSharedData();
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to contribute to goal';
+      alert(message);
     }
   };
 
@@ -184,13 +203,14 @@ export default function SharedBudgetsGoals() {
     try {
       sharedFinanceService.reviewApproval(
         approvalId,
-        currentMember!.id,
+        currentMember.id,
         approved,
         approved ? 'Approved' : 'Rejected'
       );
       loadSharedData();
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to review approval';
+      alert(message);
     }
   };
 
@@ -255,7 +275,7 @@ export default function SharedBudgetsGoals() {
                     {approval.reason} • {format(approval.requestedAt, 'MMM d, h:mm a')}
                   </p>
                 </div>
-                {currentMember!.role === 'owner' || currentMember!.role === 'admin' ? (
+                {currentMember && (currentMember.role === 'owner' || currentMember.role === 'admin') ? (
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleReviewApproval(approval.id, true)}
@@ -561,7 +581,7 @@ export default function SharedBudgetsGoals() {
                   Category
                 </label>
                 <select
-                  value={budgetForm.category}
+                  value={budgetForm.categoryId}
                   onChange={(e) => setBudgetForm({ ...budgetForm, categoryId: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                   required
@@ -592,7 +612,12 @@ export default function SharedBudgetsGoals() {
                 </label>
                 <select
                   value={budgetForm.period}
-                  onChange={(e) => setBudgetForm({ ...budgetForm, period: e.target.value as any })}
+                  onChange={(e) =>
+                    setBudgetForm({
+                      ...budgetForm,
+                      period: e.target.value as BudgetPeriod
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 >
                   <option value="monthly">Monthly</option>

@@ -64,7 +64,7 @@ export class StripeService {
           'Mobile app access'
         ],
         accounts: 5,
-        maxTransactions: 100,
+        transactions: 100,
         maxBudgets: 3,
         maxGoals: 3,
         advancedReports: false,
@@ -94,7 +94,7 @@ export class StripeService {
         ],
         isPopular: true,
         accounts: -1, // Unlimited
-        maxTransactions: -1,
+        transactions: -1,
         maxBudgets: -1,
         maxGoals: -1,
         advancedReports: true,
@@ -123,7 +123,7 @@ export class StripeService {
           'White-label options'
         ],
         accounts: -1,
-        maxTransactions: -1,
+        transactions: -1,
         maxBudgets: -1,
         maxGoals: -1,
         advancedReports: true,
@@ -145,7 +145,7 @@ export class StripeService {
       // Default to free tier limits
       return {
         accounts: 5,
-        maxTransactions: 100,
+        transactions: 100,
         maxBudgets: 3,
         maxGoals: 3,
         advancedReports: false,
@@ -157,7 +157,7 @@ export class StripeService {
 
     return {
       accounts: plan.maxAccounts || 5,
-      maxTransactions: plan.maxTransactions || 100,
+      transactions: plan.transactions || 100,
       maxBudgets: plan.maxBudgets || 3,
       maxGoals: plan.maxGoals || 3,
       advancedReports: plan.advancedReports || false,
@@ -184,7 +184,7 @@ export class StripeService {
   static isWithinLimits(
     userTier: SubscriptionTier,
     currentUsage: number,
-    limitType: 'maxAccounts' | 'maxTransactions' | 'maxBudgets' | 'maxGoals'
+    limitType: 'maxAccounts' | 'transactions' | 'maxBudgets' | 'maxGoals'
   ): boolean {
     const limits = this.getFeatureLimits(userTier);
     const limit = limits[limitType];

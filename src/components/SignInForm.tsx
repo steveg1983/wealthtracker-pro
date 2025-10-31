@@ -12,11 +12,7 @@ import React, { useState } from 'react';
 import { SignIn } from '@clerk/clerk-react';
 import { FingerPrintIcon, EnvelopeIcon, KeyIcon, ShieldCheckIcon } from '@heroicons/react/24/outline';
 
-interface SignInFormProps {
-  onSuccess?: () => void;
-}
-
-export default function SignInForm({ onSuccess }: SignInFormProps) {
+export default function SignInForm() {
   const [authMethod, setAuthMethod] = useState<'passkey' | 'magic' | 'standard'>('passkey');
 
   return (
