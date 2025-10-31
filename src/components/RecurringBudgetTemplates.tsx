@@ -3,18 +3,17 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { 
-  PlusIcon, 
-  SaveIcon, 
-  PlayIcon, 
-  StopIcon, 
-  CopyIcon, 
-  TrashIcon, 
+import {
+  PlusIcon,
+  PlayIcon,
+  StopIcon,
+  CopyIcon,
+  TrashIcon,
   SettingsIcon,
-  CalendarIcon,
-  RepeatIcon,
-  CheckCircleIcon
+  RepeatIcon
 } from './icons';
+
+type RecurringFrequency = 'monthly' | 'weekly' | 'biweekly' | 'quarterly' | 'yearly';
 
 interface BudgetTemplate {
   id: string;
@@ -29,7 +28,7 @@ interface BudgetTemplate {
   }>;
   totalAmount: number;
   isActive: boolean;
-  frequency: 'monthly' | 'weekly' | 'biweekly' | 'quarterly' | 'yearly';
+  frequency: RecurringFrequency;
   nextApplicationDate: Date;
   createdAt: Date;
   lastApplied?: Date;
@@ -44,7 +43,7 @@ interface RecurringSettings {
 
 export default function RecurringBudgetTemplates() {
   const { categories } = useApp();
-  const { budgets, addBudget, updateBudget, deleteBudget } = useBudgets();
+  const { budgets, addBudget, deleteBudget } = useBudgets();
   const { formatCurrency } = useCurrencyDecimal();
   
   const [templates, setTemplates] = useLocalStorage<BudgetTemplate[]>('budget-templates', []);
@@ -57,12 +56,11 @@ export default function RecurringBudgetTemplates() {
   
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     description: '',
-    frequency: 'monthly' as 'monthly' | 'weekly' | 'biweekly' | 'quarterly' | 'yearly'
+    frequency: 'monthly' as RecurringFrequency
   });
 
   const createTemplateFromCurrent = () => {
@@ -101,7 +99,7 @@ export default function RecurringBudgetTemplates() {
     setShowCreateTemplate(false);
   };
 
-  const calculateNextDate = (frequency: string): Date => {
+  const calculateNextDate = (frequency: RecurringFrequency): Date => {
     const now = new Date();
     const next = new Date(now);
     
@@ -142,7 +140,7 @@ export default function RecurringBudgetTemplates() {
     }
 
     // Apply template items
-    template.budgetItems.forEach((item, index) => {
+    template.budgetItems.forEach((item) => {
       // Create a budget for the first category in the item
       if (item.categoryIds.length > 0) {
         const newBudget = {
@@ -421,7 +419,12 @@ export default function RecurringBudgetTemplates() {
                 </label>
                 <select
                   value={newTemplate.frequency}
-                  onChange={(e) => setNewTemplate({...newTemplate, frequency: e.target.value as any})}
+                  onChange={(e) =>
+                    setNewTemplate({
+                      ...newTemplate,
+                      frequency: e.target.value as RecurringFrequency
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="weekly">Weekly</option>

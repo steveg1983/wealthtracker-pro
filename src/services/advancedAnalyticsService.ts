@@ -182,13 +182,13 @@ class AdvancedAnalyticsService {
     // 1. Identify unused subscriptions
     const subscriptions = this.detectSubscriptions(transactions);
     subscriptions.forEach(sub => {
-      if (sub.unusedMonths > 2) {
+      if (sub.unusedMonths! > 2) {
         opportunities.push({
           id: `opp-sub-${sub.merchant}`,
           type: 'subscription',
           title: `Unused Subscription: ${sub.merchant}`,
-          description: `You haven't used ${sub.merchant} in ${sub.unusedMonths} months`,
-          potentialSavings: sub.monthlyAmount.times(12),
+          description: `You haven't used ${sub.merchant} in ${sub.unusedMonths!} months`,
+          potentialSavings: sub.monthlyAmount!.times(12),
           difficulty: 'easy',
           actionRequired: 'Cancel subscription',
           relatedTransactions: sub.transactionIds
@@ -199,13 +199,13 @@ class AdvancedAnalyticsService {
     // 2. Identify high spending categories
     const categorySpending = this.analyzeCategorySpending(transactions);
     categorySpending.forEach((data, category) => {
-      if (data.trend === 'increasing' && data.percentageOfIncome > 15) {
+      if (data.trend === 'increasing' && data.percentageOfIncome! > 15) {
         opportunities.push({
           id: `opp-cat-${category}`,
           type: 'category',
           title: `Reduce ${category} Spending`,
           description: `Your ${category} spending is ${data.percentageIncrease}% higher than 3 months ago`,
-          potentialSavings: data.monthlyAverage.times(0.2), // 20% reduction
+          potentialSavings: data.monthlyAverage!.times(0.2), // 20% reduction
           difficulty: 'medium',
           actionRequired: `Review and reduce ${category} expenses`
         });

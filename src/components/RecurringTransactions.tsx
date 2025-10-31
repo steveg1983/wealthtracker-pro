@@ -1,19 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  Calendar, 
   Repeat, 
   Plus, 
   Edit2, 
   Trash2, 
   Play, 
-  Pause,
-  Clock,
-  AlertCircle,
-  Check
+  Pause
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Transaction } from '../types';
-import { format, addDays, addWeeks, addMonths, addYears, isBefore, isAfter } from 'date-fns';
+import { format, addDays, addWeeks, addMonths, addYears } from 'date-fns';
 import { formatCurrency } from '../utils/formatters';
 
 export type RecurrenceFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'yearly';
@@ -39,8 +35,29 @@ export interface RecurringTemplate {
   notes?: string;
 }
 
+const calculateNextDate = (currentDate: string, frequency: RecurrenceFrequency): string => {
+  const date = new Date(currentDate);
+  
+  switch (frequency) {
+    case 'daily':
+      return format(addDays(date, 1), 'yyyy-MM-dd');
+    case 'weekly':
+      return format(addWeeks(date, 1), 'yyyy-MM-dd');
+    case 'biweekly':
+      return format(addWeeks(date, 2), 'yyyy-MM-dd');
+    case 'monthly':
+      return format(addMonths(date, 1), 'yyyy-MM-dd');
+    case 'quarterly':
+      return format(addMonths(date, 3), 'yyyy-MM-dd');
+    case 'yearly':
+      return format(addYears(date, 1), 'yyyy-MM-dd');
+    default:
+      return currentDate;
+  }
+};
+
 export default function RecurringTransactions(): React.JSX.Element {
-  const { accounts, categories, addTransaction } = useApp();
+  const { addTransaction } = useApp();
   const [templates, setTemplates] = useState<RecurringTemplate[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<RecurringTemplate | null>(null);
@@ -60,50 +77,33 @@ export default function RecurringTransactions(): React.JSX.Element {
   }, [templates]);
 
   // Check and process due templates on mount and daily
-  useEffect(() => {
-    processDueTemplates();
-    
-    // Check every hour
-    const interval = setInterval(processDueTemplates, 3600000);
-    return () => clearInterval(interval);
-  }, [templates]);
+  const processTemplate = useCallback(async (template: RecurringTemplate) => {
+    if (processingTemplates.has(template.id)) {
+      return;
+    }
 
-  const processDueTemplates = () => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const dueTemplates = templates.filter(t => 
-      t.isActive && 
-      t.nextDate <= today && 
-      (!t.endDate || t.nextDate <= t.endDate)
-    );
-
-    dueTemplates.forEach(template => {
-      if (!processingTemplates.has(template.id)) {
-        processTemplate(template);
-      }
+    setProcessingTemplates(prev => {
+      const next = new Set(prev);
+      next.add(template.id);
+      return next;
     });
-  };
-
-  const processTemplate = async (template: RecurringTemplate) => {
-    setProcessingTemplates(prev => new Set(prev).add(template.id));
 
     try {
-      // Create transaction from template
-      const transaction: Omit<Transaction, 'id'> = {
+      const amountValue = Number.parseFloat(template.amount);
+      const signedAmount = Number.isNaN(amountValue) ? 0 : amountValue;
+      const transactionPayload: Omit<Transaction, 'id'> = {
         date: new Date(template.nextDate),
         description: template.description,
-        amount: template.amount,
+        amount: signedAmount,
         category: template.category,
         accountId: template.accountId,
-        type: parseFloat(template.amount) > 0 ? 'income' : 'expense',
-        reconciled: false,
+        type: signedAmount >= 0 ? 'income' : 'expense',
         tags: template.tags,
         notes: `Recurring: ${template.name}${template.notes ? '\n' + template.notes : ''}`
       };
 
-      // Add transaction
-      await addTransaction(transaction as Transaction);
+      await addTransaction(transactionPayload);
 
-      // Update template
       const nextDate = calculateNextDate(template.nextDate, template.frequency);
       setTemplates(prev => prev.map(t => 
         t.id === template.id
@@ -125,43 +125,28 @@ export default function RecurringTransactions(): React.JSX.Element {
         return next;
       });
     }
-  };
+  }, [addTransaction, processingTemplates]);
 
-  const calculateNextDate = (currentDate: string, frequency: RecurrenceFrequency): string => {
-    const date = new Date(currentDate);
+  const processDueTemplates = useCallback(() => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const dueTemplates = templates.filter(t => 
+      t.isActive && 
+      t.nextDate <= today && 
+      (!t.endDate || t.nextDate <= t.endDate)
+    );
+
+    dueTemplates.forEach((template) => {
+      processTemplate(template);
+    });
+  }, [processTemplate, templates]);
+
+  useEffect(() => {
+    processDueTemplates();
     
-    switch (frequency) {
-      case 'daily':
-        return format(addDays(date, 1), 'yyyy-MM-dd');
-      case 'weekly':
-        return format(addWeeks(date, 1), 'yyyy-MM-dd');
-      case 'biweekly':
-        return format(addWeeks(date, 2), 'yyyy-MM-dd');
-      case 'monthly':
-        return format(addMonths(date, 1), 'yyyy-MM-dd');
-      case 'quarterly':
-        return format(addMonths(date, 3), 'yyyy-MM-dd');
-      case 'yearly':
-        return format(addYears(date, 1), 'yyyy-MM-dd');
-      default:
-        return currentDate;
-    }
-  };
-
-  const handleAddTemplate = (template: Omit<RecurringTemplate, 'id' | 'occurrences'>) => {
-    const newTemplate: RecurringTemplate = {
-      ...template,
-      id: `template_${Date.now()}`,
-      occurrences: 0
-    };
-    setTemplates(prev => [...prev, newTemplate]);
-    setShowAddModal(false);
-  };
-
-  const handleUpdateTemplate = (template: RecurringTemplate) => {
-    setTemplates(prev => prev.map(t => t.id === template.id ? template : t));
-    setEditingTemplate(null);
-  };
+    // Check every hour
+    const interval = setInterval(processDueTemplates, 3600000);
+    return () => clearInterval(interval);
+  }, [processDueTemplates]);
 
   const handleDeleteTemplate = (id: string) => {
     if (confirm('Are you sure you want to delete this recurring transaction?')) {

@@ -89,10 +89,10 @@ export default function SharedBudgetsGoals() {
           isActive: true
         },
         household.id,
-        currentMember.id,
-        currentMember.name,
+        currentMember!.id,
+        currentMember!.name,
         undefined, // Share with all by default
-        [currentMember.id], // Creator can edit
+        [currentMember!.id], // Creator can edit
         budgetForm.approvalRequired,
         Number(budgetForm.approvalThreshold)
       );
@@ -134,8 +134,8 @@ export default function SharedBudgetsGoals() {
           description: goalForm.description
         },
         household.id,
-        currentMember.id,
-        currentMember.name,
+        currentMember!.id,
+        currentMember!.name,
         goalForm.isHouseholdGoal
       );
 
@@ -168,8 +168,8 @@ export default function SharedBudgetsGoals() {
     try {
       sharedFinanceService.updateGoalProgress(
         goalId,
-        currentMember.id,
-        currentMember.name,
+        currentMember!.id,
+        currentMember!.name,
         amount
       );
       loadSharedData();
@@ -184,7 +184,7 @@ export default function SharedBudgetsGoals() {
     try {
       sharedFinanceService.reviewApproval(
         approvalId,
-        currentMember.id,
+        currentMember!.id,
         approved,
         approved ? 'Approved' : 'Rejected'
       );
@@ -255,7 +255,7 @@ export default function SharedBudgetsGoals() {
                     {approval.reason} • {format(approval.requestedAt, 'MMM d, h:mm a')}
                   </p>
                 </div>
-                {currentMember.role === 'owner' || currentMember.role === 'admin' ? (
+                {currentMember!.role === 'owner' || currentMember!.role === 'admin' ? (
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleReviewApproval(approval.id, true)}

@@ -1,15 +1,23 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import ReconciliationModal from './ReconciliationModal';
 import type { Transaction } from '../types';
 
 // Mock icons
 vi.mock('./icons', () => ({
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
-  ArrowRightIcon: ({ size, className }: any) => <div data-testid="arrow-right-icon" className={className}>→</div>,
-  CheckIcon: ({ size }: any) => <div data-testid="check-icon">✓</div>,
-  AlertCircleIcon: ({ size, className }: any) => <div data-testid="alert-circle-icon" className={className}>!</div>,
+  XIcon: () => <div data-testid="x-icon">X</div>,
+  ArrowRightIcon: ({ className }: { className?: string }) => (
+    <div data-testid="arrow-right-icon" className={className}>
+      →
+    </div>
+  ),
+  CheckIcon: () => <div data-testid="check-icon">✓</div>,
+  AlertCircleIcon: ({ className }: { className?: string }) => (
+    <div data-testid="alert-circle-icon" className={className}>
+      !
+    </div>
+  ),
 }));
 
 // Mock useApp hook
