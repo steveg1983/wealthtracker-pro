@@ -5,11 +5,8 @@ import {
   CreditCard, 
   Target, 
   PiggyBank,
-  AlertCircle,
   CheckCircle,
   Info,
-  DollarSign,
-  Clock,
   X
 } from 'lucide-react';
 import { useActivityTracking, ActivityItem } from '../hooks/useActivityTracking';
@@ -20,6 +17,8 @@ interface ActivityGroup {
   date: string;
   items: ActivityItem[];
 }
+
+type FilterValue = ActivityItem['type'] | 'all';
 
 export default function EnhancedNotificationBell(): React.JSX.Element {
   const navigate = useNavigate();
@@ -33,7 +32,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
   } = useActivityTracking();
   
   const [isOpen, setIsOpen] = useState(false);
-  const [filter, setFilter] = useState<ActivityItem['type'] | 'all'>('all');
+  const [filter, setFilter] = useState<FilterValue>('all');
   const [showPulse, setShowPulse] = useState(false);
 
   // Show pulse animation for new activities
@@ -43,7 +42,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
       setShowPulse(true);
       setTimeout(() => setShowPulse(false), 3000);
     }
-  }, [activities]);
+  }, [activities, getNewSinceLastCheck]);
 
   const getFilteredActivities = (): ActivityItem[] => {
     // Filter out sync and system notifications - only show app-data notifications
@@ -124,6 +123,14 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
     }
   };
 
+  const filterTabs: Array<{ value: FilterValue; label: string; count: number }> = [
+    { value: 'all', label: 'All', count: counts.total },
+    { value: 'transaction', label: 'Transactions', count: counts.transactions },
+    { value: 'account', label: 'Accounts', count: counts.accounts },
+    { value: 'budget', label: 'Budgets', count: counts.budgets },
+    { value: 'system', label: 'System', count: counts.system }
+  ];
+
   return (
     <>
       {/* Notification Bell Button */}
@@ -184,16 +191,10 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
 
               {/* Filter Tabs */}
               <div className="flex gap-1 mt-3 overflow-x-auto">
-                {[
-                  { value: 'all', label: 'All', count: counts.total },
-                  { value: 'transaction', label: 'Transactions', count: counts.transactions },
-                  { value: 'account', label: 'Accounts', count: counts.accounts },
-                  { value: 'budget', label: 'Budgets', count: counts.budgets },
-                  { value: 'system', label: 'System', count: counts.system }
-                ].map(tab => (
+                {filterTabs.map(tab => (
                   <button
                     key={tab.value}
-                    onClick={() => setFilter(tab.value as any)}
+                    onClick={() => setFilter(tab.value)}
                     className={`px-3 py-1 text-xs rounded-full transition-colors whitespace-nowrap ${
                       filter === tab.value
                         ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'

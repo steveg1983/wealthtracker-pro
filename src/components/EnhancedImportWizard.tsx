@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import type { Transaction } from '../types';
-import { enhancedCsvImportService, type ColumnMapping, type ImportProfile } from '../services/enhancedCsvImportService';
+import { enhancedCsvImportService, type ColumnMapping } from '../services/enhancedCsvImportService';
 import { importRulesService } from '../services/importRulesService';
 import { ofxImportService } from '../services/ofxImportService';
 import { qifImportService } from '../services/qifImportService';
@@ -13,15 +13,10 @@ import {
   AlertCircleIcon,
   ChevronRightIcon,
   ChevronLeftIcon,
-  SaveIcon,
-  DownloadIcon,
   RefreshCwIcon,
   PlayIcon,
-  StopIcon,
-  WrenchIcon,
   FolderIcon
 } from './icons';
-import { LoadingButton } from './loading/LoadingState';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import BankFormatSelector from './BankFormatSelector';
 import ImportRulesManager from './ImportRulesManager';
@@ -45,6 +40,13 @@ interface FileInfo {
   bankFormat?: string;
 }
 
+interface ImportSummary {
+  totalFiles: number;
+  successfulFiles: number;
+  totalTransactions: number;
+  totalDuplicates: number;
+}
+
 export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImportWizardProps): React.JSX.Element {
   const { accounts, transactions, addTransaction, categories, hasTestData, clearAllData } = useApp();
   
@@ -53,8 +55,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
   const [selectedBankFormat, setSelectedBankFormat] = useState<string>('');
   const [mappings, setMappings] = useState<ColumnMapping[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [importResult, setImportResult] = useState<any>(null);
-  const [showRulesManager, setShowRulesManager] = useState(false);
+  const [importResult, setImportResult] = useState<ImportSummary | null>(null);
   const [showTestDataWarning, setShowTestDataWarning] = useState(false);
   const [currentFileIndex, setCurrentFileIndex] = useState(-1);
   
@@ -120,7 +121,7 @@ export default function EnhancedImportWizard({ isOpen, onClose }: EnhancedImport
     setFiles(files.filter((_, i) => i !== index));
   };
 
-  const handleBankFormatSelected = (bankKey: string, bankName: string) => {
+  const handleBankFormatSelected = (bankKey: string, _bankName: string) => {
     setSelectedBankFormat(bankKey);
     
     // Auto-generate mappings if it's not a custom format

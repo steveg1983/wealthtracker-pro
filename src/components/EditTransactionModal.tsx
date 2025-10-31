@@ -39,7 +39,6 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [formattedAmount, setFormattedAmount] = useState('');
   const amountInputRef = useRef<HTMLInputElement>(null);
   
@@ -75,9 +74,6 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     {
       onSubmit: (data) => {
         try {
-          // Clear previous errors
-          setValidationErrors({});
-          
           // Validate the transaction data
           const validatedData = ValidationService.validateTransaction({
             id: transaction?.id,
@@ -113,15 +109,13 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
           onClose();
         } catch (error) {
           if (error instanceof z.ZodError) {
-            setValidationErrors(ValidationService.formatErrors(error));
+            console.error('Validation failed:', ValidationService.formatErrors(error));
           } else {
             console.error('Failed to update transaction:', error);
-            setValidationErrors({ general: 'Failed to update transaction. Please try again.' });
           }
         }
       },
       onClose: () => {
-        setValidationErrors({});
         onClose();
       }
     }

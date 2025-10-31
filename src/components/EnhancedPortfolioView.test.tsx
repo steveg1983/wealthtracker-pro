@@ -99,7 +99,7 @@ vi.mock('../hooks/useStockPrices', () => ({
 
 // Mock stock price service
 vi.mock('../services/stockPriceService', () => ({
-  convertStockPrice: vi.fn(async (price, fromCurrency, toCurrency) => {
+  convertStockPrice: vi.fn(async (price, _fromCurrency, _toCurrency) => {
     // Simple mock conversion (no actual conversion)
     return {
       times: (shares: number) => ({

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SearchIcon, FilterIcon, XIcon, ClockIcon, TagIcon, CalendarIcon, DollarSignIcon, SparklesIcon } from './icons';
+import { SearchIcon, FilterIcon, XIcon, ClockIcon, SparklesIcon } from './icons';
 import { Button } from './common/Button';
 import { formatCurrency } from '../utils/formatters';
 import { searchService } from '../services/searchService';
@@ -23,6 +23,15 @@ interface EnhancedSearchBarProps {
   totalResults?: number;
   className?: string;
 }
+
+type TransactionType = NonNullable<SearchOptions['types']>[number];
+const TRANSACTION_TYPES: TransactionType[] = ['income', 'expense', 'transfer'];
+
+const SORT_OPTIONS = ['date', 'amount', 'description', 'relevance'] as const;
+type SortOption = typeof SORT_OPTIONS[number];
+
+const SORT_ORDER_OPTIONS = ['asc', 'desc'] as const;
+type SortOrderOption = typeof SORT_ORDER_OPTIONS[number];
 
 export function EnhancedSearchBar({
   query,
@@ -275,15 +284,15 @@ export function EnhancedSearchBar({
                 Transaction Type
               </label>
               <div className="space-y-1">
-                {['income', 'expense', 'transfer'].map(type => (
+                {TRANSACTION_TYPES.map(type => (
                   <label key={type} className="flex items-center gap-2">
                     <input
                       type="checkbox"
-                      checked={options.types?.includes(type as any) || false}
+                      checked={options.types?.includes(type) || false}
                       onChange={(e) => {
-                        const currentTypes = options.types || [];
+                        const currentTypes = (options.types ?? []) as TransactionType[];
                         const newTypes = e.target.checked
-                          ? [...currentTypes, type as 'income' | 'expense' | 'transfer']
+                          ? [...currentTypes, type]
                           : currentTypes.filter(t => t !== type);
                         onOptionsChange({ types: newTypes.length > 0 ? newTypes : undefined });
                       }}
@@ -325,13 +334,17 @@ export function EnhancedSearchBar({
               </label>
               <select
                 value={options.sortBy || 'date'}
-                onChange={(e) => onOptionsChange({ sortBy: e.target.value as any })}
+                onChange={(e) => {
+                  const value = e.target.value as SortOption;
+                  onOptionsChange({ sortBy: value });
+                }}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               >
-                <option value="date">Date</option>
-                <option value="amount">Amount</option>
-                <option value="description">Description</option>
-                <option value="relevance">Relevance</option>
+                {SORT_OPTIONS.map(option => (
+                  <option key={option} value={option}>
+                    {option.charAt(0).toUpperCase() + option.slice(1)}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -342,11 +355,17 @@ export function EnhancedSearchBar({
               </label>
               <select
                 value={options.sortOrder || 'desc'}
-                onChange={(e) => onOptionsChange({ sortOrder: e.target.value as any })}
+                onChange={(e) => {
+                  const value = e.target.value as SortOrderOption;
+                  onOptionsChange({ sortOrder: value });
+                }}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               >
-                <option value="asc">Ascending</option>
-                <option value="desc">Descending</option>
+                {SORT_ORDER_OPTIONS.map(option => (
+                  <option key={option} value={option}>
+                    {option === 'asc' ? 'Ascending' : 'Descending'}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

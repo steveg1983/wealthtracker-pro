@@ -4,16 +4,13 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useBudgets } from '../contexts/BudgetContext';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
-import type { DecimalTransaction, DecimalBudget } from '../types/decimal-types';
+import type { DecimalTransaction } from '../types/decimal-types';
 import { 
   PlusIcon, 
-  MinusIcon, 
   ArrowRightIcon, 
   AlertCircleIcon, 
   CheckCircleIcon,
   PiggyBankIcon,
-  EditIcon,
-  DeleteIcon,
   DollarSignIcon
 } from './icons';
 
@@ -28,14 +25,6 @@ interface Envelope {
   isOverspent: boolean;
   fillPercentage: number;
   priority: 'high' | 'medium' | 'low';
-}
-
-interface EnvelopeTransfer {
-  fromEnvelopeId: string;
-  toEnvelopeId: string;
-  amount: DecimalInstance;
-  date: Date;
-  description: string;
 }
 
 export default function EnvelopeBudgeting() {

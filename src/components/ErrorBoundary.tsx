@@ -1,4 +1,4 @@
-import { Component, useEffect, useRef } from 'react';
+import { Component, useRef } from 'react';
 import type { ReactNode, ErrorInfo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { AlertTriangleIcon, RefreshCwIcon, HomeIcon } from './icons';

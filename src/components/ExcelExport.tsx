@@ -18,7 +18,7 @@ import {
 // Dynamic import of XLSX to reduce bundle size
 let XLSX: typeof import('xlsx') | null = null;
 import { toDecimal } from '../utils/decimal';
-import type { Transaction, Account, Budget } from '../types';
+import type { Transaction } from '../types';
 
 interface ExcelExportProps {
   isOpen: boolean;
@@ -48,7 +48,7 @@ interface ExportOptions {
 
 export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): React.JSX.Element {
   const { transactions, accounts, budgets, categories } = useApp();
-  const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
+  const { getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
   const currencySymbol = getCurrencySymbol(displayCurrency);
   const [isExporting, setIsExporting] = useState(false);
   
@@ -615,4 +615,3 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
     </Modal>
   );
 }
-

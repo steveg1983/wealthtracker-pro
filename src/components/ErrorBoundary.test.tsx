@@ -29,14 +29,6 @@ const ThrowError = ({ shouldThrow }: { shouldThrow: boolean }) => {
   return <div>Working component</div>;
 };
 
-// Component that throws in useEffect
-const ThrowErrorInEffect = () => {
-  React.useEffect(() => {
-    throw new Error('Effect error');
-  }, []);
-  return <div>Component with effect</div>;
-};
-
 describe('ErrorBoundary', () => {
   const mockOnError = vi.fn();
   const originalConsoleError = console.error;
@@ -182,20 +174,11 @@ describe('ErrorBoundary', () => {
     });
 
     it('resets error state when Try Again is clicked', () => {
-      // Use a stateful component to control when to throw
-      const TestComponent = () => {
-        const [shouldThrow, setShouldThrow] = React.useState(true);
-        
-        return (
-          <ErrorBoundary>
-            {shouldThrow ? (
-              <ThrowError shouldThrow={true} />
-            ) : (
-              <div>Working component</div>
-            )}
-          </ErrorBoundary>
-        );
-      };
+      const TestComponent = () => (
+        <ErrorBoundary>
+          <ThrowError shouldThrow={true} />
+        </ErrorBoundary>
+      );
       
       render(<TestComponent />);
       

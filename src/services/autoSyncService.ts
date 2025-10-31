@@ -441,7 +441,7 @@ class AutoSyncService {
           .from(table)
           .update(item.data)
           .eq('id', item.data.id)
-          .eq('user_id', user.id);
+          .eq('user_id', databaseUserId);
         break;
       
       case 'DELETE':
@@ -449,7 +449,7 @@ class AutoSyncService {
           .from(table)
           .delete()
           .eq('id', item.data.id)
-          .eq('user_id', user.id);
+          .eq('user_id', databaseUserId);
         break;
     }
   }
