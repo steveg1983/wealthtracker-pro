@@ -123,27 +123,6 @@ describe('QIFImportModal', () => {
     ...overrides
   });
 
-  type ImportResult = Awaited<ReturnType<typeof qifImportService.importTransactions>>;
-
-  const createMockImportResult = (overrides: Partial<ImportResult> = {}): ImportResult => ({
-    transactions: [
-      {
-        date: new Date(sampleTransaction.date),
-        description: sampleTransaction.payee || 'Transaction',
-        amount: Math.abs(sampleTransaction.amount),
-        type: sampleTransaction.amount < 0 ? 'expense' : 'income',
-        accountId: mockAccounts[0].id,
-        category: sampleTransaction.category || '',
-        cleared: sampleTransaction.cleared ?? false,
-        notes: sampleTransaction.checkNumber ? `Check #: ${sampleTransaction.checkNumber}` : undefined,
-        isRecurring: false
-      }
-    ],
-    duplicates: 0,
-    newTransactions: 1,
-    ...overrides
-  });
-
   describe('Rendering', () => {
     it('renders nothing when closed', () => {
       render(<QIFImportModal {...defaultProps} isOpen={false} />);

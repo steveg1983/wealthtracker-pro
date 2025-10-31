@@ -159,7 +159,7 @@ describe('ReconciliationModal', () => {
       const exactMatch = { ...match, matchType: 'exact' as const };
       render(<ReconciliationModal {...defaultProps} match={exactMatch} />);
       
-      expect(screen.getByText((content, element) => 
+      expect(screen.getByText((content) => 
         content.includes('descriptions match exactly')
       )).toBeInTheDocument();
     });
@@ -168,7 +168,7 @@ describe('ReconciliationModal', () => {
       const fuzzyMatch = { ...match, matchType: 'fuzzy' as const };
       render(<ReconciliationModal {...defaultProps} match={fuzzyMatch} />);
       
-      expect(screen.getByText((content, element) => 
+      expect(screen.getByText((content) => 
         content.includes('descriptions are similar')
       )).toBeInTheDocument();
     });
@@ -177,7 +177,7 @@ describe('ReconciliationModal', () => {
       const amountMatch = { ...match, matchType: 'amount-only' as const };
       render(<ReconciliationModal {...defaultProps} match={amountMatch} />);
       
-      expect(screen.getByText((content, element) => 
+      expect(screen.getByText((content) => 
         content.includes('Only the amounts match')
       )).toBeInTheDocument();
     });
@@ -601,9 +601,7 @@ describe('ReconciliationModal', () => {
       render(<ReconciliationModal {...defaultProps} transaction={negativeTransaction} />);
       
       // Look for the negative amount text
-      const amountElements = screen.getAllByText((content, element) => {
-        return element?.textContent?.includes('£50.00') || false;
-      });
+      const amountElements = screen.getAllByText((content) => content.includes('£50.00'));
       expect(amountElements.length).toBeGreaterThan(0);
     });
   });
@@ -621,13 +619,13 @@ describe('ReconciliationModal', () => {
       
       expect(screen.getByText('85%')).toBeInTheDocument();
       // Should not show any specific match type message
-      expect(screen.queryByText((content, element) => 
+      expect(screen.queryByText((content) => 
         content.includes('descriptions match exactly')
       )).not.toBeInTheDocument();
-      expect(screen.queryByText((content, element) => 
+      expect(screen.queryByText((content) => 
         content.includes('descriptions are similar')
       )).not.toBeInTheDocument();
-      expect(screen.queryByText((content, element) => 
+      expect(screen.queryByText((content) => 
         content.includes('Only the amounts match')
       )).not.toBeInTheDocument();
     });
@@ -658,7 +656,7 @@ describe('ReconciliationModal', () => {
       render(<ReconciliationModal {...defaultProps} match={lowConfidenceMatch} />);
       
       expect(screen.getByText('30%')).toBeInTheDocument();
-      expect(screen.getByText((content, element) => 
+      expect(screen.getByText((content) => 
         content.includes('Only the amounts match')
       )).toBeInTheDocument();
     });

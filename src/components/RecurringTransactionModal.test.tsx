@@ -3,17 +3,15 @@
  * Comprehensive tests for the recurring transaction management modal component
  */
 
+import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RecurringTransactionModal from './RecurringTransactionModal';
-import type { RecurringTransaction } from '../contexts/AppContextSupabase';
 
 // Mock all dependencies
 const mockAddTransaction = vi.fn();
-const mockAddRecurringTransaction = vi.fn((data) => {
-  console.log('mockAddRecurringTransaction called with:', data);
-});
+const mockAddRecurringTransaction = vi.fn();
 const mockDeleteRecurringTransaction = vi.fn();
 
 vi.mock('../contexts/AppContext', () => ({
@@ -56,7 +54,17 @@ vi.mock('../contexts/AppContext', () => ({
 }));
 
 vi.mock('./common/Modal', () => ({
-  Modal: ({ isOpen, children, title, onClose }: any) => 
+  Modal: ({
+    isOpen,
+    children,
+    title,
+    onClose
+  }: {
+    isOpen: boolean;
+    children: React.ReactNode;
+    title: string;
+    onClose: () => void;
+  }) =>
     isOpen ? (
       <div data-testid="modal" role="dialog" aria-label={title}>
         <div data-testid="modal-title">{title}</div>
@@ -64,38 +72,41 @@ vi.mock('./common/Modal', () => ({
         {children}
       </div>
     ) : null,
-  ModalBody: ({ children }: any) => <div data-testid="modal-body">{children}</div>,
+  ModalBody: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="modal-body">{children}</div>
+  ),
 }));
 
 vi.mock('./icons', () => ({
-  RepeatIcon: ({ size, className }: any) => (
-    <span data-testid="repeat-icon" data-size={size} className={className}>↻</span>
+  RepeatIcon: ({ size, className }: { size?: number; className?: string }) => (
+    <span data-testid="repeat-icon" data-size={size} className={className}>
+      ↻
+    </span>
   ),
 }));
 
 // Track form data changes in the mock
-let mockFormData: any = {};
+let mockFormData: Record<string, unknown> = {};
 
 vi.mock('../hooks/useModalForm', () => ({
-  useModalForm: (initialData: any, config: any) => {
+  useModalForm: <T extends Record<string, unknown>>(
+    initialData: T,
+    config: { onSubmit?: (data: T) => void }
+  ) => {
     // Initialize mock form data
-    if (!mockFormData.description) {
+    if (Object.keys(mockFormData).length === 0) {
       mockFormData = { ...initialData };
     }
     
     return {
-      formData: mockFormData,
-      updateField: vi.fn((field, value) => {
-        mockFormData[field] = value;
+      formData: mockFormData as T,
+      updateField: vi.fn(<K extends keyof T>(field: K, value: T[K]) => {
+        (mockFormData as T)[field] = value;
       }),
-      handleSubmit: vi.fn((e) => {
+      handleSubmit: vi.fn((e?: React.FormEvent) => {
         e?.preventDefault();
-        console.log('handleSubmit called, config:', config);
-        console.log('mockFormData:', mockFormData);
         if (config?.onSubmit) {
-          // Call onSubmit with the current form data
-          console.log('Calling config.onSubmit');
-          config.onSubmit(mockFormData);
+          config.onSubmit(mockFormData as T);
         }
       }),
       reset: vi.fn(() => {
