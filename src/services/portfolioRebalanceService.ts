@@ -217,20 +217,26 @@ class PortfolioRebalanceService {
   }
 
   // Create or update portfolio target
-  savePortfolioTarget(target: Omit<PortfolioTarget, 'id' | 'createdAt'>): PortfolioTarget {
+  savePortfolioTarget(target: Omit<PortfolioTarget, 'createdAt'> & { id?: string }): PortfolioTarget {
+    const targetId = target.id ?? `target-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+    const existingIndex = this.targets.findIndex(t => t.id === targetId);
+
+    const existing = existingIndex >= 0 ? this.targets[existingIndex] : null;
+    const createdAt = existing?.createdAt ?? new Date();
+
     const newTarget: PortfolioTarget = {
       ...target,
-      id: `target-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date()
+      id: targetId,
+      createdAt,
+      lastRebalanced: target.lastRebalanced ?? existing?.lastRebalanced,
     };
-    
-    const existingIndex = this.targets.findIndex(t => t.id === newTarget.id);
+
     if (existingIndex >= 0) {
-      this.targets[existingIndex] = { ...this.targets[existingIndex], ...newTarget };
+      this.targets[existingIndex] = newTarget;
     } else {
       this.targets.push(newTarget);
     }
-    
+
     this.saveTargets();
     return newTarget;
   }

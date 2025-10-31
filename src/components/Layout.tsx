@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { UserButton } from '@clerk/clerk-react';
-import { HomeIcon, CreditCardIcon, TargetIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, LightbulbIcon, FileTextIcon, ArchiveIcon } from '../components/icons';
+import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, LightbulbIcon, FileTextIcon, ArchiveIcon } from '../components/icons';
 import { usePreferences } from '../contexts/PreferencesContext';
 import { useLayout } from '../contexts/LayoutContext';
 import { PageTransition, NavigationProgress } from './layout/SimplePageTransition';
@@ -18,8 +18,10 @@ import { MobilePullToRefreshWrapper } from './MobilePullToRefreshWrapper';
 import { QuickAddOfflineButton } from './pwa/QuickAddOfflineButton';
 import { EnhancedConflictResolutionModal } from './pwa/EnhancedConflictResolutionModal';
 import { useConflictResolution } from '../hooks/useConflictResolution';
-import GlobalSearch, { useGlobalSearchDialog } from './GlobalSearch';
-import KeyboardShortcutsHelp, { useKeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
+import GlobalSearch from './GlobalSearch';
+import { useGlobalSearchDialog } from '../hooks/useGlobalSearchDialog';
+import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
+import { useKeyboardShortcutsHelp } from '../hooks/useKeyboardShortcutsHelp';
 import EnhancedNotificationBell from './EnhancedNotificationBell';
 import { NavigationBadge } from './ActivityBadge';
 import { useGlobalKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
@@ -116,7 +118,6 @@ export default function Layout(): React.JSX.Element {
   const searchParams = new URLSearchParams(location.search);
   const { registration } = useServiceWorker();
   const { 
-    showBudget, 
     showGoals, 
     showAnalytics,
     showInvestments,
@@ -177,9 +178,9 @@ export default function Layout(): React.JSX.Element {
     threshold: 100
   });
 
-  const toggleSidebar = () => {
-    setIsSidebarCollapsed(!isSidebarCollapsed);
-  };
+  const toggleSidebar = useCallback(() => {
+    setIsSidebarCollapsed((prev) => !prev);
+  }, []);
   
   // Auto-collapse sidebar when wide view is active
   useEffect(() => {
@@ -188,9 +189,9 @@ export default function Layout(): React.JSX.Element {
     }
   }, [isWideView]);
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
+  const toggleMobileMenu = useCallback(() => {
+    setIsMobileMenuOpen((prev) => !prev);
+  }, []);
 
   // Keyboard navigation
   useEffect(() => {
@@ -228,7 +229,7 @@ export default function Layout(): React.JSX.Element {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMobileMenuOpen, openSearch, openHelp]);
+  }, [isMobileMenuOpen, openSearch, openHelp, toggleMobileMenu, toggleSidebar]);
 
   // Removed auto-expand logic - users control collapsible sections manually
 

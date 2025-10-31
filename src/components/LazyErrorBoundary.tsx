@@ -12,6 +12,12 @@ interface State {
   error?: Error;
 }
 
+interface WindowWithSentry extends Window {
+  Sentry?: {
+    captureException: (error: unknown, context?: Record<string, unknown>) => void;
+  };
+}
+
 export class LazyErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -24,8 +30,9 @@ export class LazyErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     // Log to error reporting service if available
-    if (typeof window !== 'undefined' && 'Sentry' in window) {
-      (window as any).Sentry?.captureException(error, {
+    if (typeof window !== 'undefined') {
+      const sentry = (window as WindowWithSentry).Sentry;
+      sentry?.captureException(error, {
         contexts: {
           react: {
             componentStack: errorInfo.componentStack,

@@ -5,7 +5,7 @@ interface InsurancePlannerProps {
   onDataChange: () => void;
 }
 
-export default function InsurancePlanner({ onDataChange }: InsurancePlannerProps) {
+export default function InsurancePlanner({ onDataChange: _onDataChange }: InsurancePlannerProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-12 text-center">
       <ShieldIcon size={48} className="mx-auto mb-4 text-gray-400" />

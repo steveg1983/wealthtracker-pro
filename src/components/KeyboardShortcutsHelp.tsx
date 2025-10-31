@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { XIcon, KeyboardIcon } from './icons';
 import { getAllShortcuts, type KeyboardShortcut } from '../hooks/useKeyboardShortcuts';
 
@@ -127,22 +127,4 @@ export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShort
       </div>
     </div>
   );
-}
-
-// Hook to manage keyboard shortcuts help state
-export function useKeyboardShortcutsHelp(): {
-  isOpen: boolean;
-  openHelp: () => void;
-  closeHelp: () => void;
-} {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const openHelp = () => setIsOpen(true);
-  const closeHelp = () => setIsOpen(false);
-
-  return {
-    isOpen,
-    openHelp,
-    closeHelp,
-  };
 }

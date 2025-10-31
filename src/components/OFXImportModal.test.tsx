@@ -1,24 +1,50 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import OFXImportModal from './OFXImportModal';
 import { ofxImportService } from '../services/ofxImportService';
+import type { Account } from '../types';
+
+type ImportTransactionsResult = Awaited<ReturnType<typeof ofxImportService.importTransactions>>;
+
+const createMockImportResult = (
+  overrides: Partial<ImportTransactionsResult> = {}
+): ImportTransactionsResult => ({
+  transactions: [],
+  matchedAccount: null,
+  unmatchedAccount: null,
+  duplicates: 0,
+  newTransactions: 0,
+  ...overrides,
+});
+
+const sampleTransaction: ImportTransactionsResult['transactions'][number] = {
+  date: new Date('2024-01-01'),
+  description: 'Test transaction',
+  amount: 100,
+  type: 'income',
+  accountId: 'acc1',
+  category: '',
+  cleared: true,
+  notes: '',
+  isRecurring: false
+};
 
 // Mock icons
 vi.mock('./icons', () => ({
-  UploadIcon: ({ size, className }: any) => <div data-testid="upload-icon" className={className}>Upload</div>,
-  FileTextIcon: ({ size, className }: any) => <div data-testid="file-text-icon" className={className}>FileText</div>,
-  CheckIcon: ({ size, className }: any) => <div data-testid="check-icon" className={className}>Check</div>,
-  AlertCircleIcon: ({ size, className }: any) => <div data-testid="alert-circle-icon" className={className}>Alert</div>,
-  InfoIcon: ({ size, className }: any) => <div data-testid="info-icon" className={className}>Info</div>,
-  LinkIcon: ({ size, className }: any) => <div data-testid="link-icon" className={className}>Link</div>,
-  UnlinkIcon: ({ size, className }: any) => <div data-testid="unlink-icon" className={className}>Unlink</div>,
-  RefreshCwIcon: ({ size }: any) => <div data-testid="refresh-icon">Refresh</div>
+  UploadIcon: ({ className }: { className?: string }) => <div data-testid="upload-icon" className={className}>Upload</div>,
+  FileTextIcon: ({ className }: { className?: string }) => <div data-testid="file-text-icon" className={className}>FileText</div>,
+  CheckIcon: () => <div data-testid="check-icon">Check</div>,
+  AlertCircleIcon: () => <div data-testid="alert-circle-icon">Alert</div>,
+  InfoIcon: ({ className }: { className?: string }) => <div data-testid="info-icon" className={className}>Info</div>,
+  LinkIcon: () => <div data-testid="link-icon">Link</div>,
+  UnlinkIcon: () => <div data-testid="unlink-icon">Unlink</div>,
+  RefreshCwIcon: () => <div data-testid="refresh-icon">Refresh</div>
 }));
 
 // Mock Modal component
 vi.mock('./common/Modal', () => ({
-  Modal: ({ isOpen, onClose, title, children }: any) => 
+  Modal: ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) => 
     isOpen ? (
       <div data-testid="modal">
         <div data-testid="modal-title">{title}</div>
@@ -30,7 +56,7 @@ vi.mock('./common/Modal', () => ({
 
 // Mock LoadingButton
 vi.mock('./loading/LoadingState', () => ({
-  LoadingButton: ({ isLoading, onClick, disabled, children, className }: any) => (
+  LoadingButton: ({ isLoading, onClick, disabled, children, className }: { isLoading: boolean; onClick: () => void; disabled?: boolean; children: React.ReactNode; className?: string }) => (
     <button 
       data-testid="loading-button"
       onClick={onClick} 
@@ -57,7 +83,12 @@ const mockTransactions = [
     date: new Date('2024-01-01'),
     amount: 100,
     description: 'Test Transaction',
-    accountId: 'acc1'
+    accountId: 'acc1',
+    type: 'expense',
+    category: 'Food',
+    cleared: true,
+    notes: '',
+    isRecurring: false
   }
 ];
 
@@ -105,10 +136,6 @@ describe('OFXImportModal', () => {
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
   describe('Rendering', () => {
     it('renders nothing when closed', () => {
       render(<OFXImportModal {...defaultProps} isOpen={false} />);
@@ -151,14 +178,10 @@ describe('OFXImportModal', () => {
 
   describe('File Upload', () => {
     it('accepts OFX file upload', async () => {
-      const mockParseResult = {
-        transactions: [
-          { id: 'trans1', amount: 100, description: 'Test' }
-        ],
-        duplicates: 0,
-        matchedAccount: null,
-        unmatchedAccount: null
-      };
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        newTransactions: 1
+      });
       
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
       
@@ -187,12 +210,10 @@ describe('OFXImportModal', () => {
     });
 
     it('handles drag and drop for OFX files', async () => {
-      const mockParseResult = {
-        transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
-        duplicates: 0,
-        matchedAccount: null,
-        unmatchedAccount: null
-      };
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        newTransactions: 1
+      });
       
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
       
@@ -245,15 +266,14 @@ describe('OFXImportModal', () => {
 
   describe('File Parsing', () => {
     it('shows file info after successful parsing', async () => {
-      const mockParseResult = {
+      const mockParseResult = createMockImportResult({
         transactions: [
-          { id: 'trans1', amount: 100, description: 'Test' },
-          { id: 'trans2', amount: 200, description: 'Test 2' }
+          sampleTransaction,
+          { ...sampleTransaction, description: 'Test 2', amount: 200 }
         ],
         duplicates: 1,
-        matchedAccount: null,
-        unmatchedAccount: null
-      };
+        newTransactions: 2
+      });
       
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
       
@@ -273,12 +293,12 @@ describe('OFXImportModal', () => {
     });
 
     it('shows matched account when found', async () => {
-      const mockParseResult = {
-        transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
-        duplicates: 0,
-        matchedAccount: { id: 'acc1', name: 'Current Account' },
-        unmatchedAccount: { accountId: '12345678' }
-      };
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        matchedAccount: { id: 'acc1', name: 'Current Account', type: 'checking' } as Account,
+        unmatchedAccount: { accountId: '12345678' },
+        newTransactions: 1
+      });
       
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
       
@@ -297,15 +317,14 @@ describe('OFXImportModal', () => {
     });
 
     it('shows unmatched account warning when no match found', async () => {
-      const mockParseResult = {
-        transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
-        duplicates: 0,
-        matchedAccount: null,
-        unmatchedAccount: { 
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        unmatchedAccount: {
           accountId: '12345678',
           bankId: '123456789'
-        }
-      };
+        },
+        newTransactions: 1
+      });
       
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
       
@@ -324,12 +343,11 @@ describe('OFXImportModal', () => {
     });
 
     it('shows account selection dropdown when no match found', async () => {
-      const mockParseResult = {
-        transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
-        duplicates: 0,
-        matchedAccount: null,
-        unmatchedAccount: { accountId: '12345678' }
-      };
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        unmatchedAccount: { accountId: '12345678' },
+        newTransactions: 1
+      });
       
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
       
@@ -368,12 +386,10 @@ describe('OFXImportModal', () => {
 
   describe('Import Options', () => {
     beforeEach(async () => {
-      const mockParseResult = {
-        transactions: [{ id: 'trans1', amount: 100, description: 'Test' }],
-        duplicates: 0,
-        matchedAccount: null,
-        unmatchedAccount: null
-      };
+      const mockParseResult = createMockImportResult({
+        transactions: [sampleTransaction],
+        newTransactions: 1
+      });
       
       vi.mocked(ofxImportService.importTransactions).mockResolvedValueOnce(mockParseResult);
       

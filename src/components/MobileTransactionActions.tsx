@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ActionSheet, BottomSheet } from './BottomSheet';
 import { useBottomSheet } from '../hooks/useBottomSheet';
 import { 
@@ -6,8 +6,6 @@ import {
   DeleteIcon, 
   CopyIcon, 
   StarIcon as ShareIcon, 
-  TagIcon, 
-  CalendarIcon,
   CheckCircleIcon,
   FolderIcon,
   GripVerticalIcon as MoreVerticalIcon
@@ -126,14 +124,16 @@ export function MobileTransactionActions({
 
       {/* Main Actions Sheet */}
       <ActionSheet
-        {...actionsSheet.props}
+        isOpen={actionsSheet.isOpen}
+        onClose={actionsSheet.close}
         title="Transaction Actions"
         actions={mainActions}
       />
 
       {/* Delete Confirmation Sheet */}
       <BottomSheet
-        {...deleteSheet.props}
+        isOpen={deleteSheet.isOpen}
+        onClose={deleteSheet.close}
         title="Delete Transaction?"
         height="auto"
         showHandle={false}
@@ -174,8 +174,9 @@ export function MobileTransactionActions({
 
       {/* Share Sheet */}
       {onShare && (
-        <ActionSheet
-          {...shareSheet.props}
+       <ActionSheet
+          isOpen={shareSheet.isOpen}
+          onClose={shareSheet.close}
           title="Share Transaction"
           actions={shareOptions}
         />

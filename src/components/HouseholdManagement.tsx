@@ -1,26 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { householdService, type Household, type HouseholdMember, type MemberActivity } from '../services/householdService';
+import { householdService, type Household, type HouseholdMember, type MemberActivity, type HouseholdInvite, type MemberContribution } from '../services/householdService';
 import SharedBudgetsGoals from './SharedBudgetsGoals';
-import { 
+import {
   UsersIcon,
   PlusIcon,
   MailIcon,
   UserIcon,
   ShieldIcon,
-  ClockIcon,
-  TrendingUpIcon,
-  TrendingDownIcon,
   ActivityIcon,
   SettingsIcon,
   XIcon,
-  CheckIcon,
-  AlertCircleIcon,
-  TargetIcon,
-  GoalIcon
+  TargetIcon
 } from './icons';
 import { format } from 'date-fns';
 import { useCurrency } from '../hooks/useCurrency';
 import { useApp } from '../contexts/AppContextSupabase';
+
+type MemberVisibility = Household['settings']['memberVisibility'];
+
+const allowedRoles: HouseholdMember['role'][] = ['owner', 'admin', 'member', 'viewer'];
+const allowedVisibilities: MemberVisibility[] = ['all', 'summary', 'none'];
+
+const parseMemberRole = (value: string): HouseholdMember['role'] => {
+  return allowedRoles.includes(value as HouseholdMember['role']) ? (value as HouseholdMember['role']) : 'member';
+};
+
+const parseMemberVisibility = (value: string): MemberVisibility => {
+  return allowedVisibilities.includes(value as MemberVisibility) ? (value as MemberVisibility) : 'all';
+};
+
+const notifyError = (error: unknown, fallbackMessage: string) => {
+  const message = error instanceof Error ? error.message : fallbackMessage;
+  console.error(fallbackMessage, error);
+  alert(message);
+};
 
 export default function HouseholdManagement() {
   const { transactions } = useApp();
@@ -31,8 +44,8 @@ export default function HouseholdManagement() {
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [activities, setActivities] = useState<MemberActivity[]>([]);
-  const [invites, setInvites] = useState<any[]>([]);
-  const [contributions, setContributions] = useState<any[]>([]);
+  const [invites, setInvites] = useState<HouseholdInvite[]>([]);
+  const [contributions, setContributions] = useState<MemberContribution[]>([]);
   const [activeTab, setActiveTab] = useState<'overview' | 'members' | 'finances'>('overview');
 
   // Form states
@@ -40,7 +53,7 @@ export default function HouseholdManagement() {
   const [memberName, setMemberName] = useState('');
   const [memberEmail, setMemberEmail] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'admin' | 'member' | 'viewer'>('member');
+  const [inviteRole, setInviteRole] = useState<HouseholdMember['role']>('member');
 
   useEffect(() => {
     loadHousehold();
@@ -97,8 +110,8 @@ export default function HouseholdManagement() {
       setInviteEmail('');
       setInviteRole('member');
       loadHousehold();
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error: unknown) {
+      notifyError(error, 'Unable to send household invite. Please try again.');
     }
   };
 
@@ -108,8 +121,8 @@ export default function HouseholdManagement() {
     try {
       householdService.removeMember(memberId, currentMember.id, currentMember.name);
       loadHousehold();
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error: unknown) {
+      notifyError(error, 'Failed to remove household member.');
     }
   };
 
@@ -124,8 +137,8 @@ export default function HouseholdManagement() {
     try {
       householdService.updateMemberRole(memberId, newRole, currentMember.id);
       loadHousehold();
-    } catch (error: any) {
-      alert(error.message);
+    } catch (error: unknown) {
+      notifyError(error, 'Unable to update member role.');
     }
   };
 
@@ -325,8 +338,8 @@ export default function HouseholdManagement() {
               </label>
               <select
                 value={household.settings.memberVisibility}
-                onChange={(e) => householdService.updateHouseholdSettings({ 
-                  memberVisibility: e.target.value as any 
+                onChange={(e) => householdService.updateHouseholdSettings({
+                  memberVisibility: parseMemberVisibility(e.target.value)
                 })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
               >
@@ -396,7 +409,7 @@ export default function HouseholdManagement() {
               />
               <select
                 value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as any)}
+                onChange={(e) => setInviteRole(parseMemberRole(e.target.value))}
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
               >
                 <option value="admin">Admin</option>
@@ -449,7 +462,7 @@ export default function HouseholdManagement() {
                 <div className="flex items-center gap-2">
                   <select
                     value={member.role}
-                    onChange={(e) => handleUpdateRole(member.id, e.target.value as any)}
+                    onChange={(e) => handleUpdateRole(member.id, parseMemberRole(e.target.value))}
                     className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                   >
                     <option value="admin">Admin</option>
@@ -620,7 +633,7 @@ export default function HouseholdManagement() {
                   />
                   <select
                     value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value as any)}
+                    onChange={(e) => setInviteRole(parseMemberRole(e.target.value))}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                   >
                     <option value="admin">Admin</option>
@@ -673,7 +686,7 @@ export default function HouseholdManagement() {
                     <div className="flex items-center gap-2">
                       <select
                         value={member.role}
-                        onChange={(e) => handleUpdateRole(member.id, e.target.value as any)}
+                        onChange={(e) => handleUpdateRole(member.id, parseMemberRole(e.target.value))}
                         className="px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700"
                       >
                         <option value="admin">Admin</option>

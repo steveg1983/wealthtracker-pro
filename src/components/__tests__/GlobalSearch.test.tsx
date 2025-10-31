@@ -8,7 +8,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useNavigate } from 'react-router-dom';
-import GlobalSearch, { useGlobalSearchDialog } from '../GlobalSearch';
+import GlobalSearch from '../GlobalSearch';
+import { useGlobalSearchDialog } from '../../hooks/useGlobalSearchDialog';
 
 // Mock dependencies
 vi.mock('react-router-dom', async () => {

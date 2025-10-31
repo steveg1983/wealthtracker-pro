@@ -1,19 +1,19 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import MnyMappingModal from './MnyMappingModal';
 
 // Mock icons
 vi.mock('./icons/XIcon', () => ({
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>
+  XIcon: ({ size: _size }: { size?: number }) => <div data-testid="x-icon">X</div>
 }));
 
 vi.mock('./icons/AlertCircleIcon', () => ({
-  AlertCircleIcon: ({ className, size }: any) => <div data-testid="alert-circle-icon" className={className}>Alert</div>
+  AlertCircleIcon: ({ className }: { className?: string }) => <div data-testid="alert-circle-icon" className={className}>Alert</div>
 }));
 
 vi.mock('./icons/CheckCircleIcon', () => ({
-  CheckCircleIcon: ({ size }: any) => <div data-testid="check-circle-icon">Check</div>
+  CheckCircleIcon: ({ size: _size }: { size?: number }) => <div data-testid="check-circle-icon">Check</div>
 }));
 
 // Test data
@@ -207,7 +207,7 @@ describe('MnyMappingModal', () => {
       render(<MnyMappingModal {...defaultProps} rawData={mockOLEDateData} />);
       
       // Should show both raw OLE date and converted date
-      expect(screen.getByText((content, element) => {
+      expect(screen.getByText((content, _element) => {
         return content.includes('44927') && content.includes('2023');
       })).toBeInTheDocument();
     });
@@ -216,7 +216,7 @@ describe('MnyMappingModal', () => {
       render(<MnyMappingModal {...defaultProps} rawData={mockLongTextData} />);
       
       // Should be truncated to 50 chars + "..."
-      expect(screen.getByText((content, element) => {
+      expect(screen.getByText((content, _element) => {
         return content.includes('This is a very long description that should be tru') && content.includes('...');
       })).toBeInTheDocument();
     });
@@ -249,7 +249,7 @@ describe('MnyMappingModal', () => {
       render(<MnyMappingModal {...defaultProps} rawData={dataWithDates} />);
       
       // Should format date as locale string - could be different formats
-      const dateElement = screen.getByText((content, element) => {
+      const dateElement = screen.getByText((content) => {
         return content.includes('2024') && (content.includes('1/15') || content.includes('15/1') || content.includes('15/01'));
       });
       expect(dateElement).toBeInTheDocument();
@@ -567,7 +567,7 @@ describe('MnyMappingModal', () => {
       render(<MnyMappingModal {...defaultProps} rawData={dataWithLargeNumbers} />);
       
       // Should format as OLE date
-      expect(screen.getByText((content, element) => {
+      expect(screen.getByText((content, _element) => {
         return content.includes('59999') && content.includes('2064');
       })).toBeInTheDocument();
     });

@@ -1,23 +1,25 @@
 import { useAuth } from '@clerk/clerk-react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { ReactNode, useEffect } from 'react';
+import { ReactNode } from 'react';
 import { Skeleton } from '../loading/Skeleton';
 
-interface ProtectedRouteProps {
+export interface ProtectedRouteProps {
   children: ReactNode;
   requirePremium?: boolean;
   requiredRole?: string;
   fallbackPath?: string;
 }
 
-export function ProtectedRoute({ 
+const ProtectedRoute = ({ 
   children, 
   requirePremium = false,
   requiredRole,
   fallbackPath = '/'
-}: ProtectedRouteProps) {
-  const { isLoaded, isSignedIn, userId } = useAuth();
+}: ProtectedRouteProps): React.ReactElement | null => {
+  const { isLoaded, isSignedIn } = useAuth();
   const location = useLocation();
+  void requirePremium;
+  void requiredRole;
   
   // Check if we're in test mode (for Playwright tests) or demo mode (for UI/UX testing)
   const isTestMode = typeof window !== 'undefined' && (
@@ -53,18 +55,7 @@ export function ProtectedRoute({
   // For now, just check authentication
   
   return <>{children}</>;
-}
+};
 
-// Higher-order component for protecting routes
-export function withProtectedRoute<P extends object>(
-  Component: React.ComponentType<P>,
-  options?: Omit<ProtectedRouteProps, 'children'>
-) {
-  return function ProtectedComponent(props: P) {
-    return (
-      <ProtectedRoute {...options}>
-        <Component {...props} />
-      </ProtectedRoute>
-    );
-  };
-}
+export default ProtectedRoute;
+export { ProtectedRoute };

@@ -5,7 +5,6 @@ import {
   ClockIcon,
   DollarSignIcon,
   CalendarIcon,
-  CheckIcon,
   XIcon,
   AlertCircleIcon
 } from './icons';

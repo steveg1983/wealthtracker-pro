@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import GoalModal from './GoalModal';
 import type { Goal } from '../types';
@@ -841,7 +841,6 @@ describe('GoalModal', () => {
       renderModal(true);
       
       // Link savings and investment accounts
-      const checkboxes = screen.getAllByRole('checkbox');
       const savingsCheckbox = screen.getByText('Savings Account (savings)').previousElementSibling;
       const investmentCheckbox = screen.getByText('Investment Account (investment)').previousElementSibling;
       

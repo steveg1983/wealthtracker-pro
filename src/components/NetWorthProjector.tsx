@@ -5,7 +5,7 @@ interface NetWorthProjectorProps {
   onDataChange: () => void;
 }
 
-export default function NetWorthProjector({ onDataChange }: NetWorthProjectorProps) {
+export default function NetWorthProjector({ onDataChange: _onDataChange }: NetWorthProjectorProps) {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-12 text-center">
       <TrendingUpIcon size={48} className="mx-auto mb-4 text-gray-400" />

@@ -1,5 +1,5 @@
 import { Suspense, ReactNode } from 'react';
-import { ProtectedRoute } from './ProtectedRoute';
+import ProtectedRoute from './ProtectedRoute';
 import PageLoader from '../PageLoader';
 
 interface ProtectedSuspenseProps {

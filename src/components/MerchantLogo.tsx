@@ -73,7 +73,7 @@ export default function MerchantLogo({
             src={logoUrl} 
             alt={merchantInfo.name}
             className={`${imageSizeClasses[size]} object-contain`}
-            onError={(e) => {
+            onError={() => {
               // If image fails to load, remove it and fall back to emoji
               setLogoUrl(null);
             }}

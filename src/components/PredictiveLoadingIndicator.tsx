@@ -7,7 +7,6 @@ import {
   ActivityIcon,
   TrendingUpIcon,
   CheckCircleIcon,
-  AlertCircleIcon,
   RefreshCwIcon
 } from './icons';
 
@@ -263,14 +262,26 @@ export function NetworkStatusIndicator() {
   const [connectionType, setConnectionType] = useState<string>('unknown');
 
   useEffect(() => {
+    type NetworkInformationWithEvents = NetworkInformation & {
+      addEventListener?: (type: string, listener: () => void) => void;
+      removeEventListener?: (type: string, listener: () => void) => void;
+    };
+
+    type NavigatorWithConnection = Navigator & {
+      connection?: NetworkInformationWithEvents;
+    };
+
+    const navigatorWithConnection = navigator as NavigatorWithConnection;
+
     const updateNetworkStatus = () => {
       if (!navigator.onLine) {
         setNetworkStatus('offline');
-      } else if ('connection' in navigator) {
-        const connection = (navigator as any).connection;
-        setConnectionType(connection.effectiveType || 'unknown');
+      } else if (navigatorWithConnection.connection) {
+        const connection = navigatorWithConnection.connection;
+        const effectiveType = connection?.effectiveType ?? 'unknown';
+        setConnectionType(effectiveType);
         
-        if (['slow-2g', '2g'].includes(connection.effectiveType)) {
+        if (['slow-2g', '2g'].includes(effectiveType)) {
           setNetworkStatus('slow');
         } else {
           setNetworkStatus('online');
@@ -283,16 +294,12 @@ export function NetworkStatusIndicator() {
     window.addEventListener('online', updateNetworkStatus);
     window.addEventListener('offline', updateNetworkStatus);
     
-    if ('connection' in navigator) {
-      (navigator as any).connection.addEventListener('change', updateNetworkStatus);
-    }
+    navigatorWithConnection.connection?.addEventListener?.('change', updateNetworkStatus);
 
     return () => {
       window.removeEventListener('online', updateNetworkStatus);
       window.removeEventListener('offline', updateNetworkStatus);
-      if ('connection' in navigator) {
-        (navigator as any).connection.removeEventListener('change', updateNetworkStatus);
-      }
+      navigatorWithConnection.connection?.removeEventListener?.('change', updateNetworkStatus);
     };
   }, []);
 

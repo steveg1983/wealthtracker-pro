@@ -22,7 +22,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
   transactions,
   totals
 }) => {
-  const { isMobile, shouldLazyLoad } = useMobileOptimizations();
+  const { isMobile, shouldLazyLoad: _shouldLazyLoad } = useMobileOptimizations();
   const [showCharts, setShowCharts] = useState(false);
 
   useEffect(() => {
@@ -38,7 +38,14 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
   }, [isMobile]);
 
   // Mobile-optimized summary cards
-  const SummaryCard = ({ title, value, trend, color }: any) => (
+  interface SummaryCardProps {
+    title: string;
+    value: string | number;
+    trend?: number;
+    color?: string;
+  }
+
+  const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, trend, color }) => (
     <div className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm ${color}`}>
       <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</h3>
       <p className="text-xl font-semibold mt-1">{value}</p>

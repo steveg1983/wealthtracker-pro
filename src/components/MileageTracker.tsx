@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { businessService } from '../services/businessService';
 import { 
   MapPinIcon,
   PlusIcon,
   EditIcon,
   TrashIcon,
-  CalendarIcon,
   DollarSignIcon,
   FilterIcon,
   TrendingUpIcon,
@@ -31,16 +30,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
     loadMileageEntries();
   }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [mileageEntries, filters]);
-
-  const loadMileageEntries = () => {
-    const entries = businessService.getMileageEntries();
-    setMileageEntries(entries);
-  };
-
-  const applyFilters = () => {
+  const applyFilters = useCallback(() => {
     let filtered = [...mileageEntries];
 
     if (filters.category) {
@@ -74,6 +64,15 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
     }
 
     setFilteredEntries(filtered);
+  }, [filters, mileageEntries]);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
+
+  const loadMileageEntries = () => {
+    const entries = businessService.getMileageEntries();
+    setMileageEntries(entries);
   };
 
   const handleCreateEntry = () => {

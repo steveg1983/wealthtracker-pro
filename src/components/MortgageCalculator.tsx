@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { financialPlanningService } from '../services/financialPlanningService';
 import { 
   HomeIcon,
   CalculatorIcon,
   TrashIcon,
   DollarSignIcon,
-  CalendarIcon,
   TrendingUpIcon,
   PlusIcon
 } from './icons';
@@ -25,17 +24,23 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
   });
   const [selectedCalculation, setSelectedCalculation] = useState<MortgageCalculation | null>(null);
 
-  useEffect(() => {
-    loadCalculations();
-  }, []);
-
-  const loadCalculations = () => {
+  const loadCalculations = useCallback(() => {
     const mortgageCalculations = financialPlanningService.getMortgageCalculations();
     setCalculations(mortgageCalculations);
-    if (mortgageCalculations.length > 0 && !selectedCalculation) {
-      setSelectedCalculation(mortgageCalculations[0]);
-    }
-  };
+    setSelectedCalculation((previous) => {
+      if (previous) {
+        const stillExists = mortgageCalculations.find(calc => calc.id === previous.id);
+        if (stillExists) {
+          return stillExists;
+        }
+      }
+      return mortgageCalculations[0] ?? null;
+    });
+  }, []);
+
+  useEffect(() => {
+    loadCalculations();
+  }, [loadCalculations]);
 
   const handleCalculate = () => {
     const calculation = financialPlanningService.calculateMortgage(
@@ -54,11 +59,6 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
       financialPlanningService.deleteMortgageCalculation(calculation.id);
       loadCalculations();
       onDataChange();
-      
-      if (selectedCalculation?.id === calculation.id) {
-        const remainingCalculations = calculations.filter(c => c.id !== calculation.id);
-        setSelectedCalculation(remainingCalculations.length > 0 ? remainingCalculations[0] : null);
-      }
     }
   };
 

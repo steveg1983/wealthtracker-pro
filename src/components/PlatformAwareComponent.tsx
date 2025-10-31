@@ -1,29 +1,30 @@
 import React from 'react';
 import { useDeviceType } from '../hooks/useDeviceType';
 
-interface PlatformAwareComponentProps {
-  desktopComponent: React.ComponentType<any>;
-  mobileComponent: React.ComponentType<any>;
-  props?: any;
+interface PlatformAwareComponentProps<TProps> {
+  desktopComponent: React.ComponentType<TProps>;
+  mobileComponent: React.ComponentType<TProps>;
+  props?: TProps;
 }
 
 /**
  * Wrapper component that renders different components based on device type
  * This allows gradual migration to desktop-first approach
  */
-export const PlatformAwareComponent: React.FC<PlatformAwareComponentProps> = ({
+export function PlatformAwareComponent<TProps>({
   desktopComponent: DesktopComponent,
   mobileComponent: MobileComponent,
   props = {}
-}) => {
+}: PlatformAwareComponentProps<TProps>): React.JSX.Element {
   const { isDesktop } = useDeviceType();
+  const componentProps = (props ?? {}) as TProps;
   
   if (isDesktop) {
-    return <DesktopComponent {...props} />;
+    return <DesktopComponent {...componentProps} />;
   }
   
-  return <MobileComponent {...props} />;
-};
+  return <MobileComponent {...componentProps} />;
+}
 
 // Example usage:
 // <PlatformAwareComponent

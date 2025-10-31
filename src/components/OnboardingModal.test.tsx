@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OnboardingModal from './OnboardingModal';
 
@@ -87,8 +87,6 @@ describe('OnboardingModal', () => {
 
     it('displays all supported currencies as options', () => {
       renderModal();
-      
-      const currencySelect = screen.getByRole('combobox');
       
       mockSupportedCurrencies.forEach(currency => {
         const option = screen.getByRole('option', { 
@@ -188,7 +186,6 @@ describe('OnboardingModal', () => {
       const user = userEvent.setup();
       renderModal();
       
-      const nameInput = screen.getByPlaceholderText(/enter your first name/i);
       const currencySelect = screen.getByRole('combobox');
       const submitButton = screen.getByRole('button', { name: /get started/i });
       
@@ -392,7 +389,6 @@ describe('OnboardingModal', () => {
       const user = userEvent.setup();
       renderModal();
       
-      const nameInput = screen.getByPlaceholderText(/enter your first name/i);
       const currencySelect = screen.getByRole('combobox');
       const submitButton = screen.getByRole('button', { name: /get started/i });
       

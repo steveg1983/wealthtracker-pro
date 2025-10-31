@@ -41,6 +41,16 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
 
+  const loadMoreItems = useCallback(() => {
+    setIsLoadingMore(true);
+    
+    // Simulate network delay for smooth UX
+    setTimeout(() => {
+      setDisplayedItems(prev => Math.min(prev + itemsPerBatch, transactions.length));
+      setIsLoadingMore(false);
+    }, 300);
+  }, [itemsPerBatch, transactions.length]);
+
   // Reset displayed items when transactions change (e.g., filtering)
   useEffect(() => {
     setDisplayedItems(itemsPerBatch);
@@ -79,17 +89,7 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
         observerRef.current.disconnect();
       }
     };
-  }, [displayedItems, transactions.length, isLoadingMore]);
-
-  const loadMoreItems = useCallback(() => {
-    setIsLoadingMore(true);
-    
-    // Simulate network delay for smooth UX
-    setTimeout(() => {
-      setDisplayedItems(prev => Math.min(prev + itemsPerBatch, transactions.length));
-      setIsLoadingMore(false);
-    }, 300);
-  }, [itemsPerBatch, transactions.length]);
+  }, [displayedItems, isLoadingMore, loadMoreItems, transactions.length]);
 
   const handleToggleSelection = useCallback((id: string) => {
     if (!onSelectionChange || !selectedTransactions) return;
@@ -212,37 +212,4 @@ export const InfiniteScrollTransactionList = memo(function InfiniteScrollTransac
   );
 });
 
-/**
- * Hook for managing infinite scroll state
- */
-export function useInfiniteScroll(
-  items: any[],
-  itemsPerBatch: number = 20
-) {
-  const [displayedItems, setDisplayedItems] = useState(itemsPerBatch);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-
-  const loadMore = useCallback(() => {
-    setIsLoadingMore(true);
-    setTimeout(() => {
-      setDisplayedItems(prev => Math.min(prev + itemsPerBatch, items.length));
-      setIsLoadingMore(false);
-    }, 300);
-  }, [itemsPerBatch, items.length]);
-
-  const reset = useCallback(() => {
-    setDisplayedItems(itemsPerBatch);
-  }, [itemsPerBatch]);
-
-  const visibleItems = items.slice(0, displayedItems);
-  const hasMore = displayedItems < items.length;
-
-  return {
-    visibleItems,
-    hasMore,
-    isLoadingMore,
-    loadMore,
-    reset,
-    displayedItems
-  };
-}
+export default InfiniteScrollTransactionList;

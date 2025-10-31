@@ -2,7 +2,7 @@ import React, { useState, useMemo, useCallback } from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
 import type { Notification } from '../contexts/NotificationContext';
 import { notificationService } from '../services/notificationService';
-import type { NotificationRule, NotificationCondition, NotificationAction } from '../services/notificationService';
+import type { NotificationRule } from '../services/notificationService';
 import { VirtualizedList } from './VirtualizedList';
 import {
   BellIcon,
@@ -11,7 +11,6 @@ import {
   PlusIcon,
   EditIcon,
   DeleteIcon,
-  CheckIcon,
   XIcon,
   AlertCircleIcon,
   InfoIcon,
@@ -23,11 +22,18 @@ import {
   DollarSignIcon,
   TargetIcon,
   CreditCardIcon,
-  CalendarIcon,
   PlayIcon,
-  StopIcon,
-  RefreshCwIcon
+  StopIcon
 } from './icons';
+
+type NotificationTab = 'notifications' | 'rules' | 'settings';
+type NotificationFilter = 'all' | 'unread' | 'success' | 'warning' | 'error';
+
+const NOTIFICATION_FILTERS: ReadonlyArray<NotificationFilter> = ['all', 'unread', 'success', 'warning', 'error'];
+
+const isNotificationFilter = (value: string): value is NotificationFilter => (
+  (NOTIFICATION_FILTERS as readonly string[]).includes(value)
+);
 
 interface NotificationCenterProps {
   isOpen: boolean;
@@ -44,8 +50,8 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
     clearAll
   } = useNotifications();
 
-  const [activeTab, setActiveTab] = useState<'notifications' | 'rules' | 'settings'>('notifications');
-  const [filter, setFilter] = useState<'all' | 'unread' | 'success' | 'warning' | 'error'>('all');
+  const [activeTab, setActiveTab] = useState<NotificationTab>('notifications');
+  const [filter, setFilter] = useState<NotificationFilter>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showRuleEditor, setShowRuleEditor] = useState(false);
   const [editingRule, setEditingRule] = useState<NotificationRule | null>(null);
@@ -72,19 +78,21 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
       );
     }
 
-    return filtered.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return filtered
+      .slice()
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }, [notifications, filter, searchTerm]);
 
-  const getIcon = (type: string): React.JSX.Element => {
+  const getIcon = useCallback((type: Notification['type']): React.JSX.Element => {
     switch (type) {
       case 'success': return <CheckCircleIcon size={16} className="text-green-600" />;
       case 'warning': return <AlertCircleIcon size={16} className="text-yellow-600" />;
       case 'error': return <XCircleIcon size={16} className="text-red-600" />;
       default: return <InfoIcon size={16} className="text-blue-600" />;
     }
-  };
+  }, []);
 
-  const formatTime = (date: Date): string => {
+  const formatTime = useCallback((date: Date | string): string => {
     const now = new Date();
     const diff = now.getTime() - new Date(date).getTime();
     const minutes = Math.floor(diff / 60000);
@@ -96,9 +104,9 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
     if (hours < 24) return `${hours}h ago`;
     if (days < 7) return `${days}d ago`;
     return new Date(date).toLocaleDateString();
-  };
+  }, []);
 
-  const getRuleTypeIcon = (type: string): React.JSX.Element => {
+  const getRuleTypeIcon = useCallback((type: NotificationRule['type'] | string): React.JSX.Element => {
     switch (type) {
       case 'budget': return <DollarSignIcon size={16} className="text-green-600" />;
       case 'transaction': return <CreditCardIcon size={16} className="text-blue-600" />;
@@ -106,29 +114,34 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
       case 'account': return <TrendingUpIcon size={16} className="text-orange-600" />;
       default: return <BellIcon size={16} className="text-gray-600" />;
     }
-  };
+  }, []);
 
-  const handleToggleRule = (ruleId: string, enabled: boolean): void => {
+  const handleToggleRule = useCallback((ruleId: string, enabled: boolean): void => {
     notificationService.updateRule(ruleId, { enabled });
     setRules(notificationService.getRules());
-  };
+  }, []);
 
-  const handleDeleteRule = (ruleId: string): void => {
+  const handleDeleteRule = useCallback((ruleId: string): void => {
     if (confirm('Are you sure you want to delete this notification rule?')) {
       notificationService.deleteRule(ruleId);
       setRules(notificationService.getRules());
     }
-  };
+  }, []);
 
-  const handleEditRule = (rule: NotificationRule): void => {
+  const handleEditRule = useCallback((rule: NotificationRule): void => {
     setEditingRule(rule);
     setShowRuleEditor(true);
-  };
+  }, []);
 
-  const handleCreateRule = (): void => {
+  const handleCreateRule = useCallback((): void => {
     setEditingRule(null);
     setShowRuleEditor(true);
-  };
+  }, []);
+
+  const closeRuleEditor = useCallback(() => {
+    setShowRuleEditor(false);
+    setEditingRule(null);
+  }, []);
 
   // Render notification item for VirtualizedList
   const renderNotification = useCallback((notification: Notification, index: number, style: React.CSSProperties): React.ReactNode => {
@@ -355,7 +368,12 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
                   <FilterIcon size={16} className="text-gray-500" />
                   <select
                     value={filter}
-                    onChange={(e) => setFilter(e.target.value as any)}
+                    onChange={(e) => {
+                      const nextFilter = e.target.value;
+                      if (isNotificationFilter(nextFilter)) {
+                        setFilter(nextFilter);
+                      }
+                    }}
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
                   >
                     <option value="all">All</option>
@@ -647,6 +665,76 @@ export default function NotificationCenter({ isOpen, onClose }: NotificationCent
           </div>
         </div>
       </div>
+
+      {showRuleEditor && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 px-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  {editingRule ? `Edit Rule: ${editingRule.name}` : 'Create Notification Rule'}
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Rule editor UI is coming soon. For now, manage rules via the notification settings service.
+                </p>
+              </div>
+              <button
+                onClick={closeRuleEditor}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                aria-label="Close rule editor"
+              >
+                <XIcon size={20} />
+              </button>
+            </div>
+
+            {editingRule && (
+              <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">Type:</span>
+                  {editingRule.type}
+                </div>
+                <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <span className="font-medium">Priority:</span>
+                  {editingRule.priority}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Conditions</p>
+                  <ul className="mt-1 text-sm text-gray-600 dark:text-gray-400 list-disc list-inside space-y-1">
+                    {editingRule.conditions.map((condition, index) => (
+                      <li key={`${editingRule.id}-condition-${index}`}>{condition.description}</li>
+                    ))}
+                  </ul>
+                </div>
+                {editingRule.actions.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Actions</p>
+                    <ul className="mt-1 text-sm text-gray-600 dark:text-gray-400 list-disc list-inside space-y-1">
+                      {editingRule.actions.map((action, index) => (
+                        <li key={`${editingRule.id}-action-${index}`}>{action.type}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={closeRuleEditor}
+                className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
+              >
+                Close
+              </button>
+              <button
+                onClick={closeRuleEditor}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Acknowledge
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

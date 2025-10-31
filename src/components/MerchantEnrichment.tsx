@@ -8,24 +8,29 @@ import {
   StarIcon,
   RefreshCwIcon,
   CheckCircleIcon,
-  XCircleIcon,
   EditIcon,
   EyeIcon,
-  TrendingUpIcon,
   BarChart3Icon,
   FilterIcon
 } from './icons';
+
+type SortOption = 'name' | 'confidence' | 'frequency' | 'lastUpdated';
+const SORT_OPTIONS: ReadonlyArray<SortOption> = ['name', 'confidence', 'frequency', 'lastUpdated'];
+
+const isSortOption = (value: string): value is SortOption => (
+  (SORT_OPTIONS as readonly string[]).includes(value)
+);
 
 interface MerchantEnrichmentProps {
   onDataChange?: () => void;
 }
 
-export default function MerchantEnrichment({ onDataChange }: MerchantEnrichmentProps) {
+export default function MerchantEnrichment({ onDataChange: _onDataChange }: MerchantEnrichmentProps) {
   const [merchants, setMerchants] = useState<MerchantData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'confidence' | 'frequency' | 'lastUpdated'>('confidence');
+  const [sortBy, setSortBy] = useState<SortOption>('confidence');
   const [testEnrichment, setTestEnrichment] = useState('');
   const [enrichmentResult, setEnrichmentResult] = useState<MerchantEnrichment | null>(null);
 
@@ -304,7 +309,12 @@ export default function MerchantEnrichment({ onDataChange }: MerchantEnrichmentP
           <label className="text-sm text-gray-600 dark:text-gray-400">Sort by:</label>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) => {
+              const nextSort = e.target.value;
+              if (isSortOption(nextSort)) {
+                setSortBy(nextSort);
+              }
+            }}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           >
             <option value="confidence">Confidence</option>

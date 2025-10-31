@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import { SearchIcon, XIcon, WalletIcon, CreditCardIcon, TargetIcon, GoalIcon } from './icons';
@@ -9,6 +9,36 @@ interface GlobalSearchProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+const getResultIcon = (type: SearchResult['type']): React.ElementType => {
+  switch (type) {
+    case 'account':
+      return WalletIcon;
+    case 'transaction':
+      return CreditCardIcon;
+    case 'budget':
+      return TargetIcon;
+    case 'goal':
+      return GoalIcon;
+    default:
+      return SearchIcon;
+  }
+};
+
+const getResultRoute = (result: SearchResult): string => {
+  switch (result.type) {
+    case 'account':
+      return '/accounts';
+    case 'transaction':
+      return `/transactions?search=${result.id}`;
+    case 'budget':
+      return '/budget';
+    case 'goal':
+      return '/goals';
+    default:
+      return '/';
+  }
+};
 
 export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps): React.JSX.Element | null {
   const [query, setQuery] = useState('');
@@ -62,44 +92,14 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps): Re
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, results, selectedIndex, onClose]);
+  }, [handleResultClick, isOpen, onClose, results, selectedIndex]);
 
   // Reset selected index when results change
   useEffect(() => {
     setSelectedIndex(0);
   }, [results]);
 
-  const getResultIcon = (type: SearchResult['type']): React.ElementType => {
-    switch (type) {
-      case 'account':
-        return WalletIcon;
-      case 'transaction':
-        return CreditCardIcon;
-      case 'budget':
-        return TargetIcon;
-      case 'goal':
-        return GoalIcon;
-      default:
-        return SearchIcon;
-    }
-  };
-
-  const getResultRoute = (result: SearchResult): string => {
-    switch (result.type) {
-      case 'account':
-        return `/accounts`;
-      case 'transaction':
-        return `/transactions?search=${result.id}`;
-      case 'budget':
-        return `/budget`;
-      case 'goal':
-        return `/goals`;
-      default:
-        return '/';
-    }
-  };
-
-  const handleResultClick = (result: SearchResult): void => {
+  const handleResultClick = useCallback((result: SearchResult): void => {
     // Preserve demo mode parameter if present
     const searchParams = new URLSearchParams(window.location.search);
     const isDemoMode = searchParams.get('demo') === 'true';
@@ -112,7 +112,7 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps): Re
     
     navigate(route);
     onClose();
-  };
+  }, [navigate, onClose]);
 
   const highlightText = (text: string, matches: string[]): React.JSX.Element => {
     // Handle null/undefined text
@@ -247,22 +247,4 @@ export default function GlobalSearch({ isOpen, onClose }: GlobalSearchProps): Re
       </div>
     </div>
   );
-}
-
-// Hook to manage global search state
-export function useGlobalSearchDialog(): {
-  isOpen: boolean;
-  openSearch: () => void;
-  closeSearch: () => void;
-} {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const openSearch = () => setIsOpen(true);
-  const closeSearch = () => setIsOpen(false);
-
-  return {
-    isOpen,
-    openSearch,
-    closeSearch,
-  };
 }

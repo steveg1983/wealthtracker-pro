@@ -6,7 +6,7 @@ import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance, DecimalTransaction, DecimalAccount } from '../types/decimal-types';
 
 const NetWorthTrendChart = React.memo(function NetWorthTrendChart() {
-  const { accounts, transactions, getDecimalAccounts, getDecimalTransactions } = useApp();
+  const { getDecimalAccounts, getDecimalTransactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
 
   // Calculate net worth over the last 6 months

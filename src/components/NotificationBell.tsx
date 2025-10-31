@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
-import { BellIcon, BellOffIcon, CheckIcon, XIcon, AlertCircleIcon, InfoIcon, CheckCircleIcon, XCircleIcon, SettingsIcon } from './icons';
+import { BellIcon, BellOffIcon, XIcon, AlertCircleIcon, InfoIcon, CheckCircleIcon, XCircleIcon, SettingsIcon } from './icons';
 import NotificationCenter from './NotificationCenter';
 
 export default function NotificationBell(): React.JSX.Element {
@@ -131,9 +131,11 @@ export default function NotificationBell(): React.JSX.Element {
                             <p className="font-medium text-sm text-gray-900 dark:text-white">
                               {notification.title}
                             </p>
-                            {notification.message && notification.message.length > 50 && (
+                            {notification.message && (
                               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                {notification.message.substring(50)}
+                                {notification.message.length > 80
+                                  ? `${notification.message.slice(0, 80)}…`
+                                  : notification.message}
                               </p>
                             )}
                             <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">

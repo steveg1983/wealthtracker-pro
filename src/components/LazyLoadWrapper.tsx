@@ -18,14 +18,14 @@ export const LazyLoadWrapper: React.FC<LazyLoadWrapperProps> = ({
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const target = ref.current;
+    if (!target) return undefined;
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsVisible(true);
-          // Once visible, stop observing
-          if (ref.current) {
-            observer.unobserve(ref.current);
-          }
+          observer.unobserve(entry.target);
         }
       },
       {
@@ -34,14 +34,11 @@ export const LazyLoadWrapper: React.FC<LazyLoadWrapperProps> = ({
       }
     );
 
-    if (ref.current) {
-      observer.observe(ref.current);
-    }
+    observer.observe(target);
 
     return () => {
-      if (ref.current) {
-        observer.unobserve(ref.current);
-      }
+      observer.unobserve(target);
+      observer.disconnect();
     };
   }, [threshold, rootMargin]);
 

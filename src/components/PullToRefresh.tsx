@@ -271,41 +271,6 @@ export function PullToRefresh({
 }
 
 /**
- * Hook for pull-to-refresh functionality
- */
-export function usePullToRefresh(
-  onRefresh: () => Promise<void>,
-  options: {
-    threshold?: number;
-    disabled?: boolean;
-  } = {}
-) {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  
-  const refresh = useCallback(async () => {
-    if (isRefreshing || options.disabled) return;
-    
-    setIsRefreshing(true);
-    try {
-      await onRefresh();
-      setLastRefresh(new Date());
-    } catch (error) {
-      console.error('Refresh failed:', error);
-      throw error;
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [onRefresh, isRefreshing, options.disabled]);
-
-  return {
-    isRefreshing,
-    lastRefresh,
-    refresh
-  };
-}
-
-/**
  * Enhanced List with Pull-to-Refresh
  */
 export function RefreshableList({

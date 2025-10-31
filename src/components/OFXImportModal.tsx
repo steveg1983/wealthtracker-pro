@@ -13,20 +13,64 @@ import {
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
+import type { Account } from '../types';
 
 interface OFXImportModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+type ImportTransactionsResult = Awaited<ReturnType<typeof ofxImportService.importTransactions>>;
+
+type ImportOutcome =
+  | {
+      success: true;
+      imported: number;
+      duplicates: number;
+      account: Account | null;
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
 export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps): React.JSX.Element {
   const { accounts, transactions, categories, addTransaction } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [parseResult, setParseResult] = useState<any>(null);
-  const [importResult, setImportResult] = useState<any>(null);
+  const [parseResult, setParseResult] = useState<ImportTransactionsResult | null>(null);
+  const [importResult, setImportResult] = useState<ImportOutcome | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [skipDuplicates, setSkipDuplicates] = useState(true);
+
+  const parseFile = useCallback(async (targetFile: File) => {
+    setIsProcessing(true);
+    
+    try {
+      const content = await targetFile.text();
+      const result = await ofxImportService.importTransactions(
+        content,
+        accounts,
+        transactions,
+        { 
+          skipDuplicates: false,
+          categories,
+          autoCategorize: true
+        }
+      );
+      
+      setParseResult(result);
+      
+      if (result.matchedAccount) {
+        setSelectedAccountId(result.matchedAccount.id);
+      }
+    } catch (error) {
+      console.error('Error parsing OFX file:', error);
+      alert('Error parsing OFX file. Please check the file format.');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [accounts, categories, transactions]);
   
   // Handle file upload
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,7 +89,7 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
     
     // Parse the file
     parseFile(uploadedFile);
-  }, []);
+  }, [parseFile]);
   
   // Handle drag and drop
   const handleDrop = useCallback((event: React.DragEvent) => {
@@ -58,41 +102,10 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
       setImportResult(null);
       parseFile(droppedFile);
     }
-  }, []);
-  
-  // Parse OFX file
-  const parseFile = async (file: File) => {
-    setIsProcessing(true);
-    
-    try {
-      const content = await file.text();
-      const result = await ofxImportService.importTransactions(
-        content,
-        accounts,
-        transactions,
-        { 
-          skipDuplicates: false,
-          categories,
-          autoCategorize: true
-        }
-      );
-      
-      setParseResult(result);
-      
-      // Auto-select account if matched
-      if (result.matchedAccount) {
-        setSelectedAccountId(result.matchedAccount.id);
-      }
-    } catch (error) {
-      console.error('Error parsing OFX file:', error);
-      alert('Error parsing OFX file. Please check the file format.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  }, [parseFile]);
   
   // Process import
-  const processImport = async () => {
+  const processImport = useCallback(async () => {
     if (!parseResult || !file) return;
     
     setIsProcessing(true);
@@ -116,11 +129,12 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
         addTransaction(transaction);
       }
       
+      const account = result.matchedAccount ?? accounts.find(a => a.id === selectedAccountId) ?? null;
       setImportResult({
         success: true,
         imported: result.newTransactions,
         duplicates: result.duplicates,
-        account: result.matchedAccount || accounts.find(a => a.id === selectedAccountId)
+        account
       });
     } catch (error) {
       console.error('Import error:', error);
@@ -131,15 +145,15 @@ export default function OFXImportModal({ isOpen, onClose }: OFXImportModalProps)
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [accounts, addTransaction, file, parseResult, selectedAccountId, skipDuplicates, transactions, categories]);
   
   // Reset modal
-  const resetModal = () => {
+  const resetModal = useCallback(() => {
     setFile(null);
     setParseResult(null);
     setImportResult(null);
     setSelectedAccountId('');
-  };
+  }, []);
   
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Import OFX File" size="lg">

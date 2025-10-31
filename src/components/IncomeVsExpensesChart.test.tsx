@@ -386,7 +386,7 @@ describe('IncomeVsExpensesChart', () => {
   });
 
   it('updates when transactions change', () => {
-    const { rerender, unmount } = render(<IncomeVsExpensesChart />);
+    const { unmount } = render(<IncomeVsExpensesChart />);
     
     const firstRender = screen.getByTestId('bar-chart');
     const firstData = JSON.parse(firstRender.getAttribute('data-chart-data') || '[]');

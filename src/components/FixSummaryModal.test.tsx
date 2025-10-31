@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import FixSummaryModal, { type ChangeRecord } from './FixSummaryModal';
 
@@ -128,7 +128,7 @@ describe('FixSummaryModal', () => {
       renderModal(true, [createMockChange()]);
       expect(screen.getByText('Successfully Applied 1 Fix')).toBeInTheDocument();
       
-      const { rerender } = render(
+      render(
         <FixSummaryModal
           isOpen={true}
           onClose={mockOnClose}

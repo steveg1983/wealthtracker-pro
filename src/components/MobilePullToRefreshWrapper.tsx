@@ -1,6 +1,5 @@
 import React, { ReactNode, useCallback } from 'react';
 import { PullToRefresh } from './PullToRefresh';
-import { useNavigate } from 'react-router-dom';
 
 interface MobilePullToRefreshWrapperProps {
   children: ReactNode;
@@ -13,7 +12,6 @@ export function MobilePullToRefreshWrapper({
   onRefresh,
   enabled = true
 }: MobilePullToRefreshWrapperProps): React.JSX.Element {
-  const navigate = useNavigate();
   const isMobile = window.innerWidth < 768; // Only enable on mobile devices
 
   const defaultRefresh = useCallback(async () => {

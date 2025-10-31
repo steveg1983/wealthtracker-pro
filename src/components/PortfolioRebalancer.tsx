@@ -1,16 +1,12 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { portfolioRebalanceService } from '../services/portfolioRebalanceService';
 import type { AssetAllocation, RebalanceAction, PortfolioTarget } from '../services/portfolioRebalanceService';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useCurrency } from '../hooks/useCurrency';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Investment } from '../types';
 import {
-  BarChart3Icon,
-  TrendingUpIcon,
   AlertCircleIcon,
   CheckCircleIcon,
-  SettingsIcon,
   RefreshCwIcon,
   TargetIcon,
   InfoIcon,
@@ -18,8 +14,8 @@ import {
   DeleteIcon,
   PlusIcon
 } from './icons';
-import { Modal, ModalBody, ModalFooter } from './common/Modal';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { Modal, ModalBody } from './common/Modal';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface PortfolioRebalancerProps {
   accountId?: string;
@@ -32,12 +28,12 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
   const [activeTarget, setActiveTarget] = useState<PortfolioTarget | null>(null);
   const [showTargetModal, setShowTargetModal] = useState(false);
   const [editingTarget, setEditingTarget] = useState<PortfolioTarget | null>(null);
+  const [prefillTarget, setPrefillTarget] = useState<Partial<PortfolioTarget> | null>(null);
   const [rebalanceNeeded, setRebalanceNeeded] = useState(false);
   const [cashAvailable, setCashAvailable] = useState(0);
   const [taxConsiderations, setTaxConsiderations] = useState(true);
   
   const { accounts } = useApp();
-  const { currencySymbol } = useCurrency();
   const { formatCurrency } = useCurrencyDecimal();
 
   // Extract investments from accounts with holdings
@@ -65,12 +61,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
     return allInvestments;
   }, [accounts]);
 
-  // Load data
-  useEffect(() => {
-    loadPortfolioData();
-  }, [accountId, investments]);
-
-  const loadPortfolioData = () => {
+  const loadPortfolioData = useCallback(() => {
     // Get holdings
     const holdings = investments
       .filter(inv => !accountId || inv.accountId === accountId)
@@ -110,15 +101,28 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
     } else {
       setRebalanceActions([]);
     }
-  };
+  }, [accountId, cashAvailable, investments, taxConsiderations]);
+
+  // Load data
+  useEffect(() => {
+    loadPortfolioData();
+  }, [loadPortfolioData]);
 
   const handleSaveTarget = (target: Partial<PortfolioTarget>) => {
+    if (!target.name || !(target.allocations && target.allocations.length > 0)) {
+      alert('Please provide a target name and allocations');
+      return;
+    }
+
     const savedTarget = portfolioRebalanceService.savePortfolioTarget({
-      ...target,
       id: editingTarget?.id,
-      isActive: true, // Make new targets active by default
-      allocations: target.allocations || []
-    } as any);
+      name: target.name,
+      description: target.description,
+      allocations: target.allocations,
+      rebalanceThreshold: target.rebalanceThreshold ?? 5,
+      isActive: true,
+      lastRebalanced: editingTarget?.lastRebalanced
+    });
 
     // Deactivate other targets if this one is active
     if (savedTarget.isActive) {
@@ -132,6 +136,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
     loadPortfolioData();
     setShowTargetModal(false);
     setEditingTarget(null);
+    setPrefillTarget(null);
   };
 
   const handleDeleteTarget = (targetId: string) => {
@@ -153,10 +158,12 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
   };
 
   const handleUseTemplate = (template: PortfolioTarget) => {
-    setEditingTarget({
-      ...template,
-      id: undefined as any,
+    setEditingTarget(null);
+    setPrefillTarget({
       name: `${template.name} (Copy)`,
+      description: template.description,
+      allocations: template.allocations,
+      rebalanceThreshold: template.rebalanceThreshold,
       isActive: true
     });
     setShowTargetModal(true);
@@ -481,6 +488,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
         <TargetManagementModal
           targets={portfolioTargets}
           editingTarget={editingTarget}
+          prefillTarget={prefillTarget}
           onSave={handleSaveTarget}
           onDelete={handleDeleteTarget}
           onSetActive={handleSetActiveTarget}
@@ -488,6 +496,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
           onClose={() => {
             setShowTargetModal(false);
             setEditingTarget(null);
+            setPrefillTarget(null);
           }}
         />
       )}
@@ -499,6 +508,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
 interface TargetManagementModalProps {
   targets: PortfolioTarget[];
   editingTarget: PortfolioTarget | null;
+  prefillTarget: Partial<PortfolioTarget> | null;
   onSave: (target: Partial<PortfolioTarget>) => void;
   onDelete: (targetId: string) => void;
   onSetActive: (target: PortfolioTarget) => void;
@@ -509,6 +519,7 @@ interface TargetManagementModalProps {
 function TargetManagementModal({
   targets,
   editingTarget,
+  prefillTarget,
   onSave,
   onDelete,
   onSetActive,
@@ -516,21 +527,35 @@ function TargetManagementModal({
   onClose
 }: TargetManagementModalProps) {
   const [activeTab, setActiveTab] = useState<'targets' | 'templates' | 'edit'>('targets');
-  const [formData, setFormData] = useState<Partial<PortfolioTarget>>(
-    editingTarget || {
-      name: '',
-      description: '',
-      allocations: [],
-      rebalanceThreshold: 5
-    }
-  );
+  const [formData, setFormData] = useState<Partial<PortfolioTarget>>({
+    name: '',
+    description: '',
+    allocations: [],
+    rebalanceThreshold: 5
+  });
 
   useEffect(() => {
     if (editingTarget) {
       setFormData(editingTarget);
       setActiveTab('edit');
+    } else if (prefillTarget) {
+      setFormData({
+        name: prefillTarget.name ?? '',
+        description: prefillTarget.description ?? '',
+        allocations: prefillTarget.allocations ? [...prefillTarget.allocations] : [],
+        rebalanceThreshold: prefillTarget.rebalanceThreshold ?? 5,
+        isActive: prefillTarget.isActive ?? true
+      });
+      setActiveTab('edit');
+    } else {
+      setFormData({
+        name: '',
+        description: '',
+        allocations: [],
+        rebalanceThreshold: 5
+      });
     }
-  }, [editingTarget]);
+  }, [editingTarget, prefillTarget]);
 
   const templates = portfolioRebalanceService.getPortfolioTemplates();
 

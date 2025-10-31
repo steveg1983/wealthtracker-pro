@@ -11,6 +11,14 @@ interface WebVitalScore {
   threshold: { good: number; poor: number };
 }
 
+interface ResourceSummary {
+  totalResources: number;
+  jsCount: number;
+  cssCount: number;
+  avgJsLoad: number;
+  avgCssLoad: number;
+}
+
 export const PerformanceDashboard: React.FC = () => {
   const {
     getNavigationTiming,
@@ -19,10 +27,10 @@ export const PerformanceDashboard: React.FC = () => {
     getBundleSize
   } = usePerformanceMonitoring();
 
-  const [navigationTiming, setNavigationTiming] = useState<any>(null);
-  const [resourceMetrics, setResourceMetrics] = useState<any>(null);
-  const [memoryUsage, setMemoryUsage] = useState<any>(null);
-  const [bundleSize, setBundleSize] = useState<any>(null);
+  const [navigationTiming, setNavigationTiming] = useState<ReturnType<typeof getNavigationTiming>>(null);
+  const [resourceMetrics, setResourceMetrics] = useState<ResourceSummary | null>(null);
+  const [memoryUsage, setMemoryUsage] = useState<ReturnType<typeof getMemoryUsage>>(null);
+  const [bundleSize, setBundleSize] = useState<ReturnType<typeof getBundleSize>>(null);
   const [webVitals, setWebVitals] = useState<WebVitalScore[]>([]);
 
   useEffect(() => {
@@ -33,13 +41,15 @@ export const PerformanceDashboard: React.FC = () => {
       const resources = getResourceTiming();
       const jsResources = resources.filter(r => r.type === 'script');
       const cssResources = resources.filter(r => r.type === 'link');
+      const jsCount = jsResources.length;
+      const cssCount = cssResources.length;
       
       setResourceMetrics({
         totalResources: resources.length,
-        jsCount: jsResources.length,
-        cssCount: cssResources.length,
-        avgJsLoad: jsResources.reduce((sum, r) => sum + r.duration, 0) / jsResources.length || 0,
-        avgCssLoad: cssResources.reduce((sum, r) => sum + r.duration, 0) / cssResources.length || 0
+        jsCount,
+        cssCount,
+        avgJsLoad: jsCount ? jsResources.reduce((sum, r) => sum + r.duration, 0) / jsCount : 0,
+        avgCssLoad: cssCount ? cssResources.reduce((sum, r) => sum + r.duration, 0) / cssCount : 0
       });
       
       setMemoryUsage(getMemoryUsage());
@@ -57,8 +67,8 @@ export const PerformanceDashboard: React.FC = () => {
       const entries = list.getEntries();
       const vitals: WebVitalScore[] = [];
 
-      entries.forEach((entry: any) => {
-        if (entry.name === 'first-contentful-paint') {
+      entries.forEach((entry) => {
+        if (entry.entryType === 'paint' && entry.name === 'first-contentful-paint') {
           vitals.push({
             metric: 'FCP',
             value: entry.startTime,
@@ -76,15 +86,16 @@ export const PerformanceDashboard: React.FC = () => {
     try {
       observer.observe({ type: 'paint', buffered: true });
     } catch (error) {
-      console.warn('Paint timing not supported');
+      console.warn('Paint timing not supported', error);
     }
 
     return () => {
       window.removeEventListener('load', collectMetrics);
+      observer.disconnect();
     };
   }, [getNavigationTiming, getResourceTiming, getMemoryUsage, getBundleSize]);
 
-  const getRatingIcon = (rating: string) => {
+  const getRatingIcon = (rating: WebVitalScore['rating']) => {
     switch (rating) {
       case 'good':
         return <CheckCircle className="w-5 h-5 text-green-500" />;

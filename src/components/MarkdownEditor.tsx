@@ -8,8 +8,7 @@ import {
   EyeIcon,
   EditIcon,
   CodeIcon,
-  QuoteIcon,
-  ImageIcon
+  QuoteIcon
 } from './icons';
 
 interface MarkdownEditorProps {

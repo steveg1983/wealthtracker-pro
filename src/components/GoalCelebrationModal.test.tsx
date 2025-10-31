@@ -4,8 +4,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { render, screen, fireEvent } from '@testing-library/react';
 import GoalCelebrationModal from './GoalCelebrationModal';
 
 // Mock dependencies
@@ -432,7 +431,7 @@ describe('GoalCelebrationModal', () => {
       renderModal(true, createMockGoal(), longMessage);
       
       // Use a more flexible matcher for the long text
-      expect(screen.getByText((content, element) => {
+      expect(screen.getByText((content, _element) => {
         return content.includes('Congratulations!') && content.length > 200;
       })).toBeInTheDocument();
     });

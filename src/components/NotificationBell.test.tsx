@@ -4,10 +4,9 @@
  */
 
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import NotificationBell from './NotificationBell';
-import { NotificationProvider } from '../contexts/NotificationContext';
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -42,7 +41,7 @@ vi.mock('./icons', () => ({
 
 // Mock NotificationCenter
 vi.mock('./NotificationCenter', () => ({
-  default: ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => 
+  default: ({ isOpen, onClose: _onClose }: { isOpen: boolean; onClose: () => void }) => 
     isOpen ? <div data-testid="notification-center">Notification Center</div> : null
 }));
 

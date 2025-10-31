@@ -6,10 +6,12 @@ import type { HouseholdMember } from '../services/collaborationService';
 
 // Mock icons
 vi.mock('./icons', () => ({
-  DollarSignIcon: ({ size, className }: any) => <div data-testid="dollar-sign-icon" className={className}>$</div>,
-  UsersIcon: ({ size }: any) => <div data-testid="users-icon">Users</div>,
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
-  CheckIcon: ({ size }: any) => <div data-testid="check-icon">Check</div>,
+  DollarSignIcon: ({ className }: { className?: string }) => (
+    <div data-testid="dollar-sign-icon" className={className}>$</div>
+  ),
+  UsersIcon: () => <div data-testid="users-icon">Users</div>,
+  XIcon: () => <div data-testid="x-icon">X</div>,
+  CheckIcon: () => <div data-testid="check-icon">Check</div>,
 }));
 
 // Mock hooks

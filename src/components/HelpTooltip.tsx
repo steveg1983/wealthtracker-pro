@@ -96,7 +96,7 @@ export default function HelpTooltip({
 }
 
 // Collection of help content for common features
-export const HelpContent = {
+const HELP_CONTENT = {
   reconciliation: {
     title: "Account Reconciliation",
     content: "Match your account balance with bank statements. Mark transactions as cleared when they appear on your statement. This helps identify missing or duplicate transactions."
@@ -184,13 +184,13 @@ export const HelpContent = {
 
 // Wrapper component for inline help icons next to labels
 interface InlineHelpProps {
-  helpKey: keyof typeof HelpContent;
+  helpKey: keyof typeof HELP_CONTENT;
   label: string;
   className?: string;
 }
 
 export function InlineHelp({ helpKey, label, className = '' }: InlineHelpProps): React.JSX.Element {
-  const help = HelpContent[helpKey];
+  const help = HELP_CONTENT[helpKey];
   
   return (
     <div className={`flex items-center gap-1 ${className}`}>

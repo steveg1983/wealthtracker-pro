@@ -10,7 +10,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import PortfolioRebalancer from './PortfolioRebalancer';
 import type { Account } from '../types';
-import { useApp } from '../contexts/AppContextSupabase';
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -423,6 +422,7 @@ describe('PortfolioRebalancer', () => {
       render(<PortfolioRebalancer />);
       
       const checkbox = screen.getByRole('checkbox');
+      expect(checkbox).toBeInTheDocument();
       // Check that checkbox is accessible through its label
       const label = screen.getByText(/Consider Tax Implications/i);
       expect(label).toBeInTheDocument();

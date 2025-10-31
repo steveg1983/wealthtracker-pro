@@ -93,7 +93,7 @@ describe('PageWrapper', () => {
     });
 
     it('positions right content absolutely within header when not reduced', () => {
-      const { container } = render(
+      render(
         <PageWrapper 
           title="Test Page"
           rightContent={<button data-testid="right-btn">Action</button>}

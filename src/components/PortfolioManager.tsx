@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import { validateSymbol } from '../services/stockPriceService';
@@ -8,8 +7,7 @@ import {
   EditIcon, 
   DeleteIcon, 
   SearchIcon,
-  CheckIcon,
-  XIcon
+  CheckIcon
 } from './icons';
 import { Modal } from './common/Modal';
 import { LoadingButton } from './loading/LoadingState';
@@ -30,7 +28,7 @@ interface PortfolioManagerProps {
   onUpdate: (holdings: StockHolding[]) => void;
 }
 
-export default function PortfolioManager({ accountId, holdings, onUpdate }: PortfolioManagerProps) {
+export default function PortfolioManager({ accountId: _accountId, holdings, onUpdate }: PortfolioManagerProps) {
   const { formatCurrency } = useCurrencyDecimal();
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingHolding, setEditingHolding] = useState<StockHolding | null>(null);
@@ -100,7 +98,7 @@ export default function PortfolioManager({ accountId, holdings, onUpdate }: Port
         setIsValidating(false);
         return;
       }
-    } catch (error) {
+    } catch {
       setValidationError('Unable to validate symbol. Please try again.');
       setIsValidating(false);
       return;

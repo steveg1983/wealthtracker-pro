@@ -15,12 +15,33 @@ import {
 import type { ImportRule, ImportRuleCondition, ImportRuleAction } from '../types/importRules';
 import type { Category, Account } from '../types';
 
+const CONDITION_FIELDS: ReadonlyArray<ImportRuleCondition['field']> = ['description', 'amount', 'accountId', 'date'];
+const AMOUNT_OPERATORS: ReadonlyArray<ImportRuleCondition['operator']> = ['equals', 'greaterThan', 'lessThan', 'between'];
+const TEXT_OPERATORS: ReadonlyArray<ImportRuleCondition['operator']> = ['contains', 'equals', 'startsWith', 'endsWith', 'regex'];
+const ACTION_TYPES: ReadonlyArray<ImportRuleAction['type']> = ['setCategory', 'addTag', 'modifyDescription', 'setAccount', 'skip'];
+const MODIFICATION_TYPES: ReadonlyArray<NonNullable<ImportRuleAction['modification']>> = ['replace', 'prepend', 'append', 'regex'];
+
+const isConditionField = (value: string): value is ImportRuleCondition['field'] => (
+  (CONDITION_FIELDS as readonly string[]).includes(value)
+);
+
+const isConditionOperator = (value: string): value is ImportRuleCondition['operator'] => (
+  ([...AMOUNT_OPERATORS, ...TEXT_OPERATORS] as readonly string[]).includes(value)
+);
+
+const isActionType = (value: string): value is ImportRuleAction['type'] => (
+  (ACTION_TYPES as readonly string[]).includes(value)
+);
+
+const isModificationType = (value: string): value is NonNullable<ImportRuleAction['modification']> => (
+  (MODIFICATION_TYPES as readonly string[]).includes(value)
+);
+
 export default function ImportRulesManager() {
   const { categories, accounts, transactions } = useApp();
   const [rules, setRules] = useState<ImportRule[]>([]);
   const [editingRule, setEditingRule] = useState<ImportRule | null>(null);
   const [showAddRule, setShowAddRule] = useState(false);
-  const [testMode, setTestMode] = useState(false);
   const [testResults, setTestResults] = useState<Map<string, boolean>>(new Map());
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestions, setSuggestions] = useState<Partial<ImportRule>[]>([]);
@@ -486,35 +507,42 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                   <div key={index} className="flex gap-2 items-start bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
                     <select
                       value={condition.field}
-                      onChange={(e) => updateCondition(index, { field: e.target.value as any })}
+                      onChange={(e) => {
+                        const nextField = e.target.value;
+                        if (isConditionField(nextField)) {
+                          updateCondition(index, { field: nextField });
+                        }
+                      }}
                       className="px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
                     >
                       <option value="description">Description</option>
                       <option value="amount">Amount</option>
                       <option value="accountId">Account</option>
+                      <option value="date">Date</option>
                     </select>
 
                     <select
                       value={condition.operator}
-                      onChange={(e) => updateCondition(index, { operator: e.target.value as any })}
+                      onChange={(e) => {
+                        const nextOperator = e.target.value;
+                        if (isConditionOperator(nextOperator)) {
+                          updateCondition(index, { operator: nextOperator });
+                        }
+                      }}
                       className="px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
                     >
-                      {condition.field === 'amount' ? (
-                        <>
-                          <option value="equals">Equals</option>
-                          <option value="greaterThan">Greater than</option>
-                          <option value="lessThan">Less than</option>
-                          <option value="between">Between</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="contains">Contains</option>
-                          <option value="equals">Equals</option>
-                          <option value="startsWith">Starts with</option>
-                          <option value="endsWith">Ends with</option>
-                          <option value="regex">Regex</option>
-                        </>
-                      )}
+                      {(condition.field === 'amount' ? AMOUNT_OPERATORS : TEXT_OPERATORS).map((operator) => (
+                        <option key={operator} value={operator}>
+                          {operator === 'greaterThan' && 'Greater than'}
+                          {operator === 'lessThan' && 'Less than'}
+                          {operator === 'between' && 'Between'}
+                          {operator === 'contains' && 'Contains'}
+                          {operator === 'equals' && 'Equals'}
+                          {operator === 'startsWith' && 'Starts with'}
+                          {operator === 'endsWith' && 'Ends with'}
+                          {operator === 'regex' && 'Regex'}
+                        </option>
+                      ))}
                     </select>
 
                     <input
@@ -578,14 +606,23 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                   <div key={index} className="flex gap-2 items-start bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
                     <select
                       value={action.type}
-                      onChange={(e) => updateAction(index, { type: e.target.value as any })}
+                      onChange={(e) => {
+                        const nextType = e.target.value;
+                        if (isActionType(nextType)) {
+                          updateAction(index, { type: nextType });
+                        }
+                      }}
                       className="px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
                     >
-                      <option value="setCategory">Set Category</option>
-                      <option value="addTag">Add Tag</option>
-                      <option value="modifyDescription">Modify Description</option>
-                      <option value="setAccount">Set Account</option>
-                      <option value="skip">Skip Transaction</option>
+                      {ACTION_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {type === 'setCategory' && 'Set Category'}
+                          {type === 'addTag' && 'Add Tag'}
+                          {type === 'modifyDescription' && 'Modify Description'}
+                          {type === 'setAccount' && 'Set Account'}
+                          {type === 'skip' && 'Skip Transaction'}
+                        </option>
+                      ))}
                     </select>
 
                     {action.type === 'setCategory' && (
@@ -615,13 +652,22 @@ function RuleFormModal({ rule, categories, accounts, onSave, onClose }: RuleForm
                       <>
                         <select
                           value={action.modification}
-                          onChange={(e) => updateAction(index, { modification: e.target.value as any })}
+                          onChange={(e) => {
+                            const nextModification = e.target.value;
+                            if (isModificationType(nextModification)) {
+                              updateAction(index, { modification: nextModification });
+                            }
+                          }}
                           className="px-2 py-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm"
                         >
-                          <option value="replace">Replace</option>
-                          <option value="prepend">Prepend</option>
-                          <option value="append">Append</option>
-                          <option value="regex">Regex Replace</option>
+                          {MODIFICATION_TYPES.map((modification) => (
+                            <option key={modification} value={modification}>
+                              {modification === 'replace' && 'Replace'}
+                              {modification === 'prepend' && 'Prepend'}
+                              {modification === 'append' && 'Append'}
+                              {modification === 'regex' && 'Regex Replace'}
+                            </option>
+                          ))}
                         </select>
                         {action.modification === 'regex' ? (
                           <>
