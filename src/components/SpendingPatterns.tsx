@@ -5,13 +5,11 @@ import {
   TrendingUpIcon,
   BarChart3Icon,
   CalendarIcon,
-  DollarSignIcon,
   AlertCircleIcon,
   RefreshCwIcon,
   EyeIcon,
   FilterIcon,
   CheckCircleIcon,
-  XCircleIcon,
   ClockIcon,
   LineChartIcon
 } from './icons';
@@ -23,7 +21,7 @@ interface SpendingPatternsProps {
 export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps) {
   const [patterns, setPatterns] = useState<SpendingPattern[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedType, setSelectedType] = useState<string>('all');
+  const [selectedType, setSelectedType] = useState<PatternFilter>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'confidence' | 'amount' | 'detectedAt' | 'frequency'>('confidence');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -91,12 +89,6 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
     }
   };
 
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.8) return 'text-green-600 dark:text-green-400';
-    if (confidence >= 0.6) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
-  };
-
   const getConfidenceBadge = (confidence: number) => {
     if (confidence >= 0.8) return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200';
     if (confidence >= 0.6) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200';
@@ -118,7 +110,9 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
     });
   };
 
-  const patternTypes = ['all', 'recurring', 'seasonal', 'trend', 'anomaly'];
+  const patternTypes = ['all', 'recurring', 'seasonal', 'trend', 'anomaly'] as const;
+  type PatternFilter = typeof patternTypes[number];
+  const patternTypeOptions: SpendingPattern['patternType'][] = ['recurring', 'seasonal', 'trend', 'anomaly'];
   const categories = ['all', ...Array.from(new Set(patterns.map(p => p.category)))];
 
   const filteredPatterns = patterns
@@ -231,14 +225,14 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           Pattern Distribution
         </h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {patternTypes.slice(1).map(type => {
+          {patternTypeOptions.map(type => {
             const count = patterns.filter(p => p.patternType === type && p.isActive).length;
             const percentage = patterns.length > 0 ? (count / patterns.filter(p => p.isActive).length) * 100 : 0;
             
             return (
               <div key={type} className="text-center">
                 <div className="flex items-center justify-center mb-2">
-                  {getPatternTypeIcon(type as any)}
+                  {getPatternTypeIcon(type)}
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{count}</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400 capitalize">{type}</div>
@@ -255,7 +249,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           <FilterIcon size={16} className="text-gray-400" />
           <select
             value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
+            onChange={(e) => setSelectedType(e.target.value as PatternFilter)}
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           >
             {patternTypes.map(type => (
@@ -284,7 +278,11 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
           <label className="text-sm text-gray-600 dark:text-gray-400">Sort by:</label>
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={(e) =>
+              setSortBy(
+                e.target.value as 'confidence' | 'amount' | 'detectedAt' | 'frequency'
+              )
+            }
             className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           >
             <option value="confidence">Confidence</option>

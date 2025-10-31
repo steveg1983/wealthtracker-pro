@@ -3,7 +3,6 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal } from '../utils/decimal';
 import { calculateBudgetSpending, calculateBudgetPercentage } from '../utils/calculations-decimal';
 import type { DecimalInstance, DecimalBudget } from '../types/decimal-types';
 import {
@@ -11,11 +10,9 @@ import {
   AlertCircleIcon,
   CheckCircleIcon,
   SettingsIcon,
-  TrendingUpIcon,
   InfoIcon,
   XIcon,
   FilterIcon,
-  VolumeIcon,
   BellOffIcon
 } from './icons';
 
@@ -107,7 +104,6 @@ export default function SpendingAlerts() {
   const [alertConfigs, setAlertConfigs] = useLocalStorage<AlertConfig[]>('alert-configs', DEFAULT_ALERT_CONFIGS);
   const [alerts, setAlerts] = useLocalStorage<Alert[]>('spending-alerts', []);
   const [showSettings, setShowSettings] = useState(false);
-  const [selectedConfig, setSelectedConfig] = useState<AlertConfig | null>(null);
   const [filter, setFilter] = useState<'all' | 'unread' | 'warning' | 'critical'>('all');
   const [mutedCategories, setMutedCategories] = useState<string[]>([]);
 
@@ -183,7 +179,7 @@ export default function SpendingAlerts() {
               try {
                 const audio = new Audio('/notification.mp3');
                 audio.play().catch(() => {});
-              } catch (e) {
+              } catch {
                 // Ignore audio play errors - notification sound is optional
               }
             }
@@ -205,7 +201,7 @@ export default function SpendingAlerts() {
     const interval = setInterval(checkAlerts, 60000); // Check every minute
     
     return () => clearInterval(interval);
-  }, [budgets, alertConfigs, mutedCategories]);
+  }, [budgets, alertConfigs, mutedCategories, getDecimalBudgets, getDecimalTransactions, alerts, setAlerts]);
 
   // Calculate alert statistics
   const alertStats = useMemo((): AlertStats => {

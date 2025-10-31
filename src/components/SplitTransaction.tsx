@@ -3,11 +3,8 @@ import {
   Scissors, 
   Plus, 
   Trash2, 
-  Calculator,
   Check,
-  AlertCircle,
-  DollarSign,
-  Tag
+  AlertCircle
 } from 'lucide-react';
 import { Transaction } from '../types';
 import { useApp } from '../contexts/AppContextSupabase';
@@ -62,13 +59,26 @@ export default function SplitTransaction({
 
   // Update percentages when amounts change
   useEffect(() => {
-    if (splitMode === 'amount' && totalAmount > 0) {
-      setSplits(prev => prev.map(split => ({
-        ...split,
-        percentage: (parseFloat(split.amount || '0') / totalAmount) * 100
-      })));
+    if (splitMode !== 'amount' || totalAmount <= 0) {
+      return;
     }
-  }, [splits.map(s => s.amount).join(','), totalAmount, splitMode]);
+
+    setSplits(prev => {
+      let hasChange = false;
+      const updated = prev.map(split => {
+        const amountValue = parseFloat(split.amount || '0');
+        const percentage = (amountValue / totalAmount) * 100;
+        if (Math.abs((split.percentage || 0) - percentage) > 0.01) {
+          hasChange = true;
+        }
+        return {
+          ...split,
+          percentage
+        };
+      });
+      return hasChange ? updated : prev;
+    });
+  }, [splitMode, totalAmount]);
 
   const addSplit = () => {
     const newSplit: SplitItem = {

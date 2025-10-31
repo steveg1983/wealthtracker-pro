@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  LightbulbIcon, 
   CheckIcon, 
   XIcon, 
   SparklesIcon,
@@ -10,7 +9,7 @@ import {
 } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
 import { smartCategorizationService } from '../services/smartCategorizationService';
-import type { Transaction, Category } from '../types';
+import type { Transaction } from '../types';
 
 interface CategorizationSuggestion {
   categoryId: string;

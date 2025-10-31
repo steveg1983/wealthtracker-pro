@@ -26,12 +26,11 @@ export default function SmartCategorizationSettings() {
   const [confidenceThreshold, setConfidenceThreshold] = useState(80);
 
   useEffect(() => {
-    // Learn from existing transactions on mount
     if (transactions.length > 0 && categories.length > 0) {
       smartCategorizationService.learnFromTransactions(transactions, categories);
       setStats(smartCategorizationService.getStats());
     }
-  }, []);
+  }, [transactions, categories]);
 
   const handleLearnPatterns = async () => {
     setIsLearning(true);
