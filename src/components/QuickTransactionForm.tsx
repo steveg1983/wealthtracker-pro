@@ -2,7 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useToast } from '../contexts/ToastContext';
 import { getCurrencySymbol } from '../utils/currency';
+import { toDecimal, toStorageNumber } from '../utils/decimal';
 import { XIcon } from './icons';
+import type { Transaction } from '../types';
 
 interface QuickTransactionFormProps {
   isOpen: boolean;
@@ -28,6 +30,7 @@ export function QuickTransactionForm({
   const [toAccountId, setToAccountId] = useState(accounts[1]?.id || '');
   const [categoryId, setCategoryId] = useState('');
   const amountRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
   
   // Focus on amount field when opened
   useEffect(() => {
@@ -53,8 +56,8 @@ export function QuickTransactionForm({
     }
   }, [filteredCategories, categoryId]);
   
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.SyntheticEvent) => {
+    event.preventDefault();
     
     if (!amount || !description) {
       showError('Please enter amount and description');
@@ -66,27 +69,66 @@ export function QuickTransactionForm({
       return;
     }
     
-    if (type === 'transfer' && !toAccountId) {
-      showError('Please select a destination account');
+    if (type === 'transfer') {
+      if (!toAccountId) {
+        showError('Please select a destination account');
+        return;
+      }
+      if (toAccountId === accountId) {
+        showError('Please choose a different destination account for transfers');
+        return;
+      }
+    }
+    
+    if (type !== 'transfer' && !categoryId) {
+      showError('Please select a category');
       return;
     }
     
     try {
-      const transactionData: any = {
-        amount: parseFloat(amount),
-        description,
+      const trimmedDescription = description.trim();
+      let amountDecimal;
+
+      try {
+        amountDecimal = toDecimal(amount);
+      } catch {
+        showError('Please enter a valid amount');
+        return;
+      }
+
+      if (amountDecimal.isNaN()) {
+        showError('Please enter a valid amount');
+        return;
+      }
+
+      const normalizedAmount = toStorageNumber(amountDecimal.abs());
+      const signedAmount =
+        type === 'income' ? normalizedAmount : type === 'expense' ? -normalizedAmount : -normalizedAmount;
+
+      const baseTransaction: Omit<Transaction, 'id'> = {
+        amount: signedAmount,
+        description: trimmedDescription,
         type,
         accountId,
-        category: categoryId,
-        date: new Date(),
+        category: type === 'transfer' ? categoryId || 'transfer' : categoryId,
+        date: new Date()
       };
       
-      // Add toAccountId for transfers
-      if (type === 'transfer' && toAccountId) {
-        transactionData.toAccountId = toAccountId;
-      }
+      const transferMetadata =
+        type === 'transfer' && toAccountId
+          ? {
+              transferType: 'internal' as const,
+              reference: toAccountId,
+              initiatedDate: new Date(),
+              expectedAmount: normalizedAmount
+            }
+          : undefined;
+
+      const transactionPayload: Omit<Transaction, 'id'> = transferMetadata
+        ? { ...baseTransaction, transferMetadata }
+        : baseTransaction;
       
-      addTransaction(transactionData);
+      await addTransaction(transactionPayload);
       
       showSuccess(`${type === 'expense' ? 'Expense' : type === 'income' ? 'Income' : 'Transfer'} added quickly!`);
       
@@ -100,11 +142,16 @@ export function QuickTransactionForm({
   };
   
   // Keyboard shortcuts within form
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Escape') {
       onClose();
-    } else if (e.key === 'Enter' && e.metaKey) {
-      handleSubmit(e);
+    } else if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+      event.preventDefault();
+      if (formRef.current) {
+        formRef.current.requestSubmit();
+      } else {
+        void handleSubmit(event);
+      }
     }
   };
   
@@ -138,7 +185,7 @@ export function QuickTransactionForm({
         </div>
         
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-4 space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="p-4 space-y-4">
           {/* Amount Field - Most Important */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

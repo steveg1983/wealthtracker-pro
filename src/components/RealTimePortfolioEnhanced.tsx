@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { useRealTimePrices } from '../hooks/useRealTimePrices';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
-import { convertStockPrice } from '../services/stockPriceService';
 import type { DecimalInstance } from '../types/decimal-types';
 import { 
   RefreshCwIcon, 
@@ -13,7 +12,6 @@ import {
   WifiIcon,
   WifiOffIcon
 } from './icons';
-import { LoadingState } from './loading/LoadingState';
 import { Skeleton } from './loading/Skeleton';
 
 interface StockHolding {
@@ -182,7 +180,7 @@ export default function RealTimePortfolioEnhanced({
                 <Skeleton variant="text" className="w-24 h-8" />
               ) : (
                 <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(portfolioMetrics.totalValue)}
+                  {formatCurrency(portfolioMetrics.totalValue, baseCurrency)}
                 </p>
               )}
             </div>
@@ -199,13 +197,15 @@ export default function RealTimePortfolioEnhanced({
                 <Skeleton variant="text" className="w-24 h-8" />
               ) : (
                 <>
-                  <p className={`text-xl font-bold ${
-                    portfolioMetrics.totalDayChange.greaterThanOrEqualTo(0) 
-                      ? 'text-green-600 dark:text-green-400' 
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
+                  <p
+                    className={`text-xl font-bold ${
+                      portfolioMetrics.totalDayChange.greaterThanOrEqualTo(0)
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}
+                  >
                     {portfolioMetrics.totalDayChange.greaterThanOrEqualTo(0) ? '+' : ''}
-                    {formatCurrency(portfolioMetrics.totalDayChange)}
+                    {formatCurrency(portfolioMetrics.totalDayChange, baseCurrency)}
                   </p>
                   <p className={`text-sm ${
                     portfolioMetrics.totalDayChangePercent.greaterThanOrEqualTo(0) 
@@ -235,13 +235,15 @@ export default function RealTimePortfolioEnhanced({
                 <Skeleton variant="text" className="w-24 h-8" />
               ) : (
                 <>
-                  <p className={`text-xl font-bold ${
-                    portfolioMetrics.totalGain.greaterThanOrEqualTo(0) 
-                      ? 'text-green-600 dark:text-green-400' 
-                      : 'text-red-600 dark:text-red-400'
-                  }`}>
+                  <p
+                    className={`text-xl font-bold ${
+                      portfolioMetrics.totalGain.greaterThanOrEqualTo(0)
+                        ? 'text-green-600 dark:text-green-400'
+                        : 'text-red-600 dark:text-red-400'
+                    }`}
+                  >
                     {portfolioMetrics.totalGain.greaterThanOrEqualTo(0) ? '+' : ''}
-                    {formatCurrency(portfolioMetrics.totalGain)}
+                    {formatCurrency(portfolioMetrics.totalGain, baseCurrency)}
                   </p>
                   <p className={`text-sm ${
                     portfolioMetrics.totalGainPercent.greaterThanOrEqualTo(0) 
@@ -271,7 +273,7 @@ export default function RealTimePortfolioEnhanced({
                 <Skeleton variant="text" className="w-24 h-8" />
               ) : (
                 <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  {formatCurrency(portfolioMetrics.totalCost)}
+                  {formatCurrency(portfolioMetrics.totalCost, baseCurrency)}
                 </p>
               )}
             </div>
@@ -309,7 +311,7 @@ export default function RealTimePortfolioEnhanced({
                         {holding.symbol}
                       </h4>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {holding.shares.toFixed(2)} shares @ {formatCurrency(holding.averageCost)}
+                        {holding.shares.toFixed(2)} shares @ {formatCurrency(holding.averageCost, baseCurrency)}
                       </p>
                     </div>
                     {holding.quote && (
@@ -324,12 +326,12 @@ export default function RealTimePortfolioEnhanced({
                 <div className="grid grid-cols-4 gap-6 text-right">
                   {/* Current Price */}
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Price</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Price ({baseCurrency})</p>
                     {isLoading ? (
                       <Skeleton variant="text" className="w-16 h-6" />
                     ) : (
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        {formatCurrency(holding.currentPrice)}
+                        {formatCurrency(holding.currentPrice, baseCurrency)}
                       </p>
                     )}
                   </div>
@@ -353,12 +355,12 @@ export default function RealTimePortfolioEnhanced({
 
                   {/* Market Value */}
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Value</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">Value ({baseCurrency})</p>
                     {isLoading ? (
                       <Skeleton variant="text" className="w-20 h-6" />
                     ) : (
                       <p className="font-semibold text-gray-900 dark:text-white">
-                        {formatCurrency(holding.marketValue)}
+                        {formatCurrency(holding.marketValue, baseCurrency)}
                       </p>
                     )}
                   </div>
@@ -370,13 +372,15 @@ export default function RealTimePortfolioEnhanced({
                       <Skeleton variant="text" className="w-20 h-6" />
                     ) : (
                       <>
-                        <p className={`font-semibold ${
-                          holding.gain.greaterThanOrEqualTo(0) 
-                            ? 'text-green-600 dark:text-green-400' 
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
+                        <p
+                          className={`font-semibold ${
+                            holding.gain.greaterThanOrEqualTo(0)
+                              ? 'text-green-600 dark:text-green-400'
+                              : 'text-red-600 dark:text-red-400'
+                          }`}
+                        >
                           {holding.gain.greaterThanOrEqualTo(0) ? '+' : ''}
-                          {formatCurrency(holding.gain)}
+                          {formatCurrency(holding.gain, baseCurrency)}
                         </p>
                         <p className={`text-xs ${
                           holding.gainPercent.greaterThanOrEqualTo(0) 

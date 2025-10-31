@@ -378,15 +378,15 @@ export default function EnhancedExportManager(): React.JSX.Element {
         ['Category', 'Budgeted', 'Spent', 'Remaining', '% Used', 'Status'],
         ...budgets.map(b => {
           const spent = Math.abs(filteredTransactions
-            .filter(t => t.category === b.categoryId && parseFloat(t.amount) < 0)
-            .reduce((sum, t) => sum + parseFloat(t.amount), 0));
+            .filter(t => t.category === b.categoryId && t.amount < 0)
+            .reduce((sum, t) => sum + t.amount, 0));
           
-          const remaining = parseFloat(b.amount) - spent;
-          const percentage = (spent / parseFloat(b.amount)) * 100;
+          const remaining = b.amount - spent;
+          const percentage = (spent / b.amount) * 100;
           
           return [
             b.categoryId,
-            parseFloat(b.amount),
+            b.amount,
             spent,
             remaining,
             percentage,
@@ -403,7 +403,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
     const categoryGroups = new Map<string, number>();
     filteredTransactions.forEach(t => {
       const current = categoryGroups.get(t.category) || 0;
-      categoryGroups.set(t.category, current + parseFloat(t.amount));
+      categoryGroups.set(t.category, current + t.amount);
     });
 
     const categoryData = [
@@ -466,7 +466,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
       t.category,
       accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
       t.amount,
-      parseFloat(t.amount) > 0 ? 'Income' : 'Expense'
+      t.amount > 0 ? 'Income' : 'Expense'
     ]);
 
     return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');

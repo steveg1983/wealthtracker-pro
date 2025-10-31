@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
-import { getStockQuote, calculatePortfolioMetrics } from '../services/stockPriceService';
+import { calculatePortfolioMetrics } from '../services/stockPriceService';
 import type { PortfolioMetrics } from '../services/stockPriceService';
 import { RefreshCwIcon, TrendingUpIcon, TrendingDownIcon, AlertCircleIcon } from './icons';
 
@@ -25,7 +25,6 @@ export default function RealTimePortfolio({ accountId, accountName, currency }: 
   const [portfolioMetrics, setPortfolioMetrics] = useState<PortfolioMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-  const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
   const account = accounts.find(a => a.id === accountId);
   const holdings: StockHolding[] = (account?.holdings || []).map(h => ({
@@ -61,10 +60,9 @@ export default function RealTimePortfolio({ accountId, accountName, currency }: 
     fetchPortfolioData();
     
     const interval = setInterval(fetchPortfolioData, 60000);
-    setRefreshInterval(interval);
 
     return () => {
-      if (interval) clearInterval(interval);
+      clearInterval(interval);
     };
   }, [fetchPortfolioData]);
 
