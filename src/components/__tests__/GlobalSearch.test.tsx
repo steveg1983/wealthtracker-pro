@@ -74,12 +74,12 @@ vi.mock('../../hooks/useGlobalSearch', () => ({
 
 // Mock icons
 vi.mock('../icons', () => ({
-  SearchIcon: ({ size, className }: any) => <div data-testid="search-icon" className={className}>Search</div>,
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
-  WalletIcon: ({ size }: any) => <div data-testid="wallet-icon">Wallet</div>,
-  CreditCardIcon: ({ size }: any) => <div data-testid="credit-card-icon">CreditCard</div>,
-  TargetIcon: ({ size }: any) => <div data-testid="target-icon">Target</div>,
-  GoalIcon: ({ size }: any) => <div data-testid="goal-icon">Goal</div>
+  SearchIcon: ({ className }: { className?: string }) => <div data-testid="search-icon" className={className}>Search</div>,
+  XIcon: () => <div data-testid="x-icon">X</div>,
+  WalletIcon: () => <div data-testid="wallet-icon">Wallet</div>,
+  CreditCardIcon: () => <div data-testid="credit-card-icon">CreditCard</div>,
+  TargetIcon: () => <div data-testid="target-icon">Target</div>,
+  GoalIcon: () => <div data-testid="goal-icon">Goal</div>
 }));
 
 // Mock DOMPurify

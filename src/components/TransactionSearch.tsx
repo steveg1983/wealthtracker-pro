@@ -17,7 +17,7 @@ export default function TransactionSearch({
   placeholder = 'Search transactions...',
   showAdvanced = true
 }: TransactionSearchProps): React.JSX.Element {
-  const { transactions, accounts, categories } = useApp();
+  const { transactions, accounts } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const [filters, setFilters] = useState({
@@ -31,17 +31,7 @@ export default function TransactionSearch({
   });
 
   // Debounced search function
-  const debouncedSearch = useMemo(
-    () => debounce((term: string, currentFilters: typeof filters) => {
-      const results = searchTransactions(term, currentFilters);
-      if (onResultsChange) {
-        onResultsChange(results);
-      }
-    }, 300),
-    [transactions]
-  );
-
-  const searchTransactions = (term: string, currentFilters: typeof filters): Transaction[] => {
+  const searchTransactions = useCallback((term: string, currentFilters: typeof filters): Transaction[] => {
     let filtered = [...transactions];
 
     // Text search
@@ -97,10 +87,23 @@ export default function TransactionSearch({
     return filtered.sort((a, b) => 
       new Date(b.date).getTime() - new Date(a.date).getTime()
     );
-  };
+  }, [transactions]);
+
+  const debouncedSearch = useMemo(
+    () => debounce((term: string, currentFilters: typeof filters) => {
+      const results = searchTransactions(term, currentFilters);
+      if (onResultsChange) {
+        onResultsChange(results);
+      }
+    }, 300),
+    [onResultsChange, searchTransactions]
+  );
 
   useEffect(() => {
     debouncedSearch(searchTerm, filters);
+    return () => {
+      debouncedSearch.cancel();
+    };
   }, [searchTerm, filters, debouncedSearch]);
 
   const handleClearSearch = () => {

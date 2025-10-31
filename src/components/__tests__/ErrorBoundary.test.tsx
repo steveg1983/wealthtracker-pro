@@ -10,13 +10,13 @@ import ErrorBoundary from '../ErrorBoundary';
 
 // Mock the icons to avoid import issues
 vi.mock('../icons', () => ({
-  AlertTriangleIcon: ({ size, className }: any) => (
+  AlertTriangleIcon: ({ className }: { className?: string }) => (
     <div data-testid="alert-icon" className={className}>Alert</div>
   ),
-  RefreshCwIcon: ({ size }: any) => (
+  RefreshCwIcon: () => (
     <div data-testid="refresh-icon">Refresh</div>
   ),
-  HomeIcon: ({ size }: any) => (
+  HomeIcon: () => (
     <div data-testid="home-icon">Home</div>
   ),
 }));
@@ -148,7 +148,7 @@ describe('ErrorBoundary', () => {
   });
 
   it('handles Try Again button click', () => {
-    const { rerender } = render(
+    render(
       <ErrorBoundary>
         <ThrowError shouldThrow={true} />
       </ErrorBoundary>

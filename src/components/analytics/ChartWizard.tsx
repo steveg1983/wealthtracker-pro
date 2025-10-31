@@ -1,16 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart3Icon,
   LineChartIcon,
   PieChartIcon,
-  TrendingUpIcon,
   ActivityIcon,
   GridIcon,
   LayersIcon,
   ArrowRightLeftIcon,
   LightbulbIcon
 } from '../icons';
-import { useApp } from '../../contexts/AppContextSupabase';
 import {
   LineChart,
   Line,
@@ -28,7 +26,6 @@ import {
   PolarRadiusAxis,
   ScatterChart,
   Scatter,
-  ComposedChart,
   Treemap,
   XAxis,
   YAxis,
@@ -54,7 +51,7 @@ interface ChartConfig {
   description: string;
   icon: React.FC<{ size?: number; className?: string }>;
   requiredDataShape: 'single-series' | 'multi-series' | 'hierarchical' | 'time-series' | 'correlation';
-  defaultOptions: any;
+  defaultOptions: Record<string, unknown>;
 }
 
 const CHART_CATALOG: ChartConfig[] = [
@@ -237,72 +234,118 @@ const COLORS = [
   '#84cc16', // lime
 ];
 
+type SeriesPoint = Record<string, unknown>;
+
+type LabelValueData = {
+  labels: string[];
+  values: number[];
+  categories?: string[];
+};
+
+type CategoryAmountData = {
+  categories: string[];
+  amounts: number[];
+};
+
+type XYData = {
+  x: Array<string | number>;
+  y: Array<string | number>;
+  sizes?: number[];
+};
+
+type ChartRecordData = Record<string, number>;
+
+type ChartInputData = SeriesPoint[] | LabelValueData | CategoryAmountData | XYData | ChartRecordData;
+
 interface ChartWizardProps {
-  data: any;
-  onSave: (chartConfig: any) => void;
+  data: ChartInputData;
+  onSave: (chartConfig: Record<string, unknown>) => void;
   onCancel: () => void;
 }
+
+const isLabelValueData = (input: ChartInputData): input is LabelValueData => {
+  return (
+    !Array.isArray(input) &&
+    'labels' in input &&
+    Array.isArray(input.labels) &&
+    'values' in input &&
+    Array.isArray(input.values)
+  );
+};
+
+const isCategoryAmountData = (input: ChartInputData): input is CategoryAmountData => {
+  return (
+    !Array.isArray(input) &&
+    'categories' in input &&
+    Array.isArray(input.categories) &&
+    'amounts' in input &&
+    Array.isArray(input.amounts)
+  );
+};
+
+const isXYData = (input: ChartInputData): input is XYData => {
+  return (
+    !Array.isArray(input) &&
+    'x' in input &&
+    Array.isArray(input.x) &&
+    'y' in input &&
+    Array.isArray(input.y)
+  );
+};
 
 export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps): React.JSX.Element {
   const [selectedChart, setSelectedChart] = useState<ChartType | null>(null);
   const [chartTitle, setChartTitle] = useState('');
-  const [transformedData, setTransformedData] = useState<any[]>([]);
-  const [chartConfig, setChartConfig] = useState<any>({});
+  const [transformedData, setTransformedData] = useState<SeriesPoint[]>([]);
+  const [chartConfig] = useState<Record<string, unknown>>({});
 
-  useEffect(() => {
-    if (selectedChart && data) {
-      transformDataForChart();
-    }
-  }, [selectedChart, data]);
-
-  const transformDataForChart = () => {
+  const transformDataForChart = useCallback(() => {
     const chart = CHART_CATALOG.find(c => c.type === selectedChart);
     if (!chart) return;
 
     // Transform data based on chart type and expected Recharts format
-    let transformed: any[] = [];
+    let transformed: SeriesPoint[] = [];
 
     // Handle different input data formats
     if (Array.isArray(data)) {
       transformed = data;
-    } else if (data.labels && data.values) {
+    } else if (isLabelValueData(data)) {
       // Transform label/value pairs to Recharts format
-      transformed = data.labels.map((label: string, i: number) => ({
+      transformed = data.labels.map((label, i) => ({
         name: label,
         value: data.values[i],
         ...(data.categories && { category: data.categories[i] })
       }));
-    } else if (data.categories && data.amounts) {
-      transformed = data.categories.map((cat: string, i: number) => ({
+    } else if (isCategoryAmountData(data)) {
+      transformed = data.categories.map((cat, i) => ({
         name: cat,
         value: data.amounts[i]
       }));
-    } else if (data.x && data.y) {
-      transformed = data.x.map((xVal: any, i: number) => ({
+    } else if (isXYData(data)) {
+      transformed = data.x.map((xVal, i) => ({
         x: xVal,
         y: data.y[i],
         ...(data.sizes && { z: data.sizes[i] })
       }));
-    } else {
+    } else if (data && typeof data === 'object') {
       // Fallback: use data as-is if it's already in the right format
-      transformed = Object.keys(data).map(key => ({
+      transformed = Object.entries(data as ChartRecordData).map(([key, value]) => ({
         name: key,
-        value: data[key]
+        value
       }));
     }
 
     setTransformedData(transformed);
-  };
+  }, [data, selectedChart]);
+
+  useEffect(() => {
+    if (selectedChart) {
+      transformDataForChart();
+    }
+  }, [selectedChart, transformDataForChart]);
 
   const renderChart = () => {
     if (!selectedChart || !transformedData.length) return null;
-
-    const commonProps = {
-      width: '100%',
-      height: 400,
-      data: transformedData,
-      margin: { top: 20, right: 30, left: 20, bottom: 60 }
-    };
 
     switch (selectedChart) {
       case 'line':
@@ -412,7 +455,9 @@ export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps
                 cx="50%"
                 cy="50%"
                 labelLine={false}
-                label={({ name, percent }: any) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }: { name?: string; percent?: number }) =>
+                  `${name ?? ''}: ${percent !== undefined ? (percent * 100).toFixed(0) : '0'}%`
+                }
                 outerRadius={selectedChart === 'donut' ? 120 : 150}
                 innerRadius={selectedChart === 'donut' ? 60 : 0}
                 fill="#8884d8"

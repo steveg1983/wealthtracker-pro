@@ -18,7 +18,7 @@ interface WebhookEvent {
   timestamp: Date;
   attempts: number;
   error?: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 interface WebhookEndpoint {

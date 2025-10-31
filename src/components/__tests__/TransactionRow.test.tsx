@@ -3,7 +3,6 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { TransactionRow } from '../TransactionRow';
 import { createMockTransaction, createMockAccount } from '../../test/factories';
 import { formatCurrency } from '../../utils/currency';
-import { getCategoryDisplayPath } from '../../utils/calculations';
 
 // Helper to render TransactionRow within a table
 const renderInTable = (ui: React.ReactElement) => {

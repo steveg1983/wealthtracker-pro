@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { usePreferences } from '../contexts/PreferencesContext';
-import { XIcon, Settings2Icon, PaletteIcon, SunIcon, MoonIcon, ComputerIcon } from './icons';
+import { XIcon, PaletteIcon, SunIcon, MoonIcon, ComputerIcon } from './icons';
 
 interface ThemeCustomizerProps {
   isOpen: boolean;
@@ -8,8 +8,7 @@ interface ThemeCustomizerProps {
 }
 
 export default function ThemeCustomizer({ isOpen, onClose }: ThemeCustomizerProps) {
-  const { theme, setTheme, colorTheme, setColorTheme, actualTheme } = usePreferences();
-  const [showColorPicker, setShowColorPicker] = useState(false);
+  const { theme, setTheme, colorTheme, setColorTheme } = usePreferences();
 
   const accentColors = [
     { name: 'Blue', value: 'blue', color: '#0078d4' },
@@ -146,18 +145,4 @@ export default function ThemeCustomizer({ isOpen, onClose }: ThemeCustomizerProp
       </div>
     </div>
   );
-}
-
-// Hook to manage theme customizer state
-export function useThemeCustomizer() {
-  const [isOpen, setIsOpen] = useState(false);
-
-  const openCustomizer = () => setIsOpen(true);
-  const closeCustomizer = () => setIsOpen(false);
-
-  return {
-    isOpen,
-    openCustomizer,
-    closeCustomizer,
-  };
 }

@@ -1,29 +1,132 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { offlineService } from '../services/offlineService';
 import { AlertCircleIcon, CheckIcon, XIcon } from './icons';
 import { formatCurrency } from '../utils/formatters';
 import { Button } from './common/Button';
+import type { Transaction } from '../types';
+
+const KNOWN_CONFLICT_ENTITIES = ['transaction', 'account', 'budget', 'goal'] as const;
+type KnownConflictEntity = typeof KNOWN_CONFLICT_ENTITIES[number];
+type ConflictEntity = KnownConflictEntity | 'unknown';
 
 interface Conflict {
   id: string;
-  entity: string;
-  localData: any;
-  serverData: any;
+  entity: ConflictEntity;
+  localData: Record<string, unknown>;
+  serverData: Record<string, unknown> | null;
   timestamp: number;
   resolved: boolean;
 }
+
+type ConflictResolution = 'local' | 'server';
+
+type TransactionLike = Partial<Pick<Transaction, 'description' | 'amount' | 'date' | 'category'>>;
+
+type TransactionConflict = Conflict & {
+  entity: 'transaction';
+  localData: Record<string, unknown>;
+  serverData: Record<string, unknown> | null;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const toTransactionLike = (data: Record<string, unknown> | null | undefined): TransactionLike | null => {
+  if (!data) {
+    return null;
+  }
+
+  const next: TransactionLike = {};
+
+  if (typeof data.description === 'string') {
+    next.description = data.description;
+  }
+  if (typeof data.amount === 'number') {
+    next.amount = data.amount;
+  }
+  if (typeof data.date === 'string' || data.date instanceof Date) {
+    next.date = data.date;
+  }
+  if (typeof data.category === 'string') {
+    next.category = data.category;
+  }
+
+  return Object.keys(next).length > 0 ? next : null;
+};
+
+const normalizeConflict = (raw: unknown): Conflict | null => {
+  if (!isRecord(raw)) {
+    return null;
+  }
+
+  const { id, entity, localData, serverData, timestamp, resolved } = raw as Record<string, unknown>;
+
+  if (typeof id !== 'string' || typeof timestamp !== 'number') {
+    return null;
+  }
+
+  const normalizedEntity: ConflictEntity =
+    typeof entity === 'string' && KNOWN_CONFLICT_ENTITIES.includes(entity as KnownConflictEntity)
+      ? (entity as KnownConflictEntity)
+      : 'unknown';
+
+  return {
+    id,
+    entity: normalizedEntity,
+    localData: isRecord(localData) ? localData : {},
+    serverData: isRecord(serverData) ? serverData : null,
+    timestamp,
+    resolved: Boolean(resolved)
+  };
+};
+
+const isTransactionConflict = (conflict: Conflict): conflict is TransactionConflict =>
+  conflict.entity === 'transaction';
+
+const formatTransactionDate = (value: TransactionLike['date']): string | null => {
+  if (value instanceof Date) {
+    return value.toLocaleDateString();
+  }
+  if (typeof value === 'string') {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toLocaleDateString();
+  }
+  return null;
+};
 
 export function SyncConflictResolver(): React.JSX.Element | null {
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [selectedConflict, setSelectedConflict] = useState<Conflict | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    loadConflicts();
+  const loadConflicts = useCallback(async () => {
+    const unresolved: unknown[] = await offlineService.getConflicts();
+    const normalized = unresolved
+      .map(normalizeConflict)
+      .filter((conflict): conflict is Conflict => Boolean(conflict) && !conflict.resolved);
 
-    // Listen for new conflicts
+    setConflicts(normalized);
+    setSelectedConflict(current =>
+      current ? normalized.find(conflict => conflict.id === current.id) ?? null : null
+    );
+  }, []);
+
+  const resolveConflict = useCallback(async (conflictId: string, resolution: ConflictResolution) => {
+    const shouldCloseAfterResolve = conflicts.length <= 1;
+    await offlineService.resolveConflict(conflictId, resolution);
+    await loadConflicts();
+    setSelectedConflict(null);
+
+    if (shouldCloseAfterResolve) {
+      setIsOpen(false);
+    }
+  }, [conflicts.length, loadConflicts]);
+
+  useEffect(() => {
+    void loadConflicts();
+
     const handleNewConflict = () => {
-      loadConflicts();
+      void loadConflicts();
       setIsOpen(true);
     };
 
@@ -31,22 +134,7 @@ export function SyncConflictResolver(): React.JSX.Element | null {
     return () => {
       window.removeEventListener('offline-sync-conflict', handleNewConflict);
     };
-  }, []);
-
-  const loadConflicts = async () => {
-    const unresolved = await offlineService.getConflicts();
-    setConflicts(unresolved.filter(c => !c.resolved));
-  };
-
-  const resolveConflict = async (conflictId: string, resolution: 'local' | 'server') => {
-    await offlineService.resolveConflict(conflictId, resolution);
-    await loadConflicts();
-    setSelectedConflict(null);
-    
-    if (conflicts.length === 1) {
-      setIsOpen(false);
-    }
-  };
+  }, [loadConflicts]);
 
   if (conflicts.length === 0) {
     return null;
@@ -129,18 +217,18 @@ export function SyncConflictResolver(): React.JSX.Element | null {
 
 interface ConflictDetailProps {
   conflict: Conflict;
-  onResolve: (conflictId: string, resolution: 'local' | 'server') => void;
+  onResolve: (conflictId: string, resolution: ConflictResolution) => void;
   onBack: () => void;
 }
 
 function ConflictDetail({ conflict, onResolve, onBack }: ConflictDetailProps): React.JSX.Element {
-  const renderTransactionConflict = () => {
-    const local = conflict.localData;
-    const server = conflict.serverData || {};
+  const renderTransactionConflict = (transactionConflict: TransactionConflict) => {
+    const local = toTransactionLike(transactionConflict.localData);
+    const server = toTransactionLike(transactionConflict.serverData);
 
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
           <div className="space-y-4">
             <h3 className="font-medium text-gray-900 dark:text-white flex items-center gap-2">
               <span className="text-blue-500">Local Version</span>
@@ -169,14 +257,14 @@ function ConflictDetail({ conflict, onResolve, onBack }: ConflictDetailProps): R
           <div className="flex gap-3">
             <Button
               variant="secondary"
-              onClick={() => onResolve(conflict.id, 'server')}
+              onClick={() => onResolve(transactionConflict.id, 'server')}
               leftIcon={CheckIcon}
             >
               Use Server Version
             </Button>
             <Button
               variant="primary"
-              onClick={() => onResolve(conflict.id, 'local')}
+              onClick={() => onResolve(transactionConflict.id, 'local')}
               leftIcon={CheckIcon}
             >
               Keep My Version
@@ -187,16 +275,30 @@ function ConflictDetail({ conflict, onResolve, onBack }: ConflictDetailProps): R
     );
   };
 
+  if (isTransactionConflict(conflict)) {
+    return renderTransactionConflict(conflict);
+  }
+
   return (
-    <div>
-      {conflict.entity === 'transaction' && renderTransactionConflict()}
-      {/* Add other entity types as needed */}
+    <div className="space-y-4">
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Conflict resolution for <span className="font-medium">{conflict.entity}</span> records is not yet supported.
+      </p>
+      <div className="flex items-center justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+        <Button variant="ghost" onClick={onBack}>
+          Back to List
+        </Button>
+      </div>
     </div>
   );
 }
 
-function TransactionPreview({ transaction }: { transaction: any }): React.JSX.Element {
-  if (!transaction || Object.keys(transaction).length === 0) {
+interface TransactionPreviewProps {
+  transaction: TransactionLike | null;
+}
+
+function TransactionPreview({ transaction }: TransactionPreviewProps): React.JSX.Element {
+  if (!transaction) {
     return (
       <div className="p-4 bg-gray-100 dark:bg-gray-700 rounded-lg">
         <p className="text-gray-500 dark:text-gray-400 text-center italic">
@@ -210,18 +312,20 @@ function TransactionPreview({ transaction }: { transaction: any }): React.JSX.El
     <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-2">
       <div>
         <span className="text-sm text-gray-600 dark:text-gray-400">Description:</span>
-        <p className="font-medium text-gray-900 dark:text-white">{transaction.description}</p>
+        <p className="font-medium text-gray-900 dark:text-white">
+          {transaction.description ?? '—'}
+        </p>
       </div>
       <div>
         <span className="text-sm text-gray-600 dark:text-gray-400">Amount:</span>
         <p className="font-medium text-gray-900 dark:text-white">
-          {formatCurrency(transaction.amount)}
+          {typeof transaction.amount === 'number' ? formatCurrency(transaction.amount) : '—'}
         </p>
       </div>
       <div>
         <span className="text-sm text-gray-600 dark:text-gray-400">Date:</span>
         <p className="font-medium text-gray-900 dark:text-white">
-          {new Date(transaction.date).toLocaleDateString()}
+          {formatTransactionDate(transaction.date) ?? '—'}
         </p>
       </div>
       {transaction.category && (

@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 import React from 'react';
 import {
   Chart as ChartJS,
@@ -183,21 +185,21 @@ export function LineChart({ data, children, ...props }: any) {
 }
 
 // Export placeholder components for recharts compatibility
-export function ResponsiveContainer({ children, ...props }: any) {
-  return <div style={{ width: props.width || '100%', height: props.height || '100%' }}>{children}</div>;
+export function ResponsiveContainer({ children, width, height }: { children: React.ReactNode; width?: string | number; height?: string | number }) {
+  return <div style={{ width: width || '100%', height: height || '100%' }}>{children}</div>;
 }
 
-export function XAxis(props: any) { return null; }
-export function YAxis(props: any) { return null; }
-export function CartesianGrid(props: any) { return null; }
-export function RechartsTooltip(props: any) { return null; }
+export function XAxis() { return null; }
+export function YAxis() { return null; }
+export function CartesianGrid() { return null; }
+export function RechartsTooltip() { return null; }
 export { RechartsTooltip as Tooltip };
-export function Cell(props: any) { return null; }
-export function RechartsBar(props: any) { return null; }
+export function Cell() { return null; }
+export function RechartsBar() { return null; }
 export { RechartsBar as Bar };
-export function RechartsPie(props: any) { return null; }
+export function RechartsPie() { return null; }
 export { RechartsPie as Pie };
-export function Area(props: any) { return null; }
+export function Area() { return null; }
 export function RechartsLine(props: any) { return null; }
 export { RechartsLine as Line };
-export function Treemap(props: any) { return null; }
+export function Treemap() { return null; }

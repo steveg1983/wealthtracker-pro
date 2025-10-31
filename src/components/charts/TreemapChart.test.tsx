@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import TreemapChart from './TreemapChart';
 import type { Transaction } from '../../types';
@@ -21,7 +21,7 @@ vi.mock('recharts', () => ({
   ResponsiveContainer: vi.fn(({ children }) => (
     <div data-testid="responsive-container">{children}</div>
   )),
-  Tooltip: vi.fn(({ content }) => (
+  Tooltip: vi.fn(({ content: _content }) => (
     <div data-testid="tooltip">Tooltip</div>
   ))
 }));
@@ -261,11 +261,9 @@ describe('TreemapChart', () => {
   describe('Custom Content Rendering', () => {
     it('renders custom content with correct props', () => {
       // Mock the content prop function to verify it's called
-      const mockContent = vi.fn(() => <div>Custom Content</div>);
-      
       // Since we're mocking Treemap, we need to test the CustomContent component
       // Let's extract and test it separately
-      const { container } = render(<TreemapChart transactions={mockTransactions} />);
+      render(<TreemapChart transactions={mockTransactions} />);
       
       // Verify the Treemap receives a content prop
       expect(screen.getByTestId('treemap')).toBeInTheDocument();

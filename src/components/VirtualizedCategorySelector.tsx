@@ -1,6 +1,5 @@
 import React, { useCallback, useMemo, useState, useRef, useEffect } from 'react';
-import { VirtualizedDropdown, TanstackVirtualList } from './VirtualizedListSystem';
-import { SearchIcon, PlusIcon, FolderIcon, TagIcon, StarIcon } from './icons';
+import { SearchIcon, PlusIcon, FolderIcon } from './icons';
 import type { Category } from '../types';
 
 interface VirtualizedCategorySelectorProps {
@@ -92,17 +91,18 @@ export function VirtualizedCategorySelector({
       return [{ title: 'All Categories', items: processedCategories }];
     }
 
-    const sections = [];
-    const recentItems = processedCategories.filter(cat => 
-      recentCategories.includes(cat.id)
-    ).slice(0, 5);
+    const sections: CategorySection[] = [];
+    const recentItems = processedCategories
+      .filter(cat => recentCategories.includes(cat.id))
+      .slice(0, 5);
     
-    const frequentItems = processedCategories.filter(cat => 
-      !recentCategories.includes(cat.id) && frequentCategories.get(cat.id)! > 5
-    ).slice(0, 5);
+    const frequentItems = processedCategories
+      .filter(cat => !recentCategories.includes(cat.id) && (frequentCategories.get(cat.id) ?? 0) > 5)
+      .slice(0, 5);
     
     const otherItems = processedCategories.filter(cat =>
-      !recentCategories.includes(cat.id) && (!frequentCategories.has(cat.id) || frequentCategories.get(cat.id)! <= 5)
+      !recentCategories.includes(cat.id) &&
+      ((frequentCategories.get(cat.id) ?? 0) <= 5)
     );
 
     if (recentItems.length > 0) {
@@ -176,27 +176,18 @@ export function VirtualizedCategorySelector({
   }, [onChange, recentCategories, frequentCategories]);
 
   // Render section with items
-  const renderSection = useCallback((section: { title: string; items: Category[] }) => {
-    const items: any[] = [
-      { isHeader: true, title: section.title },
-      ...section.items
-    ];
-
-    return items.map((item, index) => {
-      if (item.isHeader) {
-        return (
-          <div key={`header-${item.title}`} className="px-4 py-2 bg-gray-50 dark:bg-gray-800 font-semibold text-sm text-gray-600 dark:text-gray-400 sticky top-0 z-10">
-            {item.title}
-          </div>
-        );
-      }
-      return (
-        <div key={item.id}>
-          {renderCategory(item)}
+  const renderSection = useCallback((section: CategorySection, index: number) => (
+    <div key={`${section.title}-${index}`}>
+      <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800 font-semibold text-sm text-gray-600 dark:text-gray-400 sticky top-0 z-10">
+        {section.title}
+      </div>
+      {section.items.map((category) => (
+        <div key={category.id}>
+          {renderCategory(category)}
         </div>
-      );
-    });
-  }, [renderCategory]);
+      ))}
+    </div>
+  ), [renderCategory]);
 
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
@@ -261,11 +252,7 @@ export function VirtualizedCategorySelector({
 
           {/* Category list */}
           <div style={{ maxHeight: '400px', overflow: 'auto' }}>
-            {categorySections.map((section, idx) => (
-              <div key={idx}>
-                {renderSection(section)}
-              </div>
-            ))}
+            {categorySections.map(renderSection)}
             
             {/* Show all button */}
             {!showAll && !search && processedCategories.length > 20 && (
@@ -335,4 +322,9 @@ export function InlineCategorySelector({
       className={className}
     />
   );
+}
+
+interface CategorySection {
+  title: string;
+  items: Category[];
 }

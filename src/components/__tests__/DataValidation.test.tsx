@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DataValidation from '../DataValidation';
 
@@ -116,30 +116,42 @@ vi.mock('../../hooks/useCurrencyDecimal', () => ({
 
 // Mock child modals
 vi.mock('../ValidationTransactionModal', () => ({
-  default: ({ isOpen, onClose }: any) => 
+  default: ({ isOpen }: { isOpen: boolean }) => 
     isOpen ? <div data-testid="validation-transaction-modal">Validation Transaction Modal</div> : null
 }));
 
 vi.mock('../FixSummaryModal', () => ({
-  default: ({ isOpen, onClose }: any) => 
+  default: ({ isOpen }: { isOpen: boolean }) => 
     isOpen ? <div data-testid="fix-summary-modal">Fix Summary Modal</div> : null
 }));
 
 vi.mock('../BalanceReconciliationModal', () => ({
-  default: ({ isOpen, onClose }: any) => 
+  default: ({ isOpen }: { isOpen: boolean }) => 
     isOpen ? <div data-testid="balance-reconciliation-modal">Balance Reconciliation Modal</div> : null
 }));
 
 // Mock icons
 vi.mock('../icons', () => ({
-  AlertCircleIcon: ({ size, className }: any) => <div data-testid="alert-circle-icon" className={className}>AlertCircle</div>,
-  CheckCircleIcon: ({ size, className }: any) => <div data-testid="check-circle-icon" className={className}>CheckCircle</div>,
-  WrenchIcon: ({ size }: any) => <div data-testid="wrench-icon">Wrench</div>,
-  RefreshCwIcon: ({ size, className }: any) => <div data-testid="refresh-icon" className={className}>Refresh</div>,
-  AlertTriangleIcon: ({ size, className }: any) => <div data-testid="alert-triangle-icon" className={className}>AlertTriangle</div>,
-  XCircleIcon: ({ size, className }: any) => <div data-testid="x-circle-icon" className={className}>XCircle</div>,
-  EyeIcon: ({ size }: any) => <div data-testid="eye-icon">Eye</div>,
-  X: ({ size, className }: any) => <div data-testid="x-icon" className={className}>X</div>
+  AlertCircleIcon: ({ className }: { className?: string }) => (
+    <div data-testid="alert-circle-icon" className={className}>AlertCircle</div>
+  ),
+  CheckCircleIcon: ({ className }: { className?: string }) => (
+    <div data-testid="check-circle-icon" className={className}>CheckCircle</div>
+  ),
+  WrenchIcon: () => <div data-testid="wrench-icon">Wrench</div>,
+  RefreshCwIcon: ({ className }: { className?: string }) => (
+    <div data-testid="refresh-icon" className={className}>Refresh</div>
+  ),
+  AlertTriangleIcon: ({ className }: { className?: string }) => (
+    <div data-testid="alert-triangle-icon" className={className}>AlertTriangle</div>
+  ),
+  XCircleIcon: ({ className }: { className?: string }) => (
+    <div data-testid="x-circle-icon" className={className}>XCircle</div>
+  ),
+  EyeIcon: () => <div data-testid="eye-icon">Eye</div>,
+  X: ({ className }: { className?: string }) => (
+    <div data-testid="x-icon" className={className}>X</div>
+  )
 }));
 
 describe('DataValidation', () => {

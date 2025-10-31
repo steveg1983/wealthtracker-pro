@@ -7,7 +7,6 @@ import {
   CalendarIcon,
   DollarSignIcon,
   ClockIcon,
-  InfoIcon,
   SparklesIcon
 } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
@@ -411,7 +410,7 @@ export function BudgetDashboard({ compact = false }: BudgetDashboardProps): Reac
             {/* Sort Options */}
             <select
               value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
+              onChange={(e) => setSortBy(e.target.value as 'name' | 'percentage' | 'amount')}
               className="px-3 py-1 text-sm bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg"
             >
               <option value="percentage">Sort by Usage</option>
@@ -437,15 +436,3 @@ export function BudgetDashboard({ compact = false }: BudgetDashboardProps): Reac
     </div>
   );
 }
-
-/* Add to your global CSS for the shimmer animation */
-const shimmerStyle = `
-@keyframes shimmer {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(200%); }
-}
-
-.animate-shimmer {
-  animation: shimmer 2s infinite;
-}
-`;

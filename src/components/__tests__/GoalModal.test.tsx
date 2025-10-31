@@ -5,8 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { screen } from '@testing-library/react';
 import { renderWithProviders } from '../../test/testUtils';
 import GoalModal from '../GoalModal';
 
@@ -26,9 +25,7 @@ describe('GoalModal', () => {
   });
 
   it('handles user interactions', async () => {
-    const user = userEvent.setup();
     renderWithProviders(<GoalModal {...defaultProps} />);
-    
     // Add interaction tests
   });
 

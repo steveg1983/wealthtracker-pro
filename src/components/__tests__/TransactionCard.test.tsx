@@ -3,7 +3,6 @@ import { render, screen, fireEvent } from '../../test/test-utils';
 import { TransactionCard } from '../TransactionCard';
 import { createMockTransaction, createMockAccount } from '../../test/factories';
 import { formatCurrency } from '../../utils/currency';
-import { getCategoryIcon } from '../../utils/calculations';
 
 describe('TransactionCard', () => {
   const mockOnClick = vi.fn();

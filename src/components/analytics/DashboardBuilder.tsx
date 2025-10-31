@@ -11,17 +11,10 @@ import {
   SaveIcon,
   GridIcon,
   XIcon,
-  MaximizeIcon,
-  MinimizeIcon,
-  RefreshCwIcon,
   DownloadIcon,
-  StarIcon as ShareIcon,
   LockIcon,
-  UnlockIcon,
-  CopyIcon,
-  TrashIcon
+  UnlockIcon
 } from '../icons';
-import { useApp } from '../../contexts/AppContextSupabase';
 import { useNotifications } from '../../contexts/NotificationContext';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -32,7 +25,7 @@ export interface DashboardWidget {
   id: string;
   type: string;
   title: string;
-  config: Record<string, any>;
+  config: Record<string, unknown>;
   layout: {
     x: number;
     y: number;
@@ -126,18 +119,15 @@ export default function DashboardBuilder({
   readOnly = false
 }: DashboardBuilderProps) {
   const { showNotification } = useNotifications();
-  const { accounts, transactions, budgets, goals, categories } = useApp();
   
   // State
   const [widgets, setWidgets] = useState<DashboardWidget[]>(dashboard?.widgets || []);
   const [layouts, setLayouts] = useState<{ [key: string]: Layout[] }>({});
   const [isAddingWidget, setIsAddingWidget] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [editingWidget, setEditingWidget] = useState<string | null>(null);
   const [dashboardName, setDashboardName] = useState(dashboard?.name || 'New Dashboard');
-  const [dashboardDescription, setDashboardDescription] = useState(dashboard?.description || '');
+  const dashboardDescription = dashboard?.description || '';
   const [isEditMode, setIsEditMode] = useState(!readOnly);
-  const [showSettings, setShowSettings] = useState(false);
   
   // Get unique categories
   const widgetCategories = useMemo(() => {
@@ -322,7 +312,7 @@ export default function DashboardBuilder({
                 </button>
                 
                 <button
-                  onClick={() => setShowSettings(true)}
+                  onClick={() => showNotification('info', 'Settings panel coming soon')}
                   className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <SettingsIcon size={20} />
@@ -376,7 +366,7 @@ export default function DashboardBuilder({
                 {isEditMode && (
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => setEditingWidget(widget.id)}
+                      onClick={() => showNotification('info', 'Widget configuration coming soon')}
                       className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
                     >
                       <SettingsIcon size={14} />

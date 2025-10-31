@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import SplitTransactionModal from '../SplitTransactionModal';
 import type { Transaction } from '../../types';
@@ -26,15 +26,15 @@ vi.mock('../../contexts/AppContext', () => ({
 
 // Mock icons
 vi.mock('../icons/XIcon', () => ({
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>
+  XIcon: () => <div data-testid="x-icon">X</div>
 }));
 
 vi.mock('../icons/PlusIcon', () => ({
-  PlusIcon: ({ size }: any) => <div data-testid="plus-icon">Plus</div>
+  PlusIcon: () => <div data-testid="plus-icon">Plus</div>
 }));
 
 vi.mock('../icons/DeleteIcon', () => ({
-  DeleteIcon: ({ size }: any) => <div data-testid="delete-icon">Delete</div>
+  DeleteIcon: ({ className }: { className?: string }) => <div data-testid="delete-icon" className={className}>Delete</div>
 }));
 
 // Mock window.alert

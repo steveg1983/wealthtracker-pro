@@ -5,10 +5,9 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RecurringTransactionModal from '../RecurringTransactionModal';
-import type { RecurringTransaction } from '../../contexts/AppContext';
 
 // Mock dependencies
 vi.mock('../../contexts/AppContext', () => ({
@@ -51,10 +50,10 @@ vi.mock('../../contexts/AppContext', () => ({
 }));
 
 vi.mock('../icons', () => ({
-  RepeatIcon: ({ size, className }: any) => (
+  RepeatIcon: ({ className }: { className?: string }) => (
     <div data-testid="repeat-icon" className={className}>Repeat</div>
   ),
-  X: ({ size, className }: any) => (
+  X: ({ className }: { className?: string }) => (
     <div data-testid="x-icon" className={className}>X</div>
   )
 }));

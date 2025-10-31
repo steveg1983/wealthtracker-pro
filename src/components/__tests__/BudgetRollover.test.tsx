@@ -5,10 +5,9 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BudgetRollover from '../BudgetRollover';
-import type { Budget } from '../../types';
 
 // Mock dependencies
 vi.mock('../../contexts/AppContext', () => ({
@@ -155,26 +154,26 @@ const toDecimal = (value: number) => ({
 
 // Mock icons
 vi.mock('../icons', () => ({
-  ArrowRightIcon: ({ size }: any) => <div data-testid="arrow-right-icon">ArrowRight</div>,
-  CalendarIcon: ({ size }: any) => <div data-testid="calendar-icon">Calendar</div>,
-  CheckCircleIcon: ({ size, className }: any) => (
+  ArrowRightIcon: () => <div data-testid="arrow-right-icon">ArrowRight</div>,
+  CalendarIcon: () => <div data-testid="calendar-icon">Calendar</div>,
+  CheckCircleIcon: ({ className }: { className?: string }) => (
     <div data-testid="check-circle-icon" className={className}>CheckCircle</div>
   ),
-  AlertCircleIcon: ({ size, className }: any) => (
+  AlertCircleIcon: ({ className }: { className?: string }) => (
     <div data-testid="alert-circle-icon" className={className}>AlertCircle</div>
   ),
-  TrendingUpIcon: ({ size, className }: any) => (
+  TrendingUpIcon: ({ className }: { className?: string }) => (
     <div data-testid="trending-up-icon" className={className}>TrendingUp</div>
   ),
-  TrendingDownIcon: ({ size, className }: any) => (
+  TrendingDownIcon: ({ className }: { className?: string }) => (
     <div data-testid="trending-down-icon" className={className}>TrendingDown</div>
   ),
-  RepeatIcon: ({ size, className }: any) => (
+  RepeatIcon: ({ className }: { className?: string }) => (
     <div data-testid="repeat-icon" className={className}>Repeat</div>
   ),
-  InfoIcon: ({ size }: any) => <div data-testid="info-icon">Info</div>,
-  SaveIcon: ({ size }: any) => <div data-testid="save-icon">Save</div>,
-  SettingsIcon: ({ size }: any) => <div data-testid="settings-icon">Settings</div>
+  InfoIcon: () => <div data-testid="info-icon">Info</div>,
+  SaveIcon: () => <div data-testid="save-icon">Save</div>,
+  SettingsIcon: () => <div data-testid="settings-icon">Settings</div>
 }));
 
 // Mock window.matchMedia

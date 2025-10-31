@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useTheme } from '../design-system';
-import { SunIcon, MoonIcon, ComputerDesktopIcon, PaletteIcon } from './icons';
+import { SunIcon, MoonIcon } from './icons';
 
 export function ThemeSwitcher(): React.JSX.Element {
   const { theme, setThemeByMode } = useTheme();

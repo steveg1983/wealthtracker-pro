@@ -276,18 +276,3 @@ export const VirtualizedTable = memo(function VirtualizedTable<T>({
 });
 
 VirtualizedTable.displayName = 'VirtualizedTable';
-
-// Export utility hook for table column creation
-export const useTableColumns = <T,>(
-  columnDefinitions: Array<{
-    key: string;
-    header: string;
-    width?: string | number;
-    accessor: (item: T) => ReactNode;
-    className?: string;
-    headerClassName?: string;
-    sortable?: boolean;
-  }>
-): Column<T>[] => {
-  return useMemo(() => columnDefinitions, [columnDefinitions]);
-};

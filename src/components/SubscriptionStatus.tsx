@@ -1,5 +1,5 @@
 import React from 'react';
-import { Check, X, AlertCircle, CreditCard, Crown, Zap, Users } from 'lucide-react';
+import { Check, AlertCircle, CreditCard, Crown, Zap, Users } from 'lucide-react';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { formatDistanceToNow } from 'date-fns';
 
@@ -18,7 +18,10 @@ interface PlanDetails {
   badge?: string;
 }
 
-const PLAN_DETAILS: Record<string, PlanDetails> = {
+const PLAN_KEYS = ['free', 'pro', 'business'] as const;
+type PlanKey = typeof PLAN_KEYS[number];
+
+const PLAN_DETAILS: Record<PlanKey, PlanDetails> = {
   free: {
     name: 'Free',
     icon: Zap,
@@ -75,6 +78,16 @@ const PLAN_DETAILS: Record<string, PlanDetails> = {
   }
 };
 
+const resolvePlanKey = (value: unknown): PlanKey => {
+  if (typeof value === 'string') {
+    const match = PLAN_KEYS.find(plan => plan === value);
+    if (match) {
+      return match;
+    }
+  }
+  return 'free';
+};
+
 export default function SubscriptionStatus(): React.JSX.Element {
   const { 
     subscriptionTier, 
@@ -96,7 +109,8 @@ export default function SubscriptionStatus(): React.JSX.Element {
     );
   }
 
-  const currentPlan = PLAN_DETAILS[subscriptionTier] || PLAN_DETAILS.free;
+  const resolvedPlanKey = resolvePlanKey(subscriptionTier);
+  const currentPlan = PLAN_DETAILS[resolvedPlanKey];
   const Icon = currentPlan.icon;
 
   const handleUpgrade = async (newTier: 'pro' | 'business'): Promise<void> => {

@@ -14,6 +14,14 @@ interface ValidationTransactionModalProps {
   onFixed?: () => void;
 }
 
+interface TransactionEditValue {
+  amount: string;
+  category: string;
+  description: string;
+}
+
+type EditValuesState = Record<string, TransactionEditValue>;
+
 export default function ValidationTransactionModal({
   isOpen,
   onClose,
@@ -25,7 +33,7 @@ export default function ValidationTransactionModal({
   const { transactions, accounts, categories, updateTransaction, deleteTransaction } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Record<string, any>>({});
+  const [editValues, setEditValues] = useState<EditValuesState>({});
 
   const affectedTransactions = transactions.filter(t => transactionIds.includes(t.id));
   const validCategories = categories.map(c => c.name);
@@ -34,9 +42,9 @@ export default function ValidationTransactionModal({
     setEditingId(transaction.id);
     setEditValues({
       [transaction.id]: {
-        amount: transaction.amount,
-        category: transaction.category,
-        description: transaction.description
+        amount: String(transaction.amount ?? ''),
+        category: transaction.category ?? '',
+        description: transaction.description ?? ''
       }
     });
   };
@@ -85,7 +93,7 @@ export default function ValidationTransactionModal({
           {affectedTransactions.map(transaction => {
             const account = getAccount(transaction.accountId);
             const isEditing = editingId === transaction.id;
-            const values = editValues[transaction.id] || {};
+            const values = editValues[transaction.id] ?? { amount: '', category: '', description: '' };
 
             return (
               <div

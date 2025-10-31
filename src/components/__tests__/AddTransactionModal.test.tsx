@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Mock the AppContext module
@@ -76,11 +76,11 @@ vi.mock('../../contexts/AppContext', () => ({
 vi.mock('../../services/validationService', () => ({
   validationService: {
     validateTransaction: vi.fn((data) => data),
-    formatErrors: vi.fn((error) => ({ general: 'Failed to add transaction. Please try again.' })),
+    formatErrors: vi.fn((_error) => ({ general: 'Failed to add transaction. Please try again.' })),
   },
   ValidationService: {
     validateTransaction: vi.fn((data) => data),
-    formatErrors: vi.fn((error) => ({ general: 'Failed to add transaction. Please try again.' })),
+    formatErrors: vi.fn((_error) => ({ general: 'Failed to add transaction. Please try again.' })),
   },
 }));
 

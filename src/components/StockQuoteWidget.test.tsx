@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import StockQuoteWidget, { StockQuoteSearch } from './StockQuoteWidget';
 import { toDecimal } from '../utils/decimal';
 

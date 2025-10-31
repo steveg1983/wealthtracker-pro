@@ -1,11 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { taxPlanningService, type TaxEstimate, type TaxDeduction, type TaxOptimization, type CapitalGain } from '../services/taxPlanningService';
 import { 
   CalculatorIcon,
   FileTextIcon,
   TrendingUpIcon,
-  AlertCircleIcon,
   CheckCircleIcon,
   DownloadIcon,
   CalendarIcon,
@@ -29,11 +28,7 @@ export default function TaxPlanning(): React.JSX.Element {
   const [capitalGains, setCapitalGains] = useState<CapitalGain[]>([]);
   const [isCalculating, setIsCalculating] = useState(false);
 
-  useEffect(() => {
-    calculateTaxes();
-  }, [transactions, accounts, investments, selectedYear]);
-
-  const calculateTaxes = async () => {
+  const calculateTaxes = useCallback(async () => {
     setIsCalculating(true);
     
     try {
@@ -50,7 +45,11 @@ export default function TaxPlanning(): React.JSX.Element {
     } finally {
       setIsCalculating(false);
     }
-  };
+  }, [accounts, investments, selectedYear, transactions]);
+
+  useEffect(() => {
+    void calculateTaxes();
+  }, [calculateTaxes]);
 
   const generateReport = () => {
     const report = taxPlanningService.generateTaxReport(

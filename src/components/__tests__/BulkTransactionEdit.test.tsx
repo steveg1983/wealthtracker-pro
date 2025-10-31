@@ -5,10 +5,9 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BulkTransactionEdit from '../BulkTransactionEdit';
-import type { Transaction } from '../../types';
 
 // Mock dependencies
 vi.mock('../../contexts/AppContext', () => ({
@@ -97,22 +96,22 @@ vi.mock('../../hooks/useCurrencyDecimal', () => ({
 
 // Mock icons
 vi.mock('../icons', () => ({
-  EditIcon: ({ size }: any) => <div data-testid="edit-icon">Edit</div>,
-  CheckIcon: ({ size }: any) => <div data-testid="check-icon">Check</div>,
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
-  TagIcon: ({ size, className }: any) => <div data-testid="tag-icon" className={className}>Tag</div>,
-  FolderIcon: ({ size, className }: any) => <div data-testid="folder-icon" className={className}>Folder</div>,
-  CalendarIcon: ({ size }: any) => <div data-testid="calendar-icon">Calendar</div>,
-  FileTextIcon: ({ size, className }: any) => <div data-testid="file-text-icon" className={className}>FileText</div>,
-  FilterIcon: ({ size }: any) => <div data-testid="filter-icon">Filter</div>,
-  CheckCircleIcon: ({ size, className }: any) => <div data-testid="check-circle-icon" className={className}>CheckCircle</div>,
-  AlertCircleIcon: ({ size, className }: any) => <div data-testid="alert-circle-icon" className={className}>AlertCircle</div>,
-  SearchIcon: ({ size }: any) => <div data-testid="search-icon">Search</div>,
-  SelectAllIcon: ({ size }: any) => <div data-testid="select-all-icon">SelectAll</div>,
-  DeselectAllIcon: ({ size }: any) => <div data-testid="deselect-all-icon">DeselectAll</div>,
-  ArrowRightIcon: ({ size, className }: any) => <div data-testid="arrow-right-icon" className={className}>ArrowRight</div>,
-  RefreshCwIcon: ({ size, className }: any) => <div data-testid="refresh-icon" className={className}>Refresh</div>,
-  X: ({ size, className }: any) => <div data-testid="x-icon" className={className}>X</div>
+  EditIcon: () => <div data-testid="edit-icon">Edit</div>,
+  CheckIcon: () => <div data-testid="check-icon">Check</div>,
+  XIcon: () => <div data-testid="x-icon">X</div>,
+  TagIcon: ({ className }: { className?: string }) => <div data-testid="tag-icon" className={className}>Tag</div>,
+  FolderIcon: ({ className }: { className?: string }) => <div data-testid="folder-icon" className={className}>Folder</div>,
+  CalendarIcon: () => <div data-testid="calendar-icon">Calendar</div>,
+  FileTextIcon: ({ className }: { className?: string }) => <div data-testid="file-text-icon" className={className}>FileText</div>,
+  FilterIcon: () => <div data-testid="filter-icon">Filter</div>,
+  CheckCircleIcon: ({ className }: { className?: string }) => <div data-testid="check-circle-icon" className={className}>CheckCircle</div>,
+  AlertCircleIcon: ({ className }: { className?: string }) => <div data-testid="alert-circle-icon" className={className}>AlertCircle</div>,
+  SearchIcon: () => <div data-testid="search-icon">Search</div>,
+  SelectAllIcon: () => <div data-testid="select-all-icon">SelectAll</div>,
+  DeselectAllIcon: () => <div data-testid="deselect-all-icon">DeselectAll</div>,
+  ArrowRightIcon: ({ className }: { className?: string }) => <div data-testid="arrow-right-icon" className={className}>ArrowRight</div>,
+  RefreshCwIcon: ({ className }: { className?: string }) => <div data-testid="refresh-icon" className={className}>Refresh</div>,
+  X: ({ className }: { className?: string }) => <div data-testid="x-icon" className={className}>X</div>
 }));
 
 // Mock window.matchMedia

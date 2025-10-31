@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { Cloud, CloudOff, RefreshCw, Check, AlertCircle, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { Cloud, CloudOff, RefreshCw, Check, AlertCircle } from 'lucide-react';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
 import { useSyncStatus } from '../hooks/useSyncStatus';
 import { formatDistanceToNow } from 'date-fns';

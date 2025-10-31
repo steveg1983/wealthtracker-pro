@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DashboardWidget from '../DashboardWidget';
 import type { WidgetConfig } from '../DashboardWidget';
@@ -17,29 +17,29 @@ vi.mock('../../hooks/useLocalStorage', () => ({
 
 // Mock icons
 vi.mock('../icons', () => ({
-  GripVerticalIcon: ({ size, className }: any) => (
+  GripVerticalIcon: ({ className }: { className?: string }) => (
     <div data-testid="grip-vertical-icon" className={className}>GripVertical</div>
   ),
-  SettingsIcon: ({ size }: any) => <div data-testid="settings-icon">Settings</div>,
-  MaximizeIcon: ({ size }: any) => <div data-testid="maximize-icon">Maximize</div>,
-  MinimizeIcon: ({ size }: any) => <div data-testid="minimize-icon">Minimize</div>,
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
-  RefreshCwIcon: ({ size, className }: any) => (
+  SettingsIcon: () => <div data-testid="settings-icon">Settings</div>,
+  MaximizeIcon: () => <div data-testid="maximize-icon">Maximize</div>,
+  MinimizeIcon: () => <div data-testid="minimize-icon">Minimize</div>,
+  XIcon: () => <div data-testid="x-icon">X</div>,
+  RefreshCwIcon: ({ className }: { className?: string }) => (
     <div data-testid="refresh-icon" className={className}>Refresh</div>
   ),
-  BarChart3Icon: ({ size, className }: any) => (
+  BarChart3Icon: ({ className }: { className?: string }) => (
     <div data-testid="bar-chart-icon" className={className}>BarChart</div>
   ),
-  TrendingUpIcon: ({ size, className }: any) => (
+  TrendingUpIcon: ({ className }: { className?: string }) => (
     <div data-testid="trending-up-icon" className={className}>TrendingUp</div>
   ),
-  PiggyBankIcon: ({ size, className }: any) => (
+  PiggyBankIcon: ({ className }: { className?: string }) => (
     <div data-testid="piggy-bank-icon" className={className}>PiggyBank</div>
   ),
-  CreditCardIcon: ({ size, className }: any) => (
+  CreditCardIcon: ({ className }: { className?: string }) => (
     <div data-testid="credit-card-icon" className={className}>CreditCard</div>
   ),
-  TargetIcon: ({ size, className }: any) => (
+  TargetIcon: ({ className }: { className?: string }) => (
     <div data-testid="target-icon" className={className}>Target</div>
   )
 }));

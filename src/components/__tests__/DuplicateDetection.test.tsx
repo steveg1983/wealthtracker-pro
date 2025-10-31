@@ -5,10 +5,9 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DuplicateDetection from '../DuplicateDetection';
-import type { Transaction } from '../../types';
 
 // Mock dependencies
 vi.mock('../../contexts/AppContext', () => ({
@@ -76,17 +75,21 @@ vi.mock('../../hooks/useCurrencyDecimal', () => ({
 
 // Mock icons
 vi.mock('../icons', () => ({
-  AlertTriangleIcon: ({ size, className }: any) => <div data-testid="alert-triangle-icon" className={className}>AlertTriangle</div>,
-  CheckIcon: ({ size }: any) => <div data-testid="check-icon">Check</div>,
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
-  RefreshCwIcon: ({ size, className }: any) => <div data-testid="refresh-icon" className={className}>Refresh</div>,
-  TrashIcon: ({ size }: any) => <div data-testid="trash-icon">Trash</div>,
-  MergeIcon: ({ size }: any) => <div data-testid="merge-icon">Merge</div>,
-  CalendarIcon: ({ size }: any) => <div data-testid="calendar-icon">Calendar</div>,
-  DollarSignIcon: ({ size }: any) => <div data-testid="dollar-icon">Dollar</div>,
-  FileTextIcon: ({ size }: any) => <div data-testid="file-text-icon">FileText</div>,
-  FilterIcon: ({ size }: any) => <div data-testid="filter-icon">Filter</div>,
-  X: ({ size, className }: any) => <div data-testid="x-icon" className={className}>X</div>
+  AlertTriangleIcon: ({ className }: { className?: string }) => (
+    <div data-testid="alert-triangle-icon" className={className}>AlertTriangle</div>
+  ),
+  CheckIcon: () => <div data-testid="check-icon">Check</div>,
+  XIcon: () => <div data-testid="x-icon">X</div>,
+  RefreshCwIcon: ({ className }: { className?: string }) => (
+    <div data-testid="refresh-icon" className={className}>Refresh</div>
+  ),
+  TrashIcon: () => <div data-testid="trash-icon">Trash</div>,
+  MergeIcon: () => <div data-testid="merge-icon">Merge</div>,
+  CalendarIcon: () => <div data-testid="calendar-icon">Calendar</div>,
+  DollarSignIcon: () => <div data-testid="dollar-icon">Dollar</div>,
+  FileTextIcon: () => <div data-testid="file-text-icon">FileText</div>,
+  FilterIcon: () => <div data-testid="filter-icon">Filter</div>,
+  X: ({ className }: { className?: string }) => <div data-testid="x-icon" className={className}>X</div>
 }));
 
 describe('DuplicateDetection', () => {

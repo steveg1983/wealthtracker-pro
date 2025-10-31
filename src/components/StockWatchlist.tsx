@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getMultipleStockQuotes } from '../services/stockPriceService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import StockQuoteWidget, { StockQuoteSearch } from './StockQuoteWidget';
+import { StockQuoteSearch } from './StockQuoteWidget';
 import { PlusIcon, XIcon, RefreshCwIcon } from './icons';
 
 interface StockQuote {
@@ -26,8 +26,11 @@ export default function StockWatchlist() {
   const [showAddStock, setShowAddStock] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const fetchQuotes = async () => {
-    if (watchlist.length === 0) return;
+  const fetchQuotes = useCallback(async () => {
+    if (watchlist.length === 0) {
+      setQuotes(new Map());
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -39,7 +42,7 @@ export default function StockWatchlist() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [watchlist]);
 
   useEffect(() => {
     fetchQuotes();
@@ -47,7 +50,7 @@ export default function StockWatchlist() {
     // Auto-refresh every 60 seconds
     const interval = setInterval(fetchQuotes, 60000);
     return () => clearInterval(interval);
-  }, [watchlist]);
+  }, [fetchQuotes]);
 
   const addToWatchlist = (symbol: string) => {
     const upperSymbol = symbol.toUpperCase();

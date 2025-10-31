@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getStockQuote } from '../services/stockPriceService';
 import type { DecimalInstance } from '../types/decimal-types';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
@@ -33,8 +33,11 @@ export default function StockQuoteWidget({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchQuote = async () => {
-    if (!symbol) return;
+  const fetchQuote = useCallback(async () => {
+    if (!symbol) {
+      setQuote(null);
+      return;
+    }
     
     setIsLoading(true);
     setError(null);
@@ -46,6 +49,7 @@ export default function StockQuoteWidget({
         onQuoteUpdate?.(stockQuote);
       } else {
         setError('Quote not found');
+        setQuote(null);
       }
     } catch (err) {
       setError('Failed to fetch quote');
@@ -53,7 +57,7 @@ export default function StockQuoteWidget({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [symbol, onQuoteUpdate]);
 
   useEffect(() => {
     fetchQuote();
@@ -61,7 +65,7 @@ export default function StockQuoteWidget({
     // Auto-refresh every 30 seconds
     const interval = setInterval(fetchQuote, 30000);
     return () => clearInterval(interval);
-  }, [symbol]);
+  }, [symbol, fetchQuote]);
 
   if (isLoading && !quote) {
     return (

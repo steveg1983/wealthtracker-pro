@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
-import { useCurrency } from '../hooks/useCurrency';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { useBudgets } from '../contexts/BudgetContext';
 import {
   CalculatorIcon,
   PlusIcon,
@@ -12,7 +10,6 @@ import {
   AlertCircleIcon,
   InfoIcon,
   TrendingUpIcon,
-  CalendarIcon,
   RefreshCwIcon
 } from './icons';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
@@ -68,7 +65,7 @@ interface ZeroBudgetPeriod {
   createdAt: Date;
 }
 
-export default function ZeroBasedBudgeting() {
+export default function ZeroBasedBudgeting(): React.JSX.Element {
   const [periods, setPeriods] = useState<ZeroBudgetPeriod[]>([]);
   const [activePeriod, setActivePeriod] = useState<ZeroBudgetPeriod | null>(null);
   const [showNewPeriodModal, setShowNewPeriodModal] = useState(false);
@@ -77,9 +74,7 @@ export default function ZeroBasedBudgeting() {
   const [selectedPriority, setSelectedPriority] = useState<string>('all');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   
-  const { categories, transactions } = useApp();
-  const { getBudgetByCategory } = useBudgets();
-  const { currencySymbol } = useCurrency();
+  const { categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
 
   // Load periods from localStorage
@@ -726,7 +721,7 @@ function BudgetItemModal({ item, categories, onSave, onClose }: BudgetItemModalP
                 <label className="block text-sm font-medium mb-1">Frequency</label>
                 <select
                   value={formData.frequency}
-                  onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
+                  onChange={(e) => setFormData({ ...formData, frequency: e.target.value as ZeroBudgetItem['frequency'] })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 >
                   <option value="once">One-time</option>
@@ -741,7 +736,7 @@ function BudgetItemModal({ item, categories, onSave, onClose }: BudgetItemModalP
                 <label className="block text-sm font-medium mb-1">Priority</label>
                 <select
                   value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: e.target.value as any })}
+                  onChange={(e) => setFormData({ ...formData, priority: e.target.value as ZeroBudgetItem['priority'] })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                 >
                   <option value="essential">Essential</option>

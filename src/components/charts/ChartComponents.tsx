@@ -100,3 +100,4 @@ const ChartComponents = {
 };
 
 export default ChartComponents;
+/* eslint-disable react-refresh/only-export-components */

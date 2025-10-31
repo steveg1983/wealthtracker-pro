@@ -5,8 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { screen } from '@testing-library/react';
 import { renderWithProviders } from '../../test/testUtils';
 import EditTransactionModal from '../EditTransactionModal';
 
@@ -27,7 +26,6 @@ describe('EditTransactionModal', () => {
   });
 
   it('handles user interactions', async () => {
-    const user = userEvent.setup();
     renderWithProviders(<EditTransactionModal {...defaultProps} />);
     
     // Add interaction tests

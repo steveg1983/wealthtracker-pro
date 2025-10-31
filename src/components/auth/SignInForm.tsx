@@ -16,7 +16,7 @@ interface SignInFormProps {
   onSuccess?: () => void;
 }
 
-export default function SignInForm({ onSuccess }: SignInFormProps) {
+export default function SignInForm(_props: SignInFormProps) {
   const [authMethod, setAuthMethod] = useState<'passkey' | 'magic' | 'standard'>('passkey');
 
   return (

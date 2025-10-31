@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useRef, useMemo, ReactNode } from 'react';
+import React, { memo, useCallback, useRef, useMemo, useEffect, ReactNode } from 'react';
 import { FixedSizeList as List, VariableSizeList } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import AutoSizer from 'react-virtualized-auto-sizer';
@@ -107,7 +107,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   }, [itemHeight]);
   
   // Reset height cache when items change
-  useMemo(() => {
+  useEffect(() => {
     if (isVariableHeight) {
       itemHeightMap.current.clear();
     }
@@ -210,36 +210,3 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
 });
 
 VirtualizedList.displayName = 'VirtualizedList';
-
-// Export a hook for easy row height calculation
-export const useRowHeightCalculator = (
-  baseHeight: number,
-  options?: {
-    padding?: number;
-    hasSubtext?: boolean;
-    hasActions?: boolean;
-    hasTags?: boolean;
-  }
-) => {
-  return useCallback(() => {
-    let height = baseHeight;
-    
-    if (options?.padding) {
-      height += options.padding * 2;
-    }
-    
-    if (options?.hasSubtext) {
-      height += 20; // Additional line for subtext
-    }
-    
-    if (options?.hasActions) {
-      height += 24; // Space for action buttons
-    }
-    
-    if (options?.hasTags) {
-      height += 24; // Space for tags
-    }
-    
-    return height;
-  }, [baseHeight, options]);
-};

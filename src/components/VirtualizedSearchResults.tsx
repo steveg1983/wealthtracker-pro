@@ -21,8 +21,16 @@ interface SearchResult {
   amount?: number;
   matchedFields?: string[];
   relevanceScore?: number;
-  data: any;
+  data: unknown;
 }
+
+interface ResultHeader {
+  isHeader: true;
+  type: SearchResult['type'];
+  count: number;
+}
+
+type ResultItem = SearchResult | ResultHeader;
 
 interface VirtualizedSearchResultsProps {
   results: SearchResult[];
@@ -53,22 +61,26 @@ export function VirtualizedSearchResults({
 }: VirtualizedSearchResultsProps): React.JSX.Element {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
+  const isHeaderItem = useCallback((item: ResultItem): item is ResultHeader => {
+    return (item as ResultHeader).isHeader === true;
+  }, []);
+
   // Group results by type if requested
   const processedResults = useMemo(() => {
     if (!groupByType) return results;
 
-    const grouped = results.reduce((acc, result) => {
+    const grouped = results.reduce<Record<SearchResult['type'], SearchResult[]>>((acc, result) => {
       if (!acc[result.type]) acc[result.type] = [];
       acc[result.type].push(result);
       return acc;
-    }, {} as Record<string, SearchResult[]>);
+    }, {} as Record<SearchResult['type'], SearchResult[]>);
 
     // Flatten with headers
-    const flattened: (SearchResult | { isHeader: true; type: string; count: number })[] = [];
+    const flattened: ResultItem[] = [];
     
     Object.entries(grouped).forEach(([type, items]) => {
-      flattened.push({ isHeader: true, type, count: items.length } as any);
-      flattened.push(...items);
+      const header: ResultHeader = { isHeader: true, type: type as SearchResult['type'], count: items.length };
+      flattened.push(header, ...items);
     });
 
     return flattened;
@@ -159,9 +171,9 @@ export function VirtualizedSearchResults({
   }, []);
 
   // Render individual result
-  const renderResult = useCallback((item: any, index: number, isScrolling?: boolean) => {
+  const renderResult = useCallback((item: ResultItem, index: number, isScrolling?: boolean) => {
     // Check if it's a header
-    if (item.isHeader) {
+    if (isHeaderItem(item)) {
       return (
         <div className="px-4 py-2 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10">
           <div className="flex items-center gap-2">
@@ -174,7 +186,7 @@ export function VirtualizedSearchResults({
       );
     }
 
-    const result = item as SearchResult;
+    const result = item;
     const isExpanded = expandedIds.has(result.id);
 
     // Simplified view when scrolling
@@ -283,13 +295,14 @@ export function VirtualizedSearchResults({
     onResultClick,
     query,
     showRelevanceScore,
-    toggleExpanded
+    toggleExpanded,
+    isHeaderItem
   ]);
 
   // Calculate item heights
   const getItemHeight = useCallback((index: number) => {
     const item = processedResults[index];
-    if ((item as any).isHeader) return 44;
+    if (isHeaderItem(item)) return 44;
     
     const result = item as SearchResult;
     const isExpanded = expandedIds.has(result.id);
@@ -302,7 +315,7 @@ export function VirtualizedSearchResults({
     if (result.matchedFields?.length) height += 30;
     
     return height;
-  }, [processedResults, expandedIds]);
+  }, [processedResults, expandedIds, isHeaderItem]);
 
   return (
     <div className={className}>
@@ -355,7 +368,7 @@ export function VirtualizedSearchResults({
  */
 export function VirtualizedQuickSearch({
   results,
-  query,
+  query: _query,
   onResultClick,
   onSeeAll,
   maxHeight = 400
@@ -368,7 +381,7 @@ export function VirtualizedQuickSearch({
 }): React.JSX.Element {
   const topResults = results.slice(0, 10);
 
-  const renderQuickResult = useCallback((result: SearchResult, index: number) => (
+  const renderQuickResult = useCallback((result: SearchResult, _index: number) => (
     <div
       className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
       onClick={() => onResultClick(result)}

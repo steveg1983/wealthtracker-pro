@@ -1,14 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import type { Subscription } from '../services/dataIntelligenceService';
-import { 
+import {
   CreditCardIcon,
   PlusIcon,
   EditIcon,
   TrashIcon,
   CalendarIcon,
   DollarSignIcon,
-  PlayIcon,
   StopIcon,
   RefreshCwIcon,
   CheckCircleIcon,
@@ -21,19 +20,31 @@ interface SubscriptionManagerProps {
   onDataChange?: () => void;
 }
 
+const FILTER_OPTIONS = ['all', 'active', 'trial', 'paused', 'cancelled'] as const;
+type SubscriptionFilter = (typeof FILTER_OPTIONS)[number];
+
+const SORT_OPTIONS = ['nextPayment', 'amount', 'merchant'] as const;
+type SubscriptionSort = (typeof SORT_OPTIONS)[number];
+
 export default function SubscriptionManager({ onDataChange }: SubscriptionManagerProps) {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
-  const [filter, setFilter] = useState<'all' | 'active' | 'cancelled' | 'trial'>('all');
-  const [sortBy, setSortBy] = useState<'nextPayment' | 'amount' | 'merchant'>('nextPayment');
+  const [filter, setFilter] = useState<SubscriptionFilter>('all');
+  const [sortBy, setSortBy] = useState<SubscriptionSort>('nextPayment');
 
-  useEffect(() => {
-    loadSubscriptions();
-  }, []);
+  const isFilterOption = useCallback(
+    (value: string): value is SubscriptionFilter => FILTER_OPTIONS.some(option => option === value),
+    []
+  );
 
-  const loadSubscriptions = () => {
+  const isSortOption = useCallback(
+    (value: string): value is SubscriptionSort => SORT_OPTIONS.some(option => option === value),
+    []
+  );
+
+  const loadSubscriptions = useCallback(() => {
     setIsLoading(true);
     try {
       const subs = dataIntelligenceService.getSubscriptions();
@@ -43,21 +54,11 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const handleAddSubscription = (newSub: Omit<Subscription, 'id' | 'createdAt' | 'lastUpdated'>) => {
-    dataIntelligenceService.addSubscription(newSub);
+  useEffect(() => {
     loadSubscriptions();
-    onDataChange?.();
-    setShowAddModal(false);
-  };
-
-  const handleUpdateSubscription = (id: string, updates: Partial<Subscription>) => {
-    dataIntelligenceService.updateSubscription(id, updates);
-    loadSubscriptions();
-    onDataChange?.();
-    setEditingSubscription(null);
-  };
+  }, [loadSubscriptions]);
 
   const handleDeleteSubscription = (id: string) => {
     if (confirm('Are you sure you want to delete this subscription?')) {
@@ -116,30 +117,39 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
     });
   };
 
-  const filteredSubscriptions = subscriptions
-    .filter(sub => filter === 'all' || sub.status === filter)
-    .sort((a, b) => {
-      switch (sortBy) {
-        case 'nextPayment':
-          return a.nextPaymentDate.getTime() - b.nextPaymentDate.getTime();
-        case 'amount':
-          return b.amount - a.amount;
-        case 'merchant':
-          return a.merchantName.localeCompare(b.merchantName);
-        default:
-          return 0;
-      }
-    });
+  const filteredSubscriptions = useMemo(() => {
+    const sortingStrategy: Record<SubscriptionSort, (a: Subscription, b: Subscription) => number> = {
+      nextPayment: (a, b) => a.nextPaymentDate.getTime() - b.nextPaymentDate.getTime(),
+      amount: (a, b) => b.amount - a.amount,
+      merchant: (a, b) => a.merchantName.localeCompare(b.merchantName)
+    };
 
-  const totalMonthlyAmount = subscriptions
-    .filter(sub => sub.status === 'active')
-    .reduce((sum, sub) => {
-      const monthlyAmount = sub.frequency === 'monthly' ? sub.amount :
-                           sub.frequency === 'yearly' ? sub.amount / 12 :
-                           sub.frequency === 'quarterly' ? sub.amount / 3 :
-                           sub.frequency === 'weekly' ? sub.amount * 4.33 : sub.amount;
-      return sum + monthlyAmount;
-    }, 0);
+    return [...subscriptions]
+      .filter(sub => filter === 'all' || sub.status === filter)
+      .sort(sortingStrategy[sortBy]);
+  }, [filter, sortBy, subscriptions]);
+
+  const totalMonthlyAmount = useMemo(() => {
+    return subscriptions
+      .filter(sub => sub.status === 'active')
+      .reduce((sum, sub) => {
+        const monthlyAmount = sub.frequency === 'monthly' ? sub.amount :
+          sub.frequency === 'yearly' ? sub.amount / 12 :
+          sub.frequency === 'quarterly' ? sub.amount / 3 :
+          sub.frequency === 'weekly' ? sub.amount * 4.33 : sub.amount;
+        return sum + monthlyAmount;
+      }, 0);
+  }, [subscriptions]);
+
+  const handleFilterChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const { value } = event.target;
+    setFilter(isFilterOption(value) ? value : 'all');
+  };
+
+  const handleSortChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const { value } = event.target;
+    setSortBy(isSortOption(value) ? value : 'nextPayment');
+  };
 
   if (isLoading) {
     return (
@@ -229,15 +239,15 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
           <select
             id="filter-select"
             value={filter}
-            onChange={(e) => setFilter(e.target.value as any)}
+            onChange={handleFilterChange}
             className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             aria-label="Filter subscriptions by status"
           >
-            <option value="all">All</option>
-            <option value="active">Active</option>
-            <option value="trial">Trial</option>
-            <option value="paused">Paused</option>
-            <option value="cancelled">Cancelled</option>
+            {FILTER_OPTIONS.map(option => (
+              <option key={option} value={option}>
+                {option.charAt(0).toUpperCase() + option.slice(1)}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -246,13 +256,16 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
           <select
             id="sort-select"
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
+            onChange={handleSortChange}
             className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             aria-label="Sort subscriptions by"
           >
-            <option value="nextPayment">Next Payment</option>
-            <option value="amount">Amount</option>
-            <option value="merchant">Merchant</option>
+            {SORT_OPTIONS.map(option => (
+              <option key={option} value={option}>
+                {option === 'nextPayment' ? 'Next Payment' :
+                  option === 'amount' ? 'Amount' : 'Merchant'}
+              </option>
+            ))}
           </select>
         </div>
       </div>

@@ -11,11 +11,11 @@ import type { ReconciliationOption } from '../BalanceReconciliationModal';
 
 // Mock icons to avoid import issues
 vi.mock('../icons', () => ({
-  AlertCircleIcon: ({ size, className }: any) => <div data-testid="alert-icon" className={className}>Alert</div>,
-  ArrowRightIcon: ({ size, className }: any) => <div data-testid="arrow-icon" className={className}>Arrow</div>,
-  CalendarIcon: ({ size, className }: any) => <div data-testid="calendar-icon" className={className}>Calendar</div>,
-  PlusCircleIcon: ({ size, className }: any) => <div data-testid="plus-icon" className={className}>Plus</div>,
-  BanknoteIcon: ({ size, className }: any) => <div data-testid="banknote-icon" className={className}>Banknote</div>,
+  AlertCircleIcon: ({ className }: { className?: string }) => <div data-testid="alert-icon" className={className}>Alert</div>,
+  ArrowRightIcon: ({ className }: { className?: string }) => <div data-testid="arrow-icon" className={className}>Arrow</div>,
+  CalendarIcon: ({ className }: { className?: string }) => <div data-testid="calendar-icon" className={className}>Calendar</div>,
+  PlusCircleIcon: ({ className }: { className?: string }) => <div data-testid="plus-icon" className={className}>Plus</div>,
+  BanknoteIcon: ({ className }: { className?: string }) => <div data-testid="banknote-icon" className={className}>Banknote</div>,
 }));
 
 // Mock Modal component

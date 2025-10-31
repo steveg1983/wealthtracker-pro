@@ -1,15 +1,15 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import ValidationTransactionModal from './ValidationTransactionModal';
 import type { Transaction, Account } from '../types';
 
 // Mock icons
 vi.mock('./icons', () => ({
-  EditIcon: ({ size }: any) => <div data-testid="edit-icon">Edit</div>,
-  TrashIcon: ({ size }: any) => <div data-testid="trash-icon">Trash</div>,
-  CheckIcon: ({ size }: any) => <div data-testid="check-icon">Check</div>,
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>
+  EditIcon: () => <div data-testid="edit-icon">Edit</div>,
+  TrashIcon: () => <div data-testid="trash-icon">Trash</div>,
+  CheckIcon: () => <div data-testid="check-icon">Check</div>,
+  XIcon: () => <div data-testid="x-icon">X</div>
 }));
 
 // Mock Modal component
@@ -165,7 +165,7 @@ describe('ValidationTransactionModal', () => {
       render(<ValidationTransactionModal {...defaultProps} />);
       
       // Dates should be formatted as locale strings
-      const dateElements = screen.getAllByText((content, element) => {
+      const dateElements = screen.getAllByText((content, _element) => {
         return content.includes('2024') || content.includes('1/15') || content.includes('15/1');
       });
       expect(dateElements.length).toBeGreaterThan(0);

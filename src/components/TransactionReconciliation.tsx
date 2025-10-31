@@ -2,20 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Modal } from './common/Modal';
-import { 
-  CheckCircleIcon,
-  XCircleIcon,
-  AlertCircleIcon,
-  LinkIcon,
-  UnlinkIcon,
-  RefreshCwIcon,
-  SearchIcon,
-  CalendarIcon,
-  DollarSignIcon,
-  ArrowRightIcon,
-  CheckIcon
-} from './icons';
-import { toDecimal } from '../utils/decimal';
+import { CheckCircleIcon, LinkIcon, RefreshCwIcon, CalendarIcon } from './icons';
 import type { Transaction } from '../types';
 import type { DecimalInstance } from '../types/decimal-types';
 
@@ -67,14 +54,6 @@ export default function TransactionReconciliation({
              tDate <= dateRange.end;
     });
   }, [transactions, selectedAccount, dateRange]);
-
-  // Calculate current balance based on transactions
-  const calculatedBalance = useMemo(() => {
-    return accountTransactions.reduce((sum, t) => {
-      const amount = typeof t.amount === 'number' ? t.amount : (t.amount as DecimalInstance).toNumber();
-      return sum + (t.type === 'income' ? amount : -amount);
-    }, 0);
-  }, [accountTransactions]);
 
   // Find uncleared transactions
   const unclearedTransactions = useMemo(() => {
@@ -221,7 +200,6 @@ export default function TransactionReconciliation({
     }
   };
 
-  const account = accounts.find(a => a.id === selectedAccount);
   const statementDifference = statementBalance ? 
     parseFloat(statementBalance) - clearedBalance : 0;
 
@@ -496,4 +474,3 @@ export default function TransactionReconciliation({
     </Modal>
   );
 }
-

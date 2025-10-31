@@ -5,14 +5,13 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { VirtualizedTransactionList } from '../VirtualizedTransactionList';
-import type { Transaction } from '../../types';
 
 // Mock dependencies
 vi.mock('react-window', () => ({
-  FixedSizeList: vi.fn(({ children: RowComponent, itemCount, itemData, itemSize, onItemsRendered }) => {
+  FixedSizeList: vi.fn(({ children: RowComponent, itemCount, itemData }: { children: React.ComponentType<any>; itemCount: number; itemData: any[] }) => {
     // Render a simplified version for testing
     return (
       <div data-testid="virtualized-list">
@@ -44,12 +43,12 @@ vi.mock('react-virtualized-auto-sizer', () => ({
 }));
 
 vi.mock('../icons', () => ({
-  EditIcon: ({ size }: any) => <div data-testid="edit-icon">Edit</div>,
-  DeleteIcon: ({ size }: any) => <div data-testid="delete-icon">Delete</div>,
-  CheckIcon: ({ size, className }: any) => (
+  EditIcon: () => <div data-testid="edit-icon">Edit</div>,
+  DeleteIcon: () => <div data-testid="delete-icon">Delete</div>,
+  CheckIcon: ({ className }: { className?: string }) => (
     <div data-testid="check-icon" className={className}>Check</div>
   ),
-  XIcon: ({ size, className }: any) => (
+  XIcon: ({ className }: { className?: string }) => (
     <div data-testid="x-icon" className={className}>X</div>
   )
 }));

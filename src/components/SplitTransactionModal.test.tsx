@@ -1,20 +1,20 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import SplitTransactionModal from './SplitTransactionModal';
 import type { Transaction } from '../types';
 
 // Mock icons
 vi.mock('./icons/XIcon', () => ({
-  XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
+  XIcon: () => <div data-testid="x-icon">X</div>,
 }));
 
 vi.mock('./icons/PlusIcon', () => ({
-  PlusIcon: ({ size }: any) => <div data-testid="plus-icon">Plus</div>,
+  PlusIcon: () => <div data-testid="plus-icon">Plus</div>,
 }));
 
 vi.mock('./icons/DeleteIcon', () => ({
-  DeleteIcon: ({ size }: any) => <div data-testid="delete-icon">Delete</div>,
+  DeleteIcon: () => <div data-testid="delete-icon">Delete</div>,
 }));
 
 // Mock useApp hook

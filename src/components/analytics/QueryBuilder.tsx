@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { PlusIcon, XIcon, FilterIcon, LayersIcon, ArrowUpIcon, CalendarIcon } from '../icons';
-import { useApp } from '../../contexts/AppContextSupabase';
 
 export interface QueryCondition {
   field: string;
   operator: 'equals' | 'contains' | 'greater' | 'less' | 'between' | 'in' | 'not_in';
-  value: any;
-  value2?: any; // For 'between' operator
+  value: unknown;
+  value2?: unknown; // For 'between' operator
 }
 
 export interface QueryAggregation {
@@ -103,8 +102,6 @@ const AGGREGATION_OPTIONS = [
 ];
 
 export default function QueryBuilder({ onSave, onCancel, initialQuery }: QueryBuilderProps): React.JSX.Element {
-  const { categories, accounts, tags } = useApp();
-  
   const [queryName, setQueryName] = useState(initialQuery?.name || '');
   const [dataSource, setDataSource] = useState<Query['dataSource']>(initialQuery?.dataSource || 'transactions');
   const [conditions, setConditions] = useState<QueryCondition[]>(initialQuery?.conditions || []);

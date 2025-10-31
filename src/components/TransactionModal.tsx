@@ -19,16 +19,28 @@ interface FormErrors {
   account?: string;
 }
 
+interface TransactionFormData {
+  date: string;
+  description: string;
+  amount: string;
+  type: 'income' | 'expense' | 'transfer';
+  category: string;
+  accountId: string;
+  notes: string;
+  tags: string[];
+  cleared: boolean;
+}
+
 export default function TransactionModal({ isOpen, onClose, transaction }: TransactionModalProps): React.JSX.Element | null {
   const { accounts, addTransaction, updateTransaction } = useApp();
   const modalRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<TransactionFormData>({
     date: new Date().toISOString().split('T')[0],
     description: '',
     amount: '',
-    type: 'expense' as 'income' | 'expense' | 'transfer',
+    type: 'expense',
     category: '',
     accountId: accounts[0]?.id || '',
     notes: '',
@@ -110,27 +122,35 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
   }, [transaction, accounts]);
 
   // Validation functions
-  const validateField = (name: string, value: any): string | undefined => {
+  type FieldName = keyof TransactionFormData | 'account';
+
+  const validateField = (name: FieldName, value: unknown): string | undefined => {
     switch (name) {
       case 'date':
-        if (!value) return 'Date is required';
-        break;
+        return typeof value === 'string' && value ? undefined : 'Date is required';
       case 'description':
-        if (!value || value.trim() === '') return 'Description is required';
-        if (value.length < 2) return 'Description must be at least 2 characters';
-        break;
+        if (typeof value !== 'string' || value.trim() === '') {
+          return 'Description is required';
+        }
+        if (value.length < 2) {
+          return 'Description must be at least 2 characters';
+        }
+        return undefined;
       case 'amount': {
-        if (!value) return 'Amount is required';
-        const amount = parseFloat(value);
-        if (isNaN(amount) || amount <= 0) return 'Amount must be a positive number';
-        break;
+        if (typeof value !== 'string' || value.trim() === '') {
+          return 'Amount is required';
+        }
+        const amount = Number(value);
+        if (!Number.isFinite(amount) || amount <= 0) {
+          return 'Amount must be a positive number';
+        }
+        return undefined;
       }
       case 'category':
-        if (!value) return 'Category is required';
-        break;
+        return typeof value === 'string' && value ? undefined : 'Category is required';
+      case 'accountId':
       case 'account':
-        if (!value) return 'Account is required';
-        break;
+        return typeof value === 'string' && value ? undefined : 'Account is required';
     }
     return undefined;
   };
@@ -142,7 +162,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
     newErrors.description = validateField('description', formData.description);
     newErrors.amount = validateField('amount', formData.amount);
     newErrors.category = validateField('category', formData.category);
-    newErrors.account = validateField('account', formData.accountId);
+    newErrors.account = validateField('accountId', formData.accountId);
     
     setErrors(newErrors);
     
@@ -150,9 +170,12 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
     return !Object.values(newErrors).some(error => error !== undefined);
   };
 
-  const handleBlur = (fieldName: string) => {
+  type BlurrableField = 'date' | 'description' | 'amount' | 'category' | 'account';
+
+  const handleBlur = (fieldName: BlurrableField) => {
     setTouched({ ...touched, [fieldName]: true });
-    const error = validateField(fieldName, formData[fieldName as keyof typeof formData]);
+    const fieldValue = fieldName === 'account' ? formData.accountId : formData[fieldName];
+    const error = validateField(fieldName === 'account' ? 'accountId' : fieldName, fieldValue);
     setErrors({ ...errors, [fieldName]: error });
   };
 

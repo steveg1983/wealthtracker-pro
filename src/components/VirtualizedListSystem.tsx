@@ -1,9 +1,11 @@
 import React, { useCallback, useRef, useEffect, useState, memo, useMemo } from 'react';
-import { FixedSizeList, VariableSizeList, ListChildComponentProps } from 'react-window';
+import type { MutableRefObject } from 'react';
+import { FixedSizeList, VariableSizeList, ListChildComponentProps, ListOnItemsRenderedProps, ListOnScrollProps } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import AutoSizer from 'react-virtualized-auto-sizer';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { LoadingIcon, ChevronUpIcon } from './icons';
+import type { Transaction } from '../types';
 
 interface VirtualizedListProps<T> {
   items: T[];
@@ -59,7 +61,7 @@ export function VirtualizedList<T>({
   const isFixedHeight = typeof itemHeight === 'number';
 
   // Handle scroll events
-  const handleScroll = useCallback((event: any) => {
+  const handleScroll = useCallback((event: ListOnScrollProps) => {
     const scrollTop = event.scrollOffset || 0;
     scrollPositionRef.current = scrollTop;
     setShowScrollTop(scrollTop > scrollToTopThreshold);
@@ -67,14 +69,16 @@ export function VirtualizedList<T>({
 
   // Scroll to top
   const scrollToTop = useCallback(() => {
-    if (listRef.current) {
-      listRef.current.scrollToItem(0, 'start');
+    if (useWindowScroll) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
     }
-  }, []);
+    listRef.current?.scrollToItem(0, 'start');
+  }, [useWindowScroll]);
 
   // Load more items when needed
   const loadMoreItems = useCallback(
-    (startIndex: number, stopIndex: number) => {
+    (_startIndex: number, _stopIndex: number) => {
       if (onLoadMore && !loading) {
         return onLoadMore();
       }
@@ -93,6 +97,26 @@ export function VirtualizedList<T>({
 
   // Item count including potential unloaded items
   const itemCount = hasMore ? items.length + 1 : items.length;
+
+  const assignListRef = useCallback(
+    (
+      instance: FixedSizeList | VariableSizeList | null,
+      loaderRef: ((ref: FixedSizeList | VariableSizeList | null) => void) | MutableRefObject<FixedSizeList | VariableSizeList | null> | undefined
+    ) => {
+      listRef.current = instance;
+      if (!loaderRef) {
+        return;
+      }
+      if (typeof loaderRef === 'function') {
+        loaderRef(instance);
+      } else {
+        loaderRef.current = instance;
+      }
+    },
+    []
+  );
+
+  const containerClassName = useWindowScroll ? className : `relative ${className}`;
 
   // Row renderer
   const Row = memo(({ index, style, isScrolling, data }: ListChildComponentProps<T[]>) => {
@@ -132,10 +156,8 @@ export function VirtualizedList<T>({
     );
   }
 
-  const List = isFixedHeight ? FixedSizeList : VariableSizeList;
-
   return (
-    <div className={`relative ${className}`}>
+    <div className={containerClassName}>
       {header}
       
       <AutoSizer>
@@ -147,27 +169,62 @@ export function VirtualizedList<T>({
             minimumBatchSize={10}
             threshold={5}
           >
-            {({ onItemsRendered, ref }) => (
-              <List
-                ref={(list: any) => {
-                  ref(list);
-                  listRef.current = list;
-                }}
-                height={height}
-                width={width}
-                itemCount={itemCount}
-                itemSize={itemHeight}
-                itemData={items}
-                overscanCount={overscan}
-                onScroll={handleScroll}
-                onItemsRendered={onItemsRendered}
-                itemKey={getItemKey}
-                direction={horizontal ? 'horizontal' : 'vertical'}
-                useIsScrolling
-              >
-                {Row}
-              </List>
-            )}
+            {({ onItemsRendered, ref }) => {
+              const loaderRef = ref as ((ref: FixedSizeList | VariableSizeList | null) => void) | MutableRefObject<FixedSizeList | VariableSizeList | null> | undefined;
+
+              if (isFixedHeight) {
+                return (
+                  <FixedSizeList
+                    ref={(instance) => assignListRef(instance, loaderRef)}
+                    height={height}
+                    width={width}
+                    itemCount={itemCount}
+                    itemSize={itemHeight as number}
+                    itemData={items}
+                    overscanCount={overscan}
+                    onScroll={handleScroll}
+                    onItemsRendered={(props: ListOnItemsRenderedProps) => {
+                      onItemsRendered(props);
+                    }}
+                    itemKey={(index, data) => {
+                      const item = data[index];
+                      return getItemKey ? getItemKey(index, item) : index.toString();
+                    }}
+                    direction={horizontal ? 'horizontal' : 'vertical'}
+                    useIsScrolling
+                  >
+                    {Row}
+                  </FixedSizeList>
+                );
+              }
+
+              const variableItemSize = itemHeight as (index: number) => number;
+
+              return (
+                <VariableSizeList
+                  ref={(instance) => assignListRef(instance, loaderRef)}
+                  height={height}
+                  width={width}
+                  itemCount={itemCount}
+                  itemSize={variableItemSize}
+                  itemData={items}
+                  overscanCount={overscan}
+                  onScroll={handleScroll}
+                  onItemsRendered={(props: ListOnItemsRenderedProps) => {
+                    onItemsRendered(props);
+                  }}
+                  estimatedItemSize={estimatedItemSize}
+                  itemKey={(index, data) => {
+                    const item = data[index];
+                    return getItemKey ? getItemKey(index, item) : index.toString();
+                  }}
+                  direction={horizontal ? 'horizontal' : 'vertical'}
+                  useIsScrolling
+                >
+                  {Row}
+                </VariableSizeList>
+              );
+            }}
           </InfiniteLoader>
         )}
       </AutoSizer>
@@ -248,6 +305,9 @@ export function TanstackVirtualList<T>({
       >
         {virtualItems.map((virtualItem) => {
           const item = items[virtualItem.index];
+          if (!item) {
+            return null;
+          }
           return (
             <div
               key={virtualItem.key}
@@ -273,6 +333,10 @@ export function TanstackVirtualList<T>({
 /**
  * Specialized virtualized list for transactions
  */
+type TransactionListItem = Pick<Transaction, 'id' | 'description' | 'category' | 'amount'> & {
+  date: Date | string;
+};
+
 export function VirtualizedTransactionList({
   transactions,
   onTransactionClick,
@@ -280,14 +344,17 @@ export function VirtualizedTransactionList({
   onSelectionChange,
   showCheckboxes = false
 }: {
-  transactions: any[];
-  onTransactionClick?: (transaction: any) => void;
+  transactions: TransactionListItem[];
+  onTransactionClick?: (transaction: TransactionListItem) => void;
   selectedIds?: string[];
   onSelectionChange?: (ids: string[]) => void;
   showCheckboxes?: boolean;
 }): React.JSX.Element {
-  const renderTransaction = useCallback((transaction: any, index: number, isScrolling?: boolean) => {
+  const renderTransaction = useCallback((transaction: TransactionListItem, index: number, isScrolling?: boolean) => {
     const isSelected = selectedIds.includes(transaction.id);
+    const formattedDate = transaction.date instanceof Date
+      ? transaction.date.toLocaleDateString()
+      : transaction.date;
     
     // Use simpler rendering when scrolling for better performance
     if (isScrolling) {
@@ -327,7 +394,7 @@ export function VirtualizedTransactionList({
               {transaction.description}
             </div>
             <div className="text-sm text-gray-600 dark:text-gray-400">
-              {transaction.date} • {transaction.category}
+              {formattedDate} • {transaction.category}
             </div>
           </div>
           <div className={`font-semibold ${
@@ -406,7 +473,7 @@ export function VirtualizedDropdown<T>({
     }
   }, [isOpen]);
 
-  const renderItem = useCallback((item: T, index: number) => (
+  const renderItem = useCallback((item: T, _index: number) => (
     <div
       className="px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
       onClick={() => {

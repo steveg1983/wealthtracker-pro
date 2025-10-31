@@ -126,19 +126,19 @@ vi.mock('../../contexts/AppContext', () => ({
 
 // Mock the icons
 vi.mock('../icons/ChevronDownIcon', () => ({
-  ChevronDownIcon: ({ size, className }: any) => (
+  ChevronDownIcon: ({ className }: { className?: string }) => (
     <div data-testid="chevron-down-icon" className={className}>V</div>
   )
 }));
 
 vi.mock('../icons/PlusIcon', () => ({
-  PlusIcon: ({ size }: any) => (
+  PlusIcon: () => (
     <div data-testid="plus-icon">+</div>
   )
 }));
 
 vi.mock('../icons/TagIcon', () => ({
-  TagIcon: ({ size, className }: any) => (
+  TagIcon: ({ className }: { className?: string }) => (
     <div data-testid="tag-icon" className={className}>T</div>
   )
 }));

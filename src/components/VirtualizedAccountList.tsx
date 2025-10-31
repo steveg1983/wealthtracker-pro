@@ -13,6 +13,16 @@ interface VirtualizedAccountListProps {
   className?: string;
 }
 
+interface AccountGroupHeader {
+  isHeader: true;
+  title: string;
+}
+
+type AccountListItem = Account | AccountGroupHeader;
+
+const isGroupHeader = (item: AccountListItem): item is AccountGroupHeader =>
+  (item as AccountGroupHeader).isHeader === true;
+
 /**
  * High-performance virtualized account list
  * Handles hundreds of accounts smoothly
@@ -28,21 +38,24 @@ export function VirtualizedAccountList({
 }: VirtualizedAccountListProps): React.JSX.Element {
   
   // Group accounts by type if requested
-  const processedAccounts = useMemo(() => {
-    if (!groupByType) return accounts;
+  const processedAccounts = useMemo<AccountListItem[]>(() => {
+    if (!groupByType) {
+      return accounts;
+    }
     
-    const grouped = accounts.reduce((acc, account) => {
+    const grouped = accounts.reduce<Record<string, Account[]>>((acc, account) => {
       const type = account.type || 'Other';
-      if (!acc[type]) acc[type] = [];
+      if (!acc[type]) {
+        acc[type] = [];
+      }
       acc[type].push(account);
       return acc;
-    }, {} as Record<string, Account[]>);
+    }, {});
     
-    // Flatten with headers
-    const result: (Account | { isHeader: true; title: string })[] = [];
+    const result: AccountListItem[] = [];
     Object.entries(grouped).forEach(([type, items]) => {
-      result.push({ isHeader: true, title: type } as any);
-      result.push(...items);
+      const header: AccountGroupHeader = { isHeader: true, title: type };
+      result.push(header, ...items);
     });
     
     return result;
@@ -78,9 +91,9 @@ export function VirtualizedAccountList({
   }, []);
 
   // Render individual account
-  const renderAccount = useCallback((item: any, index: number, isScrolling?: boolean) => {
+  const renderAccount = useCallback((item: AccountListItem, index: number, isScrolling?: boolean) => {
     // Check if it's a header
-    if (item.isHeader) {
+    if (isGroupHeader(item)) {
       return (
         <div className="px-4 py-2 bg-gray-100 dark:bg-gray-800 font-semibold text-gray-700 dark:text-gray-300 sticky top-0 z-10">
           {item.title}
@@ -88,7 +101,7 @@ export function VirtualizedAccountList({
       );
     }
 
-    const account = item as Account;
+    const account = item;
     const isDebt = account.type?.toLowerCase().includes('credit') || 
                    account.type?.toLowerCase().includes('loan');
     
@@ -190,7 +203,7 @@ export function VirtualizedAccountList({
   // Calculate item heights for variable size list
   const getItemHeight = useCallback((index: number) => {
     const item = processedAccounts[index];
-    if ((item as any).isHeader) return 40;
+    if (isGroupHeader(item)) return 40;
     if ((item as Account).tags?.length > 0) return 100;
     return 80;
   }, [processedAccounts]);

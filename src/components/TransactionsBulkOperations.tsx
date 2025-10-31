@@ -4,7 +4,7 @@ import { useBulkOperations } from '../hooks/useBulkOperations';
 import { useApp } from '../contexts/AppContextSupabase';
 import BulkOperationsToolbar from './BulkOperationsToolbar';
 import BulkCheckbox from './BulkCheckbox';
-import { DeleteIcon, EditIcon, CheckIcon, TagIcon } from './icons';
+import { DeleteIcon, CheckIcon, TagIcon } from './icons';
 
 interface TransactionsBulkOperationsProps {
   transactions: Transaction[];

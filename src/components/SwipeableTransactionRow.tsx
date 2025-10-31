@@ -1,7 +1,7 @@
 import React, { memo, useState, useCallback } from 'react';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
 import { useHapticFeedback, HapticPattern } from '../hooks/useHapticFeedback';
-import { EditIcon, DeleteIcon, CheckIcon, StarIcon, TagIcon, FolderIcon } from './icons';
+import { EditIcon, DeleteIcon, CheckIcon, StarIcon, FolderIcon } from './icons';
 import type { Transaction, Account } from '../types';
 import { useFormattedDate } from '../hooks/useFormattedValues';
 
@@ -36,7 +36,6 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
   const { trigger: triggerHaptic } = useHapticFeedback();
   const [offset, setOffset] = useState(0);
   const [isRevealed, setIsRevealed] = useState<'left' | 'right' | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
   
   const handleSwipeLeft = useCallback(async () => {
     await triggerHaptic(HapticPattern.SELECTION);
@@ -65,7 +64,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
     onEdit(transaction);
   }, [onEdit, transaction, triggerHaptic]);
   
-  const { ref } = useSwipeGestures({
+  const { ref, isSwipe } = useSwipeGestures({
     onSwipeLeft: handleSwipeLeft,
     onSwipeRight: handleSwipeRight,
     onTap: handleTap,
@@ -171,7 +170,7 @@ export const SwipeableTransactionRow = memo(function SwipeableTransactionRow({
         }`}
         style={{
           transform: `translateX(${offset}px)`,
-          transition: isDragging ? 'none' : 'transform 0.3s ease'
+          transition: isSwipe ? 'none' : 'transform 0.3s ease'
         }}
       >
         <div className="flex items-center p-4 gap-3">
