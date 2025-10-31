@@ -2,18 +2,52 @@
 // This simulates a backend WebSocket server for data synchronization
 
 import { Server } from 'socket.io';
+import type { Socket } from 'socket.io';
 import { createServer } from 'http';
 
 interface ClientData {
   clientId: string;
   lastSeen: Date;
-  pendingOperations: any[];
+  pendingOperations: SyncOperationPayload[];
+}
+
+interface SyncOperationPayload {
+  id: string;
+  type: string;
+  entity: string;
+  entityId: string;
+  data: Record<string, unknown>;
+  timestamp: number;
+  clientId: string;
+  version: number;
+}
+
+interface ConflictResolutionPayload {
+  conflictId: string;
+  choice: 'merge' | 'local' | 'remote';
+  mergedData?: {
+    entityId: string;
+    entity: string;
+    data: Record<string, unknown>;
+  };
+}
+
+type OperationAck =
+  | { success: true; operationId: string }
+  | { success: false; error: string };
+
+type OperationAckCallback = (response: OperationAck) => void;
+
+type ResolutionAck = { success: boolean };
+
+interface StoredSyncOperation extends SyncOperationPayload {
+  lastModified: Date;
 }
 
 class MockSyncServer {
   private io: Server | null = null;
   private clients: Map<string, ClientData> = new Map();
-  private dataStore: Map<string, any> = new Map();
+  private dataStore: Map<string, StoredSyncOperation> = new Map();
   private vectorClocks: Map<string, Map<string, number>> = new Map();
 
   constructor() {
@@ -42,8 +76,12 @@ class MockSyncServer {
   private setupSocketHandlers(): void {
     if (!this.io) return;
 
-    this.io.on('connection', (socket) => {
-      const clientId = socket.handshake.auth.clientId;
+    this.io.on('connection', (socket: Socket) => {
+      const handshakeClientId = socket.handshake.auth?.clientId;
+      const clientId =
+        typeof handshakeClientId === 'string' && handshakeClientId.trim().length > 0
+          ? handshakeClientId
+          : socket.id;
       console.log(`Client connected: ${clientId}`);
 
       // Register client
@@ -57,14 +95,17 @@ class MockSyncServer {
       this.sendPendingOperations(socket, clientId);
 
       // Handle sync operations
-      socket.on('sync-operation', (operation, callback) => {
+      socket.on('sync-operation', (operation: SyncOperationPayload, callback: OperationAckCallback) => {
         this.handleSyncOperation(socket, operation, callback);
       });
 
       // Handle conflict resolution
-      socket.on('resolve-conflict', (resolution, callback) => {
+      socket.on(
+        'resolve-conflict',
+        (resolution: ConflictResolutionPayload, callback: (response: ResolutionAck) => void) => {
         this.handleConflictResolution(socket, resolution, callback);
-      });
+        }
+      );
 
       // Handle disconnection
       socket.on('disconnect', () => {
@@ -81,8 +122,12 @@ class MockSyncServer {
     });
   }
 
-  private handleSyncOperation(socket: any, operation: any, callback: Function): void {
-    const { id, type, entity, entityId, data, timestamp, clientId, version } = operation;
+  private handleSyncOperation(
+    socket: Socket,
+    operation: SyncOperationPayload,
+    callback: OperationAckCallback
+  ): void {
+    const { id, type, entity, entityId, clientId, version } = operation;
     
     console.log(`Sync operation received: ${type} ${entity} ${entityId}`);
 
@@ -114,7 +159,11 @@ class MockSyncServer {
     }
   }
 
-  private checkForConflict(entityId: string, clientId: string, version: number): any {
+  private checkForConflict(
+    entityId: string,
+    clientId: string,
+    version: number
+  ): SyncOperationPayload | null {
     const entityClock = this.vectorClocks.get(entityId);
     if (!entityClock) return null;
     
@@ -125,6 +174,7 @@ class MockSyncServer {
         const storedData = this.dataStore.get(entityId);
         if (storedData) {
           return {
+            id: storedData.id,
             type: 'UPDATE',
             entity: storedData.entity,
             entityId,
@@ -140,14 +190,18 @@ class MockSyncServer {
     return null;
   }
 
-  private applyOperation(operation: any): void {
-    const { entityId, data, entity, timestamp } = operation;
+  private applyOperation(operation: SyncOperationPayload): void {
+    const { entityId, data, entity, timestamp, clientId, version, id, type } = operation;
     
     // Store the data
     this.dataStore.set(entityId, {
+      id,
+      type,
       entity,
       data,
       timestamp,
+      clientId,
+      version,
       lastModified: new Date()
     });
   }
@@ -161,42 +215,54 @@ class MockSyncServer {
     clock.set(clientId, version);
   }
 
-  private handleConflictResolution(socket: any, resolution: any, callback: Function): void {
+  private handleConflictResolution(
+    socket: Socket,
+    resolution: ConflictResolutionPayload,
+    callback: (response: ResolutionAck) => void
+  ): void {
     const { conflictId, choice, mergedData } = resolution;
     
     console.log(`Conflict resolution: ${conflictId} - ${choice}`);
     
     // Apply the resolution
     if (choice === 'merge' && mergedData) {
-      this.applyOperation({
+      const mergedOperation: SyncOperationPayload = {
+        id: `merged_${Date.now()}`,
+        type: 'UPDATE',
+        entity: mergedData.entity,
         entityId: mergedData.entityId,
         data: mergedData.data,
-        entity: mergedData.entity,
-        timestamp: Date.now()
-      });
+        timestamp: Date.now(),
+        clientId: socket.id,
+        version: Date.now()
+      };
+      this.applyOperation(mergedOperation);
+      this.updateVectorClock(mergedOperation.entityId, mergedOperation.clientId, mergedOperation.version);
     }
     
     callback({ success: true });
   }
 
-  private sendPendingOperations(socket: any, clientId: string): void {
+  private sendPendingOperations(socket: Socket, _clientId: string): void {
     // In a real implementation, this would fetch pending operations from a database
     // For now, we'll just send a test message
     setTimeout(() => {
-      socket.emit('pending-operations', []);
+      socket.emit('pending-operations', [] as SyncOperationPayload[]);
     }, 1000);
   }
 
-  private getPendingCount(clientId: string): number {
+  private getPendingCount(_clientId: string): number {
     // In a real implementation, this would query the database
     return 0;
   }
 
   // Public methods for testing
-  public simulateConflict(entityId: string, data: any): void {
-    if (!this.io) return;
+  public simulateConflict(entityId: string, data: Record<string, unknown>): void {
+    if (!this.io) {
+      return;
+    }
     
-    const operation = {
+    const operation: SyncOperationPayload = {
       id: `server_${Date.now()}`,
       type: 'UPDATE',
       entity: 'transaction',

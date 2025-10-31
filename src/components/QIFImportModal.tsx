@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { qifImportService } from '../services/qifImportService';
 import type { Account } from '../types';
+import type { QIFParseResult } from '../services/qifImportService';
 import { Modal } from './common/Modal';
 import {
   UploadIcon,
@@ -18,14 +19,47 @@ interface QIFImportModalProps {
   onClose: () => void;
 }
 
+type QIFImportResult = Awaited<ReturnType<typeof qifImportService.importTransactions>>;
+
+type ImportOutcome =
+  | {
+      success: true;
+      imported: number;
+      duplicates: number;
+      account: Account | null;
+    }
+  | {
+      success: false;
+      error: string;
+    };
+
 export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps): React.JSX.Element {
   const { accounts, transactions, categories, addTransaction } = useApp();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [parseResult, setParseResult] = useState<{ transactions: Array<{ date: string; amount: number; payee?: string; memo?: string; category?: string; checkNumber?: string; cleared?: boolean }>; accountType?: string } | null>(null);
-  const [importResult, setImportResult] = useState<{ success: boolean; imported?: number; duplicates?: number; account?: Account; error?: string } | null>(null);
+  const [parseResult, setParseResult] = useState<QIFParseResult | null>(null);
+  const [importResult, setImportResult] = useState<ImportOutcome | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [skipDuplicates, setSkipDuplicates] = useState(true);
+
+  const parseFile = useCallback(async (targetFile: File) => {
+    setIsProcessing(true);
+    try {
+      const content = await targetFile.text();
+      const parsed = qifImportService.parseQIF(content);
+
+      setParseResult(parsed);
+
+      if (accounts.length === 1) {
+        setSelectedAccountId(accounts[0].id);
+      }
+    } catch (error) {
+      console.error('Error parsing QIF file:', error);
+      alert('Error parsing QIF file. Please check the file format.');
+    } finally {
+      setIsProcessing(false);
+    }
+  }, [accounts]);
   
   // Handle file upload
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -43,8 +77,8 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
     setImportResult(null);
     
     // Parse the file
-    parseFile(uploadedFile);
-  }, []);
+    void parseFile(uploadedFile);
+  }, [parseFile]);
   
   // Handle drag and drop
   const handleDrop = useCallback((event: React.DragEvent) => {
@@ -55,44 +89,19 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
       setFile(droppedFile);
       setParseResult(null);
       setImportResult(null);
-      parseFile(droppedFile);
+      void parseFile(droppedFile);
     }
-  }, []);
-  
-  // Parse QIF file
-  const parseFile = async (file: File) => {
-    setIsProcessing(true);
-    
-    try {
-      const content = await file.text();
-      const parsed = qifImportService.parseQIF(content);
-      
-      setParseResult({
-        transactions: parsed.transactions,
-        accountType: parsed.accountType
-      });
-      
-      // Pre-select first account if only one exists
-      if (accounts.length === 1) {
-        setSelectedAccountId(accounts[0].id);
-      }
-    } catch (error) {
-      console.error('Error parsing QIF file:', error);
-      alert('Error parsing QIF file. Please check the file format.');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
+  }, [parseFile]);
   
   // Process import
-  const processImport = async () => {
+  const processImport = useCallback(async () => {
     if (!parseResult || !file || !selectedAccountId) return;
-    
+
     setIsProcessing(true);
-    
+
     try {
       const content = await file.text();
-      const result = await qifImportService.importTransactions(
+      const result: QIFImportResult = await qifImportService.importTransactions(
         content,
         selectedAccountId,
         skipDuplicates ? transactions : [],
@@ -101,17 +110,18 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
           autoCategorize: true
         }
       );
-      
-      // Add transactions
+
       for (const transaction of result.transactions) {
         addTransaction(transaction);
       }
-      
+
+      const account = accounts.find(a => a.id === selectedAccountId) ?? null;
+
       setImportResult({
         success: true,
         imported: result.newTransactions,
         duplicates: result.duplicates,
-        account: accounts.find(a => a.id === selectedAccountId)
+        account
       });
     } catch (error) {
       console.error('Import error:', error);
@@ -122,15 +132,15 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [accounts, addTransaction, categories, file, parseResult, selectedAccountId, skipDuplicates, transactions]);
   
   // Reset modal
-  const resetModal = () => {
+  const resetModal = useCallback(() => {
     setFile(null);
     setParseResult(null);
     setImportResult(null);
     setSelectedAccountId('');
-  };
+  }, []);
   
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="Import QIF File" size="lg">

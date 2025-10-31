@@ -166,7 +166,7 @@ class ImportService {
     }
 
     // Try MM/DD/YYYY format
-    const parts = dateStr.split(/[\/\-]/);
+    const parts = dateStr.split(/[/-]/);
     if (parts.length === 3) {
       const [month, day, year] = parts;
       return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));

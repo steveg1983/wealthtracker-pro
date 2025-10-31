@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  FilterIcon,
   SaveIcon,
   ClockIcon,
   StarIcon,
@@ -8,17 +7,15 @@ import {
   TrendingDownIcon,
   CalendarIcon,
   DollarSignIcon,
-  TagIcon,
   SearchIcon,
   XIcon,
   CheckCircleIcon,
   AlertCircleIcon,
   PlusIcon,
-  TrashIcon,
-  EditIcon
+  TrashIcon
 } from './icons';
 import { useApp } from '../contexts/AppContextSupabase';
-import type { Transaction } from '../types';
+import type { Transaction, Category, Account } from '../types';
 
 interface FilterPreset {
   id: string;
@@ -111,16 +108,16 @@ export function QuickFiltersAndSearch({
       id: 'all',
       name: 'All',
       icon: <CheckCircleIcon size={16} />,
-      filter: () => true,
+      filter: (_transaction: Transaction) => true,
       description: 'Show all transactions'
     },
     {
       id: 'today',
       name: 'Today',
       icon: <CalendarIcon size={16} />,
-      filter: (t: any) => {
+      filter: (transaction: Transaction) => {
         const today = new Date();
-        const tDate = new Date(t.date);
+        const tDate = new Date(transaction.date);
         return tDate.toDateString() === today.toDateString();
       },
       description: 'Transactions from today'
@@ -129,10 +126,10 @@ export function QuickFiltersAndSearch({
       id: 'week',
       name: 'This Week',
       icon: <ClockIcon size={16} />,
-      filter: (t: any) => {
+      filter: (transaction: Transaction) => {
         const now = new Date();
         const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-        return new Date(t.date) >= weekAgo;
+        return new Date(transaction.date) >= weekAgo;
       },
       description: 'Last 7 days'
     },
@@ -140,9 +137,9 @@ export function QuickFiltersAndSearch({
       id: 'month',
       name: 'This Month',
       icon: <CalendarIcon size={16} />,
-      filter: (t: any) => {
+      filter: (transaction: Transaction) => {
         const now = new Date();
-        const tDate = new Date(t.date);
+        const tDate = new Date(transaction.date);
         return tDate.getMonth() === now.getMonth() && 
                tDate.getFullYear() === now.getFullYear();
       },
@@ -152,35 +149,35 @@ export function QuickFiltersAndSearch({
       id: 'income',
       name: 'Income',
       icon: <TrendingUpIcon size={16} />,
-      filter: (t: any) => t.type === 'income',
+      filter: (transaction: Transaction) => transaction.type === 'income',
       description: 'Income transactions only'
     },
     {
       id: 'expenses',
       name: 'Expenses',
       icon: <TrendingDownIcon size={16} />,
-      filter: (t: any) => t.type === 'expense',
+      filter: (transaction: Transaction) => transaction.type === 'expense',
       description: 'Expense transactions only'
     },
     {
       id: 'large',
       name: 'Large',
       icon: <DollarSignIcon size={16} />,
-      filter: (t: any) => Math.abs(t.amount) >= 500,
+      filter: (transaction: Transaction) => Math.abs(transaction.amount) >= 500,
       description: 'Transactions over $500'
     },
     {
       id: 'uncategorized',
       name: 'Uncategorized',
       icon: <AlertCircleIcon size={16} />,
-      filter: (t: any) => !t.category || t.category === '',
+      filter: (transaction: Transaction) => !transaction.category || transaction.category === '',
       description: 'Need categorization'
     },
     {
       id: 'uncleared',
       name: 'Uncleared',
       icon: <XIcon size={16} />,
-      filter: (t: any) => !t.cleared,
+      filter: (transaction: Transaction) => !transaction.cleared,
       description: 'Not reconciled'
     }
   ], []);
@@ -214,7 +211,7 @@ export function QuickFiltersAndSearch({
         }
         
         if (search.filters.types?.length && 
-            !search.filters.types.includes(t.type as any)) {
+            !search.filters.types.includes(t.type)) {
           return false;
         }
         
@@ -297,7 +294,8 @@ export function QuickFiltersAndSearch({
     setSavedSearches(prev => prev.filter(s => s.id !== id));
     if (activeFilter === id) {
       setActiveFilter(null);
-      onFilterChange(() => true);
+      const defaultFilter = (_transaction: Transaction): boolean => true;
+      onFilterChange(defaultFilter);
     }
   }, [activeFilter, onFilterChange]);
 
@@ -328,9 +326,21 @@ export function QuickFiltersAndSearch({
         suggestions.add(t.category);
       }
     });
+
+    categories.forEach((category: Category) => {
+      if (category.name.toLowerCase().includes(query)) {
+        suggestions.add(category.name);
+      }
+    });
+
+    accounts.forEach((account: Account) => {
+      if (account.name.toLowerCase().includes(query) || account.id.toLowerCase().includes(query)) {
+        suggestions.add(account.name);
+      }
+    });
     
     return Array.from(suggestions).slice(0, 5);
-  }, [searchQuery, transactions]);
+  }, [accounts, categories, searchQuery, transactions]);
 
   if (compact) {
     return (

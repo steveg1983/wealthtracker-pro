@@ -1,14 +1,17 @@
 import { io, Socket } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 import { ConflictResolutionService } from './conflictResolutionService';
+import type { ConflictAnalysis } from './conflictResolutionService';
 
 // Types for sync operations
+export type SyncPayload = Record<string, unknown>;
+
 export interface SyncOperation {
   id: string;
   type: 'CREATE' | 'UPDATE' | 'DELETE';
   entity: 'transaction' | 'account' | 'budget' | 'goal' | 'category';
   entityId: string;
-  data: any;
+  data: SyncPayload;
   timestamp: number;
   clientId: string;
   version: number;
@@ -19,7 +22,7 @@ export interface SyncConflict {
   localOperation: SyncOperation;
   remoteOperation: SyncOperation;
   resolution?: 'local' | 'remote' | 'merge';
-  mergedData?: any;
+  mergedData?: SyncPayload;
 }
 
 export interface SyncStatus {
@@ -43,13 +46,26 @@ interface QueueItem {
   maxRetries: number;
 }
 
+type SyncEventCallback = (payload?: unknown) => void;
+
+type OperationAck = { success: true; operationId?: string } | { success: false; error: string };
+
+const isStoredQueueItem = (value: unknown): value is { operation: SyncOperation } => {
+  if (typeof value !== 'object' || value === null || !('operation' in value)) {
+    return false;
+  }
+
+  const operation = (value as { operation: unknown }).operation;
+  return typeof operation === 'object' && operation !== null;
+};
+
 class SyncService {
   private socket: Socket | null = null;
   private clientId: string;
   private syncQueue: QueueItem[] = [];
   private conflicts: SyncConflict[] = [];
   private vectorClocks: Map<string, VectorClock> = new Map();
-  private listeners: Map<string, Set<Function>> = new Map();
+  private listeners: Map<string, Set<SyncEventCallback>> = new Map();
   private syncStatus: SyncStatus = {
     isConnected: false,
     isSyncing: false,
@@ -81,12 +97,16 @@ class SyncService {
       const stored = localStorage.getItem('syncQueue');
       if (stored) {
         const queue = JSON.parse(stored);
-        this.syncQueue = queue.map((item: any) => ({
-          operation: item.operation,
-          retryCount: 0,
-          maxRetries: 3
-        }));
-        this.syncStatus.pendingOperations = this.syncQueue.length;
+        if (Array.isArray(queue)) {
+          this.syncQueue = queue
+            .filter(isStoredQueueItem)
+            .map((item) => ({
+              operation: item.operation,
+              retryCount: 0,
+              maxRetries: 3
+            }));
+          this.syncStatus.pendingOperations = this.syncQueue.length;
+        }
       }
     } catch (error) {
       console.error('Failed to load sync queue:', error);
@@ -170,9 +190,10 @@ class SyncService {
       this.handleSyncAck(operationId);
     });
 
-    this.socket.on('error', (error: any) => {
+    this.socket.on('error', (error: unknown) => {
       console.error('Sync socket error:', error);
-      this.syncStatus.error = error.message;
+      const message = error instanceof Error ? error.message : 'Unknown socket error';
+      this.syncStatus.error = message;
       this.emit('status-changed', this.syncStatus);
     });
   }
@@ -205,7 +226,7 @@ class SyncService {
     type: SyncOperation['type'],
     entity: SyncOperation['entity'],
     entityId: string,
-    data: any
+    data: SyncPayload
   ): Promise<void> {
     const operation: SyncOperation = {
       id: uuidv4(),
@@ -281,7 +302,7 @@ class SyncService {
         reject(new Error('Operation timeout'));
       }, 10000);
 
-      this.socket.emit('sync-operation', operation, (ack: any) => {
+      this.socket.emit('sync-operation', operation, (ack: OperationAck) => {
         clearTimeout(timeout);
         if (ack.success) {
           resolve();
@@ -316,7 +337,7 @@ class SyncService {
 
   private handleConflict(conflict: SyncConflict): void {
     // Use intelligent conflict resolution
-    const analysis = ConflictResolutionService.analyzeConflict(
+    const analysis: ConflictAnalysis = ConflictResolutionService.analyzeConflict(
       conflict.localOperation.entity,
       conflict.localOperation.data,
       conflict.remoteOperation.data,
@@ -370,7 +391,10 @@ class SyncService {
     }
   }
 
-  private autoResolveConflict(conflict: SyncConflict, analysis?: any): 'local' | 'remote' | 'merge' | null {
+  private autoResolveConflict(
+    conflict: SyncConflict,
+    analysis?: ConflictAnalysis
+  ): 'local' | 'remote' | 'merge' | null {
     // If we have analysis, use it
     if (analysis && analysis.suggestedResolution) {
       switch (analysis.suggestedResolution) {
@@ -396,7 +420,11 @@ class SyncService {
     return 'remote';
   }
 
-  public resolveConflict(conflictId: string, resolution: 'local' | 'remote' | 'merge', mergedData?: any): void {
+  public resolveConflict(
+    conflictId: string,
+    resolution: 'local' | 'remote' | 'merge',
+    mergedData?: SyncPayload
+  ): void {
     const conflict = this.conflicts.find(c => c.id === conflictId);
     if (!conflict) return;
 
@@ -442,7 +470,7 @@ class SyncService {
     });
   }
 
-  private applyMergedData(entity: string, entityId: string, data: any): void {
+  private applyMergedData(entity: string, entityId: string, data: SyncPayload): void {
     this.emit('remote-merge', {
       entity,
       entityId,
@@ -484,21 +512,21 @@ class SyncService {
   }
 
   // Event handling
-  public on(event: string, callback: Function): void {
+  public on(event: string, callback: SyncEventCallback): void {
     if (!this.listeners.has(event)) {
       this.listeners.set(event, new Set());
     }
     this.listeners.get(event)!.add(callback);
   }
 
-  public off(event: string, callback: Function): void {
+  public off(event: string, callback: SyncEventCallback): void {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
       callbacks.delete(callback);
     }
   }
 
-  private emit(event: string, data?: any): void {
+  private emit(event: string, data?: unknown): void {
     const callbacks = this.listeners.get(event);
     if (callbacks) {
       callbacks.forEach(callback => callback(data));

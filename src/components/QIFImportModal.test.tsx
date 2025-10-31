@@ -1,22 +1,23 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import QIFImportModal from './QIFImportModal';
 import { qifImportService } from '../services/qifImportService';
+import type { QIFParseResult } from '../services/qifImportService';
 
 // Mock icons
 vi.mock('./icons', () => ({
-  UploadIcon: ({ size, className }: any) => <div data-testid="upload-icon" className={className}>Upload</div>,
-  FileTextIcon: ({ size, className }: any) => <div data-testid="file-text-icon" className={className}>FileText</div>,
-  CheckIcon: ({ size, className }: any) => <div data-testid="check-icon" className={className}>Check</div>,
-  AlertCircleIcon: ({ size, className }: any) => <div data-testid="alert-circle-icon" className={className}>Alert</div>,
-  InfoIcon: ({ size, className }: any) => <div data-testid="info-icon" className={className}>Info</div>,
-  RefreshCwIcon: ({ size }: any) => <div data-testid="refresh-icon">Refresh</div>
+  UploadIcon: ({ className }: { className?: string }) => <div data-testid="upload-icon" className={className}>Upload</div>,
+  FileTextIcon: ({ className }: { className?: string }) => <div data-testid="file-text-icon" className={className}>FileText</div>,
+  CheckIcon: () => <div data-testid="check-icon">Check</div>,
+  AlertCircleIcon: () => <div data-testid="alert-circle-icon">Alert</div>,
+  InfoIcon: ({ className }: { className?: string }) => <div data-testid="info-icon" className={className}>Info</div>,
+  RefreshCwIcon: () => <div data-testid="refresh-icon">Refresh</div>
 }));
 
 // Mock Modal component
 vi.mock('./common/Modal', () => ({
-  Modal: ({ isOpen, onClose, title, children }: any) => 
+  Modal: ({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) => 
     isOpen ? (
       <div data-testid="modal">
         <div data-testid="modal-title">{title}</div>
@@ -28,7 +29,7 @@ vi.mock('./common/Modal', () => ({
 
 // Mock LoadingButton
 vi.mock('./loading/LoadingState', () => ({
-  LoadingButton: ({ isLoading, onClick, disabled, children, className }: any) => (
+  LoadingButton: ({ isLoading, onClick, disabled, children, className }: { isLoading: boolean; onClick: () => void; disabled?: boolean; children: React.ReactNode; className?: string }) => (
     <button 
       data-testid="loading-button"
       onClick={onClick} 
@@ -55,7 +56,10 @@ const mockTransactions = [
     date: new Date('2024-01-01'),
     amount: 100,
     description: 'Test Transaction',
-    accountId: 'acc1'
+    accountId: 'acc1',
+    type: 'expense',
+    category: 'Food',
+    cleared: true
   }
 ];
 
@@ -104,8 +108,40 @@ describe('QIFImportModal', () => {
     vi.clearAllMocks();
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
+  const sampleTransaction: QIFParseResult['transactions'][number] = {
+    date: '2024-01-15',
+    amount: 100,
+    payee: 'Test Payee',
+    memo: 'Test Memo',
+    cleared: true,
+    category: 'Food'
+  };
+
+  const createMockParseResult = (overrides: Partial<QIFParseResult> = {}): QIFParseResult => ({
+    transactions: [sampleTransaction],
+    accountType: 'Bank',
+    ...overrides
+  });
+
+  type ImportResult = Awaited<ReturnType<typeof qifImportService.importTransactions>>;
+
+  const createMockImportResult = (overrides: Partial<ImportResult> = {}): ImportResult => ({
+    transactions: [
+      {
+        date: new Date(sampleTransaction.date),
+        description: sampleTransaction.payee || 'Transaction',
+        amount: Math.abs(sampleTransaction.amount),
+        type: sampleTransaction.amount < 0 ? 'expense' : 'income',
+        accountId: mockAccounts[0].id,
+        category: sampleTransaction.category || '',
+        cleared: sampleTransaction.cleared ?? false,
+        notes: sampleTransaction.checkNumber ? `Check #: ${sampleTransaction.checkNumber}` : undefined,
+        isRecurring: false
+      }
+    ],
+    duplicates: 0,
+    newTransactions: 1,
+    ...overrides
   });
 
   describe('Rendering', () => {
@@ -150,13 +186,7 @@ describe('QIFImportModal', () => {
 
   describe('File Upload', () => {
     it('accepts QIF file upload', async () => {
-      const mockParseResult = {
-        transactions: [
-          { date: '2024-01-15', amount: 100, payee: 'Test Payee', memo: 'Test' }
-        ],
-        accountType: 'Bank'
-      };
-      
+      const mockParseResult = createMockParseResult();
       vi.mocked(qifImportService.parseQIF).mockReturnValueOnce(mockParseResult);
       
       render(<QIFImportModal {...defaultProps} />);
@@ -184,11 +214,7 @@ describe('QIFImportModal', () => {
     });
 
     it('handles drag and drop for QIF files', async () => {
-      const mockParseResult = {
-        transactions: [{ date: '2024-01-15', amount: 100, payee: 'Test' }],
-        accountType: 'Bank'
-      };
-      
+      const mockParseResult = createMockParseResult();
       vi.mocked(qifImportService.parseQIF).mockReturnValueOnce(mockParseResult);
       
       render(<QIFImportModal {...defaultProps} />);
@@ -236,13 +262,12 @@ describe('QIFImportModal', () => {
 
   describe('File Parsing', () => {
     it('shows file info after successful parsing', async () => {
-      const mockParseResult = {
+      const mockParseResult = createMockParseResult({
         transactions: [
-          { date: '2024-01-15', amount: 100, payee: 'Test Payee' },
-          { date: '2024-01-16', amount: 200, payee: 'Test Payee 2' }
-        ],
-        accountType: 'Bank'
-      };
+          { ...sampleTransaction },
+          { ...sampleTransaction, date: '2024-01-16', amount: 200, payee: 'Test Payee 2' }
+        ]
+      });
       
       vi.mocked(qifImportService.parseQIF).mockReturnValueOnce(mockParseResult);
       
@@ -260,11 +285,7 @@ describe('QIFImportModal', () => {
     });
 
     it('shows account selection dropdown', async () => {
-      const mockParseResult = {
-        transactions: [{ date: '2024-01-15', amount: 100, payee: 'Test' }],
-        accountType: 'Bank'
-      };
-      
+      const mockParseResult = createMockParseResult();
       vi.mocked(qifImportService.parseQIF).mockReturnValueOnce(mockParseResult);
       
       render(<QIFImportModal {...defaultProps} />);
@@ -285,13 +306,12 @@ describe('QIFImportModal', () => {
     });
 
     it('shows transaction preview', async () => {
-      const mockParseResult = {
+      const mockParseResult = createMockParseResult({
         transactions: [
-          { date: '2024-01-15', amount: -50, payee: 'Grocery Store' },
-          { date: '2024-01-16', amount: 100, memo: 'Salary Payment' }
-        ],
-        accountType: 'Bank'
-      };
+          { ...sampleTransaction, amount: -50, payee: 'Grocery Store' },
+          { ...sampleTransaction, date: '2024-01-16', amount: 100, payee: undefined, memo: 'Salary Payment' }
+        ]
+      });
       
       vi.mocked(qifImportService.parseQIF).mockReturnValueOnce(mockParseResult);
       

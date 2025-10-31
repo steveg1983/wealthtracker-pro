@@ -1,7 +1,7 @@
 import type { Transaction, Account, Category } from '../types';
 import { smartCategorizationService } from './smartCategorizationService';
 
-interface QIFTransaction {
+export interface QIFTransaction {
   date: string;
   amount: number;
   payee?: string;
@@ -11,7 +11,7 @@ interface QIFTransaction {
   cleared?: boolean;
 }
 
-interface QIFParseResult {
+export interface QIFParseResult {
   transactions: QIFTransaction[];
   accountType?: string;
 }

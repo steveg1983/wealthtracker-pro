@@ -526,10 +526,11 @@ class AnalyticsEngine {
         return transactions
           .filter(t => t.type === 'expense')
           .reduce((sum, t) => sum + t.amount, 0);
-      case 'net':
+      case 'net': {
         const income = this.calculateMetric(transactions, 'income');
         const expenses = this.calculateMetric(transactions, 'expenses');
         return income - expenses;
+      }
       case 'count':
         return transactions.length;
     }

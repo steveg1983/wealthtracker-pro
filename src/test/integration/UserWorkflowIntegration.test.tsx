@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
+import React from 'react';
 import { renderWithProviders, createTestData, mockLocalStorage } from './test-utils';
 
 // Mock components to avoid complex dependencies
@@ -14,8 +15,8 @@ vi.mock('../../pages/Dashboard', () => ({
   )
 }));
 
-vi.mock('../../pages/Accounts', () => ({
-  default: () => {
+vi.mock('../../pages/Accounts', () => {
+  const AccountsMock: React.FC = () => {
     const [showModal, setShowModal] = React.useState(false);
     return (
       <div>
@@ -43,11 +44,13 @@ vi.mock('../../pages/Accounts', () => ({
         )}
       </div>
     );
-  }
-}));
+  };
 
-vi.mock('../../pages/Transactions', () => ({
-  default: () => {
+  return { default: AccountsMock };
+});
+
+vi.mock('../../pages/Transactions', () => {
+  const TransactionsMock: React.FC = () => {
     const [showModal, setShowModal] = React.useState(false);
     return (
       <div>
@@ -84,20 +87,45 @@ vi.mock('../../pages/Transactions', () => ({
         )}
       </div>
     );
-  }
-}));
+  };
 
-vi.mock('../../pages/Budget', () => ({
-  default: ({ budgets, transactions, categories }: any) => {
+  return { default: TransactionsMock };
+});
+
+vi.mock('../../pages/Budget', () => {
+  type BudgetMockBudget = {
+    id: string;
+    categoryId: string;
+    amount: number;
+  };
+
+  type BudgetMockTransaction = {
+    type: string;
+    category?: string;
+    amount: number;
+  };
+
+  type BudgetMockCategory = {
+    id: string;
+    name: string;
+  };
+
+  type BudgetMockProps = {
+    budgets?: BudgetMockBudget[];
+    transactions?: BudgetMockTransaction[];
+    categories?: BudgetMockCategory[];
+  };
+
+  const BudgetMock: React.FC<BudgetMockProps> = ({ budgets, transactions, categories }) => {
     const [showModal, setShowModal] = React.useState(false);
     
     // Calculate budget usage
-    const budgetUsage = budgets?.map((budget: any) => {
+    const budgetUsage = budgets?.map((budget) => {
       const spent = transactions
-        ?.filter((t: any) => t.type === 'expense' && t.category === budget.categoryId)
-        .reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
+        ?.filter((transaction) => transaction.type === 'expense' && transaction.category === budget.categoryId)
+        .reduce((sum, transaction) => sum + transaction.amount, 0) || 0;
       const percentage = (spent / budget.amount) * 100;
-      const categoryName = categories?.find((c: any) => c.id === budget.categoryId)?.name || budget.categoryId;
+      const categoryName = categories?.find((category) => category.id === budget.categoryId)?.name || budget.categoryId;
       
       return {
         ...budget,
@@ -112,7 +140,7 @@ vi.mock('../../pages/Budget', () => ({
       <div>
         <h1>Budget</h1>
         <button onClick={() => setShowModal(true)}>Add Budget</button>
-        {budgetUsage.map((budget: any) => (
+        {budgetUsage.map((budget) => (
           <div key={budget.id}>
             <div>{budget.categoryIdName}</div>
             <div>{budget.percentage.toFixed(0)}%</div>
@@ -143,18 +171,29 @@ vi.mock('../../pages/Budget', () => ({
         )}
       </div>
     );
-  }
-}));
+  };
 
-vi.mock('../../pages/Goals', () => ({
-  default: ({ goals }: any) => {
+  return { default: BudgetMock };
+});
+
+vi.mock('../../pages/Goals', () => {
+  type GoalsMockProps = {
+    goals?: Array<{
+      id: string;
+      name: string;
+      currentAmount: number;
+      targetAmount: number;
+    }>;
+  };
+
+  const GoalsMock: React.FC<GoalsMockProps> = ({ goals }) => {
     const [showModal, setShowModal] = React.useState(false);
     
     return (
       <div>
         <h1>Goals</h1>
         <button onClick={() => setShowModal(true)}>Add Goal</button>
-        {goals?.map((goal: any) => (
+        {goals?.map((goal) => (
           <div key={goal.id}>
             <div>{goal.name}</div>
             <div>{((goal.currentAmount / goal.targetAmount) * 100).toFixed(0)}%</div>
@@ -179,8 +218,10 @@ vi.mock('../../pages/Goals', () => ({
         )}
       </div>
     );
-  }
-}));
+  };
+
+  return { default: GoalsMock };
+});
 
 vi.mock('../../pages/Reports', () => ({
   default: ({ transactions, categories }: any) => {
@@ -211,8 +252,6 @@ vi.mock('../../pages/Reports', () => ({
     );
   }
 }));
-
-import React from 'react';
 
 describe('User Workflow Integration Tests', () => {
   let localStorageMock: ReturnType<typeof mockLocalStorage>;
