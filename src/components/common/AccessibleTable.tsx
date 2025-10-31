@@ -182,7 +182,9 @@ export function AccessibleTable<T>({
                       className={`px-4 py-2 ${column.className || ''}`}
                       role="cell"
                     >
-                      {column.render ? column.render(item) : String((item as any)[column.key] || '')}
+                      {column.render
+                        ? column.render(item)
+                        : String((item as Record<string, unknown>)[column.key] ?? '')}
                     </td>
                   ))}
                 </tr>

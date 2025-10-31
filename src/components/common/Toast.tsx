@@ -23,26 +23,32 @@ export function Toast({ toast, onDismiss }: ToastProps): React.JSX.Element {
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
-  useEffect(() => {
-    // Trigger enter animation
-    setTimeout(() => setIsVisible(true), 10);
-
-    // Auto dismiss
-    if (toast.duration !== 0) {
-      const timer = setTimeout(() => {
-        handleDismiss();
-      }, toast.duration || 5000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [toast.duration]);
-
-  const handleDismiss = () => {
+  const handleDismiss = React.useCallback(() => {
     setIsLeaving(true);
-    setTimeout(() => {
+    window.setTimeout(() => {
       onDismiss(toast.id);
     }, 300);
-  };
+  }, [onDismiss, toast.id]);
+
+  useEffect(() => {
+    // Trigger enter animation
+    const enterTimer = window.setTimeout(() => setIsVisible(true), 10);
+
+    if (toast.duration === 0) {
+      return () => {
+        window.clearTimeout(enterTimer);
+      };
+    }
+
+    const dismissTimer = window.setTimeout(() => {
+      handleDismiss();
+    }, toast.duration ?? 5000);
+
+    return () => {
+      window.clearTimeout(enterTimer);
+      window.clearTimeout(dismissTimer);
+    };
+  }, [toast.duration, handleDismiss]);
 
   const icons = {
     success: <CheckCircleIcon size={20} className="text-green-500" />,

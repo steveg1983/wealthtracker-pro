@@ -31,6 +31,15 @@ export function ResponsiveTable<T>({
   mobileCardClassName = '',
   isLoading = false
 }: ResponsiveTableProps<T>): React.JSX.Element {
+  const resolveValue = (column: Column<T>, row: T): React.ReactNode => {
+    if (column.render) {
+      return column.render(row);
+    }
+
+    const value = (row as Record<string, unknown>)[column.key];
+    return value ?? '';
+  };
+
   // Sort columns by priority for mobile view
   const mobileColumns = columns
     .filter(col => !col.hideOnMobile)
@@ -98,9 +107,7 @@ export function ResponsiveTable<T>({
                       key={column.key}
                       className={`px-6 py-4 whitespace-nowrap text-sm ${column.className || ''}`}
                     >
-                      {column.render 
-                        ? column.render(item) 
-                        : String((item as any)[column.key] || '')}
+                      {resolveValue(column, item)}
                     </td>
                   ))}
                 </tr>
@@ -123,11 +130,9 @@ export function ResponsiveTable<T>({
               }`}
             >
               {mobileColumns.map((column, index) => {
-                const value = column.render 
-                  ? column.render(item) 
-                  : (item as any)[column.key];
+                const value = resolveValue(column, item);
                 
-                if (!value) return null;
+                if (value === undefined || value === null || value === '') return null;
 
                 return (
                   <div key={column.key} className={index > 0 ? 'mt-2' : ''}>
@@ -152,34 +157,4 @@ export function ResponsiveTable<T>({
       </div>
     </>
   );
-}
-
-// Helper hook for responsive table behavior
-export function useResponsiveTable() {
-  const [selectedRows, setSelectedRows] = React.useState<Set<string>>(new Set());
-  
-  const toggleRow = (key: string) => {
-    const newSelected = new Set(selectedRows);
-    if (newSelected.has(key)) {
-      newSelected.delete(key);
-    } else {
-      newSelected.add(key);
-    }
-    setSelectedRows(newSelected);
-  };
-  
-  const selectAll = (keys: string[]) => {
-    setSelectedRows(new Set(keys));
-  };
-  
-  const clearSelection = () => {
-    setSelectedRows(new Set());
-  };
-  
-  return {
-    selectedRows,
-    toggleRow,
-    selectAll,
-    clearSelection
-  };
 }

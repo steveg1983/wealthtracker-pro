@@ -1,8 +1,9 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { AriaLiveRegion, useAriaAnnounce } from './AriaLiveRegion';
+import { AriaLiveRegion } from './AriaLiveRegion';
+import { useAriaAnnounce } from './useAriaAnnounce';
 
 describe('AriaLiveRegion', () => {
   beforeEach(() => {
@@ -275,8 +276,8 @@ describe('useAriaAnnounce', () => {
       vi.advanceTimersByTime(100);
     });
     
-    const { container } = render(<>{result.current.AriaAnnouncer()}</>);
-    
+    render(<>{result.current.AriaAnnouncer()}</>);
+
     const region = screen.getByRole('status');
     expect(region).toBeInTheDocument();
     expect(region).toHaveTextContent('Test message');

@@ -74,7 +74,7 @@ export const AccessibleButton = forwardRef<HTMLButtonElement, AccessibleButtonPr
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         if (!disabled && !isLoading && onClick) {
-          onClick(e as any);
+          onClick(e as unknown as React.MouseEvent<HTMLButtonElement>);
         }
       }
     };
@@ -178,7 +178,7 @@ export const ButtonGroup: React.FC<ButtonGroupProps> = ({ children, ariaLabel })
           const isFirst = index === 0;
           const isLast = index === React.Children.count(children) - 1;
           
-          return React.cloneElement(child as React.ReactElement<any>, {
+          return React.cloneElement(child as React.ReactElement<unknown>, {
             className: `
               ${child.props.className || ''}
               ${!isFirst ? '-ml-px' : ''}

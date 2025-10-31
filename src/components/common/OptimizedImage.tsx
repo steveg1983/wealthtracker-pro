@@ -98,41 +98,6 @@ export function OptimizedImage({
   );
 }
 
-// WebP support detection
-let webpSupport: boolean | null = null;
-
-export function checkWebPSupport(): Promise<boolean> {
-  if (webpSupport !== null) {
-    return Promise.resolve(webpSupport);
-  }
-
-  return new Promise((resolve) => {
-    const webP = new Image();
-    webP.onload = webP.onerror = () => {
-      webpSupport = webP.height === 2;
-      resolve(webpSupport);
-    };
-    webP.src = 'data:image/webp;base64,UklGRjoAAABXRUJQVlA4IC4AAACyAgCdASoCAAIALmk0mk0iIiIiIgBoSygABc6WWgAA/veff/0PP8bA//LwYAAA';
-  });
-}
-
-// Utility to generate optimized image URLs
-export function getOptimizedImageUrl(
-  src: string,
-  options: {
-    width?: number;
-    height?: number;
-    quality?: number;
-    format?: 'webp' | 'jpg' | 'png';
-  } = {}
-): string {
-  // If using a CDN or image optimization service, modify URL here
-  // Example: return `https://cdn.example.com/image?src=${src}&w=${width}&q=${quality}`;
-  
-  // For now, return original source
-  return src;
-}
-
 // Picture component for responsive images
 interface ResponsiveImageProps extends OptimizedImageProps {
   sources?: Array<{

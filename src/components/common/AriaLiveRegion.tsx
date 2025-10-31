@@ -40,28 +40,3 @@ export function AriaLiveRegion({
     </div>
   );
 }
-
-/**
- * Hook to manage ARIA live announcements
- */
-export function useAriaAnnounce() {
-  const [announcement, setAnnouncement] = useState('');
-  
-  const announce = (message: string, type: 'polite' | 'assertive' = 'polite') => {
-    // Clear any existing announcement first
-    setAnnouncement('');
-    
-    // Use setTimeout to ensure the screen reader picks up the change
-    setTimeout(() => {
-      setAnnouncement(message);
-    }, 100);
-  };
-  
-  return {
-    announcement,
-    announce,
-    AriaAnnouncer: () => (
-      <AriaLiveRegion message={announcement} type="polite" />
-    )
-  };
-}

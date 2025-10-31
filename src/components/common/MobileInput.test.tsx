@@ -23,7 +23,6 @@ describe('MobileInput', () => {
 
     it('renders required indicator with label', () => {
       render(<MobileInput label="Email" required />);
-      const label = screen.getByText('Email');
       const requiredIndicator = screen.getByText('*');
       expect(requiredIndicator).toBeInTheDocument();
       expect(requiredIndicator.className).toContain('text-red-500');

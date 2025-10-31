@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { FixedSizeList as List } from 'react-window';
 import { useMobileOptimizations } from '../../hooks/useMobileOptimizations';
 
@@ -17,7 +17,7 @@ export function MobileOptimizedList<T>({
   renderItem,
   threshold = 10
 }: MobileOptimizedListProps<T>) {
-  const { isMobile, shouldLazyLoad } = useMobileOptimizations();
+  const { isMobile } = useMobileOptimizations();
 
   // Use virtualization only when needed
   const shouldVirtualize = isMobile ? items.length > threshold : items.length > threshold * 2;

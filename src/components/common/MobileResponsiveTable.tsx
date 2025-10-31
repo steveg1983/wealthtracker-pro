@@ -36,6 +36,15 @@ export function MobileResponsiveTable<T>({
   title,
   actions
 }: MobileResponsiveTableProps<T>): React.JSX.Element {
+  const resolveValue = (column: TableColumn<T>, row: T): React.ReactNode => {
+    if (column.render) {
+      return column.render(row);
+    }
+
+    const value = (row as Record<string, unknown>)[column.key];
+    return value ?? '';
+  };
+
   // Sort columns by priority for mobile view
   const mobileColumns = columns
     .filter(col => !col.hideOnMobile)
@@ -116,9 +125,7 @@ export function MobileResponsiveTable<T>({
                         key={column.key}
                         className={`px-6 py-4 text-sm text-${column.align || 'left'} ${column.className || ''}`}
                       >
-                        {column.render 
-                          ? column.render(item) 
-                          : String((item as any)[column.key] || '')}
+                        {resolveValue(column, item)}
                       </td>
                     ))}
                   </tr>
@@ -149,9 +156,7 @@ export function MobileResponsiveTable<T>({
               {primaryColumn && (
                 <div className="mb-3">
                   <div className="font-medium text-gray-900 dark:text-white">
-                    {primaryColumn.render 
-                      ? primaryColumn.render(item) 
-                      : (item as any)[primaryColumn.key]}
+                    {resolveValue(primaryColumn, item)}
                   </div>
                 </div>
               )}
@@ -159,11 +164,9 @@ export function MobileResponsiveTable<T>({
               {/* Secondary info in a grid */}
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 {secondaryColumns.map(column => {
-                  const value = column.render 
-                    ? column.render(item) 
-                    : (item as any)[column.key];
+                  const value = resolveValue(column, item);
                   
-                  if (!value) return null;
+                  if (value === undefined || value === null || value === '') return null;
 
                   return (
                     <div key={column.key}>
