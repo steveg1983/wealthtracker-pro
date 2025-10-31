@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { financialPlanningService } from '../services/financialPlanningService';
 import { 
   PiggyBankIcon,
@@ -6,7 +6,6 @@ import {
   EditIcon,
   TrashIcon,
   TrendingUpIcon,
-  CalendarIcon,
   DollarSignIcon,
   AlertCircleIcon,
   CheckCircleIcon,
@@ -25,9 +24,23 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
   const [selectedPlan, setSelectedPlan] = useState<RetirementPlan | null>(null);
   const [projection, setProjection] = useState<RetirementProjection | null>(null);
 
+  const loadPlans = useCallback(() => {
+    const retirementPlans = financialPlanningService.getRetirementPlans();
+    setPlans(retirementPlans);
+    setSelectedPlan(current => {
+      if (retirementPlans.length === 0) {
+        return null;
+      }
+      if (current && retirementPlans.some(plan => plan.id === current.id)) {
+        return current;
+      }
+      return retirementPlans[0];
+    });
+  }, []);
+
   useEffect(() => {
     loadPlans();
-  }, []);
+  }, [loadPlans]);
 
   useEffect(() => {
     if (selectedPlan) {
@@ -35,14 +48,6 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
       setProjection(newProjection);
     }
   }, [selectedPlan]);
-
-  const loadPlans = () => {
-    const retirementPlans = financialPlanningService.getRetirementPlans();
-    setPlans(retirementPlans);
-    if (retirementPlans.length > 0 && !selectedPlan) {
-      setSelectedPlan(retirementPlans[0]);
-    }
-  };
 
   const handleCreatePlan = () => {
     setEditingPlan(null);
@@ -59,12 +64,6 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
       financialPlanningService.deleteRetirementPlan(plan.id);
       loadPlans();
       onDataChange();
-      
-      // If we deleted the selected plan, select another one
-      if (selectedPlan?.id === plan.id) {
-        const remainingPlans = plans.filter(p => p.id !== plan.id);
-        setSelectedPlan(remainingPlans.length > 0 ? remainingPlans[0] : null);
-      }
     }
   };
 
@@ -319,7 +318,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                   </h3>
                   
                   <div className="space-y-4">
-                    {projection.projectionsByYear.slice(0, 10).map((year, index) => (
+                    {projection.projectionsByYear.slice(0, 10).map((year) => (
                       <div key={year.year} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0">
                         <div className="flex items-center gap-3">
                           <div className="w-12 text-sm text-gray-600 dark:text-gray-400">

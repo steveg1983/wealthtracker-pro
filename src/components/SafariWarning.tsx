@@ -2,9 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { AlertTriangle, X, ExternalLink, Chrome, Globe } from 'lucide-react';
 import { shouldShowSafariWarning, dismissSafariWarning, initClerkSafariCompat } from '../utils/clerkSafarifix';
 
+type SafariCompatInfo = {
+  safari?: boolean;
+  localStorage?: boolean;
+  sessionStorage?: boolean;
+  thirdPartyCookies?: boolean;
+  compatible?: boolean;
+  warnings?: string[];
+};
+
 export default function SafariWarning(): React.JSX.Element | null {
   const [show, setShow] = useState(false);
-  const [compatInfo, setCompatInfo] = useState<any>(null);
+  const [compatInfo, setCompatInfo] = useState<SafariCompatInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

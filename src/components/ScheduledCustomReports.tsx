@@ -14,8 +14,7 @@ import {
   ToggleLeftIcon,
   ToggleRightIcon,
   PlayIcon,
-  XIcon,
-  CheckIcon
+  XIcon
 } from './icons';
 import { format } from 'date-fns';
 
@@ -97,6 +96,7 @@ export default function ScheduledCustomReports(): React.JSX.Element {
       
       loadData(); // Reload to show updated last run time
     } catch (error) {
+      console.error('Failed to run scheduled report:', error);
       addNotification({
         type: 'error',
         title: 'Report Failed',
@@ -319,25 +319,28 @@ function ScheduleReportModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const report: ScheduledCustomReport = {
+    const baseReport: ScheduledCustomReport = {
       id: scheduledReport?.id || `scheduled-${Date.now()}`,
-      customReportId: formData.customReportId!,
-      reportName: formData.reportName!,
-      frequency: formData.frequency!,
+      customReportId: formData.customReportId ?? '',
+      reportName: formData.reportName ?? '',
+      frequency: formData.frequency ?? 'monthly',
       dayOfWeek: formData.dayOfWeek,
       dayOfMonth: formData.dayOfMonth,
-      time: formData.time!,
-      deliveryFormat: formData.deliveryFormat!,
-      emailRecipients: formData.emailRecipients,
-      enabled: formData.enabled!,
-      nextRun: scheduledReportService.calculateNextRun({
-        frequency: formData.frequency!,
-        dayOfWeek: formData.dayOfWeek,
-        dayOfMonth: formData.dayOfMonth,
-        time: formData.time!
-      } as any),
+      time: formData.time ?? '09:00',
+      deliveryFormat: formData.deliveryFormat ?? 'pdf',
+      emailRecipients: formData.emailRecipients ?? [],
+      enabled: formData.enabled ?? true,
+      nextRun: scheduledReport?.nextRun ?? new Date(),
+      lastRun: scheduledReport?.lastRun,
       createdAt: scheduledReport?.createdAt || new Date(),
       updatedAt: new Date()
+    };
+
+    const nextRun = scheduledReportService.calculateNextRun(baseReport);
+
+    const report: ScheduledCustomReport = {
+      ...baseReport,
+      nextRun
     };
     
     onSave(report);
@@ -412,7 +415,12 @@ function ScheduleReportModal({
               </label>
               <select
                 value={formData.frequency}
-                onChange={(e) => setFormData({ ...formData, frequency: e.target.value as any })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    frequency: e.target.value as ScheduledCustomReport['frequency']
+                  })
+                }
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
               >
                 <option value="daily">Daily</option>
@@ -482,7 +490,12 @@ function ScheduleReportModal({
               </label>
               <select
                 value={formData.deliveryFormat}
-                onChange={(e) => setFormData({ ...formData, deliveryFormat: e.target.value as any })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    deliveryFormat: e.target.value as ScheduledCustomReport['deliveryFormat']
+                  })
+                }
                 className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
               >
                 <option value="pdf">PDF</option>
