@@ -5,8 +5,7 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { screen } from '@testing-library/react';
 import { renderWithProviders } from '../../test/testUtils';
 import { Modal } from '../Modal';
 
@@ -24,19 +23,8 @@ describe('Modal', () => {
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
-  it('handles user interactions', async () => {
-    const user = userEvent.setup();
-    renderWithProviders(<Modal {...defaultProps} />);
-    
-    // Add interaction tests
-  });
-
-  it('validates form inputs', async () => {
-    // Add validation tests
-  });
-
-  it('handles error states', () => {
-    // Add error handling tests
-  });
+  it.todo('handles user interactions');
+  it.todo('validates form inputs');
+  it.todo('handles error states');
 
 });

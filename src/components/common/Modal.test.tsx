@@ -245,7 +245,6 @@ describe('Modal', () => {
       );
       
       const closeButton = screen.getByLabelText('Close modal');
-      const firstButton = screen.getByText('First button');
       const lastButton = screen.getByText('Last button');
       
       // Focus last button and press Tab

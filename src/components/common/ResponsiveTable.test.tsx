@@ -1,7 +1,8 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
-import { ResponsiveTable, useResponsiveTable } from './ResponsiveTable';
+import { ResponsiveTable } from './ResponsiveTable';
+import { useResponsiveTable } from './useResponsiveTable';
 import { renderHook, act } from '@testing-library/react';
 
 // Sample data for testing
