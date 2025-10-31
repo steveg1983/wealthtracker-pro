@@ -5,13 +5,11 @@ import { Modal } from './common/Modal';
 import { 
   DownloadIcon,
   FileTextIcon,
-  CheckIcon,
   SettingsIcon,
   CalendarIcon,
   TagIcon,
   WalletIcon,
   PieChartIcon,
-  TrendingUpIcon,
   BarChart3Icon,
   ArrowRightLeftIcon
 } from './icons';

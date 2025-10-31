@@ -206,7 +206,6 @@ export function EnhancedFloatingActionButton(): React.JSX.Element {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ x: 0, y: 0 });
-  const [selectedType, setSelectedType] = useState<'expense' | 'income' | 'transfer' | null>(null);
   
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -214,17 +213,9 @@ export function EnhancedFloatingActionButton(): React.JSX.Element {
     setIsMenuOpen(true);
   };
   
-  const handleSelectType = (type: 'expense' | 'income' | 'transfer') => {
-    setSelectedType(type);
+  const handleSelectType = () => {
     setIsModalOpen(true);
   };
-  
-  useEffect(() => {
-    // Reset selected type when modal closes
-    if (!isModalOpen) {
-      setSelectedType(null);
-    }
-  }, [isModalOpen]);
   
   return (
     <>

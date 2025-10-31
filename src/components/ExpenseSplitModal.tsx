@@ -3,14 +3,12 @@ import { collaborationService } from '../services/collaborationService';
 import { 
   DollarSignIcon,
   UsersIcon,
-  PlusIcon,
   XIcon,
   CheckIcon
 } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import type { HouseholdMember } from '../services/collaborationService';
-import Decimal from 'decimal.js';
 
 interface ExpenseSplitModalProps {
   isOpen: boolean;

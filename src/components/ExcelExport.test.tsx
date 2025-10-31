@@ -5,16 +5,16 @@
 
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach, afterEach, Mock } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import ExcelExport from './ExcelExport';
 import type { Transaction, Account, Budget, Category } from '../types';
 import { toDecimal } from '../utils/decimal';
 
 // Mock all icons
 const mockIcons = [
-  'DownloadIcon', 'FileTextIcon', 'CheckIcon', 'SettingsIcon', 
+  'DownloadIcon', 'FileTextIcon', 'SettingsIcon', 
   'CalendarIcon', 'TagIcon', 'WalletIcon', 'PieChartIcon', 
-  'TrendingUpIcon', 'BarChart3Icon', 'ArrowRightLeftIcon'
+  'BarChart3Icon', 'ArrowRightLeftIcon'
 ];
 
 mockIcons.forEach(icon => {
@@ -26,13 +26,11 @@ mockIcons.forEach(icon => {
 vi.mock('./icons', () => ({
   DownloadIcon: ({ size }: { size?: number }) => <span data-testid="download-icon" style={{ fontSize: size }}>⬇</span>,
   FileTextIcon: ({ size }: { size?: number }) => <span data-testid="filetext-icon" style={{ fontSize: size }}>📄</span>,
-  CheckIcon: ({ size }: { size?: number }) => <span data-testid="check-icon" style={{ fontSize: size }}>✓</span>,
   SettingsIcon: ({ size }: { size?: number }) => <span data-testid="settings-icon" style={{ fontSize: size }}>⚙️</span>,
   CalendarIcon: ({ size }: { size?: number }) => <span data-testid="calendar-icon" style={{ fontSize: size }}>📅</span>,
   TagIcon: () => <span data-testid="tag-icon">🏷️</span>,
   WalletIcon: () => <span data-testid="wallet-icon">👛</span>,
   PieChartIcon: () => <span data-testid="piechart-icon">📊</span>,
-  TrendingUpIcon: () => <span data-testid="trendingup-icon">📈</span>,
   BarChart3Icon: () => <span data-testid="barchart3-icon">📊</span>,
   ArrowRightLeftIcon: () => <span data-testid="arrowrightleft-icon">↔️</span>
 }));

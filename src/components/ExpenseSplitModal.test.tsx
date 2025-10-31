@@ -8,7 +8,6 @@ import type { HouseholdMember } from '../services/collaborationService';
 vi.mock('./icons', () => ({
   DollarSignIcon: ({ size, className }: any) => <div data-testid="dollar-sign-icon" className={className}>$</div>,
   UsersIcon: ({ size }: any) => <div data-testid="users-icon">Users</div>,
-  PlusIcon: ({ size }: any) => <div data-testid="plus-icon">Plus</div>,
   XIcon: ({ size }: any) => <div data-testid="x-icon">X</div>,
   CheckIcon: ({ size }: any) => <div data-testid="check-icon">Check</div>,
 }));

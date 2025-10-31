@@ -78,8 +78,8 @@ class AutoSyncService {
       // Step 1: Load local data
       const localData = await this.loadLocalData();
       console.log('[AutoSync] Local data loaded:', {
-        accounts: localData.accounts.length,
-        transactions: localData.transactions.length
+        accounts: localData.accounts?.length || 0,
+        transactions: localData.transactions?.length || 0
       });
 
       // Step 2: Check cloud data status
