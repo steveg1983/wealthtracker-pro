@@ -230,13 +230,13 @@ class AdvancedAnalyticsService {
     // 4. Merchant-specific opportunities
     const merchantAnalysis = this.analyzeMerchantSpending(transactions);
     merchantAnalysis.forEach((data, merchant) => {
-      if (data.averageTransaction.greaterThan(50) && data.frequency > 4) {
+      if (data.averageTransaction?.greaterThan(50) && data.frequency > 4) {
         opportunities.push({
           id: `opp-merchant-${merchant}`,
           type: 'merchant',
           title: `Optimize ${merchant} Spending`,
           description: `Consider bulk purchases or membership discounts`,
-          potentialSavings: data.monthlyTotal.times(0.1), // 10% potential savings
+          potentialSavings: data.monthlyTotal?.times(0.1) || 0, // 10% potential savings
           difficulty: 'medium',
           actionRequired: 'Look for discounts or alternative options'
         });

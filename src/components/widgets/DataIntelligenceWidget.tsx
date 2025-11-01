@@ -61,7 +61,7 @@ export default function DataIntelligenceWidget({
   }, [formatCurrency]);
 
   const formatPercentage = React.useCallback((value: number, decimals: number = 1) => {
-    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toString();
+    return toDecimal(value).toFixed(decimals);
   }, []);
 
   const getInsightIcon = (type: SpendingInsight['type']) => {

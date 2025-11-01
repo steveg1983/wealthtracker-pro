@@ -28,8 +28,14 @@ export default function InvestmentEnhancementWidget({ size = 'medium' }: Investm
   });
 
   const formatPercentage = React.useCallback((value: DecimalInstance | number, decimals: number = 1) => {
-    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toString();
+    return toDecimal(value).toFixed(decimals);
   }, []);
+
+  const riskScoreDecimal = toDecimal(metrics.riskScore);
+  const riskScoreDisplay = formatPercentage(riskScoreDecimal, 0);
+  const riskScoreWidth = riskScoreDecimal.toNumber();
+  const outperformanceDecimal = toDecimal(metrics.outperformance);
+  const outperformanceDisplay = `${outperformanceDecimal.greaterThanOrEqualTo(0) ? '+' : '-'}${formatPercentage(outperformanceDecimal.abs(), 2)}%`;
 
   const calculateMetrics = React.useCallback(() => {
     const rebalancing = investmentEnhancementService.getRebalancingSuggestions(investments || []);
@@ -133,12 +139,12 @@ export default function InvestmentEnhancementWidget({ size = 'medium' }: Investm
                   <p className="text-xs text-gray-500 dark:text-gray-400">Risk Score</p>
                 </div>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">
-                  {formatPercentage(metrics.riskScore)}%
+                  {riskScoreDisplay}%
                 </p>
                 <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1 mt-1">
                   <div 
                     className="bg-purple-500 h-1 rounded-full" 
-                    style={{ width: `${toDecimal(metrics.riskScore).toNumber()}%` }}
+                    style={{ width: `${riskScoreWidth}%` }}
                   />
                 </div>
               </div>
@@ -162,8 +168,7 @@ export default function InvestmentEnhancementWidget({ size = 'medium' }: Investm
                   ? 'text-green-600 dark:text-green-400' 
                   : 'text-red-600 dark:text-red-400'
               }`}>
-                {toDecimal(metrics.outperformance).greaterThanOrEqualTo(0) ? '+' : '-'}
-                {formatPercentage(toDecimal(metrics.outperformance).abs(), 2)}%
+                {outperformanceDisplay}
               </p>
               <p className="text-xs text-gray-600 dark:text-gray-400">
                 {metrics.outperformance >= 0 ? 'Outperforming' : 'Underperforming'}

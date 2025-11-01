@@ -14,7 +14,9 @@ import type { Account, Transaction } from '../../types';
 import type { DecimalAccount, DecimalTransaction } from '../../types/decimal-types';
 
 // Mock the external dependencies
-vi.mock('../../contexts/AppContext');
+vi.mock('../../contexts/AppContextSupabase', () => ({
+  useApp: vi.fn(),
+}));
 vi.mock('../../hooks/useCurrencyDecimal');
 
 // Mock trending icons

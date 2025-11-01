@@ -75,7 +75,7 @@ export default function NetWorthWidget({ size = 'medium' }: NetWorthWidgetProps)
   }, [getDecimalAccounts, getDecimalTransactions]);
 
   const isPositive = change.greaterThanOrEqualTo(0);
-  const changePercentDisplay = changePercent.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString();
+  const changePercentDisplay = changePercent.toFixed(2);
 
   if (size === 'small') {
     return (
@@ -125,12 +125,12 @@ export default function NetWorthWidget({ size = 'medium' }: NetWorthWidgetProps)
                 tickFormatter={(value) => {
                   const decimalValue = toDecimal(value);
                   if (decimalValue.greaterThanOrEqualTo(1000000)) {
-                    return `${decimalValue.dividedBy(1000000).toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toString()}M`;
+                    return `${decimalValue.dividedBy(1000000).toFixed(1)}M`;
                   }
                   if (decimalValue.greaterThanOrEqualTo(1000)) {
-                    return `${decimalValue.dividedBy(1000).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toString()}K`;
+                    return `${decimalValue.dividedBy(1000).toFixed(0)}K`;
                   }
-                  return decimalValue.toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toString();
+                  return decimalValue.toFixed(0);
                 }}
               />
               <Tooltip 
