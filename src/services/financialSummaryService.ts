@@ -156,10 +156,10 @@ class FinancialSummaryService {
     // Calculate top spending categories
     const categorySpending = new Map<string, DecimalInstance>();
     periodTransactions
-      .filter(t => t.type === 'expense' && t.categoryId)
+      .filter(t => t.type === 'expense' && t.category)
       .forEach(t => {
-        const current = categorySpending.get(t.categoryId!) || toDecimal(0);
-        categorySpending.set(t.categoryId!, current.plus(toDecimal(t.amount)));
+        const current = categorySpending.get(t.category) || toDecimal(0);
+        categorySpending.set(t.category, current.plus(toDecimal(t.amount)));
       });
 
     const topCategories = Array.from(categorySpending.entries())
@@ -197,8 +197,8 @@ class FinancialSummaryService {
 
     // Budget performance
     const budgetPerformance = budgets.map(budget => {
-      const budgetTransactions = periodTransactions.filter(t => 
-        t.type === 'expense' && t.categoryId === budget.categoryId
+      const budgetTransactions = periodTransactions.filter(t =>
+        t.type === 'expense' && t.category === budget.categoryId
       );
       const spent = budgetTransactions.reduce(
         (sum, t) => sum.plus(toDecimal(t.amount)), 
