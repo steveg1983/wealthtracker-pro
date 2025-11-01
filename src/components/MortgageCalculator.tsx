@@ -9,6 +9,8 @@ import {
   PlusIcon
 } from './icons';
 import type { MortgageCalculation } from '../services/financialPlanningService';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface MortgageCalculatorProps {
   onDataChange: () => void;
@@ -23,6 +25,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
     loanTermYears: 30
   });
   const [selectedCalculation, setSelectedCalculation] = useState<MortgageCalculation | null>(null);
+  const { formatCurrency } = useCurrencyDecimal();
 
   const loadCalculations = useCallback(() => {
     const mortgageCalculations = financialPlanningService.getMortgageCalculations();
@@ -60,15 +63,6 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
       loadCalculations();
       onDataChange();
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
   };
 
   const formatPercentage = (value: number) => {
@@ -146,7 +140,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                 >
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-gray-900 dark:text-white">
-                      {formatCurrency(calc.loanAmount)}
+                      {formatCurrency(toDecimal(calc.loanAmount))}
                     </h4>
                     <button
                       onClick={(e) => {
@@ -160,7 +154,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
                     <div>{formatPercentage(calc.interestRate)} • {calc.loanTermYears} years</div>
-                    <div>{formatCurrency(calc.monthlyPayment)}/month</div>
+                    <div>{formatCurrency(toDecimal(calc.monthlyPayment))}/month</div>
                   </div>
                 </div>
               ))}
@@ -178,7 +172,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                       <div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Monthly Payment</p>
                         <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {formatCurrency(selectedCalculation.monthlyPayment)}
+                          {formatCurrency(toDecimal(selectedCalculation.monthlyPayment))}
                         </p>
                       </div>
                       <DollarSignIcon size={24} className="text-blue-500" />
@@ -190,7 +184,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                       <div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Total Interest</p>
                         <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                          {formatCurrency(selectedCalculation.totalInterest)}
+                          {formatCurrency(toDecimal(selectedCalculation.totalInterest))}
                         </p>
                       </div>
                       <TrendingUpIcon size={24} className="text-red-500" />
@@ -210,7 +204,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Loan Amount:</span>
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(selectedCalculation.loanAmount)}
+                          {formatCurrency(toDecimal(selectedCalculation.loanAmount))}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -231,13 +225,13 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Monthly Payment:</span>
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(selectedCalculation.monthlyPayment)}
+                          {formatCurrency(toDecimal(selectedCalculation.monthlyPayment))}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Total Cost:</span>
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(selectedCalculation.totalCost)}
+                          {formatCurrency(toDecimal(selectedCalculation.totalCost))}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -277,13 +271,13 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
                               {formatDate(entry.paymentDate)}
                             </td>
                             <td className="px-3 py-2 text-green-600 dark:text-green-400">
-                              {formatCurrency(entry.principalPayment)}
+                              {formatCurrency(toDecimal(entry.principalPayment))}
                             </td>
                             <td className="px-3 py-2 text-red-600 dark:text-red-400">
-                              {formatCurrency(entry.interestPayment)}
+                              {formatCurrency(toDecimal(entry.interestPayment))}
                             </td>
                             <td className="px-3 py-2 text-gray-900 dark:text-white">
-                              {formatCurrency(entry.remainingBalance)}
+                              {formatCurrency(toDecimal(entry.remainingBalance))}
                             </td>
                           </tr>
                         ))}

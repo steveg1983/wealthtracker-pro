@@ -13,6 +13,8 @@ import {
   DownloadIcon
 } from './icons';
 import type { Invoice, InvoiceItem } from '../services/businessService';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface InvoiceManagerProps {
   onDataChange: () => void;
@@ -24,6 +26,7 @@ export default function InvoiceManager({ onDataChange }: InvoiceManagerProps) {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
+  const { formatCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadInvoices();
@@ -90,13 +93,6 @@ export default function InvoiceManager({ onDataChange }: InvoiceManagerProps) {
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
   };
 
   const formatDate = (date: Date) => {
@@ -173,7 +169,7 @@ export default function InvoiceManager({ onDataChange }: InvoiceManagerProps) {
                     <div>
                       <span className="text-gray-500 dark:text-gray-400 block text-xs">Amount</span>
                       <span className="text-gray-900 dark:text-white font-medium">
-                        {formatCurrency(invoice.total)}
+                        {formatCurrency(toDecimal(invoice.total))}
                       </span>
                     </div>
                     <div>
@@ -278,7 +274,7 @@ export default function InvoiceManager({ onDataChange }: InvoiceManagerProps) {
                         <div className="text-sm text-gray-500 dark:text-gray-400">{invoice.clientEmail}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {formatCurrency(invoice.total)}
+                        {formatCurrency(toDecimal(invoice.total))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(invoice.status)}`}>
@@ -380,6 +376,7 @@ function InvoiceModal({ invoice, onClose, onSave }: InvoiceModalProps) {
   const [items, setItems] = useState<InvoiceItem[]>(invoice?.items || [
     { id: '1', description: '', quantity: 1, unitPrice: 0, vatRate: 0.20, total: 0 }
   ]);
+  const { formatCurrency } = useCurrencyDecimal();
 
   const addItem = () => {
     const newItem: InvoiceItem = {
@@ -612,7 +609,7 @@ function InvoiceModal({ invoice, onClose, onSave }: InvoiceModalProps) {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-900 dark:text-white">
-                      ${item.total.toFixed(2)}
+                      {formatCurrency(toDecimal(item.total))}
                     </span>
                     {items.length > 1 && (
                       <button
@@ -633,15 +630,21 @@ function InvoiceModal({ invoice, onClose, onSave }: InvoiceModalProps) {
           <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-6">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">Subtotal:</span>
-              <span className="text-sm text-gray-900 dark:text-white">${totals.subtotal.toFixed(2)}</span>
+              <span className="text-sm text-gray-900 dark:text-white">
+                {formatCurrency(toDecimal(totals.subtotal))}
+              </span>
             </div>
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">VAT:</span>
-              <span className="text-sm text-gray-900 dark:text-white">${totals.vatAmount.toFixed(2)}</span>
+              <span className="text-sm text-gray-900 dark:text-white">
+                {formatCurrency(toDecimal(totals.vatAmount))}
+              </span>
             </div>
             <div className="flex justify-between items-center font-semibold text-lg">
               <span className="text-gray-900 dark:text-white">Total:</span>
-              <span className="text-gray-900 dark:text-white">${totals.total.toFixed(2)}</span>
+              <span className="text-gray-900 dark:text-white">
+                {formatCurrency(toDecimal(totals.total))}
+              </span>
             </div>
           </div>
 
@@ -687,12 +690,7 @@ interface InvoiceViewModalProps {
 }
 
 function InvoiceViewModal({ invoice, onClose }: InvoiceViewModalProps) {
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
+  const { formatCurrency } = useCurrencyDecimal();
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -781,13 +779,13 @@ function InvoiceViewModal({ invoice, onClose }: InvoiceViewModalProps) {
                         {item.quantity}
                       </td>
                       <td className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-center text-gray-900 dark:text-white">
-                        {formatCurrency(item.unitPrice)}
+                        {formatCurrency(toDecimal(item.unitPrice))}
                       </td>
                       <td className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-center text-gray-900 dark:text-white">
                         {(item.vatRate * 100).toFixed(0)}%
                       </td>
                       <td className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-right text-gray-900 dark:text-white">
-                        {formatCurrency(item.total)}
+                        {formatCurrency(toDecimal(item.total))}
                       </td>
                     </tr>
                   ))}
@@ -800,15 +798,15 @@ function InvoiceViewModal({ invoice, onClose }: InvoiceViewModalProps) {
               <div className="w-64">
                 <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Subtotal:</span>
-                  <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(invoice.subtotal)}</span>
+                  <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(toDecimal(invoice.subtotal))}</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
                   <span className="text-sm text-gray-600 dark:text-gray-400">VAT:</span>
-                  <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(invoice.vatAmount)}</span>
+                  <span className="text-sm text-gray-900 dark:text-white">{formatCurrency(toDecimal(invoice.vatAmount))}</span>
                 </div>
                 <div className="flex justify-between items-center py-2 font-semibold text-lg">
                   <span className="text-gray-900 dark:text-white">Total:</span>
-                  <span className="text-gray-900 dark:text-white">{formatCurrency(invoice.total)}</span>
+                  <span className="text-gray-900 dark:text-white">{formatCurrency(toDecimal(invoice.total))}</span>
                 </div>
               </div>
             </div>

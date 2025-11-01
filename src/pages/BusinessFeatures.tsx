@@ -19,11 +19,14 @@ import InvoiceManager from '../components/InvoiceManager';
 import MileageTracker from '../components/MileageTracker';
 import BusinessExpenseManager from '../components/BusinessExpenseManager';
 import type { BusinessMetrics } from '../services/businessService';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 export default function BusinessFeatures() {
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'expenses' | 'mileage'>('overview');
   const [metrics, setMetrics] = useState<BusinessMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { formatCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadData();
@@ -43,13 +46,6 @@ export default function BusinessFeatures() {
 
   const handleDataChange = () => {
     loadData();
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
   };
 
   const formatPercentage = (value: number) => {

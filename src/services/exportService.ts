@@ -603,8 +603,8 @@ class ExportService {
           qifContent += `P${transaction.description || ''}\n`;
           qifContent += `L${transaction.category || 'Uncategorized'}\n`;
           
-          if (transaction.note) {
-            qifContent += `M${transaction.note}\n`;
+          if (transaction.notes) {
+            qifContent += `M${transaction.notes}\n`;
           }
           
           qifContent += '^\n';
@@ -673,7 +673,7 @@ NEWFILEUID:${now}
 <TRNAMT>${amount}
 <FITID>${transaction.id}
 <NAME>${transaction.description || ''}
-<MEMO>${transaction.note || ''}
+<MEMO>${transaction.notes || ''}
 </STMTTRN>
 `;
       }

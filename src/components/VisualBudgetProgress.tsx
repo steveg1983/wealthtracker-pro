@@ -51,8 +51,8 @@ export function VisualBudgetProgress({
   // Calculate spending for this budget
   const spent = useMemo(() => {
     return transactions
-      .filter(t => 
-        t.category === budget.category &&
+      .filter(t =>
+        t.category === budget.categoryId &&
         t.type === 'expense' &&
         new Date(t.date) >= new Date(budget.startDate) &&
         new Date(t.date) <= new Date(budget.endDate)
@@ -186,7 +186,7 @@ export function VisualBudgetProgress({
             {budget.name}
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {budget.category} • {budget.period}
+            {budget.categoryId} • {budget.period}
           </p>
         </div>
         <div className="text-right">
