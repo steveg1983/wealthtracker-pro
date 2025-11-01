@@ -3,7 +3,32 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import FinancialPlanningWidget from './FinancialPlanningWidget';
 import { financialPlanningService } from '../../services/financialPlanningService';
 import { useNavigate } from 'react-router-dom';
+import { toDecimal } from '../../utils/decimal';
 import type { RetirementPlan, FinancialGoal } from '../../services/financialPlanningService';
+
+const testCurrencySymbols: Record<string, string> = {
+  USD: '$',
+  GBP: '£',
+  EUR: '€',
+  CHF: 'CHF',
+};
+
+const formatCurrencyMock = (value: any, currency: string = 'USD'): string => {
+  const decimalValue = toDecimal(value);
+  const rounded = decimalValue.toDecimalPlaces(0);
+  const isNegative = rounded.isNegative();
+  const absolute = rounded.abs();
+  const grouped = absolute.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const symbol = testCurrencySymbols[currency] ?? currency;
+
+  if (currency === 'CHF') {
+    return `${isNegative ? '-' : ''}${grouped} ${symbol}`;
+  }
+
+  return `${isNegative ? '-' : ''}${symbol}${grouped}`;
+};
+
+const mockUseCurrencyDecimal = vi.fn();
 
 // Mock dependencies
 vi.mock('../../services/financialPlanningService');
@@ -11,18 +36,7 @@ vi.mock('react-router-dom', () => ({
   useNavigate: vi.fn(),
 }));
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
-  useCurrencyDecimal: () => ({
-    displayCurrency: 'USD',
-    formatCurrency: (value: any) => {
-      const num = parseFloat(value.toString());
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(num);
-    },
-  }),
+  useCurrencyDecimal: () => mockUseCurrencyDecimal(),
 }));
 
 // Mock icons
@@ -132,6 +146,10 @@ describe('FinancialPlanningWidget', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (useNavigate as Mock).mockReturnValue(mockNavigate);
+    mockUseCurrencyDecimal.mockReturnValue({
+      displayCurrency: 'USD',
+      formatCurrency: (value: any, currency?: string) => formatCurrencyMock(value, currency ?? 'USD'),
+    });
     
     // Default mock values
     mockFinancialPlanningService.getRetirementPlans.mockReturnValue(mockRetirementPlans);
@@ -247,7 +265,7 @@ describe('FinancialPlanningWidget', () => {
         expect(screen.getByText('Emergency Fund')).toBeInTheDocument();
         expect(screen.getByText('Dream Vacation')).toBeInTheDocument();
         expect(screen.getByText('53.3% complete')).toBeInTheDocument(); // 8000/15000
-        expect(screen.getByText('40.0% complete')).toBeInTheDocument(); // 2000/5000
+        expect(screen.getByText('40% complete')).toBeInTheDocument(); // 2000/5000
       });
     });
 

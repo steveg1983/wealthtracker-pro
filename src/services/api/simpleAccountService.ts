@@ -26,7 +26,6 @@ function transformAccountFromDb(dbAccount: any): Account {
     currency: dbAccount.currency,
     institution: dbAccount.institution || '',
     isActive: dbAccount.is_active,
-    initialBalance: dbAccount.initial_balance,
     openingBalance: dbAccount.initial_balance,
     createdAt: dbAccount.created_at,
     updatedAt: dbAccount.updated_at,

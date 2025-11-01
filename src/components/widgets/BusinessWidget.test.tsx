@@ -10,10 +10,9 @@ vi.mock('../../services/businessService');
 vi.mock('react-router-dom', () => ({
   useNavigate: vi.fn(),
 }));
+const mockUseCurrencyDecimal = vi.fn();
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
-  useCurrencyDecimal: () => ({
-    displayCurrency: 'USD',
-  }),
+  useCurrencyDecimal: () => mockUseCurrencyDecimal(),
 }));
 
 // Mock icons
@@ -85,6 +84,9 @@ describe('BusinessWidget', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (useNavigate as Mock).mockReturnValue(mockNavigate);
+    mockUseCurrencyDecimal.mockReturnValue({
+      displayCurrency: 'USD',
+    });
     
     // Default mock values
     mockBusinessService.getBusinessMetrics.mockReturnValue(mockMetrics);
@@ -320,6 +322,18 @@ describe('BusinessWidget', () => {
       
       await waitFor(() => {
         expect(screen.getByText('15.6% margin')).toBeInTheDocument();
+      });
+    });
+
+    it('places CHF symbol after the amount', async () => {
+      mockUseCurrencyDecimal.mockReturnValue({
+        displayCurrency: 'CHF',
+      });
+
+      render(<BusinessWidget />);
+
+      await waitFor(() => {
+        expect(screen.getByText('65,000 CHF')).toBeInTheDocument();
       });
     });
 

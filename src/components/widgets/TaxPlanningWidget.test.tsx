@@ -7,6 +7,29 @@ import { useNavigate } from 'react-router-dom';
 import { toDecimal } from '../../utils/decimal';
 import type { Transaction, Account } from '../../types';
 
+const testCurrencySymbols: Record<string, string> = {
+  USD: '$',
+  GBP: '£',
+  EUR: '€',
+  CHF: 'CHF',
+};
+
+const formatCurrencyMock = (value: any, currency: string = 'USD'): string => {
+  const decimalValue = toDecimal(value).toDecimalPlaces(0);
+  const isNegative = decimalValue.isNegative();
+  const absolute = decimalValue.abs();
+  const grouped = absolute.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const symbol = testCurrencySymbols[currency] ?? currency;
+
+  if (currency === 'CHF') {
+    return `${isNegative ? '-' : ''}${grouped} ${symbol}`;
+  }
+
+  return `${isNegative ? '-' : ''}${symbol}${grouped}`;
+};
+
+const mockUseCurrencyDecimal = vi.fn();
+
 // Mock dependencies
 vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: vi.fn(),
@@ -16,17 +39,7 @@ vi.mock('react-router-dom', () => ({
   useNavigate: vi.fn(),
 }));
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
-  useCurrencyDecimal: () => ({
-    formatCurrency: (value: any) => {
-      const num = parseFloat(value.toString());
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(num);
-    },
-  }),
+  useCurrencyDecimal: () => mockUseCurrencyDecimal(),
 }));
 
 // Mock icons
@@ -102,6 +115,10 @@ describe('TaxPlanningWidget', () => {
     vi.setSystemTime(new Date('2024-01-20'));
     
     (useNavigate as Mock).mockReturnValue(mockNavigate);
+    mockUseCurrencyDecimal.mockReturnValue({
+      formatCurrency: (value: any, currency?: string) => formatCurrencyMock(value, currency ?? 'USD'),
+      displayCurrency: 'USD',
+    });
     mockUseApp.mockReturnValue({
       transactions: mockTransactions,
       accounts: mockAccounts,

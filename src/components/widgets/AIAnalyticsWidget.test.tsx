@@ -12,6 +12,8 @@ vi.mock('../../services/advancedAnalyticsService');
 vi.mock('react-router-dom', () => ({
   useNavigate: vi.fn(),
 }));
+
+const mockUseCurrencyDecimal = vi.fn();
 vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     transactions: mockTransactions,
@@ -20,18 +22,7 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
   }),
 }));
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
-  useCurrencyDecimal: () => ({
-    formatCurrency: (value: any) => {
-      const num = parseFloat(value.toString());
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(num);
-    },
-    displayCurrency: 'USD',
-  }),
+  useCurrencyDecimal: () => mockUseCurrencyDecimal(),
 }));
 
 // Mock icons
@@ -135,6 +126,9 @@ describe('AIAnalyticsWidget', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (useNavigate as Mock).mockReturnValue(mockNavigate);
+    mockUseCurrencyDecimal.mockReturnValue({
+      displayCurrency: 'USD',
+    });
     
     // Default mock values
     mockAdvancedAnalyticsService.detectSpendingAnomalies.mockReturnValue(mockAnomalies);
@@ -303,6 +297,22 @@ describe('AIAnalyticsWidget', () => {
       render(<AIAnalyticsWidget />);
       
       expect(screen.getByText('$0')).toBeInTheDocument();
+    });
+
+    it('places CHF symbol after the amount', () => {
+      mockUseCurrencyDecimal.mockReturnValue({
+        displayCurrency: 'CHF',
+      });
+      mockAdvancedAnalyticsService.identifySavingsOpportunities.mockReturnValue([
+        {
+          ...mockOpportunities[0],
+          potentialSavings: toDecimal(12345.75),
+        },
+      ]);
+
+      render(<AIAnalyticsWidget />);
+
+      expect(screen.getByText('12,345 CHF')).toBeInTheDocument();
     });
   });
 

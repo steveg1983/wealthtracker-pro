@@ -1,3 +1,9 @@
+import {
+  formatCurrency as formatCurrencyDecimal,
+  currencySymbols,
+  getCurrencySymbol as getCurrencySymbolDecimal,
+} from './currency-decimal';
+
 // Currency conversion utilities
 interface ExchangeRates {
   [key: string]: number;
@@ -11,43 +17,12 @@ let ratesCache: {
 
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
 
-// Currency symbols
-export const currencySymbols: Record<string, string> = {
-  GBP: '£',
-  USD: '$',
-  EUR: '€',
-  CAD: '$',
-  AUD: '$',
-  JPY: '¥',
-  CHF: 'CHF',
-  CNY: '¥',
-  INR: '₹',
-  NZD: '$',
-};
-
-// Get currency symbol
-export function getCurrencySymbol(currency: string): string {
-  return currencySymbols[currency] || currency;
-}
+export { currencySymbols };
+export const getCurrencySymbol = getCurrencySymbolDecimal;
 
 // Format amount with currency
 export function formatCurrency(amount: number, currency: string = 'GBP'): string {
-  const symbol = getCurrencySymbol(currency);
-  const isNegative = amount < 0;
-  const absAmount = Math.abs(amount);
-  
-  const formatted = new Intl.NumberFormat('en-GB', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(absAmount);
-  
-  // Special handling for currencies that come after the number
-  if (currency === 'CHF') {
-    return isNegative ? `-${formatted} ${symbol}` : `${formatted} ${symbol}`;
-  }
-  
-  // For negative amounts, put the minus sign before the currency symbol
-  return isNegative ? `-${symbol}${formatted}` : `${symbol}${formatted}`;
+  return formatCurrencyDecimal(amount, currency);
 }
 
 // Format currency for display with proper sign handling

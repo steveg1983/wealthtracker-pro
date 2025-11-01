@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Decimal, toDecimal } from '../utils/decimal';
 import { formatCurrency } from '../utils/currency';
 
 // Cache for date formatting to avoid re-creating Date objects
@@ -89,27 +90,36 @@ export function useBatchFormattedCurrency(
 export function useFormattedPercentage(
   value: number,
   decimals: number = 1,
-  locale: string = 'en-US'
+  _locale: string = 'en-US'
 ): string {
   return useMemo(() => {
-    return new Intl.NumberFormat(locale, {
-      style: 'percent',
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals
-    }).format(value / 100);
-  }, [value, decimals, locale]);
+    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+    const isNegative = decimalValue.isNegative();
+    const absolute = decimalValue.abs();
+    const fixed = decimals > 0 ? absolute.toFixed(decimals) : absolute.toFixed(0);
+    const [integerPart, fractionalPart] = fixed.split('.');
+    const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const fraction = decimals > 0 ? `.${fractionalPart}` : '';
+
+    return `${isNegative ? '-' : ''}${groupedInteger}${fraction}%`;
+  }, [value, decimals]);
 }
 
 // Memoized number formatting
 export function useFormattedNumber(
   value: number,
   decimals: number = 0,
-  locale: string = 'en-US'
+  _locale: string = 'en-US'
 ): string {
   return useMemo(() => {
-    return new Intl.NumberFormat(locale, {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals
-    }).format(value);
-  }, [value, decimals, locale]);
+    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+    const isNegative = decimalValue.isNegative();
+    const absolute = decimalValue.abs();
+    const fixed = decimals > 0 ? absolute.toFixed(decimals) : absolute.toFixed(0);
+    const [integerPart, fractionalPart] = fixed.split('.');
+    const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const fraction = decimals > 0 ? `.${fractionalPart}` : '';
+
+    return `${isNegative ? '-' : ''}${groupedInteger}${fraction}`;
+  }, [value, decimals]);
 }

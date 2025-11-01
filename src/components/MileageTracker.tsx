@@ -11,6 +11,8 @@ import {
   CarIcon
 } from './icons';
 import type { MileageEntry } from '../services/businessService';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal, Decimal } from '../utils/decimal';
 
 interface MileageTrackerProps {
   onDataChange: () => void;
@@ -25,6 +27,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
     category: '',
     dateRange: ''
   });
+  const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadMileageEntries();
@@ -93,13 +96,6 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
-
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -124,10 +120,14 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
   };
 
   const totalMiles = filteredEntries.reduce((sum, entry) => sum + entry.distance, 0);
-  const totalAmount = filteredEntries.reduce((sum, entry) => sum + entry.amount, 0);
-  const averageRate = filteredEntries.length > 0 
-    ? filteredEntries.reduce((sum, entry) => sum + entry.rate, 0) / filteredEntries.length 
-    : 0;
+  const totalAmountDecimal = filteredEntries.reduce(
+    (sum, entry) => sum.plus(entry.amount),
+    toDecimal(0)
+  );
+  const averageRateDecimal = filteredEntries.length > 0 
+    ? filteredEntries.reduce((sum, entry) => sum.plus(entry.rate), toDecimal(0)).dividedBy(filteredEntries.length)
+    : toDecimal(0);
+  const averageRateDisplay = averageRateDecimal.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toFixed(2);
 
   return (
     <div className="space-y-6">
@@ -168,7 +168,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Amount</p>
               <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {formatCurrency(totalAmount)}
+                {formatCurrency(totalAmountDecimal)}
               </p>
             </div>
             <DollarSignIcon size={24} className="text-green-500" />
@@ -180,7 +180,9 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Average Rate</p>
               <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                ${averageRate.toFixed(2)}/mi
+                {displayCurrency === 'CHF'
+                  ? `${averageRateDisplay} ${getCurrencySymbol(displayCurrency)}/mi`
+                  : `${getCurrencySymbol(displayCurrency)}${averageRateDisplay}/mi`}
               </p>
             </div>
             <TrendingUpIcon size={24} className="text-purple-500" />

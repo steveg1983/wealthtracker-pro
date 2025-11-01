@@ -14,9 +14,9 @@ import { useNavigate } from 'react-router-dom';
 import type { BusinessMetrics } from '../../services/businessService';
 import type { BaseWidgetProps } from '../../types/widget-types';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
-import { toDecimal, Decimal } from '../../utils/decimal';
+import { toDecimal } from '../../utils/decimal';
 import type { DecimalInstance } from '../../utils/decimal';
-import { getCurrencySymbol } from '../../utils/currency-decimal';
+import { formatCurrencyWhole } from '../../utils/currency-decimal';
 
 type BusinessWidgetProps = BaseWidgetProps;
 
@@ -26,19 +26,10 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
   const [isLoading, setIsLoading] = useState(true);
   const { displayCurrency } = useCurrencyDecimal();
 
-  const formatAmount = React.useCallback((amount: DecimalInstance | number | string) => {
-    const decimalValue = toDecimal(amount);
-    const floored = decimalValue.toDecimalPlaces(0, Decimal.ROUND_DOWN);
-    const absString = floored.abs().toFixed(0);
-    const grouped = absString.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    const symbol = getCurrencySymbol(displayCurrency);
-    const isNegative = floored.isNegative();
-
-    if (displayCurrency === 'CHF') {
-      return isNegative ? `-${grouped} ${symbol}` : `${grouped} ${symbol}`;
-    }
-    return isNegative ? `-${symbol}${grouped}` : `${symbol}${grouped}`;
-  }, [displayCurrency]);
+  const formatAmount = React.useCallback(
+    (amount: DecimalInstance | number | string) => formatCurrencyWhole(amount, displayCurrency),
+    [displayCurrency]
+  );
 
   const formatPercentage = React.useCallback((value: number) => {
     return `${toDecimal(value).toDecimalPlaces(1).toString()}%`;

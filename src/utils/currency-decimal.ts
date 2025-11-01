@@ -35,23 +35,39 @@ export function getCurrencySymbol(currency: string): string {
 
 // Format amount with currency (accepts Decimal or number)
 export function formatCurrency(amount: DecimalInstance | number, currency: string = 'GBP'): string {
-  const decimal = toDecimal(amount);
+  const decimal = toDecimal(amount).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
   const symbol = getCurrencySymbol(currency);
   const isNegative = decimal.isNegative();
-  const absValue = decimal.abs().toNumber();
-  
-  const formatted = new Intl.NumberFormat('en-GB', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(absValue);
-  
-  // Special handling for currencies that come after the number
+  const absolute = decimal.abs();
+  const fixed = absolute.toFixed(2);
+  const [integerPart, fractionalPart] = fixed.split('.');
+  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const formatted = `${groupedInteger}.${fractionalPart}`;
+
   if (currency === 'CHF') {
     return isNegative ? `-${formatted} ${symbol}` : `${formatted} ${symbol}`;
   }
-  
-  // For negative amounts, put the minus sign before the currency symbol
+
   return isNegative ? `-${symbol}${formatted}` : `${symbol}${formatted}`;
+}
+
+// Format currency without fractional digits (floored values) for dashboard summaries
+export function formatCurrencyWhole(
+  amount: DecimalInstance | number | string,
+  currency: string = 'GBP'
+): string {
+  const decimal = toDecimal(amount);
+  const rounded = decimal.toDecimalPlaces(0, Decimal.ROUND_DOWN);
+  const isNegative = rounded.isNegative();
+  const symbol = getCurrencySymbol(currency);
+  const absoluteString = rounded.abs().toFixed(0);
+  const grouped = absoluteString.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+  if (currency === 'CHF') {
+    return isNegative ? `-${grouped} ${symbol}` : `${grouped} ${symbol}`;
+  }
+
+  return isNegative ? `-${symbol}${grouped}` : `${symbol}${grouped}`;
 }
 
 // Fetch exchange rates from a free API

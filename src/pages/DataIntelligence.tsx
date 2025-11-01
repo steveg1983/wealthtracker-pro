@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { dataIntelligenceService } from '../services/dataIntelligenceService';
 import { 
   DatabaseIcon,
@@ -23,6 +23,9 @@ import MerchantEnrichment from '../components/MerchantEnrichment';
 import SpendingPatterns from '../components/SpendingPatterns';
 import DataInsights from '../components/DataInsights';
 import type { DataIntelligenceStats, SpendingInsight, Subscription } from '../services/dataIntelligenceService';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { formatCurrencyWhole } from '../utils/currency-decimal';
+import { toDecimal, Decimal } from '../utils/decimal';
 
 type ActiveTab = 'overview' | 'subscriptions' | 'merchants' | 'patterns' | 'insights';
 
@@ -33,6 +36,7 @@ export default function DataIntelligence() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { displayCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadData();
@@ -71,14 +75,12 @@ export default function DataIntelligence() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = useMemo(() => {
+    return (amount: number) => {
+      const rounded = toDecimal(amount).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+      return formatCurrencyWhole(rounded, displayCurrency);
+    };
+  }, [displayCurrency]);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {

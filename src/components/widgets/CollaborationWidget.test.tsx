@@ -6,23 +6,38 @@ import { useNavigate } from 'react-router-dom';
 import { toDecimal } from '../../utils/decimal';
 import type { Household, ExpenseSplit, Settlement } from '../../services/collaborationService';
 
+const testCurrencySymbols: Record<string, string> = {
+  USD: '$',
+  GBP: '£',
+  EUR: '€',
+  CHF: 'CHF',
+};
+
+const formatCurrencyMock = (value: any, currency: string = 'USD'): string => {
+  const decimalValue = toDecimal(value);
+  const isNegative = decimalValue.isNegative();
+  const absolute = decimalValue.abs();
+  const [integerPart, fractionalPart = ''] = absolute.toFixed(2).split('.');
+  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const symbol = testCurrencySymbols[currency] ?? currency;
+  const formatted = `${groupedInteger}.${fractionalPart.padEnd(2, '0')}`;
+
+  if (currency === 'CHF') {
+    return `${isNegative ? '-' : ''}${formatted} ${symbol}`;
+  }
+
+  return `${isNegative ? '-' : ''}${symbol}${formatted}`;
+};
+
+const mockUseCurrencyDecimal = vi.fn();
+
 // Mock dependencies
 vi.mock('../../services/collaborationService');
 vi.mock('react-router-dom', () => ({
   useNavigate: vi.fn(),
 }));
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
-  useCurrencyDecimal: () => ({
-    formatCurrency: (value: any) => {
-      const num = parseFloat(value.toString());
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }).format(num);
-    },
-  }),
+  useCurrencyDecimal: () => mockUseCurrencyDecimal(),
 }));
 
 // Mock icons
@@ -194,6 +209,10 @@ describe('CollaborationWidget', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (useNavigate as Mock).mockReturnValue(mockNavigate);
+    mockUseCurrencyDecimal.mockReturnValue({
+      formatCurrency: (value: any, currency?: string) => formatCurrencyMock(value, currency ?? 'USD'),
+      displayCurrency: 'USD',
+    });
     
     // Default mock values
     mockCollaborationService.getCurrentHousehold.mockReturnValue(mockHousehold);

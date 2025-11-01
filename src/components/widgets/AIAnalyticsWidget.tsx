@@ -8,9 +8,9 @@ import {
   PiggyBankIcon
 } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
-import { toDecimal, Decimal } from '../../utils/decimal';
+import { toDecimal } from '../../utils/decimal';
 import type { DecimalInstance } from '../../utils/decimal';
-import { getCurrencySymbol } from '../../utils/currency-decimal';
+import { formatCurrencyWhole } from '../../utils/currency-decimal';
 import { useNavigate } from 'react-router-dom';
 import type { BaseWidgetProps } from '../../types/widget-types';
 import type { FinancialInsight } from '../../services/advancedAnalyticsService';
@@ -50,22 +50,10 @@ export default function AIAnalyticsWidget({ size = 'medium' }: AIAnalyticsWidget
     analyzeSummary();
   }, [analyzeSummary]);
 
-  const formatWholeCurrency = React.useCallback((value: DecimalInstance | number | string) => {
-    const decimalValue = toDecimal(value);
-    const floored = decimalValue.toDecimalPlaces(0, Decimal.ROUND_DOWN);
-    const absValue = floored.abs().toNumber();
-    const symbol = getCurrencySymbol(displayCurrency);
-    const formattedNumber = new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(absValue);
-    const isNegative = floored.isNegative();
-
-    if (displayCurrency === 'CHF') {
-      return isNegative ? `-${formattedNumber} ${symbol}` : `${formattedNumber} ${symbol}`;
-    }
-    return isNegative ? `-${symbol}${formattedNumber}` : `${symbol}${formattedNumber}`;
-  }, [displayCurrency]);
+  const formatWholeCurrency = React.useCallback(
+    (value: DecimalInstance | number | string) => formatCurrencyWhole(value, displayCurrency),
+    [displayCurrency]
+  );
 
   const handleViewDetails = () => {
     navigate('/ai-analytics');
