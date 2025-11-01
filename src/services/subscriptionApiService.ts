@@ -20,6 +20,7 @@ import type {
   PaymentMethod,
   SubscriptionPreview
 } from '../types/subscription';
+import { toDecimal, toStorageNumber } from '../utils/decimal';
 
 export class SubscriptionApiService {
   private static stripe = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
@@ -105,13 +106,15 @@ export class SubscriptionApiService {
 
       const subscription = await SupabaseSubscriptionService.getCurrentSubscription(userProfile.id);
 
+      const totalPaidDecimal = invoices
+        .filter(i => i.status === 'paid')
+        .reduce((total, invoice) => total.plus(invoice.amount ?? 0), toDecimal(0));
+
       return {
         invoices,
         paymentMethods,
         nextBillingDate: subscription?.currentPeriodEnd,
-        totalPaid: invoices
-          .filter(i => i.status === 'paid')
-          .reduce((total, i) => total + i.amount, 0)
+        totalPaid: toStorageNumber(totalPaidDecimal)
       };
     } catch (error) {
       console.error('Error getting billing history:', error);

@@ -31,6 +31,7 @@ interface CheckoutPlanSummary {
   name: string;
   price: number;
   currency?: string;
+  interval?: 'month' | 'year';
 }
 
 interface PaymentFormProps {
@@ -59,6 +60,7 @@ export default function PaymentForm({
     () => formatCurrency(toDecimal(plan.price), planCurrency),
     [formatCurrency, plan.price, planCurrency]
   );
+  const billingLabel = plan.interval === 'year' ? 'Yearly' : 'Monthly';
 
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -167,7 +169,7 @@ export default function PaymentForm({
           <div className="flex justify-between items-center">
             <span className="text-gray-600 dark:text-gray-400">Billing:</span>
             <span className="font-medium text-gray-900 dark:text-white">
-              Monthly
+              {billingLabel}
             </span>
           </div>
           
@@ -176,7 +178,7 @@ export default function PaymentForm({
               Total:
             </span>
             <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-              {formattedPlanPrice}/month
+              {formattedPlanPrice}/{billingLabel.toLowerCase()}
             </span>
           </div>
         </div>

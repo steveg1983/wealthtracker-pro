@@ -10,6 +10,7 @@
  */
 
 import { supabase } from '../lib/supabase';
+import { toDecimal, toStorageNumber } from '../utils/decimal';
 import type { 
   UserSubscription, 
   SubscriptionTier, 
@@ -375,18 +376,22 @@ export class SupabaseSubscriptionService {
 
       if (error) throw error;
 
-      return (data || []).map(invoice => ({
-        id: invoice.stripe_invoice_id,
-        amount: parseFloat(invoice.amount),
-        currency: invoice.currency,
-        status: invoice.status,
-        paidAt: invoice.paid_at ? new Date(invoice.paid_at) : undefined,
-        dueDate: invoice.due_date ? new Date(invoice.due_date) : undefined,
-        invoiceUrl: invoice.invoice_url,
-        invoicePdf: invoice.invoice_pdf,
-        description: invoice.description,
-        createdAt: new Date(invoice.created_at)
-      }));
+      return (data || []).map(invoice => {
+        const amountDecimal = toDecimal(invoice.amount ?? 0);
+
+        return {
+          id: invoice.stripe_invoice_id,
+          amount: toStorageNumber(amountDecimal),
+          currency: invoice.currency,
+          status: invoice.status,
+          paidAt: invoice.paid_at ? new Date(invoice.paid_at) : undefined,
+          dueDate: invoice.due_date ? new Date(invoice.due_date) : undefined,
+          invoiceUrl: invoice.invoice_url,
+          invoicePdf: invoice.invoice_pdf,
+          description: invoice.description,
+          createdAt: new Date(invoice.created_at)
+        };
+      });
     } catch (error) {
       console.error('Error getting invoices:', error);
       throw error;

@@ -143,8 +143,11 @@ export default function BillingDashboard({
     return {
       formatted: formatCurrency(toDecimal(plan.price), currencyCode),
       interval: plan.interval ?? 'month',
+      currencyCode,
     };
   }, [displayCurrency, formatCurrency, subscription]);
+
+  const subscriptionCurrencyCode = formattedSubscriptionAmount?.currencyCode ?? displayCurrency;
 
   const formatAmount = (amount: number | null | undefined, currency?: string | null) => {
     if (amount === null || amount === undefined || Number.isNaN(amount)) {
@@ -250,6 +253,11 @@ export default function BillingDashboard({
                     : 'N/A'
                   }
                 </p>
+                {billingHistory?.totalPaid !== undefined && (
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Lifetime spend: {formatAmount(billingHistory.totalPaid, subscriptionCurrencyCode)}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -315,6 +323,11 @@ export default function BillingDashboard({
             <p className="text-gray-600 dark:text-gray-400 mb-4">
               You're currently on the free plan
             </p>
+            {billingHistory?.totalPaid ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Lifetime spend: {formatAmount(billingHistory.totalPaid, subscriptionCurrencyCode)}
+              </p>
+            ) : null}
             <button
               onClick={handleManageBilling}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"

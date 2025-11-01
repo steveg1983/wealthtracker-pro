@@ -66,7 +66,7 @@ export class StripeService {
         ],
         accounts: 5,
         transactions: 100,
-        maxBudgets: 3,
+        budgets: 3,
         maxGoals: 3,
         advancedReports: false,
         csvExport: false,
@@ -96,7 +96,7 @@ export class StripeService {
         isPopular: true,
         accounts: -1, // Unlimited
         transactions: -1,
-        maxBudgets: -1,
+        budgets: -1,
         maxGoals: -1,
         advancedReports: true,
         csvExport: true,
@@ -104,9 +104,9 @@ export class StripeService {
         prioritySupport: false
       },
       {
-        id: 'pro',
-        name: 'Pro',
-        tier: 'pro',
+        id: 'premium',
+        name: 'Premium',
+        tier: 'premium',
         description: 'Professional-grade tools for power users and businesses',
         price: 15.99,
         currency: 'gbp',
@@ -125,7 +125,7 @@ export class StripeService {
         ],
         accounts: -1,
         transactions: -1,
-        maxBudgets: -1,
+        budgets: -1,
         maxGoals: -1,
         advancedReports: true,
         csvExport: true,
@@ -147,7 +147,7 @@ export class StripeService {
       return {
         accounts: 5,
         transactions: 100,
-        maxBudgets: 3,
+        budgets: 3,
         maxGoals: 3,
         advancedReports: false,
         csvExport: false,
@@ -159,7 +159,7 @@ export class StripeService {
     return {
       accounts: plan.maxAccounts || 5,
       transactions: plan.transactions || 100,
-      maxBudgets: plan.maxBudgets || 3,
+      budgets: plan.maxBudgets || 3,
       maxGoals: plan.maxGoals || 3,
       advancedReports: plan.advancedReports || false,
       csvExport: plan.csvExport || false,
