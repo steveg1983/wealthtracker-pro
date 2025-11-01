@@ -164,11 +164,11 @@ export class StripeService {
    * Check if a feature is available for the user's subscription tier
    */
   static hasFeatureAccess(
-    userTier: SubscriptionTier,
+    userTier: SubscriptionPlan,
     feature: keyof FeatureLimits
   ): boolean {
     const limits = this.getFeatureLimits(userTier);
-    return limits[feature] === true || limits[feature] === -1;
+    return limits[feature] === -1 || (limits[feature] as number) > 0;
   }
 
   /**
@@ -323,7 +323,8 @@ export class StripeService {
         return {
           id: data.data.subscriptionId,
           userId: '',
-          tier: data.data.planType as SubscriptionTier,
+          plan: data.data.planType as SubscriptionPlan,
+          tier: data.data.planType as SubscriptionPlan,
           status: data.data.status,
           stripeCustomerId: data.data.customerId,
           stripeSubscriptionId: data.data.subscriptionId,
@@ -459,8 +460,8 @@ export class StripeService {
   /**
    * Check if tier is higher than current tier
    */
-  static isUpgrade(currentTier: SubscriptionTier, newTier: SubscriptionTier): boolean {
-    const tierOrder: SubscriptionTier[] = ['free', 'premium', 'pro'];
+  static isUpgrade(currentTier: SubscriptionPlan, newTier: SubscriptionPlan): boolean {
+    const tierOrder: SubscriptionPlan[] = ['free', 'basic', 'premium', 'enterprise'];
     const currentIndex = tierOrder.indexOf(currentTier);
     const newIndex = tierOrder.indexOf(newTier);
     return newIndex > currentIndex;
@@ -469,8 +470,8 @@ export class StripeService {
   /**
    * Check if tier is lower than current tier
    */
-  static isDowngrade(currentTier: SubscriptionTier, newTier: SubscriptionTier): boolean {
-    const tierOrder: SubscriptionTier[] = ['free', 'premium', 'pro'];
+  static isDowngrade(currentTier: SubscriptionPlan, newTier: SubscriptionPlan): boolean {
+    const tierOrder: SubscriptionPlan[] = ['free', 'basic', 'premium', 'enterprise'];
     const currentIndex = tierOrder.indexOf(currentTier);
     const newIndex = tierOrder.indexOf(newTier);
     return newIndex < currentIndex;
