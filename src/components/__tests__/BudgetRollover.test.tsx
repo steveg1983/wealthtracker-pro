@@ -5,10 +5,11 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BudgetRollover from '../BudgetRollover';
 import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
+import { toDecimal } from '../../utils/decimal';
 
 // Mock dependencies
 vi.mock('../../contexts/AppContext', () => ({
@@ -23,7 +24,7 @@ vi.mock('../../contexts/AppContext', () => ({
       {
         id: 'trans-1',
         date: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 15), // Last month
-        amount: 150,
+        amount: toDecimal(150),
         category: 'Food',
         type: 'expense',
         description: 'Grocery shopping',
@@ -33,7 +34,7 @@ vi.mock('../../contexts/AppContext', () => ({
       {
         id: 'trans-2',
         date: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 20), // Last month
-        amount: 50,
+        amount: toDecimal(50),
         category: 'Transport',
         type: 'expense',
         description: 'Gas',
@@ -51,7 +52,8 @@ vi.mock('../../contexts/BudgetContext', () => ({
       {
         id: 'budget-1',
         category: 'Food',
-        amount: 200,
+        categoryId: 'cat-1',
+        amount: toDecimal(200),
         period: 'monthly',
         startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
         description: 'Food budget'
@@ -59,7 +61,8 @@ vi.mock('../../contexts/BudgetContext', () => ({
       {
         id: 'budget-2',
         category: 'Transport',
-        amount: 100,
+        categoryId: 'cat-2',
+        amount: toDecimal(100),
         period: 'monthly',
         startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
         description: 'Transport budget'
@@ -67,7 +70,8 @@ vi.mock('../../contexts/BudgetContext', () => ({
       {
         id: 'budget-3',
         category: 'Entertainment',
-        amount: 150,
+        categoryId: 'cat-3',
+        amount: toDecimal(150),
         period: 'monthly',
         startDate: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1),
         description: 'Entertainment budget'
@@ -89,6 +93,20 @@ vi.mock('../../hooks/useCurrencyDecimal', () => ({
     formatCurrency: (value: any) => formatCurrencyDecimal(value, 'USD')
   })
 }));
+
+const openSettingsModal = async () => {
+  await userEvent.click(screen.getByRole('button', { name: /Settings Settings/i }));
+  await waitFor(() => {
+    expect(screen.getByText('Rollover Settings')).toBeInTheDocument();
+  });
+  return screen.getByText('Rollover Settings').closest('div') as HTMLElement;
+};
+
+const toggleEnableRollover = async (modal: HTMLElement) => {
+  const [enableCheckbox] = within(modal).getAllByRole('checkbox');
+  await userEvent.click(enableCheckbox);
+  return enableCheckbox;
+};
 
 // Mock decimal utilities
 
@@ -169,11 +187,8 @@ describe('BudgetRollover', () => {
       // Open settings
       await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
       
-      // Enable rollover - first checkbox in settings modal
-      const enableCheckbox = screen.getAllByRole('checkbox')[0];
-      await userEvent.click(enableCheckbox);
-      
-      // Close settings
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
       // Should show stats
@@ -189,8 +204,8 @@ describe('BudgetRollover', () => {
       render(<BudgetRollover />);
       
       // Open settings and enable
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
       // Should show budget categories
@@ -206,18 +221,18 @@ describe('BudgetRollover', () => {
     it('opens settings modal when clicking settings button', async () => {
       render(<BudgetRollover />);
       
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      const modal = await openSettingsModal();
       
       expect(screen.getByText('Rollover Settings')).toBeInTheDocument();
-      expect(screen.getAllByRole('checkbox')[0]).toBeInTheDocument();
+      expect(within(modal).getAllByRole('checkbox')[0]).toBeInTheDocument();
     });
 
     it('allows enabling/disabling rollover', async () => {
       render(<BudgetRollover />);
       
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      const modal = await openSettingsModal();
       
-      const enableCheckbox = screen.getAllByRole('checkbox')[0];
+      const enableCheckbox = within(modal).getAllByRole('checkbox')[0];
       expect(enableCheckbox).not.toBeChecked();
       
       await userEvent.click(enableCheckbox);
@@ -227,24 +242,24 @@ describe('BudgetRollover', () => {
     it('allows selecting rollover mode', async () => {
       render(<BudgetRollover />);
       
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      const modal = await openSettingsModal();
       
-      const modeSelect = screen.getByRole('combobox');
+      const modeSelect = within(modal).getByRole('combobox');
       expect(modeSelect).toHaveValue('all');
       
       await userEvent.selectOptions(modeSelect, 'percentage');
       expect(modeSelect).toHaveValue('percentage');
       
       // Should show percentage input
-      expect(screen.getByDisplayValue('100')).toBeInTheDocument();
+      expect(within(modal).getByDisplayValue('100')).toBeInTheDocument();
     });
 
     it('allows setting maximum rollover amount', async () => {
       render(<BudgetRollover />);
       
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      const modal = await openSettingsModal();
       
-      const maxAmountInput = screen.getByRole('spinbutton');
+      const maxAmountInput = within(modal).getByRole('spinbutton');
       await userEvent.type(maxAmountInput, '500');
       
       expect(maxAmountInput).toHaveValue(500);
@@ -253,9 +268,9 @@ describe('BudgetRollover', () => {
     it('allows excluding categories', async () => {
       render(<BudgetRollover />);
       
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      const modal = await openSettingsModal();
       
-      const foodCheckbox = screen.getByRole('checkbox', { name: 'Food' });
+      const foodCheckbox = within(modal).getByRole('checkbox', { name: 'Food' });
       await userEvent.click(foodCheckbox);
       
       expect(foodCheckbox).toBeChecked();
@@ -264,9 +279,9 @@ describe('BudgetRollover', () => {
     it('allows enabling auto-apply', async () => {
       render(<BudgetRollover />);
       
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      const modal = await openSettingsModal();
       
-      const autoApplyCheckbox = screen.getAllByRole('checkbox')[1];
+      const autoApplyCheckbox = within(modal).getAllByRole('checkbox')[1];
       await userEvent.click(autoApplyCheckbox);
       
       expect(autoApplyCheckbox).toBeChecked();
@@ -275,9 +290,9 @@ describe('BudgetRollover', () => {
     it('allows carrying negative balances', async () => {
       render(<BudgetRollover />);
       
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      const modal = await openSettingsModal();
       
-      const carryNegativeCheckbox = screen.getAllByRole('checkbox')[2];
+      const carryNegativeCheckbox = within(modal).getAllByRole('checkbox')[2];
       await userEvent.click(carryNegativeCheckbox);
       
       expect(carryNegativeCheckbox).toBeChecked();
@@ -289,8 +304,8 @@ describe('BudgetRollover', () => {
       render(<BudgetRollover />);
       
       // Enable rollover first
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
       // Click preview
@@ -308,8 +323,8 @@ describe('BudgetRollover', () => {
       render(<BudgetRollover />);
       
       // Enable rollover
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
       // Open preview
@@ -326,8 +341,8 @@ describe('BudgetRollover', () => {
       render(<BudgetRollover />);
       
       // Enable and preview
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
       await waitFor(() => {
@@ -353,7 +368,7 @@ describe('BudgetRollover', () => {
       
       // Enable rollover
       await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      await userEvent.click(screen.getByRole('checkbox', { name: /Enable Budget Rollover/i }));
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
       // Food budget: $200 - $150 spent = $50 remaining
@@ -370,7 +385,7 @@ describe('BudgetRollover', () => {
       
       // Enable rollover
       await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      await userEvent.click(screen.getByRole('checkbox', { name: /Enable Budget Rollover/i }));
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
       // Preview button should be enabled when there are rollover amounts
@@ -401,7 +416,7 @@ describe('BudgetRollover', () => {
       
       // Enable rollover with percentage mode
       await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      await userEvent.click(screen.getByRole('checkbox', { name: /Enable Budget Rollover/i }));
       
       const modeSelect = screen.getByRole('combobox');
       await userEvent.selectOptions(modeSelect, 'percentage');
@@ -423,7 +438,7 @@ describe('BudgetRollover', () => {
       
       // Enable rollover and exclude Food category
       await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getAllByRole('checkbox')[0]);
+      await userEvent.click(screen.getByRole('checkbox', { name: /Enable Budget Rollover/i }));
       
       const foodCheckbox = screen.getByRole('checkbox', { name: 'Food' });
       await userEvent.click(foodCheckbox);

@@ -2,6 +2,14 @@
 
 declare function gtag(...args: any[]): void;
 
+// Network Information API
+interface NetworkInformation {
+  effectiveType?: string;
+  downlink?: number;
+  rtt?: number;
+  saveData?: boolean;
+}
+
 interface Window {
   Sentry?: {
     captureException: (error: Error) => void;
