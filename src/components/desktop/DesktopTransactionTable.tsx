@@ -20,7 +20,7 @@ export const DesktopTransactionTable: React.FC<DesktopTransactionTableProps> = (
   transactions,
   onEdit,
   onDelete,
-  onBulkSelect
+  onBulkSelect: _onBulkSelect
 }) => {
   // This is a placeholder showing the structure
   // Actual implementation would include full DataGrid features

@@ -1,6 +1,7 @@
 import React, { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from 'react-router-dom';
+import { useNavigationLoading } from '../../hooks/useNavigationLoading';
 
 interface PageTransitionProps {
   children: ReactNode;
@@ -51,20 +52,6 @@ export function PageTransition({ children, mode = 'fade' }: PageTransitionProps)
       </motion.div>
     </AnimatePresence>
   );
-}
-
-// Hook to add loading state during navigation
-export function useNavigationLoading() {
-  const [isNavigating, setIsNavigating] = React.useState(false);
-  const location = useLocation();
-
-  React.useEffect(() => {
-    setIsNavigating(true);
-    const timer = setTimeout(() => setIsNavigating(false), 100);
-    return () => clearTimeout(timer);
-  }, [location]);
-
-  return isNavigating;
 }
 
 // Navigation progress bar

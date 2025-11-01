@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, lazy, Suspense } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   TrendingUpIcon, 
@@ -13,17 +13,14 @@ import {
   CreditCardIcon,
   PieChartIcon,
   SettingsIcon,
-  CheckIcon,
   XIcon,
   BarChart3Icon
 } from '../icons';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
-import { formatCurrency } from '../../utils/currency';
 import { preserveDemoParam } from '../../utils/navigation';
 import AddTransactionModal from '../AddTransactionModal';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/ChartJsCharts';
-import { SkeletonCard } from '../loading/Skeleton';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -104,7 +101,6 @@ export function ImprovedDashboard() {
     });
     
     // Calculate budget status for active budgets
-    const currentMonth = new Date().toISOString().slice(0, 7);
     const activeBudgets = budgets.filter(b => b.isActive);
     
     const budgetStatus = activeBudgets.map(budget => {
@@ -163,7 +159,13 @@ export function ImprovedDashboard() {
   }, [metrics.netWorth]);
   
   // Generate pie chart data for account distribution
-  const pieData = useMemo(() => {
+  interface AccountDistributionDatum {
+    id: string;
+    name: string;
+    value: number;
+  }
+
+  const pieData = useMemo<AccountDistributionDatum[]>(() => {
     return accounts
       .filter(acc => acc.balance > 0)
       .map(acc => ({
@@ -562,13 +564,13 @@ export function ImprovedDashboard() {
           </p>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart
-                data={pieData}
-                innerRadius={true}
-                colors={COLORS}
-                onClick={(clickedData: any) => {
-                  navigate(`/transactions?account=${clickedData.id}`);
-                }}
+                  <PieChart
+                    data={pieData}
+                    innerRadius={true}
+                    colors={COLORS}
+                    onClick={(clickedData: AccountDistributionDatum) => {
+                      navigate(`/transactions?account=${clickedData.id}`);
+                    }}
                 formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
                 contentStyle={chartStyles.pieTooltip}
               />

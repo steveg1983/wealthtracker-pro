@@ -1,4 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import type { SerializedTransaction } from '../../types/redux-types';
 import Decimal from 'decimal.js';
 import type { Transaction } from '../../types';
 import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
@@ -10,7 +11,7 @@ import {
 } from '../thunks/supabaseThunks';
 
 interface TransactionsState {
-  transactions: Transaction[];
+  transactions: SerializedTransaction[];
   loading: boolean;
   error: string | null;
 }

@@ -4,7 +4,7 @@ import { EyeIcon, Keyboard, Monitor, VolumeIcon, AlertTriangle, CheckCircle } fr
 import { usePreferences } from '../../contexts/PreferencesContext';
 import AccessibilityAuditPanel from '../../components/AccessibilityAuditPanel';
 import AccessibilityChecklist from '../../components/AccessibilityChecklist';
-import { useHighContrastMode, useReducedMotion } from '../../components/layout/AccessibilityImprovements';
+import { useHighContrastMode, useReducedMotion } from '../../hooks/useAccessibilityPreferences';
 
 export default function AccessibilitySettings(): React.JSX.Element {
   const { preferences, updatePreferences } = usePreferences();

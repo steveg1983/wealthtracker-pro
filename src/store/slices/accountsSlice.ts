@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import Decimal from 'decimal.js';
 import type { Account } from '../../types';
+import type { SerializedAccount } from '../../types/redux-types';
 import { getCurrentISOString } from '../../utils/dateHelpers';
 import {
   fetchAccountsFromSupabase,
@@ -10,7 +11,7 @@ import {
 } from '../thunks/supabaseThunks';
 
 interface AccountsState {
-  accounts: Account[];
+  accounts: SerializedAccount[];
   loading: boolean;
   error: string | null;
 }
