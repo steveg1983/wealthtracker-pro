@@ -135,7 +135,7 @@ export default function Analytics(): React.JSX.Element {
         results = [...goals];
         break;
       case 'investments':
-        results = [...investments];
+        results = investments ? [...investments] : [];
         break;
     }
     
@@ -211,11 +211,11 @@ export default function Analytics(): React.JSX.Element {
   const keyMetrics = useMemo(() => {
     const income = transactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    
+      .reduce((sum, t) => sum + t.amount, 0);
+
     const expenses = transactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + parseFloat(t.amount), 0);
+      .reduce((sum, t) => sum + t.amount, 0);
     
     const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
     

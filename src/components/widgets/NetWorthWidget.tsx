@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
-import { toDecimal } from '../../utils/decimal';
+import { toDecimal, Decimal } from '../../utils/decimal';
 import { DecimalInstance, DecimalAccount, DecimalTransaction } from '../../types/decimal-types';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { TrendingUpIcon, TrendingDownIcon } from '../icons';
@@ -75,6 +75,7 @@ export default function NetWorthWidget({ size = 'medium' }: NetWorthWidgetProps)
   }, [getDecimalAccounts, getDecimalTransactions]);
 
   const isPositive = change.greaterThanOrEqualTo(0);
+  const changePercentDisplay = changePercent.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString();
 
   if (size === 'small') {
     return (
@@ -104,7 +105,7 @@ export default function NetWorthWidget({ size = 'medium' }: NetWorthWidgetProps)
           }`}>
             {isPositive ? <TrendingUpIcon size={16} /> : <TrendingDownIcon size={16} />}
             <span>{isPositive ? '+' : ''}{formatCurrency(change)}</span>
-            <span>({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)</span>
+            <span>({isPositive ? '+' : ''}{changePercentDisplay}%)</span>
           </div>
         </div>
       </div>
@@ -122,12 +123,14 @@ export default function NetWorthWidget({ size = 'medium' }: NetWorthWidgetProps)
                 stroke="#9CA3AF"
                 fontSize={12}
                 tickFormatter={(value) => {
-                  if (value >= 1000000) {
-                    return `${(value / 1000000).toFixed(1)}M`;
-                  } else if (value >= 1000) {
-                    return `${(value / 1000).toFixed(0)}K`;
+                  const decimalValue = toDecimal(value);
+                  if (decimalValue.greaterThanOrEqualTo(1000000)) {
+                    return `${decimalValue.dividedBy(1000000).toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toString()}M`;
                   }
-                  return value.toString();
+                  if (decimalValue.greaterThanOrEqualTo(1000)) {
+                    return `${decimalValue.dividedBy(1000).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toString()}K`;
+                  }
+                  return decimalValue.toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toString();
                 }}
               />
               <Tooltip 

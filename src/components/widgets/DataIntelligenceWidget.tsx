@@ -11,7 +11,7 @@ import {
   ArrowRightIcon
 } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
-import { toDecimal } from '../../utils/decimal';
+import { toDecimal, Decimal } from '../../utils/decimal';
 
 interface DataIntelligenceWidgetProps {
   size?: 'small' | 'medium' | 'large';
@@ -59,6 +59,10 @@ export default function DataIntelligenceWidget({
   const formatAmount = React.useCallback((amount: number) => {
     return formatCurrency(toDecimal(amount));
   }, [formatCurrency]);
+
+  const formatPercentage = React.useCallback((value: number, decimals: number = 1) => {
+    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toString();
+  }, []);
 
   const getInsightIcon = (type: SpendingInsight['type']) => {
     switch (type) {
@@ -195,7 +199,7 @@ export default function DataIntelligenceWidget({
               </span>
             </div>
             <div className="text-xs text-gray-600 dark:text-gray-400">
-              {stats.categoryAccuracy.toFixed(1)}% categorization accuracy
+              {formatPercentage(stats.categoryAccuracy)}% categorization accuracy
             </div>
           </div>
         )}
@@ -282,7 +286,7 @@ export default function DataIntelligenceWidget({
             Monthly Cost: {formatAmount(stats.monthlySubscriptionCost)}
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400">
-            {stats.categoryAccuracy.toFixed(1)}% accuracy
+            {formatPercentage(stats.categoryAccuracy)}% accuracy
           </div>
         </div>
       )}
