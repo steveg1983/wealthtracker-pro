@@ -100,6 +100,7 @@ export interface BillingHistory {
   paymentMethods: PaymentMethod[];
   nextBillingDate?: Date | string | null;
   totalPaid?: number;
+  totalPaidCurrency?: string | null;
 }
 
 export interface PricingPlan {

@@ -106,15 +106,17 @@ export class SubscriptionApiService {
 
       const subscription = await SupabaseSubscriptionService.getCurrentSubscription(userProfile.id);
 
-      const totalPaidDecimal = invoices
-        .filter(i => i.status === 'paid')
+      const paidInvoices = invoices.filter(i => i.status === 'paid');
+      const totalPaidDecimal = paidInvoices
         .reduce((total, invoice) => total.plus(invoice.amount ?? 0), toDecimal(0));
+      const totalPaidCurrency = paidInvoices.length > 0 ? paidInvoices[0].currency ?? null : null;
 
       return {
         invoices,
         paymentMethods,
         nextBillingDate: subscription?.currentPeriodEnd,
-        totalPaid: toStorageNumber(totalPaidDecimal)
+        totalPaid: toStorageNumber(totalPaidDecimal),
+        totalPaidCurrency,
       };
     } catch (error) {
       console.error('Error getting billing history:', error);

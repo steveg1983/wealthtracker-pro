@@ -10,6 +10,8 @@ import {
   RefreshCwIcon,
   ArrowRightIcon
 } from '../icons';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { toDecimal } from '../../utils/decimal';
 
 interface DataIntelligenceWidgetProps {
   size?: 'small' | 'medium' | 'large';
@@ -27,6 +29,7 @@ export default function DataIntelligenceWidget({
   const [stats, setStats] = useState<DataIntelligenceStats | null>(null);
   const [insights, setInsights] = useState<SpendingInsight[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { formatCurrency } = useCurrencyDecimal();
 
   const {
     showInsights = true,
@@ -53,14 +56,9 @@ export default function DataIntelligenceWidget({
     loadData();
   }, [loadData]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatAmount = React.useCallback((amount: number) => {
+    return formatCurrency(toDecimal(amount));
+  }, [formatCurrency]);
 
   const getInsightIcon = (type: SpendingInsight['type']) => {
     switch (type) {
@@ -192,8 +190,8 @@ export default function DataIntelligenceWidget({
           <div className="mb-4">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm font-medium text-gray-900 dark:text-white">Monthly Subscriptions</span>
-              <span className="text-sm font-bold text-green-600 dark:text-green-400">
-                {formatCurrency(stats.monthlySubscriptionCost)}
+             <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                {formatAmount(stats.monthlySubscriptionCost)}
               </span>
             </div>
             <div className="text-xs text-gray-600 dark:text-gray-400">
@@ -281,7 +279,7 @@ export default function DataIntelligenceWidget({
       {showSubscriptions && (
         <div className="mb-3 p-2 bg-gray-50 dark:bg-gray-800 rounded">
           <div className="text-sm font-medium text-gray-900 dark:text-white">
-            Monthly Cost: {formatCurrency(stats.monthlySubscriptionCost)}
+            Monthly Cost: {formatAmount(stats.monthlySubscriptionCost)}
           </div>
           <div className="text-xs text-gray-600 dark:text-gray-400">
             {stats.categoryAccuracy.toFixed(1)}% accuracy

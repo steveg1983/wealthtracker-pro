@@ -196,7 +196,7 @@ export const generateDemoTransactions = (count: number = 50) => {
       category,
       categoryName,
       accountId: demoAccounts[Math.floor(Math.random() * demoAccounts.length)].id,
-      type: parseFloat(amount) < 0 ? 'expense' : 'income',
+      type: amount < 0 ? 'expense' : 'income',
       isRecurring: Math.random() > 0.9,
       isPending: Math.random() > 0.95,
       tags: Math.random() > 0.7 ? ['tagged'] : [],
