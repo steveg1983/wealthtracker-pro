@@ -471,7 +471,7 @@ class CollaborationService {
 
     const budget: JointBudget = {
       id: this.generateId(),
-      category,
+      categoryId: category,
       amount,
       period,
       isActive: true,

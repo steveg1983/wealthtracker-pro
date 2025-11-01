@@ -12,7 +12,7 @@ import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-de
 import { toDecimal } from '../../utils/decimal';
 
 // Mock dependencies
-vi.mock('../../contexts/AppContext', () => ({
+vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     categories: [
       { id: 'cat-1', name: 'Food', type: 'expense', level: 'detail', parentId: 'sub-food' },
@@ -25,7 +25,7 @@ vi.mock('../../contexts/AppContext', () => ({
         id: 'trans-1',
         date: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 15), // Last month
         amount: toDecimal(150),
-        category: 'Food',
+        category: 'cat-1',
         type: 'expense',
         description: 'Grocery shopping',
         accountId: 'acc-1',
@@ -35,7 +35,7 @@ vi.mock('../../contexts/AppContext', () => ({
         id: 'trans-2',
         date: new Date(new Date().getFullYear(), new Date().getMonth() - 1, 20), // Last month
         amount: toDecimal(50),
-        category: 'Transport',
+        category: 'cat-2',
         type: 'expense',
         description: 'Gas',
         accountId: 'acc-1',
@@ -95,11 +95,10 @@ vi.mock('../../hooks/useCurrencyDecimal', () => ({
 }));
 
 const openSettingsModal = async () => {
-  await userEvent.click(screen.getByRole('button', { name: /Settings Settings/i }));
-  await waitFor(() => {
-    expect(screen.getByText('Rollover Settings')).toBeInTheDocument();
-  });
-  return screen.getByText('Rollover Settings').closest('div') as HTMLElement;
+  const [settingsButton] = screen.getAllByRole('button', { name: /Settings/i });
+  await userEvent.click(settingsButton);
+  const heading = await screen.findByText('Rollover Settings');
+  return heading.closest('div') as HTMLElement;
 };
 
 const toggleEnableRollover = async (modal: HTMLElement) => {
@@ -183,10 +182,7 @@ describe('BudgetRollover', () => {
 
     it('shows budget summary statistics when enabled', async () => {
       render(<BudgetRollover />);
-      
-      // Open settings
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      
+
       const modal = await openSettingsModal();
       await toggleEnableRollover(modal);
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
@@ -367,8 +363,8 @@ describe('BudgetRollover', () => {
       render(<BudgetRollover />);
       
       // Enable rollover
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getByRole('checkbox', { name: /Enable Budget Rollover/i }));
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
       // Food budget: $200 - $150 spent = $50 remaining
@@ -384,8 +380,8 @@ describe('BudgetRollover', () => {
       render(<BudgetRollover />);
       
       // Enable rollover
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getByRole('checkbox', { name: /Enable Budget Rollover/i }));
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
       
       // Preview button should be enabled when there are rollover amounts
@@ -415,13 +411,13 @@ describe('BudgetRollover', () => {
       render(<BudgetRollover />);
       
       // Enable rollover with percentage mode
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getByRole('checkbox', { name: /Enable Budget Rollover/i }));
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
       
-      const modeSelect = screen.getByRole('combobox');
+      const modeSelect = within(modal).getByRole('combobox');
       await userEvent.selectOptions(modeSelect, 'percentage');
       
-      const percentageInput = screen.getByDisplayValue('100');
+      const percentageInput = within(modal).getByDisplayValue('100');
       await userEvent.clear(percentageInput);
       await userEvent.type(percentageInput, '50');
       
@@ -437,10 +433,10 @@ describe('BudgetRollover', () => {
       render(<BudgetRollover />);
       
       // Enable rollover and exclude Food category
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
-      await userEvent.click(screen.getByRole('checkbox', { name: /Enable Budget Rollover/i }));
+      const modal = await openSettingsModal();
+      await toggleEnableRollover(modal);
       
-      const foodCheckbox = screen.getByRole('checkbox', { name: 'Food' });
+      const foodCheckbox = within(modal).getByRole('checkbox', { name: 'Food' });
       await userEvent.click(foodCheckbox);
       
       await userEvent.click(screen.getByRole('button', { name: /Save Settings/i }));
@@ -455,7 +451,7 @@ describe('BudgetRollover', () => {
       render(<BudgetRollover />);
       
       // Open settings
-      await userEvent.click(screen.getByRole('button', { name: /Settings/i }));
+      await openSettingsModal();
       expect(screen.getByText('Rollover Settings')).toBeInTheDocument();
       
       // Cancel

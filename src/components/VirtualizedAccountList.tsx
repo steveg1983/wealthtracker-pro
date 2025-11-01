@@ -198,6 +198,7 @@ export function VirtualizedAccountList({
   // Calculate item heights for variable size list
   const getItemHeight = useCallback((index: number) => {
     const item = processedAccounts[index];
+    if (!item) return 80;
     if (isGroupHeader(item)) return 40;
     if ((item as Account).tags?.length > 0) return 100;
     return 80;
