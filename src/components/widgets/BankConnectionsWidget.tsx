@@ -12,6 +12,10 @@ export default function BankConnectionsWidget({ size = 'medium' }: BankConnectio
   const [isSyncing, setIsSyncing] = useState(false);
   const navigate = useNavigate();
 
+  const loadConnections = React.useCallback(() => {
+    setConnections(bankConnectionService.getConnections());
+  }, []);
+
   useEffect(() => {
     loadConnections();
     
@@ -21,10 +25,6 @@ export default function BankConnectionsWidget({ size = 'medium' }: BankConnectio
       // Could show a notification here
     }
   }, [loadConnections]);
-
-  const loadConnections = React.useCallback(() => {
-    setConnections(bankConnectionService.getConnections());
-  }, []);
 
   const handleSyncAll = async () => {
     setIsSyncing(true);

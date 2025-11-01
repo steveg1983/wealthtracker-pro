@@ -74,7 +74,7 @@ export interface AppContextType extends AppState {
   // Other operations
   importData: (data: Partial<AppState>) => void;
   exportData: () => AppState;
-  clearAllData: () => void;
+  clearAllData: () => Promise<void>;
   getDecimalTransactions: () => any[]; // Returns DecimalTransaction[] for decimal calculations
   getDecimalAccounts: () => any[]; // Returns DecimalAccount[] for decimal calculations
   getDecimalGoals: () => any[]; // Returns DecimalGoal[] for decimal calculations
@@ -570,7 +570,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return goals.map(toDecimalGoal);
   }, [goals]);
 
-  const clearAllData = useCallback(() => {
+  const clearAllData = useCallback(async () => {
     setAccounts([]);
     setTransactions([]);
     setBudgets([]);

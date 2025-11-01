@@ -3,9 +3,15 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import DataIntelligenceWidget from './DataIntelligenceWidget';
 import { dataIntelligenceService } from '../../services/dataIntelligenceService';
 import type { DataIntelligenceStats, SpendingInsight } from '../../services/dataIntelligenceService';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock the service
 vi.mock('../../services/dataIntelligenceService');
+
+const mockUseCurrencyDecimal = vi.fn();
+vi.mock('../../hooks/useCurrencyDecimal', () => ({
+  useCurrencyDecimal: () => mockUseCurrencyDecimal(),
+}));
 
 // Mock icons
 vi.mock('../icons', () => ({
@@ -91,6 +97,10 @@ const mockInsights: SpendingInsight[] = [
 describe('DataIntelligenceWidget', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseCurrencyDecimal.mockReturnValue({
+      displayCurrency: 'USD',
+      formatCurrency: (value: any) => formatCurrencyDecimal(value, 'USD'),
+    });
     mockDataIntelligenceService.getStats.mockReturnValue(mockStats);
     mockDataIntelligenceService.getInsights.mockReturnValue(mockInsights);
   });
@@ -185,7 +195,7 @@ describe('DataIntelligenceWidget', () => {
       await waitFor(() => {
         expect(screen.getByText('125')).toBeInTheDocument(); // Merchants
         expect(screen.getByText('8')).toBeInTheDocument(); // Active Subs
-        expect(screen.getByText('Monthly Cost: $451')).toBeInTheDocument();
+        expect(screen.getByText('Monthly Cost: $450.99')).toBeInTheDocument();
         expect(screen.getByText('94.5% accuracy')).toBeInTheDocument();
       });
     });
@@ -403,7 +413,7 @@ describe('DataIntelligenceWidget', () => {
       render(<DataIntelligenceWidget />);
       
       await waitFor(() => {
-        expect(screen.getByText('Monthly Cost: $451')).toBeInTheDocument();
+        expect(screen.getByText('Monthly Cost: $450.99')).toBeInTheDocument();
       });
     });
 
@@ -416,7 +426,7 @@ describe('DataIntelligenceWidget', () => {
       render(<DataIntelligenceWidget />);
       
       await waitFor(() => {
-        expect(screen.getByText('Monthly Cost: $1,235')).toBeInTheDocument();
+        expect(screen.getByText('Monthly Cost: $1,234.56')).toBeInTheDocument();
       });
     });
   });
