@@ -4,6 +4,7 @@ const html2canvas: typeof import('html2canvas').default | null = null;
 import type { Transaction, Account, Category, Investment, Budget } from '../types';
 import type { ExportableData, GroupedData, ChartData, SavedReport, SavedTemplate } from '../types/export';
 import Decimal from 'decimal.js';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 export interface ExportOptions {
   startDate: Date;
@@ -532,10 +533,7 @@ class ExportService {
   }
 
   private formatCurrency(amount: number): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
+    return formatCurrencyDecimal(amount, 'USD');
   }
 
   private formatDate(date: Date): string {

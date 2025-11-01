@@ -10,7 +10,7 @@ import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, Decimal } from '../utils/decimal';
 import PageWrapper from '../components/PageWrapper';
 
 export default function Investments() {
@@ -24,10 +24,13 @@ export default function Investments() {
 
   // Helper function to format percentages
   const formatPercentage = (value: number): string => {
-    return new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    }).format(value) + '%';
+    const decimalValue = toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    const isNegative = decimalValue.isNegative();
+    const absolute = decimalValue.abs();
+    const fixed = absolute.toFixed(2);
+    const [integerPart, fractionalPart] = fixed.split('.');
+    const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return `${isNegative ? '-' : ''}${groupedInteger}.${fractionalPart}%`;
   };
 
   // Get investment accounts only

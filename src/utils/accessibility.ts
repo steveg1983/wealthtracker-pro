@@ -3,6 +3,7 @@
  */
 
 import { useEffect, useRef } from 'react';
+import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
 
 /**
  * Announce a message to screen readers
@@ -109,12 +110,8 @@ export function generateId(prefix: string): string {
  * Get appropriate ARIA label for numeric values
  */
 export function getAriaLabelForCurrency(amount: number, currency: string = 'GBP'): string {
-  const formatter = new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: currency,
-  });
-  
-  return formatter.format(amount).replace(/[^0-9.,\s-]/g, '').trim() + ' ' + currency;
+  const formatted = formatCurrencyDecimal(amount, currency.toUpperCase());
+  return formatted.replace(/[^0-9.,\s-]/g, '').trim() + ' ' + currency;
 }
 
 /**

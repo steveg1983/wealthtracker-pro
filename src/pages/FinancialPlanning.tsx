@@ -25,6 +25,9 @@ import FinancialGoalTracker from '../components/FinancialGoalTracker';
 import InsurancePlanner from '../components/InsurancePlanner';
 import NetWorthProjector from '../components/NetWorthProjector';
 import type { RetirementPlan, MortgageCalculation, CollegePlan, DebtPayoffPlan, FinancialGoal, InsuranceNeed } from '../services/financialPlanningService';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { formatCurrencyWhole } from '../utils/currency-decimal';
+import { toDecimal, Decimal } from '../utils/decimal';
 
 type ActiveTab = 'overview' | 'retirement' | 'mortgage' | 'college' | 'debt' | 'goals' | 'insurance' | 'networth';
 
@@ -37,6 +40,7 @@ export default function FinancialPlanning() {
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
   const [insuranceNeeds, setInsuranceNeeds] = useState<InsuranceNeed[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { displayCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadData();
@@ -62,14 +66,10 @@ export default function FinancialPlanning() {
     loadData();
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
+  const formatCurrency = React.useCallback((amount: number) => {
+    const rounded = toDecimal(amount).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+    return formatCurrencyWhole(rounded, displayCurrency);
+  }, [displayCurrency]);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {

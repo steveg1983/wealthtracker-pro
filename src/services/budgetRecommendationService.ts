@@ -166,8 +166,8 @@ class BudgetRecommendationService {
       // Group by category
       const monthlySpending = new Map<string, number>();
       monthTransactions.forEach(t => {
-        const current = monthlySpending.get(t.categoryId) || 0;
-        monthlySpending.set(t.categoryId, current + Math.abs(t.amount));
+        const current = monthlySpending.get(t.category) || 0;
+        monthlySpending.set(t.category, current + Math.abs(t.amount));
       });
 
       // Add to category data
@@ -386,8 +386,8 @@ class BudgetRecommendationService {
       if (!category) return;
       
       const currentMonthSpending = transactions
-        .filter(t => 
-          t.categoryId === budget.categoryId &&
+        .filter(t =>
+          t.category === budget.categoryId &&
           t.type === 'expense' &&
           new Date(t.date) >= currentMonth
         )
@@ -477,8 +477,8 @@ class BudgetRecommendationService {
     // Deduct points for current overspending
     budgets.forEach(budget => {
       const currentSpending = transactions
-        .filter(t => 
-          t.categoryId === budget.categoryId &&
+        .filter(t =>
+          t.category === budget.categoryId &&
           t.type === 'expense' &&
           new Date(t.date) >= currentMonth
         )

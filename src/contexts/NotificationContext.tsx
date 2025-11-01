@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import type { ReactNode } from 'react';
 import { notificationService } from '../services/notificationService';
 import type { Goal, Budget, Transaction, Category } from '../types';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 export interface Notification {
   id: string;
@@ -112,6 +113,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       return 500;
     }
   });
+  const { formatCurrency } = useCurrencyDecimal();
 
   const unreadCount = notifications.filter((n): boolean => !n.read).length;
 
@@ -198,7 +200,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
           : `Budget Warning: ${alert.categoryName}`;
         
         const message = alert.type === 'danger'
-          ? `You've spent ${alert.percentage}% of your ${alert.period} budget (${new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(alert.spent)} of ${new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(alert.budget)})`
+          ? `You've spent ${alert.percentage}% of your ${alert.period} budget (${formatCurrency(alert.spent)} of ${formatCurrency(alert.budget)})`
           : `You've spent ${alert.percentage}% of your ${alert.period} budget. Consider slowing down spending in this category.`;
 
         addNotification({
@@ -223,7 +225,7 @@ export function NotificationProvider({ children }: { children: ReactNode }): Rea
       addNotification({
         type: 'warning',
         title: 'Large Transaction Detected',
-        message: `A large transaction of ${new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(amount)} was added: ${description}`,
+        message: `A large transaction of ${formatCurrency(amount)} was added: ${description}`,
         action: {
           label: 'View Transactions',
           onClick: (): void => {

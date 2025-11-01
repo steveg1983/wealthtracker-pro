@@ -15,6 +15,8 @@ import {
   AlertCircleIcon,
   ClockIcon
 } from './icons';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface SubscriptionManagerProps {
   onDataChange?: () => void;
@@ -33,6 +35,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null);
   const [filter, setFilter] = useState<SubscriptionFilter>('all');
   const [sortBy, setSortBy] = useState<SubscriptionSort>('nextPayment');
+  const { formatCurrency } = useCurrencyDecimal();
 
   const isFilterOption = useCallback(
     (value: string): value is SubscriptionFilter => FILTER_OPTIONS.some(option => option === value),
@@ -102,13 +105,6 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
     return Math.ceil((date.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
-
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -133,12 +129,27 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
     return subscriptions
       .filter(sub => sub.status === 'active')
       .reduce((sum, sub) => {
-        const monthlyAmount = sub.frequency === 'monthly' ? sub.amount :
-          sub.frequency === 'yearly' ? sub.amount / 12 :
-          sub.frequency === 'quarterly' ? sub.amount / 3 :
-          sub.frequency === 'weekly' ? sub.amount * 4.33 : sub.amount;
-        return sum + monthlyAmount;
-      }, 0);
+        const amount = toDecimal(sub.amount);
+        let monthlyAmount = amount;
+
+        switch (sub.frequency) {
+          case 'yearly':
+            monthlyAmount = amount.dividedBy(12);
+            break;
+          case 'quarterly':
+            monthlyAmount = amount.dividedBy(3);
+            break;
+          case 'weekly':
+            monthlyAmount = amount.times(toDecimal(4.33));
+            break;
+          case 'monthly':
+          default:
+            monthlyAmount = amount;
+            break;
+        }
+
+        return sum.plus(monthlyAmount);
+      }, toDecimal(0));
   }, [subscriptions]);
 
   const handleFilterChange = (event: React.ChangeEvent<HTMLSelectElement>) => {

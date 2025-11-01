@@ -10,6 +10,7 @@
  */
 
 import { loadStripe, Stripe } from '@stripe/stripe-js';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 import type {
   SubscriptionTier,
   SubscriptionPlan,
@@ -444,10 +445,7 @@ export class StripeService {
    * Format price for display
    */
   static formatPrice(amount: number, currency: string = 'usd'): string {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency.toUpperCase(),
-    }).format(amount);
+    return formatCurrencyDecimal(amount, currency.toUpperCase());
   }
 
   /**

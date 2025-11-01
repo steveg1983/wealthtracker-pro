@@ -16,6 +16,8 @@ import {
   EyeIcon,
   EyeOffIcon
 } from './icons';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface DataInsightsProps {
   onDataChange?: () => void;
@@ -40,6 +42,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [sortBy, setSortBy] = useState<InsightSortKey>('createdAt');
   const [showDismissed, setShowDismissed] = useState(false);
+  const { formatCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadInsights();
@@ -114,13 +117,6 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
   };
 
   const insightTypes = ['all', 'subscription_alert', 'spending_spike', 'new_merchant', 'category_trend', 'duplicate_transaction'];
@@ -383,10 +379,10 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
                             <span>{insight.merchant}</span>
                           </>
                         )}
-                        {insight.amount && (
+                        {typeof insight.amount !== 'undefined' && (
                           <>
                             <span>•</span>
-                            <span className="font-medium">{formatCurrency(insight.amount)}</span>
+                            <span className="font-medium">{formatCurrency(toDecimal(insight.amount))}</span>
                           </>
                         )}
                       </div>

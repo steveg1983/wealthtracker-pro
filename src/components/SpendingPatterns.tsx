@@ -13,6 +13,8 @@ import {
   ClockIcon,
   LineChartIcon
 } from './icons';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface SpendingPatternsProps {
   onDataChange?: () => void;
@@ -25,6 +27,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortBy, setSortBy] = useState<'confidence' | 'amount' | 'detectedAt' | 'frequency'>('confidence');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { formatCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadPatterns();
@@ -93,13 +96,6 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
     if (confidence >= 0.8) return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-200';
     if (confidence >= 0.6) return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-200';
     return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-200';
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
   };
 
   const formatDate = (date: Date) => {
@@ -367,10 +363,10 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-gray-900 dark:text-white">
-                        {formatCurrency(pattern.amount)}
+                        {formatCurrency(toDecimal(pattern.amount))}
                       </div>
                       <div className="text-sm text-gray-500 dark:text-gray-400">
-                        ±{formatCurrency(pattern.variance)}
+                        ±{formatCurrency(toDecimal(pattern.variance))}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

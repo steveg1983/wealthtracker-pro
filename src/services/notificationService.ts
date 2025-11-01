@@ -2,6 +2,7 @@ import Decimal from 'decimal.js';
 import type { Transaction, Budget, Goal, Account, Category } from '../types';
 import type { Notification } from '../contexts/NotificationContext';
 import type { JsonValue, UnknownObject } from '../types/common';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 export interface NotificationRule {
   id: string;
@@ -580,7 +581,7 @@ class NotificationService {
     return template.replace(/\{(\w+)\}/g, (match, key) => {
       const value = context[key];
       if (typeof value === 'number' && key.includes('amount')) {
-        return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
+        return formatCurrencyDecimal(value, 'GBP');
       }
       return String(value || match);
     });

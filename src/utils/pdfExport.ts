@@ -2,6 +2,7 @@
 let jsPDF: typeof import('jspdf').default | null = null;
 let html2canvas: typeof import('html2canvas').default | null = null;
 import { Transaction, Account } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
 
 interface ReportData {
   title: string;
@@ -50,10 +51,7 @@ export async function generatePDFReport(data: ReportData, accounts: Account[]): 
 
   // Helper function to format currency
   const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'GBP'
-    }).format(amount);
+    return formatCurrencyDecimal(amount, 'GBP');
   };
 
   // Title
