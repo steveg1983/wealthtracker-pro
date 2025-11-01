@@ -13,6 +13,10 @@ import {
 import { useNavigate } from 'react-router-dom';
 import type { BusinessMetrics } from '../../services/businessService';
 import type { BaseWidgetProps } from '../../types/widget-types';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { toDecimal, Decimal } from '../../utils/decimal';
+import type { DecimalInstance } from '../../utils/decimal';
+import { getCurrencySymbol } from '../../utils/currency-decimal';
 
 type BusinessWidgetProps = BaseWidgetProps;
 
@@ -20,6 +24,32 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
   const navigate = useNavigate();
   const [metrics, setMetrics] = useState<BusinessMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { displayCurrency } = useCurrencyDecimal();
+
+  const formatAmount = React.useCallback((amount: DecimalInstance | number | string) => {
+    const decimalValue = toDecimal(amount);
+    const floored = decimalValue.toDecimalPlaces(0, Decimal.ROUND_DOWN);
+    const absValue = floored.abs().toNumber();
+    const symbol = getCurrencySymbol(displayCurrency);
+    const formattedNumber = new Intl.NumberFormat('en-GB', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(absValue);
+    const isNegative = floored.isNegative();
+
+    if (displayCurrency === 'CHF') {
+      return isNegative ? `-${formattedNumber} ${symbol}` : `${formattedNumber} ${symbol}`;
+    }
+    return isNegative ? `-${symbol}${formattedNumber}` : `${symbol}${formattedNumber}`;
+  }, [displayCurrency]);
+
+  const formatPercentage = React.useCallback((value: number) => {
+    return `${toDecimal(value).toDecimalPlaces(1).toString()}%`;
+  }, []);
+
+  const formatDays = React.useCallback((value: number) => {
+    return toDecimal(value).toDecimalPlaces(0).toString();
+  }, []);
 
   const loadMetrics = React.useCallback(async () => {
     try {
@@ -35,19 +65,6 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
   useEffect(() => {
     loadMetrics();
   }, [loadMetrics]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
-
-  const formatPercentage = (value: number) => {
-    return `${value.toFixed(1)}%`;
-  };
 
   if (isLoading) {
     return (
@@ -75,7 +92,7 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
             <div className="text-lg font-bold text-gray-900 dark:text-white">
-              {formatCurrency(metrics.netProfit)}
+              {formatAmount(metrics.netProfit)}
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400">Net Profit</div>
           </div>
@@ -114,7 +131,7 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
               <span className="text-xs text-green-800 dark:text-green-200">Revenue</span>
             </div>
             <div className="text-sm font-bold text-green-900 dark:text-green-100">
-              {formatCurrency(metrics.totalRevenue)}
+              {formatAmount(metrics.totalRevenue)}
             </div>
           </div>
           
@@ -124,7 +141,7 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
               <span className="text-xs text-red-800 dark:text-red-200">Expenses</span>
             </div>
             <div className="text-sm font-bold text-red-900 dark:text-red-100">
-              {formatCurrency(metrics.totalExpenses)}
+              {formatAmount(metrics.totalExpenses)}
             </div>
           </div>
         </div>
@@ -142,7 +159,7 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
               ? 'text-blue-900 dark:text-blue-100' 
               : 'text-red-900 dark:text-red-100'
           }`}>
-            {formatCurrency(metrics.netProfit)}
+            {formatAmount(metrics.netProfit)}
           </div>
         </div>
 
@@ -164,7 +181,7 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
               <span className="text-gray-700 dark:text-gray-300">Avg Payment Time</span>
             </div>
             <span className="font-medium text-gray-900 dark:text-white">
-              {metrics.averagePaymentTime.toFixed(0)} days
+              {formatDays(metrics.averagePaymentTime)} days
             </span>
           </div>
         </div>
@@ -182,7 +199,7 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
               {metrics.topExpenseCategories[0].category.replace('_', ' ')}
             </div>
             <div className="text-xs text-gray-600 dark:text-gray-400">
-              {formatCurrency(metrics.topExpenseCategories[0].amount)}
+              {formatAmount(metrics.topExpenseCategories[0].amount)}
             </div>
           </div>
         )}

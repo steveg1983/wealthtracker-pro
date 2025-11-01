@@ -50,10 +50,14 @@ export default function TaxPlanningWidget({ size = 'medium' }: TaxPlanningWidget
     setTaxData({
       estimatedTax: estimate.estimatedTax,
       deductions: totalDeductions,
-      effectiveRate: estimate.effectiveRate,
-      daysUntilDeadline: Math.max(0, daysUntilDeadline)
-    });
+    effectiveRate: estimate.effectiveRate,
+    daysUntilDeadline: Math.max(0, daysUntilDeadline)
+  });
   }, [transactions, accounts, currentYear]);
+
+  const formatRate = React.useCallback((value: number) => {
+    return toDecimal(value).toDecimalPlaces(1).toString();
+  }, []);
 
   useEffect(() => {
     calculateTaxSummary();
@@ -79,7 +83,7 @@ export default function TaxPlanningWidget({ size = 'medium' }: TaxPlanningWidget
               {formatCurrency(taxData.estimatedTax)}
             </p>
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              Est. Tax ({taxData.effectiveRate.toFixed(1)}%)
+              Est. Tax ({formatRate(taxData.effectiveRate)}%)
             </p>
           </div>
         </div>
@@ -122,7 +126,7 @@ export default function TaxPlanningWidget({ size = 'medium' }: TaxPlanningWidget
               {formatCurrency(taxData.estimatedTax)}
             </p>
             <p className="text-xs text-gray-600 dark:text-gray-400">
-              {taxData.effectiveRate.toFixed(1)}% rate
+              {formatRate(taxData.effectiveRate)}% rate
             </p>
           </div>
           

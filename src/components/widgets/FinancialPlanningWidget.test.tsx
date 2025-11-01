@@ -10,6 +10,20 @@ vi.mock('../../services/financialPlanningService');
 vi.mock('react-router-dom', () => ({
   useNavigate: vi.fn(),
 }));
+vi.mock('../../hooks/useCurrencyDecimal', () => ({
+  useCurrencyDecimal: () => ({
+    displayCurrency: 'USD',
+    formatCurrency: (value: any) => {
+      const num = parseFloat(value.toString());
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(num);
+    },
+  }),
+}));
 
 // Mock icons
 vi.mock('../icons', () => ({

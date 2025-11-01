@@ -10,6 +10,11 @@ vi.mock('../../services/businessService');
 vi.mock('react-router-dom', () => ({
   useNavigate: vi.fn(),
 }));
+vi.mock('../../hooks/useCurrencyDecimal', () => ({
+  useCurrencyDecimal: () => ({
+    displayCurrency: 'USD',
+  }),
+}));
 
 // Mock icons
 vi.mock('../icons', () => ({

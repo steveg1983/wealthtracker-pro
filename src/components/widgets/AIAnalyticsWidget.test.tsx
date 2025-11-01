@@ -30,6 +30,7 @@ vi.mock('../../hooks/useCurrencyDecimal', () => ({
         maximumFractionDigits: 2,
       }).format(num);
     },
+    displayCurrency: 'USD',
   }),
 }));
 

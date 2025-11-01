@@ -6,11 +6,14 @@ import {
   TargetIcon,
   ArrowRightIcon,
   CheckCircleIcon,
-  AlertCircleIcon
+  AlertCircleIcon,
+  HomeIcon
 } from '../icons';
 import { useNavigate } from 'react-router-dom';
 import type { RetirementPlan, FinancialGoal } from '../../services/financialPlanningService';
 import type { BaseWidgetProps } from '../../types/widget-types';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { toDecimal } from '../../utils/decimal';
 
 type FinancialPlanningWidgetProps = BaseWidgetProps;
 
@@ -19,6 +22,15 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
   const [retirementPlans, setRetirementPlans] = useState<RetirementPlan[]>([]);
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { formatCurrency } = useCurrencyDecimal();
+
+  const formatAmount = React.useCallback((amount: number) => {
+    return formatCurrency(toDecimal(amount));
+  }, [formatCurrency]);
+
+  const formatPercentage = React.useCallback((value: number) => {
+    return toDecimal(value).toDecimalPlaces(1).toString();
+  }, []);
 
   const loadData = React.useCallback(async () => {
     try {
@@ -34,15 +46,6 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
-  };
 
   const getGoalProgress = (goal: FinancialGoal) => {
     return (goal.currentSavings / goal.targetAmount) * 100;
@@ -155,7 +158,7 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
                       </div>
                     </div>
                     <div className="text-xs text-gray-900 dark:text-white">
-                      {formatCurrency(projection.totalSavingsAtRetirement)}
+                      {formatAmount(projection.totalSavingsAtRetirement)}
                     </div>
                   </div>
                 );
@@ -182,12 +185,12 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
                           {goal.name}
                         </p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {progress.toFixed(1)}% complete
+                          {formatPercentage(progress)}% complete
                         </p>
                       </div>
                     </div>
                     <div className="text-xs text-gray-900 dark:text-white">
-                      {formatCurrency(goal.targetAmount)}
+                      {formatAmount(goal.targetAmount)}
                     </div>
                   </div>
                 );

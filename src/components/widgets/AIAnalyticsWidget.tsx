@@ -8,7 +8,9 @@ import {
   PiggyBankIcon
 } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
-import { toDecimal } from '../../utils/decimal';
+import { toDecimal, Decimal } from '../../utils/decimal';
+import type { DecimalInstance } from '../../utils/decimal';
+import { getCurrencySymbol } from '../../utils/currency-decimal';
 import { useNavigate } from 'react-router-dom';
 import type { BaseWidgetProps } from '../../types/widget-types';
 import type { FinancialInsight } from '../../services/advancedAnalyticsService';
@@ -17,7 +19,7 @@ type AIAnalyticsWidgetProps = BaseWidgetProps;
 
 export default function AIAnalyticsWidget({ size = 'medium' }: AIAnalyticsWidgetProps) {
   const { transactions, accounts, budgets } = useApp();
-  const { formatCurrency } = useCurrencyDecimal();
+  const { formatCurrency, displayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const [summary, setSummary] = useState({
     anomalies: 0,
@@ -47,6 +49,23 @@ export default function AIAnalyticsWidget({ size = 'medium' }: AIAnalyticsWidget
   useEffect(() => {
     analyzeSummary();
   }, [analyzeSummary]);
+
+  const formatWholeCurrency = React.useCallback((value: DecimalInstance | number | string) => {
+    const decimalValue = toDecimal(value);
+    const floored = decimalValue.toDecimalPlaces(0, Decimal.ROUND_DOWN);
+    const absValue = floored.abs().toNumber();
+    const symbol = getCurrencySymbol(displayCurrency);
+    const formattedNumber = new Intl.NumberFormat('en-GB', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(absValue);
+    const isNegative = floored.isNegative();
+
+    if (displayCurrency === 'CHF') {
+      return isNegative ? `-${formattedNumber} ${symbol}` : `${formattedNumber} ${symbol}`;
+    }
+    return isNegative ? `-${symbol}${formattedNumber}` : `${symbol}${formattedNumber}`;
+  }, [displayCurrency]);
 
   const handleViewDetails = () => {
     navigate('/ai-analytics');
@@ -118,7 +137,7 @@ export default function AIAnalyticsWidget({ size = 'medium' }: AIAnalyticsWidget
           <div className="text-center p-2 bg-green-50 dark:bg-green-900/20 rounded-lg">
             <PiggyBankIcon size={16} className="text-green-600 dark:text-green-400 mx-auto mb-1" />
             <p className="text-lg font-bold text-green-600 dark:text-green-400">
-              {formatCurrency(summary.savingsOpportunities).replace(/\.\d+$/, '')}
+              {formatWholeCurrency(summary.savingsOpportunities)}
             </p>
             <p className="text-xs text-gray-600 dark:text-gray-400">Savings</p>
           </div>

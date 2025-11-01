@@ -59,7 +59,9 @@ export interface SubscriptionProduct {
   accounts?: number;
   maxAccounts?: number;
   transactions?: number;
+  budgets?: number;
   maxBudgets?: number;
+  goals?: number;
   maxGoals?: number;
   advancedReports?: boolean;
   csvExport?: boolean;
