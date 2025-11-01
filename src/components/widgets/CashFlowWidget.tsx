@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
-import { toDecimal } from '../../utils/decimal';
+import { toDecimal, Decimal } from '../../utils/decimal';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend, ReferenceLine } from 'recharts';
-import { TrendingUpIcon, TrendingDownIcon } from '../icons';
+import { TrendingUpIcon, TrendingDownIcon, AlertCircleIcon } from '../icons';
 import type { BaseWidgetProps } from '../../types/widget-types';
 
 interface CashFlowWidgetSettings {
@@ -170,10 +170,15 @@ export default function CashFlowWidget({ size = 'medium', settings }: CashFlowWi
                 stroke="#9CA3AF"
                 fontSize={12}
                 tickFormatter={(value) => {
-                  if (value >= 1000) {
-                    return `${(value / 1000).toFixed(1)}K`;
+                  const decimalValue = toDecimal(value).toDecimalPlaces(1, Decimal.ROUND_HALF_UP);
+                  if (decimalValue.greaterThanOrEqualTo(1000)) {
+                    const scaled = decimalValue.dividedBy(1000).toDecimalPlaces(1, Decimal.ROUND_HALF_UP);
+                    const raw = scaled.toString();
+                    const [intPart, fracPart = ''] = raw.split('.');
+                    const formatted = `${intPart}.${fracPart.padEnd(1, '0')}`;
+                    return `${formatted}K`;
                   }
-                  return value.toString();
+                  return decimalValue.toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toString();
                 }}
               />
               <Tooltip 

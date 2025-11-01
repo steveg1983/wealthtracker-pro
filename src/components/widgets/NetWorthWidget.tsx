@@ -125,12 +125,17 @@ export default function NetWorthWidget({ size = 'medium' }: NetWorthWidgetProps)
                 tickFormatter={(value) => {
                   const decimalValue = toDecimal(value);
                   if (decimalValue.greaterThanOrEqualTo(1000000)) {
-                    return `${decimalValue.dividedBy(1000000).toFixed(1)}M`;
+                    const scaled = decimalValue.dividedBy(1000000).toDecimalPlaces(1, Decimal.ROUND_HALF_UP);
+                    const raw = scaled.toString();
+                    const [intPart, fracPart = ''] = raw.split('.');
+                    const formatted = `${intPart}.${fracPart.padEnd(1, '0')}`;
+                    return `${formatted}M`;
                   }
                   if (decimalValue.greaterThanOrEqualTo(1000)) {
-                    return `${decimalValue.dividedBy(1000).toFixed(0)}K`;
+                    const scaled = decimalValue.dividedBy(1000).toDecimalPlaces(0, Decimal.ROUND_HALF_UP);
+                    return `${scaled.toString()}K`;
                   }
-                  return decimalValue.toFixed(0);
+                  return decimalValue.toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toString();
                 }}
               />
               <Tooltip 

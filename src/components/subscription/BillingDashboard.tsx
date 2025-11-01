@@ -358,7 +358,7 @@ export default function BillingDashboard({
                       •••• •••• •••• {method.last4}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                      {method.brand.toUpperCase()} • Expires {method.expiryMonth}/{method.expiryYear}
+                      {method.brand!.toUpperCase()} • Expires {method.expiryMonth}/{method.expiryYear}
                     </p>
                   </div>
                   {method.isDefault && (

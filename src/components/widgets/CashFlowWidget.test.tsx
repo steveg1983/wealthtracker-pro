@@ -12,7 +12,9 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { Transaction } from '../../types';
 
 // Mock the external dependencies
-vi.mock('../../contexts/AppContext');
+vi.mock('../../contexts/AppContextSupabase', () => ({
+  useApp: vi.fn(),
+}));
 vi.mock('../../hooks/useCurrencyDecimal');
 
 // Mock icons
@@ -90,7 +92,11 @@ global.Math.random = mockRandom;
 
 describe('CashFlowWidget', () => {
   const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number' ? amount : amount.toNumber();
+    const value = typeof amount === 'number'
+      ? amount
+      : typeof amount?.toNumber === 'function'
+        ? amount.toNumber()
+        : Number(amount);
     return `£${value.toFixed(2)}`;
   });
 

@@ -6,7 +6,9 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { Transaction, Category } from '../../types';
 
 // Mock the contexts and hooks
-vi.mock('../../contexts/AppContext');
+vi.mock('../../contexts/AppContextSupabase', () => ({
+  useApp: vi.fn(),
+}));
 vi.mock('../../hooks/useCurrencyDecimal');
 
 // Mock recharts to avoid canvas issues
@@ -121,7 +123,14 @@ const mockTransactions: Transaction[] = [
 ];
 
 describe('ExpenseBreakdownWidget', () => {
-  const mockFormatCurrency = vi.fn((amount: number) => `$${amount.toFixed(2)}`);
+  const mockFormatCurrency = vi.fn((amount: any) => {
+    const value = typeof amount === 'number'
+      ? amount
+      : typeof amount?.toNumber === 'function'
+        ? amount.toNumber()
+        : Number(amount);
+    return `$${value.toFixed(2)}`;
+  });
   const mockGetCurrencySymbol = vi.fn(() => '$');
 
   beforeEach(() => {

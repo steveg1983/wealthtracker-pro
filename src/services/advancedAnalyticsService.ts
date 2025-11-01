@@ -289,12 +289,12 @@ class AdvancedAnalyticsService {
     // 3. Budget performance
     budgets.forEach(budget => {
       const performance = this.analyzeBudgetPerformance(budget, transactions);
-      if (performance.consistentlyUnder && performance.averageUsage < 80) {
+      if (performance.consistentlyUnder && performance.averageUsage! < 80) {
         insights.push({
           id: `insight-budget-${budget.id}`,
           type: 'budget',
           title: `${budget.name} Budget Opportunity`,
-          description: `You consistently use only ${performance.averageUsage}% of this budget. Consider reducing it.`,
+          description: `You consistently use only ${performance.averageUsage!}% of this budget. Consider reducing it.`,
           impact: 'neutral',
           priority: 'low',
           actionable: true,

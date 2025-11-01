@@ -14,7 +14,9 @@ import { budgetCalculationService } from '../../services/budgetCalculationServic
 import type { Transaction, Category, Budget } from '../../types';
 
 // Mock the external dependencies
-vi.mock('../../contexts/AppContext');
+vi.mock('../../contexts/AppContextSupabase', () => ({
+  useApp: vi.fn(),
+}));
 vi.mock('../../contexts/BudgetContext');
 vi.mock('../../hooks/useCurrencyDecimal');
 vi.mock('../../services/budgetCalculationService');
@@ -77,7 +79,11 @@ const mockBudgetCalculationService = budgetCalculationService as any;
 
 describe('BudgetSummaryWidget', () => {
   const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number' ? amount : amount.toNumber();
+    const value = typeof amount === 'number'
+      ? amount
+      : typeof amount?.toNumber === 'function'
+        ? amount.toNumber()
+        : Number(amount);
     return `£${value.toFixed(2)}`;
   });
 
@@ -662,9 +668,13 @@ describe('BudgetSummaryWidget', () => {
         throw new Error('Service error');
       });
 
-      expect(() => {
-        render(<BudgetSummaryWidget {...defaultProps} />);
-      }).toThrow('Service error');
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      render(<BudgetSummaryWidget {...defaultProps} />);
+
+      expect(screen.getByText('Unable to load budget summary.')).toBeInTheDocument();
+
+      consoleSpy.mockRestore();
     });
 
     it('handles invalid budget data', () => {

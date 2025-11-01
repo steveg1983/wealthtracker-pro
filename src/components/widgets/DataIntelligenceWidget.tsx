@@ -61,7 +61,17 @@ export default function DataIntelligenceWidget({
   }, [formatCurrency]);
 
   const formatPercentage = React.useCallback((value: number, decimals: number = 1) => {
-    return toDecimal(value).toFixed(decimals);
+    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+    if (decimals <= 0) {
+      return decimalValue.toString();
+    }
+
+    const raw = decimalValue.toString();
+    const isNegative = raw.startsWith('-');
+    const unsignedRaw = isNegative ? raw.slice(1) : raw;
+    const [integerPart, fractionalPart = ''] = unsignedRaw.split('.');
+    const paddedFraction = fractionalPart.padEnd(decimals, '0');
+    return `${isNegative ? '-' : ''}${integerPart}.${paddedFraction}`;
   }, []);
 
   const getInsightIcon = (type: SpendingInsight['type']) => {

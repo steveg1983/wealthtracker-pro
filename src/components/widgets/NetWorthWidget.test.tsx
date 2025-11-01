@@ -78,7 +78,11 @@ const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
 
 describe('NetWorthWidget', () => {
   const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number' ? amount : amount.toNumber();
+    const value = typeof amount === 'number'
+      ? amount
+      : typeof amount?.toNumber === 'function'
+        ? amount.toNumber()
+        : Number(amount);
     return `£${value.toFixed(2)}`;
   });
 

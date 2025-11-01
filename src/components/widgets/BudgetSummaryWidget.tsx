@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useBudgets } from '../../contexts/BudgetContext';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
-import { toDecimal } from '../../utils/decimal';
+import { toDecimal, Decimal } from '../../utils/decimal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { AlertCircleIcon, CheckCircleIcon } from '../icons';
 import { budgetCalculationService } from '../../services/budgetCalculationService';
@@ -23,8 +23,9 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
   
   const period = settings?.period ?? 'current';
 
-  const { budgetData, totalBudgeted, totalSpent, totalRemaining, overBudgetCount } = useMemo(() => {
-    const now = new Date();
+  const { budgetData, totalBudgeted, totalSpent, totalRemaining, overBudgetCount, calculationError } = useMemo(() => {
+    try {
+      const now = new Date();
     
     // Determine date range based on period
     let startDate: Date;
@@ -52,7 +53,7 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
     // Convert budgets to service-compatible format
     const serviceBudgets = budgets.map(budget => ({
       ...budget,
-      categoryId: budget.categoryId,
+      categoryId: budget.categoryId ?? (budget as any).category,
       period: budget.period || 'monthly' as const
     }));
     
@@ -68,13 +69,16 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
       const budgetAmount = toDecimal(budget.amount);
       
       // Aggregate spending across all categories in this budget
+      const categoryIdentifier = budget.categoryId ?? (budget as any).category;
       const categorySpending = summary.budgetsByCategory
-        .filter(bs => bs.categoryId === budget.categoryId)
+        .filter(bs => bs.categoryId === categoryIdentifier)
         .reduce((sum, bs) => sum + bs.spentAmount, 0);
       
       const spent = toDecimal(categorySpending);
       const remaining = budgetAmount.minus(spent);
-      const percentage = budgetAmount.greaterThan(0) ? spent.dividedBy(budgetAmount).times(100) : toDecimal(0);
+      const percentageDecimal = budgetAmount.greaterThan(0) ? spent.dividedBy(budgetAmount).times(100) : toDecimal(0);
+      const percentageDisplay = percentageDecimal.toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toString();
+      const percentageWidth = Math.min(percentageDecimal.toNumber(), 100);
       const isOverBudget = remaining.lessThan(0);
       
       return {
@@ -83,7 +87,9 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
         budgeted: budgetAmount,
         spent,
         remaining,
-        percentage: percentage.toNumber(),
+        percentageDecimal,
+        percentageDisplay,
+        percentageWidth,
         isOverBudget,
         color: budget.color || '#3B82F6'
       };
@@ -94,13 +100,25 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
     const totalRemaining = totalBudgeted.minus(totalSpent);
     const overBudgetCount = budgetData.filter(b => b.isOverBudget).length;
     
-    return {
-      budgetData,
-      totalBudgeted,
-      totalSpent,
-      totalRemaining,
-      overBudgetCount
-    };
+      return {
+        budgetData,
+        totalBudgeted,
+        totalSpent,
+        totalRemaining,
+        overBudgetCount,
+        calculationError: false
+      };
+    } catch (error) {
+      console.error('BudgetSummaryWidget: error calculating budget summary', error);
+      return {
+        budgetData: [],
+        totalBudgeted: toDecimal(0),
+        totalSpent: toDecimal(0),
+        totalRemaining: toDecimal(0),
+        overBudgetCount: 0,
+        calculationError: true
+      };
+    }
   }, [budgets, transactions, categories, period]);
 
   const pieData = budgetData.map(budget => ({
@@ -110,6 +128,14 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
   }));
 
   const isOverBudget = totalRemaining.lessThan(0);
+
+  if (calculationError) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+        Unable to load budget summary.
+      </div>
+    );
+  }
 
   if (size === 'small') {
     return (
@@ -211,7 +237,7 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
                         ? 'text-red-600 dark:text-red-400'
                         : 'text-gray-600 dark:text-gray-400'
                     }`}>
-                      {budget.percentage.toFixed(0)}%
+                      {budget.percentageDisplay}%
                     </span>
                   </div>
                   
@@ -221,7 +247,7 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
                         budget.isOverBudget ? 'bg-red-500' : 'bg-green-500'
                       }`}
                       style={{ 
-                        width: `${Math.min(budget.percentage, 100)}%`,
+                        width: `${budget.percentageWidth}%`,
                         backgroundColor: budget.isOverBudget ? '#EF4444' : budget.color
                       }}
                     />
@@ -273,7 +299,7 @@ export default function BudgetSummaryWidget({ size = 'medium', settings }: Budge
                       ? 'text-red-600 dark:text-red-400'
                       : 'text-gray-600 dark:text-gray-400'
                   }`}>
-                    {budget.percentage.toFixed(0)}%
+                    {budget.percentageDisplay}%
                   </span>
                 </div>
               ))}

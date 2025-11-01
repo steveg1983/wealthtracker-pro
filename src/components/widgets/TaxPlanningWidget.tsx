@@ -8,7 +8,7 @@ import {
   CalendarIcon
 } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
-import { toDecimal } from '../../utils/decimal';
+import { toDecimal, Decimal } from '../../utils/decimal';
 import { useNavigate } from 'react-router-dom';
 
 interface WidgetSettings {
@@ -56,7 +56,13 @@ export default function TaxPlanningWidget({ size = 'medium' }: TaxPlanningWidget
   }, [transactions, accounts, currentYear]);
 
   const formatRate = React.useCallback((value: number) => {
-    return toDecimal(value).toFixed(1);
+    const decimalValue = toDecimal(value).toDecimalPlaces(1, Decimal.ROUND_HALF_UP);
+    const raw = decimalValue.toString();
+    const isNegative = raw.startsWith('-');
+    const unsignedRaw = isNegative ? raw.slice(1) : raw;
+    const [integerPart, fractionalPart = ''] = unsignedRaw.split('.');
+    const paddedFraction = fractionalPart.padEnd(1, '0');
+    return `${isNegative ? '-' : ''}${integerPart}.${paddedFraction}`;
   }, []);
 
   useEffect(() => {

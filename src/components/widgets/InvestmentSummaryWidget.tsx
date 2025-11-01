@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import type { Investment } from '../../types';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
@@ -20,6 +20,21 @@ export default function InvestmentSummaryWidget({ size, settings }: InvestmentSu
   const { formatCurrency } = useCurrencyDecimal();
   const showChart = settings.showChart ?? true;
   const period = settings.period || '1M';
+
+  const formatPercentage = useCallback((value: DecimalInstance, decimals: number = 2) => {
+    const decimalValue = value.toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+
+    if (decimals <= 0) {
+      return decimalValue.toString();
+    }
+
+    const raw = decimalValue.toString();
+    const isNegative = raw.startsWith('-');
+    const unsignedRaw = isNegative ? raw.slice(1) : raw;
+    const [integerPart, fractionalPart = ''] = unsignedRaw.split('.');
+    const paddedFraction = fractionalPart.padEnd(decimals, '0');
+    return `${isNegative ? '-' : ''}${integerPart}.${paddedFraction}`;
+  }, []);
 
   const investmentAccounts = useMemo(() => {
     return accounts.filter(account => account.type === 'investment');
@@ -101,7 +116,8 @@ export default function InvestmentSummaryWidget({ size, settings }: InvestmentSu
   }
 
   const isPositive = portfolioData.totalGains.greaterThanOrEqualTo(0);
-  const formattedGainPercentage = `${isPositive ? '+' : ''}${portfolioData.gainPercentage.toFixed(2)}%`;
+  const gainPercentageDisplay = formatPercentage(portfolioData.gainPercentage.abs(), 2);
+  const formattedGainPercentage = `${isPositive ? '+' : '-'}${gainPercentageDisplay}%`;
 
   return (
     <div className="space-y-4">

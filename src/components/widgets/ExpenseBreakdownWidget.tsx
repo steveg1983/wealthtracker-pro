@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { toDecimal, Decimal } from '../../utils/decimal';
 import { PieChartIcon } from '../icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
@@ -23,6 +24,20 @@ export default function ExpenseBreakdownWidget({ size, settings }: ExpenseBreakd
   const { formatCurrency } = useCurrencyDecimal();
   const period = settings.period || 'month';
   const showLegend = settings.showLegend ?? true;
+
+  const formatPercentage = useCallback((value: number, decimals: number = 0) => {
+    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+    if (decimals <= 0) {
+      return decimalValue.toString();
+    }
+
+    const raw = decimalValue.toString();
+    const isNegative = raw.startsWith('-');
+    const unsignedRaw = isNegative ? raw.slice(1) : raw;
+    const [integerPart, fractionalPart = ''] = unsignedRaw.split('.');
+    const paddedFraction = fractionalPart.padEnd(decimals, '0');
+    return `${isNegative ? '-' : ''}${integerPart}.${paddedFraction}`;
+  }, []);
 
   const expenseData = useMemo(() => {
     const now = new Date();
@@ -98,7 +113,10 @@ export default function ExpenseBreakdownWidget({ size, settings }: ExpenseBreakd
               cx="50%"
               cy="50%"
               labelLine={false}
-              label={size !== 'small' ? ({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%` : false}
+              label={size !== 'small' ? ({ name, percent }) => {
+                const percentage = toDecimal(percent ?? 0).times(100);
+                return `${name} ${formatPercentage(percentage.toNumber(), 0)}%`;
+              } : false}
               outerRadius={size === 'small' ? 60 : size === 'medium' ? 80 : 100}
               fill="#8884d8"
               dataKey="value"
