@@ -95,7 +95,7 @@ export default function Analytics(): React.JSX.Element {
       newInsights.push({
         type: 'category',
         title: `Highest spending category: ${topCategory[0]}`,
-        description: `You've spent ${formatCurrency(topCategory[1].total)} in ${topCategory[0]} this month`,
+        description: `You've spent ${formatCurrency((topCategory[1] as any).total)} in ${topCategory[0]} this month`,
         severity: 'info'
       });
     }
