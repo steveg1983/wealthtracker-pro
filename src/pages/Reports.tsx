@@ -6,6 +6,8 @@ import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';
 import ScheduledReports from '../components/ScheduledReports';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
 import { LazyLineChart, LazyDoughnutChart } from '../components/charts/LazyChart';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal, Decimal } from '../utils/decimal';
 
 export default function Reports() {
   const { transactions, accounts } = useApp();
@@ -17,6 +19,7 @@ export default function Reports() {
   const [isLoading, setIsLoading] = useState(true);
   const chartRef1 = useRef<HTMLDivElement>(null);
   const chartRef2 = useRef<HTMLDivElement>(null);
+  const { formatCurrency } = useCurrencyDecimal();
 
   // Filter transactions based on date range and account
   const filteredTransactions = useMemo(() => {
@@ -61,18 +64,25 @@ export default function Reports() {
 
   // Calculate summary statistics
   const summary = useMemo(() => {
-    const income = filteredTransactions
+    const incomeDecimal = filteredTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const expenses = filteredTransactions
+      .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
+
+    const expensesDecimal = filteredTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum.plus(t.amount), toDecimal(0));
 
-    const netIncome = income - expenses;
-    const savingsRate = income > 0 ? (netIncome / income) * 100 : 0;
+    const netIncomeDecimal = incomeDecimal.minus(expensesDecimal);
+    const savingsRateDecimal = incomeDecimal.gt(0)
+      ? netIncomeDecimal.dividedBy(incomeDecimal).times(100)
+      : toDecimal(0);
 
-    return { income, expenses, netIncome, savingsRate };
+    return {
+      income: incomeDecimal.toNumber(),
+      expenses: expensesDecimal.toNumber(),
+      netIncome: netIncomeDecimal.toNumber(),
+      savingsRate: savingsRateDecimal.toNumber(),
+    };
   }, [filteredTransactions]);
 
   // Set loading to false when data is loaded
@@ -86,19 +96,21 @@ export default function Reports() {
   const categoryData = useMemo(() => {
     const categoryTotals = filteredTransactions
       .filter(t => t.type === 'expense')
-      .reduce((acc, t) => {
-        acc[t.category] = (acc[t.category] || 0) + t.amount;
+      .reduce<Record<string, Decimal>>((acc, t) => {
+        const key = t.category || 'Uncategorized';
+        const current = acc[key] ?? toDecimal(0);
+        acc[key] = current.plus(t.amount);
         return acc;
-      }, {} as Record<string, number>);
+      }, {});
 
     const sortedCategories = Object.entries(categoryTotals)
-      .sort(([, a], [, b]) => (b as number) - (a as number))
+      .sort(([, a], [, b]) => b.minus(a).toNumber())
       .slice(0, 8);
 
     return {
       labels: sortedCategories.map(([cat]) => cat),
       datasets: [{
-        data: sortedCategories.map(([, amount]) => amount),
+        data: sortedCategories.map(([, amount]) => amount.toNumber()),
         backgroundColor: [
           '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
           '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'
@@ -109,23 +121,23 @@ export default function Reports() {
 
   // Prepare data for monthly trend
   const monthlyTrendData = useMemo(() => {
-    const monthlyData: Record<string, { income: number; expenses: number }> = {};
-    
+    const monthlyData: Record<string, { income: Decimal; expenses: Decimal }> = {};
+
     filteredTransactions.forEach(t => {
       const monthKey = new Date(t.date).toISOString().slice(0, 7);
       if (!monthlyData[monthKey]) {
-        monthlyData[monthKey] = { income: 0, expenses: 0 };
+        monthlyData[monthKey] = { income: toDecimal(0), expenses: toDecimal(0) };
       }
-      
+
       if (t.type === 'income') {
-        monthlyData[monthKey].income += t.amount;
+        monthlyData[monthKey].income = monthlyData[monthKey].income.plus(t.amount);
       } else {
-        monthlyData[monthKey].expenses += t.amount;
+        monthlyData[monthKey].expenses = monthlyData[monthKey].expenses.plus(t.amount);
       }
     });
 
     const sortedMonths = Object.keys(monthlyData).sort();
-    
+
     return {
       labels: sortedMonths.map(month => {
         const date = new Date(month + '-01');
@@ -134,14 +146,14 @@ export default function Reports() {
       datasets: [
         {
           label: 'Income',
-          data: sortedMonths.map(month => monthlyData[month].income),
+          data: sortedMonths.map(month => monthlyData[month].income.toNumber()),
           borderColor: '#10B981',
           backgroundColor: '#10B98120',
           tension: 0.4
         },
         {
           label: 'Expenses',
-          data: sortedMonths.map(month => monthlyData[month].expenses),
+          data: sortedMonths.map(month => monthlyData[month].expenses.toNumber()),
           borderColor: '#EF4444',
           backgroundColor: '#EF444420',
           tension: 0.4
@@ -149,13 +161,6 @@ export default function Reports() {
       ]
     };
   }, [filteredTransactions]);
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'GBP'
-    }).format(amount);
-  };
 
   const exportToCSV = () => {
     const csv = exportTransactionsToCSV(filteredTransactions, accounts);
@@ -167,25 +172,29 @@ export default function Reports() {
     setIsGeneratingPDF(true);
     try {
       // Prepare category breakdown data
-      const categoryBreakdown = Object.entries(
-        filteredTransactions
-          .filter(t => t.type === 'expense')
-          .reduce((acc, t) => {
-            acc[t.category] = (acc[t.category] || 0) + t.amount;
-            return acc;
-          }, {} as Record<string, number>)
-      )
-        .sort(([, a], [, b]) => (b as number) - (a as number))
-        .map(([category, amount]) => {
-          const total = filteredTransactions
-            .filter(t => t.type === 'expense')
-            .reduce((sum, t) => sum + t.amount, 0);
-          return {
-            category,
-            amount: amount as number,
-            percentage: ((amount as number) / total) * 100
-          };
-        });
+      const expenseTotals = filteredTransactions
+        .filter(t => t.type === 'expense')
+        .reduce<Record<string, Decimal>>((acc, t) => {
+          const key = t.category || 'Uncategorized';
+          const current = acc[key] ?? toDecimal(0);
+          acc[key] = current.plus(t.amount);
+          return acc;
+        }, {});
+
+      const totalExpensesDecimal = Object.values(expenseTotals).reduce(
+        (sum, amount) => sum.plus(amount),
+        toDecimal(0)
+      );
+
+      const categoryBreakdown = Object.entries(expenseTotals)
+        .sort(([, a], [, b]) => b.minus(a).toNumber())
+        .map(([category, amount]) => ({
+          category,
+          amount: amount.toNumber(),
+          percentage: totalExpensesDecimal.gt(0)
+            ? amount.dividedBy(totalExpensesDecimal).times(100).toNumber()
+            : 0
+        }));
 
       const reportData = {
         title: 'Financial Report',

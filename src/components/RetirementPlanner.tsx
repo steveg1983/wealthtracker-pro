@@ -12,6 +12,8 @@ import {
   BarChart3Icon
 } from './icons';
 import type { RetirementPlan, RetirementProjection } from '../services/financialPlanningService';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface RetirementPlannerProps {
   onDataChange: () => void;
@@ -23,6 +25,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
   const [editingPlan, setEditingPlan] = useState<RetirementPlan | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<RetirementPlan | null>(null);
   const [projection, setProjection] = useState<RetirementProjection | null>(null);
+  const { formatCurrency } = useCurrencyDecimal();
 
   const loadPlans = useCallback(() => {
     const retirementPlans = financialPlanningService.getRetirementPlans();
@@ -65,15 +68,6 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
       loadPlans();
       onDataChange();
     }
-  };
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
   };
 
   const formatPercentage = (value: number) => {
@@ -166,7 +160,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                   </div>
                   <div className="text-sm text-gray-600 dark:text-gray-400">
                     <div>Age {plan.currentAge} → {plan.retirementAge}</div>
-                    <div>{formatCurrency(plan.monthlyContribution)}/month</div>
+                    <div>{formatCurrency(toDecimal(plan.monthlyContribution))}/month</div>
                   </div>
                 </div>
               ))}
@@ -184,7 +178,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                       <div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Projected Balance</p>
                         <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                          {formatCurrency(projection.totalSavingsAtRetirement)}
+                        {formatCurrency(toDecimal(projection.totalSavingsAtRetirement))}
                         </p>
                       </div>
                       <TrendingUpIcon size={24} className="text-green-500" />
@@ -199,7 +193,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                       <div>
                         <p className="text-sm text-gray-600 dark:text-gray-400">Monthly Income</p>
                         <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                          {formatCurrency(projection.monthlyIncomeAvailable)}
+                        {formatCurrency(toDecimal(projection.monthlyIncomeAvailable))}
                         </p>
                       </div>
                       <DollarSignIcon size={24} className="text-blue-500" />
@@ -220,12 +214,12 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                           Monthly Income Shortfall
                         </h4>
                         <p className="text-sm text-red-800 dark:text-red-200 mb-2">
-                          You're projected to be {formatCurrency(projection.shortfall)} short of your target monthly income.
+                          You're projected to be {formatCurrency(toDecimal(projection.shortfall))} short of your target monthly income.
                         </p>
                         <p className="text-sm text-red-700 dark:text-red-300">
                           <strong>Recommendation:</strong> Increase monthly contributions to{' '}
                           <span className="font-semibold">
-                            {formatCurrency(projection.recommendedMonthlyContribution)}
+                            {formatCurrency(toDecimal(projection.recommendedMonthlyContribution))}
                           </span>
                           {' '}to meet your target.
                         </p>
@@ -271,13 +265,13 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Current Savings:</span>
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(selectedPlan.currentSavings)}
+                          {formatCurrency(toDecimal(selectedPlan.currentSavings))}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Monthly Contribution:</span>
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(selectedPlan.monthlyContribution)}
+                          {formatCurrency(toDecimal(selectedPlan.monthlyContribution))}
                         </span>
                       </div>
                     </div>
@@ -298,7 +292,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Target Monthly Income:</span>
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(selectedPlan.targetRetirementIncome)}
+                          {formatCurrency(toDecimal(selectedPlan.targetRetirementIncome))}
                         </span>
                       </div>
                       <div className="flex justify-between">
@@ -330,13 +324,13 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
                         </div>
                         <div className="flex items-center gap-6 text-sm">
                           <div className="text-green-600 dark:text-green-400">
-                            +{formatCurrency(year.contribution)}
+                            +{formatCurrency(toDecimal(year.contribution))}
                           </div>
                           <div className="text-blue-600 dark:text-blue-400">
-                            +{formatCurrency(year.growth)}
+                            +{formatCurrency(toDecimal(year.growth))}
                           </div>
                           <div className="font-medium text-gray-900 dark:text-white w-24 text-right">
-                            {formatCurrency(year.balance)}
+                            {formatCurrency(toDecimal(year.balance))}
                           </div>
                         </div>
                       </div>

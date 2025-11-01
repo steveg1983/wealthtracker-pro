@@ -10,6 +10,8 @@ import {
   FilterIcon,
   ClockIcon
 } from './icons';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface SearchResult {
   id: string;
@@ -60,6 +62,7 @@ export function VirtualizedSearchResults({
   className = ''
 }: VirtualizedSearchResultsProps): React.JSX.Element {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const { formatCurrency } = useCurrencyDecimal();
 
   const isHeaderItem = useCallback((item: ResultItem): item is ResultHeader => {
     return (item as ResultHeader).isHeader === true;
@@ -142,11 +145,8 @@ export function VirtualizedSearchResults({
 
   // Format amount
   const formatAmount = useCallback((amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  }, []);
+    return formatCurrency(toDecimal(amount));
+  }, [formatCurrency]);
 
   // Format date
   const formatDate = useCallback((date: Date) => {
@@ -380,6 +380,9 @@ export function VirtualizedQuickSearch({
   maxHeight?: number;
 }): React.JSX.Element {
   const topResults = results.slice(0, 10);
+  const { formatCurrency } = useCurrencyDecimal();
+
+  const formatAmount = (amount: number) => formatCurrency(toDecimal(amount));
 
   const renderQuickResult = useCallback((result: SearchResult, _index: number) => (
     <div
@@ -407,7 +410,7 @@ export function VirtualizedQuickSearch({
         )}
       </div>
     </div>
-  ), [onResultClick]);
+  ), [onResultClick, formatAmount]);
 
   const getResultIcon = (type: string) => {
     const icons: Record<string, React.ReactNode> = {
@@ -416,15 +419,6 @@ export function VirtualizedQuickSearch({
       category: <FolderIcon size={16} />
     };
     return icons[type] || <FileTextIcon size={16} />;
-  };
-
-  const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(amount);
   };
 
   return (

@@ -2,6 +2,8 @@ import React, { useCallback, useMemo } from 'react';
 import { VirtualizedList } from './VirtualizedListSystem';
 import { BankIcon, CreditCardIcon, WalletIcon, PiggyBankIcon, TrendingUpIcon } from './icons';
 import type { Account } from '../types';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface VirtualizedAccountListProps {
   accounts: Account[];
@@ -36,6 +38,7 @@ export function VirtualizedAccountList({
   groupByType = false,
   className = ''
 }: VirtualizedAccountListProps): React.JSX.Element {
+  const { formatCurrency } = useCurrencyDecimal();
   
   // Group accounts by type if requested
   const processedAccounts = useMemo<AccountListItem[]>(() => {
@@ -80,14 +83,6 @@ export function VirtualizedAccountList({
       default:
         return <WalletIcon size={20} />;
     }
-  }, []);
-
-  // Format currency
-  const formatCurrency = useCallback((amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
   }, []);
 
   // Render individual account
@@ -147,11 +142,11 @@ export function VirtualizedAccountList({
               <div className={`font-semibold text-lg ${
                 account.balance < 0 ? 'text-red-600' : 'text-gray-900 dark:text-white'
               }`}>
-                {formatCurrency(account.balance)}
+                {formatCurrency(toDecimal(account.balance))}
               </div>
               {account.available !== undefined && account.available !== account.balance && (
                 <div className="text-xs text-gray-500">
-                  Available: {formatCurrency(account.available)}
+                  Available: {formatCurrency(toDecimal(account.available))}
                 </div>
               )}
             </div>

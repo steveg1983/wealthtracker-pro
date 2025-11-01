@@ -12,6 +12,7 @@ import MarkdownEditor from './MarkdownEditor';
 import DocumentManager from './DocumentManager';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
+import { toDecimal, Decimal } from '../utils/decimal';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -126,16 +127,22 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
 
   // Helper function to format number with commas
   const formatWithCommas = (value: string | number): string => {
-    const num = typeof value === 'string' ? parseFloat(value) : value;
-    if (isNaN(num)) return '';
-    
-    const isNegative = num < 0;
-    const formatted = new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Math.abs(num));
-    
-    return isNegative ? `-${formatted}` : formatted;
+    if (value === '') {
+      return '';
+    }
+
+    const decimalValue = typeof value === 'string' ? toDecimal(value || 0) : toDecimal(value);
+    if (!decimalValue.isFinite()) {
+      return '';
+    }
+
+    const rounded = decimalValue.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+    const isNegative = rounded.isNegative();
+    const absValue = rounded.abs().toFixed(2);
+    const [integerPart, fractionalPart] = absValue.split('.');
+    const withCommas = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+    return `${isNegative ? '-' : ''}${withCommas}.${fractionalPart}`;
   };
 
   // Helper function to parse formatted string back to number
