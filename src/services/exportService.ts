@@ -382,7 +382,7 @@ class ExportService {
   }
 
   private async addTransactionsSummaryToPDF(
-    doc: jsPDF, 
+    doc: any, 
     transactions: Transaction[], 
     yPosition: number, 
     options: ExportOptions
