@@ -56,7 +56,7 @@ export default function TaxPlanningWidget({ size = 'medium' }: TaxPlanningWidget
   }, [transactions, accounts, currentYear]);
 
   const formatRate = React.useCallback((value: number) => {
-    return toDecimal(value).toDecimalPlaces(1).toString();
+    return toDecimal(value).toFixed(1);
   }, []);
 
   useEffect(() => {

@@ -12,7 +12,7 @@ vi.mock('../../services/advancedAnalyticsService');
 vi.mock('react-router-dom', () => ({
   useNavigate: vi.fn(),
 }));
-vi.mock('../../contexts/AppContext', () => ({
+vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     transactions: mockTransactions,
     accounts: mockAccounts,

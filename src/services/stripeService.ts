@@ -148,11 +148,7 @@ export class StripeService {
         accounts: 5,
         transactions: 100,
         budgets: 3,
-        goals: 3,
-        advancedReports: false,
-        csvExport: false,
-        apiAccess: false,
-        prioritySupport: false
+        goals: 3
       };
     }
 
@@ -160,11 +156,7 @@ export class StripeService {
       accounts: plan.maxAccounts || 5,
       transactions: plan.transactions || 100,
       budgets: plan.maxBudgets || 3,
-      goals: plan.maxGoals || 3,
-      advancedReports: plan.advancedReports || false,
-      csvExport: plan.csvExport || false,
-      apiAccess: plan.apiAccess || false,
-      prioritySupport: plan.prioritySupport || false
+      goals: plan.maxGoals || 3
     };
   }
 
@@ -185,7 +177,7 @@ export class StripeService {
   static isWithinLimits(
     userTier: SubscriptionTier,
     currentUsage: number,
-    limitType: 'maxAccounts' | 'transactions' | 'maxBudgets' | 'maxGoals'
+    limitType: 'accounts' | 'transactions' | 'budgets' | 'goals'
   ): boolean {
     const limits = this.getFeatureLimits(userTier);
     const limit = limits[limitType];

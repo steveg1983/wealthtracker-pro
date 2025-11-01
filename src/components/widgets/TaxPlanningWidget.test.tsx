@@ -8,7 +8,9 @@ import { toDecimal } from '../../utils/decimal';
 import type { Transaction, Account } from '../../types';
 
 // Mock dependencies
-vi.mock('../../contexts/AppContext');
+vi.mock('../../contexts/AppContextSupabase', () => ({
+  useApp: vi.fn(),
+}));
 vi.mock('../../services/taxPlanningService');
 vi.mock('react-router-dom', () => ({
   useNavigate: vi.fn(),
