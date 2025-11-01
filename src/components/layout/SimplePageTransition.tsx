@@ -18,7 +18,7 @@ export function PageTransition({ children }: PageTransitionProps) {
     }, 200);
 
     return () => clearTimeout(timer);
-  }, [location.pathname]);
+  }, [children, location.pathname]);
 
   return (
     <div

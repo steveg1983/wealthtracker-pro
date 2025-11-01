@@ -53,7 +53,7 @@ export function Breadcrumbs() {
   ];
 
   let currentPath = '';
-  pathSegments.forEach((segment, index) => {
+  pathSegments.forEach((segment) => {
     currentPath += `/${segment}`;
     const label = routeLabels[segment] || segment.charAt(0).toUpperCase() + segment.slice(1);
     breadcrumbs.push({ label, path: preserveDemoParam(currentPath, location.search) });

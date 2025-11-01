@@ -14,7 +14,6 @@ import {
   AlertCircleIcon,
   DollarSignIcon,
   CalendarIcon,
-  TagIcon,
   FileTextIcon 
 } from '../icons';
 

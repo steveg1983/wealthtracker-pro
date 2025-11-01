@@ -6,17 +6,18 @@
 import React from 'react';
 import { useOfflineState, useOfflineOperations } from '../../pwa/offline-storage';
 import { WifiOffIcon, WifiIcon, RefreshCwIcon, AlertCircleIcon } from '../icons';
+import type { SyncConflict } from '../../types/syncConflict';
 
 export const OfflineIndicator: React.FC = () => {
   const offlineState = useOfflineState();
   const { sync, getConflicts } = useOfflineOperations();
-  const [conflicts, setConflicts] = React.useState<any[]>([]);
+  const [conflicts, setConflicts] = React.useState<SyncConflict[]>([]);
   const [showDetails, setShowDetails] = React.useState(false);
 
   React.useEffect(() => {
     const loadConflicts = async () => {
       const conflictList = await getConflicts();
-      setConflicts(conflictList);
+      setConflicts(conflictList as SyncConflict[]);
     };
     
     loadConflicts();
@@ -138,9 +139,11 @@ export const OfflineIndicator: React.FC = () => {
                             className="text-blue-600 dark:text-blue-400 hover:underline"
                             onClick={() => {
                               // Open conflict resolution modal
-                              window.dispatchEvent(new CustomEvent('open-conflict-resolver', {
-                                detail: conflict
-                              }));
+                              window.dispatchEvent(
+                                new CustomEvent<SyncConflict>('open-conflict-resolver', {
+                                  detail: conflict
+                                })
+                              );
                             }}
                           >
                             Resolve

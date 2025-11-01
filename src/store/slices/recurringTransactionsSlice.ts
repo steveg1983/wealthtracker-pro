@@ -1,10 +1,11 @@
 import { createSlice, PayloadAction, createAsyncThunk } from '@reduxjs/toolkit';
 import type { RecurringTransaction } from '../../types';
+import type { SerializedRecurringTransaction } from '../../types/redux-types';
 import { storageAdapter } from '../../services/storageAdapter';
 import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
 
 interface RecurringTransactionsState {
-  recurringTransactions: RecurringTransaction[];
+  recurringTransactions: SerializedRecurringTransaction[];
   loading: boolean;
   error: string | null;
 }

@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Budget } from '../../types';
+import type { SerializedBudget } from '../../types/redux-types';
 import { getCurrentISOString } from '../../utils/dateHelpers';
 import {
   fetchBudgetsFromSupabase,
@@ -7,7 +8,7 @@ import {
 } from '../thunks/supabaseThunks';
 
 interface BudgetsState {
-  budgets: Budget[];
+  budgets: SerializedBudget[];
   loading: boolean;
   error: string | null;
 }

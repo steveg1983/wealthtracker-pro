@@ -9,13 +9,14 @@ import { AlertTriangleIcon, CheckIcon, MergeIcon } from '../icons';
 import { formatCurrency } from '../../utils/formatters';
 import { format } from 'date-fns';
 import { ConflictResolutionService, ConflictAnalysis } from '../../services/conflictResolutionService';
+import { ConflictData, SyncConflict } from '../../types/syncConflict';
 
 interface EnhancedConflictResolutionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  conflict: any;
+  conflict: SyncConflict | null;
   analysis?: ConflictAnalysis;
-  onResolve: (resolution: 'client' | 'server' | 'merge', mergedData?: any) => void;
+  onResolve: (resolution: 'client' | 'server' | 'merge', mergedData?: ConflictData) => Promise<void> | void;
 }
 
 export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutionModalProps> = ({
@@ -64,7 +65,7 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
     setIsResolving(true);
     
     try {
-      let resolvedData;
+      let resolvedData: ConflictData | undefined;
       
       if (selectedResolution === 'merge') {
         if (showAdvanced && Object.keys(fieldSelections).length > 0) {
@@ -205,15 +206,27 @@ export const EnhancedConflictResolutionModal: React.FC<EnhancedConflictResolutio
     );
   };
 
-  const formatFieldValue = (field: string, value: any): string => {
+  const formatFieldValue = (field: string, value: unknown): string => {
     if (value == null) return '(empty)';
     
     if (field.includes('amount') || field.includes('balance') || field === 'spent') {
-      return formatCurrency(value);
+      if (typeof value === 'number') {
+        return formatCurrency(value);
+      }
+
+      if (typeof value === 'string') {
+        const numericValue = Number(value);
+        if (!Number.isNaN(numericValue)) {
+          return formatCurrency(numericValue);
+        }
+      }
     }
     
     if (field.includes('date') || field.includes('_at')) {
-      return format(new Date(value), 'PP');
+      const dateValue = typeof value === 'string' || typeof value === 'number' ? new Date(value) : null;
+      if (dateValue && !Number.isNaN(dateValue.getTime())) {
+        return format(dateValue, 'PP');
+      }
     }
     
     if (Array.isArray(value)) {

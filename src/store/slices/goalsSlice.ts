@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { Goal } from '../../types';
+import type { SerializedGoal } from '../../types/redux-types';
 import { getCurrentISOString, toISOString } from '../../utils/dateHelpers';
 import {
   fetchGoalsFromSupabase,
@@ -7,7 +8,7 @@ import {
 } from '../thunks/supabaseThunks';
 
 interface GoalsState {
-  goals: Goal[];
+  goals: SerializedGoal[];
   loading: boolean;
   error: string | null;
 }

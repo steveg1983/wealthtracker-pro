@@ -6,14 +6,23 @@
 import React from 'react';
 import { useOfflineOperations } from '../../pwa/offline-storage';
 import { Modal } from '../common/Modal';
-import { AlertTriangleIcon, CheckIcon, XIcon } from '../icons';
+import { AlertTriangleIcon, CheckIcon } from '../icons';
 import { formatCurrency } from '../../utils/formatters';
 import { format } from 'date-fns';
+import {
+  AccountConflict,
+  BudgetConflict,
+  SyncConflict,
+  TransactionConflict,
+  isAccountConflict,
+  isBudgetConflict,
+  isTransactionConflict
+} from '../../types/syncConflict';
 
 interface ConflictResolutionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  conflict: any;
+  conflict: SyncConflict | null;
 }
 
 export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = ({
@@ -22,8 +31,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
   conflict
 }) => {
   const { resolveConflict } = useOfflineOperations();
-  const [selectedResolution, setSelectedResolution] = React.useState<'client' | 'server' | 'custom'>('server');
-  const [customData, setCustomData] = React.useState<any>(null);
+  const [selectedResolution, setSelectedResolution] = React.useState<'client' | 'server'>('server');
   const [isResolving, setIsResolving] = React.useState(false);
 
   if (!conflict) return null;
@@ -32,20 +40,10 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
     setIsResolving(true);
     
     try {
-      let resolvedData;
-      
-      switch (selectedResolution) {
-        case 'client':
-          resolvedData = conflict.clientData;
-          break;
-        case 'server':
-          resolvedData = conflict.serverData;
-          break;
-        case 'custom':
-          resolvedData = customData || conflict.serverData;
-          break;
-      }
-      
+      const resolvedData = selectedResolution === 'client'
+        ? conflict.clientData
+        : conflict.serverData;
+
       await resolveConflict(conflict.id, resolvedData);
       onClose();
     } catch (error) {
@@ -56,21 +54,24 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
   };
 
   const renderConflictDetails = () => {
-    switch (conflict.entity) {
-      case 'transaction':
-        return renderTransactionConflict();
-      case 'account':
-        return renderAccountConflict();
-      case 'budget':
-        return renderBudgetConflict();
-      default:
-        return renderGenericConflict();
+    if (isTransactionConflict(conflict)) {
+      return renderTransactionConflict(conflict);
     }
+
+    if (isAccountConflict(conflict)) {
+      return renderAccountConflict(conflict);
+    }
+
+    if (isBudgetConflict(conflict)) {
+      return renderBudgetConflict(conflict);
+    }
+
+    return renderGenericConflict(conflict);
   };
 
-  const renderTransactionConflict = () => {
-    const client = conflict.clientData;
-    const server = conflict.serverData;
+  const renderTransactionConflict = ({ clientData, serverData }: TransactionConflict) => {
+    const client = clientData;
+    const server = serverData;
     
     return (
       <div className="space-y-4">
@@ -134,9 +135,9 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
     );
   };
 
-  const renderAccountConflict = () => {
-    const client = conflict.clientData;
-    const server = conflict.serverData;
+  const renderAccountConflict = ({ clientData, serverData }: AccountConflict) => {
+    const client = clientData;
+    const server = serverData;
     
     return (
       <div className="space-y-4">
@@ -173,9 +174,9 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
     );
   };
 
-  const renderBudgetConflict = () => {
-    const client = conflict.clientData;
-    const server = conflict.serverData;
+  const renderBudgetConflict = ({ clientData, serverData }: BudgetConflict) => {
+    const client = clientData;
+    const server = serverData;
     
     return (
       <div className="space-y-4">
@@ -213,20 +214,20 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
     );
   };
 
-  const renderGenericConflict = () => {
+  const renderGenericConflict = ({ clientData, serverData }: SyncConflict) => {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <h4 className="font-medium text-sm mb-2">Your Version</h4>
             <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40">
-              {JSON.stringify(conflict.clientData, null, 2)}
+              {JSON.stringify(clientData, null, 2)}
             </pre>
           </div>
           <div>
             <h4 className="font-medium text-sm mb-2">Server Version</h4>
             <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-2 rounded overflow-auto max-h-40">
-              {JSON.stringify(conflict.serverData, null, 2)}
+              {JSON.stringify(serverData, null, 2)}
             </pre>
           </div>
         </div>
@@ -234,9 +235,9 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
     );
   };
 
-  const renderDifferences = (client: any, server: any) => {
+  const renderDifferences = <T extends Record<string, unknown>>(client: T, server: T) => {
     const differences: string[] = [];
-    
+
     Object.keys(client).forEach(key => {
       if (client[key] !== server[key]) {
         differences.push(key);
