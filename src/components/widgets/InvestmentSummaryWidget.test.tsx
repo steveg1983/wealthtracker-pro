@@ -6,7 +6,9 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { Account, Investment } from '../../types';
 
 // Mock the contexts and hooks
-vi.mock('../../contexts/AppContext');
+vi.mock('../../contexts/AppContextSupabase', () => ({
+  useApp: vi.fn(),
+}));
 vi.mock('../../hooks/useCurrencyDecimal');
 
 // Mock icons
@@ -132,7 +134,14 @@ const mockInvestments: Investment[] = [
 ];
 
 describe('InvestmentSummaryWidget', () => {
-  const mockFormatCurrency = vi.fn((amount: number) => `$${amount.toFixed(2)}`);
+  const mockFormatCurrency = vi.fn((amount: any) => {
+    const value = typeof amount === 'number'
+      ? amount
+      : typeof amount?.toNumber === 'function'
+        ? amount.toNumber()
+        : Number(amount);
+    return `$${value.toFixed(2)}`;
+  });
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -235,7 +244,7 @@ describe('InvestmentSummaryWidget', () => {
       render(<InvestmentSummaryWidget size="medium" settings={{}} />);
       
       // Loss: (100 * 80) - (100 * 100) = -2000
-      expect(screen.getByText('$-2000.00')).toBeInTheDocument();
+      expect(screen.getByText('-$2000.00')).toBeInTheDocument();
       expect(screen.getByText('Total Losses')).toBeInTheDocument();
       expect(screen.getByText('-20.00%')).toBeInTheDocument();
     });

@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
-import { Investment } from '../../types';
+import type { Investment } from '../../types';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { TrendingUpIcon, TrendingDownIcon, LineChartIcon } from '../icons';
 import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { toDecimal, Decimal } from '../../utils/decimal';
+import type { DecimalInstance } from '../../utils/decimal';
 
 interface InvestmentSummaryWidgetProps {
   size: 'small' | 'medium' | 'large';
@@ -24,25 +26,26 @@ export default function InvestmentSummaryWidget({ size, settings }: InvestmentSu
   }, [accounts]);
 
   const portfolioData = useMemo(() => {
-    const totalValue = investmentAccounts.reduce((sum, account) => sum + account.balance, 0);
-    
-    // Calculate total cost basis and gains
-    let totalCost = 0;
-    let totalGains = 0;
-    
+    const totalValue = investmentAccounts.reduce((sum: DecimalInstance, account) => sum.plus(toDecimal(account.balance)), toDecimal(0));
+
+    let totalCost = toDecimal(0);
+    let totalGains = toDecimal(0);
+
     if (investments) {
       investments.forEach((inv: Investment) => {
-        const quantity = inv.quantity || 0;
-        const costBasis = inv.costBasis || 0;
-        const currentPrice = inv.currentPrice || 0;
-        
-        totalCost += quantity * costBasis;
-        const currentValue = quantity * currentPrice;
-        totalGains += currentValue - (quantity * costBasis);
+        const quantity = toDecimal(inv.quantity || 0);
+        const costBasis = toDecimal(inv.costBasis || 0);
+        const currentPrice = toDecimal(inv.currentPrice || 0);
+
+        const positionCost = quantity.times(costBasis);
+        const currentValue = quantity.times(currentPrice);
+
+        totalCost = totalCost.plus(positionCost);
+        totalGains = totalGains.plus(currentValue.minus(positionCost));
       });
     }
 
-    const gainPercentage = totalCost > 0 ? (totalGains / totalCost) * 100 : 0;
+    const gainPercentage = totalCost.greaterThan(0) ? totalGains.dividedBy(totalCost).times(100) : toDecimal(0);
 
     return {
       totalValue,
@@ -56,8 +59,8 @@ export default function InvestmentSummaryWidget({ size, settings }: InvestmentSu
   // Mock historical data for chart
   const chartData = useMemo(() => {
     const now = new Date();
-    const dataPoints = [];
-    const baseValue = portfolioData.totalValue;
+    const dataPoints: Array<{ date: string; value: number }> = [];
+    const baseValue = portfolioData.totalValue.toNumber();
     
     let points = 30;
     switch (period) {
@@ -97,7 +100,8 @@ export default function InvestmentSummaryWidget({ size, settings }: InvestmentSu
     );
   }
 
-  const isPositive = portfolioData.totalGains >= 0;
+  const isPositive = portfolioData.totalGains.greaterThanOrEqualTo(0);
+  const formattedGainPercentage = `${isPositive ? '+' : ''}${portfolioData.gainPercentage.toFixed(2)}%`;
 
   return (
     <div className="space-y-4">
@@ -115,7 +119,7 @@ export default function InvestmentSummaryWidget({ size, settings }: InvestmentSu
       <div className="grid grid-cols-2 gap-4">
         <div>
           <p className={`text-lg font-semibold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-            {isPositive ? '+' : ''}{formatCurrency(portfolioData.totalGains)}
+            {isPositive ? '+' : '-'}{formatCurrency(portfolioData.totalGains.abs())}
           </p>
           <p className="text-xs text-gray-600 dark:text-gray-400">
             Total {isPositive ? 'Gains' : 'Losses'}
@@ -124,7 +128,7 @@ export default function InvestmentSummaryWidget({ size, settings }: InvestmentSu
         <div>
           <div className={`flex items-center gap-1 text-lg font-semibold ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
             {isPositive ? <TrendingUpIcon size={16} /> : <TrendingDownIcon size={16} />}
-            {isPositive ? '+' : ''}{portfolioData.gainPercentage.toFixed(2)}%
+            {formattedGainPercentage}
           </div>
           <p className="text-xs text-gray-600 dark:text-gray-400">
             Return Rate

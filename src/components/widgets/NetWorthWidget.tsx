@@ -75,7 +75,7 @@ export default function NetWorthWidget({ size = 'medium' }: NetWorthWidgetProps)
   }, [getDecimalAccounts, getDecimalTransactions]);
 
   const isPositive = change.greaterThanOrEqualTo(0);
-  const changePercentDisplay = changePercent.toFixed(2);
+  const changePercentDisplay = changePercent.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toString();
 
   if (size === 'small') {
     return (

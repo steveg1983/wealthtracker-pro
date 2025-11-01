@@ -571,7 +571,9 @@ export const getDefaultTestBudgets = (): Budget[] => {
       amount: 600,
       period: 'monthly',
       isActive: true,
-      createdAt: ACCOUNT_OPENING_DATE
+      createdAt: ACCOUNT_OPENING_DATE,
+      spent: 0,
+      updatedAt: ACCOUNT_OPENING_DATE
     },
     {
       id: '2',
@@ -579,7 +581,9 @@ export const getDefaultTestBudgets = (): Budget[] => {
       amount: 300,
       period: 'monthly',
       isActive: true,
-      createdAt: ACCOUNT_OPENING_DATE
+      createdAt: ACCOUNT_OPENING_DATE,
+      spent: 0,
+      updatedAt: ACCOUNT_OPENING_DATE
     },
     {
       id: '3',
@@ -587,7 +591,9 @@ export const getDefaultTestBudgets = (): Budget[] => {
       amount: 200,
       period: 'monthly',
       isActive: true,
-      createdAt: ACCOUNT_OPENING_DATE
+      createdAt: ACCOUNT_OPENING_DATE,
+      spent: 0,
+      updatedAt: ACCOUNT_OPENING_DATE
     },
     {
       id: '4',
@@ -595,7 +601,9 @@ export const getDefaultTestBudgets = (): Budget[] => {
       amount: 400,
       period: 'monthly',
       isActive: true,
-      createdAt: ACCOUNT_OPENING_DATE
+      createdAt: ACCOUNT_OPENING_DATE,
+      spent: 0,
+      updatedAt: ACCOUNT_OPENING_DATE
     }
   ];
 };
