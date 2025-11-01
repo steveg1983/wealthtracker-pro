@@ -149,12 +149,12 @@ export default function Analytics(): React.JSX.Element {
           case 'contains':
             return value?.toString().includes(condition.value);
           case 'greater':
-            return parseFloat(value) > parseFloat(condition.value);
+            return parseFloat(value as string) > parseFloat(condition.value as string);
           case 'less':
-            return parseFloat(value) < parseFloat(condition.value);
+            return parseFloat(value as string) < parseFloat(condition.value as string);
           case 'between':
-            return parseFloat(value) >= parseFloat(condition.value) && 
-                   parseFloat(value) <= parseFloat(condition.value2);
+            return parseFloat(value as string) >= parseFloat(condition.value as string) &&
+                   parseFloat(value as string) <= parseFloat(condition.value2 as string);
           default:
             return true;
         }
