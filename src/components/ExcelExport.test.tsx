@@ -9,19 +9,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import ExcelExport from './ExcelExport';
 import type { Transaction, Account, Budget, Category } from '../types';
 import { toDecimal } from '../utils/decimal';
-
-// Mock all icons
-const mockIcons = [
-  'DownloadIcon', 'FileTextIcon', 'SettingsIcon', 
-  'CalendarIcon', 'TagIcon', 'WalletIcon', 'PieChartIcon', 
-  'BarChart3Icon', 'ArrowRightLeftIcon'
-];
-
-mockIcons.forEach(icon => {
-  vi.mock(`./icons/${icon}`, () => ({
-    default: () => <span data-testid={`${icon.toLowerCase()}`}>{icon}</span>
-  }));
-});
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 vi.mock('./icons', () => ({
   DownloadIcon: ({ size }: { size?: number }) => <span data-testid="download-icon" style={{ fontSize: size }}>⬇</span>,
@@ -128,13 +116,7 @@ const mockCategories: Category[] = [
 ];
 
 // Mock hooks
-const mockFormatCurrency = vi.fn((value: any) => {
-  const num = typeof value === 'object' && value?.toNumber ? value.toNumber() : Number(value);
-  return new Intl.NumberFormat('en-US', { 
-    style: 'currency', 
-    currency: 'USD' 
-  }).format(num);
-});
+const mockFormatCurrency = vi.fn((value: any) => formatCurrencyDecimal(value, 'USD'));
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({

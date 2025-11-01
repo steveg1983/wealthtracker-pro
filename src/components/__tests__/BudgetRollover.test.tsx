@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BudgetRollover from '../BudgetRollover';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock dependencies
 vi.mock('../../contexts/AppContext', () => ({
@@ -85,72 +86,11 @@ vi.mock('../../hooks/useLocalStorage', () => ({
 
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (value: any) => {
-      const numValue = typeof value === 'object' && value.toNumber ? value.toNumber() : value;
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD'
-      }).format(numValue);
-    }
+    formatCurrency: (value: any) => formatCurrencyDecimal(value, 'USD')
   })
 }));
 
 // Mock decimal utilities
-vi.mock('../../utils/decimal', () => ({
-  toDecimal: (value: number) => ({
-    plus: function(other: any) { 
-      const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
-      return toDecimal(this.toNumber() + otherVal); 
-    },
-    minus: function(other: any) { 
-      const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
-      return toDecimal(this.toNumber() - otherVal); 
-    },
-    times: function(other: number) { return toDecimal(this.toNumber() * other); },
-    greaterThan: function(other: any) { 
-      const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
-      return this.toNumber() > otherVal; 
-    },
-    lessThan: function(other: any) { 
-      const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
-      return this.toNumber() < otherVal; 
-    },
-    equals: function(other: any) { 
-      const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
-      return this.toNumber() === otherVal; 
-    },
-    abs: function() { return toDecimal(Math.abs(this.toNumber())); },
-    toNumber: function() { return value; },
-    toString: function() { return value.toString(); }
-  })
-}));
-
-const toDecimal = (value: number) => ({
-  plus: function(other: any) { 
-    const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
-    return toDecimal(this.toNumber() + otherVal); 
-  },
-  minus: function(other: any) { 
-    const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
-    return toDecimal(this.toNumber() - otherVal); 
-  },
-  times: function(other: number) { return toDecimal(this.toNumber() * other); },
-  greaterThan: function(other: any) { 
-    const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
-    return this.toNumber() > otherVal; 
-  },
-  lessThan: function(other: any) { 
-    const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
-    return this.toNumber() < otherVal; 
-  },
-  equals: function(other: any) { 
-    const otherVal = typeof other === 'object' && other.toNumber ? other.toNumber() : other;
-    return this.toNumber() === otherVal; 
-  },
-  abs: function() { return toDecimal(Math.abs(this.toNumber())); },
-  toNumber: function() { return value; },
-  toString: function() { return value.toString(); }
-});
 
 // Mock icons
 vi.mock('../icons', () => ({

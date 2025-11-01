@@ -7,6 +7,7 @@ import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import BudgetProgress from './BudgetProgress';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -22,12 +23,7 @@ vi.mock('./icons', () => ({
 }));
 
 // Mock currency formatting
-const mockFormatCurrency = vi.fn((value: number) => {
-  return new Intl.NumberFormat('en-US', { 
-    style: 'currency', 
-    currency: 'USD' 
-  }).format(value);
-});
+const mockFormatCurrency = vi.fn((value: number) => formatCurrencyDecimal(value, 'USD'));
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({

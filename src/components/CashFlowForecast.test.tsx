@@ -9,6 +9,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import CashFlowForecast from './CashFlowForecast';
 // import { format } from 'date-fns'; // Unused import
 import { toDecimal } from '../utils/decimal';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -67,13 +68,7 @@ vi.mock('recharts', () => ({
 }));
 
 // Mock hooks
-const mockFormatCurrency = vi.fn((value: any) => {
-  const num = typeof value === 'object' && value?.toNumber ? value.toNumber() : Number(value);
-  return new Intl.NumberFormat('en-US', { 
-    style: 'currency', 
-    currency: 'USD' 
-  }).format(num);
-});
+const mockFormatCurrency = vi.fn((value: any) => formatCurrencyDecimal(value, 'USD'));
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({

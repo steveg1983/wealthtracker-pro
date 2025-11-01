@@ -8,6 +8,7 @@ import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import StockQuoteWidget, { StockQuoteSearch } from './StockQuoteWidget';
 import { toDecimal } from '../utils/decimal';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -26,13 +27,7 @@ vi.mock('./icons', () => ({
 }));
 
 // Mock currency hook
-const mockFormatCurrency = vi.fn((value: any) => {
-  const num = typeof value === 'object' && value?.toNumber ? value.toNumber() : Number(value);
-  return new Intl.NumberFormat('en-US', { 
-    style: 'currency', 
-    currency: 'USD' 
-  }).format(num);
-});
+const mockFormatCurrency = vi.fn((value: any) => formatCurrencyDecimal(value, 'USD'));
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
