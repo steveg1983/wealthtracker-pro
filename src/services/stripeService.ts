@@ -138,7 +138,7 @@ export class StripeService {
   /**
    * Get feature limits for a subscription tier
    */
-  static getFeatureLimits(tier: SubscriptionTier): FeatureLimits {
+  static getFeatureLimits(tier: SubscriptionPlan): FeatureLimits {
     const plans = this.getSubscriptionPlans();
     const plan = plans.find(p => p.tier === tier);
     
@@ -175,7 +175,7 @@ export class StripeService {
    * Check if user is within usage limits
    */
   static isWithinLimits(
-    userTier: SubscriptionTier,
+    userTier: SubscriptionPlan,
     currentUsage: number,
     limitType: 'accounts' | 'transactions' | 'budgets' | 'goals'
   ): boolean {

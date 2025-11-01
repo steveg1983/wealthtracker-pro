@@ -19,7 +19,7 @@ type AIAnalyticsWidgetProps = BaseWidgetProps;
 
 export default function AIAnalyticsWidget({ size = 'medium' }: AIAnalyticsWidgetProps) {
   const { transactions, accounts, budgets } = useApp();
-  const { formatCurrency, displayCurrency } = useCurrencyDecimal();
+  const { displayCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const [summary, setSummary] = useState({
     anomalies: 0,
