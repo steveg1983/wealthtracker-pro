@@ -29,18 +29,15 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
   const formatAmount = React.useCallback((amount: DecimalInstance | number | string) => {
     const decimalValue = toDecimal(amount);
     const floored = decimalValue.toDecimalPlaces(0, Decimal.ROUND_DOWN);
-    const absValue = floored.abs().toNumber();
+    const absString = floored.abs().toFixed(0);
+    const grouped = absString.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     const symbol = getCurrencySymbol(displayCurrency);
-    const formattedNumber = new Intl.NumberFormat('en-GB', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(absValue);
     const isNegative = floored.isNegative();
 
     if (displayCurrency === 'CHF') {
-      return isNegative ? `-${formattedNumber} ${symbol}` : `${formattedNumber} ${symbol}`;
+      return isNegative ? `-${grouped} ${symbol}` : `${grouped} ${symbol}`;
     }
-    return isNegative ? `-${symbol}${formattedNumber}` : `${symbol}${formattedNumber}`;
+    return isNegative ? `-${symbol}${grouped}` : `${symbol}${grouped}`;
   }, [displayCurrency]);
 
   const formatPercentage = React.useCallback((value: number) => {

@@ -12,7 +12,9 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { Transaction, Account, Category } from '../../types';
 
 // Mock the external dependencies
-vi.mock('../../contexts/AppContext');
+vi.mock('../../contexts/AppContextSupabase', () => ({
+  useApp: vi.fn(),
+}));
 vi.mock('../../hooks/useCurrencyDecimal');
 
 // Mock icons
@@ -33,7 +35,11 @@ const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
 
 describe('RecentTransactionsWidget', () => {
   const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number' ? amount : amount.toNumber();
+    const value = typeof amount === 'number'
+      ? amount
+      : typeof amount?.toNumber === 'function'
+        ? amount.toNumber()
+        : Number(amount);
     return `£${value.toFixed(2)}`;
   });
 
