@@ -5,13 +5,11 @@ import { toDecimal } from '../../utils/decimal';
 import { DecimalInstance, DecimalAccount, DecimalTransaction } from '../../types/decimal-types';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { TrendingUpIcon, TrendingDownIcon } from '../icons';
+import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface NetWorthWidgetProps {
-  size: 'small' | 'medium' | 'large';
-  settings: Record<string, any>;
-}
+type NetWorthWidgetProps = BaseWidgetProps;
 
-export default function NetWorthWidget({ size, settings }: NetWorthWidgetProps): React.JSX.Element {
+export default function NetWorthWidget({ size = 'medium' }: NetWorthWidgetProps): React.JSX.Element {
   const { getDecimalAccounts, getDecimalTransactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
 
@@ -31,11 +29,6 @@ export default function NetWorthWidget({ size, settings }: NetWorthWidgetProps):
       const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
       
       // Calculate net worth at end of this month
-      const relevantTransactions = transactions.filter((t: DecimalTransaction) => {
-        const tDate = new Date(t.date);
-        return tDate <= endOfMonth;
-      });
-      
       // Start with initial balances and apply transactions
       let monthNetWorth = toDecimal(0);
       accounts.forEach((account: DecimalAccount) => {

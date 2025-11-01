@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
+import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import MobileAppWidget from './MobileAppWidget';
 import { mobileService } from '../../services/mobileService';
@@ -135,8 +135,8 @@ describe('MobileAppWidget', () => {
     });
 
     it('updates status when network changes', async () => {
-      const { rerender } = render(<MobileAppWidget />);
-      
+      render(<MobileAppWidget />);
+
       expect(screen.getByText('Online')).toBeInTheDocument();
       
       // Simulate going offline

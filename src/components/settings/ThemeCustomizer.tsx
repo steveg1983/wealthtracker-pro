@@ -1,33 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from '../../design-system';
 import { colors } from '../../design-system/tokens';
-import { CheckIcon, PaletteIcon, SunIcon, MoonIcon, ClockIcon, ComputerDesktopIcon } from '../icons';
+import { CheckIcon, SunIcon, MoonIcon, ClockIcon, ComputerDesktopIcon } from '../icons';
 
 interface ThemeCustomizerProps {
   onClose?: () => void;
 }
 
 export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.Element {
-  const { theme, setTheme, availableThemes, setThemeByMode, customThemes } = useTheme();
-  const [selectedMode, setSelectedMode] = useState<'light' | 'dark' | 'auto' | 'scheduled'>('light');
+  const { theme, setTheme, setThemeByMode } = useTheme();
+  type ThemeMode = 'light' | 'dark' | 'auto' | 'scheduled';
+  const [selectedMode, setSelectedMode] = useState<ThemeMode>('light');
   const [selectedColor, setSelectedColor] = useState('blue');
-  const [showCustomColors, setShowCustomColors] = useState(false);
   
   useEffect(() => {
     // Determine current mode and color from theme ID
-    if (theme.id.includes('custom')) {
-      setShowCustomColors(true);
-    } else {
-      const parts = theme.id.match(/^(light|dark|highContrast)(.*)$/);
-      if (parts) {
-        const [, mode, color] = parts;
-        setSelectedMode(mode === 'light' || mode === 'dark' ? mode : 'light');
-        setSelectedColor(color ? color.toLowerCase() : 'blue');
-      }
+    const parts = theme.id.match(/^(light|dark|highContrast)(.*)$/);
+    if (parts) {
+      const [, mode, color] = parts;
+      setSelectedMode(mode === 'light' || mode === 'dark' ? mode : 'light');
+      setSelectedColor(color ? color.toLowerCase() : 'blue');
     }
   }, [theme]);
   
-  const handleModeChange = (mode: 'light' | 'dark' | 'auto' | 'scheduled') => {
+  const handleModeChange = (mode: ThemeMode) => {
     setSelectedMode(mode);
     if (mode === 'light' || mode === 'dark') {
       setThemeByMode(selectedColor, mode === 'dark');
@@ -46,10 +42,10 @@ export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.El
   ];
   
   const modeOptions = [
-    { id: 'light', name: 'Light', icon: SunIcon, description: 'Always use light theme' },
-    { id: 'dark', name: 'Dark', icon: MoonIcon, description: 'Always use dark theme' },
-    { id: 'auto', name: 'Auto', icon: ComputerDesktopIcon, description: 'Follow system preference' },
-    { id: 'scheduled', name: 'Scheduled', icon: ClockIcon, description: 'Change based on time' },
+    { id: 'light' as ThemeMode, name: 'Light', icon: SunIcon, description: 'Always use light theme' },
+    { id: 'dark' as ThemeMode, name: 'Dark', icon: MoonIcon, description: 'Always use dark theme' },
+    { id: 'auto' as ThemeMode, name: 'Auto', icon: ComputerDesktopIcon, description: 'Follow system preference' },
+    { id: 'scheduled' as ThemeMode, name: 'Scheduled', icon: ClockIcon, description: 'Change based on time' },
   ];
   
   return (
@@ -66,7 +62,7 @@ export function ThemeCustomizer({ onClose }: ThemeCustomizerProps): React.JSX.El
             return (
               <button
                 key={option.id}
-                onClick={() => handleModeChange(option.id as any)}
+                onClick={() => handleModeChange(option.id)}
                 className={`
                   relative flex items-center p-4 rounded-lg border-2 transition-all
                   ${isSelected

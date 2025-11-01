@@ -1,12 +1,47 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '@clerk/clerk-react';
 import { CheckCircleIcon, AlertCircleIcon } from '../icons';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { toDecimal } from '../../utils/decimal';
+
+interface StripeStatusSubscription {
+  customerId: string;
+  trialEnd?: string;
+  currentPeriodEnd: string;
+  priceAmount: number;
+  currency: string;
+}
+
+interface StripeStatusResponse {
+  success: boolean;
+  hasSubscription: boolean;
+  tier?: string;
+  status?: string;
+  subscription?: StripeStatusSubscription;
+  message?: string;
+  error?: string;
+}
 
 export default function StripeStatusButton(): React.JSX.Element {
   const { getToken } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<any>(null);
+  const [status, setStatus] = useState<StripeStatusResponse | null>(null);
   const [error, setError] = useState('');
+  const { formatCurrency } = useCurrencyDecimal();
+
+  const subscriptionAmount = useMemo(() => {
+    if (!status?.subscription || typeof status.subscription.priceAmount !== 'number') {
+      return null;
+    }
+
+    const amountDecimal = toDecimal(status.subscription.priceAmount).dividedBy(100);
+    const currencyCode = status.subscription.currency?.toUpperCase() ?? 'GBP';
+
+    return {
+      formatted: formatCurrency(amountDecimal, currencyCode),
+      currencyCode,
+    };
+  }, [formatCurrency, status]);
 
   const checkStatus = async () => {
     setLoading(true);
@@ -26,7 +61,7 @@ export default function StripeStatusButton(): React.JSX.Element {
         }
       });
 
-      const data = await response.json();
+      const data = (await response.json()) as StripeStatusResponse;
       
       if (data.success) {
         setStatus(data);
@@ -105,10 +140,14 @@ export default function StripeStatusButton(): React.JSX.Element {
                     <span className="text-gray-600 dark:text-gray-400">Current Period Ends:</span>
                     <span className="ml-2">{new Date(status.subscription.currentPeriodEnd).toLocaleDateString()}</span>
                   </div>
-                  <div className="text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Amount:</span>
-                    <span className="ml-2">£{(status.subscription.priceAmount / 100).toFixed(2)}/{status.subscription.currency.toUpperCase()}</span>
-                  </div>
+                  {subscriptionAmount && (
+                    <div className="text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">Amount:</span>
+                      <span className="ml-2">
+                        {subscriptionAmount.formatted}/{subscriptionAmount.currencyCode}
+                      </span>
+                    </div>
+                  )}
                 </>
               )}
             </div>

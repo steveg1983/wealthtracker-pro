@@ -8,15 +8,14 @@
  * - Loading states and error handling
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   PaymentElement,
   useStripe,
   useElements,
   AddressElement
 } from '@stripe/react-stripe-js';
-import { useUser } from '@clerk/clerk-react';
-import type { SubscriptionPlan } from '../../types/subscription';
+import type { StripePaymentElementChangeEvent, StripePaymentElementOptions } from '@stripe/stripe-js';
 import { 
   CreditCardIcon, 
   ShieldIcon, 
@@ -24,9 +23,18 @@ import {
   AlertCircleIcon,
   LoadingIcon
 } from '../icons';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { toDecimal } from '../../utils/decimal';
+
+interface CheckoutPlanSummary {
+  id: string;
+  name: string;
+  price: number;
+  currency?: string;
+}
 
 interface PaymentFormProps {
-  plan: any;
+  plan: CheckoutPlanSummary;
   onSuccess: (subscriptionId: string) => void;
   onError: (error: string) => void;
   onCancel: () => void;
@@ -42,7 +50,15 @@ export default function PaymentForm({
 }: PaymentFormProps): React.JSX.Element {
   const stripe = useStripe();
   const elements = useElements();
-  const { user } = useUser();
+  const { formatCurrency, displayCurrency } = useCurrencyDecimal();
+  const planCurrency = useMemo(
+    () => (plan.currency ?? displayCurrency).toUpperCase(),
+    [plan.currency, displayCurrency]
+  );
+  const formattedPlanPrice = useMemo(
+    () => formatCurrency(toDecimal(plan.price), planCurrency),
+    [formatCurrency, plan.price, planCurrency]
+  );
 
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -117,20 +133,13 @@ export default function PaymentForm({
     }
   };
 
-  const paymentElementOptions = {
+  const paymentElementOptions: StripePaymentElementOptions = {
     layout: 'tabs' as const,
     paymentMethodOrder: ['card', 'apple_pay', 'google_pay'],
   };
 
-  const handleElementsChange = (event: any) => {
+  const handleElementsChange = (event: StripePaymentElementChangeEvent) => {
     setIsComplete(event.complete);
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(price);
   };
 
   return (
@@ -167,7 +176,7 @@ export default function PaymentForm({
               Total:
             </span>
             <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-              {formatPrice(plan.price)}/month
+              {formattedPlanPrice}/month
             </span>
           </div>
         </div>

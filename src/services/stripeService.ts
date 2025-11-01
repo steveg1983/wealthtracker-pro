@@ -21,7 +21,8 @@ import type {
   PaymentMethod,
   Invoice,
   BillingHistory,
-  FeatureLimits
+  FeatureLimits,
+  SubscriptionProduct
 } from '../types/subscription';
 
 export class StripeService {
@@ -44,7 +45,7 @@ export class StripeService {
   /**
    * Get subscription plans configuration
    */
-  static getSubscriptionPlans(): any[] {
+  static getSubscriptionPlans(): SubscriptionProduct[] {
     return [
       {
         id: 'free',

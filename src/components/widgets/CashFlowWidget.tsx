@@ -3,18 +3,22 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, Legend, ReferenceLine } from 'recharts';
-import { TrendingUpIcon, TrendingDownIcon, AlertCircleIcon } from '../icons';
+import { TrendingUpIcon, TrendingDownIcon } from '../icons';
+import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface CashFlowWidgetProps {
-  size: 'small' | 'medium' | 'large';
-  settings: Record<string, any>;
+interface CashFlowWidgetSettings {
+  forecastPeriod?: number;
 }
 
-export default function CashFlowWidget({ size, settings }: CashFlowWidgetProps) {
+type CashFlowWidgetProps = BaseWidgetProps & {
+  settings?: CashFlowWidgetSettings;
+};
+
+export default function CashFlowWidget({ size = 'medium', settings }: CashFlowWidgetProps) {
   const { transactions } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
-  const forecastPeriod = settings.forecastPeriod || 6;
+  const forecastPeriod = settings?.forecastPeriod ?? 6;
 
   const { historicalData, forecastData, currentMonthFlow, projectedFlow } = useMemo(() => {
     // Convert transactions to decimal for calculations

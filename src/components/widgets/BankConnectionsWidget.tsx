@@ -3,13 +3,11 @@ import { bankConnectionService, type BankConnection } from '../../services/bankC
 import { Building2Icon, RefreshCwIcon, CheckCircleIcon, AlertCircleIcon, LinkIcon } from '../icons';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface BankConnectionsWidgetProps {
-  size: 'small' | 'medium' | 'large';
-  settings: Record<string, any>;
-}
+type BankConnectionsWidgetProps = BaseWidgetProps;
 
-export default function BankConnectionsWidget({ size, settings }: BankConnectionsWidgetProps) {
+export default function BankConnectionsWidget({ size = 'medium' }: BankConnectionsWidgetProps) {
   const [connections, setConnections] = useState<BankConnection[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const navigate = useNavigate();
@@ -22,11 +20,11 @@ export default function BankConnectionsWidget({ size, settings }: BankConnection
     if (needsReauth.length > 0) {
       // Could show a notification here
     }
-  }, []);
+  }, [loadConnections]);
 
-  const loadConnections = () => {
+  const loadConnections = React.useCallback(() => {
     setConnections(bankConnectionService.getConnections());
-  };
+  }, []);
 
   const handleSyncAll = async () => {
     setIsSyncing(true);
@@ -37,8 +35,6 @@ export default function BankConnectionsWidget({ size, settings }: BankConnection
       setIsSyncing(false);
     }
   };
-
-  const connectedCount = connections.filter(c => c.status === 'connected').length;
   const errorCount = connections.filter(c => c.status === 'error' || c.status === 'reauth_required').length;
 
   const getStatusColor = (status: BankConnection['status']) => {

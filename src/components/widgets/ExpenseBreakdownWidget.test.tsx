@@ -11,11 +11,15 @@ vi.mock('../../hooks/useCurrencyDecimal');
 
 // Mock recharts to avoid canvas issues
 vi.mock('recharts', () => ({
-  ResponsiveContainer: ({ children }: any) => <div data-testid="responsive-container">{children}</div>,
-  PieChart: ({ children }: any) => <div data-testid="pie-chart">{children}</div>,
-  Pie: ({ data, dataKey, children }: any) => (
+  ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="responsive-container">{children}</div>
+  ),
+  PieChart: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="pie-chart">{children}</div>
+  ),
+  Pie: ({ data, children }: { data: Array<{ name: string; value: number }> ; children?: React.ReactNode }) => (
     <div data-testid="pie" data-value={data.length}>
-      {data.map((item: any, index: number) => (
+      {data.map((item, index) => (
         <div key={index} data-testid={`pie-segment-${index}`}>
           {item.name}: {item.value}
         </div>
@@ -23,9 +27,11 @@ vi.mock('recharts', () => ({
       {children}
     </div>
   ),
-  Cell: ({ fill }: any) => <div data-testid="cell" style={{ backgroundColor: fill }} />,
+  Cell: ({ fill }: { fill: string }) => <div data-testid="cell" style={{ backgroundColor: fill }} />,
   Tooltip: () => <div data-testid="tooltip" />,
-  Legend: ({ formatter }: any) => <div data-testid="legend">{formatter && 'Legend'}</div>,
+  Legend: ({ formatter }: { formatter?: () => string }) => (
+    <div data-testid="legend">{formatter ? 'Legend' : null}</div>
+  ),
 }));
 
 const mockUseApp = useApp as Mock;

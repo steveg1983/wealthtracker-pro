@@ -5,7 +5,6 @@ import {
   MagicWandIcon, 
   AlertTriangleIcon, 
   LightbulbIcon,
-  TrendingUpIcon,
   PiggyBankIcon
 } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
@@ -14,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import type { BaseWidgetProps } from '../../types/widget-types';
 import type { FinancialInsight } from '../../services/advancedAnalyticsService';
 
-interface AIAnalyticsWidgetProps extends BaseWidgetProps {}
+type AIAnalyticsWidgetProps = BaseWidgetProps;
 
 export default function AIAnalyticsWidget({ size = 'medium' }: AIAnalyticsWidgetProps) {
   const { transactions, accounts, budgets } = useApp();
@@ -27,11 +26,7 @@ export default function AIAnalyticsWidget({ size = 'medium' }: AIAnalyticsWidget
     topInsight: null as FinancialInsight | null
   });
 
-  useEffect(() => {
-    analyzeSummary();
-  }, [transactions, accounts, budgets]);
-
-  const analyzeSummary = () => {
+  const analyzeSummary = React.useCallback(() => {
     const anomalies = advancedAnalyticsService.detectSpendingAnomalies(transactions);
     const insights = advancedAnalyticsService.generateInsights(transactions, accounts, budgets);
     const opportunities = advancedAnalyticsService.identifySavingsOpportunities(transactions, accounts);
@@ -47,7 +42,11 @@ export default function AIAnalyticsWidget({ size = 'medium' }: AIAnalyticsWidget
       savingsOpportunities: totalSavings,
       topInsight: insights[0] || null
     });
-  };
+  }, [transactions, accounts, budgets]);
+
+  useEffect(() => {
+    analyzeSummary();
+  }, [analyzeSummary]);
 
   const handleViewDetails = () => {
     navigate('/ai-analytics');

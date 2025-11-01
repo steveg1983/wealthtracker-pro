@@ -7,7 +7,6 @@ import {
   CreditCardIcon,
   TrendingUpIcon,
   SearchIcon,
-  AlertCircleIcon,
   RefreshCwIcon,
   ArrowRightIcon
 } from '../icons';
@@ -35,11 +34,7 @@ export default function DataIntelligenceWidget({
     maxInsights = 3
   } = settings;
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     setIsLoading(true);
     try {
       const statsData = dataIntelligenceService.getStats();
@@ -52,7 +47,11 @@ export default function DataIntelligenceWidget({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [maxInsights]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

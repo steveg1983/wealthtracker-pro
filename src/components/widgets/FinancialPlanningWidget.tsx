@@ -3,9 +3,7 @@ import { financialPlanningService } from '../../services/financialPlanningServic
 import { 
   CalculatorIcon,
   PiggyBankIcon,
-  HomeIcon,
   TargetIcon,
-  CreditCardIcon,
   ArrowRightIcon,
   CheckCircleIcon,
   AlertCircleIcon
@@ -14,7 +12,7 @@ import { useNavigate } from 'react-router-dom';
 import type { RetirementPlan, FinancialGoal } from '../../services/financialPlanningService';
 import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface FinancialPlanningWidgetProps extends BaseWidgetProps {}
+type FinancialPlanningWidgetProps = BaseWidgetProps;
 
 export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPlanningWidgetProps) {
   const navigate = useNavigate();
@@ -22,11 +20,7 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
   const [financialGoals, setFinancialGoals] = useState<FinancialGoal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     try {
       setRetirementPlans(financialPlanningService.getRetirementPlans());
       setFinancialGoals(financialPlanningService.getFinancialGoals());
@@ -35,7 +29,11 @@ export default function FinancialPlanningWidget({ size = 'medium' }: FinancialPl
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

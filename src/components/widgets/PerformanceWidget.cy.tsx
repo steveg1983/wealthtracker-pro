@@ -109,7 +109,7 @@ describe('PerformanceWidget Component', () => {
     );
     
     // Get initial metric
-    cy.contains('ms').invoke('text').then((initialTime) => {
+    cy.contains('ms').invoke('text').then((_initialTime) => {
       // Simulate data update
       cy.window().then((win) => {
         win.dispatchEvent(new Event('performance-update'));

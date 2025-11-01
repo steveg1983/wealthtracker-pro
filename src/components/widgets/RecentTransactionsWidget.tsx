@@ -2,17 +2,21 @@ import React, { useMemo } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { ArrowUpRightIcon, ArrowDownRightIcon, CreditCardIcon } from '../icons';
+import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface RecentTransactionsWidgetProps {
-  size: 'small' | 'medium' | 'large';
-  settings: Record<string, any>;
+interface RecentTransactionsSettings {
+  count?: number;
 }
 
-export default function RecentTransactionsWidget({ size, settings }: RecentTransactionsWidgetProps): React.JSX.Element {
+type RecentTransactionsWidgetProps = BaseWidgetProps & {
+  settings?: RecentTransactionsSettings;
+};
+
+export default function RecentTransactionsWidget({ size = 'medium', settings }: RecentTransactionsWidgetProps): React.JSX.Element {
   const { transactions, accounts, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   
-  const count = settings.count || 5;
+  const count = settings?.count ?? 5;
 
   const recentTransactions = useMemo(() => {
     return transactions

@@ -45,6 +45,28 @@ export interface SubscriptionTier {
   popular?: boolean;
 }
 
+export interface SubscriptionProduct {
+  id: string;
+  name: string;
+  tier: SubscriptionPlan;
+  description: string;
+  price: number;
+  currency: string;
+  interval: 'month' | 'year';
+  stripePriceId?: string;
+  features: string[];
+  isPopular?: boolean;
+  accounts?: number;
+  maxAccounts?: number;
+  transactions?: number;
+  maxBudgets?: number;
+  maxGoals?: number;
+  advancedReports?: boolean;
+  csvExport?: boolean;
+  apiAccess?: boolean;
+  prioritySupport?: boolean;
+}
+
 // Feature limits for each plan
 export interface FeatureLimits {
   accounts: number;
@@ -60,21 +82,24 @@ export interface FeatureLimits {
 }
 
 // Billing history entry
-export interface BillingHistory {
+export interface BillingInvoice {
   id: string;
-  subscriptionId: string;
-  invoiceId: string;
   amount: number;
-  currency: string;
-  status: PaymentStatus;
-  description: string;
-  periodStart: Date;
-  periodEnd: Date;
-  createdAt: Date;
-  paidAt?: Date;
-  failureReason?: string;
-  invoiceUrl?: string;
-  receiptUrl?: string;
+  currency?: string;
+  status: PaymentStatus | string;
+  description?: string | null;
+  createdAt: Date | string;
+  dueDate?: Date | string;
+  paidAt?: Date | string;
+  invoiceUrl?: string | null;
+  invoicePdf?: string | null;
+}
+
+export interface BillingHistory {
+  invoices: BillingInvoice[];
+  paymentMethods: PaymentMethod[];
+  nextBillingDate?: Date | string | null;
+  totalPaid?: number;
 }
 
 export interface PricingPlan {
@@ -102,14 +127,16 @@ export interface PaymentMethod {
 
 export interface Invoice {
   id: string;
-  subscriptionId: string;
+  subscriptionId?: string;
   amount: number;
   currency: string;
-  status: PaymentStatus;
-  dueDate: Date;
+  status: PaymentStatus | string;
+  dueDate?: Date;
   paidAt?: Date;
-  invoiceUrl?: string;
-  pdfUrl?: string;
+  invoiceUrl?: string | null;
+  invoicePdf?: string | null;
+  description?: string | null;
+  createdAt?: Date;
 }
 
 export interface UsageMetrics {

@@ -4,20 +4,24 @@ import { useBudgets } from '../../contexts/BudgetContext';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { PiggyBankIcon, AlertCircleIcon, CheckCircleIcon } from '../icons';
+import { AlertCircleIcon, CheckCircleIcon } from '../icons';
 import { budgetCalculationService } from '../../services/budgetCalculationService';
+import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface BudgetSummaryWidgetProps {
-  size: 'small' | 'medium' | 'large';
-  settings: Record<string, any>;
+interface BudgetSummaryWidgetSettings {
+  period?: 'current' | 'last' | 'ytd';
 }
 
-export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWidgetProps) {
+type BudgetSummaryWidgetProps = BaseWidgetProps & {
+  settings?: BudgetSummaryWidgetSettings;
+};
+
+export default function BudgetSummaryWidget({ size = 'medium', settings }: BudgetSummaryWidgetProps) {
   const { transactions, categories } = useApp();
   const { budgets } = useBudgets();
   const { formatCurrency } = useCurrencyDecimal();
   
-  const period = settings.period || 'current';
+  const period = settings?.period ?? 'current';
 
   const { budgetData, totalBudgeted, totalSpent, totalRemaining, overBudgetCount } = useMemo(() => {
     const now = new Date();
@@ -39,6 +43,11 @@ export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWid
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
+
+    const filteredTransactions = transactions.filter(transaction => {
+      const txnDate = new Date(transaction.date);
+      return txnDate >= startDate && txnDate <= endDate;
+    });
     
     // Convert budgets to service-compatible format
     const serviceBudgets = budgets.map(budget => ({
@@ -50,7 +59,7 @@ export default function BudgetSummaryWidget({ size, settings }: BudgetSummaryWid
     // Use the service to calculate budget spending
     const summary = budgetCalculationService.calculateAllBudgetSpending(
       serviceBudgets,
-      transactions,
+      filteredTransactions,
       categories
     );
     

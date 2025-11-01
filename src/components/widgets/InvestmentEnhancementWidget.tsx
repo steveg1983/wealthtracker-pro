@@ -12,7 +12,7 @@ import { toDecimal } from '../../utils/decimal';
 import { useNavigate } from 'react-router-dom';
 import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface InvestmentEnhancementWidgetProps extends BaseWidgetProps {}
+type InvestmentEnhancementWidgetProps = BaseWidgetProps;
 
 export default function InvestmentEnhancementWidget({ size = 'medium' }: InvestmentEnhancementWidgetProps) {
   const { investments, transactions } = useApp();
@@ -26,13 +26,7 @@ export default function InvestmentEnhancementWidget({ size = 'medium' }: Investm
     outperformance: 0
   });
 
-  useEffect(() => {
-    if (investments && investments.length > 0) {
-      calculateMetrics();
-    }
-  }, [investments, transactions]);
-
-  const calculateMetrics = () => {
+  const calculateMetrics = React.useCallback(() => {
     const rebalancing = investmentEnhancementService.getRebalancingSuggestions(investments || []);
     const riskMetrics = investmentEnhancementService.calculateRiskMetrics(investments || []);
     const dividends = investmentEnhancementService.trackDividends(investments || [], transactions);
@@ -52,7 +46,13 @@ export default function InvestmentEnhancementWidget({ size = 'medium' }: Investm
       projectedDividends: totalDividends,
       outperformance: avgOutperformance
     });
-  };
+  }, [investments, transactions]);
+
+  useEffect(() => {
+    if (investments && investments.length > 0) {
+      calculateMetrics();
+    }
+  }, [calculateMetrics, investments]);
 
   const handleViewDetails = () => {
     navigate('/enhanced-investments');

@@ -31,17 +31,17 @@ const goalsSlice = createSlice({
   initialState,
   reducers: {
     setGoals: (state, action: PayloadAction<Goal[]>) => {
-      state.goals = action.payload;
+      state.goals = action.payload as unknown as SerializedGoal[];
       state.error = null;
     },
     addGoal: (state, action: PayloadAction<Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>>) => {
-      const newGoal: Goal = {
+      const newGoal = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString() as any,
-        updatedAt: getCurrentISOString() as any,
+        createdAt: getCurrentISOString(),
+        updatedAt: getCurrentISOString(),
       };
-      state.goals.push(newGoal);
+      state.goals.push(newGoal as unknown as SerializedGoal);
     },
     updateGoal: (state, action: PayloadAction<{ id: string; updates: Partial<Goal> }>) => {
       const index = state.goals.findIndex(g => g.id === action.payload.id);
@@ -49,8 +49,8 @@ const goalsSlice = createSlice({
         state.goals[index] = {
           ...state.goals[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString() as any,
-        };
+          updatedAt: getCurrentISOString(),
+        } as unknown as SerializedGoal;
       }
     },
     deleteGoal: (state, action: PayloadAction<string>) => {
@@ -73,7 +73,7 @@ const goalsSlice = createSlice({
       })
       .addCase(fetchGoalsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
-        state.goals = action.payload;
+        state.goals = action.payload as unknown as SerializedGoal[];
       })
       .addCase(fetchGoalsFromSupabase.rejected, (state, action) => {
         state.loading = false;

@@ -33,11 +33,7 @@ export default function TaxPlanningWidget({ size = 'medium' }: TaxPlanningWidget
     daysUntilDeadline: 0
   });
 
-  useEffect(() => {
-    calculateTaxSummary();
-  }, [transactions, accounts]);
-
-  const calculateTaxSummary = () => {
+  const calculateTaxSummary = React.useCallback(() => {
     const estimate = taxPlanningService.estimateTaxes(transactions, accounts, currentYear);
     const deductibleExpenses = taxPlanningService.trackDeductibleExpenses(transactions, currentYear);
     
@@ -57,7 +53,11 @@ export default function TaxPlanningWidget({ size = 'medium' }: TaxPlanningWidget
       effectiveRate: estimate.effectiveRate,
       daysUntilDeadline: Math.max(0, daysUntilDeadline)
     });
-  };
+  }, [transactions, accounts, currentYear]);
+
+  useEffect(() => {
+    calculateTaxSummary();
+  }, [calculateTaxSummary]);
 
   const handleViewDetails = () => {
     navigate('/tax-planning');

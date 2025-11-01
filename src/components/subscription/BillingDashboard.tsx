@@ -9,26 +9,23 @@
  * - Cancel subscription
  */
 
-import React, { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import React, { useState, useEffect, useMemo } from 'react';
 import StripeService from '../../services/stripeService';
 import type { 
   UserSubscription, 
   BillingHistory, 
-  PaymentMethod,
   SubscriptionTier 
 } from '../../types/subscription';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { toDecimal } from '../../utils/decimal';
 import { 
   CreditCardIcon, 
-  CalendarIcon, 
-  DollarSignIcon,
   DownloadIcon,
   EditIcon,
   TrashIcon,
   CheckCircleIcon,
   AlertTriangleIcon,
   LinkIcon,
-  PlusIcon,
   SettingsIcon
 } from '../icons';
 
@@ -39,14 +36,13 @@ interface BillingDashboardProps {
 export default function BillingDashboard({
   className = ''
 }: BillingDashboardProps): React.JSX.Element {
-  const { user } = useUser();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [billingHistory, setBillingHistory] = useState<BillingHistory | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
-  const [showChangeModal, setShowChangeModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const { formatCurrency, displayCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadBillingData();
@@ -63,7 +59,12 @@ export default function BillingDashboard({
       ]);
       
       setSubscription(subscriptionData);
-      setBillingHistory(billingData);
+      setBillingHistory({
+        invoices: billingData?.invoices ?? [],
+        paymentMethods: billingData?.paymentMethods ?? [],
+        nextBillingDate: billingData?.nextBillingDate ?? null,
+        totalPaid: billingData?.totalPaid
+      });
     } catch (err) {
       console.error('Error loading billing data:', err);
       setError('Failed to load billing information');
@@ -126,16 +127,31 @@ export default function BillingDashboard({
     });
   };
 
-  const formatPrice = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
-
   const getTierDisplayName = (tier: SubscriptionTier) => {
     const plan = StripeService.getPlanByTier(tier);
     return plan?.name || tier;
+  };
+
+  const formattedSubscriptionAmount = useMemo(() => {
+    if (!subscription?.tier) return null;
+    const plan = StripeService.getPlanByTier(subscription.tier);
+    if (!plan || plan.price === undefined || plan.price === null) {
+      return null;
+    }
+
+    const currencyCode = plan.currency?.toUpperCase() ?? displayCurrency;
+    return {
+      formatted: formatCurrency(toDecimal(plan.price), currencyCode),
+      interval: plan.interval ?? 'month',
+    };
+  }, [displayCurrency, formatCurrency, subscription]);
+
+  const formatAmount = (amount: number | null | undefined, currency?: string | null) => {
+    if (amount === null || amount === undefined || Number.isNaN(amount)) {
+      return '—';
+    }
+    const currencyCode = currency?.toUpperCase() ?? displayCurrency;
+    return formatCurrency(toDecimal(amount), currencyCode);
   };
 
   if (isLoading) {
@@ -211,6 +227,12 @@ export default function BillingDashboard({
                 <p className="text-xl font-semibold text-gray-900 dark:text-white">
                   {getTierDisplayName(subscription.tier)}
                 </p>
+                {formattedSubscriptionAmount && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {formattedSubscriptionAmount.formatted}
+                    {formattedSubscriptionAmount.interval ? ` / ${formattedSubscriptionAmount.interval}` : ''}
+                  </p>
+                )}
               </div>
               
               <div>
@@ -272,7 +294,7 @@ export default function BillingDashboard({
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3">
               <button
-                onClick={() => setShowChangeModal(true)}
+                onClick={handleManageBilling}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Change Plan
@@ -294,7 +316,7 @@ export default function BillingDashboard({
               You're currently on the free plan
             </p>
             <button
-              onClick={() => setShowChangeModal(true)}
+              onClick={handleManageBilling}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Upgrade to Premium
@@ -311,7 +333,7 @@ export default function BillingDashboard({
           </h3>
           
           <div className="space-y-3">
-            {billingHistory.paymentMethods.map((method: any) => (
+            {billingHistory.paymentMethods.map((method) => (
               <div key={method.id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                 <div className="flex items-center gap-3">
                   <CreditCardIcon size={20} className="text-gray-600 dark:text-gray-400" />
@@ -345,7 +367,7 @@ export default function BillingDashboard({
       )}
 
       {/* Billing History */}
-      {billingHistory?.invoiceId && billingHistory.invoiceId.length > 0 && (
+      {billingHistory?.invoices && billingHistory.invoices.length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Billing History
@@ -373,7 +395,7 @@ export default function BillingDashboard({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {billingHistory.invoiceId.map((invoice: any) => (
+                {billingHistory.invoices.map((invoice) => (
                   <tr key={invoice.id}>
                     <td className="py-4 text-sm text-gray-900 dark:text-white">
                       {formatDate(invoice.createdAt)}
@@ -382,7 +404,7 @@ export default function BillingDashboard({
                       {invoice.description || 'Subscription payment'}
                     </td>
                     <td className="py-4 text-sm text-gray-900 dark:text-white">
-                      {formatPrice(invoice.amount)}
+                      {formatAmount(invoice.amount, invoice.currency)}
                     </td>
                     <td className="py-4">
                       <span className={`text-xs px-2 py-1 rounded-full ${

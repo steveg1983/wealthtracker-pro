@@ -1,12 +1,10 @@
 import React from 'react';
 import FinancialSummary from '../FinancialSummary';
+import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface MonthlySummaryWidgetProps {
-  size: 'small' | 'medium' | 'large';
-  settings: Record<string, string | number | boolean | null>;
-}
+type MonthlySummaryWidgetProps = BaseWidgetProps;
 
-export default function MonthlySummaryWidget({ size, settings }: MonthlySummaryWidgetProps) {
+export default function MonthlySummaryWidget(_: MonthlySummaryWidgetProps) {
   return (
     <div className="h-full overflow-auto">
       <FinancialSummary period="monthly" />

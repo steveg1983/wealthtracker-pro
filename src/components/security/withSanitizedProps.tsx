@@ -12,43 +12,55 @@ type SanitizeOptions = {
   includeDates?: boolean; // Whether to sanitize date props
 };
 
-export function withSanitizedProps<P extends Record<string, any>>(
-  Component: React.ComponentType<P>,
+export function withSanitizedProps<C extends React.ComponentType<Record<string, unknown>>>(
+  Component: C,
   options: SanitizeOptions = {}
 ) {
+  type Props = React.ComponentPropsWithoutRef<C>;
+  type RefType = React.ComponentRef<C>;
+
   const { exclude = [], includeNumbers = true, includeDates = true } = options;
 
-  return React.forwardRef<any, P>((props, ref) => {
+  const sanitizeValue = (value: unknown): unknown => {
+    if (typeof value === 'string') {
+      return sanitizeText(value);
+    }
+
+    if (typeof value === 'number' && includeNumbers) {
+      return sanitizeNumber(value);
+    }
+
+    if (value instanceof Date && includeDates) {
+      return sanitizeDate(value);
+    }
+
+    if (Array.isArray(value)) {
+      return value.map(item => sanitizeValue(item));
+    }
+
+    return value;
+  };
+
+  const Sanitized = React.forwardRef<RefType, Props>((props, ref) => {
     const sanitizedProps = React.useMemo(() => {
-      const result: any = {};
+      const result: Partial<Props> = {};
 
-      for (const [key, value] of Object.entries(props)) {
-        if (exclude.includes(key)) {
+      (Object.entries(props) as Array<[keyof Props, Props[keyof Props]]>).forEach(([key, value]) => {
+        if (exclude.includes(String(key))) {
           result[key] = value;
-          continue;
+          return;
         }
 
-        if (typeof value === 'string') {
-          result[key] = sanitizeText(value);
-        } else if (typeof value === 'number' && includeNumbers) {
-          result[key] = sanitizeNumber(value);
-        } else if (value instanceof Date && includeDates) {
-          result[key] = sanitizeDate(value);
-        } else if (Array.isArray(value)) {
-          result[key] = value.map(item => {
-            if (typeof item === 'string') return sanitizeText(item);
-            if (typeof item === 'number' && includeNumbers) return sanitizeNumber(item);
-            if (item instanceof Date && includeDates) return sanitizeDate(item);
-            return item;
-          });
-        } else {
-          result[key] = value;
-        }
-      }
+        result[key] = sanitizeValue(value) as Props[keyof Props];
+      });
 
-      return result as P;
+      return result as Props;
     }, [props]);
 
     return <Component {...sanitizedProps} ref={ref} />;
   });
+
+  Sanitized.displayName = `withSanitizedProps(${Component.displayName ?? Component.name ?? 'Component'})`;
+
+  return Sanitized;
 }

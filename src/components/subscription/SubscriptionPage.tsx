@@ -8,16 +8,14 @@
  * - Stripe Elements provider
  */
 
-import React, { useState, useEffect } from 'react';
-import { Elements } from '@stripe/react-stripe-js';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useUser, useSession } from '@clerk/clerk-react';
 import StripeService from '../../services/stripeService';
 import PricingPlans from './PricingPlans';
-import PaymentForm from './PaymentForm';
 import BillingDashboard from './BillingDashboard';
 import SyncSubscriptionButton from './SyncSubscriptionButton';
 import StripeStatusButton from './StripeStatusButton';
-import type { SubscriptionPlan, UserSubscription } from '../../types/subscription';
+import type { SubscriptionPlan, SubscriptionProduct, UserSubscription } from '../../types/subscription';
 import { ArrowLeftIcon, CheckCircleIcon } from '../icons';
 
 type ViewMode = 'plans' | 'payment' | 'billing' | 'success';
@@ -31,39 +29,15 @@ export default function SubscriptionPage({
   defaultView = 'plans',
   className = ''
 }: SubscriptionPageProps): React.JSX.Element {
-  const { user, isSignedIn } = useUser();
+  const { isSignedIn } = useUser();
   const { session } = useSession();
   const [currentView, setCurrentView] = useState<ViewMode>(defaultView);
-  const [selectedPlan, setSelectedPlan] = useState<any | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<SubscriptionProduct | null>(null);
   const [currentSubscription, setCurrentSubscription] = useState<UserSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [stripePromise, setStripePromise] = useState(StripeService.getStripe());
 
-  useEffect(() => {
-    const getSessionToken = async () => {
-      if (isSignedIn && session) {
-        try {
-          // Get the Clerk session token
-          const token = await session.getToken();
-          if (token) {
-            loadCurrentSubscription(token);
-          } else {
-            setIsLoading(false);
-          }
-        } catch (err) {
-          console.error('Error getting auth token:', err);
-          setIsLoading(false);
-        }
-      } else {
-        setIsLoading(false);
-      }
-    };
-    
-    getSessionToken();
-  }, [isSignedIn, session]);
-
-  const loadCurrentSubscription = async (token?: string) => {
+  const loadCurrentSubscription = useCallback(async (token?: string) => {
     setIsLoading(true);
     setError(null);
     
@@ -87,9 +61,32 @@ export default function SubscriptionPage({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [defaultView]);
 
-  const handleSelectPlan = async (plan: SubscriptionPlan) => {
+  useEffect(() => {
+    const getSessionToken = async () => {
+      if (isSignedIn && session) {
+        try {
+          // Get the Clerk session token
+          const token = await session.getToken();
+          if (token) {
+            loadCurrentSubscription(token);
+          } else {
+            setIsLoading(false);
+          }
+        } catch (err) {
+          console.error('Error getting auth token:', err);
+          setIsLoading(false);
+        }
+      } else {
+        setIsLoading(false);
+      }
+    };
+    
+    getSessionToken();
+  }, [isSignedIn, session, loadCurrentSubscription]);
+
+  const handleSelectPlan = async (plan: SubscriptionProduct) => {
     setSelectedPlan(plan);
     
     if (plan.tier === 'free') {
@@ -140,15 +137,6 @@ export default function SubscriptionPage({
     }
   };
 
-  const handlePaymentSuccess = async (subscriptionId: string) => {
-    setCurrentView('success');
-    await loadCurrentSubscription();
-  };
-
-  const handlePaymentError = (error: string) => {
-    setError(error);
-  };
-
   const handleBackToPricing = () => {
     setCurrentView('plans');
     setSelectedPlan(null);
@@ -160,7 +148,7 @@ export default function SubscriptionPage({
     setSelectedPlan(null);
   };
 
-  const getCurrentTier = () => {
+  const getCurrentTier = (): SubscriptionPlan => {
     if (currentSubscription) {
       return currentSubscription.tier;
     }

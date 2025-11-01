@@ -14,18 +14,14 @@ import { useNavigate } from 'react-router-dom';
 import type { BusinessMetrics } from '../../services/businessService';
 import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface BusinessWidgetProps extends BaseWidgetProps {}
+type BusinessWidgetProps = BaseWidgetProps;
 
 export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps) {
   const navigate = useNavigate();
   const [metrics, setMetrics] = useState<BusinessMetrics | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadMetrics();
-  }, []);
-
-  const loadMetrics = async () => {
+  const loadMetrics = React.useCallback(async () => {
     try {
       const businessMetrics = businessService.getBusinessMetrics();
       setMetrics(businessMetrics);
@@ -34,7 +30,11 @@ export default function BusinessWidget({ size = 'medium' }: BusinessWidgetProps)
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadMetrics();
+  }, [loadMetrics]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {

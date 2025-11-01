@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, Mock } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import InvestmentEnhancementWidget from './InvestmentEnhancementWidget';
 import { investmentEnhancementService } from '../../services/investmentEnhancementService';
 import { useNavigate } from 'react-router-dom';

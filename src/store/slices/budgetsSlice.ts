@@ -31,17 +31,17 @@ const budgetsSlice = createSlice({
   initialState,
   reducers: {
     setBudgets: (state, action: PayloadAction<Budget[]>) => {
-      state.budgets = action.payload;
+      state.budgets = action.payload as unknown as SerializedBudget[];
       state.error = null;
     },
     addBudget: (state, action: PayloadAction<Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>>) => {
-      const newBudget: Budget = {
+      const newBudget = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString() as any,
-        updatedAt: getCurrentISOString() as any,
+        createdAt: getCurrentISOString(),
+        updatedAt: getCurrentISOString(),
       };
-      state.budgets.push(newBudget);
+      state.budgets.push(newBudget as unknown as SerializedBudget);
     },
     updateBudget: (state, action: PayloadAction<{ id: string; updates: Partial<Budget> }>) => {
       const index = state.budgets.findIndex(b => b.id === action.payload.id);
@@ -49,8 +49,8 @@ const budgetsSlice = createSlice({
         state.budgets[index] = {
           ...state.budgets[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString() as any,
-        };
+          updatedAt: getCurrentISOString(),
+        } as unknown as SerializedBudget;
       }
     },
     deleteBudget: (state, action: PayloadAction<string>) => {
@@ -73,7 +73,7 @@ const budgetsSlice = createSlice({
       })
       .addCase(fetchBudgetsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
-        state.budgets = action.payload;
+        state.budgets = action.payload as unknown as SerializedBudget[];
       })
       .addCase(fetchBudgetsFromSupabase.rejected, (state, action) => {
         state.loading = false;

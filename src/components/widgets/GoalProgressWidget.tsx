@@ -4,13 +4,11 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { TargetIcon, TrendingUpIcon, CheckCircleIcon } from '../icons';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
+import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface GoalProgressWidgetProps {
-  size: 'small' | 'medium' | 'large';
-  settings: Record<string, any>;
-}
+type GoalProgressWidgetProps = BaseWidgetProps;
 
-export default function GoalProgressWidget({ size }: GoalProgressWidgetProps) {
+export default function GoalProgressWidget({ size = 'medium' }: GoalProgressWidgetProps) {
   const { goals } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
 

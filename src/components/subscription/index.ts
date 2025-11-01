@@ -27,5 +27,7 @@ export type {
   FeatureLimits,
   PaymentMethod,
   Invoice,
-  BillingHistory
+  BillingHistory,
+  BillingInvoice,
+  SubscriptionProduct
 } from '../../types/subscription';

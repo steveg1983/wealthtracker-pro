@@ -5,31 +5,25 @@ import {
   DollarSignIcon,
   ArrowRightIcon,
   AlertCircleIcon,
-  CheckCircleIcon,
-  CalendarIcon
+  CheckCircleIcon
 } from '../icons';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
 import { useNavigate } from 'react-router-dom';
-import type { Household, ExpenseSplit, Settlement } from '../../services/collaborationService';
+import type { Household, ExpenseSplit } from '../../services/collaborationService';
 import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface CollaborationWidgetProps extends BaseWidgetProps {}
+type CollaborationWidgetProps = BaseWidgetProps;
 
 export default function CollaborationWidget({ size = 'medium' }: CollaborationWidgetProps) {
   const { formatCurrency } = useCurrencyDecimal();
   const navigate = useNavigate();
   const [currentHousehold, setCurrentHousehold] = useState<Household | null>(null);
   const [pendingSplits, setPendingSplits] = useState<ExpenseSplit[]>([]);
-  const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [totalOwed, setTotalOwed] = useState(toDecimal(0));
   const [totalOwedTo, setTotalOwedTo] = useState(toDecimal(0));
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = () => {
+  const loadData = React.useCallback(() => {
     const household = collaborationService.getCurrentHousehold();
     setCurrentHousehold(household);
     
@@ -39,7 +33,6 @@ export default function CollaborationWidget({ size = 'medium' }: CollaborationWi
       setPendingSplits(pendingSplitsData);
       
       const calculatedSettlements = collaborationService.calculateSettlements();
-      setSettlements(calculatedSettlements);
       
       // Calculate totals
       let owed = toDecimal(0);
@@ -56,7 +49,11 @@ export default function CollaborationWidget({ size = 'medium' }: CollaborationWi
       setTotalOwed(owed);
       setTotalOwedTo(owedTo);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleViewHousehold = () => {
     navigate('/household');

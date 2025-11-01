@@ -14,7 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import type { OfflineTransaction } from '../../services/mobileService';
 import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface MobileAppWidgetProps extends BaseWidgetProps {}
+type MobileAppWidgetProps = BaseWidgetProps;
 
 export default function MobileAppWidget({ size = 'medium' }: MobileAppWidgetProps) {
   const navigate = useNavigate();

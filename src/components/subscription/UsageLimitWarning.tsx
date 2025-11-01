@@ -24,7 +24,7 @@ export default function UsageLimitWarning({
   className = ''
 }: UsageLimitWarningProps): React.JSX.Element | null {
   const { tier } = useSubscription();
-  const { canAdd, remaining, limit, isUnlimited, currentUsage, percentUsed } = useUsageLimit(feature);
+  const { limit, isUnlimited, currentUsage, percentUsed } = useUsageLimit(feature);
 
   // Don't show anything for unlimited plans
   if (isUnlimited || tier !== 'free') {

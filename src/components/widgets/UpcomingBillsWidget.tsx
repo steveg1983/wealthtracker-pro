@@ -3,14 +3,16 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { CalendarIcon, AlertCircleIcon, CheckCircleIcon } from '../icons';
 import type { Transaction } from '../../types';
+import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface UpcomingBillsWidgetProps {
-  size: 'small' | 'medium' | 'large';
-  settings: {
-    daysAhead?: number;
-    showPaid?: boolean;
-  };
+interface UpcomingBillsWidgetSettings {
+  daysAhead?: number;
+  showPaid?: boolean;
 }
+
+type UpcomingBillsWidgetProps = BaseWidgetProps & {
+  settings?: UpcomingBillsWidgetSettings;
+};
 
 interface UpcomingBill {
   id: string;
@@ -23,11 +25,11 @@ interface UpcomingBill {
   daysUntilDue: number;
 }
 
-export default function UpcomingBillsWidget({ size, settings }: UpcomingBillsWidgetProps) {
+export default function UpcomingBillsWidget({ size = 'medium', settings }: UpcomingBillsWidgetProps) {
   const { transactions, categories } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
-  const daysAhead = settings.daysAhead || 30;
-  const showPaid = settings.showPaid ?? false;
+  const daysAhead = settings?.daysAhead ?? 30;
+  const showPaid = settings?.showPaid ?? false;
 
   const upcomingBills = useMemo(() => {
     const now = new Date();
@@ -52,7 +54,7 @@ export default function UpcomingBillsWidget({ size, settings }: UpcomingBillsWid
       });
 
     // Identify recurring bills and predict next due date
-    transactionGroups.forEach((groupTransactions, description) => {
+    transactionGroups.forEach((groupTransactions) => {
       if (groupTransactions.length >= 2) {
         // Sort by date
         const sorted = [...groupTransactions].sort((a, b) => 

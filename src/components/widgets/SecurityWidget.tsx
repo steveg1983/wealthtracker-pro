@@ -2,32 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { securityService } from '../../services/securityService';
 import { 
   ShieldIcon,
-  LockIcon,
   AlertTriangleIcon,
   CheckCircleIcon,
   EyeIcon,
   ArrowRightIcon
 } from '../icons';
 import { useNavigate } from 'react-router-dom';
-import type { SecuritySettings } from '../../services/securityService';
 import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface SecurityWidgetProps extends BaseWidgetProps {}
+type SecurityWidgetProps = BaseWidgetProps;
 
 export default function SecurityWidget({ size = 'medium' }: SecurityWidgetProps): React.JSX.Element {
   const navigate = useNavigate();
-  const [securitySettings, setSecuritySettings] = useState<SecuritySettings>(
-    securityService.getSecuritySettings()
-  );
+  const securitySettings = React.useMemo(() => securityService.getSecuritySettings(), []);
   const [securityScore, setSecurityScore] = useState(0);
   const [recentLogs, setRecentLogs] = useState(0);
 
-  useEffect(() => {
-    calculateSecurityScore();
-    loadRecentActivity();
-  }, []);
-
-  const calculateSecurityScore = () => {
+  const calculateSecurityScore = React.useCallback(() => {
     let score = 0;
     const maxScore = 5;
     
@@ -38,14 +29,19 @@ export default function SecurityWidget({ size = 'medium' }: SecurityWidgetProps)
     if (securitySettings.failedAttempts === 0) score += 1; // No failed attempts
     
     setSecurityScore(Math.round((score / maxScore) * 100));
-  };
+  }, [securitySettings]);
 
-  const loadRecentActivity = () => {
+  const loadRecentActivity = React.useCallback(() => {
     const logs = securityService.getAuditLogs({
       startDate: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) // Last 7 days
     });
     setRecentLogs(logs.length);
-  };
+  }, []);
+
+  useEffect(() => {
+    calculateSecurityScore();
+    loadRecentActivity();
+  }, [calculateSecurityScore, loadRecentActivity]);
 
   const getSecurityStatus = () => {
     if (securityScore >= 80) return { label: 'Excellent', color: 'text-green-600 dark:text-green-400' };

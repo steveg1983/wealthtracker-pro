@@ -1,12 +1,10 @@
 import React from 'react';
 import FinancialSummary from '../FinancialSummary';
+import type { BaseWidgetProps } from '../../types/widget-types';
 
-interface WeeklySummaryWidgetProps {
-  size: 'small' | 'medium' | 'large';
-  settings: Record<string, string | number | boolean | null>;
-}
+type WeeklySummaryWidgetProps = BaseWidgetProps;
 
-export default function WeeklySummaryWidget({ size, settings }: WeeklySummaryWidgetProps): React.JSX.Element {
+export default function WeeklySummaryWidget(_: WeeklySummaryWidgetProps): React.JSX.Element {
   return (
     <div className="h-full overflow-auto">
       <FinancialSummary period="weekly" />

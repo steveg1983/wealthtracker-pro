@@ -39,33 +39,33 @@ const recurringTransactionsSlice = createSlice({
   initialState,
   reducers: {
     setRecurringTransactions: (state, action: PayloadAction<RecurringTransaction[]>) => {
-      state.recurringTransactions = action.payload;
+      state.recurringTransactions = action.payload as unknown as SerializedRecurringTransaction[];
       state.error = null;
     },
     addRecurringTransaction: (state, action: PayloadAction<Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt'>>) => {
       const newRecurring: RecurringTransaction = {
         ...action.payload,
         id: crypto.randomUUID(),
-        createdAt: getCurrentISOString() as any,
-        updatedAt: getCurrentISOString() as any,
+        createdAt: getCurrentISOString(),
+        updatedAt: getCurrentISOString(),
       };
-      state.recurringTransactions.push(newRecurring);
+      state.recurringTransactions.push(newRecurring as unknown as SerializedRecurringTransaction);
     },
     updateRecurringTransaction: (state, action: PayloadAction<{ id: string; updates: Partial<RecurringTransaction> }>) => {
-      const index = state.recurringTransactions.findIndex((r: RecurringTransaction) => r.id === action.payload.id);
+      const index = state.recurringTransactions.findIndex((r: SerializedRecurringTransaction) => r.id === action.payload.id);
       if (index !== -1) {
         state.recurringTransactions[index] = {
           ...state.recurringTransactions[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString() as any,
-        };
+          updatedAt: getCurrentISOString(),
+        } as unknown as SerializedRecurringTransaction;
       }
     },
     deleteRecurringTransaction: (state, action: PayloadAction<string>) => {
-      state.recurringTransactions = state.recurringTransactions.filter((r: RecurringTransaction) => r.id !== action.payload);
+      state.recurringTransactions = state.recurringTransactions.filter((r: SerializedRecurringTransaction) => r.id !== action.payload);
     },
     updateLastProcessed: (state, action: PayloadAction<{ id: string; lastProcessed: Date }>) => {
-      const recurring = state.recurringTransactions.find((r: RecurringTransaction) => r.id === action.payload.id);
+      const recurring = state.recurringTransactions.find((r: SerializedRecurringTransaction) => r.id === action.payload.id);
       if (recurring) {
         recurring.lastProcessed = toISOString(action.payload.lastProcessed);
         recurring.updatedAt = getCurrentISOString();
@@ -81,7 +81,7 @@ const recurringTransactionsSlice = createSlice({
       })
       .addCase(loadRecurringTransactions.fulfilled, (state, action) => {
         state.loading = false;
-        state.recurringTransactions = action.payload;
+        state.recurringTransactions = action.payload as unknown as SerializedRecurringTransaction[];
       })
       .addCase(loadRecurringTransactions.rejected, (state, action) => {
         state.loading = false;
@@ -89,7 +89,7 @@ const recurringTransactionsSlice = createSlice({
       })
       // Handle saveRecurringTransactions
       .addCase(saveRecurringTransactions.fulfilled, (state, action) => {
-        state.recurringTransactions = action.payload;
+        state.recurringTransactions = action.payload as unknown as SerializedRecurringTransaction[];
       });
   },
 });

@@ -36,16 +36,16 @@ const transactionsSlice = createSlice({
   initialState,
   reducers: {
     setTransactions: (state, action: PayloadAction<Transaction[]>) => {
-      state.transactions = action.payload;
+      state.transactions = action.payload as unknown as SerializedTransaction[];
       state.error = null;
     },
     addTransaction: (state, action: PayloadAction<Omit<Transaction, 'id'>>) => {
-      const newTransaction: Transaction = {
+      const newTransaction = {
         ...action.payload,
         id: crypto.randomUUID(),
         date: toISOString(action.payload.date) || getCurrentISOString() as any,
       };
-      state.transactions.push(newTransaction);
+      state.transactions.push(newTransaction as unknown as SerializedTransaction);
     },
     updateTransaction: (state, action: PayloadAction<{ id: string; updates: Partial<Transaction> }>) => {
       const index = state.transactions.findIndex(t => t.id === action.payload.id);
@@ -53,7 +53,7 @@ const transactionsSlice = createSlice({
         state.transactions[index] = {
           ...state.transactions[index],
           ...action.payload.updates,
-        };
+        } as unknown as SerializedTransaction;
       }
     },
     deleteTransaction: (state, action: PayloadAction<string>) => {
@@ -65,9 +65,9 @@ const transactionsSlice = createSlice({
     },
     bulkUpdateTransactions: (state, action: PayloadAction<{ ids: string[]; updates: Partial<Transaction> }>) => {
       const idsToUpdate = new Set(action.payload.ids);
-      state.transactions = state.transactions.map(t => 
-        idsToUpdate.has(t.id) 
-          ? { ...t, ...action.payload.updates, updatedAt: getCurrentISOString() as any }
+      state.transactions = state.transactions.map(t =>
+        idsToUpdate.has(t.id)
+          ? { ...t, ...action.payload.updates, updatedAt: getCurrentISOString() } as unknown as SerializedTransaction
           : t
       );
     },
@@ -81,7 +81,7 @@ const transactionsSlice = createSlice({
       })
       .addCase(fetchTransactionsFromSupabase.fulfilled, (state, action) => {
         state.loading = false;
-        state.transactions = action.payload;
+        state.transactions = action.payload as unknown as SerializedTransaction[];
       })
       .addCase(fetchTransactionsFromSupabase.rejected, (state, action) => {
         state.loading = false;

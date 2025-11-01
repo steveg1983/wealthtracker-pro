@@ -36,17 +36,17 @@ const accountsSlice = createSlice({
   initialState,
   reducers: {
     setAccounts: (state, action: PayloadAction<Account[]>) => {
-      state.accounts = action.payload;
+      state.accounts = action.payload as unknown as SerializedAccount[];
       state.error = null;
     },
     addAccount: (state, action: PayloadAction<Omit<Account, 'id' | 'lastUpdated'>>) => {
-      const newAccount: Account = {
+      const newAccount = {
         ...action.payload,
         id: crypto.randomUUID(),
         lastUpdated: getCurrentISOString() as any,
-        updatedAt: getCurrentISOString() as any,
+        updatedAt: getCurrentISOString(),
       };
-      state.accounts.push(newAccount);
+      state.accounts.push(newAccount as unknown as SerializedAccount);
     },
     updateAccount: (state, action: PayloadAction<{ id: string; updates: Partial<Account> }>) => {
       const index = state.accounts.findIndex(acc => acc.id === action.payload.id);
@@ -54,8 +54,8 @@ const accountsSlice = createSlice({
         state.accounts[index] = {
           ...state.accounts[index],
           ...action.payload.updates,
-          updatedAt: getCurrentISOString() as any,
-        };
+          updatedAt: getCurrentISOString(),
+        } as unknown as SerializedAccount;
       }
     },
     deleteAccount: (state, action: PayloadAction<string>) => {

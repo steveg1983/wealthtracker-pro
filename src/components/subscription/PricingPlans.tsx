@@ -8,21 +8,21 @@
  * - Responsive design
  */
 
-import React, { useState } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import React, { useState, useCallback } from 'react';
 import StripeService from '../../services/stripeService';
-import type { SubscriptionPlan, SubscriptionTier } from '../../types/subscription';
+import type { SubscriptionPlan, SubscriptionProduct } from '../../types/subscription';
 import { 
   CheckIcon, 
-  XIcon, 
   StarIcon, 
   CreditCardIcon,
   ArrowRightIcon
 } from '../icons';
+import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { toDecimal } from '../../utils/decimal';
 
 interface PricingPlansProps {
-  currentTier?: SubscriptionTier;
-  onSelectPlan: (plan: SubscriptionPlan) => void;
+  currentTier?: SubscriptionPlan;
+  onSelectPlan: (plan: SubscriptionProduct) => Promise<void> | void;
   showFreePlan?: boolean;
   className?: string;
 }
@@ -33,14 +33,19 @@ export default function PricingPlans({
   showFreePlan = true,
   className = '' 
 }: PricingPlansProps): React.JSX.Element {
-  const { user } = useUser();
   const [billingInterval, setBillingInterval] = useState<'month' | 'year'>('month');
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
 
   const plans = StripeService.getSubscriptionPlans();
   const displayPlans = showFreePlan ? plans : plans.filter(p => p.tier !== 'free');
+  const { formatCurrency, displayCurrency } = useCurrencyDecimal();
 
-  const handleSelectPlan = async (plan: any) => {
+  const getCurrencyCode = useCallback(
+    (planCurrency?: string) => (planCurrency ?? displayCurrency).toUpperCase(),
+    [displayCurrency]
+  );
+
+  const handleSelectPlan = async (plan: SubscriptionProduct) => {
     if (plan.tier === currentTier) return;
     if (plan.tier === 'free') return; // Free plan doesn't need payment
 
@@ -54,7 +59,7 @@ export default function PricingPlans({
     }
   };
 
-  const getPlanButtonText = (plan: any) => {
+  const getPlanButtonText = (plan: SubscriptionProduct) => {
     if (plan.tier === 'free') {
       return currentTier === 'free' ? 'Current Plan' : 'Downgrade to Free';
     }
@@ -67,7 +72,7 @@ export default function PricingPlans({
     return isUpgrade ? 'Upgrade' : 'Change Plan';
   };
 
-  const getPlanButtonStyle = (plan: any) => {
+  const getPlanButtonStyle = (plan: SubscriptionProduct) => {
     if (plan.tier === currentTier) {
       return 'bg-gray-100 text-gray-500 cursor-not-allowed';
     }
@@ -79,20 +84,32 @@ export default function PricingPlans({
     return 'bg-white text-gray-900 border border-gray-300 hover:bg-gray-50';
   };
 
-  const formatPrice = (price: number) => {
-    if (price === 0) return 'Free';
-    return StripeService.formatPrice(price);
+  const formatPlanPrice = (plan: SubscriptionProduct, price: number) => {
+    if (price === 0) {
+      return 'Free';
+    }
+    const currencyCode = getCurrencyCode(plan.currency);
+    return formatCurrency(toDecimal(price), currencyCode);
   };
 
-  const getYearlyPrice = (monthlyPrice: number) => {
-    const yearlyPrice = monthlyPrice * 12 * 0.8; // 20% discount for yearly
-    return StripeService.formatPrice(yearlyPrice);
+  const getYearlyPrice = (plan: SubscriptionProduct) => {
+    if (plan.price === 0) {
+      return 'Free';
+    }
+    const yearlyDecimal = toDecimal(plan.price).times(12).times(0.8);
+    const currencyCode = getCurrencyCode(plan.currency);
+    return formatCurrency(yearlyDecimal, currencyCode);
   };
 
-  const getYearlyDiscount = (monthlyPrice: number) => {
-    const yearlyPrice = monthlyPrice * 12 * 0.8;
-    const monthlySavings = (monthlyPrice * 12) - yearlyPrice;
-    return StripeService.formatPrice(monthlySavings);
+  const getYearlyDiscount = (plan: SubscriptionProduct) => {
+    if (plan.price === 0) {
+      return formatCurrency(toDecimal(0), getCurrencyCode(plan.currency));
+    }
+    const monthlyTotal = toDecimal(plan.price).times(12);
+    const discounted = toDecimal(plan.price).times(12).times(0.8);
+    const savings = monthlyTotal.minus(discounted);
+    const currencyCode = getCurrencyCode(plan.currency);
+    return formatCurrency(savings, currencyCode);
   };
 
   return (
@@ -184,14 +201,16 @@ export default function PricingPlans({
                   ) : (
                     <div>
                       <div className="text-4xl font-bold text-gray-900 dark:text-white">
-                        {billingInterval === 'month' ? formatPrice(plan.price) : getYearlyPrice(plan.price)}
+                        {billingInterval === 'month' 
+                          ? formatPlanPrice(plan, plan.price)
+                          : getYearlyPrice(plan)}
                         <span className="text-lg font-normal text-gray-600 dark:text-gray-400">
                           /{billingInterval === 'month' ? 'month' : 'year'}
                         </span>
                       </div>
                       {billingInterval === 'year' && (
                         <div className="text-sm text-green-600 dark:text-green-400 mt-1">
-                          Save {getYearlyDiscount(plan.price)} per year
+                          Save {getYearlyDiscount(plan)} per year
                         </div>
                       )}
                     </div>
@@ -226,8 +245,8 @@ export default function PricingPlans({
                   What's included:
                 </h4>
                 <ul className="space-y-3">
-                  {plan.features.map((feature: any, index: any) => (
-                    <li key={index} className="flex items-start gap-3">
+                  {plan.features.map((feature, index) => (
+                    <li key={`${plan.id}-feature-${index}`} className="flex items-start gap-3">
                       <CheckIcon size={16} className="text-green-500 mt-0.5 flex-shrink-0" />
                       <span className="text-gray-700 dark:text-gray-300 text-sm">
                         {feature}
@@ -245,13 +264,13 @@ export default function PricingPlans({
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div className="text-center">
                         <div className="font-semibold text-gray-900 dark:text-white">
-                          {plan.maxAccounts}
+                          {plan.accounts}
                         </div>
                         <div className="text-gray-600 dark:text-gray-400">Accounts</div>
                       </div>
                       <div className="text-center">
                         <div className="font-semibold text-gray-900 dark:text-white">
-                          {plan.maxTransactions}/mo
+                          {plan.transactions}/mo
                         </div>
                         <div className="text-gray-600 dark:text-gray-400">Transactions</div>
                       </div>
