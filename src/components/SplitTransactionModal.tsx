@@ -4,6 +4,8 @@ import { XIcon } from './icons/XIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { DeleteIcon } from './icons/DeleteIcon';
 import type { Transaction } from '../types';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface TransactionWithSplits extends Transaction {
   splits?: SplitItem[];
@@ -27,6 +29,7 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
     { category: '', amount: 0, description: '' }
   ]);
   const [remainingAmount, setRemainingAmount] = useState(0);
+  const { formatCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     if (transaction) {
@@ -101,13 +104,6 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
 
   if (!isOpen || !transaction) return null;
 
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'GBP'
-    }).format(amount);
-  };
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -123,10 +119,10 @@ export default function SplitTransactionModal({ isOpen, onClose, transaction }: 
 
         <div className="mb-4">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Original Amount: <span className="font-semibold">{formatCurrency(transaction.amount)}</span>
+            Original Amount: <span className="font-semibold">{formatCurrency(toDecimal(transaction.amount))}</span>
           </p>
           <p className={`text-sm ${Math.abs(remainingAmount) > 0.01 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
-            Remaining: <span className="font-semibold">{formatCurrency(remainingAmount)}</span>
+            Remaining: <span className="font-semibold">{formatCurrency(toDecimal(remainingAmount))}</span>
           </p>
         </div>
 

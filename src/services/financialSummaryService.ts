@@ -379,7 +379,7 @@ class FinancialSummaryService {
     if (summary.topCategories.length > 0) {
       text += `### Top Spending Categories\n`;
       summary.topCategories.forEach(cat => {
-        text += `- ${cat.categoryId}: ${currencySymbol}${cat.amount.toFixed(2)} (${cat.percentage.toFixed(1)}%)\n`;
+        text += `- ${cat.category}: ${currencySymbol}${cat.amount.toFixed(2)} (${cat.percentage.toFixed(1)}%)\n`;
       });
       text += '\n';
     }

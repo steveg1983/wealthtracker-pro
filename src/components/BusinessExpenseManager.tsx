@@ -13,6 +13,8 @@ import {
   FileTextIcon
 } from './icons';
 import type { BusinessExpense, BusinessExpenseCategory } from '../services/businessService';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface BusinessExpenseManagerProps {
   onDataChange: () => void;
@@ -28,6 +30,7 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
     isDeductible: '',
     dateRange: ''
   });
+  const { formatCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadExpenses();
@@ -101,13 +104,6 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
-
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
       year: 'numeric',
@@ -135,9 +131,17 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
     }
   };
 
-  const totalExpenses = filteredExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-  const deductibleExpenses = filteredExpenses.filter(expense => expense.isDeductible).reduce((sum, expense) => sum + expense.amount, 0);
-  const totalVAT = filteredExpenses.reduce((sum, expense) => sum + (expense.vatAmount || 0), 0);
+  const totalExpenses = filteredExpenses.reduce(
+    (sum, expense) => sum.plus(expense.amount),
+    toDecimal(0)
+  );
+  const deductibleExpenses = filteredExpenses
+    .filter(expense => expense.isDeductible)
+    .reduce((sum, expense) => sum.plus(expense.amount), toDecimal(0));
+  const totalVAT = filteredExpenses.reduce(
+    (sum, expense) => sum.plus(expense.vatAmount || 0),
+    toDecimal(0)
+  );
 
   return (
     <div className="space-y-6">
@@ -344,13 +348,13 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
                     <div>
                       <span className="text-gray-500 dark:text-gray-400 block text-xs">Amount</span>
                       <span className="text-gray-900 dark:text-white font-medium">
-                        {formatCurrency(expense.amount)}
+                        {formatCurrency(toDecimal(expense.amount))}
                       </span>
                     </div>
                     <div>
                       <span className="text-gray-500 dark:text-gray-400 block text-xs">VAT</span>
                       <span className="text-gray-900 dark:text-white">
-                        {expense.vatAmount ? formatCurrency(expense.vatAmount) : '-'}
+                        {expense.vatAmount ? formatCurrency(toDecimal(expense.vatAmount)) : '-'}
                       </span>
                     </div>
                   </div>
@@ -410,10 +414,10 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {formatCurrency(expense.amount)}
+                        {formatCurrency(toDecimal(expense.amount))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                        {expense.vatAmount ? formatCurrency(expense.vatAmount) : '-'}
+                        {expense.vatAmount ? formatCurrency(toDecimal(expense.vatAmount)) : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {expense.isDeductible ? (

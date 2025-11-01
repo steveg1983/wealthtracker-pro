@@ -13,6 +13,8 @@ import {
   BarChart3Icon,
   FilterIcon
 } from './icons';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 type SortOption = 'name' | 'confidence' | 'frequency' | 'lastUpdated';
 const SORT_OPTIONS: ReadonlyArray<SortOption> = ['name', 'confidence', 'frequency', 'lastUpdated'];
@@ -33,6 +35,7 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
   const [sortBy, setSortBy] = useState<SortOption>('confidence');
   const [testEnrichment, setTestEnrichment] = useState('');
   const [enrichmentResult, setEnrichmentResult] = useState<MerchantEnrichment | null>(null);
+  const { formatCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadMerchants();
@@ -135,13 +138,6 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
           return 0;
       }
     });
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(amount);
-  };
 
   if (isLoading) {
     return (
@@ -400,7 +396,7 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-gray-900 dark:text-white">
-                        {merchant.avgTransactionAmount ? formatCurrency(merchant.avgTransactionAmount) : '-'}
+                        {merchant.avgTransactionAmount ? formatCurrency(toDecimal(merchant.avgTransactionAmount)) : '-'}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

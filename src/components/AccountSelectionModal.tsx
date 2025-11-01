@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { CheckIcon, AlertCircleIcon, FileTextIcon } from './icons';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface Account {
   name: string;
@@ -28,6 +29,7 @@ export default function AccountSelectionModal({
     new Set(primaryAccountName ? [primaryAccountName] : [])
   );
   const [importMode, setImportMode] = useState<'single' | 'multiple'>('single');
+  const { formatCurrency } = useCurrencyDecimal();
 
   const handleAccountToggle = (accountName: string) => {
     const newSelected = new Set(selectedAccounts);
@@ -60,13 +62,6 @@ export default function AccountSelectionModal({
   };
 
   if (!isOpen) return null;
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'GBP'
-    }).format(amount);
-  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

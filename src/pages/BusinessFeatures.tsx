@@ -148,7 +148,7 @@ export default function BusinessFeatures() {
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
                     <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                      {formatCurrency(metrics.totalRevenue)}
+                      {formatCurrency(toDecimal(metrics.totalRevenue))}
                     </p>
                   </div>
                   <TrendingUpIcon size={24} className="text-green-500" />
@@ -160,7 +160,7 @@ export default function BusinessFeatures() {
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Total Expenses</p>
                     <p className="text-2xl font-bold text-red-600 dark:text-red-400">
-                      {formatCurrency(metrics.totalExpenses)}
+                      {formatCurrency(toDecimal(metrics.totalExpenses))}
                     </p>
                   </div>
                   <DollarSignIcon size={24} className="text-red-500" />
@@ -176,7 +176,7 @@ export default function BusinessFeatures() {
                         ? 'text-green-600 dark:text-green-400' 
                         : 'text-red-600 dark:text-red-400'
                     }`}>
-                      {formatCurrency(metrics.netProfit)}
+                      {formatCurrency(toDecimal(metrics.netProfit))}
                     </p>
                   </div>
                   <CalculatorIcon size={24} className={
@@ -245,7 +245,7 @@ export default function BusinessFeatures() {
                         {category.category.replace('_', ' ')}
                       </span>
                       <span className="font-medium text-gray-900 dark:text-white">
-                        {formatCurrency(category.amount)}
+                        {formatCurrency(toDecimal(category.amount))}
                       </span>
                     </div>
                   ))}
@@ -263,13 +263,13 @@ export default function BusinessFeatures() {
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Revenue</span>
                         <span className="font-medium text-green-600 dark:text-green-400">
-                          {formatCurrency(trend.revenue)}
+                          {formatCurrency(toDecimal(trend.revenue))}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600 dark:text-gray-400">Expenses</span>
                         <span className="font-medium text-red-600 dark:text-red-400">
-                          {formatCurrency(trend.expenses)}
+                          {formatCurrency(toDecimal(trend.expenses))}
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -279,7 +279,7 @@ export default function BusinessFeatures() {
                             ? 'text-green-600 dark:text-green-400' 
                             : 'text-red-600 dark:text-red-400'
                         }`}>
-                          {formatCurrency(trend.profit)}
+                          {formatCurrency(toDecimal(trend.profit))}
                         </span>
                       </div>
                     </div>
@@ -315,17 +315,17 @@ export default function BusinessFeatures() {
                     </div>
                     <div className="flex items-center gap-4 text-sm">
                       <span className="text-green-600 dark:text-green-400">
-                        {formatCurrency(trend.revenue)}
+                        {formatCurrency(toDecimal(trend.revenue))}
                       </span>
                       <span className="text-red-600 dark:text-red-400">
-                        {formatCurrency(trend.expenses)}
+                        {formatCurrency(toDecimal(trend.expenses))}
                       </span>
                       <span className={
                         trend.profit >= 0 
                           ? 'text-blue-600 dark:text-blue-400' 
                           : 'text-red-600 dark:text-red-400'
                       }>
-                        {formatCurrency(trend.profit)}
+                        {formatCurrency(toDecimal(trend.profit))}
                       </span>
                     </div>
                   </div>

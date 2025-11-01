@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { XIcon, ArrowRightIcon, CheckIcon, AlertCircleIcon } from './icons';
 import type { Transaction } from '../types';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 interface ReconciliationMatch {
   outTransaction: Transaction;
@@ -24,6 +26,7 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
   const [searchTerm, setSearchTerm] = useState('');
   const [filterAccount, setFilterAccount] = useState('');
   const [notes, setNotes] = useState('');
+  const { formatCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     if (match) {
@@ -76,13 +79,6 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
     }
     return true;
   });
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-GB', {
-      style: 'currency',
-      currency: 'GBP'
-    }).format(amount);
-  };
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('en-GB', {
@@ -145,7 +141,7 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
                   Amount: <span className={`font-medium ${
                     sourceTransaction.type === 'expense' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
                   }`}>
-                    {sourceTransaction.type === 'expense' ? '-' : '+'}{formatCurrency(sourceTransaction.amount)}
+                    {sourceTransaction.type === 'expense' ? '-' : '+'}{formatCurrency(toDecimal(sourceTransaction.amount))}
                   </span>
                 </p>
               </div>
@@ -183,7 +179,7 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
                   Amount: <span className={`font-medium ${
                     targetTransaction.type === 'expense' ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'
                   }`}>
-                    {targetTransaction.type === 'expense' ? '-' : '+'}{formatCurrency(targetTransaction.amount)}
+                    {targetTransaction.type === 'expense' ? '-' : '+'}{formatCurrency(toDecimal(targetTransaction.amount))}
                   </span>
                 </p>
               </div>
@@ -272,7 +268,7 @@ export default function ReconciliationModal({ isOpen, onClose, match, transactio
                         <td className={`px-4 py-3 text-sm font-medium ${
                           trans.type === 'income' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                         }`}>
-                          {trans.type === 'income' ? '+' : '-'}{formatCurrency(trans.amount)}
+                          {trans.type === 'income' ? '+' : '-'}{formatCurrency(toDecimal(trans.amount))}
                         </td>
                       </tr>
                     ))}
