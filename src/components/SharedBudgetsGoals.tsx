@@ -721,7 +721,7 @@ export default function SharedBudgetsGoals() {
                   Category
                 </label>
                 <select
-                  value={goalForm.category}
+                  value={goalForm.categoryId}
                   onChange={(e) => setGoalForm({ ...goalForm, categoryId: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
                   required
