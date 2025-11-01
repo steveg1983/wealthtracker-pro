@@ -372,7 +372,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           .filter(t => t.type === 'expense')
           .reduce((sum, t) => sum + toDecimal(t.amount).toNumber(), 0);
         
-        const budget = budgets.find(b => b.category === cat.name);
+        const budget = budgets.find(b => b.categoryId === cat.name);
         
         return {
           Name: cat.name,
