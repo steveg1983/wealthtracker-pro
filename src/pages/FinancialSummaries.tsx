@@ -6,12 +6,16 @@ import FinancialSummary from '../components/FinancialSummary';
 import { CalendarIcon, BarChart3Icon, TrendingUpIcon } from '../components/icons';
 import { format } from 'date-fns';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal, Decimal } from '../utils/decimal';
 
 export default function FinancialSummaries() {
   const { transactions, accounts, budgets, goals } = useApp();
   const { formatCurrency } = useCurrencyDecimal();
   const [activeTab, setActiveTab] = useState<'weekly' | 'monthly'>('weekly');
   const [showHistory, setShowHistory] = useState(false);
+  const formatPercentage = (value: number, decimals: number = 1) => {
+    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+  };
   
   // Check if summaries should be generated
   useEffect(() => {
@@ -133,7 +137,7 @@ export default function FinancialSummaries() {
                     <div>
                       <p className="text-gray-500 dark:text-gray-400">Savings Rate</p>
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {summary.savingsRate.toFixed(1)}%
+                        {`${formatPercentage(summary.savingsRate, 1)}%`}
                       </p>
                     </div>
                   </div>

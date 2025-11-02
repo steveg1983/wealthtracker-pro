@@ -3,6 +3,7 @@ let jsPDF: typeof import('jspdf').default | null = null;
 let html2canvas: typeof import('html2canvas').default | null = null;
 import { Transaction, Account } from '../types';
 import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
+import { toDecimal, Decimal } from './decimal';
 
 interface ReportData {
   title: string;
@@ -52,6 +53,10 @@ export async function generatePDFReport(data: ReportData, accounts: Account[]): 
   // Helper function to format currency
   const formatCurrency = (amount: number): string => {
     return formatCurrencyDecimal(amount, 'GBP');
+  };
+
+  const formatPercentage = (value: number, decimals: number = 1): string => {
+    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
   };
 
   // Title
@@ -117,7 +122,7 @@ export async function generatePDFReport(data: ReportData, accounts: Account[]): 
   pdf.text('Savings Rate', margin + 3 * (boxWidth + 5) + 2, boxY + 5);
   pdf.setFontSize(14);
   pdf.setTextColor(245, 158, 11); // Yellow
-  pdf.text(`${data.summary.savingsRate.toFixed(1)}%`, margin + 3 * (boxWidth + 5) + 2, boxY + 13);
+  pdf.text(`${formatPercentage(data.summary.savingsRate, 1)}%`, margin + 3 * (boxWidth + 5) + 2, boxY + 13);
 
   yPosition += boxHeight + 15;
 
@@ -186,7 +191,7 @@ export async function generatePDFReport(data: ReportData, accounts: Account[]): 
     
     pdf.text(category.category, margin + 2, yPosition);
     pdf.text(formatCurrency(category.amount), margin + 80, yPosition);
-    pdf.text(`${category.percentage.toFixed(1)}%`, margin + 130, yPosition);
+    pdf.text(`${formatPercentage(category.percentage, 1)}%`, margin + 130, yPosition);
     yPosition += 8;
   });
 

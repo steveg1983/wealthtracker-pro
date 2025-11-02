@@ -4,6 +4,8 @@ import { financialSummaryService, type SummaryData } from '../services/financial
 import { CalendarIcon, TrendingUpIcon, TrendingDownIcon, PieChartIcon, TargetIcon } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { format } from 'date-fns';
+import { toDecimal, Decimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
 
 interface FinancialSummaryProps {
   period: 'weekly' | 'monthly';
@@ -26,10 +28,17 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
 
   if (!summary) return null;
 
-  const isPositiveChange = (value: number) => value >= 0;
-  const formatChange = (value: number) => {
-    const prefix = value >= 0 ? '+' : '';
-    return `${prefix}${value.toFixed(1)}%`;
+  const isPositiveChange = (value: number | DecimalInstance) => toDecimal(value).greaterThanOrEqualTo(0);
+  const formatPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
+    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+  };
+  const formatSignedPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
+    const decimal = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+    const sign = decimal.greaterThanOrEqualTo(0) ? '+' : '-';
+    return `${sign}${decimal.abs().toFixed(decimals)}`;
+  };
+  const formatChange = (value: DecimalInstance | number) => {
+    return `${formatSignedPercentage(value, 1)}%`;
   };
 
   return (
@@ -114,7 +123,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
             {formatCurrency(summary.netIncome)}
           </p>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {summary.savingsRate.toFixed(1)}% savings rate
+            {`${formatPercentage(summary.savingsRate, 1)}%`} savings rate
           </p>
         </div>
       </div>
@@ -174,7 +183,7 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
                           : 'text-gray-900 dark:text-white'
                       }`}>
                         {formatCurrency(budget.spent)} / {formatCurrency(budget.limit)}
-                        <span className="text-xs ml-1">({budget.percentage.toFixed(0)}%)</span>
+                        <span className="text-xs ml-1">({`${formatPercentage(budget.percentage, 0)}%`})</span>
                       </span>
                     </div>
                   ))}

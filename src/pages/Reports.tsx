@@ -85,9 +85,13 @@ export default function Reports() {
     };
   }, [filteredTransactions]);
 
+  const formatPercentage = (value: Decimal | number, decimals: number = 1) => {
+    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+  };
+
   const savingsRateDecimal = toDecimal(summary.savingsRate ?? 0);
   const savingsRateValue = savingsRateDecimal.toNumber();
-  const savingsRateDisplay = savingsRateDecimal.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toFixed(1);
+  const savingsRateDisplay = formatPercentage(savingsRateDecimal, 1);
 
   // Set loading to false when data is loaded
   useEffect(() => {

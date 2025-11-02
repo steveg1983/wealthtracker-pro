@@ -26,6 +26,7 @@ import type { DataIntelligenceStats, SpendingInsight, Subscription } from '../se
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { formatCurrencyWhole } from '../utils/currency-decimal';
 import { toDecimal, Decimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
 
 type ActiveTab = 'overview' | 'subscriptions' | 'merchants' | 'patterns' | 'insights';
 
@@ -37,6 +38,14 @@ export default function DataIntelligence() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const { displayCurrency } = useCurrencyDecimal();
+
+  const formatPercentage = useMemo(() => {
+    return (value: DecimalInstance | number, decimals: number = 1) => {
+      return toDecimal(value)
+        .toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP)
+        .toFixed(decimals);
+    };
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -250,7 +259,7 @@ export default function DataIntelligence() {
                   <SearchIcon size={24} className="text-blue-500" />
                 </div>
                 <div className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                  {stats.enrichedMerchants} enriched ({stats.categoryAccuracy.toFixed(1)}%)
+                  {stats.enrichedMerchants} enriched ({`${formatPercentage(stats.categoryAccuracy, 1)}%`})
                 </div>
               </div>
 
@@ -434,7 +443,7 @@ export default function DataIntelligence() {
                         />
                       </div>
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
-                        {stats.categoryAccuracy.toFixed(0)}%
+                        {`${formatPercentage(stats.categoryAccuracy, 0)}%`}
                       </span>
                     </div>
                   </div>

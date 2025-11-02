@@ -15,7 +15,7 @@ import ZeroBasedBudgeting from '../components/ZeroBasedBudgeting';
 import type { Budget } from '../types';
 import PageWrapper from '../components/PageWrapper';
 import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations-decimal';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, Decimal } from '../utils/decimal';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
 
 export default function Budget() {
@@ -24,6 +24,9 @@ export default function Budget() {
   const [activeTab, setActiveTab] = useState<'traditional' | 'envelope' | 'templates' | 'rollover' | 'alerts' | 'zero-based'>('traditional');
   const [isLoading, setIsLoading] = useState(true);
   const { formatCurrency } = useCurrencyDecimal();
+  const formatPercentage = (value: number | Decimal, decimals: number = 0) => {
+    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+  };
   
   // Get data from context
   const { budgets, updateBudget, deleteBudget, transactions, categories } = useApp();
@@ -420,7 +423,7 @@ export default function Budget() {
 
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">
-                  {budget.percentage.toFixed(0)}% used
+                  {`${formatPercentage(budget.percentage, 0)}% used`}
                 </span>
                 <span className={`font-medium ${
                   budget.remaining >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'

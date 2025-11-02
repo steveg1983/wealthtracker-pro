@@ -1,5 +1,5 @@
 import type { Transaction, Account, Budget, Goal } from '../types';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, Decimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, subWeeks, subMonths } from 'date-fns';
 
@@ -358,28 +358,42 @@ class FinancialSummaryService {
   formatSummaryText(summary: SummaryData, currencySymbol: string = '£'): string {
     const periodText = summary.period === 'weekly' ? 'This Week' : 'This Month';
     const dateRange = `${format(summary.startDate, 'MMM d')} - ${format(summary.endDate, 'MMM d')}`;
+
+    const formatCurrency = (value: DecimalInstance | number): string => {
+      return `${currencySymbol}${toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toFixed(2)}`;
+    };
+
+    const formatPercentage = (value: DecimalInstance | number, decimals: number = 1): string => {
+      return `${toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals)}%`;
+    };
+
+    const formatSignedPercentage = (value: number, decimals: number = 1): string => {
+      const decimal = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+      const sign = decimal.greaterThanOrEqualTo(0) ? '+' : '-';
+      return `${sign}${decimal.abs().toFixed(decimals)}%`;
+    };
     
     let text = `## ${periodText}'s Financial Summary\n`;
     text += `### ${dateRange}\n\n`;
     
     // Overview
-    text += `**Income:** ${currencySymbol}${summary.totalIncome.toFixed(2)}\n`;
-    text += `**Expenses:** ${currencySymbol}${summary.totalExpenses.toFixed(2)}\n`;
-    text += `**Net:** ${currencySymbol}${summary.netIncome.toFixed(2)}\n`;
-    text += `**Savings Rate:** ${summary.savingsRate.toFixed(1)}%\n\n`;
+    text += `**Income:** ${formatCurrency(summary.totalIncome)}\n`;
+    text += `**Expenses:** ${formatCurrency(summary.totalExpenses)}\n`;
+    text += `**Net:** ${formatCurrency(summary.netIncome)}\n`;
+    text += `**Savings Rate:** ${formatPercentage(summary.savingsRate, 1)}\n\n`;
     
     // Comparison
     if (summary.comparison.incomeChange !== 0 || summary.comparison.expenseChange !== 0) {
       text += `### Compared to Last ${summary.period === 'weekly' ? 'Week' : 'Month'}\n`;
-      text += `- Income: ${summary.comparison.incomeChange >= 0 ? '+' : ''}${summary.comparison.incomeChange.toFixed(1)}%\n`;
-      text += `- Expenses: ${summary.comparison.expenseChange >= 0 ? '+' : ''}${summary.comparison.expenseChange.toFixed(1)}%\n\n`;
+      text += `- Income: ${formatSignedPercentage(summary.comparison.incomeChange, 1)}\n`;
+      text += `- Expenses: ${formatSignedPercentage(summary.comparison.expenseChange, 1)}\n\n`;
     }
     
     // Top spending categories
     if (summary.topCategories.length > 0) {
       text += `### Top Spending Categories\n`;
       summary.topCategories.forEach(cat => {
-        text += `- ${cat.category}: ${currencySymbol}${cat.amount.toFixed(2)} (${cat.percentage.toFixed(1)}%)\n`;
+        text += `- ${cat.category}: ${formatCurrency(cat.amount)} (${formatPercentage(cat.percentage, 1)})\n`;
       });
       text += '\n';
     }
@@ -389,7 +403,7 @@ class FinancialSummaryService {
     if (overBudget.length > 0) {
       text += `### ⚠️ Over Budget\n`;
       overBudget.forEach(b => {
-        text += `- ${b.budgetName}: ${currencySymbol}${b.spent.toFixed(2)} / ${currencySymbol}${b.limit.toFixed(2)} (${b.percentage.toFixed(0)}%)\n`;
+        text += `- ${b.budgetName}: ${formatCurrency(b.spent)} / ${formatCurrency(b.limit)} (${formatPercentage(b.percentage, 0)})\n`;
       });
       text += '\n';
     }
@@ -399,7 +413,7 @@ class FinancialSummaryService {
     if (activeGoals.length > 0) {
       text += `### Goal Progress\n`;
       activeGoals.forEach(g => {
-        text += `- ${g.goalName}: ${g.progress.toFixed(1)}% (+${currencySymbol}${g.amountAdded.toFixed(2)} this ${summary.period === 'weekly' ? 'week' : 'month'})\n`;
+        text += `- ${g.goalName}: ${formatPercentage(g.progress, 1)} (+${formatCurrency(g.amountAdded)} this ${summary.period === 'weekly' ? 'week' : 'month'})\n`;
       });
     }
     
