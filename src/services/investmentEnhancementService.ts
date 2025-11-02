@@ -116,6 +116,11 @@ class InvestmentEnhancementService {
           this.getInvestmentCategory(inv) === category
         );
         
+        const differenceDisplay = toDecimal(difference)
+          .abs()
+          .toDecimalPlaces(1, Decimal.ROUND_HALF_UP)
+          .toFixed(1);
+
         if (difference > 0) {
           // Need to buy more
           suggestions.push({
@@ -124,7 +129,7 @@ class InvestmentEnhancementService {
             action: 'buy',
             amount: rebalanceAmount.abs(),
             shares: Math.ceil(rebalanceAmount.abs().dividedBy(toDecimal(100)).toNumber()),
-            reason: `Underweight in ${category} by ${Math.abs(difference).toFixed(1)}%`
+            reason: `Underweight in ${category} by ${differenceDisplay}%`
           });
         } else if (categoryInvestments.length > 0) {
           // Need to sell - pick the largest holding
@@ -138,7 +143,7 @@ class InvestmentEnhancementService {
             action: 'sell',
             amount: rebalanceAmount.abs(),
             shares: Math.ceil(rebalanceAmount.abs().dividedBy(toDecimal(largestHolding.currentPrice || 100)).toNumber()),
-            reason: `Overweight in ${category} by ${Math.abs(difference).toFixed(1)}%`
+            reason: `Overweight in ${category} by ${differenceDisplay}%`
           });
         }
       }
@@ -347,7 +352,10 @@ class InvestmentEnhancementService {
     // Dividend insights
     const totalDividends = dividends.reduce((sum, d) => sum.plus(d.projectedAnnual), toDecimal(0));
     if (totalDividends.greaterThan(0)) {
-      insights.push(`💰 Projected annual dividend income: $${totalDividends.toFixed(2)}`);
+      const dividendsDisplay = totalDividends
+        .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
+        .toFixed(2);
+      insights.push(`💰 Projected annual dividend income: $${dividendsDisplay}`);
     }
     
     return insights;

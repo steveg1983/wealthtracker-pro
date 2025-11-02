@@ -1,5 +1,5 @@
 import type { Transaction, Account, Budget, Category } from '../types';
-import { toDecimal } from '../utils/decimal';
+import { toDecimal, Decimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
 import { startOfMonth, subMonths, differenceInDays, format } from 'date-fns';
 import type {
@@ -571,10 +571,11 @@ class AdvancedAnalyticsService {
       budgetId: budget.id,
       consistentlyUnder: false,
       averageUsage: 0,
+      averageUtilization: 0,
       adherenceRate: 0,
       overBudgetMonths: 0,
       underBudgetMonths: 0,
-      trend: 'stable'
+      trend: 'stable' as const
     };
   }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, lazy, Suspense } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { 
   BarChart3Icon, 
@@ -14,6 +14,8 @@ import {
 import { analyticsEngine } from '../services/analyticsEngine';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import PageWrapper from '../components/PageWrapper';
+import { Decimal, toDecimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
 
 // Lazy load heavy components to reduce bundle size
 const DashboardBuilder = lazy(() => import('../components/analytics/DashboardBuilder'));
@@ -56,6 +58,22 @@ export default function Analytics(): React.JSX.Element {
   const [showDashboardBuilder, setShowDashboardBuilder] = useState(false);
   const [selectedData, setSelectedData] = useState<any>(null);
   const [insights, setInsights] = useState<any[]>([]);
+
+  const formatPercentage = useCallback((value: DecimalInstance | number, decimals: number = 1) => {
+    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+
+    if (decimals <= 0) {
+      return decimalValue.toString();
+    }
+
+    const raw = decimalValue.toString();
+    const isNegative = raw.startsWith('-');
+    const unsignedRaw = isNegative ? raw.slice(1) : raw;
+    const [integerPart, fractionalPart = ''] = unsignedRaw.split('.');
+    const paddedFraction = fractionalPart.padEnd(decimals, '0');
+
+    return `${isNegative ? '-' : ''}${integerPart}.${paddedFraction}`;
+  }, []);
   
   // Load saved dashboards and queries from localStorage
   useEffect(() => {
@@ -68,21 +86,23 @@ export default function Analytics(): React.JSX.Element {
     if (savedQueriesData) {
       setSavedQueries(JSON.parse(savedQueriesData));
     }
-    
-    // Generate initial insights
-    generateInsights();
   }, []);
-  
-  const generateInsights = async () => {
+
+  const generateInsights = useCallback(async () => {
     const newInsights = [];
     
     // Spending trends
     const spendingTrend = analyticsEngine.detectSeasonalPatterns(transactions, 'expenses');
     if (spendingTrend.direction !== 'stable') {
+      const changeRateDisplay = formatPercentage(
+        toDecimal(spendingTrend.changeRate).times(100).abs(),
+        1
+      );
+
       newInsights.push({
         type: 'trend',
         title: `Spending is ${spendingTrend.direction}`,
-        description: `Your spending has ${spendingTrend.direction === 'increasing' ? 'increased' : 'decreased'} by ${Math.abs(spendingTrend.changeRate * 100).toFixed(1)}% over the last 30 days`,
+        description: `Your spending has ${spendingTrend.direction === 'increasing' ? 'increased' : 'decreased'} by ${changeRateDisplay}% over the last 30 days`,
         severity: spendingTrend.direction === 'increasing' ? 'warning' : 'success'
       });
     }
@@ -115,7 +135,11 @@ export default function Analytics(): React.JSX.Element {
     // }
     
     setInsights(newInsights);
-  };
+  }, [transactions, formatCurrency, formatPercentage]);
+  
+  useEffect(() => {
+    generateInsights();
+  }, [generateInsights]);
   
   const executeQuery = (query: Query) => {
     // Execute query against data
@@ -211,13 +235,15 @@ export default function Analytics(): React.JSX.Element {
   const keyMetrics = useMemo(() => {
     const income = transactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
 
     const expenses = transactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum.plus(toDecimal(t.amount)), toDecimal(0));
     
-    const savingsRate = income > 0 ? ((income - expenses) / income) * 100 : 0;
+    const savingsRate = income.greaterThan(0)
+      ? income.minus(expenses).dividedBy(income).times(100)
+      : toDecimal(0);
     
     return {
       totalIncome: income,
@@ -322,7 +348,7 @@ export default function Analytics(): React.JSX.Element {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Savings Rate</p>
                   <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {keyMetrics.savingsRate.toFixed(1)}%
+                    {`${formatPercentage(keyMetrics.savingsRate, 1)}%`}
                   </p>
                 </div>
                 <TrendingUpIcon className="text-blue-500" size={24} />

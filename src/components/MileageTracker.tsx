@@ -13,6 +13,13 @@ import {
 import type { MileageEntry } from '../services/businessService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, Decimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
+
+const formatNumber = (value: DecimalInstance | number, decimals: number): string => {
+  return toDecimal(value)
+    .toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP)
+    .toFixed(decimals);
+};
 
 interface MileageTrackerProps {
   onDataChange: () => void;
@@ -27,7 +34,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
     category: '',
     dateRange: ''
   });
-  const { formatCurrency, getCurrencySymbol, displayCurrency } = useCurrencyDecimal();
+  const { formatCurrency } = useCurrencyDecimal();
 
   useEffect(() => {
     loadMileageEntries();
@@ -119,7 +126,11 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
     }
   };
 
-  const totalMiles = filteredEntries.reduce((sum, entry) => sum + entry.distance, 0);
+  const totalMilesDecimal = filteredEntries.reduce(
+    (sum, entry) => sum.plus(entry.distance),
+    toDecimal(0)
+  );
+  const totalMilesDisplay = formatNumber(totalMilesDecimal, 1);
   const totalAmountDecimal = filteredEntries.reduce(
     (sum, entry) => sum.plus(entry.amount),
     toDecimal(0)
@@ -127,7 +138,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
   const averageRateDecimal = filteredEntries.length > 0 
     ? filteredEntries.reduce((sum, entry) => sum.plus(entry.rate), toDecimal(0)).dividedBy(filteredEntries.length)
     : toDecimal(0);
-  const averageRateDisplay = averageRateDecimal.toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toFixed(2);
+  const averageRateDisplay = formatCurrency(averageRateDecimal);
 
   return (
     <div className="space-y-6">
@@ -156,7 +167,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Miles</p>
               <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {totalMiles.toFixed(1)}
+                {totalMilesDisplay}
               </p>
             </div>
             <MapPinIcon size={24} className="text-blue-500" />
@@ -180,9 +191,7 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Average Rate</p>
               <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {displayCurrency === 'CHF'
-                  ? `${averageRateDisplay} ${getCurrencySymbol(displayCurrency)}/mi`
-                  : `${getCurrencySymbol(displayCurrency)}${averageRateDisplay}/mi`}
+                {`${averageRateDisplay}/mi`}
               </p>
             </div>
             <TrendingUpIcon size={24} className="text-purple-500" />
@@ -304,13 +313,13 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
                     <div>
                       <span className="text-gray-500 dark:text-gray-400 block text-xs">Distance</span>
                       <span className="text-gray-900 dark:text-white font-medium">
-                        {entry.distance.toFixed(1)} mi
+                        {formatNumber(entry.distance, 1)} mi
                       </span>
                     </div>
                     <div>
                       <span className="text-gray-500 dark:text-gray-400 block text-xs">Rate</span>
                       <span className="text-gray-900 dark:text-white">
-                        ${entry.rate.toFixed(2)}/mi
+                        {`${formatCurrency(entry.rate)}/mi`}
                       </span>
                     </div>
                     <div>
@@ -379,10 +388,10 @@ export default function MileageTracker({ onDataChange }: MileageTrackerProps) {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      {entry.distance.toFixed(1)} mi
+                      {formatNumber(entry.distance, 1)} mi
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      ${entry.rate.toFixed(2)}/mi
+                      {`${formatCurrency(entry.rate)}/mi`}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       {formatCurrency(entry.amount)}
@@ -444,6 +453,7 @@ interface MileageEntryModalProps {
 }
 
 function MileageEntryModal({ entry, onClose, onSave }: MileageEntryModalProps) {
+  const { formatCurrency } = useCurrencyDecimal();
   const [formData, setFormData] = useState({
     date: entry?.date.toISOString().split('T')[0] || new Date().toISOString().split('T')[0],
     startLocation: entry?.startLocation || '',
@@ -463,7 +473,7 @@ function MileageEntryModal({ entry, onClose, onSave }: MileageEntryModalProps) {
     });
   };
 
-  const calculatedAmount = formData.distance * formData.rate;
+  const calculatedAmount = toDecimal(formData.distance).times(formData.rate);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -608,11 +618,11 @@ function MileageEntryModal({ entry, onClose, onSave }: MileageEntryModalProps) {
                   Calculated Amount:
                 </span>
                 <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                  ${calculatedAmount.toFixed(2)}
+                  {formatCurrency(calculatedAmount)}
                 </span>
               </div>
               <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {formData.distance.toFixed(1)} miles × ${formData.rate.toFixed(2)}/mile
+                {`${formatNumber(formData.distance, 1)} miles × ${formatCurrency(formData.rate)}/mile`}
               </div>
             </div>
           </div>

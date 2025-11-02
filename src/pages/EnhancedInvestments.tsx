@@ -13,7 +13,8 @@ import {
   PieChartIcon
 } from '../components/icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal } from '../utils/decimal';
+import { Decimal, toDecimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
 import type { RebalancingSuggestion, RiskMetrics, DividendInfo, ESGScore, BenchmarkComparison } from '../services/investmentEnhancementService';
 import DividendTracker from '../components/DividendTracker';
 import PortfolioRebalancer from '../components/PortfolioRebalancer';
@@ -30,6 +31,22 @@ export default function EnhancedInvestments() {
   const [esgScores, setEsgScores] = useState<ESGScore[]>([]);
   const [benchmarkData, setBenchmarkData] = useState<BenchmarkComparison | null>(null);
   const [insights, setInsights] = useState<string[]>([]);
+
+  const formatDecimalValue = React.useCallback((value: DecimalInstance | number, decimals: number = 2) => {
+    return toDecimal(value)
+      .toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP)
+      .toFixed(decimals);
+  }, []);
+
+  const formatPercentage = React.useCallback((value: DecimalInstance | number, decimals: number = 1) => {
+    return formatDecimalValue(value, decimals);
+  }, [formatDecimalValue]);
+
+  const formatSignedPercentage = React.useCallback((value: DecimalInstance | number, decimals: number = 2) => {
+    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+    const sign = decimalValue.greaterThanOrEqualTo(0) ? '+' : '-';
+    return `${sign}${decimalValue.abs().toFixed(decimals)}`;
+  }, []);
 
   useEffect(() => {
     if (investments && investments.length > 0) {
@@ -113,7 +130,7 @@ export default function EnhancedInvestments() {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Portfolio Beta</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {riskMetrics.portfolioBeta.toFixed(2)}
+                {formatDecimalValue(riskMetrics.portfolioBeta, 2)}
               </p>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                 {riskMetrics.portfolioBeta > 1 ? 'More volatile than market' : 'Less volatile than market'}
@@ -123,7 +140,7 @@ export default function EnhancedInvestments() {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Sharpe Ratio</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {riskMetrics.sharpeRatio.toFixed(2)}
+                {formatDecimalValue(riskMetrics.sharpeRatio, 2)}
               </p>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                 Risk-adjusted returns
@@ -133,7 +150,7 @@ export default function EnhancedInvestments() {
             <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Volatility</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {riskMetrics.standardDeviation.toFixed(1)}%
+                {`${formatPercentage(riskMetrics.standardDeviation, 1)}%`}
               </p>
               <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                 Annual standard deviation
@@ -162,7 +179,7 @@ export default function EnhancedInvestments() {
                   <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded">
                     <span className="font-medium text-gray-700 dark:text-gray-300">{risk.symbol}</span>
                     <div className="flex items-center gap-2">
-                      <span className="text-gray-600 dark:text-gray-400">{risk.percent.toFixed(1)}%</span>
+                      <span className="text-gray-600 dark:text-gray-400">{`${formatPercentage(risk.percent, 1)}%`}</span>
                       <span className={`px-2 py-1 rounded text-xs font-semibold ${
                         risk.risk === 'high' 
                           ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
@@ -212,7 +229,13 @@ export default function EnhancedInvestments() {
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Average Yield</p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {(dividendInfo.reduce((sum, d) => sum + d.yield, 0) / dividendInfo.length).toFixed(2)}%
+                  {`${formatPercentage(
+                    dividendInfo.reduce(
+                      (sum, d) => sum.plus(toDecimal(d.yield)),
+                      toDecimal(0)
+                    ).dividedBy(dividendInfo.length),
+                    2
+                  )}%`}
                 </p>
               </div>
               <div>
@@ -236,7 +259,7 @@ export default function EnhancedInvestments() {
                   </div>
                   <div className="text-right">
                     <p className="font-semibold text-green-600 dark:text-green-400">
-                      {dividend.yield.toFixed(2)}% yield
+                      {`${formatPercentage(dividend.yield, 2)}% yield`}
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                       {dividend.frequency}
@@ -286,7 +309,7 @@ export default function EnhancedInvestments() {
                     ? 'text-green-600 dark:text-green-400' 
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {benchmarkData.portfolio.return >= 0 ? '+' : ''}{benchmarkData.portfolio.return.toFixed(2)}%
+                  {`${formatSignedPercentage(benchmarkData.portfolio.return, 2)}%`}
                 </p>
               </div>
               <div>
@@ -296,7 +319,7 @@ export default function EnhancedInvestments() {
                     ? 'text-green-600 dark:text-green-400' 
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {benchmarkData.portfolio.annualizedReturn >= 0 ? '+' : ''}{benchmarkData.portfolio.annualizedReturn.toFixed(2)}%
+                  {`${formatSignedPercentage(benchmarkData.portfolio.annualizedReturn, 2)}%`}
                 </p>
               </div>
               <div>
@@ -324,14 +347,14 @@ export default function EnhancedInvestments() {
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                      {benchmark.annualizedReturn.toFixed(2)}%
+                      {`${formatPercentage(benchmark.annualizedReturn, 2)}%`}
                     </p>
                     <p className={`text-sm font-medium ${
                       benchmark.outperformance >= 0 
                         ? 'text-green-600 dark:text-green-400' 
                         : 'text-red-600 dark:text-red-400'
                     }`}>
-                      {benchmark.outperformance >= 0 ? 'Outperforming' : 'Underperforming'} by {Math.abs(benchmark.outperformance).toFixed(2)}%
+                      {benchmark.outperformance >= 0 ? 'Outperforming' : 'Underperforming'} by {`${formatPercentage(toDecimal(benchmark.outperformance).abs(), 2)}%`}
                     </p>
                   </div>
                 </div>
