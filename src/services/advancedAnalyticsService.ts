@@ -236,7 +236,7 @@ class AdvancedAnalyticsService {
           type: 'merchant',
           title: `Optimize ${merchant} Spending`,
           description: `Consider bulk purchases or membership discounts`,
-          potentialSavings: data.monthlyTotal?.times(0.1) || 0, // 10% potential savings
+          potentialSavings: data.monthlyTotal?.times(0.1).toNumber() || 0, // 10% potential savings
           difficulty: 'medium',
           actionRequired: 'Look for discounts or alternative options'
         });

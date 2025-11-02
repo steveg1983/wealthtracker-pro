@@ -91,7 +91,7 @@ const mockCategories = [
 const mockUpdateTransaction = vi.fn();
 const mockDeleteTransaction = vi.fn();
 
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     transactions: mockTransactions,
     accounts: mockAccounts,
