@@ -13,9 +13,10 @@ import { useUser } from '@clerk/clerk-react';
 import { userIdService } from '../services/userIdService';
 import StripeService from '../services/stripeService';
 import SubscriptionApiService from '../services/subscriptionApiService';
-import type { 
-  UserSubscription, 
-  SubscriptionTier, 
+import type {
+  UserSubscription,
+  SubscriptionPlan,
+  SubscriptionTier,
   FeatureLimits,
   SubscriptionUsage 
 } from '../types/subscription';
