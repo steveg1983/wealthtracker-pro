@@ -393,7 +393,7 @@ class RealtimeService {
           event: '*',
           schema: 'public',
           table: 'goals',
-          filter: `user_id=eq.${userId}`,
+          filter: `user_id=eq.${dbUserId}`,
         },
         (payload) => {
           const event: RealtimeEvent<Goal> = {

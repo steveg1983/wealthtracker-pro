@@ -151,7 +151,7 @@ export function BatchOperationsToolbar({
                 variant="secondary"
                 size="sm"
                 onClick={() => setShowMoreMenu(!showMoreMenu)}
-                leftIcon={GripVerticalIcon as MoreVerticalIcon}
+                leftIcon={MoreVerticalIcon}
               >
                 More
               </Button>

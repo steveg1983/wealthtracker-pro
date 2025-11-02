@@ -19,9 +19,15 @@ import {
   ClockIcon
 } from './icons';
 import { useCurrency } from '../hooks/useCurrency';
+import { toDecimal, Decimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
 import { format } from 'date-fns';
 
 type BudgetPeriod = 'monthly' | 'weekly' | 'yearly';
+
+const formatPercentage = (value: DecimalInstance | number, decimals: number = 0): string => {
+  return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+};
 
 interface BudgetFormState {
   name: string;
@@ -343,7 +349,9 @@ export default function SharedBudgetsGoals() {
           {sharedBudgets.map(budget => {
             const spending = calculateBudgetSpending(budget);
             const memberSpending = getMemberSpending(budget);
-            const percentage = (spending / budget.amount) * 100;
+            const percentageDecimal = toDecimal(budget.amount).greaterThan(0)
+              ? toDecimal(spending).dividedBy(budget.amount).times(100)
+              : toDecimal(0);
             const isExceeded = spending > budget.amount;
 
             return (
@@ -360,7 +368,7 @@ export default function SharedBudgetsGoals() {
                       {formatCurrency(spending)} / {formatCurrency(budget.amount)}
                     </p>
                     <p className={`text-sm ${isExceeded ? 'text-red-600' : 'text-gray-600'}`}>
-                      {percentage.toFixed(0)}% used
+                      {`${formatPercentage(percentageDecimal, 0)}% used`}
                     </p>
                   </div>
                 </div>
@@ -372,7 +380,7 @@ export default function SharedBudgetsGoals() {
                       className={`h-full transition-all duration-300 ${
                         isExceeded ? 'bg-red-500' : percentage > 80 ? 'bg-yellow-500' : 'bg-green-500'
                       }`}
-                      style={{ width: `${Math.min(percentage, 100)}%` }}
+                      style={{ width: `${Math.min(percentageDecimal.toNumber(), 100)}%` }}
                     />
                   </div>
                 </div>
@@ -433,7 +441,11 @@ export default function SharedBudgetsGoals() {
 
           {/* Goals List */}
           {sharedGoals.map(goal => {
-            const percentage = (goal.currentAmount / goal.targetAmount) * 100;
+            const targetAmountDecimal = toDecimal(goal.targetAmount ?? 0);
+            const currentAmountDecimal = toDecimal(goal.currentAmount ?? 0);
+            const percentageDecimal = targetAmountDecimal.greaterThan(0)
+              ? currentAmountDecimal.dividedBy(targetAmountDecimal).times(100)
+              : toDecimal(0);
             const daysLeft = Math.ceil((new Date(goal.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
             const myContribution = goal.contributors.find(c => c.memberId === currentMember?.id);
 
@@ -463,10 +475,10 @@ export default function SharedBudgetsGoals() {
                       className={`h-full transition-all duration-300 ${
                         goal.completedAt ? 'bg-green-500' : 'bg-purple-500'
                       }`}
-                      style={{ width: `${Math.min(percentage, 100)}%` }}
+                      style={{ width: `${Math.min(percentageDecimal.toNumber(), 100)}%` }}
                     />
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">{percentage.toFixed(0)}% complete</p>
+                  <p className="text-xs text-gray-500 mt-1">{`${formatPercentage(percentageDecimal, 0)}% complete`}</p>
                 </div>
 
                 {/* Contributors */}
@@ -490,7 +502,12 @@ export default function SharedBudgetsGoals() {
                           {formatCurrency(contributor.currentAmount)} / {formatCurrency(contributor.targetAmount)}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {((contributor.currentAmount / contributor.targetAmount) * 100).toFixed(0)}%
+                          {`${formatPercentage(
+                            contributor.targetAmount > 0
+                              ? toDecimal(contributor.currentAmount).dividedBy(contributor.targetAmount).times(100)
+                              : 0,
+                            0
+                          )}%`}
                         </p>
                       </div>
                     </div>

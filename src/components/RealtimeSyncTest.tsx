@@ -66,7 +66,7 @@ export default function RealtimeSyncTest() {
         addStatus('Creating test account...');
         
         const testAccount = {
-          user_id: dbUser.id,
+          user_id: dbUserId,
           name: `Test Account ${Date.now()}`,
           type: 'savings',
           currency: 'GBP',

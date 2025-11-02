@@ -4,6 +4,7 @@ import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { calculateBudgetSpending, calculateBudgetPercentage } from '../utils/calculations-decimal';
+import { toDecimal, Decimal } from '../utils/decimal';
 import type { DecimalInstance, DecimalBudget } from '../types/decimal-types';
 import {
   BellIcon,
@@ -34,6 +35,10 @@ interface AlertConfig {
   sound: boolean;
   vibrate: boolean;
 }
+
+const formatPercentage = (value: DecimalInstance | number, decimals: number = 0): string => {
+  return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+};
 
 interface Alert {
   id: string;
@@ -149,10 +154,10 @@ export default function SpendingAlerts() {
           
           if (percentage >= config.thresholds.critical) {
             alertType = 'critical';
-            message = `Critical: ${budget.categoryId} has reached ${percentage.toFixed(0)}% of budget!`;
+            message = `Critical: ${budget.categoryId} has reached ${formatPercentage(percentage, 0)}% of budget!`;
           } else if (percentage >= config.thresholds.warning) {
             alertType = 'warning';
-            message = `Warning: ${budget.categoryId} is at ${percentage.toFixed(0)}% of budget`;
+            message = `Warning: ${budget.categoryId} is at ${formatPercentage(percentage, 0)}% of budget`;
           }
           
           if (alertType && !existingAlert) {
@@ -351,7 +356,7 @@ export default function SpendingAlerts() {
           <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
             <p className="text-sm text-orange-800 dark:text-orange-200">
               Most alerts in <strong>{alertStats.mostAlertedCategory}</strong> • 
-              Average spending: <strong>{alertStats.averageSpendingPercentage.toFixed(0)}%</strong>
+              Average spending: <strong>{formatPercentage(alertStats.averageSpendingPercentage, 0)}%</strong>
             </p>
           </div>
         )}
@@ -406,7 +411,7 @@ export default function SpendingAlerts() {
                   <div className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
                     <p>
                       Spent: {formatCurrency(alert.spent)} of {formatCurrency(alert.budget)} 
-                      ({alert.percentage.toFixed(0)}%)
+                      ({formatPercentage(alert.percentage, 0)}%)
                     </p>
                     <p>
                       Remaining: <span className={alert.remaining.greaterThan(0) ? 'text-green-600' : 'text-red-600'}>

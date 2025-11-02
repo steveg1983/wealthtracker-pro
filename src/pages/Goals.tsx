@@ -10,6 +10,7 @@ import type { DecimalGoal, DecimalAccount, DecimalInstance } from "../types/deci
 import PageWrapper from "../components/PageWrapper";
 import { calculateGoalProgress } from "../utils/calculations-decimal";
 import { Decimal, toDecimal } from "../utils/decimal";
+import type { DecimalInstance } from "../utils/decimal";
 import { useCurrencyDecimal } from "../hooks/useCurrencyDecimal";
 import Confetti from "../components/Confetti";
 import GoalCelebrationModal from "../components/GoalCelebrationModal";
@@ -77,6 +78,10 @@ export default function Goals() {
       const account = decimalAccounts.find((a: DecimalAccount) => a.id === accountId);
       return account ? total.plus(account.balance) : total;
     }, toDecimal(0));
+  };
+
+  const formatPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
+    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
   };
 
   const getGoalIcon = (type: Goal["type"]) => {
@@ -260,7 +265,7 @@ export default function Goals() {
               const progress = getProgressPercentage(goal);
               const progressDecimal = toDecimal(progress);
               const progressValue = progressDecimal.toNumber();
-              const progressDisplay = progressDecimal.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toFixed(1);
+              const progressDisplay = formatPercentage(progressDecimal, 1);
               const daysRemaining = getDaysRemaining(goal.targetDate);
               const linkedBalance = getLinkedAccountsBalance(goal.linkedAccountIds);
 

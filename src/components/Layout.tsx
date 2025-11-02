@@ -233,17 +233,17 @@ export default function Layout(): React.JSX.Element {
 
   // Removed auto-expand logic - users control collapsible sections manually
 
-  // Handle conflict resolution modal
-  useEffect(() => {
-    const handleOpenConflictResolver = (event: Event) => {
-      const conflict = (event as CustomEvent).detail;
-      setCurrentConflict(conflict);
-      setConflictModalOpen(true);
-    };
-
-    window.addEventListener('open-conflict-resolver', handleOpenConflictResolver);
-    return () => window.removeEventListener('open-conflict-resolver', handleOpenConflictResolver);
-  }, []);
+  // Handle conflict resolution modal - disabled (state setters not implemented)
+  // useEffect(() => {
+  //   const handleOpenConflictResolver = (event: Event) => {
+  //     const conflict = (event as CustomEvent).detail;
+  //     setCurrentConflict(conflict);
+  //     setConflictModalOpen(true);
+  //   };
+  //
+  //   window.addEventListener('open-conflict-resolver', handleOpenConflictResolver);
+  //   return () => window.removeEventListener('open-conflict-resolver', handleOpenConflictResolver);
+  // }, []);
 
   return (
     <div className="flex min-h-screen bg-tertiary dark:bg-gray-900">

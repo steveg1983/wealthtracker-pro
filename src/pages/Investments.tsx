@@ -11,6 +11,7 @@ import StockWatchlist from '../components/StockWatchlist';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, Decimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
 import PageWrapper from '../components/PageWrapper';
 
 export default function Investments() {
@@ -23,14 +24,12 @@ export default function Investments() {
   const [managingAccountId, setManagingAccountId] = useState<string | null>(null);
 
   // Helper function to format percentages
-  const formatPercentage = (value: number): string => {
-    const decimalValue = toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+  const formatPercentage = (value: DecimalInstance | number, decimals: number = 2): string => {
+    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
     const isNegative = decimalValue.isNegative();
     const absolute = decimalValue.abs();
-    const fixed = absolute.toFixed(2);
-    const [integerPart, fractionalPart] = fixed.split('.');
-    const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return `${isNegative ? '-' : ''}${groupedInteger}.${fractionalPart}%`;
+    const fixed = absolute.toFixed(decimals);
+    return `${isNegative ? '-' : ''}${fixed}%`;
   };
 
   // Get investment accounts only
@@ -330,7 +329,11 @@ export default function Investments() {
                 tickFormatter={(value: any) => {
                   const formatted = formatCurrency(value);
                   if (value >= 1000) {
-                    return `${formatted.charAt(0)}${(value / 1000).toFixed(0)}k`;
+                    const thousands = toDecimal(value)
+                      .dividedBy(1000)
+                      .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+                      .toFixed(0);
+                    return `${formatted.charAt(0)}${thousands}k`;
                   }
                   return formatted;
                 }}

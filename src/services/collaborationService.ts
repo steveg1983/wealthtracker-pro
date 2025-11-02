@@ -483,7 +483,7 @@ class CollaborationService {
     };
 
     // In a real app, save to budgets collection
-    this.logActivity('created_budget', 'Current User', `Created joint budget for ${category}`);
+    this.logActivity('created_budget', 'Current User', `Created joint budget for ${categoryId}`);
     return budget;
   }
 

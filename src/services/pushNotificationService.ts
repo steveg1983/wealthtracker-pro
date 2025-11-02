@@ -14,7 +14,7 @@ interface NotificationOptions {
   badge?: string;
   tag?: string;
   data?: any;
-  actions?: NotificationAction[];
+  actions?: any[];
   requireInteraction?: boolean;
 }
 
