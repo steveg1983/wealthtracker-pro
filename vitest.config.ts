@@ -22,6 +22,7 @@ export default createVitestReactConfig({
     'src.backup.*',
     'src.backup.*/**',
     '**/src.backup.*/**',
+    'src-backup-optimized/**',
     '**/*.backup.*/**',
     '**/CLAUDE.md.backup.*',
     'WealthTracker-Backups/**',

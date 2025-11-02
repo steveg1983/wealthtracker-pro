@@ -55,8 +55,8 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
   const [error, setError] = useState<string | null>(null);
 
   // Get current tier
-  const tier: SubscriptionTier = subscription?.tier || 'free';
-  
+  const tier: SubscriptionPlan = subscription?.tier || subscription?.plan || 'free';
+
   // Get feature limits for current tier
   const limits = StripeService.getFeatureLimits(tier);
 
