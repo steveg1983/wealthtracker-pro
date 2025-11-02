@@ -52,7 +52,7 @@ class EnhancedEncryptionService {
    */
   private async deriveOrRetrieveMasterKey(userIdentifier?: string): Promise<CryptoJS.lib.WordArray> {
     // Check if we have a stored key (encrypted with device key)
-    const storedKeyData = this.getStoredKeyData();
+    const storedKeyData = await this.getStoredKeyData();
     
     if (storedKeyData && !this.isKeyExpired(storedKeyData.timestamp)) {
       return this.decryptStoredKey(storedKeyData);
@@ -156,8 +156,13 @@ class EnhancedEncryptionService {
       keySize: this.config.keySize / 32
     });
 
+    const payload =
+      data === undefined
+        ? { __value: null, __type: 'undefined' }
+        : { __value: data, __type: 'value' };
+
     // Encrypt the data
-    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), encryptionKey, {
+    const encrypted = CryptoJS.AES.encrypt(JSON.stringify(payload), encryptionKey, {
       iv: iv,
       mode: CryptoJS.mode.CBC,
       padding: CryptoJS.pad.Pkcs7
@@ -207,7 +212,15 @@ class EnhancedEncryptionService {
       throw new Error('Failed to decrypt data - invalid key or corrupted data');
     }
 
-    return JSON.parse(decryptedText) as T;
+    try {
+      const parsed = JSON.parse(decryptedText);
+      if (parsed && typeof parsed === 'object' && '__type' in parsed && '__value' in parsed) {
+        return (parsed.__type === 'undefined' ? undefined : parsed.__value) as T;
+      }
+      return parsed as T;
+    } catch {
+      throw new Error('Failed to decrypt data - invalid key or corrupted data');
+    }
   }
 
   /**
@@ -237,15 +250,24 @@ class EnhancedEncryptionService {
   /**
    * Get stored key data
    */
-  private getStoredKeyData(): any {
+  private async getStoredKeyData(): Promise<any> {
     try {
       // Try IndexedDB first
-      return this.getFromIndexedDB('encryption_keys', 'master');
+      const record = await this.getFromIndexedDB('encryption_keys', 'master');
+      if (record && record.key) {
+        return record;
+      }
     } catch {
       // Fallback to sessionStorage
       const stored = sessionStorage.getItem('wt_master_key');
-      return stored ? JSON.parse(stored) : null;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.key) {
+          return parsed;
+        }
+      }
     }
+    return null;
   }
 
   /**

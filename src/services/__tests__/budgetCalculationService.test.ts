@@ -9,6 +9,7 @@ describe('BudgetCalculationService', () => {
 
   beforeEach(() => {
     // Set system time to January 2025 for consistent testing
+    vi.useRealTimers();
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-25'));
     mockBudget = {

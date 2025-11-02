@@ -214,7 +214,7 @@ class CustomReportService {
     config: any
   ): any {
     // Group transactions by month
-    const monthlyData = new Map<string, { income: Decimal; expenses: Decimal }>();
+    const monthlyData = new Map<string, { income: typeof Decimal.prototype; expenses: typeof Decimal.prototype }>();
     
     transactions.forEach(t => {
       const monthKey = format(new Date(t.date), 'yyyy-MM');
@@ -262,7 +262,7 @@ class CustomReportService {
     config: any
   ): any {
     // Group expenses by category
-    const categoryTotals = new Map<string, Decimal>();
+    const categoryTotals = new Map<string, typeof Decimal.prototype>();
     
     transactions
       .filter(t => t.type === 'expense')
@@ -302,7 +302,7 @@ class CustomReportService {
     config: any
   ): any {
     // Similar to line chart but with bar format
-    const monthlyExpenses = new Map<string, Decimal>();
+    const monthlyExpenses = new Map<string, typeof Decimal.prototype>();
     
     transactions
       .filter(t => t.type === 'expense')
@@ -342,9 +342,9 @@ class CustomReportService {
         const bVal = b[config.sortBy as keyof Transaction];
         
         if (config.sortOrder === 'desc') {
-          return aVal > bVal ? -1 : 1;
+          return (aVal || 0) > (bVal || 0) ? -1 : 1;
         } else {
-          return aVal > bVal ? 1 : -1;
+          return (aVal || 0) > (bVal || 0) ? 1 : -1;
         }
       });
     }
@@ -373,8 +373,8 @@ class CustomReportService {
   ): any {
     // Group by category with budget comparison
     const categoryData = new Map<string, {
-      actual: Decimal;
-      budget: Decimal;
+      actual: typeof Decimal.prototype;
+      budget: typeof Decimal.prototype;
       count: number;
     }>();
 

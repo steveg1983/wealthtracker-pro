@@ -46,7 +46,7 @@ describe('Core Integration Tests', () => {
     });
 
     it('handles budget calculations consistently', () => {
-      const budget = createMockBudget({ category: 'groceries', amount: 500 });
+      const budget = createMockBudget({ categoryId: 'groceries', amount: 500 });
       const transactions = [
         createMockTransaction({ category: 'groceries', amount: 250.50, type: 'expense' }),
         createMockTransaction({ category: 'groceries', amount: 100.25, type: 'expense' })
@@ -113,7 +113,7 @@ describe('Core Integration Tests', () => {
     });
 
     it('maintains budget-category relationships correctly', () => {
-      const budget = createMockBudget({ category: 'groceries', amount: 500 });
+      const budget = createMockBudget({ categoryId: 'groceries', amount: 500 });
       const transactions = [
         createMockTransaction({ category: 'groceries', amount: 100, type: 'expense' }),
         createMockTransaction({ category: 'groceries', amount: 150, type: 'expense' }),

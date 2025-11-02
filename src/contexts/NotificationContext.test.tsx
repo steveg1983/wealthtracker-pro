@@ -3,12 +3,41 @@
  * Comprehensive tests for the notification context provider
  */
 
+import React, { ReactNode } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { ReactNode } from 'react';
+import { renderHook, act, render } from '@testing-library/react';
 import { NotificationProvider, useNotifications } from './NotificationContext';
 import type { Notification, BudgetAlert } from './NotificationContext';
 import type { Goal, Budget, Transaction, Category } from '../types';
+
+vi.mock('../hooks/useCurrencyDecimal', () => ({
+  useCurrencyDecimal: () => ({
+    displayCurrency: 'USD',
+    formatCurrency: (value: unknown) => `$${value as string | number}`
+  })
+}));
+
+class TestErrorBoundary extends React.Component<{ onError: (error: Error) => void; children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { onError: (error: Error) => void; children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    this.props.onError(error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
 
 // Mock localStorage
 const mockLocalStorage = {
@@ -761,9 +790,24 @@ describe('NotificationContext', () => {
 
   describe('error handling', () => {
     it('throws error when useNotifications is used outside provider', () => {
-      expect(() => {
-        renderHook(() => useNotifications());
-      }).toThrow('useNotifications must be used within a NotificationProvider');
+      const onError = vi.fn();
+
+      const TestComponent = () => {
+        useNotifications();
+        return null;
+      };
+
+      render(
+        <TestErrorBoundary onError={onError}>
+          <TestComponent />
+        </TestErrorBoundary>
+      );
+
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'useNotifications must be used within a NotificationProvider',
+        })
+      );
     });
 
     it('handles localStorage errors gracefully', () => {

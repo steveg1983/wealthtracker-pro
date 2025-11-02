@@ -8,69 +8,18 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DuplicateDetection from '../DuplicateDetection';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock dependencies
-vi.mock('../../contexts/AppContext', () => ({
-  useApp: () => ({
-    transactions: [
-      {
-        id: 'trans-1',
-        date: new Date('2024-01-15'),
-        description: 'Coffee Shop',
-        amount: 5.99,
-        category: 'Food',
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: true
-      },
-      {
-        id: 'trans-2',
-        date: new Date('2024-01-15'),
-        description: 'Coffee Shop',
-        amount: 5.99,
-        category: 'Food',
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: true
-      },
-      {
-        id: 'trans-3',
-        date: new Date('2024-01-16'),
-        description: 'Coffee Shop',
-        amount: 5.98,
-        category: 'Food',
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: true
-      },
-      {
-        id: 'trans-4',
-        date: new Date('2024-01-20'),
-        description: 'Grocery Store',
-        amount: 45.67,
-        category: 'Groceries',
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: true
-      },
-      {
-        id: 'trans-5',
-        date: new Date('2024-01-20'),
-        description: 'Grocery Store',
-        amount: 45.67,
-        category: 'Groceries',
-        accountId: 'acc-1',
-        type: 'expense',
-        cleared: false
-      }
-    ]
-  })
+const mockUseApp = vi.fn();
+const mockUseCurrencyDecimal = vi.fn();
+
+vi.mock('../../contexts/AppContextSupabase', () => ({
+  useApp: () => mockUseApp()
 }));
 
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
-  useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `$${amount.toFixed(2)}`
-  })
+  useCurrencyDecimal: () => mockUseCurrencyDecimal()
 }));
 
 // Mock icons
@@ -93,12 +42,72 @@ vi.mock('../icons', () => ({
 }));
 
 describe('DuplicateDetection', () => {
+  const defaultTransactions = [
+    {
+      id: 'trans-1',
+      date: new Date('2024-01-15'),
+      description: 'Coffee Shop',
+      amount: 5.99,
+      category: 'Food',
+      accountId: 'acc-1',
+      type: 'expense' as const,
+      cleared: true
+    },
+    {
+      id: 'trans-2',
+      date: new Date('2024-01-15'),
+      description: 'Coffee Shop',
+      amount: 5.99,
+      category: 'Food',
+      accountId: 'acc-1',
+      type: 'expense' as const,
+      cleared: true
+    },
+    {
+      id: 'trans-3',
+      date: new Date('2024-01-16'),
+      description: 'Coffee Shop',
+      amount: 5.98,
+      category: 'Food',
+      accountId: 'acc-1',
+      type: 'expense' as const,
+      cleared: true
+    },
+    {
+      id: 'trans-4',
+      date: new Date('2024-01-20'),
+      description: 'Grocery Store',
+      amount: 45.67,
+      category: 'Groceries',
+      accountId: 'acc-1',
+      type: 'expense' as const,
+      cleared: true
+    },
+    {
+      id: 'trans-5',
+      date: new Date('2024-01-20'),
+      description: 'Grocery Store',
+      amount: 45.67,
+      category: 'Groceries',
+      accountId: 'acc-1',
+      type: 'expense' as const,
+      cleared: false
+    }
+  ];
+
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseApp.mockReturnValue({
+      transactions: defaultTransactions
+    });
+    mockUseCurrencyDecimal.mockReturnValue({
+      displayCurrency: 'USD',
+      formatCurrency: (value: any) => formatCurrencyDecimal(value, 'USD')
+    });
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   describe('rendering', () => {
@@ -318,7 +327,7 @@ describe('DuplicateDetection', () => {
       
       // Import mode detection happens synchronously
       // Should show duplicate found for Coffee Shop (multiple matches expected)
-      const coffeeShopTexts = screen.getAllByText(/Coffee Shop/);
+      const coffeeShopTexts = await screen.findAllByText(/Coffee Shop/);
       expect(coffeeShopTexts.length).toBeGreaterThan(0);
     });
 
@@ -345,7 +354,7 @@ describe('DuplicateDetection', () => {
       
       // Import mode detection happens synchronously
       // Should find the duplicate checkbox (it's likely auto-selected due to high confidence)
-      const checkboxes = screen.getAllByRole('checkbox');
+      const checkboxes = await screen.findAllByRole('checkbox');
       expect(checkboxes.length).toBeGreaterThan(0);
       
       // Check if it's already selected (high confidence auto-select)
@@ -358,7 +367,7 @@ describe('DuplicateDetection', () => {
       }
       
       // The button might be disabled if all are selected as duplicates
-      const confirmButton = screen.getByText(/Import.*Unique Transactions/);
+      const confirmButton = await screen.findByText(/Import.*Unique Transactions/);
       
       // Check if button is disabled when all are duplicates
       if (confirmButton.closest('button')?.disabled) {
@@ -395,10 +404,13 @@ describe('DuplicateDetection', () => {
       // Import mode detection happens synchronously
       // High confidence duplicates should be auto-selected
       // There are multiple checkboxes (one for auto-select setting, one for the duplicate)
-      const checkboxes = screen.getAllByRole('checkbox');
+      const checkboxes = await screen.findAllByRole('checkbox');
       // Find the duplicate checkbox (not the settings checkbox)
-      const duplicateCheckbox = checkboxes.find(cb => cb.className.includes('mt-1'));
-      expect(duplicateCheckbox).toBeChecked();
+      await waitFor(() => {
+        const duplicateCheckbox = checkboxes.find(cb => cb.className.includes('mt-1'));
+        expect(duplicateCheckbox).toBeDefined();
+        expect(duplicateCheckbox).toBeChecked();
+      });
     });
   });
 
@@ -450,9 +462,9 @@ describe('DuplicateDetection', () => {
         cleared: true
       }));
       
-      vi.mocked(vi.importActual('../../contexts/AppContext') as any).useApp = vi.fn(() => ({
+      mockUseApp.mockReturnValue({
         transactions: largeTransactionSet
-      }));
+      });
       
       render(<DuplicateDetection isOpen={true} onClose={vi.fn()} />);
       

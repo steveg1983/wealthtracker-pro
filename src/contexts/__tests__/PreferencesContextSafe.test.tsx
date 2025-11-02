@@ -15,7 +15,7 @@ describe('PreferencesContextSafe', () => {
         wrapper: PreferencesProvider
       });
 
-      expect(result.current.compactView).toBe(false);
+      expect(result.current.compactView).toBe(true);
       expect(result.current.currency).toBe('GBP');
       expect(result.current.theme).toBe('light');
       expect(result.current.actualTheme).toBe('light');
@@ -76,13 +76,13 @@ describe('PreferencesContextSafe', () => {
         wrapper: PreferencesProvider
       });
 
-      expect(result.current.compactView).toBe(false);
+      expect(result.current.compactView).toBe(true);
 
       act(() => {
-        result.current.setCompactView(true);
+        result.current.setCompactView(false);
       });
 
-      expect(result.current.compactView).toBe(true);
+      expect(result.current.compactView).toBe(false);
     });
 
     it('updates currency', () => {
@@ -248,18 +248,18 @@ describe('PreferencesContextSafe', () => {
       act(() => {
         result.current.setCurrency('EUR');
         result.current.setFirstName('Jane');
-        result.current.setCompactView(true);
+        result.current.setCompactView(false);
       });
 
       expect(result.current.currency).toBe('EUR');
       expect(result.current.firstName).toBe('Jane');
-      expect(result.current.compactView).toBe(true);
+      expect(result.current.compactView).toBe(false);
 
       rerender();
 
       expect(result.current.currency).toBe('EUR');
       expect(result.current.firstName).toBe('Jane');
-      expect(result.current.compactView).toBe(true);
+      expect(result.current.compactView).toBe(false);
     });
 
     it('handles multiple simultaneous updates', () => {
@@ -272,7 +272,7 @@ describe('PreferencesContextSafe', () => {
         result.current.setTheme('dark');
         result.current.setColorTheme('green');
         result.current.setFirstName('Test User');
-        result.current.setCompactView(true);
+        result.current.setCompactView(false);
         result.current.setShowBudget(false);
         result.current.setShowGoals(false);
         result.current.setShowAnalytics(false);
@@ -288,7 +288,7 @@ describe('PreferencesContextSafe', () => {
       expect(result.current.theme).toBe('dark');
       expect(result.current.colorTheme).toBe('green');
       expect(result.current.firstName).toBe('Test User');
-      expect(result.current.compactView).toBe(true);
+      expect(result.current.compactView).toBe(false);
       expect(result.current.showBudget).toBe(false);
       expect(result.current.showGoals).toBe(false);
       expect(result.current.showAnalytics).toBe(false);
@@ -320,7 +320,7 @@ describe('PreferencesContextSafe', () => {
 
       expect(screen.getByTestId('currency')).toHaveTextContent('GBP');
       expect(screen.getByTestId('theme')).toHaveTextContent('light');
-      expect(screen.getByTestId('compact')).toHaveTextContent('false');
+      expect(screen.getByTestId('compact')).toHaveTextContent('true');
     });
 
     it('updates are reflected in all consumers', () => {

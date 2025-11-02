@@ -236,7 +236,10 @@ class SearchService {
     }
 
     if (options.recurring !== undefined) {
-      filtered = filtered.filter(t => t.isRecurring === options.recurring);
+      filtered = filtered.filter(t => {
+        const flag = (t as any).isRecurring ?? (t as any).recurring ?? false;
+        return flag === options.recurring;
+      });
     }
 
     return filtered;

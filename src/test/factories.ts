@@ -25,11 +25,13 @@ export const createMockTransaction = (overrides?: Partial<Transaction>): Transac
 
 export const createMockBudget = (overrides?: Partial<Budget>): Budget => ({
   id: '1',
-  category: 'groceries',
+  categoryId: 'groceries',
   amount: 500,
   period: 'monthly',
   isActive: true,
   createdAt: new Date(),
+  spent: 0,
+  updatedAt: new Date(),
   ...overrides,
 });
 

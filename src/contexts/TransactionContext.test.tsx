@@ -3,9 +3,9 @@
  * Comprehensive tests for the transaction context provider
  */
 
+import React, { ReactNode } from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { ReactNode } from 'react';
+import { renderHook, render, act } from '@testing-library/react';
 import { TransactionProvider, useTransactions } from './TransactionContext';
 
 // Mock localStorage
@@ -28,6 +28,28 @@ vi.mock('uuid', () => ({
 
 // Mock console.error
 const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+class TestErrorBoundary extends React.Component<{ onError: (error: Error) => void; children: ReactNode }, { hasError: boolean }> {
+  constructor(props: { onError: (error: Error) => void; children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): { hasError: boolean } {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error) {
+    this.props.onError(error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
 
 describe('TransactionContext', () => {
   beforeEach(() => {
@@ -767,9 +789,24 @@ describe('TransactionContext', () => {
 
   describe('error handling', () => {
     it('throws error when useTransactions is used outside provider', () => {
-      expect(() => {
-        renderHook(() => useTransactions());
-      }).toThrow('useTransactions must be used within TransactionProvider');
+      const onError = vi.fn();
+
+      const TestComponent = () => {
+        useTransactions();
+        return null;
+      };
+
+      render(
+        <TestErrorBoundary onError={onError}>
+          <TestComponent />
+        </TestErrorBoundary>
+      );
+
+      expect(onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'useTransactions must be used within TransactionProvider',
+        })
+      );
     });
 
     it('throws when localStorage fails', () => {

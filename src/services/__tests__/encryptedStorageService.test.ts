@@ -35,8 +35,8 @@ describe('EncryptedStorageService', () => {
       
       expect(indexedDBService.put).toHaveBeenCalledWith(
         'secureData',
-        'test-key',
         expect.objectContaining({
+          key: 'test-key',
           data: expect.any(String), // Encrypted string
           timestamp: expect.any(Number),
           encrypted: true,
@@ -53,7 +53,7 @@ describe('EncryptedStorageService', () => {
       
       // Get the encrypted data that was stored
       const storedCall = vi.mocked(indexedDBService.put).mock.calls[0];
-      const encryptedData = storedCall[2];
+      const encryptedData = storedCall[1];
       
       // Mock the retrieval
       vi.mocked(indexedDBService.get).mockResolvedValueOnce(encryptedData);
@@ -71,8 +71,8 @@ describe('EncryptedStorageService', () => {
       
       expect(indexedDBService.put).toHaveBeenCalledWith(
         'secureData',
-        'preference',
         expect.objectContaining({
+          key: 'preference',
           data: testData,
           encrypted: false
         })
@@ -91,8 +91,8 @@ describe('EncryptedStorageService', () => {
       
       expect(indexedDBService.put).toHaveBeenCalledWith(
         'secureData',
-        'large-data',
         expect.objectContaining({
+          key: 'large-data',
           compressed: true
         })
       );
@@ -106,8 +106,8 @@ describe('EncryptedStorageService', () => {
       
       expect(indexedDBService.put).toHaveBeenCalledWith(
         'secureData',
-        'temp-key',
         expect.objectContaining({
+          key: 'temp-key',
           expiry: expect.any(Number)
         })
       );
@@ -152,10 +152,14 @@ describe('EncryptedStorageService', () => {
       // Set invalid JSON in localStorage
       localStorage.setItem('invalid-key', 'not-json');
       
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
       await encryptedStorage.migrateFromLocalStorage(['invalid-key']);
       
-      // Should not throw, but also shouldn't migrate invalid data
-      expect(localStorage.getItem('invalid-key')).toBe('not-json');
+      expect(indexedDBService.putBulk).toHaveBeenCalled();
+      expect(localStorage.getItem('invalid-key')).toBeNull();
+
+      warnSpy.mockRestore();
     });
   });
 
