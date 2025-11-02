@@ -236,7 +236,7 @@ class AdvancedAnalyticsService {
           type: 'merchant',
           title: `Optimize ${merchant} Spending`,
           description: `Consider bulk purchases or membership discounts`,
-          potentialSavings: data.monthlyTotal?.times(0.1).toNumber() || 0, // 10% potential savings
+          potentialSavings: data.monthlyTotal.times(0.1), // 10% potential savings
           difficulty: 'medium',
           actionRequired: 'Look for discounts or alternative options'
         });
@@ -544,11 +544,11 @@ class AdvancedAnalyticsService {
     return {
       isAccelerating: false,
       percentageIncrease: 0,
-      daily: 0,
-      weekly: 0,
-      monthly: 0,
-      trend: 'stable',
-      projectedMonthly: 0
+      daily: new Decimal(0),
+      weekly: new Decimal(0),
+      monthly: new Decimal(0),
+      trend: 'stable' as const,
+      projectedMonthly: new Decimal(0)
     };
   }
 
