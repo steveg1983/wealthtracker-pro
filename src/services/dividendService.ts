@@ -1,8 +1,9 @@
 // Dividend Tracking Service
-import { toDecimal } from '../utils/decimal';
+import { Decimal, toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { errorHandlingService, ErrorCategory, ErrorSeverity, validate } from './errorHandlingService';
 import type { SavedDividend } from '../types/dividend';
+import { formatCurrency } from '../utils/currency-decimal';
 
 export interface Dividend {
   id: string;
@@ -507,15 +508,18 @@ class DividendService {
       'Frequency', 'Tax Withheld', 'Reinvested', 'Notes'
     ];
     
+    const formatDecimalValue = (value: DecimalInstance | number, places: number) =>
+      toDecimal(value).toDecimalPlaces(places, Decimal.ROUND_HALF_UP).toFixed(places);
+
     const rows = this.dividends.map(div => [
       div.paymentDate.toISOString().split('T')[0],
       div.symbol,
-      div.amount.toFixed(2),
-      div.amountPerShare.toFixed(4),
+      formatCurrency(div.amount, div.currency || 'USD'),
+      formatDecimalValue(div.amountPerShare, 4),
       div.shares.toString(),
       div.type,
       div.frequency,
-      div.taxWithheld?.toFixed(2) || '',
+      div.taxWithheld !== undefined ? formatCurrency(div.taxWithheld, div.currency || 'USD') : '',
       div.reinvested ? 'Yes' : 'No',
       div.notes || ''
     ]);

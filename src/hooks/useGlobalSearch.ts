@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import type { Account, Transaction, Budget, Goal } from '../types';
+import { formatCurrency } from '../utils/currency-decimal';
+import { Decimal, toDecimal } from '../utils/decimal';
 
 export interface SearchResult {
   id: string;
@@ -71,12 +73,13 @@ export function useGlobalSearch(query: string): {
         const allMatches = [...titleScore.matches, ...institutionScore.matches, ...typeScore.matches];
 
         if (totalScore > 0) {
-          const balance = typeof account.balance === 'number' ? account.balance.toFixed(2) : '0.00';
+          const balanceDecimal = toDecimal(account.balance ?? 0);
+          const balance = formatCurrency(balanceDecimal, account.currency || 'GBP');
           results.push({
             id: account.id,
             type: 'account',
             title: account.name,
-            description: `${account.type} at ${account.institution || 'Unknown'} - ${account.currency || 'GBP'} ${balance}`,
+            description: `${account.type} at ${account.institution || 'Unknown'} - ${balance}`,
             data: account,
             score: totalScore,
             matches: [...new Set(allMatches)],
@@ -100,12 +103,12 @@ export function useGlobalSearch(query: string): {
 
         if (totalScore > 0) {
           const account = accounts.find(acc => acc.id === transaction.accountId);
-          const amount = typeof transaction.amount === 'number' ? transaction.amount.toFixed(2) : '0.00';
+          const amountFormatted = formatCurrency(transaction.amount ?? 0, account?.currency || 'GBP');
           results.push({
             id: transaction.id,
             type: 'transaction',
             title: transaction.description,
-            description: `${transaction.type} - ${amount} ${account?.currency || 'GBP'} (${getCategoryName(transaction.category)})`,
+            description: `${transaction.type} - ${amountFormatted} (${getCategoryName(transaction.category)})`,
             data: transaction,
             score: totalScore,
             matches: [...new Set(allMatches)],
@@ -127,12 +130,12 @@ export function useGlobalSearch(query: string): {
         const allMatches = [...categoryScore.matches, ...amountScore.matches, ...periodScore.matches];
 
         if (totalScore > 0) {
-          const amount = typeof budget.amount === 'number' ? budget.amount.toFixed(2) : '0.00';
+          const amountFormatted = formatCurrency(budget.amount ?? 0, 'GBP');
           results.push({
             id: budget.id,
             type: 'budget',
             title: `${getCategoryName(budget.categoryId)} Budget`,
-            description: `${budget.period} budget - ${amount} GBP`,
+            description: `${budget.period} budget - ${amountFormatted}`,
             data: budget,
             score: totalScore,
             matches: [...new Set(allMatches)],
@@ -155,15 +158,18 @@ export function useGlobalSearch(query: string): {
         const allMatches = [...nameScore.matches, ...typeScore.matches, ...targetScore.matches, ...currentScore.matches];
 
         if (totalScore > 0) {
-          const currentAmount = typeof goal.currentAmount === 'number' ? goal.currentAmount : 0;
-          const targetAmount = typeof goal.targetAmount === 'number' ? goal.targetAmount : 1;
-          const progress = targetAmount > 0 ? ((currentAmount / targetAmount) * 100).toFixed(1) : '0.0';
+          const currentAmountDecimal = toDecimal(goal.currentAmount ?? 0);
+          const targetAmountDecimal = toDecimal(goal.targetAmount ?? 0);
+          const progressDecimal = targetAmountDecimal.equals(0)
+            ? new Decimal(0)
+            : currentAmountDecimal.dividedBy(targetAmountDecimal).times(100);
+          const progressDisplay = progressDecimal.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toFixed(1);
           
           results.push({
             id: goal.id,
             type: 'goal',
             title: goal.name,
-            description: `${goal.type} goal - ${currentAmount.toFixed(2)} / ${targetAmount.toFixed(2)} GBP (${progress}%)`,
+            description: `${goal.type} goal - ${formatCurrency(currentAmountDecimal, 'GBP')} / ${formatCurrency(targetAmountDecimal, 'GBP')} (${progressDisplay}%)`,
             data: goal,
             score: totalScore,
             matches: [...new Set(allMatches)],

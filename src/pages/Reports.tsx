@@ -85,6 +85,10 @@ export default function Reports() {
     };
   }, [filteredTransactions]);
 
+  const savingsRateDecimal = toDecimal(summary.savingsRate ?? 0);
+  const savingsRateValue = savingsRateDecimal.toNumber();
+  const savingsRateDisplay = savingsRateDecimal.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toFixed(1);
+
   // Set loading to false when data is loaded
   useEffect(() => {
     if (transactions !== undefined && accounts !== undefined) {
@@ -332,9 +336,9 @@ export default function Reports() {
         <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50 p-6">
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Savings Rate</p>
           <p className={`text-2xl font-bold ${
-            summary.savingsRate >= 20 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
+            savingsRateValue >= 20 ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
           }`}>
-            {isLoading ? <SkeletonText className="w-20 h-8" /> : `${summary.savingsRate.toFixed(1)}%`}
+            {isLoading ? <SkeletonText className="w-20 h-8" /> : `${savingsRateDisplay}%`}
           </p>
         </div>
         </div>

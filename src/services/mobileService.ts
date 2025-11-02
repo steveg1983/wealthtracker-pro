@@ -1,5 +1,5 @@
 import { Transaction, Account, Budget } from '../types';
-import { toDecimal } from '../utils/decimal';
+import { Decimal, toDecimal } from '../utils/decimal';
 import type {
   NotificationAction,
   NotificationData,
@@ -466,13 +466,27 @@ class MobileService {
                t.type === 'expense';
       });
 
-      const spent = monthlyTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0);
-      const percentage = (spent / budget.amount) * 100;
+      const spentDecimal = monthlyTransactions.reduce(
+        (sum, t) => sum.plus(toDecimal(Math.abs(t.amount))),
+        toDecimal(0)
+      );
+      const budgetAmountDecimal = toDecimal(budget.amount || 0);
 
-      if (percentage >= 90) {
+      if (budgetAmountDecimal.equals(0)) {
+        return;
+      }
+
+      const percentageDecimal = spentDecimal
+        .dividedBy(budgetAmountDecimal)
+        .times(100);
+
+      if (percentageDecimal.greaterThanOrEqualTo(new Decimal(90))) {
+        const percentageDisplay = percentageDecimal
+          .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
+          .toFixed(0);
         this.sendNotification(
           'Budget Alert',
-          `You've spent ${percentage.toFixed(0)}% of your ${budget.categoryId} budget`,
+          `You've spent ${percentageDisplay}% of your ${budget.categoryId} budget`,
           { type: 'budget_alert', category: budget.categoryId }
         );
       }

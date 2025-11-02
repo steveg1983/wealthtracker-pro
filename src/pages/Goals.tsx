@@ -9,7 +9,7 @@ import type { Goal } from "../types";
 import type { DecimalGoal, DecimalAccount, DecimalInstance } from "../types/decimal-types";
 import PageWrapper from "../components/PageWrapper";
 import { calculateGoalProgress } from "../utils/calculations-decimal";
-import { toDecimal } from "../utils/decimal";
+import { Decimal, toDecimal } from "../utils/decimal";
 import { useCurrencyDecimal } from "../hooks/useCurrencyDecimal";
 import Confetti from "../components/Confetti";
 import GoalCelebrationModal from "../components/GoalCelebrationModal";
@@ -258,6 +258,9 @@ export default function Goals() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {activeGoals.map((goal) => {
               const progress = getProgressPercentage(goal);
+              const progressDecimal = toDecimal(progress);
+              const progressValue = progressDecimal.toNumber();
+              const progressDisplay = progressDecimal.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toFixed(1);
               const daysRemaining = getDaysRemaining(goal.targetDate);
               const linkedBalance = getLinkedAccountsBalance(goal.linkedAccountIds);
 
@@ -297,14 +300,14 @@ export default function Goals() {
                     <div>
                       <div className="flex justify-between text-sm mb-1">
                         <span className="text-gray-600 dark:text-gray-400">Progress</span>
-                        <span className="font-medium text-gray-900 dark:text-white">{progress.toFixed(1)}%</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{progressDisplay}%</span>
                       </div>
                       <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         <div
                           className={`h-2 rounded-full transition-all duration-300 ${
-                            progress >= 100 ? "bg-green-600" : progress >= 75 ? "bg-blue-600" : progress >= 50 ? "bg-yellow-600" : "bg-gray-400"
+                            progressValue >= 100 ? "bg-green-600" : progressValue >= 75 ? "bg-blue-600" : progressValue >= 50 ? "bg-yellow-600" : "bg-gray-400"
                           }`}
-                          style={{ width: `${progress}%` }}
+                          style={{ width: `${Math.min(progressValue, 100)}%` }}
                         />
                       </div>
                     </div>

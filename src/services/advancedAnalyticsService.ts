@@ -541,22 +541,53 @@ class AdvancedAnalyticsService {
 
   private calculateSpendingVelocity(transactions: Transaction[]): SpendingVelocity {
     // Simplified implementation
-    return { isAccelerating: false, percentageIncrease: 0 };
+    return {
+      isAccelerating: false,
+      percentageIncrease: 0,
+      daily: 0,
+      weekly: 0,
+      monthly: 0,
+      trend: 'stable',
+      projectedMonthly: 0
+    };
   }
 
   private analyzeSavingsBehavior(transactions: Transaction[], accounts: Account[]): SavingsBehavior {
     // Simplified implementation
-    return { consistentSaving: false, averagePercentage: 0 };
+    return {
+      consistentSaving: false,
+      averagePercentage: 0,
+      monthlySavingsRate: 0,
+      averageMonthlySavings: 0,
+      savingsStreak: 0,
+      totalSaved: 0,
+      savingsTrend: 'stable'
+    };
   }
 
   private analyzeBudgetPerformance(budget: Budget, transactions: Transaction[]): BudgetPerformance {
     // Simplified implementation
-    return { consistentlyUnder: false, averageUsage: 0 };
+    return {
+      budgetId: budget.id,
+      consistentlyUnder: false,
+      averageUsage: 0,
+      adherenceRate: 0,
+      overBudgetMonths: 0,
+      underBudgetMonths: 0,
+      trend: 'stable'
+    };
   }
 
   private analyzeIncomeStability(transactions: Transaction[]): IncomeStability {
     // Simplified implementation
-    return { isIrregular: false };
+    return {
+      isStable: true,
+      isIrregular: false,
+      variabilityPercentage: 0,
+      averageMonthlyIncome: 0,
+      incomeStreams: 1,
+      primaryIncomePercentage: 100
+    };
   }
 
   private detectSeasonalPatterns(transactions: Transaction[]): SeasonalPattern[] {

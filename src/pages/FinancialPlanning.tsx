@@ -373,7 +373,13 @@ export default function FinancialPlanning() {
                   <div className="space-y-3">
                     {financialGoals.slice(0, 3).map((goal) => {
                       const projection = financialPlanningService.calculateGoalProjection(goal);
-                      const progress = (goal.currentSavings / goal.targetAmount) * 100;
+                      const currentSavingsDecimal = toDecimal(goal.currentSavings ?? 0);
+                      const targetAmountDecimal = toDecimal(goal.targetAmount ?? 0);
+                      const progressDecimal = targetAmountDecimal.equals(0)
+                        ? new Decimal(0)
+                        : currentSavingsDecimal.dividedBy(targetAmountDecimal).times(100);
+                      const progressDisplay = progressDecimal.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toFixed(1);
+                      const progressValue = Math.min(progressDecimal.toNumber(), 100);
                       
                       return (
                         <div key={goal.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -391,13 +397,13 @@ export default function FinancialPlanning() {
                               {formatCurrency(goal.currentSavings)} of {formatCurrency(goal.targetAmount)}
                             </div>
                             <div className="text-sm text-gray-900 dark:text-white">
-                              {progress.toFixed(1)}%
+                              {progressDisplay}%
                             </div>
                           </div>
                           <div className="mt-2 w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                             <div
                               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                              style={{ width: `${Math.min(progress, 100)}%` }}
+                              style={{ width: `${progressValue}%` }}
                             />
                           </div>
                         </div>
@@ -439,12 +445,16 @@ export default function FinancialPlanning() {
                   <div className="space-y-3">
                     {debtPlans.slice(0, 3).map((plan) => {
                       const projection = financialPlanningService.calculateDebtPayoff(plan);
+                      const interestRatePercent = toDecimal(plan.interestRate ?? 0)
+                        .times(100)
+                        .toDecimalPlaces(1, Decimal.ROUND_HALF_UP)
+                        .toFixed(1);
                       return (
                         <div key={plan.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                           <div>
                             <p className="font-medium text-gray-900 dark:text-white">{plan.debtName}</p>
                             <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {formatCurrency(plan.currentBalance)} at {(plan.interestRate * 100).toFixed(1)}%
+                              {formatCurrency(plan.currentBalance)} at {interestRatePercent}%
                             </p>
                           </div>
                           <div className="text-right">
