@@ -21,6 +21,7 @@ import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { preserveDemoParam } from '../../utils/navigation';
 import AddTransactionModal from '../AddTransactionModal';
 import { PieChart, BarChart, ResponsiveContainer } from '../charts/ChartJsCharts';
+import { formatDecimal } from '../../utils/decimal-format';
 
 /**
  * Improved Dashboard with better information hierarchy
@@ -225,12 +226,12 @@ export function ImprovedDashboard() {
                 metrics.netWorthChange > 0 ? (
                   <span className="flex items-center gap-1 text-green-300 text-sm sm:text-base">
                     <ArrowUpIcon size={16} />
-                    +{metrics.netWorthChangePercent.toFixed(1)}%
+                    +{formatDecimal(metrics.netWorthChangePercent, 1)}%
                   </span>
                 ) : (
                   <span className="flex items-center gap-1 text-red-300 text-sm sm:text-base">
                     <ArrowDownIcon size={16} />
-                    {metrics.netWorthChangePercent.toFixed(1)}%
+                    {formatDecimal(metrics.netWorthChangePercent, 1)}%
                   </span>
                 )
               )}
@@ -295,7 +296,7 @@ export function ImprovedDashboard() {
                 {formatCurrencyWithSymbol(metrics.monthlySavings)}
               </p>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                {metrics.savingsRate.toFixed(1)}% rate
+                {formatDecimal(metrics.savingsRate, 1)}% rate
               </p>
             </div>
             <TargetIcon size={24} className="text-blue-500" />
@@ -310,7 +311,7 @@ export function ImprovedDashboard() {
             <PieChartIcon size={24} className="text-gray-500" />
             Budget Status
             <span className="text-sm font-normal text-gray-500 dark:text-gray-400">
-              ({metrics.overallBudgetPercent.toFixed(0)}% used)
+              ({formatDecimal(metrics.overallBudgetPercent, 0)}% used)
             </span>
           </h3>
           
@@ -542,9 +543,9 @@ export function ImprovedDashboard() {
                 formatter={(value: number) => formatCurrencyWithSymbol(value, displayCurrency)}
                 contentStyle={chartStyles.tooltip}
                 tickFormatter={(value: number) => {
-                  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-                  return value.toString();
+                  if (value >= 1000000) return `${formatDecimal(value / 1000000, 1)}M`;
+                  if (value >= 1000) return `${formatDecimal(value / 1000, 0)}K`;
+                  return formatDecimal(value, 0);
                 }}
               />
             </ResponsiveContainer>

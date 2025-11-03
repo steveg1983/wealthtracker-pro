@@ -2,6 +2,7 @@ import React, { memo } from 'react';
 import { TrendingUpIcon, TrendingDownIcon } from '../icons';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import type { Account } from '../../types';
+import { formatDecimal } from '../../utils/decimal-format';
 
 interface SummaryCardProps {
   title: string;
@@ -25,7 +26,7 @@ export const SummaryCard = memo(({ title, value, trend, icon, onClick }: Summary
           {trend !== undefined && (
             <div className={`flex items-center mt-2 text-sm ${trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {trend >= 0 ? <TrendingUpIcon size={16} /> : <TrendingDownIcon size={16} />}
-              <span className="ml-1">{Math.abs(trend).toFixed(1)}%</span>
+              <span className="ml-1">{formatDecimal(Math.abs(trend), 1)}%</span>
             </div>
           )}
         </div>
@@ -81,7 +82,7 @@ export const AccountDistributionChart = memo(({ accounts, formatCurrency, onAcco
           outerRadius={80}
           fill="#8884d8"
           dataKey="value"
-          label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+          label={({ name, percent }) => `${name} ${formatDecimal((percent ?? 0) * 100, 0)}%`}
         >
           {accountData.map((entry, index) => (
             <Cell 

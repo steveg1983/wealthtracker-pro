@@ -12,7 +12,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Transaction } from '../types';
 
 // Mock the external dependencies
-vi.mock('../contexts/AppContext');
+vi.mock('../contexts/AppContextSupabase');
 vi.mock('../hooks/useCurrencyDecimal');
 
 // Mock Recharts components
