@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { formatDecimal } from '../utils/decimal-format';
 import { useBudgets } from '../contexts/BudgetContext';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
@@ -252,7 +253,7 @@ export default function EnvelopeBudgeting() {
             <div className="mb-4">
               <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
                 <span>Spent</span>
-                <span>{envelope.fillPercentage.toFixed(1)}%</span>
+                <span>{formatDecimal(envelope.fillPercentage, 1)}%</span>
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                 <div

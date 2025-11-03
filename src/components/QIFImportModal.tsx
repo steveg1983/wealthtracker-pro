@@ -13,6 +13,7 @@ import {
   RefreshCwIcon
 } from './icons';
 import { LoadingButton } from './loading/LoadingState';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface QIFImportModalProps {
   isOpen: boolean;
@@ -35,6 +36,7 @@ type ImportOutcome =
 
 export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps): React.JSX.Element {
   const { accounts, transactions, categories, addTransaction } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
   const [file, setFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [parseResult, setParseResult] = useState<QIFParseResult | null>(null);
@@ -265,7 +267,7 @@ export default function QIFImportModal({ isOpen, onClose }: QIFImportModalProps)
                   <div key={index} className="flex justify-between text-gray-600 dark:text-gray-400">
                     <span>{trx.date} - {trx.payee || trx.memo || 'No description'}</span>
                     <span className={trx.amount < 0 ? 'text-red-600' : 'text-green-600'}>
-                      £{Math.abs(trx.amount).toFixed(2)}
+                      {formatCurrency(Math.abs(trx.amount))}
                     </span>
                   </div>
                 ))}

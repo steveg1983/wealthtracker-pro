@@ -2,6 +2,7 @@ import type { Transaction, Account, Budget, Goal } from '../types';
 import { toDecimal, Decimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, format, subWeeks, subMonths } from 'date-fns';
+import { formatDecimal } from '../utils/decimal-format';
 
 export interface SummaryData {
   period: 'weekly' | 'monthly';

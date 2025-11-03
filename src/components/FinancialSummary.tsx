@@ -6,6 +6,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { format } from 'date-fns';
 import { toDecimal, Decimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface FinancialSummaryProps {
   period: 'weekly' | 'monthly';
@@ -30,12 +31,12 @@ export default function FinancialSummary({ period }: FinancialSummaryProps) {
 
   const isPositiveChange = (value: number | DecimalInstance) => toDecimal(value).greaterThanOrEqualTo(0);
   const formatPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
-    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+    return formatDecimal(value, decimals);
   };
   const formatSignedPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
-    const decimal = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
-    const sign = decimal.greaterThanOrEqualTo(0) ? '+' : '-';
-    return `${sign}${decimal.abs().toFixed(decimals)}`;
+    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+    const sign = decimalValue.greaterThanOrEqualTo(0) ? '+' : '-';
+    return `${sign}${formatDecimal(decimalValue.abs(), decimals)}`;
   };
   const formatChange = (value: DecimalInstance | number) => {
     return `${formatSignedPercentage(value, 1)}%`;

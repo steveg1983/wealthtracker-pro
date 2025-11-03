@@ -74,11 +74,9 @@ class NotificationService {
     largeTransactionThreshold: 500,
     unusualSpendingEnabled: true,
     duplicateDetectionEnabled: true,
-    recurringDetectionEnabled: true,
     merchantChangeAlerts: true
   };
   private goalCelebrationConfig: GoalCelebrationConfig = {
-    enableMilestones: true,
     milestonePercentages: [25, 50, 75, 100],
     enableStreaks: true,
     enableBadges: true,

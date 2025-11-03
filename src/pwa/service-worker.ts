@@ -294,7 +294,6 @@ self.addEventListener('push', (event: PushEvent) => {
     body: data.body,
     icon: '/icon-192.png',
     badge: '/badge-72.png',
-    vibrate: [100, 50, 100],
     data: data.data,
     actions: data.actions || [],
     tag: data.tag || 'wealthtracker-notification',

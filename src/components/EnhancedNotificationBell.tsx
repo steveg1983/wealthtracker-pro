@@ -12,6 +12,7 @@ import {
 import { useActivityTracking, ActivityItem } from '../hooks/useActivityTracking';
 import { formatDistanceToNow } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface ActivityGroup {
   date: string;
@@ -30,6 +31,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
     clearActivities,
     getNewSinceLastCheck
   } = useActivityTracking();
+  const { formatCurrency } = useCurrencyDecimal();
   
   const [isOpen, setIsOpen] = useState(false);
   const [filter, setFilter] = useState<FilterValue>('all');
@@ -249,11 +251,11 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
                                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 truncate">
                                   {activity.description}
                                 </p>
-                                {activity.amount && (
+                                {activity.amount !== undefined && (
                                   <p className={`text-sm font-medium mt-1 ${
                                     activity.amount > 0 ? 'text-green-600' : 'text-red-600'
                                   }`}>
-                                    £{Math.abs(activity.amount).toFixed(2)}
+                                    {formatCurrency(Math.abs(activity.amount))}
                                   </p>
                                 )}
                                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">

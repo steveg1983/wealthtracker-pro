@@ -85,6 +85,12 @@ vi.mock('../services/qifImportService', () => ({
   }
 }));
 
+vi.mock('../hooks/useCurrencyDecimal', () => ({
+  useCurrencyDecimal: () => ({
+    formatCurrency: (amount: number) => `£${amount.toFixed(2)}`
+  })
+}));
+
 // Mock window methods
 const mockAlert = vi.fn();
 global.alert = mockAlert;

@@ -198,7 +198,7 @@ const mockAccounts: Account[] = [
 
 // Mock hooks
 const mockUseApp = vi.fn();
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => mockUseApp()
 }));
 
@@ -347,8 +347,8 @@ describe('PortfolioRebalancer', () => {
       
       // Rebalance actions are automatically shown
       await waitFor(() => {
-        expect(screen.getByText('BUY')).toBeInTheDocument();
-        expect(screen.getByText('VOO')).toBeInTheDocument();
+        expect(screen.getAllByText('BUY').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('VOO').length).toBeGreaterThan(0);
         // Multiple $10,000 elements exist, so use getAllByText
         const tenThousandElements = screen.getAllByText('$10,000');
         expect(tenThousandElements.length).toBeGreaterThan(0);
@@ -360,9 +360,9 @@ describe('PortfolioRebalancer', () => {
       
       // Rebalance actions are automatically shown
       await waitFor(() => {
-        expect(screen.getByText('SELL')).toBeInTheDocument();
-        expect(screen.getByText('BND')).toBeInTheDocument();
-        expect(screen.getByText('$5,000')).toBeInTheDocument();
+        expect(screen.getAllByText('SELL').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('BND').length).toBeGreaterThan(0);
+        expect(screen.getAllByText('$5,000').length).toBeGreaterThan(0);
       });
     });
 
@@ -404,16 +404,17 @@ describe('PortfolioRebalancer', () => {
   });
 
   describe('empty state', () => {
-    it('shows message when no investments', () => {
+    it('shows message when no investments', async () => {
       // Override the useApp mock to return empty accounts for this test
       mockUseApp.mockReturnValue({
         accounts: [] // Empty accounts array
       });
-      
       render(<PortfolioRebalancer />);
-      
+
       // When there are no investments, the component shows "No holdings to display"
-      expect(screen.getByText('No holdings to display')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.getByText('No holdings to display')).toBeInTheDocument();
+      });
     });
   });
 

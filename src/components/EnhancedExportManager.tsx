@@ -13,6 +13,8 @@ import {
 } from 'lucide-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, subMonths } from 'date-fns';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 // Dynamic imports for heavy libraries (loaded on demand)
 let jsPDF: typeof import('jspdf').jsPDF | null = null;
@@ -123,6 +125,7 @@ const REPORT_TEMPLATES = [
 
 export default function EnhancedExportManager(): React.JSX.Element {
   const { accounts, transactions, budgets } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [isExporting, setIsExporting] = useState(false);
@@ -230,9 +233,9 @@ export default function EnhancedExportManager(): React.JSX.Element {
       .reduce((sum, t) => sum + t.amount, 0));
     
     pdf.setFontSize(10);
-    pdf.text(`Total Income: £${income.toFixed(2)}`, 20, 55);
-    pdf.text(`Total Expenses: £${expenses.toFixed(2)}`, 20, 62);
-    pdf.text(`Net: £${(income - expenses).toFixed(2)}`, 20, 69);
+    pdf.text(`Total Income: ${formatCurrency(income)}`, 20, 55);
+    pdf.text(`Total Expenses: ${formatCurrency(expenses)}`, 20, 62);
+    pdf.text(`Net: ${formatCurrency(income - expenses)}`, 20, 69);
     pdf.text(`Transactions: ${filteredTransactions.length}`, 20, 76);
 
     // Add transactions table
@@ -242,7 +245,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
         t.description,
         t.category,
         accounts.find(a => a.id === t.accountId)?.name || 'Unknown',
-        `£${Math.abs(t.amount).toFixed(2)}`,
+        formatCurrency(Math.abs(t.amount)),
         t.amount > 0 ? 'Income' : 'Expense'
       ]);
 
@@ -271,10 +274,10 @@ export default function EnhancedExportManager(): React.JSX.Element {
         
         return [
           b.categoryId,
-          `£${b.amount.toFixed(2)}`,
-          `£${spent.toFixed(2)}`,
-          `£${(b.amount - spent).toFixed(2)}`,
-          `${percentage.toFixed(1)}%`
+          formatCurrency(b.amount),
+          formatCurrency(spent),
+          formatCurrency(b.amount - spent),
+          `${formatDecimal(percentage, 1)}%`
         ];
       });
 

@@ -8,6 +8,7 @@ import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
 import { LazyLineChart, LazyDoughnutChart } from '../components/charts/LazyChart';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, Decimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 export default function Reports() {
   const { transactions, accounts } = useApp();
@@ -86,7 +87,7 @@ export default function Reports() {
   }, [filteredTransactions]);
 
   const formatPercentage = (value: Decimal | number, decimals: number = 1) => {
-    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+    return formatDecimal(value, decimals);
   };
 
   const savingsRateDecimal = toDecimal(summary.savingsRate ?? 0);

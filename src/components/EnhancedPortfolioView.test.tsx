@@ -115,15 +115,6 @@ vi.mock('../utils/currency', () => ({
   formatCurrency: (amount: number) => `$${amount.toFixed(2)}`
 }));
 
-vi.mock('../utils/decimal', () => ({
-  toDecimal: (value: number) => ({
-    times: (other: number) => ({
-      toNumber: () => value * other
-    }),
-    toNumber: () => value
-  })
-}));
-
 describe('EnhancedPortfolioView', () => {
   const mockOnClose = vi.fn();
   const defaultProps = {

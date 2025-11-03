@@ -5,6 +5,7 @@ import { formatCurrency } from '../utils/currency';
 import { useStockPrices } from '../hooks/useStockPrices';
 import { convertStockPrice } from '../services/stockPriceService';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type { Holding } from '../types';
 
 interface EnhancedPortfolioViewProps {
@@ -111,11 +112,14 @@ export default function EnhancedPortfolioView({
   });
   
   const getPercentage = (value: number) => {
-    return totalMarketValue > 0 ? ((value / totalMarketValue) * 100).toFixed(1) : '0';
+    if (totalMarketValue <= 0) {
+      return '0.0';
+    }
+    return formatDecimal((value / totalMarketValue) * 100, 1);
   };
 
   const formatPercent = (value: number) => {
-    const formatted = value.toFixed(2);
+    const formatted = formatDecimal(value, 2);
     return value >= 0 ? `+${formatted}%` : `${formatted}%`;
   };
   

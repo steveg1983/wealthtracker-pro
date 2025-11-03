@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import smartCache from '../services/smartCacheService';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface UseCachedDataOptions<T> {
   key: string;
@@ -354,7 +355,7 @@ export function useCacheStats() {
   return {
     ...stats,
     clearCache,
-    hitRate: `${(stats.avgHitRate * 100).toFixed(1)}%`
+    hitRate: `${formatDecimal(stats.avgHitRate * 100, 1)}%`
   };
 }
 

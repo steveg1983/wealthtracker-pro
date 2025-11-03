@@ -16,6 +16,7 @@ import {
 } from './icons';
 import { Modal, ModalBody } from './common/Modal';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface PortfolioRebalancerProps {
   accountId?: string;
@@ -275,7 +276,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent ?? 0).toFixed(1)}%`}
+                  label={({ name, percent }) => `${name} ${formatDecimal(percent ?? 0, 1)}%`}
                 >
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -310,10 +311,10 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
                 <div className="flex items-center justify-between mt-1 text-sm">
                   <div className="flex items-center gap-4">
                     <span className="text-gray-600 dark:text-gray-400">
-                      Current: {alloc.currentPercent.toFixed(1)}%
+                      Current: {formatDecimal(alloc.currentPercent, 1)}%
                     </span>
                     <span className="text-gray-600 dark:text-gray-400">
-                      Target: {alloc.targetPercent.toFixed(1)}%
+                      Target: {formatDecimal(alloc.targetPercent, 1)}%
                     </span>
                   </div>
                   <span className={`font-medium ${
@@ -321,7 +322,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
                     Math.abs(alloc.differencePercent) < 5 ? 'text-yellow-600' :
                     'text-red-600'
                   }`}>
-                    {alloc.differencePercent > 0 ? '+' : ''}{alloc.differencePercent.toFixed(1)}%
+                    {alloc.differencePercent > 0 ? '+' : ''}{formatDecimal(alloc.differencePercent, 1)}%
                   </span>
                 </div>
               </div>
@@ -402,7 +403,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
                   <div>
                     <span className="text-gray-500 dark:text-gray-400 block text-xs">Shares</span>
                     <span className="text-gray-900 dark:text-white font-medium">
-                      {action.shares.toFixed(2)}
+                      {formatDecimal(action.shares, 2)}
                     </span>
                   </div>
                   <div>
@@ -447,7 +448,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
                     </td>
                     <td className="py-3 px-4 text-sm">{action.assetClass}</td>
                     <td className="py-3 px-4 text-right">
-                      {action.shares.toFixed(2)}
+                      {formatDecimal(action.shares, 2)}
                     </td>
                     <td className="py-3 px-4 text-right">
                       {formatCurrency(action.amount.toNumber())}
@@ -788,7 +789,7 @@ function TargetManagementModal({
                 
                 {formData.allocations && formData.allocations.length > 0 && (
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                    Total: {formData.allocations.reduce((sum, a) => sum + a.targetPercent, 0).toFixed(1)}%
+                    Total: {formatDecimal(formData.allocations.reduce((sum, a) => sum + a.targetPercent, 0), 1)}%
                   </p>
                 )}
               </div>

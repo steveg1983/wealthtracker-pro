@@ -30,8 +30,6 @@ function transformAccountFromDb(dbAccount: any): Account {
     createdAt: dbAccount.created_at,
     updatedAt: dbAccount.updated_at,
     lastUpdated: dbAccount.updated_at || dbAccount.created_at,
-    icon: dbAccount.icon,
-    color: dbAccount.color,
   };
 }
 

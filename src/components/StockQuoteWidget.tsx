@@ -3,6 +3,7 @@ import { getStockQuote } from '../services/stockPriceService';
 import type { DecimalInstance } from '../types/decimal-types';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { SearchIcon, TrendingUpIcon, TrendingDownIcon, RefreshCwIcon } from './icons';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface StockQuote {
   symbol: string;
@@ -99,6 +100,8 @@ export default function StockQuoteWidget({
   }
 
   const isPositive = quote.change.greaterThanOrEqualTo(0);
+  const percentChangePrefix = quote.changePercent.greaterThanOrEqualTo(0) ? '+' : '';
+  const formattedPercentChange = formatDecimal(quote.changePercent, 2);
 
   return (
     <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-lg shadow border border-white/20 dark:border-gray-700/50 p-4">
@@ -135,7 +138,7 @@ export default function StockQuoteWidget({
             {isPositive ? '+' : ''}{formatCurrency(quote.change)}
           </span>
           <span className="text-sm">
-            ({isPositive ? '+' : ''}{quote.changePercent.toFixed(2)}%)
+            ({percentChangePrefix}{formattedPercentChange}%)
           </span>
         </div>
       </div>

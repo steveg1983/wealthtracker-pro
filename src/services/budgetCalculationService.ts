@@ -1,6 +1,7 @@
 import { BaseService } from './base/BaseService';
 import Decimal from 'decimal.js';
 import type { Budget, Transaction, Category } from '../types';
+import { formatDecimal } from '../utils/decimal-format';
 
 export interface BudgetPeriod {
   startDate: Date;
@@ -210,7 +211,7 @@ class BudgetCalculationService extends BaseService {
 
     if (budgetSummary.percentageUsed > 90) {
       alerts.push(
-        `Overall budget usage at ${budgetSummary.percentageUsed.toFixed(1)}%`
+        `Overall budget usage at ${formatDecimal(budgetSummary.percentageUsed, 1)}%`
       );
     }
 

@@ -4,6 +4,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { StockQuoteSearch } from './StockQuoteWidget';
 import { PlusIcon, XIcon, RefreshCwIcon } from './icons';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface StockQuote {
   symbol: string;
@@ -204,7 +205,7 @@ export default function StockWatchlist() {
                       {quote.change.greaterThanOrEqualTo(0) ? '+' : ''}{formatCurrency(quote.change)}
                     </span>
                     <span>
-                      ({quote.change.greaterThanOrEqualTo(0) ? '+' : ''}{quote.changePercent.toFixed(2)}%)
+                      ({quote.change.greaterThanOrEqualTo(0) ? '+' : ''}{formatDecimal(quote.changePercent, 2)}%)
                     </span>
                   </div>
                 </div>
