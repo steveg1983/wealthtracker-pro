@@ -19,7 +19,7 @@ import type { DecimalInstance } from '../utils/decimal';
 
 // Lazy load heavy components to reduce bundle size
 const DashboardBuilder = lazy(() => import('../components/analytics/DashboardBuilder'));
-const QueryBuilder = lazy(() => import('../components/analytics/QueryBuilder').then(module => ({ default: module.default, Query: module.Query })));
+const QueryBuilder = lazy(() => import('../components/analytics/QueryBuilder'));
 const ChartWizard = lazy(() => import('../components/analytics/ChartWizard'));
 const AgGridReact = lazy(() => import('ag-grid-react').then(module => ({ default: module.AgGridReact })));
 
@@ -108,14 +108,19 @@ export default function Analytics(): React.JSX.Element {
     }
     
     // Category analysis
-    const categoryAnalysis = analyticsEngine.performCohortAnalysis(transactions, 'category', 'amount');
-    const topCategory = Object.entries(categoryAnalysis.segments)
-      .sort((a: any, b: any) => b[1].total - a[1].total)[0];
-    if (topCategory) {
+    const categoryAnalysis = analyticsEngine.performCohortAnalysis(transactions, accounts, 'category', 'value');
+    if (categoryAnalysis.length > 0) {
+      const topCategory = categoryAnalysis.reduce((max, curr) => {
+        const currTotal = curr.periods.reduce((sum, p) => sum + p.value, 0);
+        const maxTotal = max.periods.reduce((sum, p) => sum + p.value, 0);
+        return currTotal > maxTotal ? curr : max;
+      });
+
+      const totalSpent = topCategory.periods.reduce((sum, p) => sum + p.value, 0);
       newInsights.push({
         type: 'category',
-        title: `Highest spending category: ${topCategory[0]}`,
-        description: `You've spent ${formatCurrency((topCategory[1] as any).total)} in ${topCategory[0]} this month`,
+        title: `Highest spending category: ${topCategory.cohort}`,
+        description: `You've spent ${formatCurrency(toDecimal(totalSpent))} in ${topCategory.cohort} this month`,
         severity: 'info'
       });
     }

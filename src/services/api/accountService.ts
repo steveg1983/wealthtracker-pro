@@ -41,27 +41,26 @@ export class AccountService {
   static async createAccount(userId: string, account: Omit<Account, 'id' | 'created_at' | 'updated_at'>): Promise<Account> {
     if (!isSupabaseConfigured()) {
       // Fallback to localStorage
-      const newAccount = {
+      const newAccount: Account = {
         ...account,
         id: crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        lastUpdated: new Date(),
+        balance: account.balance || 0,
+        currency: account.currency || 'USD',
+        type: account.type || 'checking'
       };
-      
+
       const accounts = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS) || [];
-      accounts.push(newAccount as Account);
+      accounts.push(newAccount);
       await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);
-      
-      return newAccount as Account;
+
+      return newAccount;
     }
 
     try {
       // Prepare the account data without problematic fields
       // Map 'current' to 'checking' as that's what the database expects
-      const accountType = account.type === 'current' ? 'checking' : account.type;
-      
-      // Map account type properly (current -> checking for UK compatibility)
-      const mappedType = accountType === 'current' ? 'checking' : accountType;
+      const mappedType = account.type === 'current' ? 'checking' : account.type;
       
       const accountData: any = {
         user_id: userId,
@@ -69,11 +68,11 @@ export class AccountService {
         type: mappedType || 'checking',
         currency: account.currency || 'GBP',
         balance: account.balance || 0,
-        initial_balance: account.initialBalance || account.balance || 0,
+        initial_balance: account.openingBalance || account.balance || 0,
         is_active: account.isActive !== undefined ? account.isActive : true,
         institution: account.institution || null,
-        icon: account.icon || null,
-        color: account.color || null
+        icon: null, // Not part of Account interface
+        color: null // Not part of Account interface
       };
 
       console.log('Creating account with data:', accountData);
@@ -113,7 +112,7 @@ export class AccountService {
       accounts[index] = {
         ...accounts[index],
         ...updates,
-        updatedAt: new Date().toISOString()
+        lastUpdated: new Date()
       };
       
       await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);
@@ -209,7 +208,7 @@ export class AccountService {
       
       if (index !== -1) {
         accounts[index].balance = newBalance;
-        accounts[index].updatedAt = new Date().toISOString();
+        accounts[index].lastUpdated = new Date();
         await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);
       }
       return;
