@@ -265,8 +265,8 @@ class AnalyticsEngine {
     const values = monthlyData.map(d => d.y);
     
     // Calculate trend using linear regression
-    const regressionData = values.map((y, x) => [x, y]);
-    const result = regression.linear(regressionData);
+    const regressionData = values.map((y, x) => [x, y] as [number, number]);
+    const result = regression.linear(regressionData as any);
     
     // Detrend the data
     const detrended = values.map((y, x) => y - result.predict(x)[1]);
@@ -310,9 +310,9 @@ class AnalyticsEngine {
     
     if (model === 'auto') {
       const models = {
-        linear: regression.linear(values),
-        exponential: regression.exponential(values),
-        polynomial: regression.polynomial(values, { order: 2 })
+        linear: regression.linear(values as any),
+        exponential: regression.exponential(values as any),
+        polynomial: regression.polynomial(values as any, { order: 2 })
       };
       
       // Select model with highest R²
@@ -327,13 +327,13 @@ class AnalyticsEngine {
     } else {
       switch (model) {
         case 'linear':
-          bestFit = regression.linear(values);
+          bestFit = regression.linear(values as any);
           break;
         case 'exponential':
-          bestFit = regression.exponential(values);
+          bestFit = regression.exponential(values as any);
           break;
         case 'polynomial':
-          bestFit = regression.polynomial(values, { order: 2 });
+          bestFit = regression.polynomial(values as any, { order: 2 });
           break;
       }
     }
