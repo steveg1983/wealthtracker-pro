@@ -4,6 +4,7 @@ let html2canvas: typeof import('html2canvas').default | null = null;
 import { Transaction, Account } from '../types';
 import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
 import { toDecimal, Decimal } from './decimal';
+import { formatDecimal } from './decimal-format';
 
 interface ReportData {
   title: string;
@@ -56,7 +57,7 @@ export async function generatePDFReport(data: ReportData, accounts: Account[]): 
   };
 
   const formatPercentage = (value: number, decimals: number = 1): string => {
-    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+    return formatDecimal(value, decimals);
   };
 
   // Title

@@ -4,7 +4,8 @@ import { useBudgets } from '../contexts/BudgetContext';
 import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { calculateBudgetSpending, calculateBudgetPercentage } from '../utils/calculations-decimal';
-import { toDecimal, Decimal } from '../utils/decimal';
+import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type { DecimalInstance, DecimalBudget } from '../types/decimal-types';
 import {
   BellIcon,
@@ -37,7 +38,7 @@ interface AlertConfig {
 }
 
 const formatPercentage = (value: DecimalInstance | number, decimals: number = 0): string => {
-  return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+  return formatDecimal(value, decimals);
 };
 
 interface Alert {

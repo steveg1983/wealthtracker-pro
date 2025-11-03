@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useRealTimePrices } from '../hooks/useRealTimePrices';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type { DecimalInstance } from '../types/decimal-types';
 import { 
   RefreshCwIcon, 
@@ -213,7 +214,7 @@ export default function RealTimePortfolioEnhanced({
                       : 'text-red-600 dark:text-red-400'
                   }`}>
                     {portfolioMetrics.totalDayChangePercent.greaterThanOrEqualTo(0) ? '+' : ''}
-                    {portfolioMetrics.totalDayChangePercent.toFixed(2)}%
+                    {formatDecimal(portfolioMetrics.totalDayChangePercent, 2)}%
                   </p>
                 </>
               )}
@@ -251,7 +252,7 @@ export default function RealTimePortfolioEnhanced({
                       : 'text-red-600 dark:text-red-400'
                   }`}>
                     {portfolioMetrics.totalGainPercent.greaterThanOrEqualTo(0) ? '+' : ''}
-                    {portfolioMetrics.totalGainPercent.toFixed(2)}%
+                    {formatDecimal(portfolioMetrics.totalGainPercent, 2)}%
                   </p>
                 </>
               )}
@@ -311,7 +312,7 @@ export default function RealTimePortfolioEnhanced({
                         {holding.symbol}
                       </h4>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {holding.shares.toFixed(2)} shares @ {formatCurrency(holding.averageCost, baseCurrency)}
+                        {formatDecimal(holding.shares, 2)} shares @ {formatCurrency(holding.averageCost, baseCurrency)}
                       </p>
                     </div>
                     {holding.quote && (
@@ -348,7 +349,7 @@ export default function RealTimePortfolioEnhanced({
                           : 'text-red-600 dark:text-red-400'
                       }`}>
                         {holding.dayChange.greaterThanOrEqualTo(0) ? '+' : ''}
-                        {holding.dayChangePercent.toFixed(2)}%
+                        {formatDecimal(holding.dayChangePercent, 2)}%
                       </p>
                     )}
                   </div>
@@ -388,7 +389,7 @@ export default function RealTimePortfolioEnhanced({
                             : 'text-red-600 dark:text-red-400'
                         }`}>
                           {holding.gainPercent.greaterThanOrEqualTo(0) ? '+' : ''}
-                          {holding.gainPercent.toFixed(2)}%
+                          {formatDecimal(holding.gainPercent, 2)}%
                         </p>
                       </>
                     )}

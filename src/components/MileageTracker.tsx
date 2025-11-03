@@ -14,11 +14,10 @@ import type { MileageEntry } from '../services/businessService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, Decimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 const formatNumber = (value: DecimalInstance | number, decimals: number): string => {
-  return toDecimal(value)
-    .toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP)
-    .toFixed(decimals);
+  return formatDecimal(value, decimals);
 };
 
 interface MileageTrackerProps {

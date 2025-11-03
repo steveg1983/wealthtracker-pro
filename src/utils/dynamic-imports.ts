@@ -1,3 +1,5 @@
+import { formatDecimal } from './decimal-format';
+
 /**
  * Dynamic Import Utilities
  * Lazy load heavy dependencies only when needed
@@ -115,11 +117,13 @@ export async function measureImport<T>(
     try {
       const result = await importFn();
       const end = performance.now();
-      console.log(`✅ Loaded ${name} in ${(end - start).toFixed(2)}ms`);
+      const duration = formatDecimal(end - start, 2);
+      console.log(`✅ Loaded ${name} in ${duration}ms`);
       return result;
     } catch (error) {
       const end = performance.now();
-      console.error(`❌ Failed to load ${name} after ${(end - start).toFixed(2)}ms`, error);
+      const duration = formatDecimal(end - start, 2);
+      console.error(`❌ Failed to load ${name} after ${duration}ms`, error);
       throw error;
     }
   }

@@ -1,5 +1,6 @@
 import { Decimal, toDecimal } from './decimal';
 import type { DecimalInstance } from './decimal';
+import { formatDecimal } from './decimal-format';
 
 // Currency conversion utilities with Decimal.js
 interface ExchangeRates {
@@ -39,10 +40,7 @@ export function formatCurrency(amount: DecimalInstance | number, currency: strin
   const symbol = getCurrencySymbol(currency);
   const isNegative = decimal.isNegative();
   const absolute = decimal.abs();
-  const fixed = absolute.toFixed(2);
-  const [integerPart, fractionalPart] = fixed.split('.');
-  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const formatted = `${groupedInteger}.${fractionalPart}`;
+  const formatted = formatDecimal(absolute, 2, { group: true });
 
   if (currency === 'CHF') {
     return isNegative ? `-${formatted} ${symbol}` : `${formatted} ${symbol}`;
@@ -60,8 +58,7 @@ export function formatCurrencyWhole(
   const rounded = decimal.toDecimalPlaces(0, Decimal.ROUND_DOWN);
   const isNegative = rounded.isNegative();
   const symbol = getCurrencySymbol(currency);
-  const absoluteString = rounded.abs().toFixed(0);
-  const grouped = absoluteString.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const grouped = formatDecimal(rounded.abs(), 0, { group: true });
 
   if (currency === 'CHF') {
     return isNegative ? `-${grouped} ${symbol}` : `${grouped} ${symbol}`;

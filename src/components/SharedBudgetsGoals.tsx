@@ -19,14 +19,15 @@ import {
   ClockIcon
 } from './icons';
 import { useCurrency } from '../hooks/useCurrency';
-import { toDecimal, Decimal } from '../utils/decimal';
+import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import { format } from 'date-fns';
 
 type BudgetPeriod = 'monthly' | 'weekly' | 'yearly';
 
 const formatPercentage = (value: DecimalInstance | number, decimals: number = 0): string => {
-  return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+  return formatDecimal(value, decimals);
 };
 
 interface BudgetFormState {

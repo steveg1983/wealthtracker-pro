@@ -29,6 +29,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { formatCurrencyWhole } from '../utils/currency-decimal';
 import { toDecimal, Decimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 type ActiveTab = 'overview' | 'retirement' | 'mortgage' | 'college' | 'debt' | 'goals' | 'insurance' | 'networth';
 
@@ -73,7 +74,7 @@ export default function FinancialPlanning() {
   }, [displayCurrency]);
 
   const formatPercentage = React.useCallback((value: DecimalInstance | number, decimals: number = 1) => {
-    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+    return formatDecimal(value, decimals);
   }, []);
 
   const formatDate = (date: Date) => {

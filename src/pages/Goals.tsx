@@ -10,7 +10,7 @@ import type { DecimalGoal, DecimalAccount, DecimalInstance } from "../types/deci
 import PageWrapper from "../components/PageWrapper";
 import { calculateGoalProgress } from "../utils/calculations-decimal";
 import { Decimal, toDecimal } from "../utils/decimal";
-import type { DecimalInstance } from "../utils/decimal";
+import { formatDecimal } from "../utils/decimal-format";
 import { useCurrencyDecimal } from "../hooks/useCurrencyDecimal";
 import Confetti from "../components/Confetti";
 import GoalCelebrationModal from "../components/GoalCelebrationModal";
@@ -81,7 +81,7 @@ export default function Goals() {
   };
 
   const formatPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
-    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+    return formatDecimal(value, decimals);
   };
 
   const getGoalIcon = (type: Goal["type"]) => {

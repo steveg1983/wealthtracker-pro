@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import { calculatePortfolioMetrics } from '../services/stockPriceService';
 import type { PortfolioMetrics } from '../services/stockPriceService';
 import { RefreshCwIcon, TrendingUpIcon, TrendingDownIcon, AlertCircleIcon } from './icons';
@@ -148,7 +149,7 @@ export default function RealTimePortfolio({ accountId, accountName, currency }: 
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Return %</p>
                 <p className={`text-xl font-bold ${portfolioMetrics.totalGainPercent.greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                  {portfolioMetrics.totalGainPercent.greaterThanOrEqualTo(0) ? '+' : ''}{portfolioMetrics.totalGainPercent.toFixed(2)}%
+                  {portfolioMetrics.totalGainPercent.greaterThanOrEqualTo(0) ? '+' : ''}{formatDecimal(portfolioMetrics.totalGainPercent, 2)}%
                 </p>
               </div>
               <TrendingDownIcon className={portfolioMetrics.totalGainPercent.greaterThanOrEqualTo(0) ? 'text-green-500' : 'text-red-500'} size={24} />
@@ -185,7 +186,7 @@ export default function RealTimePortfolio({ accountId, accountName, currency }: 
                 <div className="flex items-center gap-6">
                   <div className="text-right">
                     <p className="text-sm text-gray-500 dark:text-gray-400">Shares</p>
-                    <p className="font-semibold text-gray-900 dark:text-white">{holding.shares.toFixed(2)}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{formatDecimal(holding.shares, 2)}</p>
                   </div>
                   
                   <div className="text-right">
@@ -208,14 +209,14 @@ export default function RealTimePortfolio({ accountId, accountName, currency }: 
                       {holding.gain.greaterThanOrEqualTo(0) ? '+' : ''}{formatCurrency(holding.gain)}
                     </p>
                     <p className={`text-xs ${holding.gainPercent.greaterThanOrEqualTo(0) ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                      {holding.gainPercent.greaterThanOrEqualTo(0) ? '+' : ''}{holding.gainPercent.toFixed(2)}%
+                      {holding.gainPercent.greaterThanOrEqualTo(0) ? '+' : ''}{formatDecimal(holding.gainPercent, 2)}%
                     </p>
                   </div>
 
                   <div className="text-right">
                     <p className="text-sm text-gray-500 dark:text-gray-400">Allocation</p>
                     <p className="font-semibold text-gray-900 dark:text-white">
-                      {holding.allocation.toFixed(1)}%
+                      {formatDecimal(holding.allocation, 1)}%
                     </p>
                   </div>
                 </div>

@@ -4,6 +4,7 @@
  */
 
 import DOMPurify from 'dompurify';
+import { formatDecimal } from '../utils/decimal-format';
 
 // Configure DOMPurify options for different contexts
 const DEFAULT_CONFIG: DOMPurify.Config = {
@@ -215,7 +216,7 @@ export const sanitizeNumber = (input: string | number): number => {
  */
 export const sanitizeDecimal = (input: string | number, decimals: number = 2): string => {
   const num = sanitizeNumber(input);
-  return num.toFixed(decimals);
+  return formatDecimal(num, decimals);
 };
 
 /**

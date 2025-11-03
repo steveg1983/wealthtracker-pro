@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import { validateSymbol } from '../services/stockPriceService';
 import { 
   PlusIcon, 
@@ -186,7 +187,7 @@ export default function PortfolioManager({ accountId: _accountId, holdings, onUp
                   {holding.symbol}
                 </h4>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {holding.shares.toFixed(2)} shares @ {formatCurrency(holding.averageCost)}
+                  {formatDecimal(holding.shares, 2)} shares @ {formatCurrency(holding.averageCost)}
                 </p>
               </div>
 

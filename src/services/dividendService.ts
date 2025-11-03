@@ -4,6 +4,7 @@ import type { DecimalInstance } from '../utils/decimal';
 import { errorHandlingService, ErrorCategory, ErrorSeverity, validate } from './errorHandlingService';
 import type { SavedDividend } from '../types/dividend';
 import { formatCurrency } from '../utils/currency-decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 export interface Dividend {
   id: string;
@@ -509,7 +510,7 @@ class DividendService {
     ];
     
     const formatDecimalValue = (value: DecimalInstance | number, places: number) =>
-      toDecimal(value).toDecimalPlaces(places, Decimal.ROUND_HALF_UP).toFixed(places);
+      formatDecimal(value, places);
 
     const rows = this.dividends.map(div => [
       div.paymentDate.toISOString().split('T')[0],

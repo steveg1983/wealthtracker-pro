@@ -1,6 +1,7 @@
 import type { Transaction, Account } from '../types';
 import type { DecimalTransaction, DecimalAccount } from '../types/decimal-types';
-import { toNumber } from './decimal';
+import { toNumber, toDecimal } from './decimal';
+import { formatDecimal } from './decimal-format';
 
 /**
  * Export transactions to CSV format
@@ -14,14 +15,14 @@ export function exportTransactionsToCSV(
   
   const rows = transactions.map(t => {
     const account = accounts.find(a => a.id === t.accountId);
-    const amount = typeof t.amount === 'number' ? t.amount : toNumber(t.amount);
+    const amountDecimal = typeof t.amount === 'number' ? toDecimal(t.amount) : toDecimal(t.amount);
     
     return [
       new Date(t.date).toISOString().split('T')[0], // YYYY-MM-DD format
       t.description,
       t.category,
       t.type,
-      amount.toFixed(2), // Always export with 2 decimal places
+      formatDecimal(amountDecimal, 2), // Always export with 2 decimal places
       account?.name || 'Unknown',
       t.tags?.join(';') || '', // Semicolon-separated tags
       t.notes || '',
@@ -51,12 +52,12 @@ export function exportAccountsToCSV(accounts: Account[] | DecimalAccount[]): str
   const headers = ['Name', 'Type', 'Balance', 'Currency', 'Institution', 'Last Updated'];
   
   const rows = accounts.map(a => {
-    const balance = typeof a.balance === 'number' ? a.balance : toNumber(a.balance);
+    const balanceDecimal = typeof a.balance === 'number' ? toDecimal(a.balance) : toDecimal(a.balance);
     
     return [
       a.name,
       a.type,
-      balance.toFixed(2),
+      formatDecimal(balanceDecimal, 2),
       a.currency || 'GBP',
       a.institution || '',
       new Date(a.lastUpdated).toISOString().split('T')[0]

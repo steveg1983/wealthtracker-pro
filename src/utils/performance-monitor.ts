@@ -1,3 +1,5 @@
+import { formatDecimal } from './decimal-format';
+
 /**
  * Performance Monitoring Utilities
  * Track and report application performance metrics
@@ -157,16 +159,16 @@ export class PerformanceMonitor {
     console.group('📊 Performance Metrics');
     
     if (metrics.domContentLoaded) {
-      console.log(`DOM Content Loaded: ${metrics.domContentLoaded.toFixed(2)}ms`);
+      console.log(`DOM Content Loaded: ${formatDecimal(metrics.domContentLoaded, 2)}ms`);
     }
     if (metrics.loadComplete) {
-      console.log(`Page Load Complete: ${metrics.loadComplete.toFixed(2)}ms`);
+      console.log(`Page Load Complete: ${formatDecimal(metrics.loadComplete, 2)}ms`);
     }
     if (metrics.firstContentfulPaint) {
-      console.log(`First Contentful Paint: ${metrics.firstContentfulPaint.toFixed(2)}ms`);
+      console.log(`First Contentful Paint: ${formatDecimal(metrics.firstContentfulPaint, 2)}ms`);
     }
     if (metrics.largestContentfulPaint) {
-      console.log(`Largest Contentful Paint: ${metrics.largestContentfulPaint.toFixed(2)}ms`);
+      console.log(`Largest Contentful Paint: ${formatDecimal(metrics.largestContentfulPaint, 2)}ms`);
     }
     
     console.log('\n📦 Resource Metrics:');
@@ -179,7 +181,7 @@ export class PerformanceMonitor {
     if (metrics.customMetrics && Object.keys(metrics.customMetrics).length > 0) {
       console.log('\n⏱️ Custom Metrics:');
       Object.entries(metrics.customMetrics).forEach(([name, duration]) => {
-        console.log(`${name}: ${duration.toFixed(2)}ms`);
+        console.log(`${name}: ${formatDecimal(duration, 2)}ms`);
       });
     }
     
@@ -191,7 +193,8 @@ export class PerformanceMonitor {
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const value = bytes / Math.pow(k, i);
+    return `${formatDecimal(value, 2)} ${sizes[i]}`;
   }
 
   cleanup(): void {

@@ -10,7 +10,9 @@ import StockWatchlist from '../components/StockWatchlist';
 // Use optimized lazy-loaded charts to reduce bundle size
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from '../components/charts/OptimizedCharts';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal, Decimal } from '../utils/decimal';
+import { toDecimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type { DecimalInstance } from '../utils/decimal';
 import PageWrapper from '../components/PageWrapper';
 
@@ -25,11 +27,7 @@ export default function Investments() {
 
   // Helper function to format percentages
   const formatPercentage = (value: DecimalInstance | number, decimals: number = 2): string => {
-    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
-    const isNegative = decimalValue.isNegative();
-    const absolute = decimalValue.abs();
-    const fixed = absolute.toFixed(decimals);
-    return `${isNegative ? '-' : ''}${fixed}%`;
+    return `${formatDecimal(value, decimals)}%`;
   };
 
   // Get investment accounts only
@@ -329,10 +327,10 @@ export default function Investments() {
                 tickFormatter={(value: any) => {
                   const formatted = formatCurrency(value);
                   if (value >= 1000) {
-                    const thousands = toDecimal(value)
-                      .dividedBy(1000)
-                      .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
-                      .toFixed(0);
+                    const thousands = formatDecimal(
+                      toDecimal(value).dividedBy(1000),
+                      0
+                    );
                     return `${formatted.charAt(0)}${thousands}k`;
                   }
                   return formatted;

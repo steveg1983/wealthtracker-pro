@@ -15,7 +15,9 @@ import ZeroBasedBudgeting from '../components/ZeroBasedBudgeting';
 import type { Budget } from '../types';
 import PageWrapper from '../components/PageWrapper';
 import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations-decimal';
-import { toDecimal, Decimal } from '../utils/decimal';
+import { toDecimal } from '../utils/decimal';
+import type { DecimalInstance } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
 
 export default function Budget() {
@@ -24,8 +26,8 @@ export default function Budget() {
   const [activeTab, setActiveTab] = useState<'traditional' | 'envelope' | 'templates' | 'rollover' | 'alerts' | 'zero-based'>('traditional');
   const [isLoading, setIsLoading] = useState(true);
   const { formatCurrency } = useCurrencyDecimal();
-  const formatPercentage = (value: number | Decimal, decimals: number = 0) => {
-    return toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals);
+  const formatPercentage = (value: number | DecimalInstance, decimals: number = 0) => {
+    return formatDecimal(value, decimals);
   };
   
   // Get data from context

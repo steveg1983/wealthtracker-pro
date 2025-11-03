@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { formatDecimal } from '../utils/decimal-format';
 import { transactionAnalyticsService } from '../services/transactionAnalyticsService';
 
 const SpendingByCategoryChart = React.memo(function SpendingByCategoryChart() {
@@ -34,7 +35,7 @@ const SpendingByCategoryChart = React.memo(function SpendingByCategoryChart() {
     
     const total = data.reduce((sum, item) => sum + item.value, 0);
     const items = data.map(item => {
-      const percentage = ((item.value / total) * 100).toFixed(1);
+      const percentage = formatDecimal((item.value / total) * 100, 1);
       return `${item.name}: ${formatCurrency(item.value)} (${percentage}%)`;
     }).join(', ');
     
@@ -96,7 +97,7 @@ const SpendingByCategoryChart = React.memo(function SpendingByCategoryChart() {
             <tbody>
               {data.map((item, index) => {
                 const total = data.reduce((sum, d) => sum + d.value, 0);
-                const percentage = ((item.value / total) * 100).toFixed(1);
+                const percentage = formatDecimal((item.value / total) * 100, 1);
                 return (
                   <tr key={index}>
                     <td className="py-1">{item.name}</td>

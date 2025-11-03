@@ -4,6 +4,8 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
+import { toDecimal } from './decimal';
+import { formatDecimal } from './decimal-format';
 
 // Check if we're in demo mode
 export const isDemoMode = (): boolean => {
@@ -173,9 +175,10 @@ export const generateDemoTransactions = (count: number = 50) => {
     date.setDate(date.getDate() - daysAgo);
     
     const isExpense = Math.random() > 0.2; // 80% expenses, 20% income
-    const amount = isExpense 
-      ? -(Math.random() * 500 + 10).toFixed(2) // Expenses: -$10 to -$510
-      : (Math.random() * 3000 + 1000).toFixed(2); // Income: $1000 to $4000
+    const randomAmount = Math.random() * (isExpense ? 500 : 3000) + (isExpense ? 10 : 1000);
+    const signedAmount = isExpense ? -randomAmount : randomAmount;
+    const amountDecimal = toDecimal(signedAmount);
+    const amount = formatDecimal(amountDecimal, 2);
     
     // Get expense categories or income category
     const expenseCategories = demoCategories.filter(c => c.type === 'expense');
@@ -192,7 +195,7 @@ export const generateDemoTransactions = (count: number = 50) => {
       id: uuidv4(),
       date: date.toISOString().split('T')[0],
       description: transactionDescriptions[Math.floor(Math.random() * transactionDescriptions.length)],
-      amount: amount.toString(),
+      amount,
       category,
       categoryName,
       accountId: demoAccounts[Math.floor(Math.random() * demoAccounts.length)].id,

@@ -3,6 +3,7 @@ import { usePerformanceMonitoring } from '../hooks/usePerformanceMonitoring';
 import { Card } from './common/Card';
 import ActivityIcon from './icons/ActivityIcon';
 import { AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface WebVitalScore {
   metric: string;
@@ -113,12 +114,13 @@ export const PerformanceDashboard: React.FC = () => {
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    const value = bytes / Math.pow(k, i);
+    return `${formatDecimal(value, 2)} ${sizes[i]}`;
   };
 
   const formatTime = (ms: number) => {
     if (ms < 1000) return `${Math.round(ms)}ms`;
-    return `${(ms / 1000).toFixed(2)}s`;
+    return `${formatDecimal(ms / 1000, 2)}s`;
   };
 
   return (
@@ -214,7 +216,7 @@ export const PerformanceDashboard: React.FC = () => {
             <div>
               <div className="flex justify-between mb-1">
                 <span className="text-sm text-gray-600">JS Heap Usage</span>
-                <span className="text-sm font-medium">{memoryUsage.percentUsed.toFixed(1)}%</span>
+                <span className="text-sm font-medium">{formatDecimal(memoryUsage.percentUsed, 1)}%</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2.5">
                 <div 
