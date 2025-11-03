@@ -15,10 +15,12 @@ import {
 } from './icons';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 export default function AnomalyDetection() {
   const { transactions, categories } = useApp();
   const navigate = useNavigate();
+  const { formatCurrency } = useCurrencyDecimal();
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
   const [loading, setLoading] = useState(true);
   const [config, setConfig] = useState<AnomalyDetectionConfig>(anomalyDetectionService.getConfig());
@@ -132,7 +134,7 @@ export default function AnomalyDetection() {
             <p className="text-sm text-red-100">Medium Severity</p>
           </div>
           <div className="bg-white/20 rounded-lg p-3">
-            <p className="text-3xl font-bold">${stats.totalAmount.toFixed(0)}</p>
+            <p className="text-3xl font-bold">{formatCurrency(stats.totalAmount)}</p>
             <p className="text-sm text-red-100">Total Amount</p>
           </div>
         </div>
@@ -300,8 +302,8 @@ export default function AnomalyDetection() {
                     <span className={`px-2 py-1 rounded-full ${getSeverityColor(anomaly.severity)}`}>
                       {anomaly.severity}
                     </span>
-                    {anomaly.amount && (
-                      <span>${anomaly.amount.toFixed(2)}</span>
+                    {anomaly.amount !== undefined && (
+                      <span>{formatCurrency(anomaly.amount)}</span>
                     )}
                     {anomaly.merchant && (
                       <span>{anomaly.merchant}</span>

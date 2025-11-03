@@ -10,6 +10,7 @@ import {
 import { useApp } from '../contexts/AppContextSupabase';
 import { smartCategorizationService } from '../services/smartCategorizationService';
 import type { Transaction } from '../types';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface CategorizationSuggestion {
   categoryId: string;
@@ -40,6 +41,7 @@ export function SmartCategorization({
   autoLearn = true
 }: SmartCategorizationProps): React.JSX.Element | null {
   const { categories, transactions } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
   const [suggestions, setSuggestions] = useState<CategorizationSuggestion[]>([]);
   const [isLearning, setIsLearning] = useState(false);
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
@@ -329,6 +331,7 @@ export function BulkCategorization({
   onClose 
 }: BulkCategorizationProps): React.JSX.Element {
   const { categories } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
   const [suggestions, setSuggestions] = useState<Map<string, CategorizationSuggestion[]>>(new Map());
   const [selected, setSelected] = useState<Map<string, string>>(new Map());
   const [isProcessing, setIsProcessing] = useState(true);
@@ -471,7 +474,7 @@ export function BulkCategorization({
                       </p>
                       <p className="text-sm text-gray-500 dark:text-gray-400">
                         {new Date(transaction.date).toLocaleDateString()} • 
-                        ${Math.abs(transaction.amount).toFixed(2)}
+                        {formatCurrency(Math.abs(transaction.amount))}
                       </p>
                     </div>
                     

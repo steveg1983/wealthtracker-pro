@@ -15,6 +15,7 @@ import {
 import type { Invoice, InvoiceItem } from '../services/businessService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface InvoiceManagerProps {
   onDataChange: () => void;
@@ -782,7 +783,7 @@ function InvoiceViewModal({ invoice, onClose }: InvoiceViewModalProps) {
                         {formatCurrency(toDecimal(item.unitPrice))}
                       </td>
                       <td className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-center text-gray-900 dark:text-white">
-                        {(item.vatRate * 100).toFixed(0)}%
+                        {formatDecimal(item.vatRate * 100, 0)}%
                       </td>
                       <td className="border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-right text-gray-900 dark:text-white">
                         {formatCurrency(toDecimal(item.total))}

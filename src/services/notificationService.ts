@@ -77,7 +77,6 @@ class NotificationService {
   };
   private goalCelebrationConfig: GoalCelebrationConfig = {
     milestonePercentages: [25, 50, 75, 100],
-    enableBadges: true,
     enableSoundEffects: false,
     enableProgressReminders: true
   };

@@ -11,6 +11,7 @@ import {
 import type { MortgageCalculation } from '../services/financialPlanningService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface MortgageCalculatorProps {
   onDataChange: () => void;
@@ -65,9 +66,7 @@ export default function MortgageCalculator({ onDataChange }: MortgageCalculatorP
     }
   };
 
-  const formatPercentage = (value: number) => {
-    return `${(value * 100).toFixed(2)}%`;
-  };
+  const formatPercentage = (value: number) => `${formatDecimal(value * 100, 2)}%`;
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {

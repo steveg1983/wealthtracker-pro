@@ -12,6 +12,7 @@ import {
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Budget, Transaction } from '../types';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface BudgetProgressProps {
   budget: Budget;
@@ -99,7 +100,10 @@ export function VisualBudgetProgress({
   }, [budget, spent]);
 
   // Calculate percentage and status
-  const percentage = Math.min(100, (spent / budget.amount) * 100);
+  const percentage = budget.amount > 0
+    ? Math.min(100, (spent / budget.amount) * 100)
+    : 0;
+  const formatWholePercent = (value: number) => formatDecimal(Number.isFinite(value) ? value : 0, 0);
   
   // Determine color based on spending
   const getProgressColor = () => {

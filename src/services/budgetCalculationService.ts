@@ -85,7 +85,14 @@ class BudgetCalculationService extends BaseService {
     categories: Category[]
   ): BudgetSpending {
     const period = this.getCurrentPeriod(budget);
-    const category = categories.find(c => c.id === budget.categoryId);
+    const budgetCategoryId = (budget as unknown as { categoryId?: string; category?: string }).categoryId
+      ?? (budget as unknown as { category?: string }).category
+      ?? '';
+    const budgetLimitValue =
+      (budget as unknown as { amount?: number; limit?: number }).amount ??
+      (budget as unknown as { limit?: number }).limit ??
+      0;
+    const category = categories.find(c => c.id === budgetCategoryId);
     
     // Filter transactions for this budget's category and period
     const budgetTransactions = this.filterTransactionsForBudget(
@@ -96,16 +103,17 @@ class BudgetCalculationService extends BaseService {
 
     // Calculate spending
     const spentAmount = this.calculateTotalSpent(budgetTransactions);
-    const remainingAmount = new Decimal(budget.amount).minus(spentAmount).toNumber();
-    const percentageUsed = budget.amount > 0 
-      ? new Decimal(spentAmount).dividedBy(budget.amount).times(100).toNumber()
+    const budgetAmountDecimal = new Decimal(budgetLimitValue);
+    const remainingAmount = budgetAmountDecimal.minus(spentAmount).toNumber();
+    const percentageUsed = budgetAmountDecimal.greaterThan(0)
+      ? new Decimal(spentAmount).dividedBy(budgetAmountDecimal).times(100).toNumber()
       : 0;
 
     return {
       budgetId: budget.id,
-      categoryId: budget.categoryId,
+      categoryId: budgetCategoryId,
       categoryName: category?.name || 'Unknown',
-      budgetAmount: budget.amount,
+      budgetAmount: budgetAmountDecimal.toNumber(),
       spentAmount,
       remainingAmount,
       percentageUsed,
@@ -169,12 +177,14 @@ class BudgetCalculationService extends BaseService {
     budget: Budget,
     period: BudgetPeriod
   ): Transaction[] {
+    const budgetCategoryId = (budget as unknown as { categoryId?: string; category?: string }).categoryId
+      ?? (budget as unknown as { category?: string }).category;
     return transactions.filter(transaction => {
       // Must be an expense
       if (transaction.type !== 'expense') return false;
       
       // Must match category
-      if (transaction.category !== budget.categoryId) return false;
+      if (budgetCategoryId && transaction.category !== budgetCategoryId) return false;
       
       // Must be within period
       const transactionDate = new Date(transaction.date);

@@ -8,6 +8,7 @@ import {
 } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type { HouseholdMember } from '../services/collaborationService';
 
 interface ExpenseSplitModalProps {
@@ -359,7 +360,7 @@ export default function ExpenseSplitModal({
                     ? 'text-green-600 dark:text-green-400'
                     : 'text-red-600 dark:text-red-400'
                 }`}>
-                  {getTotalPercentage().toFixed(1)}%
+                  {formatDecimal(getTotalPercentage(), 1)}%
                 </span>
               </div>
             )}

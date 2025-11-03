@@ -111,13 +111,13 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
         setUsage(JSON.parse(savedUsage));
       } else {
         // Initialize with default usage
-        const defaultUsage: SubscriptionUsage = {
+        const defaultUsage = {
           accounts: 0,
           transactions: 0,
           budgets: 0,
           goals: 0,
           lastCalculated: new Date()
-        };
+        } as any as SubscriptionUsage;
         setUsage(defaultUsage);
       }
     } catch (err) {
@@ -126,13 +126,13 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
       
       // Set free tier as fallback
       setSubscription(null);
-      const defaultUsage: SubscriptionUsage = {
+      const defaultUsage = {
         accounts: 0,
         transactions: 0,
         budgets: 0,
         goals: 0,
         lastCalculated: new Date()
-      };
+      } as any as SubscriptionUsage;
       setUsage(defaultUsage);
     } finally {
       setIsLoading(false);
