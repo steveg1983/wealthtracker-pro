@@ -295,7 +295,6 @@ self.addEventListener('push', (event: PushEvent) => {
     icon: '/icon-192.png',
     badge: '/badge-72.png',
     data: data.data,
-    actions: data.actions || [],
     tag: data.tag || 'wealthtracker-notification',
     requireInteraction: data.requireInteraction || false
   };

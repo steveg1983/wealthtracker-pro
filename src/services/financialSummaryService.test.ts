@@ -27,24 +27,6 @@ Object.defineProperty(window, 'localStorage', {
   writable: true
 });
 
-// Mock decimal utility
-const createMockDecimal = (value: number) => ({
-  plus: (other: any) => createMockDecimal(value + (typeof other === 'number' ? other : other.toNumber())),
-  minus: (other: any) => createMockDecimal(value - (typeof other === 'number' ? other : other.toNumber())),
-  times: (other: number) => createMockDecimal(value * other),
-  dividedBy: (other: any) => createMockDecimal(value / (typeof other === 'number' ? other : other.toNumber())),
-  abs: () => createMockDecimal(Math.abs(value)),
-  greaterThan: (other: number) => value > other,
-  greaterThanOrEqualTo: (other: number) => value >= other,
-  lessThan: (other: number) => value < other,
-  toNumber: () => value,
-  toFixed: (decimals: number) => value.toFixed(decimals)
-});
-
-vi.mock('../utils/decimal', () => ({
-  toDecimal: (value: number) => createMockDecimal(value)
-}));
-
 // Test data
 const mockTransactions: Transaction[] = [
   {

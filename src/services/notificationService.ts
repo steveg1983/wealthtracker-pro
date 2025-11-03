@@ -73,12 +73,10 @@ class NotificationService {
   private transactionAlertConfig: TransactionAlertConfig = {
     largeTransactionThreshold: 500,
     unusualSpendingEnabled: true,
-    duplicateDetectionEnabled: true,
-    merchantChangeAlerts: true
+    duplicateDetectionEnabled: true
   };
   private goalCelebrationConfig: GoalCelebrationConfig = {
     milestonePercentages: [25, 50, 75, 100],
-    enableStreaks: true,
     enableBadges: true,
     enableSoundEffects: false,
     enableProgressReminders: true

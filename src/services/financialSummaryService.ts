@@ -360,27 +360,28 @@ class FinancialSummaryService {
     const periodText = summary.period === 'weekly' ? 'This Week' : 'This Month';
     const dateRange = `${format(summary.startDate, 'MMM d')} - ${format(summary.endDate, 'MMM d')}`;
 
-    const formatCurrency = (value: DecimalInstance | number): string => {
-      return `${currencySymbol}${toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toFixed(2)}`;
+    const formatCurrencyText = (value: DecimalInstance | number): string => {
+      const decimal = toDecimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
+      return `${currencySymbol}${formatDecimal(decimal, 2)}`;
     };
 
     const formatPercentage = (value: DecimalInstance | number, decimals: number = 1): string => {
-      return `${toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toFixed(decimals)}%`;
+      return `${formatDecimal(value, decimals)}%`;
     };
 
     const formatSignedPercentage = (value: number, decimals: number = 1): string => {
-      const decimal = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
-      const sign = decimal.greaterThanOrEqualTo(0) ? '+' : '-';
-      return `${sign}${decimal.abs().toFixed(decimals)}%`;
+      const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
+      const sign = decimalValue.greaterThanOrEqualTo(0) ? '+' : '-';
+      return `${sign}${formatDecimal(decimalValue.abs(), decimals)}%`;
     };
     
     let text = `## ${periodText}'s Financial Summary\n`;
     text += `### ${dateRange}\n\n`;
     
     // Overview
-    text += `**Income:** ${formatCurrency(summary.totalIncome)}\n`;
-    text += `**Expenses:** ${formatCurrency(summary.totalExpenses)}\n`;
-    text += `**Net:** ${formatCurrency(summary.netIncome)}\n`;
+    text += `**Income:** ${formatCurrencyText(summary.totalIncome)}\n`;
+    text += `**Expenses:** ${formatCurrencyText(summary.totalExpenses)}\n`;
+    text += `**Net:** ${formatCurrencyText(summary.netIncome)}\n`;
     text += `**Savings Rate:** ${formatPercentage(summary.savingsRate, 1)}\n\n`;
     
     // Comparison
@@ -394,7 +395,7 @@ class FinancialSummaryService {
     if (summary.topCategories.length > 0) {
       text += `### Top Spending Categories\n`;
       summary.topCategories.forEach(cat => {
-        text += `- ${cat.category}: ${formatCurrency(cat.amount)} (${formatPercentage(cat.percentage, 1)})\n`;
+        text += `- ${cat.category}: ${formatCurrencyText(cat.amount)} (${formatPercentage(cat.percentage, 1)})\n`;
       });
       text += '\n';
     }
@@ -404,7 +405,7 @@ class FinancialSummaryService {
     if (overBudget.length > 0) {
       text += `### ⚠️ Over Budget\n`;
       overBudget.forEach(b => {
-        text += `- ${b.budgetName}: ${formatCurrency(b.spent)} / ${formatCurrency(b.limit)} (${formatPercentage(b.percentage, 0)})\n`;
+        text += `- ${b.budgetName}: ${formatCurrencyText(b.spent)} / ${formatCurrencyText(b.limit)} (${formatPercentage(b.percentage, 0)})\n`;
       });
       text += '\n';
     }
@@ -414,7 +415,7 @@ class FinancialSummaryService {
     if (activeGoals.length > 0) {
       text += `### Goal Progress\n`;
       activeGoals.forEach(g => {
-        text += `- ${g.goalName}: ${formatPercentage(g.progress, 1)} (+${formatCurrency(g.amountAdded)} this ${summary.period === 'weekly' ? 'week' : 'month'})\n`;
+        text += `- ${g.goalName}: ${formatPercentage(g.progress, 1)} (+${formatCurrencyText(g.amountAdded)} this ${summary.period === 'weekly' ? 'week' : 'month'})\n`;
       });
     }
     
