@@ -14,6 +14,7 @@ import {
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { format } from 'date-fns';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 type TabType = 'overview' | 'deductions' | 'capital-gains' | 'optimizations';
 
@@ -149,7 +150,7 @@ export default function TaxPlanning(): React.JSX.Element {
               {formatCurrency(taxEstimate.estimatedTax)}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Effective rate: {taxEstimate.effectiveRate.toFixed(1)}%
+              Effective rate: {formatDecimal(taxEstimate.effectiveRate, 1)}%
             </p>
           </div>
 
@@ -255,7 +256,7 @@ export default function TaxPlanning(): React.JSX.Element {
                         <div className="flex justify-between mb-2">
                           <span className="text-gray-600 dark:text-gray-400">Effective Tax Rate</span>
                           <span className="font-bold text-2xl text-gray-900 dark:text-white">
-                            {taxEstimate.effectiveRate.toFixed(1)}%
+                            {formatDecimal(taxEstimate.effectiveRate, 1)}%
                           </span>
                         </div>
                         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">

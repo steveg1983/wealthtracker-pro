@@ -1,9 +1,12 @@
 import { useApp } from '../contexts/AppContextSupabase';
 import { Target, AlertCircle } from './icons';
 import { Link } from 'react-router-dom';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 export default function BudgetSummaryWidget() {
   const { budgets, transactions } = useApp();
+  const { formatCurrency } = useCurrencyDecimal();
   
   // Calculate current month's spending
   const currentMonth = new Date().getMonth();
@@ -82,7 +85,7 @@ export default function BudgetSummaryWidget() {
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-gray-700">{budget.categoryId}</span>
                 <span className="text-gray-600">
-                  £{spent.toFixed(0)}/£{budget.amount.toFixed(0)}
+                  {formatCurrency(spent)} / {formatCurrency(budget.amount)}
                 </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">

@@ -15,6 +15,7 @@ import {
 } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 type SortOption = 'name' | 'confidence' | 'frequency' | 'lastUpdated';
 const SORT_OPTIONS: ReadonlyArray<SortOption> = ['name', 'confidence', 'frequency', 'lastUpdated'];
@@ -201,7 +202,7 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Confidence:</p>
                 <span className={`font-medium ${getConfidenceColor(enrichmentResult.confidence)}`}>
-                  {(enrichmentResult.confidence * 100).toFixed(0)}%
+                  {formatDecimal(enrichmentResult.confidence * 100, 0)}%
                 </span>
               </div>
               <div>
@@ -386,7 +387,7 @@ export default function MerchantEnrichment({ onDataChange: _onDataChange }: Merc
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getConfidenceBadge(merchant.confidence)}`}>
                         <StarIcon size={12} />
-                        {(merchant.confidence * 100).toFixed(0)}%
+                        {formatDecimal(merchant.confidence * 100, 0)}%
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

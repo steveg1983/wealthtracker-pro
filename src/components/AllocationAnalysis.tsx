@@ -5,6 +5,7 @@ import { portfolioRebalanceService } from '../services/portfolioRebalanceService
 import type { AssetAllocation } from '../services/portfolioRebalanceService';
 import type { Investment } from '../types';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import {
   PieChartIcon,
   BarChart3Icon,
@@ -137,10 +138,10 @@ export default function AllocationAnalysis({ accountId }: AllocationAnalysisProp
   const exportData = () => {
     const data = allocations.map(alloc => ({
       Category: alloc.assetClass,
-      'Current %': alloc.currentPercent.toFixed(2),
-      'Current Value': alloc.currentValue.toNumber().toFixed(2),
-      'Target %': alloc.targetPercent.toFixed(2),
-      'Difference %': alloc.differencePercent.toFixed(2)
+      'Current %': formatDecimal(alloc.currentPercent, 2),
+      'Current Value': formatDecimal(alloc.currentValue, 2),
+      'Target %': formatDecimal(alloc.targetPercent, 2),
+      'Difference %': formatDecimal(alloc.differencePercent, 2)
     }));
 
     const csv = [
@@ -266,7 +267,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
                 {allocations[0]?.assetClass || 'N/A'}
               </p>
               <p className="text-sm text-gray-600 dark:text-gray-400">
-                {allocations[0]?.currentPercent?.toFixed(1) ?? '0.0'}%
+                {allocations[0] ? formatDecimal(allocations[0].currentPercent, 1) : '0.0'}%
               </p>
             </div>
           </div>
@@ -277,7 +278,10 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Concentration</p>
               <p className="text-lg font-bold">
-                Top 3: {allocations.slice(0, 3).reduce((sum, a) => sum + a.currentPercent, 0).toFixed(1)}%
+                Top 3: {formatDecimal(
+                  allocations.slice(0, 3).reduce((sum, a) => sum + a.currentPercent, 0),
+                  1
+                )}%
               </p>
             </div>
           </div>
@@ -298,7 +302,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
                 outerRadius={120}
                 fill="#8884d8"
                 dataKey="value"
-                label={({ name, percent }) => `${name}: ${percent !== undefined ? percent.toFixed(1) : '0.0'}%`}
+                label={({ name, percent }) => `${name}: ${percent !== undefined ? formatDecimal(percent, 1) : '0.0'}%`}
               >
                 {chartData.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -347,7 +351,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
                       <div className="bg-white dark:bg-gray-800 p-2 border border-gray-300 dark:border-gray-600 rounded shadow">
                         <p className="font-medium">{data.name}</p>
                         <p className="text-sm">{formatCurrency(data.value)}</p>
-                        <p className="text-sm">{data.percent !== undefined ? data.percent.toFixed(1) : '0.0'}%</p>
+                        <p className="text-sm">{data.percent !== undefined ? formatDecimal(data.percent, 1) : '0.0'}%</p>
                       </div>
                     );
                   }
@@ -391,7 +395,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
                     </div>
                   </td>
                   <td className="py-2 text-right font-medium">
-                    {alloc.currentPercent.toFixed(2)}%
+                    {formatDecimal(alloc.currentPercent, 2)}%
                   </td>
                   <td className="py-2 text-right">
                     {formatCurrency(alloc.currentValue.toNumber())}
@@ -399,14 +403,14 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
                   {showTargets && groupBy === 'assetClass' && (
                     <>
                       <td className="py-2 text-right">
-                        {alloc.targetPercent.toFixed(2)}%
+                        {formatDecimal(alloc.targetPercent, 2)}%
                       </td>
                       <td className={`py-2 text-right font-medium ${
                         Math.abs(alloc.differencePercent) < 2 ? 'text-green-600' :
                         Math.abs(alloc.differencePercent) < 5 ? 'text-yellow-600' :
                         'text-red-600'
                       }`}>
-                        {alloc.differencePercent > 0 ? '+' : ''}{alloc.differencePercent.toFixed(2)}%
+                        {alloc.differencePercent > 0 ? '+' : ''}{formatDecimal(alloc.differencePercent, 2)}%
                       </td>
                     </>
                   )}
@@ -429,7 +433,7 @@ const totalValue = allocations.reduce((sum, alloc) => sum + alloc.currentValue.t
               {allocations.length > 0 && (
                 <>
                   <li>• Your portfolio is spread across {allocations.length} different {groupBy === 'assetClass' ? 'asset classes' : groupBy === 'account' ? 'accounts' : 'securities'}</li>
-                  <li>• The top holding ({allocations[0].assetClass}) represents {allocations[0].currentPercent.toFixed(1)}% of your portfolio</li>
+                  <li>• The top holding ({allocations[0].assetClass}) represents {formatDecimal(allocations[0].currentPercent, 1)}% of your portfolio</li>
                   {allocations[0].currentPercent > 30 && (
                     <li className="text-orange-700 dark:text-orange-400">• Consider diversifying - your largest position exceeds 30% of the portfolio</li>
                   )}

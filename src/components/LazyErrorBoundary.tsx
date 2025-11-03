@@ -12,7 +12,7 @@ interface State {
   error?: Error;
 }
 
-interface WindowWithSentry extends Window {
+interface WindowWithSentry {
   Sentry?: {
     captureException: (error: unknown, context?: Record<string, unknown>) => void;
   };

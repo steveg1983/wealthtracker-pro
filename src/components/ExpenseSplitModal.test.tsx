@@ -21,10 +21,11 @@ vi.mock('../hooks/useCurrencyDecimal', () => ({
   })
 }));
 
-// Mock utils
-vi.mock('../utils/decimal', () => ({
-  toDecimal: (value: number) => ({ toString: () => value.toString() })
-}));
+// Mock utils (use real Decimal helpers for accurate formatting)
+vi.mock('../utils/decimal', async () => {
+  const actual = await vi.importActual<typeof import('../utils/decimal')>('../utils/decimal');
+  return actual;
+});
 
 // Mock collaboration service
 const mockHouseholdMembers: HouseholdMember[] = [

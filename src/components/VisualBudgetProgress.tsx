@@ -195,7 +195,7 @@ export function VisualBudgetProgress({
         </div>
         <div className="text-right">
           <div className={`text-2xl font-bold ${getStatusColor()}`}>
-            {percentage.toFixed(0)}%
+            {formatWholePercent(percentage)}%
           </div>
           <div className="flex items-center gap-1 mt-1">
             {getStatusIcon()}
@@ -234,7 +234,7 @@ export function VisualBudgetProgress({
             >
               {showTooltip === 'expected' && (
                 <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-xs rounded px-2 py-1 whitespace-nowrap">
-                  Expected: {velocity.percentOfPeriodElapsed.toFixed(0)}% of period elapsed
+                  Expected: {formatWholePercent(velocity.percentOfPeriodElapsed)}% of period elapsed
                 </div>
               )}
             </div>
@@ -310,8 +310,8 @@ export function VisualBudgetProgress({
                       Try to limit daily spending to {formatCurrency(velocity.recommendedDailyLimit)}.</>
                     )}
                     {!velocity.willExceed && !velocity.isOnTrack && (
-                      <>You're spending faster than planned. You've used {percentage.toFixed(0)}% of your budget 
-                      but only {velocity.percentOfPeriodElapsed.toFixed(0)}% of the period has elapsed.</>
+                      <>You're spending faster than planned. You've used {formatWholePercent(percentage)}% of your budget 
+                      but only {formatWholePercent(velocity.percentOfPeriodElapsed)}% of the period has elapsed.</>
                     )}
                     {!velocity.willExceed && velocity.isOnTrack && percentage >= 90 && (
                       <>You're close to your budget limit with {velocity.daysRemaining} days remaining. 

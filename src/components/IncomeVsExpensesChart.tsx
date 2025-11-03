@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { toDecimal } from '../utils/decimal';
 
 const IncomeVsExpensesChart = React.memo(function IncomeVsExpensesChart() {
   const { transactions } = useApp();
@@ -30,18 +31,20 @@ const IncomeVsExpensesChart = React.memo(function IncomeVsExpensesChart() {
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
       
+      const incomeValue = toDecimal(income).toDecimalPlaces(2).toNumber();
+      const expensesValue = toDecimal(expenses).toDecimalPlaces(2).toNumber();
+      const netValue = toDecimal(income).minus(expenses).toDecimalPlaces(2).toNumber();
+
       data.push({
         month,
-        income: Number(income.toFixed(2)),
-        expenses: Number(expenses.toFixed(2)),
-        net: Number((income - expenses).toFixed(2)),
+        income: incomeValue,
+        expenses: expensesValue,
+        net: netValue,
       });
     }
     
     return data;
   }, [transactions]);
-
-  const formatCurrencyShort = (value: number) => `£${value.toFixed(0)}`;
 
   return (
     <div className="bg-white p-6 rounded-lg shadow">
@@ -50,7 +53,7 @@ const IncomeVsExpensesChart = React.memo(function IncomeVsExpensesChart() {
         <BarChart data={monthlyData}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="month" />
-          <YAxis tickFormatter={formatCurrencyShort} />
+          <YAxis tickFormatter={(value: number) => formatCurrency(value)} />
           <Tooltip formatter={(value: number) => formatCurrency(value)} />
           <Legend />
           <Bar dataKey="income" fill="#34c759" name="Income" />
