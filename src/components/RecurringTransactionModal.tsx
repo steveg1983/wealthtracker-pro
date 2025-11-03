@@ -4,6 +4,7 @@ import type { RecurringTransaction } from '../contexts/AppContextSupabase';
 import { RepeatIcon } from './icons';
 import { Modal, ModalBody } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface RecurringTransactionModalProps {
   isOpen: boolean;
@@ -24,6 +25,7 @@ interface RecurringTransactionFormData {
 export default function RecurringTransactionModal({ isOpen, onClose }: RecurringTransactionModalProps): React.JSX.Element {
   const { accounts, addTransaction, recurringTransactions = [], addRecurringTransaction, deleteRecurringTransaction } = useApp();
   const [showForm, setShowForm] = useState(false);
+  const { formatCurrency } = useCurrencyDecimal();
   
   const { formData, updateField, handleSubmit, reset } = useModalForm<RecurringTransactionFormData>(
     {
@@ -143,7 +145,10 @@ export default function RecurringTransactionModal({ isOpen, onClose }: Recurring
                         {recurring.description}
                       </h3>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {recurring.type === 'income' ? '+' : '-'}£{recurring.amount.toFixed(2)} · {recurring.frequency}
+                        {recurring.type === 'income'
+                          ? `+${formatCurrency(recurring.amount)}`
+                          : formatCurrency(-recurring.amount)
+                        } · {recurring.frequency}
                       </p>
                       <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
                         Starts: {new Date(recurring.startDate).toLocaleDateString()}

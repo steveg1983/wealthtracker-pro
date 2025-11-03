@@ -15,6 +15,7 @@ import {
   X
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
+import { formatDecimal } from '../utils/decimal-format';
 
 export type MigrationSource = 'mint' | 'quicken' | 'ynab' | 'personalcapital' | 'excel' | 'csv' | 'other';
 
@@ -387,7 +388,7 @@ export default function DataMigrationWizard({
                             {file.name}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {(file.size / 1024).toFixed(2)} KB
+                            {formatDecimal(file.size / 1024, 2)} KB
                           </p>
                         </div>
                       </div>

@@ -47,7 +47,7 @@ export function formatDecimal(
   const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
   const isNegative = decimalValue.isNegative() && !decimalValue.isZero();
   const absolute = decimalValue.abs();
-  let plain = toPlainString(absolute);
+  const plain = toPlainString(absolute);
 
   let [integerPart, fractionalPart = ''] = plain.split('.');
   if (integerPart === '') {

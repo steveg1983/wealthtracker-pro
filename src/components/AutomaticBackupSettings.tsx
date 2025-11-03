@@ -15,6 +15,7 @@ import {
   LockIcon
   // CalendarIcon // Currently unused
 } from './icons';
+import { formatDecimal } from '../utils/decimal-format';
 
 type BackupHistoryEntry = {
   timestamp: number;
@@ -128,8 +129,8 @@ export default function AutomaticBackupSettings() {
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    if (bytes < 1024 * 1024) return `${formatDecimal(bytes / 1024, 1)} KB`;
+    return `${formatDecimal(bytes / (1024 * 1024), 1)} MB`;
   };
 
   return (

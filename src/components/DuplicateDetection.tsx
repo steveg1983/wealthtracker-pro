@@ -13,6 +13,7 @@ import {
 } from './icons';
 import type { Transaction } from '../types';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface DuplicateDetectionProps {
   isOpen: boolean;
@@ -509,7 +510,7 @@ export default function DuplicateDetection({
                         </div>
                       </div>
                       <div className="text-xs text-gray-500">
-                        {calculateSimilarity(group.original, transaction).totalScore.toFixed(0)}% similar
+                        {formatDecimal(calculateSimilarity(group.original, transaction).totalScore, 0)}% similar
                       </div>
                     </div>
                   ))}

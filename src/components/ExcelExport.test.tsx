@@ -160,7 +160,7 @@ describe('ExcelExport', () => {
       render(<ExcelExport isOpen={true} onClose={mockOnClose} />);
       
       expect(screen.getByTestId('modal')).toBeInTheDocument();
-      expect(screen.getByText('Export to Excel')).toBeInTheDocument();
+      expect(screen.getAllByText('Export to Excel').length).toBeGreaterThan(0);
     });
   });
 
@@ -450,8 +450,9 @@ describe('ExcelExport', () => {
       
       const exportButton = screen.getByRole('button', { name: /Export to Excel/i });
       
-      // Mock import failure
-      global.import = vi.fn(() => Promise.reject(new Error('Failed to load XLSX')));
+      mockWriteFile.mockImplementationOnce(() => {
+        throw new Error('Failed to write file');
+      });
       
       fireEvent.click(exportButton);
       

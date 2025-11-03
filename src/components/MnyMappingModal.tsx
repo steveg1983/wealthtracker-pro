@@ -3,6 +3,7 @@ import { XIcon } from './icons/XIcon';
 import { AlertCircleIcon } from './icons/AlertCircleIcon';
 import { CheckCircleIcon } from './icons/CheckCircleIcon';
 import type { FieldMapping } from '../utils/mnyParser';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface MnyMappingModalProps {
   isOpen: boolean;
@@ -114,7 +115,7 @@ export default function MnyMappingModal({ isOpen, onClose, rawData, onMappingCom
           return `${value} (${date.toLocaleDateString()})`;
         }
       }
-      return value.toFixed(2);
+      return formatDecimal(value, 2);
     }
     
     // Convert to string and limit length

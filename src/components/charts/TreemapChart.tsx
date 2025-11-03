@@ -4,6 +4,7 @@ import type { TreemapNode } from 'recharts/types/chart/Treemap';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { Transaction } from '../../types';
+import { formatDecimal } from '../../utils/decimal-format';
 
 interface TreemapData {
   name: string;
@@ -119,7 +120,7 @@ export default function TreemapChart({ transactions }: TreemapChartProps): React
           </p>
           {data.value > 0 && data.parent && (
             <p className="text-xs text-gray-500 dark:text-gray-500">
-              {((data.value / data.parent.value) * 100).toFixed(1)}% of {data.parent.name}
+              {formatDecimal((data.value / data.parent.value) * 100, 1)}% of {data.parent.name}
             </p>
           )}
         </div>

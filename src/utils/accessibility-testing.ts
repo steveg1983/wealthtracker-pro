@@ -1,3 +1,5 @@
+import { formatDecimal } from './decimal-format';
+
 /**
  * Accessibility Testing Utilities
  * Tools for testing and ensuring WCAG 2.1 AA compliance
@@ -220,7 +222,7 @@ export class AccessibilityTester {
             element: element as HTMLElement,
             type: 'error',
             category: 'Color Contrast',
-            message: `Insufficient color contrast ratio: ${contrast.ratio.toFixed(2)}:1 (required: ${requiredRatio}:1)`,
+            message: `Insufficient color contrast ratio: ${formatDecimal(contrast.ratio, 2)}:1 (required: ${requiredRatio}:1)`,
             wcagCriteria: '1.4.3 Contrast (Minimum)',
             howToFix: `Adjust colors to meet ${requiredRatio}:1 contrast ratio`
           });

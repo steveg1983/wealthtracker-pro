@@ -19,6 +19,7 @@ import {
   AlertCircleIcon
 } from '../../components/icons';
 import PageWrapper from '../../components/PageWrapper';
+import { formatDecimal } from '../../utils/decimal-format';
 
 type ActiveTab = 'schedules' | 'presets' | 'settings';
 
@@ -321,7 +322,7 @@ export default function ThemeSettings() {
                           <span className="text-gray-600 dark:text-gray-400">Location:</span>
                           <span className="text-gray-900 dark:text-white">
                             {schedule.latitude && schedule.longitude
-                              ? `${schedule.latitude.toFixed(2)}, ${schedule.longitude.toFixed(2)}`
+                              ? `${formatDecimal(schedule.latitude, 2)}, ${formatDecimal(schedule.longitude, 2)}`
                               : 'Not set'
                             }
                           </span>

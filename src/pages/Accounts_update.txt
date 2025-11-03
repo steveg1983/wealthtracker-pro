@@ -1,14 +1,11 @@
 // Add this import at the top:
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency } from '../utils/currency-decimal';
 
-// Then replace all instances of:
-£{someValue.toFixed(2)}
-
-// With:
-{formatCurrency(someValue)}
+// Then replace legacy currency snippets that manually round values with:
+// {formatCurrency(someValue)}
 
 // For example, change:
-<p className="text-2xl font-bold">£{totalBalance.toFixed(2)}</p>
+<p className="text-2xl font-bold">£{totalBalance}</p>
 
 // To:
 <p className="text-2xl font-bold">{formatCurrency(totalBalance)}</p>

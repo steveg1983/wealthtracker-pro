@@ -206,8 +206,8 @@ class RealtimeService {
         (payload) => {
           const event: RealtimeEvent<Account> = {
             eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old,
+            new: payload.new as Account | null,
+            old: payload.old as Account | null,
             table: payload.table,
             schema: payload.schema,
           };
@@ -270,8 +270,8 @@ class RealtimeService {
         (payload) => {
           const event: RealtimeEvent<Transaction> = {
             eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old,
+            new: payload.new as Transaction | null,
+            old: payload.old as Transaction | null,
             table: payload.table,
             schema: payload.schema,
           };
@@ -334,8 +334,8 @@ class RealtimeService {
         (payload) => {
           const event: RealtimeEvent<Budget> = {
             eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old,
+            new: payload.new as Budget | null,
+            old: payload.old as Budget | null,
             table: payload.table,
             schema: payload.schema,
           };
@@ -398,8 +398,8 @@ class RealtimeService {
         (payload) => {
           const event: RealtimeEvent<Goal> = {
             eventType: payload.eventType,
-            new: payload.new,
-            old: payload.old,
+            new: payload.new as Goal | null,
+            old: payload.old as Goal | null,
             table: payload.table,
             schema: payload.schema,
           };

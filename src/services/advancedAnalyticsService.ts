@@ -230,13 +230,13 @@ class AdvancedAnalyticsService {
     // 4. Merchant-specific opportunities
     const merchantAnalysis = this.analyzeMerchantSpending(transactions);
     merchantAnalysis.forEach((data, merchant) => {
-      if (data.averageTransaction?.greaterThan(50) && data.frequency > 4) {
+      if (data.averageTransaction && data.averageTransaction.greaterThan(toDecimal(50)) && data.transactionCount > 4) {
         opportunities.push({
           id: `opp-merchant-${merchant}`,
           type: 'merchant',
           title: `Optimize ${merchant} Spending`,
           description: `Consider bulk purchases or membership discounts`,
-          potentialSavings: data.monthlyTotal.times(0.1), // 10% potential savings
+          potentialSavings: data.monthlyTotal ? data.monthlyTotal.times(0.1) : toDecimal(0), // 10% potential savings
           difficulty: 'medium',
           actionRequired: 'Look for discounts or alternative options'
         });
@@ -325,7 +325,7 @@ class AdvancedAnalyticsService {
         id: `insight-seasonal-${pattern.category}`,
         type: 'spending',
         title: `${pattern.category} Seasonal Pattern`,
-        description: pattern.description,
+        description: pattern.description || `Seasonal spending pattern detected in ${pattern.category}`,
         impact: 'neutral',
         priority: 'low',
         actionable: true,
@@ -361,9 +361,9 @@ class AdvancedAnalyticsService {
           category: bill.category,
           negotiationTips: this.getNegotiationTips(bill.category),
           successRate: this.getSuccessRate(bill.category),
-          lastTransactionDate: bill.lastDate
+          lastTransactionDate: bill.lastDate || new Date()
         };
-        
+
         suggestions.push(suggestion);
       }
     });
@@ -512,7 +512,13 @@ class AdvancedAnalyticsService {
         
         if (daysDiff >= 25 && daysDiff <= 35) {
           subscriptions.push({
+            id: `sub-${trans[0].description.replace(/\s+/g, '-')}-${trans[0].id}`,
             merchant: trans[0].description,
+            amount: toDecimal(trans[0].amount),
+            frequency: 'monthly',
+            category: trans[0].category || 'Uncategorized',
+            lastChargeDate: new Date(trans[trans.length - 1].date),
+            isActive: true,
             monthlyAmount: toDecimal(trans[0].amount),
             unusedMonths: 0, // Would need more logic to detect usage
             transactionIds: trans.map(t => t.id)
@@ -558,9 +564,9 @@ class AdvancedAnalyticsService {
       consistentSaving: false,
       averagePercentage: 0,
       monthlySavingsRate: 0,
-      averageMonthlySavings: 0,
+      averageMonthlySavings: toDecimal(0),
       savingsStreak: 0,
-      totalSaved: 0,
+      totalSaved: toDecimal(0),
       savingsTrend: 'stable'
     };
   }
@@ -585,7 +591,7 @@ class AdvancedAnalyticsService {
       isStable: true,
       isIrregular: false,
       variabilityPercentage: 0,
-      averageMonthlyIncome: 0,
+      averageMonthlyIncome: toDecimal(0),
       incomeStreams: 1,
       primaryIncomePercentage: 100
     };

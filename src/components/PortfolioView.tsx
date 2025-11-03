@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft } from './icons';
-import { formatCurrency } from '../utils/currency';
+import { formatCurrency } from '../utils/currency-decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface Holding {
   ticker: string;
@@ -44,7 +45,10 @@ export default function PortfolioView({
   });
   
   const getPercentage = (value: number) => {
-    return ((value / totalValue) * 100).toFixed(1);
+    if (totalValue === 0) {
+      return '0.0';
+    }
+    return formatDecimal((value / totalValue) * 100, 1);
   };
   
   const getPricePerShare = (holding: Holding) => {

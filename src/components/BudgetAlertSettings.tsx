@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNotifications } from '../contexts/NotificationContext';
 import { BellIcon, AlertCircleIcon } from './icons';
+import { formatDecimal } from '../utils/decimal-format';
 
 export default function BudgetAlertSettings() {
   const { 
@@ -105,7 +106,7 @@ export default function BudgetAlertSettings() {
         <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             <span className="font-medium">Example:</span> If you have a £500 monthly food budget and alerts set to {alertThreshold}%, 
-            you'll receive a warning when you've spent £{(500 * alertThreshold / 100).toFixed(0)}.
+            you'll receive a warning when you've spent £{formatDecimal((500 * alertThreshold) / 100, 0, { group: true })}.
           </p>
         </div>
       </div>

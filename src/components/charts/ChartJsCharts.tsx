@@ -15,6 +15,7 @@ import {
   Filler
 } from 'chart.js';
 import { Bar, Pie, Line } from 'react-chartjs-2';
+import { formatDecimal } from '../../utils/decimal-format';
 
 // Register Chart.js components
 ChartJS.register(
@@ -88,9 +89,12 @@ export function BarChart({ data, children, ...props }: any) {
             if (props.tickFormatter) {
               return props.tickFormatter(value);
             }
-            if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-            if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-            return value.toString();
+            if (typeof value === 'number') {
+              if (value >= 1_000_000) return `${formatDecimal(value / 1_000_000, 1)}M`;
+              if (value >= 1_000) return `${formatDecimal(value / 1_000, 0)}K`;
+              return formatDecimal(value, value >= 10 ? 0 : 2);
+            }
+            return value?.toString?.() ?? value;
           }
         }
       }
@@ -129,7 +133,7 @@ export function PieChart({ data, children, onClick, ...props }: any) {
             if (props.formatter) {
               return props.formatter(context.parsed);
             }
-            return `${context.label}: ${context.parsed}`;
+            return `${context.label}: ${formatDecimal(context.parsed, 2)}`;
           }
         }
       }

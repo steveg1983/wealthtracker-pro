@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { PlusIcon } from './icons/PlusIcon';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { getCurrencySymbol } from '../utils/currency';
+import { getCurrencySymbol } from '../utils/currency-decimal';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
 
@@ -306,7 +306,12 @@ export default function AddInvestmentModal({ isOpen, onClose, accountId }: AddIn
               <div className="mt-2 text-sm text-gray-500 dark:text-gray-400 space-y-1">
                 <div className="flex justify-between">
                   <span>Shares: {formData.units} × {currencySymbol}{formData.pricePerUnit}</span>
-                  <span>{currencySymbol}{(parseFloat(formData.units) * parseFloat(formData.pricePerUnit)).toFixed(2)}</span>
+                  <span>
+                    {formatCurrency(
+                      (parseFloat(formData.units) || 0) * (parseFloat(formData.pricePerUnit) || 0),
+                      selectedAccount?.currency || 'GBP'
+                    )}
+                  </span>
                 </div>
                 {parseFloat(formData.fees) > 0 && (
                   <div className="flex justify-between">

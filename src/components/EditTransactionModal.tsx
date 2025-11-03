@@ -13,6 +13,7 @@ import DocumentManager from './DocumentManager';
 import { ValidationService } from '../services/validationService';
 import { z } from 'zod';
 import { toDecimal, Decimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface EditTransactionModalProps {
   isOpen: boolean;
@@ -137,12 +138,9 @@ export default function EditTransactionModal({ isOpen, onClose, transaction }: E
     }
 
     const rounded = decimalValue.toDecimalPlaces(2, Decimal.ROUND_HALF_UP);
-    const isNegative = rounded.isNegative();
-    const absValue = rounded.abs().toFixed(2);
-    const [integerPart, fractionalPart] = absValue.split('.');
-    const withCommas = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const formatted = formatDecimal(rounded.abs(), 2, { group: true });
 
-    return `${isNegative ? '-' : ''}${withCommas}.${fractionalPart}`;
+    return `${rounded.isNegative() ? '-' : ''}${formatted}`;
   };
 
   // Helper function to parse formatted string back to number

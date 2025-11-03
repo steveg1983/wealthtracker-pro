@@ -1,4 +1,5 @@
 // Microsoft Money .mny file parser with manual mapping support
+import { formatDecimal } from './decimal-format';
 
 export interface ParsedAccount {
   name: string;
@@ -95,7 +96,7 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
     
     // Progress
     if (offset % (1024 * 1024) === 0 && offset > 0) {
-      console.log(`Scanned ${(offset / (1024 * 1024)).toFixed(1)}MB...`);
+      console.log(`Scanned ${formatDecimal(offset / (1024 * 1024), 1)}MB...`);
       await new Promise(resolve => setTimeout(resolve, 0));
     }
   }
@@ -245,7 +246,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   }
   
   const textPercentage = (textFound / Math.min(10000, arrayBuffer.byteLength)) * 100;
-  console.log(`Readable text percentage in first 10KB: ${textPercentage.toFixed(1)}%`);
+  console.log(`Readable text percentage in first 10KB: ${formatDecimal(textPercentage, 1)}%`);
   
   // Try to extract structured data
   const potentialRecords: Array<Record<string, unknown>> = [];

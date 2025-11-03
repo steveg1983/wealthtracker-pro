@@ -10,6 +10,7 @@ import {
   Zap
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface WebhookEvent {
   id: string;
@@ -191,7 +192,7 @@ export default function WebhookManager(): React.JSX.Element {
                   </span>
                   <span className="flex items-center gap-1">
                     <AlertCircle size={12} />
-                    Failure rate: {(endpoint.failureRate * 100).toFixed(1)}%
+                    Failure rate: {formatDecimal(endpoint.failureRate * 100, 1)}%
                   </span>
                 </div>
 

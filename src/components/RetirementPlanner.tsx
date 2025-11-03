@@ -14,6 +14,7 @@ import {
 import type { RetirementPlan, RetirementProjection } from '../services/financialPlanningService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface RetirementPlannerProps {
   onDataChange: () => void;
@@ -71,7 +72,7 @@ export default function RetirementPlanner({ onDataChange }: RetirementPlannerPro
   };
 
   const formatPercentage = (value: number) => {
-    return `${(value * 100).toFixed(1)}%`;
+    return `${formatDecimal(value * 100, 1)}%`;
   };
 
   return (

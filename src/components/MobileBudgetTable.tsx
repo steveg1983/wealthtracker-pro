@@ -1,6 +1,7 @@
 import React from 'react';
 import { ResponsiveTable } from './common/ResponsiveTable';
 import type { Budget } from '../types';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface MobileBudgetTableProps {
   budgets: Budget[];
@@ -65,7 +66,7 @@ export default function MobileBudgetTable({
               />
             </div>
             <div className="text-xs text-gray-500 dark:text-gray-400 text-right">
-              {percentage.toFixed(0)}%
+              {formatDecimal(percentage, 0)}%
             </div>
           </div>
         );

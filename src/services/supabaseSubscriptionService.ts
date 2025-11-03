@@ -209,10 +209,10 @@ export class SupabaseSubscriptionService {
         last_calculated: new Date().toISOString()
       };
 
-      if (usage.accounts !== undefined) updateData.accounts_count = usage.accounts;
-      if (usage.transactions !== undefined) updateData.transactions_count = usage.transactions;
-      if (usage.budgets !== undefined) updateData.budgets_count = usage.budgets;
-      if (usage.goals !== undefined) updateData.goals_count = usage.goals;
+      if (usage.usage?.accounts !== undefined) updateData.accounts_count = usage.usage.accounts;
+      if (usage.usage?.transactions !== undefined) updateData.transactions_count = usage.usage.transactions;
+      if (usage.usage?.budgets !== undefined) updateData.budgets_count = usage.usage.budgets;
+      if (usage.usage?.goals !== undefined) updateData.goals_count = usage.usage.goals;
 
       const { error } = await supabase!
         .from('subscription_usage')
@@ -281,6 +281,7 @@ export class SupabaseSubscriptionService {
 
       return (data || []).map(pm => ({
         id: pm.stripe_payment_method_id,
+        type: 'card' as const,
         last4: pm.last4,
         brand: pm.brand,
         expiryMonth: pm.expiry_month,

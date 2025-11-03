@@ -15,6 +15,7 @@ import {
 } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface SpendingPatternsProps {
   onDataChange?: () => void;
@@ -232,7 +233,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
                 </div>
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">{count}</div>
                 <div className="text-sm text-gray-600 dark:text-gray-400 capitalize">{type}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">{percentage.toFixed(1)}%</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{formatDecimal(percentage, 1)}%</div>
               </div>
             );
           })}
@@ -372,7 +373,7 @@ export default function SpendingPatterns({ onDataChange }: SpendingPatternsProps
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getConfidenceBadge(pattern.confidence)}`}>
                         <CheckCircleIcon size={12} />
-                        {(pattern.confidence * 100).toFixed(0)}%
+                        {formatDecimal(pattern.confidence * 100, 0)}%
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

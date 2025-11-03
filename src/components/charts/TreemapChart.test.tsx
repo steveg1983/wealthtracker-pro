@@ -37,7 +37,7 @@ const mockCategories = [
   { id: 'det4', name: 'Public Transit', level: 'detail', type: 'expense', parentId: 'cat2', color: '#4ECDC4' }
 ];
 
-vi.mock('../../contexts/AppContext', () => ({
+vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     categories: mockCategories
   })

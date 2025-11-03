@@ -6,6 +6,7 @@ import AutoSizer from 'react-virtualized-auto-sizer';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { LoadingIcon, ChevronUpIcon } from './icons';
 import type { Transaction } from '../types';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface VirtualizedListProps<T> {
   items: T[];
@@ -350,6 +351,7 @@ export function VirtualizedTransactionList({
   onSelectionChange?: (ids: string[]) => void;
   showCheckboxes?: boolean;
 }): React.JSX.Element {
+  const { formatCurrency } = useCurrencyDecimal();
   const renderTransaction = useCallback((transaction: TransactionListItem, index: number, isScrolling?: boolean) => {
     const isSelected = selectedIds.includes(transaction.id);
     const formattedDate = transaction.date instanceof Date
@@ -400,12 +402,12 @@ export function VirtualizedTransactionList({
           <div className={`font-semibold ${
             transaction.amount < 0 ? 'text-red-600' : 'text-green-600'
           }`}>
-            ${Math.abs(transaction.amount).toFixed(2)}
+            {formatCurrency(Math.abs(transaction.amount))}
           </div>
         </div>
       </div>
     );
-  }, [selectedIds, onTransactionClick, onSelectionChange, showCheckboxes]);
+  }, [selectedIds, onTransactionClick, onSelectionChange, showCheckboxes, formatCurrency]);
 
   return (
     <VirtualizedList

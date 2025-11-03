@@ -15,6 +15,7 @@ import {
 import { format } from 'date-fns';
 import { useCurrency } from '../hooks/useCurrency';
 import { useApp } from '../contexts/AppContextSupabase';
+import { formatDecimal } from '../utils/decimal-format';
 
 type MemberVisibility = Household['settings']['memberVisibility'];
 
@@ -280,7 +281,7 @@ export default function HouseholdManagement() {
                 {formatCurrency(contribution.totalExpenses)} spent
               </p>
               <p className="text-xs text-indigo-200">
-                {contribution.percentageOfHousehold.toFixed(0)}% of household
+                {formatDecimal(contribution.percentageOfHousehold, 0)}% of household
               </p>
             </div>
           ))}

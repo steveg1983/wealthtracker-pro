@@ -8,6 +8,7 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import IncomeExpenditureReport from './IncomeExpenditureReport';
 import type { ReportSettings } from './IncomeExpenditureReport';
 import ErrorBoundary from './ErrorBoundary';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface NetWorthData {
   month: string;
@@ -88,6 +89,17 @@ export default function DashboardModal({
   const { formatCurrency } = useCurrencyDecimal();
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  const formatAxisTick = (value: number) => {
+    const absolute = Math.abs(value);
+    if (absolute >= 1_000_000) {
+      return `${formatDecimal(value / 1_000_000, 1)}M`;
+    }
+    if (absolute >= 1_000) {
+      return `${formatDecimal(value / 1_000, 0)}K`;
+    }
+    return formatDecimal(value, 0);
+  };
+
   // Reset fullscreen state when modal opens
   useEffect(() => {
     if (isOpen) {
@@ -116,11 +128,7 @@ export default function DashboardModal({
                 <YAxis 
                   stroke="#6B7280"
                   fontSize={14}
-                  tickFormatter={(value) => {
-                    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-                    if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-                    return value.toString();
-                  }}
+                  tickFormatter={formatAxisTick}
                 />
                 <Tooltip 
                   formatter={(value: number) => [formatCurrency(value), 'Net Worth']}

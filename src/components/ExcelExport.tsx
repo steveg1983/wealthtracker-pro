@@ -17,6 +17,7 @@ import {
 let XLSX: typeof import('xlsx') | null = null;
 import { toDecimal } from '../utils/decimal';
 import type { Transaction } from '../types';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface ExcelExportProps {
   isOpen: boolean;
@@ -339,7 +340,7 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
           'Budget Amount': toDecimal(budget.amount).toNumber(),
           Spent: spent,
           Remaining: remaining,
-          '% Used': percentUsed.toFixed(1) + '%',
+          '% Used': `${formatDecimal(percentUsed, 1)}%`,
           Status: remaining < 0 ? 'Over Budget' : percentUsed > 80 ? 'Warning' : 'On Track'
         };
       });
@@ -415,7 +416,8 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
       // Load XLSX dynamically only when needed
       if (!XLSX) {
         setIsExporting(true);
-        XLSX = await import('xlsx');
+        const module = await import('xlsx');
+        XLSX = module.default ?? module;
       }
       
       const wb = createStyledWorkbook();
@@ -481,8 +483,9 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
             </h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Start Date</label>
+                <label className="block text-sm font-medium mb-1" htmlFor="excel-export-start-date">Start Date</label>
                 <input
+                  id="excel-export-start-date"
                   type="date"
                   value={options.dateRange.start?.toISOString().split('T')[0] || ''}
                   onChange={(e) => setOptions({
@@ -497,8 +500,9 @@ export default function ExcelExport({ isOpen, onClose }: ExcelExportProps): Reac
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">End Date</label>
+                <label className="block text-sm font-medium mb-1" htmlFor="excel-export-end-date">End Date</label>
                 <input
+                  id="excel-export-end-date"
                   type="date"
                   value={options.dateRange.end?.toISOString().split('T')[0] || ''}
                   onChange={(e) => setOptions({

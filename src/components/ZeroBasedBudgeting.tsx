@@ -14,6 +14,7 @@ import {
 } from './icons';
 import { Modal, ModalBody, ModalFooter } from './common/Modal';
 import type { Category } from '../types';
+import { formatDecimal } from '../utils/decimal-format';
 
 interface ZeroBudgetItem {
   id: string;
@@ -246,6 +247,13 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
   };
 
   const totals = calculateTotals();
+  const totalIncome = activePeriod?.totalIncome ?? 0;
+  const allocatedPercentage = totalIncome > 0
+    ? formatDecimal((totals.allocated / totalIncome) * 100, 1)
+    : '0.0';
+  const approvedPercentage = totalIncome > 0
+    ? formatDecimal((totals.approved / totalIncome) * 100, 1)
+    : '0.0';
 
   // Filter items
   const filteredItems = activePeriod?.items.filter(item => {
@@ -335,7 +343,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Allocated</p>
                   <p className="text-2xl font-bold">{formatCurrency(totals.allocated)}</p>
-                  <p className="text-xs text-gray-500">{((totals.allocated / activePeriod.totalIncome) * 100).toFixed(1)}%</p>
+                  <p className="text-xs text-gray-500">{allocatedPercentage}%</p>
                 </div>
                 <CalculatorIcon size={32} className="text-blue-600" />
               </div>
@@ -346,7 +354,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Approved</p>
                   <p className="text-2xl font-bold">{formatCurrency(totals.approved)}</p>
-                  <p className="text-xs text-gray-500">{((totals.approved / activePeriod.totalIncome) * 100).toFixed(1)}%</p>
+                  <p className="text-xs text-gray-500">{approvedPercentage}%</p>
                 </div>
                 <CheckCircleIcon size={32} className="text-green-600" />
               </div>
