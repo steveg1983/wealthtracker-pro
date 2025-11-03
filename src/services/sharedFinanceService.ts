@@ -280,7 +280,7 @@ class SharedFinanceService {
       contributors,
       isHouseholdGoal,
       approvalRequired: false,
-      completedAt: false
+      completedAt: undefined
     };
 
     this.sharedGoals.push(sharedGoal);
@@ -322,8 +322,7 @@ class SharedFinanceService {
 
     // Check if goal is achieved
     if (totalCurrent >= goal.targetAmount && !goal.completedAt) {
-      goal.completedAt = true;
-      goal.completedAt = new Date();
+      goal.completedAt = new Date().toISOString();
       this.logActivity(
         'goal_achieved',
         goalId,
@@ -368,7 +367,7 @@ class SharedFinanceService {
     return this.sharedGoals.filter(goal => {
       if (goal.householdId !== householdId) return false;
       if (memberId && !goal.sharedWith.includes(memberId)) return false;
-      return !goal.isDeleted;
+      return true;
     });
   }
 

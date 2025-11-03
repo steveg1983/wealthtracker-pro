@@ -234,7 +234,9 @@ class SmartCacheService {
       if (memoCache.size >= maxArgs) {
         // Remove oldest entry
         const firstKey = memoCache.keys().next().value;
-        memoCache.delete(firstKey);
+        if (firstKey !== undefined) {
+          memoCache.delete(firstKey);
+        }
       }
       
       memoCache.set(key, { result, timestamp: Date.now() });

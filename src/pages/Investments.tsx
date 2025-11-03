@@ -13,7 +13,6 @@ import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
-import type { DecimalInstance } from '../utils/decimal';
 import PageWrapper from '../components/PageWrapper';
 
 export default function Investments() {
@@ -336,8 +335,8 @@ export default function Investments() {
                   return formatted;
                 }}
               />
-              <Tooltip 
-                formatter={(value: number) => formatCurrency(value)}
+              <Tooltip
+                formatter={(value: any) => formatCurrency(toDecimal(value))}
                 contentStyle={{ 
                   backgroundColor: 'rgba(255, 255, 255, 0.95)',
                   border: '1px solid #ccc',
@@ -445,8 +444,8 @@ export default function Investments() {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip 
-                      formatter={(value: number) => formatCurrency(value)}
+                    <Tooltip
+                      formatter={(value: any) => formatCurrency(toDecimal(value))}
                       contentStyle={{ 
                         backgroundColor: 'rgba(255, 255, 255, 0.95)',
                         border: '1px solid #ccc',
@@ -524,9 +523,9 @@ export default function Investments() {
                 <RealTimePortfolioEnhanced
                   holdings={investmentAccounts.flatMap(acc => 
                     (acc.holdings || []).map(h => ({
-                      symbol: h.symbol || h.ticker,
+                      symbol: h.ticker,
                       shares: toDecimal(h.shares),
-                      averageCost: toDecimal(h.averageCost || h.costBasis / h.shares || h.value / h.shares),
+                      averageCost: toDecimal(h.averageCost || (h.costBasis ? h.costBasis / h.shares : h.value / h.shares)),
                       costBasis: toDecimal(h.costBasis || h.shares * (h.averageCost || h.value / h.shares))
                     }))
                   )}
@@ -552,9 +551,9 @@ export default function Investments() {
                   {account.holdings && account.holdings.length > 0 ? (
                     <RealTimePortfolioEnhanced
                       holdings={account.holdings.map(h => ({
-                        symbol: h.symbol || h.ticker,
+                        symbol: h.ticker,
                         shares: toDecimal(h.shares),
-                        averageCost: toDecimal(h.averageCost || h.costBasis / h.shares || h.value / h.shares),
+                        averageCost: toDecimal(h.averageCost || (h.costBasis ? h.costBasis / h.shares : h.value / h.shares)),
                         costBasis: toDecimal(h.costBasis || h.shares * (h.averageCost || h.value / h.shares))
                       }))}
                       baseCurrency={account.currency}
@@ -621,18 +620,15 @@ export default function Investments() {
                         dateAdded: h.lastUpdated || new Date()
                       }))}
                       onUpdate={(newHoldings) => {
-                        const updatedAccount = {
-                          ...account,
-                          holdings: newHoldings.map(h => ({
-                            ticker: h.symbol,
-                            name: h.symbol, // Will be updated by real-time service
-                            shares: h.shares.toNumber(),
-                            value: h.costBasis.toNumber(),
-                            averageCost: h.averageCost.toNumber(),
-                            lastUpdated: new Date()
-                          }))
-                        };
-                        updateAccount(updatedAccount);
+                        const updatedHoldings = newHoldings.map(h => ({
+                          ticker: h.symbol,
+                          name: h.symbol, // Will be updated by real-time service
+                          shares: h.shares.toNumber(),
+                          value: h.costBasis.toNumber(),
+                          averageCost: h.averageCost.toNumber(),
+                          lastUpdated: new Date()
+                        }));
+                        updateAccount(account.id, { holdings: updatedHoldings });
                       }}
                     />
                   </div>
