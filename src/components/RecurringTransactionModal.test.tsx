@@ -14,7 +14,7 @@ const mockAddTransaction = vi.fn();
 const mockAddRecurringTransaction = vi.fn();
 const mockDeleteRecurringTransaction = vi.fn();
 
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     accounts: [
       { id: 'acc-1', name: 'Checking Account', type: 'checking' },
@@ -83,6 +83,20 @@ vi.mock('./icons', () => ({
       ↻
     </span>
   ),
+}));
+
+vi.mock('../hooks/useCurrencyDecimal', () => ({
+  useCurrencyDecimal: () => ({
+    formatCurrency: (amount: number) => {
+      const isNegative = amount < 0;
+      const absolute = Math.abs(amount);
+      const formatted = absolute.toLocaleString('en-GB', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      return isNegative ? `-£${formatted}` : `£${formatted}`;
+    }
+  })
 }));
 
 // Track form data changes in the mock
@@ -200,7 +214,7 @@ describe('RecurringTransactionModal', () => {
       renderModal(true);
       
       // Monthly Rent details
-      expect(screen.getByText('-£1200.00 · monthly')).toBeInTheDocument();
+      expect(screen.getByText('-£1,200.00 · monthly')).toBeInTheDocument();
       const startDates = screen.getAllByText(/Starts: 1\/1\/2024/);
       expect(startDates).toHaveLength(2); // Both transactions start on same date
       
@@ -249,7 +263,7 @@ describe('RecurringTransactionModal', () => {
       renderModal(true);
       
       // Expense transactions should have minus sign
-      expect(screen.getByText('-£1200.00 · monthly')).toBeInTheDocument();
+      expect(screen.getByText('-£1,200.00 · monthly')).toBeInTheDocument();
     });
   });
 
@@ -711,7 +725,7 @@ describe('RecurringTransactionModal', () => {
       renderModal(true);
       
       // Shows properly formatted amounts
-      expect(screen.getByText('-£1200.00 · monthly')).toBeInTheDocument();
+      expect(screen.getByText('-£1,200.00 · monthly')).toBeInTheDocument();
     });
 
     it('handles optional end date', () => {

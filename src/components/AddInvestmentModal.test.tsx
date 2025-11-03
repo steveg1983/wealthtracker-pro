@@ -100,7 +100,7 @@ const mockAccounts: Account[] = [
   { id: '4', name: 'US Brokerage', type: 'investment', balance: 15000, currency: 'USD', institution: 'Schwab', isActive: true }
 ];
 
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     accounts: mockAccounts,
     addTransaction: mockAddTransaction
@@ -113,7 +113,7 @@ vi.mock('../hooks/useCurrencyDecimal', () => ({
   })
 }));
 
-vi.mock('../utils/currency', () => ({
+vi.mock('../utils/currency-decimal', () => ({
   getCurrencySymbol: (currency: string) => currency === 'USD' ? '$' : '£'
 }));
 
@@ -313,7 +313,8 @@ describe('AddInvestmentModal', () => {
     it('handles empty values in calculation', () => {
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
       
-      expect(screen.getByText('£0.00')).toBeInTheDocument();
+      const zeroAmounts = screen.getAllByText('£0.00');
+      expect(zeroAmounts.length).toBeGreaterThan(0);
     });
 
     it('handles invalid values in calculation', () => {
@@ -326,7 +327,8 @@ describe('AddInvestmentModal', () => {
       
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
       
-      expect(screen.getByText('£0.00')).toBeInTheDocument();
+      const zeroTotals = screen.getAllByText('£0.00');
+      expect(zeroTotals.length).toBeGreaterThan(0);
     });
   });
 

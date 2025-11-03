@@ -10,6 +10,55 @@ import { supabase } from '../lib/supabase';
 import { store } from '../store';
 import { userIdService } from './userIdService';
 import type { Account, Transaction, Budget, Goal } from '../types';
+import type { SerializedAccount, SerializedTransaction, SerializedBudget, SerializedGoal } from '../types/redux-types';
+
+// Legacy types for migration that might have additional properties from older versions
+interface LegacyAccount extends Account {
+  color?: string;
+  icon?: string;
+}
+
+interface LegacyTransaction extends Transaction {
+  reconciled?: boolean;
+}
+
+interface LegacyBudget extends Budget {
+  alertEnabled?: boolean;
+}
+
+// Helper functions to convert Serialized types to regular types
+function deserializeAccount(account: SerializedAccount): Account {
+  return {
+    ...account,
+    lastUpdated: new Date(account.lastUpdated),
+    openingBalanceDate: account.openingBalanceDate ? new Date(account.openingBalanceDate) : undefined
+  };
+}
+
+function deserializeTransaction(transaction: SerializedTransaction): Transaction {
+  return {
+    ...transaction,
+    date: new Date(transaction.date),
+    createdAt: transaction.createdAt ? new Date(transaction.createdAt) : undefined
+  };
+}
+
+function deserializeBudget(budget: SerializedBudget): Budget {
+  return {
+    ...budget,
+    startDate: budget.startDate ? new Date(budget.startDate) : undefined,
+    endDate: budget.endDate ? new Date(budget.endDate) : undefined,
+    createdAt: budget.createdAt ? new Date(budget.createdAt) : undefined
+  };
+}
+
+function deserializeGoal(goal: SerializedGoal): Goal {
+  return {
+    ...goal,
+    targetDate: new Date(goal.targetDate),
+    createdAt: goal.createdAt ? new Date(goal.createdAt) : undefined
+  };
+}
 
 interface MigrationStatus {
   inProgress: boolean;
@@ -112,8 +161,8 @@ export class DataMigrationService {
         currency: account.currency || 'USD',
         institution: account.institution,
         is_active: account.isActive !== false,
-        color: account.color,
-        icon: account.icon,
+        color: (account as LegacyAccount).color || null,
+        icon: (account as LegacyAccount).icon || null,
         created_at: account.createdAt || new Date().toISOString(),
       }));
 
@@ -189,7 +238,7 @@ export class DataMigrationService {
           notes: transaction.notes,
           merchant: transaction.merchant,
           is_cleared: transaction.cleared !== false,
-          is_reconciled: transaction.reconciled || false,
+          is_reconciled: (transaction as LegacyTransaction).reconciled || false,
           created_at: transaction.createdAt || new Date().toISOString(),
         }));
 
@@ -235,7 +284,7 @@ export class DataMigrationService {
         period: budget.period || 'monthly',
         start_date: budget.startDate || new Date().toISOString().split('T')[0],
         is_active: budget.isActive !== false,
-        alert_enabled: budget.alertEnabled !== false,
+        alert_enabled: (budget as LegacyBudget).alertEnabled !== false,
         alert_threshold: budget.alertThreshold || 80,
         created_at: budget.createdAt || new Date().toISOString(),
       }));
@@ -344,23 +393,27 @@ export class DataMigrationService {
       const state = store.getState();
       const { accounts, transactions, budgets, goals } = state;
 
-      // Migrate each data type
-      const accountsSuccess = await this.migrateAccounts(userId, accounts.accounts);
+      // Migrate each data type - deserialize from Redux state
+      const deserializedAccounts = accounts.accounts.map(deserializeAccount);
+      const accountsSuccess = await this.migrateAccounts(userId, deserializedAccounts);
       if (!accountsSuccess) {
         throw new Error('Failed to migrate accounts');
       }
 
-      const transactionsSuccess = await this.migrateTransactions(userId, transactions.transactions);
+      const deserializedTransactions = transactions.transactions.map(deserializeTransaction);
+      const transactionsSuccess = await this.migrateTransactions(userId, deserializedTransactions);
       if (!transactionsSuccess) {
         console.warn('Some transactions failed to migrate');
       }
 
-      const budgetsSuccess = await this.migrateBudgets(userId, budgets.budgets);
+      const deserializedBudgets = budgets.budgets.map(deserializeBudget);
+      const budgetsSuccess = await this.migrateBudgets(userId, deserializedBudgets);
       if (!budgetsSuccess) {
         console.warn('Some budgets failed to migrate');
       }
 
-      const goalsSuccess = await this.migrateGoals(userId, goals.goals);
+      const deserializedGoals = goals.goals.map(deserializeGoal);
+      const goalsSuccess = await this.migrateGoals(userId, deserializedGoals);
       if (!goalsSuccess) {
         console.warn('Some goals failed to migrate');
       }

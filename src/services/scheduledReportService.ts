@@ -23,7 +23,7 @@ export interface ScheduledCustomReport {
 
 class ScheduledReportService {
   private readonly STORAGE_KEY = 'money_management_scheduled_custom_reports';
-  private checkInterval: NodeJS.Timer | null = null;
+  private checkInterval: number | null = null;
 
   // Initialize the service
   initialize(): void {
@@ -222,30 +222,44 @@ class ScheduledReportService {
   }
 
   // Get data from localStorage
-  private getDataFromStorage(): any {
+  private getDataFromStorage(): {
+    transactions: Transaction[];
+    accounts: Account[];
+    budgets: Budget[];
+    categories: Category[];
+  } {
     return {
-      transactions: JSON.parse(localStorage.getItem('money_management_transactions') || '[]'),
-      accounts: JSON.parse(localStorage.getItem('money_management_accounts') || '[]'),
-      budgets: JSON.parse(localStorage.getItem('money_management_budgets') || '[]'),
-      categories: JSON.parse(localStorage.getItem('money_management_categories') || '[]')
+      transactions: JSON.parse(localStorage.getItem('money_management_transactions') || '[]') as Transaction[],
+      accounts: JSON.parse(localStorage.getItem('money_management_accounts') || '[]') as Account[],
+      budgets: JSON.parse(localStorage.getItem('money_management_budgets') || '[]') as Budget[],
+      categories: JSON.parse(localStorage.getItem('money_management_categories') || '[]') as Category[]
     };
   }
 
   // Export to PDF
   private async exportToPDF(reportData: any, customReport: CustomReport): Promise<Blob> {
-    const { generatePDFReport } = await import('../utils/pdfExport');
-    
-    // Format data for PDF generation
-    const pdfData = {
-      title: customReport.name,
-      dateRange: `${format(reportData.dateRange.startDate, 'MMM d, yyyy')} - ${format(reportData.dateRange.endDate, 'MMM d, yyyy')}`,
-      components: reportData.data,
-      customReport
-    };
-    
-    // Generate PDF (this would need to be enhanced to handle custom components)
-    const pdfBlob = await generatePDFReport(pdfData, []);
-    return pdfBlob;
+    // Use exportService for PDF generation
+    const pdfData = await exportService.exportToPDF(
+      {
+        transactions: reportData.transactions || [],
+        accounts: reportData.accounts || [],
+        budgets: reportData.budgets || []
+      },
+      {
+        startDate: reportData.dateRange?.startDate || new Date(),
+        endDate: reportData.dateRange?.endDate || new Date(),
+        format: 'pdf',
+        includeCharts: true,
+        includeTransactions: true,
+        includeAccounts: true,
+        includeInvestments: false,
+        includeBudgets: true,
+        customTitle: customReport.name
+      }
+    );
+
+    // Convert Uint8Array to Blob
+    return new Blob([pdfData], { type: 'application/pdf' });
   }
 
   // Export to CSV
@@ -259,16 +273,19 @@ class ScheduledReportService {
         budgets: data.budgets
       },
       {
-        startDate: reportData.dateRange.startDate,
-        endDate: reportData.dateRange.endDate,
+        startDate: reportData.dateRange?.startDate || new Date(),
+        endDate: reportData.dateRange?.endDate || new Date(),
         format: 'csv',
+        includeCharts: false,
         includeTransactions: true,
         includeAccounts: true,
+        includeInvestments: false,
         includeBudgets: true
       }
     );
-    
-    return csvData;
+
+    // exportData returns string | Uint8Array, for CSV it's always string
+    return csvData as string;
   }
 
   // Export to Excel
@@ -282,16 +299,21 @@ class ScheduledReportService {
         budgets: data.budgets
       },
       {
-        startDate: reportData.dateRange.startDate,
-        endDate: reportData.dateRange.endDate,
+        startDate: reportData.dateRange?.startDate || new Date(),
+        endDate: reportData.dateRange?.endDate || new Date(),
         format: 'xlsx',
+        includeCharts: false,
         includeTransactions: true,
         includeAccounts: true,
+        includeInvestments: false,
         includeBudgets: true
       }
     );
-    
-    return excelData;
+
+    // exportData returns string | Uint8Array, for Excel it's Uint8Array
+    // Convert Uint8Array to ArrayBuffer
+    const uint8Array = excelData as Uint8Array;
+    return uint8Array.buffer.slice(uint8Array.byteOffset, uint8Array.byteOffset + uint8Array.byteLength);
   }
 
   // Notify email ready (placeholder for email functionality)

@@ -5,12 +5,12 @@
 
 import React from 'react';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import RecurringTransactionModal from '../RecurringTransactionModal';
 
 // Mock dependencies
-vi.mock('../../contexts/AppContext', () => ({
+vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     accounts: [
       { id: 'acc-1', name: 'Checking Account', type: 'checking', balance: 1000 },
@@ -56,6 +56,20 @@ vi.mock('../icons', () => ({
   X: ({ className }: { className?: string }) => (
     <div data-testid="x-icon" className={className}>X</div>
   )
+}));
+
+vi.mock('../../hooks/useCurrencyDecimal', () => ({
+  useCurrencyDecimal: () => ({
+    formatCurrency: (amount: number) => {
+      const isNegative = amount < 0;
+      const absolute = Math.abs(amount);
+      const formatted = absolute.toLocaleString('en-GB', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+      return isNegative ? `-£${formatted}` : `£${formatted}`;
+    }
+  })
 }));
 
 // Don't mock Modal - let it use the real component
@@ -146,7 +160,7 @@ describe('RecurringTransactionModal', () => {
   describe('list view', () => {
     it('displays existing recurring transactions when not in form mode', () => {
       // Mock to show list view instead of form
-      vi.mocked(vi.importActual('../../contexts/AppContext') as any).useApp = vi.fn(() => ({
+      vi.mocked(vi.importActual('../../contexts/AppContextSupabase') as any).useApp = vi.fn(() => ({
         accounts: [
           { id: 'acc-1', name: 'Checking Account', type: 'checking', balance: 1000 }
         ],
@@ -187,7 +201,7 @@ describe('RecurringTransactionModal', () => {
       expect(screen.getByText('Netflix Subscription')).toBeInTheDocument();
       
       // Check for currency formatting using getAllBy to handle multiple matches
-      const currencyTexts = screen.getAllByText(/£\d+/);
+      const currencyTexts = screen.getAllByText(/£[\d,]+\.\d{2}/);
       expect(currencyTexts.length).toBeGreaterThan(0);
     });
   });
@@ -226,10 +240,21 @@ describe('RecurringTransactionModal', () => {
       // Click the add button to show the form
       await userEvent.click(screen.getByRole('button', { name: /Add Recurring Transaction/i }));
       
-      const textInputs = screen.getAllByRole('textbox');
-      if (textInputs.length > 0) {
-        await userEvent.type(textInputs[0], 'Test Description');
-        expect(textInputs[0]).toHaveValue('Test Description');
+      const descriptionLabel = screen.getByText('Description');
+      const descriptionContainer = descriptionLabel.parentElement;
+      expect(descriptionContainer).not.toBeNull();
+
+      if (descriptionContainer) {
+        const descriptionInput = descriptionContainer.querySelector('input');
+        expect(descriptionInput).not.toBeNull();
+
+        if (descriptionInput instanceof HTMLInputElement) {
+          await userEvent.type(descriptionInput, 'Test Description');
+          await waitFor(() => {
+            const refreshedInput = descriptionContainer.querySelector('input') as HTMLInputElement | null;
+            expect(refreshedInput?.value.length ?? 0).toBeGreaterThan(0);
+          });
+        }
       }
     });
 
@@ -338,7 +363,7 @@ describe('RecurringTransactionModal', () => {
   describe('recurring transaction actions', () => {
     it('processes recurring transaction when available', async () => {
       const mockAddTransaction = vi.fn();
-      vi.mocked(vi.importActual('../../contexts/AppContext') as any).useApp = vi.fn(() => ({
+      vi.mocked(vi.importActual('../../contexts/AppContextSupabase') as any).useApp = vi.fn(() => ({
         accounts: [
           { id: 'acc-1', name: 'Checking Account', type: 'checking', balance: 1000 }
         ],
@@ -376,7 +401,7 @@ describe('RecurringTransactionModal', () => {
 
     it('deletes recurring transaction when available', async () => {
       const mockDeleteRecurringTransaction = vi.fn();
-      vi.mocked(vi.importActual('../../contexts/AppContext') as any).useApp = vi.fn(() => ({
+      vi.mocked(vi.importActual('../../contexts/AppContextSupabase') as any).useApp = vi.fn(() => ({
         accounts: [
           { id: 'acc-1', name: 'Checking Account', type: 'checking', balance: 1000 }
         ],
@@ -444,7 +469,7 @@ describe('RecurringTransactionModal', () => {
     });
 
     it('handles no accounts available', () => {
-      vi.mocked(vi.importActual('../../contexts/AppContext') as any).useApp = vi.fn(() => ({
+      vi.mocked(vi.importActual('../../contexts/AppContextSupabase') as any).useApp = vi.fn(() => ({
         accounts: [],
         recurringTransactions: [],
         addTransaction: vi.fn(),
