@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Decimal, toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import { formatCurrency } from '../utils/currency';
 
 // Cache for date formatting to avoid re-creating Date objects
@@ -93,15 +93,7 @@ export function useFormattedPercentage(
   _locale: string = 'en-US'
 ): string {
   return useMemo(() => {
-    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
-    const isNegative = decimalValue.isNegative();
-    const absolute = decimalValue.abs();
-    const fixed = decimals > 0 ? absolute.toFixed(decimals) : absolute.toFixed(0);
-    const [integerPart, fractionalPart] = fixed.split('.');
-    const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    const fraction = decimals > 0 ? `.${fractionalPart}` : '';
-
-    return `${isNegative ? '-' : ''}${groupedInteger}${fraction}%`;
+    return `${formatDecimal(value, decimals, { group: true })}%`;
   }, [value, decimals]);
 }
 
@@ -112,14 +104,6 @@ export function useFormattedNumber(
   _locale: string = 'en-US'
 ): string {
   return useMemo(() => {
-    const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
-    const isNegative = decimalValue.isNegative();
-    const absolute = decimalValue.abs();
-    const fixed = decimals > 0 ? absolute.toFixed(decimals) : absolute.toFixed(0);
-    const [integerPart, fractionalPart] = fixed.split('.');
-    const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    const fraction = decimals > 0 ? `.${fractionalPart}` : '';
-
-    return `${isNegative ? '-' : ''}${groupedInteger}${fraction}`;
+    return formatDecimal(value, decimals, { group: true });
   }, [value, decimals]);
 }

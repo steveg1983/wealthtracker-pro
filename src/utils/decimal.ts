@@ -6,8 +6,8 @@ type DecimalInstance = InstanceType<typeof Decimal>;
 Decimal.config({
   precision: 20,
   rounding: Decimal.ROUND_HALF_UP,
-  toExpPos: 9,
-  toExpNeg: -9
+  toExpPos: 30,
+  toExpNeg: -30
 });
 
 /**

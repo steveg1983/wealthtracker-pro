@@ -3,6 +3,7 @@ import { useApp } from '../contexts/AppContextSupabase';
 import type { Account, Transaction, Budget, Goal } from '../types';
 import { formatCurrency } from '../utils/currency-decimal';
 import { Decimal, toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 export interface SearchResult {
   id: string;
@@ -163,7 +164,7 @@ export function useGlobalSearch(query: string): {
           const progressDecimal = targetAmountDecimal.equals(0)
             ? new Decimal(0)
             : currentAmountDecimal.dividedBy(targetAmountDecimal).times(100);
-          const progressDisplay = progressDecimal.toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toFixed(1);
+          const progressDisplay = formatDecimal(progressDecimal, 1);
           
           results.push({
             id: goal.id,

@@ -15,13 +15,24 @@ export function formatNumber(num: number): string {
   });
 }
 
+import { toDecimal } from './decimal';
+import { formatDecimal } from './decimal-format';
+
 export function formatCompactNumber(num: number): string {
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(1)}M`;
-  } else if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}K`;
+  const decimalValue = toDecimal(num);
+  const absolute = decimalValue.abs();
+
+  if (absolute.greaterThanOrEqualTo(1_000_000)) {
+    const scaled = decimalValue.dividedBy(1_000_000);
+    return `${formatDecimal(scaled, 1)}M`;
   }
-  return formatNumber(num);
+
+  if (absolute.greaterThanOrEqualTo(1_000)) {
+    const scaled = decimalValue.dividedBy(1_000);
+    return `${formatDecimal(scaled, 1)}K`;
+  }
+
+  return formatDecimal(decimalValue, 2, { group: true });
 }
 
 export function formatBytes(bytes: number): string {

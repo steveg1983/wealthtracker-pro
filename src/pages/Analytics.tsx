@@ -388,7 +388,7 @@ export default function Analytics(): React.JSX.Element {
                   </div>
                   <Suspense fallback={<div className="flex items-center justify-center h-64">Loading dashboard...</div>}>
                     <DashboardBuilder
-                      dashboard={activeDashboard}
+                      dashboard={activeDashboard ? { ...activeDashboard, settings: activeDashboard.settings || {} } : null}
                       onSave={handleSaveDashboard}
                       onClose={() => setActiveDashboard(null)}
                     />
