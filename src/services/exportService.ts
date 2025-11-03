@@ -5,6 +5,7 @@ import type { Transaction, Account, Category, Investment, Budget } from '../type
 import type { ExportableData, GroupedData, ChartData, SavedReport, SavedTemplate } from '../types/export';
 import Decimal from 'decimal.js';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 export interface ExportOptions {
   startDate: Date;
@@ -429,7 +430,7 @@ class ExportService {
       const gainLossPercent = costBasis.gt(0) ? gainLoss.div(costBasis).times(100) : new Decimal(0);
 
       doc.text(
-        `${investment.symbol}: ${this.formatCurrency(currentValue.toNumber())} (${gainLoss.gte(0) ? '+' : ''}${gainLossPercent.toFixed(2)}%)`,
+        `${investment.symbol}: ${this.formatCurrency(currentValue.toNumber())} (${gainLoss.gte(0) ? '+' : ''}${formatDecimal(gainLossPercent, 2)}%)`,
         20,
         yPosition
       );
@@ -452,7 +453,7 @@ class ExportService {
       const percentSpent = budgeted.gt(0) ? spent.div(budgeted).times(100) : new Decimal(0);
 
       doc.text(
-        `${budget.categoryId}: ${this.formatCurrency(spent.toNumber())} / ${this.formatCurrency(budgeted.toNumber())} (${percentSpent.toFixed(1)}%)`,
+        `${budget.categoryId}: ${this.formatCurrency(spent.toNumber())} / ${this.formatCurrency(budgeted.toNumber())} (${formatDecimal(percentSpent, 1)}%)`,
         20,
         yPosition
       );
@@ -586,7 +587,7 @@ class ExportService {
       qifContent += '!Account\n';
       qifContent += `N${account.name}\n`;
       qifContent += `T${this.mapAccountType(account.type)}\n`;
-      qifContent += `$${account.balance.toFixed(2)}\n`;
+      qifContent += `$${formatDecimal(account.balance, 2)}\n`;
       qifContent += '^\n';
 
       // Export transactions for this account
@@ -599,7 +600,7 @@ class ExportService {
           const qifDate = `${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getDate().toString().padStart(2, '0')}/${date.getFullYear()}`;
           
           qifContent += `D${qifDate}\n`;
-          qifContent += `T${transaction.type === 'expense' ? '-' : ''}${transaction.amount.toFixed(2)}\n`;
+          qifContent += `T${transaction.type === 'expense' ? '-' : ''}${formatDecimal(transaction.amount, 2)}\n`;
           qifContent += `P${transaction.description || ''}\n`;
           qifContent += `L${transaction.category || 'Uncategorized'}\n`;
           

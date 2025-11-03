@@ -1,5 +1,6 @@
 import { Investment, Account, Transaction } from '../types';
 import { toDecimal, Decimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type { DecimalInstance } from '../utils/decimal';
 
 export interface AssetAllocation {
@@ -116,10 +117,7 @@ class InvestmentEnhancementService {
           this.getInvestmentCategory(inv) === category
         );
         
-        const differenceDisplay = toDecimal(difference)
-          .abs()
-          .toDecimalPlaces(1, Decimal.ROUND_HALF_UP)
-          .toFixed(1);
+        const differenceDisplay = formatDecimal(Math.abs(difference), 1);
 
         if (difference > 0) {
           // Need to buy more
@@ -352,9 +350,7 @@ class InvestmentEnhancementService {
     // Dividend insights
     const totalDividends = dividends.reduce((sum, d) => sum.plus(d.projectedAnnual), toDecimal(0));
     if (totalDividends.greaterThan(0)) {
-      const dividendsDisplay = totalDividends
-        .toDecimalPlaces(2, Decimal.ROUND_HALF_UP)
-        .toFixed(2);
+      const dividendsDisplay = formatDecimal(totalDividends, 2);
       insights.push(`💰 Projected annual dividend income: $${dividendsDisplay}`);
     }
     

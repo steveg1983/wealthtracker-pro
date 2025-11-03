@@ -85,8 +85,7 @@ export function MobileTransactionActions({
     icon: <DeleteIcon size={20} />,
     label: 'Delete',
     description: 'Remove this transaction',
-    onClick: () => deleteSheet.open(),
-    danger: true
+    onClick: () => deleteSheet.open()
   });
 
   // Share options

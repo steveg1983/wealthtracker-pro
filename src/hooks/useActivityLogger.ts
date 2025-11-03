@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { logActivity } from './useActivityTracking';
+import { formatDecimal } from '../utils/decimal-format';
 
 /**
  * Hook that automatically logs activities when app data changes
@@ -46,7 +47,7 @@ export function useActivityLogger() {
           logActivity({
             type: 'account',
             title: `${account.name} Balance Updated`,
-            description: `Balance changed by £${Math.abs(diff).toFixed(2)}`,
+            description: `Balance changed by £${formatDecimal(Math.abs(diff), 2)}`,
             amount: diff,
             actionUrl: '/accounts'
           });
@@ -75,7 +76,7 @@ export function useActivityLogger() {
         logActivity({
           type: 'budget',
           title: 'Budget Alert',
-          description: `${budget.categoryId} budget is ${percentage.toFixed(0)}% spent`,
+          description: `${budget.categoryId} budget is ${formatDecimal(percentage, 0)}% spent`,
           actionUrl: '/budget'
         });
         localStorage.setItem(alertKey, 'true');
@@ -83,7 +84,7 @@ export function useActivityLogger() {
         logActivity({
           type: 'budget',
           title: 'Budget Warning',
-          description: `${budget.categoryId} budget is ${percentage.toFixed(0)}% spent`,
+          description: `${budget.categoryId} budget is ${formatDecimal(percentage, 0)}% spent`,
           actionUrl: '/budget'
         });
         localStorage.setItem(alertKey, '75');

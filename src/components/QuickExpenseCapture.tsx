@@ -12,6 +12,7 @@ import {
   AlertCircleIcon
 } from './icons';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { formatDecimal } from '../utils/decimal-format';
 import { toDecimal } from '../utils/decimal';
 import type { CameraCapture, MerchantLocation } from '../services/mobileService';
 import type { Transaction } from '../types';
@@ -216,7 +217,7 @@ export default function QuickExpenseCapture({ isOpen, onClose, onExpenseCreated 
               </div>
               <div className="text-right">
                 <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {merchant.distance?.toFixed(1)} mi
+                  {merchant.distance !== undefined ? `${formatDecimal(merchant.distance, 1)} mi` : ''}
                 </span>
               </div>
             </div>

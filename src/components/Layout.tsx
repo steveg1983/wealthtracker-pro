@@ -174,8 +174,7 @@ export default function Layout(): React.JSX.Element {
         const prevPage = getNextPrevPage('prev', location.pathname);
         if (prevPage) navigate(prevPage);
       }
-    },
-    threshold: 100
+    }
   });
 
   const toggleSidebar = useCallback(() => {

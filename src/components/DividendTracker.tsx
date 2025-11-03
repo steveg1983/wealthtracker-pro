@@ -4,6 +4,7 @@ import type { Dividend, DividendSummary, DividendProjection } from '../services/
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrency } from '../hooks/useCurrency';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type { Investment } from '../types';
 import {
   TrendingUpIcon,
@@ -388,7 +389,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
                     <div>
                       <span className="text-gray-500 dark:text-gray-400 block text-xs">Per Share</span>
                       <span className="text-gray-900 dark:text-white">
-                        {currencySymbol}{dividend.amountPerShare.toFixed(4)}
+                        {currencySymbol}{formatDecimal(dividend.amountPerShare, 4)}
                       </span>
                     </div>
                   </div>
@@ -417,7 +418,7 @@ export default function DividendTracker({ accountId, investmentId }: DividendTra
                       <td className="py-3 px-4 font-medium">{dividend.symbol}</td>
                       <td className="py-3 px-4 text-right">{formatCurrency(dividend.amount)}</td>
                       <td className="py-3 px-4 text-right text-sm text-gray-600 dark:text-gray-400">
-                        {currencySymbol}{dividend.amountPerShare.toFixed(4)}
+                        {currencySymbol}{formatDecimal(dividend.amountPerShare, 4)}
                       </td>
                       <td className="py-3 px-4 text-center">
                         <span className={`text-xs px-2 py-1 rounded ${

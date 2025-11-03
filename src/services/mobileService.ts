@@ -1,5 +1,6 @@
 import { Transaction, Account, Budget } from '../types';
 import { Decimal, toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type {
   NotificationAction,
   NotificationData,
@@ -481,9 +482,7 @@ class MobileService {
         .times(100);
 
       if (percentageDecimal.greaterThanOrEqualTo(new Decimal(90))) {
-        const percentageDisplay = percentageDecimal
-          .toDecimalPlaces(0, Decimal.ROUND_HALF_UP)
-          .toFixed(0);
+        const percentageDisplay = formatDecimal(percentageDecimal, 0);
         this.sendNotification(
           'Budget Alert',
           `You've spent ${percentageDisplay}% of your ${budget.categoryId} budget`,

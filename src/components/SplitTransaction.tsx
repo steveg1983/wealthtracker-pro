@@ -9,6 +9,7 @@ import {
 import { Transaction } from '../types';
 import { useApp } from '../contexts/AppContextSupabase';
 import { formatCurrency } from '../utils/formatters';
+import { formatDecimal } from '../utils/decimal-format';
 
 export interface SplitItem {
   id: string;
@@ -35,14 +36,14 @@ export default function SplitTransaction({
   const [splits, setSplits] = useState<SplitItem[]>([
     {
       id: '1',
-      amount: (totalAmount / 2).toFixed(2),
+      amount: formatDecimal(totalAmount / 2, 2),
       category: transaction.category,
       description: transaction.description,
       percentage: 50
     },
     {
       id: '2',
-      amount: (totalAmount / 2).toFixed(2),
+      amount: formatDecimal(totalAmount / 2, 2),
       category: 'Uncategorized',
       description: '',
       percentage: 50
@@ -83,7 +84,7 @@ export default function SplitTransaction({
   const addSplit = () => {
     const newSplit: SplitItem = {
       id: Date.now().toString(),
-      amount: remaining > 0 ? remaining.toFixed(2) : '0.00',
+      amount: remaining > 0 ? formatDecimal(remaining, 2) : '0.00',
       category: 'Uncategorized',
       description: '',
       percentage: remaining > 0 ? (remaining / totalAmount) * 100 : 0
@@ -103,7 +104,7 @@ export default function SplitTransaction({
       
       setSplits(newSplits.map(split => ({
         ...split,
-        amount: (parseFloat(split.amount) + distribution).toFixed(2)
+        amount: formatDecimal(parseFloat(split.amount) + distribution, 2)
       })));
     } else {
       setSplits(newSplits);
@@ -119,7 +120,7 @@ export default function SplitTransaction({
           // Handle percentage mode
           if (field === 'percentage' && splitMode === 'percentage') {
             const percentage = parseFloat(value as string) || 0;
-            updated.amount = ((percentage / 100) * totalAmount).toFixed(2);
+            updated.amount = formatDecimal((percentage / 100) * totalAmount, 2);
             updated.percentage = percentage;
           }
           
@@ -148,7 +149,7 @@ export default function SplitTransaction({
             if (split.id === id) return split;
             return {
               ...split,
-              amount: distributionPerSplit.toFixed(2),
+              amount: formatDecimal(distributionPerSplit, 2),
               percentage: (distributionPerSplit / totalAmount) * 100
             };
           });
@@ -160,11 +161,13 @@ export default function SplitTransaction({
   };
 
   const autoDistribute = () => {
-    const equalAmount = (totalAmount / splits.length).toFixed(2);
+    const equalAmountValue = totalAmount / splits.length;
+    const equalAmount = formatDecimal(equalAmountValue, 2);
     const equalPercentage = 100 / splits.length;
     
     // Handle rounding difference
-    const lastAmount = (totalAmount - (parseFloat(equalAmount) * (splits.length - 1))).toFixed(2);
+    const lastAmountValue = totalAmount - equalAmountValue * (splits.length - 1);
+    const lastAmount = formatDecimal(lastAmountValue, 2);
     
     setSplits(prev => prev.map((split, index) => ({
       ...split,
@@ -179,8 +182,8 @@ export default function SplitTransaction({
     setSplits(prev => prev.map((split, index) => ({
       ...split,
       percentage: percentages[index],
-      amount: ((percentages[index] / 100) * totalAmount).toFixed(2)
-    })));
+      amount: formatDecimal((percentages[index] / 100) * totalAmount, 2)
+    }))); 
   };
 
   const handleSave = () => {
@@ -300,7 +303,7 @@ export default function SplitTransaction({
                         </span>
                         <input
                           type="number"
-                          value={splitMode === 'amount' ? split.amount : split.percentage?.toFixed(2)}
+                          value={splitMode === 'amount' ? split.amount : (split.percentage !== undefined ? formatDecimal(split.percentage, 2) : '')}
                           onChange={(e) => updateSplit(
                             split.id, 
                             splitMode === 'amount' ? 'amount' : 'percentage',
@@ -362,7 +365,7 @@ export default function SplitTransaction({
                 {/* Display complementary value */}
                 {splitMode === 'amount' && (
                   <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                    {split.percentage?.toFixed(1)}% of total
+                    {`${formatDecimal(split.percentage ?? 0, 1)}% of total`}
                   </div>
                 )}
                 {splitMode === 'percentage' && (

@@ -3,6 +3,7 @@ import Decimal from 'decimal.js';
 import { startOfMonth, endOfMonth, subMonths, differenceInDays, format } from 'date-fns';
 import { formatCurrency } from '../utils/currency-decimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 export interface Anomaly {
   id: string;
@@ -178,7 +179,7 @@ class AnomalyDetectionService {
           const severity = zScore > 4 ? 'high' : zScore > 3 ? 'medium' : 'low';
           
           const formattedAmount = formatCurrency(amount, 'USD');
-          const zScoreDisplay = new Decimal(zScore).toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toFixed(1);
+          const zScoreDisplay = formatDecimal(new Decimal(zScore), 1);
 
           anomalies.push({
             id: `unusual-amount-${transaction.id}`,
@@ -254,7 +255,7 @@ class AnomalyDetectionService {
           severity: lastInterval < avgInterval / (threshold * 1.5) ? 'high' : 'medium',
           transactions: recentTrans.map(t => t.id),
           title: 'Unusual Frequency Increase',
-          description: `You've made ${recentTrans.length} purchases at ${merchant} in ${lastInterval} days, much more frequent than your usual ${new Decimal(avgInterval).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toFixed(0)} day interval`,
+          description: `You've made ${recentTrans.length} purchases at ${merchant} in ${lastInterval} days, much more frequent than your usual ${formatDecimal(new Decimal(avgInterval), 0)} day interval`,
           detectedAt: new Date(),
           merchant,
           suggestedAction: 'Check for duplicate charges or subscription changes'
@@ -396,7 +397,7 @@ class AnomalyDetectionService {
           type: 'category_overspend',
           severity: percentOver > 100 ? 'high' : percentOver > 50 ? 'medium' : 'low',
           title: 'Category Overspending',
-          description: `${category?.name || categoryId} spending is ${new Decimal(percentOver).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toFixed(0)}% higher than your 3-month average`,
+          description: `${category?.name || categoryId} spending is ${formatDecimal(new Decimal(percentOver), 0)}% higher than your 3-month average`,
           detectedAt: new Date(),
           amount: amount,
           category: categoryId,
@@ -452,7 +453,7 @@ class AnomalyDetectionService {
     transactions
       .filter(t => t.type === 'expense')
       .forEach(t => {
-        const amountKey = toDecimal(Math.abs(t.amount)).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toFixed(2);
+        const amountKey = formatDecimal(toDecimal(Math.abs(t.amount)), 2);
         const key = `${this.extractMerchant(t.description)}-${amountKey}`;
         const group = potentialDuplicates.get(key) || [];
         group.push(t);

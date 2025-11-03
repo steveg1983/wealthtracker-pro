@@ -21,6 +21,7 @@ import BusinessExpenseManager from '../components/BusinessExpenseManager';
 import type { BusinessMetrics } from '../services/businessService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, Decimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 
 export default function BusinessFeatures() {
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'expenses' | 'mileage'>('overview');
@@ -49,7 +50,7 @@ export default function BusinessFeatures() {
   };
 
   const formatPercentage = (value: number) => {
-    return `${toDecimal(value).toDecimalPlaces(1, Decimal.ROUND_HALF_UP).toFixed(1)}%`;
+    return `${formatDecimal(value, 1)}%`;
   };
 
   if (isLoading) {
@@ -227,7 +228,7 @@ export default function BusinessFeatures() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600 dark:text-gray-400">Avg Payment Time</span>
                     <span className="font-medium text-gray-900 dark:text-white">
-                      {toDecimal(metrics.averagePaymentTime).toDecimalPlaces(0, Decimal.ROUND_HALF_UP).toFixed(0)} days
+                      {`${formatDecimal(metrics.averagePaymentTime, 0)} days`}
                     </span>
                   </div>
                 </div>

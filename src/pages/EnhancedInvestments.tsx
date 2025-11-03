@@ -15,6 +15,7 @@ import {
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { Decimal, toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type { RebalancingSuggestion, RiskMetrics, DividendInfo, ESGScore, BenchmarkComparison } from '../services/investmentEnhancementService';
 import DividendTracker from '../components/DividendTracker';
 import PortfolioRebalancer from '../components/PortfolioRebalancer';
@@ -33,19 +34,17 @@ export default function EnhancedInvestments() {
   const [insights, setInsights] = useState<string[]>([]);
 
   const formatDecimalValue = React.useCallback((value: DecimalInstance | number, decimals: number = 2) => {
-    return toDecimal(value)
-      .toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP)
-      .toFixed(decimals);
+    return formatDecimal(value, decimals);
   }, []);
 
   const formatPercentage = React.useCallback((value: DecimalInstance | number, decimals: number = 1) => {
-    return formatDecimalValue(value, decimals);
-  }, [formatDecimalValue]);
+    return formatDecimal(value, decimals);
+  }, []);
 
   const formatSignedPercentage = React.useCallback((value: DecimalInstance | number, decimals: number = 2) => {
     const decimalValue = toDecimal(value).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP);
     const sign = decimalValue.greaterThanOrEqualTo(0) ? '+' : '-';
-    return `${sign}${decimalValue.abs().toFixed(decimals)}`;
+    return `${sign}${formatDecimal(decimalValue.abs(), decimals)}`;
   }, []);
 
   useEffect(() => {

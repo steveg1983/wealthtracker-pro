@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type { DecimalInstance, DecimalTransaction, DecimalAccount } from '../types/decimal-types';
 
 const NetWorthTrendChart = React.memo(function NetWorthTrendChart() {
@@ -58,7 +59,7 @@ const NetWorthTrendChart = React.memo(function NetWorthTrendChart() {
             <XAxis dataKey="month" stroke="#9CA3AF" />
             <YAxis 
               stroke="#9CA3AF"
-              tickFormatter={(value: number) => `£${(value / 1000).toFixed(0)}k`}
+              tickFormatter={(value: number) => `£${formatDecimal(value / 1000, 0)}k`}
             />
             <Tooltip 
               formatter={(value: number) => formatCurrency(value)}

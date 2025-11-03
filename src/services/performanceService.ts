@@ -3,6 +3,8 @@
  * Tracks Core Web Vitals, custom metrics, and provides performance insights
  */
 
+import { formatDecimal } from '../utils/decimal-format';
+
 interface PerformanceMetric {
   name: string;
   value: number;
@@ -264,7 +266,7 @@ class PerformanceService {
     );
 
     const totalSize = scriptSizes.reduce((sum, s) => sum + s.size, 0);
-    const totalSizeMB = (totalSize / 1048576).toFixed(2);
+    const totalSizeMB = formatDecimal(totalSize / 1048576, 2);
     
     console.log(`[Performance] Total JS bundle size: ${totalSizeMB}MB`);
     

@@ -7,6 +7,7 @@ import type {
   SavedSmartCategory,
   SavedSpendingInsight
 } from '../types/data-intelligence';
+import { formatDecimal } from '../utils/decimal-format';
 
 export interface MerchantData {
   id: string;
@@ -815,7 +816,7 @@ class DataIntelligenceService {
         id: `insight-renewal-${sub.id}`,
         type: 'subscription_alert',
         title: 'Subscription Renewal Due',
-        description: `${sub.merchantName} ($${sub.amount.toFixed(2)}) renews in ${daysUntilRenewal} day${daysUntilRenewal !== 1 ? 's' : ''}`,
+        description: `${sub.merchantName} ($${formatDecimal(sub.amount, 2)}) renews in ${daysUntilRenewal} day${daysUntilRenewal !== 1 ? 's' : ''}`,
         severity: daysUntilRenewal <= 3 ? 'high' : 'medium',
         category: sub.category,
         merchant: sub.merchantName,
@@ -854,7 +855,7 @@ class DataIntelligenceService {
             id: `insight-spike-${category}`,
             type: 'spending_spike',
             title: 'Unusual Spending Detected',
-            description: `${category} spending is ${increasePercentage.toFixed(0)}% higher than last month`,
+            description: `${category} spending is ${formatDecimal(increasePercentage, 0)}% higher than last month`,
             severity: increasePercentage > 50 ? 'high' : 'medium',
             category,
             amount: currentAmount,

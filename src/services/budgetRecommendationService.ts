@@ -1,5 +1,6 @@
 import type { Transaction, Category, Budget } from '../types';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
+import { formatDecimal } from '../utils/decimal-format';
 
 export interface BudgetRecommendation {
   categoryId: string;
@@ -335,7 +336,7 @@ class BudgetRecommendationService {
     
     // Base reasoning
     if (currentBudget === 0) {
-      parts.push(`Based on your average spending of $${averageSpending.toFixed(0)} in ${categoryName}`);
+      parts.push(`Based on your average spending of $${formatDecimal(averageSpending, 0)} in ${categoryName}`);
     } else if (recommendedBudget > currentBudget) {
       parts.push(`Your current budget may be too restrictive`);
     } else if (recommendedBudget < currentBudget) {
@@ -371,7 +372,7 @@ class BudgetRecommendationService {
         insights.push({
           type: 'unbudgeted',
           title: `Unbudgeted Spending in ${rec.categoryName}`,
-          description: `You're spending an average of $${rec.averageSpending.toFixed(0)} per month in ${rec.categoryName} without a budget.`,
+          description: `You're spending an average of $${formatDecimal(rec.averageSpending, 0)} per month in ${rec.categoryName} without a budget.`,
           impact: 'negative',
           actionable: true,
           categoryId: rec.categoryId,
@@ -402,7 +403,7 @@ class BudgetRecommendationService {
         insights.push({
           type: 'overspend',
           title: `Overspending Alert: ${category.name}`,
-          description: `You've spent ${percentSpent.toFixed(0)}% of your budget with ${daysInMonth - daysPassed} days left in the month.`,
+          description: `You've spent ${formatDecimal(percentSpent, 0)}% of your budget with ${daysInMonth - daysPassed} days left in the month.`,
           impact: 'negative',
           actionable: true,
           categoryId: category.id,
@@ -420,7 +421,7 @@ class BudgetRecommendationService {
       insights.push({
         type: 'opportunity',
         title: 'Budget Optimization Available',
-        description: `You could potentially save $${totalSavings.toFixed(0)} per month by adjusting your budgets to match your actual spending patterns.`,
+        description: `You could potentially save $${formatDecimal(totalSavings, 0)} per month by adjusting your budgets to match your actual spending patterns.`,
         impact: 'positive',
         actionable: true,
         amount: totalSavings
@@ -519,9 +520,9 @@ class BudgetRecommendationService {
       `Generated: ${format(new Date(), 'MMMM d, yyyy')}`,
       `Budget Health Score: ${analysis.score}/100`,
       '',
-      `Total Current Budget: $${analysis.totalCurrentBudget.toFixed(2)}`,
-      `Total Recommended Budget: $${analysis.totalRecommendedBudget.toFixed(2)}`,
-      `Potential Savings: $${analysis.totalPotentialSavings.toFixed(2)}`,
+      `Total Current Budget: $${formatDecimal(analysis.totalCurrentBudget, 2)}`,
+      `Total Recommended Budget: $${formatDecimal(analysis.totalRecommendedBudget, 2)}`,
+      `Potential Savings: $${formatDecimal(analysis.totalPotentialSavings, 2)}`,
       '',
       'Recommendations:',
       ''
@@ -529,11 +530,11 @@ class BudgetRecommendationService {
 
     analysis.recommendations.forEach(rec => {
       lines.push(`${rec.categoryName}:`);
-      lines.push(`  Current Budget: $${rec.currentBudget?.toFixed(2) || '0.00'}`);
-      lines.push(`  Recommended: $${rec.recommendedBudget.toFixed(2)}`);
-      lines.push(`  Average Spending: $${rec.averageSpending.toFixed(2)}`);
-      lines.push(`  Trend: ${rec.spendingTrend} (${rec.trendPercentage}%)`);
-      lines.push(`  Confidence: ${(rec.confidence * 100).toFixed(0)}%`);
+      lines.push(`  Current Budget: $${rec.currentBudget !== undefined ? formatDecimal(rec.currentBudget, 2) : '0.00'}`);
+      lines.push(`  Recommended: $${formatDecimal(rec.recommendedBudget, 2)}`);
+      lines.push(`  Average Spending: $${formatDecimal(rec.averageSpending, 2)}`);
+      lines.push(`  Trend: ${rec.spendingTrend} (${formatDecimal(rec.trendPercentage, 0)}%)`);
+      lines.push(`  Confidence: ${formatDecimal(rec.confidence * 100, 0)}%`);
       lines.push(`  ${rec.reasoning}`);
       lines.push('');
     });

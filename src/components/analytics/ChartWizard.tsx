@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { formatDecimal } from '../../utils/decimal-format';
 import {
   BarChart3Icon,
   LineChartIcon,
@@ -456,7 +457,7 @@ export default function ChartWizard({ data, onSave, onCancel }: ChartWizardProps
                 cy="50%"
                 labelLine={false}
                 label={({ name, percent }: { name?: string; percent?: number }) =>
-                  `${name ?? ''}: ${percent !== undefined ? (percent * 100).toFixed(0) : '0'}%`
+                  `${name ?? ''}: ${percent !== undefined ? formatDecimal(percent * 100, 0) : '0'}%`
                 }
                 outerRadius={selectedChart === 'donut' ? 120 : 150}
                 innerRadius={selectedChart === 'donut' ? 60 : 0}

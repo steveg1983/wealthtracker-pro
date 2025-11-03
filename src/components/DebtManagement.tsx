@@ -3,6 +3,7 @@ import { useLocalStorage } from '../hooks/useLocalStorage';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal } from '../utils/decimal-format';
 import type { DecimalInstance } from '../types/decimal-types';
 import { 
   PlusIcon, 
@@ -439,7 +440,7 @@ export default function DebtManagement() {
           <div className="flex items-center justify-between">
             <span className="text-sm text-gray-600 dark:text-gray-400">Interest Rate:</span>
             <span className="text-sm font-medium text-gray-900 dark:text-white">
-              {debt.interestRate.toFixed(2)}%
+              {formatDecimal(debt.interestRate, 2)}%
             </span>
           </div>
           
@@ -528,7 +529,7 @@ export default function DebtManagement() {
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Avg Interest Rate</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {totalInterestRate.toFixed(2)}%
+                {formatDecimal(totalInterestRate, 2)}%
               </p>
             </div>
             <BarChart3Icon className="text-blue-500" size={24} />
