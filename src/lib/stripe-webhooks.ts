@@ -360,7 +360,7 @@ async function logSubscriptionEvent(
   data: any
 ): Promise<void> {
   try {
-    await supabase.from('subscription_events').insert({
+    await supabase!.from('subscription_events').insert({
       user_id: userId,
       event_type: eventType,
       event_data: data,

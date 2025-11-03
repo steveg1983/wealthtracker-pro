@@ -310,7 +310,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
       XLSX = await import('xlsx');
     }
 
-    const workbook = XLSX.utils.book_new();
+    const workbook = XLSX!.utils.book_new();
     const dateRange = getDateRange();
 
     // Filter transactions
@@ -337,8 +337,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
       ['Transaction Count:', filteredTransactions.length]
     ];
 
-    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+    const summarySheet = XLSX!.utils.aoa_to_sheet(summaryData);
+    XLSX!.utils.book_append_sheet(workbook, summarySheet, 'Summary');
 
     // Transactions Sheet
     if (filteredTransactions.length > 0) {
@@ -355,12 +355,12 @@ export default function EnhancedExportManager(): React.JSX.Element {
         ])
       ];
 
-      const transactionSheet = XLSX.utils.aoa_to_sheet(transactionData);
+      const transactionSheet = XLSX!.utils.aoa_to_sheet(transactionData);
       
       // Apply formatting
-      const range = XLSX.utils.decode_range(transactionSheet['!ref'] || 'A1');
+      const range = XLSX!.utils.decode_range(transactionSheet['!ref'] || 'A1');
       for (let C = range.s.c; C <= range.e.c; ++C) {
-        const address = XLSX.utils.encode_col(C) + "1";
+        const address = XLSX!.utils.encode_col(C) + "1";
         if (!transactionSheet[address]) continue;
         transactionSheet[address].s = {
           font: { bold: true },
@@ -369,7 +369,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
         };
       }
 
-      XLSX.utils.book_append_sheet(workbook, transactionSheet, 'Transactions');
+      XLSX!.utils.book_append_sheet(workbook, transactionSheet, 'Transactions');
     }
 
     // Budget Sheet (if applicable)
@@ -395,8 +395,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
         })
       ];
 
-      const budgetSheet = XLSX.utils.aoa_to_sheet(budgetData);
-      XLSX.utils.book_append_sheet(workbook, budgetSheet, 'Budget Analysis');
+      const budgetSheet = XLSX!.utils.aoa_to_sheet(budgetData);
+      XLSX!.utils.book_append_sheet(workbook, budgetSheet, 'Budget Analysis');
     }
 
     // Category Summary Sheet
@@ -414,8 +414,8 @@ export default function EnhancedExportManager(): React.JSX.Element {
       })
     ];
 
-    const categorySheet = XLSX.utils.aoa_to_sheet(categoryData);
-    XLSX.utils.book_append_sheet(workbook, categorySheet, 'Category Summary');
+    const categorySheet = XLSX!.utils.aoa_to_sheet(categoryData);
+    XLSX!.utils.book_append_sheet(workbook, categorySheet, 'Category Summary');
 
     return workbook;
   };
@@ -428,7 +428,7 @@ export default function EnhancedExportManager(): React.JSX.Element {
         pdf.save(`${getFileName()}.pdf`);
       } else if (options.format === 'excel') {
         const workbook = await generateExcel();
-        XLSX.writeFile(workbook, `${getFileName()}.xlsx`);
+        XLSX!.writeFile(workbook, `${getFileName()}.xlsx`);
       } else if (options.format === 'csv') {
         // Simple CSV export
         const csv = generateCSV();

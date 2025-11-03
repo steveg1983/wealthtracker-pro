@@ -72,7 +72,7 @@ export default function RealtimeDebugger() {
 
     return () => {
       console.log('🔚 [RealtimeDebugger] Cleaning up');
-      supabase.removeChannel(channel);
+      supabase!.removeChannel(channel);
     };
   }, [databaseId, isLoading]);
 

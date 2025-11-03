@@ -30,7 +30,7 @@ export default function RealtimeSyncTest() {
       setDbUserId(databaseId);
 
       // Step 2: Check current channels
-      const channels = supabase.getChannels();
+      const channels = supabase!.getChannels();
       addStatus(`Active channels: ${channels.length}`);
       channels.forEach(ch => {
         addStatus(`  - ${ch.topic}: ${ch.state}`);
@@ -107,7 +107,7 @@ export default function RealtimeSyncTest() {
       // Cleanup
       return () => {
         addStatus('Cleaning up subscription...');
-        supabase.removeChannel(channel);
+        supabase!.removeChannel(channel);
       };
     };
 

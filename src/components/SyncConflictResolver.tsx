@@ -81,7 +81,7 @@ const normalizeConflict = (raw: unknown): Conflict | null => {
 };
 
 const isTransactionConflict = (conflict: Conflict): conflict is TransactionConflict =>
-  conflict.entity === 'transaction';
+  conflict!.entity === 'transaction';
 
 const formatTransactionDate = (value: TransactionLike['date']): string | null => {
   if (value instanceof Date) {
@@ -107,7 +107,7 @@ export function SyncConflictResolver(): React.JSX.Element | null {
 
     setConflicts(normalized);
     setSelectedConflict(current =>
-      current ? normalized.find(conflict => conflict.id === current.id) ?? null : null
+      current ? normalized.find(conflict => conflict!.id === current.id) ?? null : null
     );
   }, []);
 

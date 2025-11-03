@@ -304,7 +304,7 @@ export async function subscribeToAccountChanges(
           console.log('   Database user ID:', dbUserId);
           
           // Log all current subscriptions
-          const allChannels = supabase.getChannels();
+          const allChannels = supabase!.getChannels();
           console.log(`📊 [SimpleAccountService] Total active channels: ${allChannels.length}`);
           allChannels.forEach((ch, idx) => {
             console.log(`   ${idx + 1}. ${ch.topic} - State: ${ch.state}`);
@@ -323,7 +323,7 @@ export async function subscribeToAccountChanges(
     // Return unsubscribe function
     return () => {
       console.log('[SimpleAccountService] Unsubscribing from real-time updates');
-      supabase.removeChannel(channel);
+      supabase!.removeChannel(channel);
     };
   } catch (error) {
     console.error('[SimpleAccountService] Error setting up subscription:', error);
