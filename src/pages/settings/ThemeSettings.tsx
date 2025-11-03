@@ -114,7 +114,7 @@ export default function ThemeSettings() {
   };
 
   return (
-    <PageWrapper>
+    <PageWrapper title="Theme Settings">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-purple-600 to-blue-600 dark:from-purple-800 dark:to-blue-800 rounded-2xl p-6 mb-6 text-white shadow-lg">

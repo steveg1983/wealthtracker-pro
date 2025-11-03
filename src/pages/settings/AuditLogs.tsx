@@ -216,7 +216,7 @@ export default function AuditLogs() {
   ], []);
 
   return (
-    <PageWrapper>
+    <PageWrapper title="Audit Logs">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-gray-600 to-gray-800 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 mb-6 text-white shadow-lg">

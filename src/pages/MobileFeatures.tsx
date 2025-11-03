@@ -98,7 +98,7 @@ export default function MobileFeatures() {
   const connectionStatus = mobileService.getConnectionStatus();
 
   return (
-    <PageWrapper>
+    <PageWrapper title="Mobile Features">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-800 dark:to-purple-800 rounded-2xl p-6 mb-6 text-white shadow-lg">

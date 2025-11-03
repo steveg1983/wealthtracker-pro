@@ -221,6 +221,7 @@ class AutomaticBackupService {
       includeAccounts: true,
       includeInvestments: true,
       includeBudgets: true,
+      includeCharts: false,
       format: 'csv',
     };
     

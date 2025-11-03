@@ -111,7 +111,7 @@ export default function SecuritySettings() {
   };
 
   return (
-    <PageWrapper>
+    <PageWrapper title="Security Settings">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-800 dark:to-purple-800 rounded-2xl p-6 mb-6 text-white shadow-lg">

@@ -73,14 +73,14 @@ export default function DashboardOptimized() {
 
   if (isLoading) {
     return (
-      <PageWrapper>
+      <PageWrapper title="Dashboard">
         <DashboardSkeleton />
       </PageWrapper>
     );
   }
 
   return (
-    <PageWrapper>
+    <PageWrapper title="Dashboard">
       <Suspense fallback={<DashboardSkeleton />}>
         <div className="space-y-6">
           {/* Tab navigation */}
