@@ -11,9 +11,10 @@ import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { transactionAnalyticsService } from '../services/transactionAnalyticsService';
 import type { Transaction, Category } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock the external dependencies
-vi.mock('../contexts/AppContext');
+vi.mock('../contexts/AppContextSupabase');
 vi.mock('../hooks/useCurrencyDecimal');
 vi.mock('../services/transactionAnalyticsService');
 
@@ -60,7 +61,9 @@ const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
 const mockTransactionAnalyticsService = transactionAnalyticsService as any;
 
 describe('SpendingByCategoryChart', () => {
-  const mockFormatCurrency = vi.fn((amount: number) => `£${amount.toFixed(2)}`);
+  const mockFormatCurrency = vi.fn((amount: number, currency: string = 'GBP') =>
+    formatCurrencyDecimal(amount, currency)
+  );
 
   const mockTransactions: Transaction[] = [
     {

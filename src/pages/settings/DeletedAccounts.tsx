@@ -8,6 +8,9 @@ import { useUserId } from '../../hooks/useUserId';
 import { AccountService } from '../../services/api/accountService';
 import { supabase } from '../../lib/supabase';
 import type { Account } from '../../types';
+import { createScopedLogger } from '../../loggers/scopedLogger';
+
+const deletedAccountsLogger = createScopedLogger('DeletedAccountsPage');
 
 export default function DeletedAccounts() {
   const navigate = useNavigate();
@@ -24,11 +27,11 @@ export default function DeletedAccounts() {
     const fetchDeletedAccounts = async () => {
       // Wait for database ID to be available
       if (!databaseId || userIdLoading) {
-        console.log('[DeletedAccounts] Waiting for database ID...');
+        deletedAccountsLogger.info('Waiting for database ID');
         return;
       }
       
-      console.log('[DeletedAccounts] Fetching deleted accounts for database ID:', databaseId);
+      deletedAccountsLogger.info('Fetching deleted accounts', { databaseId });
       setLoading(true);
       try {
         // Now fetch deleted accounts using the database user ID directly
@@ -40,11 +43,11 @@ export default function DeletedAccounts() {
           .order('updated_at', { ascending: false });
 
         if (error) {
-          console.error('[DeletedAccounts] Error fetching deleted accounts:', error);
+          deletedAccountsLogger.error('Error fetching deleted accounts', error);
         } else {
-          console.log('[DeletedAccounts] Found deleted accounts:', data?.length || 0);
+          deletedAccountsLogger.info('Deleted accounts fetched', { count: data?.length || 0 });
           if (data && data.length > 0) {
-            console.log('[DeletedAccounts] Deleted accounts data:', data);
+            deletedAccountsLogger.debug('Deleted accounts payload', data);
           }
           // Transform account types for UK users (checking -> current)
           const transformedAccounts = (data || []).map(account => ({
@@ -54,7 +57,7 @@ export default function DeletedAccounts() {
           setDeletedAccounts(transformedAccounts);
         }
       } catch (error) {
-        console.error('[DeletedAccounts] Failed to fetch deleted accounts:', error);
+        deletedAccountsLogger.error('Failed to fetch deleted accounts', error);
       } finally {
         setLoading(false);
       }
@@ -74,7 +77,7 @@ export default function DeletedAccounts() {
         .eq('id', accountId);
 
       if (error) {
-        console.error('Error restoring account:', error);
+        deletedAccountsLogger.error('Error restoring account', error);
         return;
       }
 
@@ -90,7 +93,7 @@ export default function DeletedAccounts() {
       // If not using realtime, uncomment the line below:
       // window.location.reload();
     } catch (error) {
-      console.error('Failed to restore account:', error);
+      deletedAccountsLogger.error('Failed to restore account', error);
     } finally {
       setRestoringId(null);
     }
@@ -134,7 +137,7 @@ export default function DeletedAccounts() {
       </div>
 
       {/* Deleted Accounts List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             Deleted Accounts ({deletedAccounts.length})

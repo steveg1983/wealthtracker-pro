@@ -13,6 +13,7 @@ import {
   parseCurrency,
   convertCurrency,
 } from '../../utils/currency';
+import { formatDecimal } from '../../utils/decimal-format';
 import type { Transaction, Account } from '../../types';
 
 // Generate test data
@@ -257,15 +258,17 @@ interface BenchmarkResult {
 
 // Export results formatter for CI/CD integration
 export function formatBenchmarkResults(results: BenchmarkResult[]): string {
+  const formatValue = (value: number) => formatDecimal(value, 2, { group: false });
+
   return `
 Performance Benchmark Results
 =============================
 ${results.map((r: BenchmarkResult) => `
 ${r.name}:
-  Mean: ${r.mean.toFixed(2)}ms
-  Min: ${r.min.toFixed(2)}ms
-  Max: ${r.max.toFixed(2)}ms
-  P95: ${r.p95.toFixed(2)}ms
+  Mean: ${formatValue(r.mean)}ms
+  Min: ${formatValue(r.min)}ms
+  Max: ${formatValue(r.max)}ms
+  P95: ${formatValue(r.p95)}ms
 `).join('\n')}
 `;
 }

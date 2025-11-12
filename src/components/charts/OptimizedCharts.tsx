@@ -85,11 +85,11 @@ function getFallbackHeight(props: unknown): number {
   return 300;
 }
 
-function createLazyChart<P>(LazyComponent: React.LazyExoticComponent<ComponentType<P>>) {
+function createLazyChart<P extends Record<string, any>>(LazyComponent: React.LazyExoticComponent<ComponentType<P>>) {
   return function LazyLoadedChart(props: P) {
     return (
       <Suspense fallback={<ChartSkeleton height={getFallbackHeight(props)} />}>
-        <LazyComponent {...props} />
+        <LazyComponent {...(props as any)} />
       </Suspense>
     );
   };
@@ -124,7 +124,9 @@ function createLazyChild<K extends ChartComponentKey>(key: K) {
       return null;
     }
 
-    return <Component {...props} />;
+    // Cast to any component type to handle generic constraints
+    const AnyComponent = Component as React.ComponentType<Record<string, unknown>>;
+    return <AnyComponent {...(props as Record<string, unknown>)} />;
   };
 }
 

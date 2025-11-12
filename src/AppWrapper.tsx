@@ -6,6 +6,10 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
+const appLogger = typeof console !== 'undefined'
+  ? console
+  : { log: () => {}, error: () => {} };
+
 class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
   constructor(props: { children: ReactNode }) {
     super(props);
@@ -13,13 +17,13 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryS
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    console.error('App Error Boundary caught:', error);
+    appLogger.error('App Error Boundary caught:', error);
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    console.error('Error details:', error);
-    console.error('Error info:', errorInfo);
+    appLogger.error('Error details:', error);
+    appLogger.error('Error info:', errorInfo);
   }
 
   render(): ReactNode {
@@ -38,7 +42,7 @@ class AppErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryS
 }
 
 export default function AppWrapper(): React.JSX.Element {
-  console.log('AppWrapper rendering...');
+  appLogger.log('AppWrapper rendering...');
   
   return (
     <AppErrorBoundary>

@@ -5,21 +5,23 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { formatCurrency, formatNumber, formatCompactNumber } from './formatters';
+import { formatDecimal } from './decimal-format';
 
 describe('Formatters', () => {
   beforeEach(() => {
     // Mock toLocaleString to ensure consistent test results
     vi.spyOn(Number.prototype, 'toLocaleString').mockImplementation(function(locales, options) {
-      // Simulate en-GB formatting
-      const num = this as number;
-      
-      if (options?.minimumFractionDigits === 2 && options?.maximumFractionDigits === 2) {
-        const formatted = Math.abs(num).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-        return num < 0 ? `-${formatted}` : formatted;
+      const num = Number(this);
+
+      if (!Number.isFinite(num) || Number.isNaN(num)) {
+        return num.toString();
       }
-      
-      const formatted = Math.abs(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-      return num < 0 ? `-${formatted}` : formatted;
+
+      const minFraction = options?.minimumFractionDigits ?? options?.maximumFractionDigits ?? 0;
+      const maxFraction = options?.maximumFractionDigits ?? options?.minimumFractionDigits ?? minFraction;
+      const decimals = Math.max(minFraction, maxFraction);
+
+      return formatDecimal(num, decimals, { group: true });
     });
   });
 
@@ -246,13 +248,13 @@ describe('Formatters', () => {
     });
 
     it('handles rounding edge cases in millions', () => {
-      expect(formatCompactNumber(1450000)).toBe('1.4M'); // toFixed rounds 1.45 to 1.4
-      expect(formatCompactNumber(1460000)).toBe('1.5M'); // toFixed rounds 1.46 to 1.5
+      expect(formatCompactNumber(1450000)).toBe('1.5M');
+      expect(formatCompactNumber(1460000)).toBe('1.5M');
     });
 
     it('handles rounding edge cases in thousands', () => {
-      expect(formatCompactNumber(1450)).toBe('1.4K'); // toFixed rounds 1.45 to 1.4
-      expect(formatCompactNumber(1460)).toBe('1.5K'); // toFixed rounds 1.46 to 1.5
+      expect(formatCompactNumber(1450)).toBe('1.5K');
+      expect(formatCompactNumber(1460)).toBe('1.5K');
     });
 
     it('preserves precision for edge values', () => {
@@ -276,7 +278,7 @@ describe('Formatters', () => {
     it('handles special number values', () => {
       // NaN fails the >= comparisons and falls through to formatNumber
       expect(formatCompactNumber(NaN)).toBe('NaN');
-      // Infinity >= 1000000 is true, so it gets M suffix: (Infinity / 1000000).toFixed(1) + 'M'
+      // Infinity >= 1000000 is true, so it gets the M suffix via the scaled formatDecimal path
       expect(formatCompactNumber(Infinity)).toBe('InfinityM'); 
       // -Infinity < 1000000, so falls through to formatNumber
       expect(formatCompactNumber(-Infinity)).toBe('-Infinity'); 

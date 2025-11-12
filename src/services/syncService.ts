@@ -50,6 +50,22 @@ type SyncEventCallback = (payload?: unknown) => void;
 
 type OperationAck = { success: true; operationId?: string } | { success: false; error: string };
 
+type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+type TimerHandle = ReturnType<typeof setInterval>;
+
+export interface SyncServiceOptions {
+  storage?: StorageLike | null;
+  uuidGenerator?: () => string;
+  socketFactory?: (url: string, options: Parameters<typeof io>[1]) => Socket;
+  syncUrl?: string | null;
+  authTokenProvider?: () => string | null;
+  setIntervalFn?: typeof setInterval;
+  clearIntervalFn?: typeof clearInterval;
+  setTimeoutFn?: typeof setTimeout;
+  clearTimeoutFn?: typeof clearTimeout;
+  now?: () => number;
+}
+
 const isStoredQueueItem = (value: unknown): value is { operation: SyncOperation } => {
   if (typeof value !== 'object' || value === null || !('operation' in value)) {
     return false;
@@ -59,7 +75,7 @@ const isStoredQueueItem = (value: unknown): value is { operation: SyncOperation 
   return typeof operation === 'object' && operation !== null;
 };
 
-class SyncService {
+export class SyncService {
   private socket: Socket | null = null;
   private clientId: string;
   private syncQueue: QueueItem[] = [];
@@ -72,29 +88,72 @@ class SyncService {
     pendingOperations: 0,
     conflicts: []
   };
-  private syncInterval: NodeJS.Timeout | null = null;
+  private syncInterval: TimerHandle | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private baseReconnectDelay = 1000;
+  private storage: StorageLike | null;
+  private readonly uuidGenerator: () => string;
+  private readonly socketFactory: (url: string, options: Parameters<typeof io>[1]) => Socket;
+  private readonly syncUrl: string | null;
+  private readonly authTokenProvider: () => string | null;
+  private readonly setIntervalFn: typeof setInterval;
+  private readonly clearIntervalFn: typeof clearInterval;
+  private readonly setTimeoutFn: typeof setTimeout;
+  private readonly clearTimeoutFn: typeof clearTimeout;
+  private readonly now: () => number;
 
-  constructor() {
+  constructor(options: SyncServiceOptions = {}) {
+    const defaultStorage = typeof window !== 'undefined' ? window.localStorage : null;
+    this.storage = options.storage ?? defaultStorage;
+    this.uuidGenerator = options.uuidGenerator ?? uuidv4;
+    this.socketFactory = options.socketFactory ?? ((url, socketOptions) => io(url, socketOptions));
+    const envSyncUrl = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_SYNC_URL : undefined;
+    this.syncUrl = options.syncUrl ?? envSyncUrl ?? null;
+    this.authTokenProvider =
+      options.authTokenProvider ??
+      (() => this.storage?.getItem?.('authToken') ?? null);
+    this.setIntervalFn =
+      options.setIntervalFn ??
+      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setInterval(handler, timeout, ...args));
+    this.clearIntervalFn =
+      options.clearIntervalFn ??
+      ((id: TimerHandle) => clearInterval(id));
+    this.setTimeoutFn =
+      options.setTimeoutFn ??
+      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setTimeout(handler, timeout, ...args));
+    this.clearTimeoutFn =
+      options.clearTimeoutFn ??
+      ((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
+    this.now = options.now ?? (() => Date.now());
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      log: options.logger?.log ?? (fallbackLogger?.log?.bind(fallbackLogger) ?? (() => {})),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {})),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {}))
+    };
+
     this.clientId = this.getOrCreateClientId();
     this.loadQueueFromStorage();
     this.initializeSync();
   }
 
   private getOrCreateClientId(): string {
-    let clientId = localStorage.getItem('syncClientId');
+    if (!this.storage) {
+      return this.uuidGenerator();
+    }
+    let clientId = this.storage.getItem('syncClientId');
     if (!clientId) {
-      clientId = uuidv4();
-      localStorage.setItem('syncClientId', clientId);
+      clientId = this.uuidGenerator();
+      this.storage.setItem('syncClientId', clientId);
     }
     return clientId;
   }
 
   private loadQueueFromStorage(): void {
+    if (!this.storage) return;
     try {
-      const stored = localStorage.getItem('syncQueue');
+      const stored = this.storage.getItem('syncQueue');
       if (stored) {
         const queue = JSON.parse(stored);
         if (Array.isArray(queue)) {
@@ -109,23 +168,22 @@ class SyncService {
         }
       }
     } catch (error) {
-      console.error('Failed to load sync queue:', error);
+      this.logger.error('Failed to load sync queue:', error as Error);
     }
   }
 
   private saveQueueToStorage(): void {
+    if (!this.storage) return;
     try {
-      localStorage.setItem('syncQueue', JSON.stringify(this.syncQueue));
+      this.storage.setItem('syncQueue', JSON.stringify(this.syncQueue));
     } catch (error) {
-      console.error('Failed to save sync queue:', error);
+      this.logger.error('Failed to save sync queue:', error as Error);
     }
   }
 
   private initializeSync(): void {
-    // Only initialize if we have a backend URL configured
-    const syncUrl = import.meta.env.VITE_SYNC_URL;
-    if (!syncUrl) {
-      console.log('Sync service: No backend URL configured, running in offline mode');
+    if (!this.syncUrl) {
+      this.logger.log('Sync service: No backend URL configured, running in offline mode');
       return;
     }
 
@@ -134,11 +192,10 @@ class SyncService {
   }
 
   private connect(): void {
-    const syncUrl = import.meta.env.VITE_SYNC_URL;
-    if (!syncUrl) return;
+    if (!this.syncUrl) return;
 
     try {
-      this.socket = io(syncUrl, {
+      this.socket = this.socketFactory(this.syncUrl, {
         auth: {
           clientId: this.clientId,
           token: this.getAuthToken()
@@ -151,21 +208,20 @@ class SyncService {
 
       this.setupSocketListeners();
     } catch (error) {
-      console.error('Failed to connect to sync server:', error);
+      this.logger.error('Failed to connect to sync server:', error as Error);
       this.handleConnectionError();
     }
   }
 
   private getAuthToken(): string | null {
-    // Get auth token from your auth service
-    return localStorage.getItem('authToken');
+    return this.authTokenProvider();
   }
 
   private setupSocketListeners(): void {
     if (!this.socket) return;
 
     this.socket.on('connect', () => {
-      console.log('Sync service connected');
+      this.logger.log('Sync service connected');
       this.syncStatus.isConnected = true;
       this.reconnectAttempts = 0;
       this.emit('status-changed', this.syncStatus);
@@ -173,7 +229,7 @@ class SyncService {
     });
 
     this.socket.on('disconnect', () => {
-      console.log('Sync service disconnected');
+      this.logger.log('Sync service disconnected');
       this.syncStatus.isConnected = false;
       this.emit('status-changed', this.syncStatus);
     });
@@ -191,7 +247,7 @@ class SyncService {
     });
 
     this.socket.on('error', (error: unknown) => {
-      console.error('Sync socket error:', error);
+      this.logger.error('Sync socket error:', error as Error);
       const message = error instanceof Error ? error.message : 'Unknown socket error';
       this.syncStatus.error = message;
       this.emit('status-changed', this.syncStatus);
@@ -202,18 +258,18 @@ class SyncService {
     this.reconnectAttempts++;
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       const delay = this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts);
-      console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      setTimeout(() => this.connect(), delay);
+      this.logger.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      this.setTimeoutFn(() => this.connect(), delay);
     } else {
-      console.error('Max reconnection attempts reached, running in offline mode');
+      this.logger.error('Max reconnection attempts reached, running in offline mode');
       this.syncStatus.error = 'Unable to connect to sync server';
       this.emit('status-changed', this.syncStatus);
     }
   }
 
   private startSyncInterval(): void {
-    // Process queue every 5 seconds if there are pending operations
-    this.syncInterval = setInterval(() => {
+    this.clearSyncInterval();
+    this.syncInterval = this.setIntervalFn(() => {
       if (this.syncQueue.length > 0 && this.syncStatus.isConnected && !this.syncStatus.isSyncing) {
         this.processSyncQueue();
       }
@@ -229,12 +285,12 @@ class SyncService {
     data: SyncPayload
   ): Promise<void> {
     const operation: SyncOperation = {
-      id: uuidv4(),
+      id: this.uuidGenerator(),
       type,
       entity,
       entityId,
       data,
-      timestamp: Date.now(),
+      timestamp: this.now(),
       clientId: this.clientId,
       version: this.getNextVersion(entityId)
     };
@@ -272,12 +328,12 @@ class SyncService {
         // Remove from queue after successful send
         this.syncQueue = this.syncQueue.filter(q => q.operation.id !== item.operation.id);
       } catch (error) {
-        console.error('Failed to send operation:', error);
+        this.logger.error('Failed to send operation:', error as Error);
         item.retryCount++;
         
         if (item.retryCount >= item.maxRetries) {
           // Move to failed operations
-          console.error('Operation failed after max retries:', item.operation);
+          this.logger.error('Operation failed after max retries:', item.operation);
           this.syncQueue = this.syncQueue.filter(q => q.operation.id !== item.operation.id);
           this.emit('sync-failed', item.operation);
         }
@@ -298,12 +354,12 @@ class SyncService {
         return;
       }
 
-      const timeout = setTimeout(() => {
+      const timeout = this.setTimeoutFn(() => {
         reject(new Error('Operation timeout'));
       }, 10000);
 
       this.socket.emit('sync-operation', operation, (ack: OperationAck) => {
-        clearTimeout(timeout);
+        this.clearTimeoutFn(timeout);
         if (ack.success) {
           resolve();
         } else {
@@ -350,7 +406,7 @@ class SyncService {
 
     if (!requiresUser && analysis.canAutoResolve) {
       // Auto-resolve with merged data
-      console.log(`Auto-resolving conflict for ${conflict.localOperation.entity} with ${analysis.confidence}% confidence`);
+      this.logger.log(`Auto-resolving conflict for ${conflict.localOperation.entity} with ${analysis.confidence}% confidence`);
       
       if (analysis.mergedData) {
         // Apply the merged data
@@ -562,13 +618,17 @@ class SyncService {
       this.socket = null;
     }
     
-    if (this.syncInterval) {
-      clearInterval(this.syncInterval);
-      this.syncInterval = null;
-    }
+    this.clearSyncInterval();
     
     this.syncStatus.isConnected = false;
     this.emit('status-changed', this.syncStatus);
+  }
+
+  private clearSyncInterval(): void {
+    if (this.syncInterval) {
+      this.clearIntervalFn(this.syncInterval);
+      this.syncInterval = null;
+    }
   }
 }
 
@@ -580,12 +640,12 @@ export function useSyncStatus(): SyncStatus {
   const [status, setStatus] = React.useState(syncService.getStatus());
 
   React.useEffect(() => {
-    const handleStatusChange = (newStatus: SyncStatus) => {
-      setStatus(newStatus);
+    const handleStatusChange = (payload?: unknown) => {
+      setStatus(payload as SyncStatus);
     };
 
     syncService.on('status-changed', handleStatusChange);
-    
+
     return () => {
       syncService.off('status-changed', handleStatusChange);
     };

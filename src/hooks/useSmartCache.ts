@@ -102,9 +102,15 @@ export function useCachedPreference<T>(
   key: string,
   defaultValue: T
 ): [T, (value: T) => void] {
-  const [value, setValue] = useState<T>(() => {
-    return smartCache.getPreference(key, defaultValue) ?? defaultValue;
-  });
+  const [value, setValue] = useState<T>(defaultValue);
+
+  useEffect(() => {
+    smartCache.getPreference(key, defaultValue).then((cached) => {
+      if (cached !== undefined) {
+        setValue(cached);
+      }
+    });
+  }, [key, defaultValue]);
 
   const updateValue = useCallback((newValue: T) => {
     setValue(newValue);
@@ -118,9 +124,15 @@ export function useCachedPreference<T>(
  * Hook for caching filter state
  */
 export function useCachedFilters(page: string) {
-  const [filters, setFilters] = useState(() => {
-    return smartCache.getCachedFilters(page) || {};
-  });
+  const [filters, setFilters] = useState<any>({});
+
+  useEffect(() => {
+    smartCache.getCachedFilters(page).then((cached) => {
+      if (cached) {
+        setFilters(cached);
+      }
+    });
+  }, [page]);
 
   const updateFilters = useCallback((newFilters: any) => {
     setFilters(newFilters);

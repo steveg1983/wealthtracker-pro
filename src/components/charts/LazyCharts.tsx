@@ -1,21 +1,36 @@
 import React, { Suspense, lazy } from 'react';
 import { Skeleton } from '../loading/Skeleton';
 
-import type { default as LazyPieChartComponent } from './LazyPieChartComponent';
-import type { default as LazyBarChartComponent } from './LazyBarChartComponent';
-import type { default as LazyLineChartComponent } from './LazyLineChartComponent';
-import type { default as LazyTreemapComponent } from './LazyTreemapComponent';
-
 // Lazy load chart components
 const LazyPieChart = lazy(() => import('./LazyPieChartComponent'));
 const LazyBarChart = lazy(() => import('./LazyBarChartComponent'));
 const LazyLineChart = lazy(() => import('./LazyLineChartComponent'));
 const LazyTreemap = lazy(() => import('./LazyTreemapComponent'));
 
-type PieChartProps = React.ComponentProps<typeof LazyPieChartComponent>;
-type BarChartProps = React.ComponentProps<typeof LazyBarChartComponent>;
-type LineChartProps = React.ComponentProps<typeof LazyLineChartComponent>;
-type TreemapProps = React.ComponentProps<typeof LazyTreemapComponent>;
+// Define minimal prop types for charts
+interface PieChartProps extends Record<string, any> {
+  width?: number;
+  height?: number;
+  data?: any[];
+}
+
+interface BarChartProps extends Record<string, any> {
+  width?: number;
+  height?: number;
+  data?: any[];
+}
+
+interface LineChartProps extends Record<string, any> {
+  width?: number;
+  height?: number;
+  data?: any[];
+}
+
+interface TreemapProps extends Record<string, any> {
+  width?: number;
+  height?: number;
+  data?: any;
+}
 
 // Loading component for charts
 function ChartSkeleton({ height = 300 }: { height?: number }) {

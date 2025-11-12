@@ -19,7 +19,7 @@ interface DragDropImportProps {
 }
 
 interface ImportProgress {
-  status: 'idle' | 'detecting' | 'parsing' | 'previewing' | 'importing' | 'complete' | 'error';
+  status: 'idle' | 'detecting' | 'parsing' | 'previewing' | 'importing' | 'complete' | 'error' | 'success' | 'partial';
   progress: number;
   message: string;
   fileName?: string;
@@ -65,6 +65,8 @@ export function DragDropImport({
   });
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [showMapping, setShowMapping] = useState(false);
+  const [showUpload, setShowUpload] = useState(true);
+  const [selectedAccount, setSelectedAccount] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounter = useRef(0);
 
@@ -111,6 +113,57 @@ export function DragDropImport({
     
     return 'unknown';
   }, []);
+
+  // Import transactions (moved up to fix hoisting issue)
+  const importTransactions = useCallback(async (transactions: Partial<Transaction>[]) => {
+    setImportProgress(prev => ({
+      ...prev,
+      status: 'importing',
+      progress: 70,
+      message: `Importing ${transactions.length} transactions...`
+    }));
+
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    // Batch import transactions
+    for (const transaction of transactions) {
+      try {
+        // Add transaction using the app context
+        if (transaction.description && transaction.amount !== undefined) {
+          await addTransaction({
+            ...transaction,
+            accountId: selectedAccount || accounts[0]?.id || '',
+            category: transaction.category || 'uncategorized',
+            type: (transaction.amount ?? 0) < 0 ? 'expense' : 'income',
+            amount: Math.abs(transaction.amount ?? 0),
+            date: transaction.date || new Date()
+          } as Omit<Transaction, 'id'>);
+          successCount++;
+        }
+      } catch (error) {
+        errorCount++;
+        errors.push(`Row ${successCount + errorCount}: ${error instanceof Error ? error.message : 'Failed to import'}`);
+      }
+    }
+
+    setImportProgress({
+      status: errorCount > 0 ? 'partial' : 'success',
+      progress: 100,
+      message: `Imported ${successCount} of ${transactions.length} transactions`,
+      successCount,
+      errorCount,
+      errors: errors.length > 0 ? errors : undefined
+    });
+
+    if (errorCount === 0) {
+      setTimeout(() => {
+        setShowUpload(false);
+        setImportProgress({ status: 'idle', progress: 0, message: 'Drop a file to import transactions' });
+      }, 2000);
+    }
+  }, [selectedAccount, accounts, addTransaction]);
 
   // Parse CSV for preview
   const parseCSVPreview = useCallback((text: string): PreviewData => {
@@ -172,9 +225,10 @@ export function DragDropImport({
           rowCount: preview.rows.length
         }));
       } else if (format === 'qif') {
-        // Use existing QIF import service
-        const transactions = await importService.importQIF(text);
-        await importTransactions(transactions);
+        // TODO: Implement QIF import
+        // const transactions = await importService.importQIF(text);
+        // await importTransactions(transactions);
+        throw new Error('QIF import not yet implemented');
       } else if (format === 'unknown') {
         throw new Error('Unsupported file format. Please use CSV, QIF, or OFX files.');
       }
@@ -188,64 +242,21 @@ export function DragDropImport({
     }
   }, [detectFormat, parseCSVPreview, importTransactions]);
 
-  // Import transactions
-  const importTransactions = useCallback(async (transactions: Partial<Transaction>[]) => {
-    setImportProgress(prev => ({
-      ...prev,
-      status: 'importing',
-      progress: 70,
-      message: `Importing ${transactions.length} transactions...`
+  // Handle CSV mapping confirmation
+  const handleMappingConfirm = useCallback(async () => {
+    if (!previewData) return;
+
+    const transactions: Partial<Transaction>[] = previewData.rows.map(row => ({
+      date: previewData.mappings.date !== undefined ? new Date(row[previewData.mappings.date]) : new Date(),
+      description: previewData.mappings.description !== undefined ? row[previewData.mappings.description] : '',
+      amount: previewData.mappings.amount !== undefined ? parseFloat(row[previewData.mappings.amount]) : 0,
+      category: previewData.mappings.category !== undefined ? row[previewData.mappings.category] : 'uncategorized',
+      accountId: selectedAccount || accounts[0]?.id || ''
     }));
 
-    let successCount = 0;
-    let errorCount = 0;
-    const errors: string[] = [];
-
-    for (let i = 0; i < transactions.length; i++) {
-      try {
-        const transaction = transactions[i];
-        
-        // Add default values
-        const newTransaction: Partial<Transaction> = {
-          date: transaction.date ? new Date(transaction.date) : new Date(),
-          description: transaction.description || 'Imported transaction',
-          amount: transaction.amount || 0,
-          type: transaction.type || (transaction.amount! >= 0 ? 'income' : 'expense'),
-          accountId: transaction.accountId || accounts[0]?.id,
-          category: transaction.category || '',
-          cleared: false
-        };
-        
-        await addTransaction(newTransaction as Transaction);
-        successCount++;
-        
-        // Update progress
-        const progress = 70 + (30 * (i + 1) / transactions.length);
-        setImportProgress(prev => ({
-          ...prev,
-          progress,
-          successCount,
-          message: `Imported ${successCount} of ${transactions.length} transactions...`
-        }));
-      } catch (error) {
-        errorCount++;
-        errors.push(`Row ${i + 1}: ${error instanceof Error ? error.message : 'Import failed'}`);
-      }
-    }
-
-    setImportProgress({
-      status: 'complete',
-      progress: 100,
-      message: `Import complete! ${successCount} transactions imported.`,
-      successCount,
-      errorCount,
-      errors: errors.length > 0 ? errors : undefined
-    });
-
-    if (onImportComplete) {
-      onImportComplete(transactions as Transaction[]);
-    }
-  }, [accounts, addTransaction, onImportComplete]);
+    setShowMapping(false);
+    await importTransactions(transactions);
+  }, [previewData, selectedAccount, accounts, importTransactions]);
 
   // Handle file drop
   const handleDrop = useCallback(async (e: React.DragEvent) => {
@@ -463,7 +474,7 @@ export function DragDropImport({
         {/* Visual Drop Indicator */}
         {isDragging && (
           <div className="absolute inset-0 rounded-xl bg-primary/20 flex items-center justify-center pointer-events-none">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-xl">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-6 shadow-xl">
               <DownloadIcon size={32} className="text-primary mx-auto mb-2 animate-bounce" />
               <p className="text-primary font-semibold">Release to import</p>
             </div>
@@ -474,7 +485,7 @@ export function DragDropImport({
       {/* Preview and Mapping Modal */}
       {showMapping && previewData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Preview Import - {previewData.rows.length} Transactions

@@ -115,7 +115,7 @@ export function MobileBreadcrumb() {
     : '/';
 
   return (
-    <div className="sm:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
+    <div className="sm:hidden bg-[#d4dce8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3">
       <Link
         to={preserveDemoParam(parentPath, location.search)}
         className="flex items-center gap-2 text-primary dark:text-primary-light"

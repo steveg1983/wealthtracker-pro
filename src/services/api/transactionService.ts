@@ -1,61 +1,116 @@
+
 import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
 import type { Transaction } from '../../types';
 import { storageAdapter, STORAGE_KEYS } from '../storageAdapter';
 
-export class TransactionService {
-  /**
-   * Get all transactions for a user
-   */
-  static async getTransactions(userId: string): Promise<Transaction[]> {
-    if (!isSupabaseConfigured()) {
-      // Fallback to localStorage
-      const stored = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS);
-      return stored || [];
+type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
+type SupabaseClientLike = typeof supabase;
+type SupabaseConfiguredChecker = () => boolean;
+type Logger = Pick<Console, 'error'>;
+type UuidGenerator = () => string;
+type DateProvider = () => Date;
+
+export interface TransactionServiceOptions {
+  supabaseClient?: SupabaseClientLike;
+  isSupabaseConfigured?: SupabaseConfiguredChecker;
+  storageAdapter?: StorageAdapterLike;
+  logger?: Logger;
+  now?: DateProvider;
+  uuid?: UuidGenerator;
+}
+
+class TransactionServiceImpl {
+  private readonly supabaseClient: SupabaseClientLike;
+  private readonly supabaseChecker: SupabaseConfiguredChecker;
+  private readonly storage: StorageAdapterLike;
+  private readonly logger: Logger;
+  private readonly nowProvider: DateProvider;
+  private readonly uuid: UuidGenerator;
+
+  constructor(options: TransactionServiceOptions = {}) {
+    this.supabaseClient = options.supabaseClient ?? supabase;
+    this.supabaseChecker = options.isSupabaseConfigured ?? isSupabaseConfigured;
+    this.storage = options.storageAdapter ?? storageAdapter;
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => new Date());
+    this.uuid = options.uuid ?? (() => {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+      }
+      return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    });
+  }
+
+  private isSupabaseReady(): boolean {
+    return Boolean(this.supabaseClient && this.supabaseChecker());
+  }
+
+  private getCurrentDate(): Date {
+    const now = this.nowProvider();
+    return new Date(now.getTime());
+  }
+
+  private async readStoredTransactions(): Promise<Transaction[]> {
+    const stored = await this.storage.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS);
+    return stored || [];
+  }
+
+  private async persistTransactions(transactions: Transaction[]): Promise<void> {
+    await this.storage.set(STORAGE_KEYS.TRANSACTIONS, transactions);
+  }
+
+  async getTransactions(userId: string): Promise<Transaction[]> {
+    if (!this.isSupabaseReady()) {
+      return this.readStoredTransactions();
     }
 
     try {
-      const { data, error } = await supabase!
+      const client = this.supabaseClient!;
+      const { data, error } = await client
         .from('transactions')
         .select('*')
         .eq('user_id', userId)
         .order('date', { ascending: false });
 
       if (error) {
-        console.error('Error fetching transactions:', error);
+        this.logger.error('Error fetching transactions:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data || [];
     } catch (error) {
-      console.error('TransactionService.getTransactions error:', error);
-      // Fallback to localStorage on error
-      const stored = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS);
-      return stored || [];
+      this.logger.error('TransactionService.getTransactions error:', error as Error);
+      return this.readStoredTransactions();
     }
   }
 
-  /**
-   * Create a new transaction
-   */
-  static async createTransaction(userId: string, transaction: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>): Promise<Transaction> {
-    if (!isSupabaseConfigured()) {
-      // Fallback to localStorage
-      const newTransaction = {
+  async createTransaction(
+    userId: string,
+    transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<Transaction> {
+    if (!this.isSupabaseReady()) {
+      const now = this.getCurrentDate();
+      const newTransaction: Transaction = {
         ...transaction,
-        id: crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      
-      const transactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
-      transactions.push(newTransaction as Transaction);
-      await storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, transactions);
-      
-      return newTransaction as Transaction;
+        id: this.uuid(),
+        createdAt: now,
+        updatedAt: now
+      } as Transaction;
+
+      const transactions = await this.readStoredTransactions();
+      transactions.push(newTransaction);
+      await this.persistTransactions(transactions);
+
+      return newTransaction;
     }
 
     try {
-      const { data, error } = await supabase!
+      const client = this.supabaseClient!;
+      const { data, error } = await (client as any)
         .from('transactions')
         .insert({
           ...transaction,
@@ -65,53 +120,53 @@ export class TransactionService {
         .single();
 
       if (error) {
-        console.error('Error creating transaction:', error);
+        this.logger.error('Error creating transaction:', error);
         throw new Error(handleSupabaseError(error));
       }
 
-      // Update account balance
       await this.updateAccountBalance(transaction.accountId, transaction.amount);
-
-      return data;
+      return data!;
     } catch (error) {
-      console.error('TransactionService.createTransaction error:', error);
+      this.logger.error('TransactionService.createTransaction error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Update a transaction
-   */
-  static async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
-    if (!isSupabaseConfigured()) {
-      // Fallback to localStorage
-      const transactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
+  async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
+    if (!this.isSupabaseReady()) {
+      const transactions = await this.readStoredTransactions();
       const index = transactions.findIndex(t => t.id === id);
-      
+
       if (index === -1) {
         throw new Error('Transaction not found');
       }
-      
+
       const oldAmount = transactions[index].amount;
-      transactions[index] = {
+      const updated: Transaction = {
         ...transactions[index],
         ...updates,
-        updatedAt: new Date().toISOString()
-      };
-      
-      await storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, transactions);
-      return transactions[index];
+        updatedAt: this.getCurrentDate()
+      } as Transaction;
+
+      transactions[index] = updated;
+      await this.persistTransactions(transactions);
+
+      if (updates.amount !== undefined && updates.amount !== oldAmount) {
+        // No account balance update in local mode; DataService handles local adjustments.
+      }
+
+      return updated;
     }
 
     try {
-      // Get old transaction to calculate balance difference
-      const { data: oldTransaction } = await supabase!
+      const client = this.supabaseClient!;
+      const { data: oldTransaction } = await client
         .from('transactions')
         .select('amount, account_id')
         .eq('id', id)
         .single();
 
-      const { data, error } = await supabase!
+      const { data, error } = await (client as any)
         .from('transactions')
         .update(updates)
         .eq('id', id)
@@ -119,73 +174,60 @@ export class TransactionService {
         .single();
 
       if (error) {
-        console.error('Error updating transaction:', error);
+        this.logger.error('Error updating transaction:', error);
         throw new Error(handleSupabaseError(error));
       }
 
-      // Update account balance if amount changed
-      if (oldTransaction && updates.amount !== undefined && updates.amount !== oldTransaction.amount) {
-        const difference = (updates.amount as number) - oldTransaction.amount;
-        await this.updateAccountBalance(oldTransaction.accountId, difference);
+      if (oldTransaction && updates.amount !== undefined && updates.amount !== (oldTransaction as any).amount) {
+        const difference = (updates.amount as number) - (oldTransaction as any).amount;
+        await this.updateAccountBalance((oldTransaction as any).account_id, difference);
       }
 
-      return data;
+      return data!;
     } catch (error) {
-      console.error('TransactionService.updateTransaction error:', error);
+      this.logger.error('TransactionService.updateTransaction error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Delete a transaction
-   */
-  static async deleteTransaction(id: string): Promise<void> {
-    if (!isSupabaseConfigured()) {
-      // Fallback to localStorage
-      const transactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
+  async deleteTransaction(id: string): Promise<void> {
+    if (!this.isSupabaseReady()) {
+      const transactions = await this.readStoredTransactions();
       const filtered = transactions.filter(t => t.id !== id);
-      await storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, filtered);
+      await this.persistTransactions(filtered);
       return;
     }
 
     try {
-      // Get transaction to update account balance
-      const { data: transaction } = await supabase!
+      const client = this.supabaseClient!;
+      const { data: transaction } = await client
         .from('transactions')
         .select('amount, account_id')
         .eq('id', id)
         .single();
 
-      const { error } = await supabase!
+      const { error } = await client
         .from('transactions')
         .delete()
         .eq('id', id);
 
       if (error) {
-        console.error('Error deleting transaction:', error);
+        this.logger.error('Error deleting transaction:', error);
         throw new Error(handleSupabaseError(error));
       }
 
-      // Update account balance
       if (transaction) {
-        await this.updateAccountBalance(transaction.accountId, -transaction.amount);
+        await this.updateAccountBalance((transaction as any).account_id, -(transaction as any).amount);
       }
     } catch (error) {
-      console.error('TransactionService.deleteTransaction error:', error);
+      this.logger.error('TransactionService.deleteTransaction error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Get transactions by date range
-   */
-  static async getTransactionsByDateRange(
-    userId: string,
-    startDate: Date,
-    endDate: Date
-  ): Promise<Transaction[]> {
-    if (!isSupabaseConfigured()) {
-      const transactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
+  async getTransactionsByDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+    if (!this.isSupabaseReady()) {
+      const transactions = await this.readStoredTransactions();
       return transactions.filter(t => {
         const date = new Date(t.date);
         return date >= startDate && date <= endDate;
@@ -193,7 +235,8 @@ export class TransactionService {
     }
 
     try {
-      const { data, error } = await supabase!
+      const client = this.supabaseClient!;
+      const { data, error } = await client
         .from('transactions')
         .select('*')
         .eq('user_id', userId)
@@ -202,161 +245,125 @@ export class TransactionService {
         .order('date', { ascending: false });
 
       if (error) {
-        console.error('Error fetching transactions by date range:', error);
+        this.logger.error('Error fetching transactions by date range:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data || [];
     } catch (error) {
-      console.error('TransactionService.getTransactionsByDateRange error:', error);
+      this.logger.error('TransactionService.getTransactionsByDateRange error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Get transactions by account
-   */
-  static async getTransactionsByAccount(accountId: string): Promise<Transaction[]> {
-    if (!isSupabaseConfigured()) {
-      const transactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
+  async getTransactionsByAccount(accountId: string): Promise<Transaction[]> {
+    if (!this.isSupabaseReady()) {
+      const transactions = await this.readStoredTransactions();
       return transactions.filter(t => t.accountId === accountId);
     }
 
     try {
-      const { data, error } = await supabase!
+      const client = this.supabaseClient!;
+      const { data, error } = await client
         .from('transactions')
         .select('*')
         .eq('account_id', accountId)
         .order('date', { ascending: false });
 
       if (error) {
-        console.error('Error fetching transactions by account:', error);
+        this.logger.error('Error fetching transactions by account:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data || [];
     } catch (error) {
-      console.error('TransactionService.getTransactionsByAccount error:', error);
+      this.logger.error('TransactionService.getTransactionsByAccount error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Get transactions by category
-   */
-  static async getTransactionsByCategory(categoryId: string): Promise<Transaction[]> {
-    if (!isSupabaseConfigured()) {
-      const transactions = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
+  async getTransactionsByCategory(categoryId: string): Promise<Transaction[]> {
+    if (!this.isSupabaseReady()) {
+      const transactions = await this.readStoredTransactions();
       return transactions.filter(t => t.category === categoryId);
     }
 
     try {
-      const { data, error } = await supabase!
+      const client = this.supabaseClient!;
+      const { data, error } = await client
         .from('transactions')
         .select('*')
         .eq('category_id', categoryId)
         .order('date', { ascending: false });
 
       if (error) {
-        console.error('Error fetching transactions by category:', error);
+        this.logger.error('Error fetching transactions by category:', error);
         throw new Error(handleSupabaseError(error));
       }
 
       return data || [];
     } catch (error) {
-      console.error('TransactionService.getTransactionsByCategory error:', error);
+      this.logger.error('TransactionService.getTransactionsByCategory error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Bulk create transactions
-   */
-  static async bulkCreateTransactions(userId: string, transactions: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>[]): Promise<Transaction[]> {
-    if (!isSupabaseConfigured()) {
-      // Fallback to localStorage
-      const newTransactions = transactions.map(t => ({
-        ...t,
-        id: crypto.randomUUID(),
-        created_at: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      }));
-      
-      const stored = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS) || [];
-      stored.push(...newTransactions as Transaction[]);
-      await storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, stored);
-      
-      return newTransactions as Transaction[];
+  async bulkCreateTransactions(
+    userId: string,
+    transactions: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>[]
+  ): Promise<Transaction[]> {
+    if (!this.isSupabaseReady()) {
+      const stored = await this.readStoredTransactions();
+      const newTransactions = transactions.map(transaction => {
+        const timestamp = this.getCurrentDate().toISOString();
+        return {
+          ...transaction,
+          id: this.uuid(),
+          created_at: timestamp,
+          updatedAt: timestamp
+        };
+      });
+
+      stored.push(...(newTransactions as unknown as Transaction[]));
+      await this.persistTransactions(stored);
+      return newTransactions as unknown as Transaction[];
     }
 
     try {
+      const client = this.supabaseClient!;
       const transactionsWithUser = transactions.map(t => ({
         ...t,
         user_id: userId
       }));
 
-      const { data, error } = await supabase!
+      const { data, error } = await (client as any)
         .from('transactions')
         .insert(transactionsWithUser)
         .select();
 
       if (error) {
-        console.error('Error bulk creating transactions:', error);
+        this.logger.error('Error bulk creating transactions:', error);
         throw new Error(handleSupabaseError(error));
       }
 
-      // Update account balances
       for (const transaction of data || []) {
-        await this.updateAccountBalance(transaction.accountId, transaction.amount);
+        await this.updateAccountBalance((transaction as any).account_id, (transaction as any).amount);
       }
 
       return data || [];
     } catch (error) {
-      console.error('TransactionService.bulkCreateTransactions error:', error);
+      this.logger.error('TransactionService.bulkCreateTransactions error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Helper to update account balance
-   */
-  private static async updateAccountBalance(accountId: string, amount: number): Promise<void> {
-    if (!isSupabaseConfigured()) {
-      return;
+  subscribeToTransactions(userId: string, callback: (payload: any) => void): () => void {
+    if (!this.isSupabaseReady()) {
+      return () => {};
     }
 
-    try {
-      const { data: account } = await supabase!
-        .from('accounts')
-        .select('balance')
-        .eq('id', accountId)
-        .single();
-
-      if (account) {
-        const newBalance = (account.balance || 0) + amount;
-        
-        await supabase!
-          .from('accounts')
-          .update({ balance: newBalance })
-          .eq('id', accountId);
-      }
-    } catch (error) {
-      console.error('Error updating account balance:', error);
-    }
-  }
-
-  /**
-   * Subscribe to real-time transaction updates
-   */
-  static subscribeToTransactions(
-    userId: string,
-    callback: (payload: any) => void
-  ): () => void {
-    if (!isSupabaseConfigured()) {
-      return () => {}; // No-op unsubscribe
-    }
-
-    const subscription = supabase!
+    const client = this.supabaseClient!;
+    const subscription = client
       .channel(`transactions:${userId}`)
       .on(
         'postgres_changes',
@@ -370,9 +377,91 @@ export class TransactionService {
       )
       .subscribe();
 
-    // Return unsubscribe function
     return () => {
       subscription.unsubscribe();
     };
   }
+
+  private async updateAccountBalance(accountId: string, amount: number): Promise<void> {
+    if (!this.isSupabaseReady()) {
+      return;
+    }
+
+    try {
+      const client = this.supabaseClient!;
+      const { data: account } = await client
+        .from('accounts')
+        .select('balance')
+        .eq('id', accountId)
+        .single();
+
+      if (account) {
+        const newBalance = ((account as any).balance || 0) + amount;
+
+        await (client as any)
+          .from('accounts')
+          .update({ balance: newBalance })
+          .eq('id', accountId);
+      }
+    } catch (error) {
+      this.logger.error('Error updating account balance:', error as Error);
+    }
+  }
 }
+
+let defaultTransactionService = new TransactionServiceImpl();
+
+export class TransactionService {
+  static configure(options: TransactionServiceOptions = {}) {
+    defaultTransactionService = new TransactionServiceImpl(options);
+  }
+
+  private static get service(): TransactionServiceImpl {
+    return defaultTransactionService;
+  }
+
+  static getTransactions(userId: string): Promise<Transaction[]> {
+    return this.service.getTransactions(userId);
+  }
+
+  static createTransaction(
+    userId: string,
+    transaction: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<Transaction> {
+    return this.service.createTransaction(userId, transaction);
+  }
+
+  static updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
+    return this.service.updateTransaction(id, updates);
+  }
+
+  static deleteTransaction(id: string): Promise<void> {
+    return this.service.deleteTransaction(id);
+  }
+
+  static getTransactionsByDateRange(userId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+    return this.service.getTransactionsByDateRange(userId, startDate, endDate);
+  }
+
+  static getTransactionsByAccount(accountId: string): Promise<Transaction[]> {
+    return this.service.getTransactionsByAccount(accountId);
+  }
+
+  static getTransactionsByCategory(categoryId: string): Promise<Transaction[]> {
+    return this.service.getTransactionsByCategory(categoryId);
+  }
+
+  static bulkCreateTransactions(
+    userId: string,
+    transactions: Omit<Transaction, 'id' | 'created_at' | 'updated_at'>[]
+  ): Promise<Transaction[]> {
+    return this.service.bulkCreateTransactions(userId, transactions);
+  }
+
+  static subscribeToTransactions(userId: string, callback: (payload: any) => void): () => void {
+    return this.service.subscribeToTransactions(userId, callback);
+  }
+}
+
+export const createTransactionService = (options: TransactionServiceOptions = {}) =>
+  new TransactionServiceImpl(options);

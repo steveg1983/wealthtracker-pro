@@ -1,3 +1,4 @@
+
 /**
  * Unified Data Service Layer
  * This service provides a single interface for all data operations
@@ -20,43 +21,111 @@ export interface AppData {
   categories: Category[];
 }
 
-export class DataService {
-  // Removed local storage of IDs - now using centralized userIdService
+ type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+type AccountServiceLike = Pick<typeof AccountService,
+  'getAccounts' | 'createAccount' | 'updateAccount' | 'deleteAccount'> & {
+  subscribeToAccounts?: (userId: string, callback: (payload: any) => void) => () => void;
+};
+type TransactionServiceLike = Pick<typeof TransactionService,
+  'getTransactions' | 'createTransaction' | 'updateTransaction' | 'deleteTransaction'> & {
+  subscribeToTransactions?: (userId: string, callback: (payload: any) => void) => () => void;
+};
+type UserIdServiceLike = Pick<typeof userIdService,
+  'ensureUserExists' | 'getCurrentDatabaseUserId' | 'getCurrentUserIds'>;
+type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
+type SupabaseChecker = () => boolean;
+type DateProvider = () => Date;
+type UuidGenerator = () => string;
 
-  /**
-   * Initialize the data service with user credentials
-   * Now delegates ID management to userIdService
-   */
-  static async initialize(clerkId: string, email: string, firstName?: string, lastName?: string): Promise<void> {
-    if (isSupabaseConfigured()) {
-      try {
-        console.log('[DataService] Initializing for Clerk ID:', clerkId);
-        // Delegate to userIdService for user creation and ID management
-        const databaseId = await userIdService.ensureUserExists(clerkId, email, firstName, lastName);
-        if (databaseId) {
-          console.log('[DataService] User initialized with database ID:', databaseId);
-        } else {
-          console.warn('[DataService] No database ID returned from userIdService');
-        }
-      } catch (error) {
-        console.error('[DataService] Failed to initialize user:', error);
-        // Continue with localStorage fallback
+export interface DataServiceOptions {
+  accountService?: AccountServiceLike;
+  transactionService?: TransactionServiceLike;
+  userService?: typeof UserService;
+  userIdService?: UserIdServiceLike;
+  storageAdapter?: StorageAdapterLike;
+  logger?: Logger;
+  now?: DateProvider;
+  uuid?: UuidGenerator;
+  isSupabaseConfigured?: SupabaseChecker;
+}
+
+class DataServiceImpl {
+  private readonly accountService: AccountServiceLike;
+  private readonly transactionService: TransactionServiceLike;
+  private readonly userService: typeof UserService;
+  private readonly userIdService: UserIdServiceLike;
+  private readonly storage: StorageAdapterLike;
+  private readonly logger: Logger;
+  private readonly nowProvider: DateProvider;
+  private readonly uuid: UuidGenerator;
+  private readonly supabaseChecker: SupabaseChecker;
+
+  constructor(options: DataServiceOptions = {}) {
+    this.accountService = options.accountService ?? AccountService;
+    this.transactionService = options.transactionService ?? TransactionService;
+    this.userService = options.userService ?? UserService;
+    this.userIdService = options.userIdService ?? userIdService;
+    this.storage = options.storageAdapter ?? storageAdapter;
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      log: options.logger?.log ?? (fallbackLogger?.log?.bind(fallbackLogger) ?? noop),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => new Date());
+    this.uuid = options.uuid ?? (() => {
+      if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
       }
-    }
+      return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    });
+    this.supabaseChecker = options.isSupabaseConfigured ?? isSupabaseConfigured;
   }
 
-  /**
-   * Load all app data
-   * NOTE: This should only be called AFTER userIdService has been initialized
-   */
-  static async loadAppData(): Promise<AppData> {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (!userId && isSupabaseConfigured()) {
-      console.warn('[DataService] No database ID available, using localStorage fallback');
+  private isSupabaseReady(): boolean {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    return Boolean(userId && this.supabaseChecker());
+  }
+
+  private async readCollection<T>(key: string): Promise<T[]> {
+    const stored = await this.storage.get<T[]>(key);
+    return stored || [];
+  }
+
+  private async persistCollection<T>(key: string, value: T[]): Promise<void> {
+    await this.storage.set(key, value);
+  }
+
+  private generateId(): string {
+    return this.uuid();
+  }
+
+  async initialize(clerkId: string, email: string, firstName?: string, lastName?: string): Promise<void> {
+    if (!this.supabaseChecker()) {
+      return;
     }
 
     try {
-      // Load data from Supabase or localStorage
+      this.logger.log('[DataService] Initializing for Clerk ID:', clerkId);
+      const databaseId = await this.userIdService.ensureUserExists(clerkId, email, firstName, lastName);
+      if (databaseId) {
+        this.logger.log('[DataService] User initialized with database ID:', databaseId);
+      } else {
+        this.logger.warn('[DataService] No database ID returned from userIdService');
+      }
+    } catch (error) {
+      this.logger.error('[DataService] Failed to initialize user:', error as Error);
+    }
+  }
+
+  async loadAppData(): Promise<AppData> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (!userId && this.supabaseChecker()) {
+      this.logger.warn('[DataService] No database ID available, using localStorage fallback');
+    }
+
+    try {
       const [accounts, transactions, budgets, goals, categories] = await Promise.all([
         this.getAccounts(),
         this.getTransactions(),
@@ -65,16 +134,9 @@ export class DataService {
         this.getCategories()
       ]);
 
-      return {
-        accounts,
-        transactions,
-        budgets,
-        goals,
-        categories
-      };
+      return { accounts, transactions, budgets, goals, categories };
     } catch (error) {
-      console.error('Error loading app data:', error);
-      // Return empty data on error
+      this.logger.error('Error loading app data:', error as Error);
       return {
         accounts: [],
         transactions: [],
@@ -85,247 +147,268 @@ export class DataService {
     }
   }
 
-  /**
-   * Get all accounts
-   */
-  static async getAccounts(): Promise<Account[]> {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (userId && isSupabaseConfigured()) {
-      return AccountService.getAccounts(userId);
+  async getAccounts(): Promise<Account[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.accountService.getAccounts(userId);
     }
-    // Fallback to localStorage
-    const stored = await storageAdapter.get<Account[]>(STORAGE_KEYS.ACCOUNTS);
-    return stored || [];
+    return this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
   }
 
-  /**
-   * Create account
-   */
-  static async createAccount(account: Omit<Account, 'id'>): Promise<Account> {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (userId && isSupabaseConfigured()) {
-      return AccountService.createAccount(userId, account);
+  async createAccount(account: Omit<Account, 'id'>): Promise<Account> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.accountService.createAccount(userId, account);
     }
-    // Fallback to localStorage
-    const newAccount = {
+
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    const newAccount: Account = {
       ...account,
-      id: crypto.randomUUID()
-    };
-    const accounts = await this.getAccounts();
+      id: this.generateId()
+    } as Account;
     accounts.push(newAccount);
-    await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);
+    await this.persistCollection(STORAGE_KEYS.ACCOUNTS, accounts);
     return newAccount;
   }
 
-  /**
-   * Update account
-   */
-  static async updateAccount(id: string, updates: Partial<Account>): Promise<Account> {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (userId && isSupabaseConfigured()) {
-      return AccountService.updateAccount(id, updates);
+  async updateAccount(id: string, updates: Partial<Account>): Promise<Account> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.accountService.updateAccount(id, updates);
     }
-    // Fallback to localStorage
-    const accounts = await this.getAccounts();
-    const index = accounts.findIndex(a => a.id === id);
-    if (index === -1) throw new Error('Account not found');
-    accounts[index] = { ...accounts[index], ...updates };
-    await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);
+
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    const index = accounts.findIndex(account => account.id === id);
+    if (index === -1) {
+      throw new Error('Account not found');
+    }
+
+    accounts[index] = { ...accounts[index], ...updates } as Account;
+    await this.persistCollection(STORAGE_KEYS.ACCOUNTS, accounts);
     return accounts[index];
   }
 
-  /**
-   * Delete account
-   */
-  static async deleteAccount(id: string): Promise<void> {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (userId && isSupabaseConfigured()) {
-      return AccountService.deleteAccount(id);
+  async deleteAccount(id: string): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.accountService.deleteAccount(id);
     }
-    // Fallback to localStorage
-    const accounts = await this.getAccounts();
-    const filtered = accounts.filter(a => a.id !== id);
-    await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, filtered);
+
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
+    const filtered = accounts.filter(account => account.id !== id);
+    await this.persistCollection(STORAGE_KEYS.ACCOUNTS, filtered);
   }
 
-  /**
-   * Get all transactions
-   */
-  static async getTransactions(): Promise<Transaction[]> {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (userId && isSupabaseConfigured()) {
-      return TransactionService.getTransactions(userId);
+  async getTransactions(): Promise<Transaction[]> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.getTransactions(userId);
     }
-    // Fallback to localStorage
-    const stored = await storageAdapter.get<Transaction[]>(STORAGE_KEYS.TRANSACTIONS);
-    return stored || [];
+
+    return this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
   }
 
-  /**
-   * Create transaction
-   */
-  static async createTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction> {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (userId && isSupabaseConfigured()) {
-      return TransactionService.createTransaction(userId, transaction);
+  async createTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.createTransaction(userId, transaction);
     }
-    // Fallback to localStorage
-    const newTransaction = {
+
+    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const newTransaction: Transaction = {
       ...transaction,
-      id: crypto.randomUUID()
-    };
-    const transactions = await this.getTransactions();
+      id: this.generateId()
+    } as Transaction;
+
     transactions.push(newTransaction);
-    await storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, transactions);
-    
-    // Update account balance
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, transactions);
     await this.updateAccountBalance(transaction.accountId, transaction.amount);
-    
     return newTransaction;
   }
 
-  /**
-   * Update transaction
-   */
-  static async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (userId && isSupabaseConfigured()) {
-      return TransactionService.updateTransaction(id, updates);
+  async updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.updateTransaction(id, updates);
     }
-    // Fallback to localStorage
-    const transactions = await this.getTransactions();
-    const index = transactions.findIndex(t => t.id === id);
-    if (index === -1) throw new Error('Transaction not found');
-    
+
+    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
+    const index = transactions.findIndex(transaction => transaction.id === id);
+    if (index === -1) {
+      throw new Error('Transaction not found');
+    }
+
     const oldAmount = transactions[index].amount;
     const oldAccountId = transactions[index].accountId;
-    
-    transactions[index] = { ...transactions[index], ...updates };
-    await storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, transactions);
-    
-    // Update account balances
+
+    transactions[index] = { ...transactions[index], ...updates } as Transaction;
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, transactions);
+
     if (updates.amount !== undefined && updates.amount !== oldAmount) {
       await this.updateAccountBalance(oldAccountId, -oldAmount + updates.amount);
     }
-    
+
     return transactions[index];
   }
 
-  /**
-   * Delete transaction
-   */
-  static async deleteTransaction(id: string): Promise<void> {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (userId && isSupabaseConfigured()) {
-      return TransactionService.deleteTransaction(id);
+  async deleteTransaction(id: string): Promise<void> {
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (userId && this.supabaseChecker()) {
+      return this.transactionService.deleteTransaction(id);
     }
-    // Fallback to localStorage
-    const transactions = await this.getTransactions();
+
+    const transactions = await this.readCollection<Transaction>(STORAGE_KEYS.TRANSACTIONS);
     const transaction = transactions.find(t => t.id === id);
     if (transaction) {
       await this.updateAccountBalance(transaction.accountId, -transaction.amount);
     }
     const filtered = transactions.filter(t => t.id !== id);
-    await storageAdapter.set(STORAGE_KEYS.TRANSACTIONS, filtered);
+    await this.persistCollection(STORAGE_KEYS.TRANSACTIONS, filtered);
   }
 
-  /**
-   * Get budgets
-   */
-  static async getBudgets(): Promise<Budget[]> {
-    // TODO: Implement BudgetService when ready
-    const stored = await storageAdapter.get<Budget[]>(STORAGE_KEYS.BUDGETS);
-    return stored || [];
+  async getBudgets(): Promise<Budget[]> {
+    return this.readCollection<Budget>(STORAGE_KEYS.BUDGETS);
   }
 
-  /**
-   * Get goals
-   */
-  static async getGoals(): Promise<Goal[]> {
-    // TODO: Implement GoalService when ready
-    const stored = await storageAdapter.get<Goal[]>(STORAGE_KEYS.GOALS);
-    return stored || [];
+  async getGoals(): Promise<Goal[]> {
+    return this.readCollection<Goal>(STORAGE_KEYS.GOALS);
   }
 
-  /**
-   * Get categories
-   */
-  static async getCategories(): Promise<Category[]> {
-    // TODO: Implement CategoryService when ready
-    const stored = await storageAdapter.get<Category[]>(STORAGE_KEYS.CATEGORIES);
-    return stored || [];
+  async getCategories(): Promise<Category[]> {
+    return this.readCollection<Category>(STORAGE_KEYS.CATEGORIES);
   }
 
-  /**
-   * Helper to update account balance (localStorage only)
-   */
-  private static async updateAccountBalance(accountId: string, amount: number): Promise<void> {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (userId && isSupabaseConfigured()) {
-      // Supabase handles this automatically
+  private async updateAccountBalance(accountId: string, amount: number): Promise<void> {
+    if (this.isSupabaseReady()) {
       return;
     }
-    
-    const accounts = await this.getAccounts();
+
+    const accounts = await this.readCollection<Account>(STORAGE_KEYS.ACCOUNTS);
     const account = accounts.find(a => a.id === accountId);
     if (account) {
       account.balance = (account.balance || 0) + amount;
-      await storageAdapter.set(STORAGE_KEYS.ACCOUNTS, accounts);
+      await this.persistCollection(STORAGE_KEYS.ACCOUNTS, accounts);
     }
   }
 
-  /**
-   * Subscribe to real-time updates
-   */
-  static subscribeToUpdates(callbacks: {
+  subscribeToUpdates(callbacks: {
     onAccountUpdate?: (payload: any) => void;
     onTransactionUpdate?: (payload: any) => void;
   }): () => void {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    if (!userId || !isSupabaseConfigured()) {
-      return () => {}; // No-op for localStorage
+    const userId = this.userIdService.getCurrentDatabaseUserId();
+    if (!userId || !this.supabaseChecker()) {
+      return () => {};
     }
 
-    const unsubscribers: (() => void)[] = [];
+    const unsubscribers: Array<() => void> = [];
 
-    if (callbacks.onAccountUpdate) {
-      unsubscribers.push(
-        AccountService.subscribeToAccounts(userId, callbacks.onAccountUpdate)
-      );
+    if (callbacks.onAccountUpdate && this.accountService.subscribeToAccounts) {
+      unsubscribers.push(this.accountService.subscribeToAccounts(userId, callbacks.onAccountUpdate));
     }
 
-    if (callbacks.onTransactionUpdate) {
-      unsubscribers.push(
-        TransactionService.subscribeToTransactions(userId, callbacks.onTransactionUpdate)
-      );
+    if (callbacks.onTransactionUpdate && this.transactionService.subscribeToTransactions) {
+      unsubscribers.push(this.transactionService.subscribeToTransactions(userId, callbacks.onTransactionUpdate));
     }
 
-    // Return function to unsubscribe all
     return () => {
       unsubscribers.forEach(unsub => unsub());
     };
   }
 
-  /**
-   * Check if using Supabase or localStorage
-   */
-  static isUsingSupabase(): boolean {
-    const userId = userIdService.getCurrentDatabaseUserId();
-    return userId !== null && isSupabaseConfigured();
+  isUsingSupabase(): boolean {
+    return this.isSupabaseReady();
   }
 
-  /**
-   * Get current user IDs for debugging
-   */
-  static getUserIds(): { clerkId: string | null; databaseId: string | null } {
-    // Delegate to userIdService for current user IDs
-    return userIdService.getCurrentUserIds();
+  getUserIds(): { clerkId: string | null; databaseId: string | null } {
+    return this.userIdService.getCurrentUserIds();
   }
 
-  /**
-   * Force reload all data (useful after sync)
-   */
-  static async refreshData(): Promise<AppData> {
+  async refreshData(): Promise<AppData> {
     return this.loadAppData();
   }
 }
+
+let defaultDataService = new DataServiceImpl();
+
+export class DataService {
+  static configure(options: DataServiceOptions = {}) {
+    defaultDataService = new DataServiceImpl(options);
+  }
+
+  private static get service(): DataServiceImpl {
+    return defaultDataService;
+  }
+
+  static initialize(clerkId: string, email: string, firstName?: string, lastName?: string): Promise<void> {
+    return this.service.initialize(clerkId, email, firstName, lastName);
+  }
+
+  static loadAppData(): Promise<AppData> {
+    return this.service.loadAppData();
+  }
+
+  static getAccounts(): Promise<Account[]> {
+    return this.service.getAccounts();
+  }
+
+  static createAccount(account: Omit<Account, 'id'>): Promise<Account> {
+    return this.service.createAccount(account);
+  }
+
+  static updateAccount(id: string, updates: Partial<Account>): Promise<Account> {
+    return this.service.updateAccount(id, updates);
+  }
+
+  static deleteAccount(id: string): Promise<void> {
+    return this.service.deleteAccount(id);
+  }
+
+  static getTransactions(): Promise<Transaction[]> {
+    return this.service.getTransactions();
+  }
+
+  static createTransaction(transaction: Omit<Transaction, 'id'>): Promise<Transaction> {
+    return this.service.createTransaction(transaction);
+  }
+
+  static updateTransaction(id: string, updates: Partial<Transaction>): Promise<Transaction> {
+    return this.service.updateTransaction(id, updates);
+  }
+
+  static deleteTransaction(id: string): Promise<void> {
+    return this.service.deleteTransaction(id);
+  }
+
+  static getBudgets(): Promise<Budget[]> {
+    return this.service.getBudgets();
+  }
+
+  static getGoals(): Promise<Goal[]> {
+    return this.service.getGoals();
+  }
+
+  static getCategories(): Promise<Category[]> {
+    return this.service.getCategories();
+  }
+
+  static subscribeToUpdates(callbacks: {
+    onAccountUpdate?: (payload: any) => void;
+    onTransactionUpdate?: (payload: any) => void;
+  }): () => void {
+    return this.service.subscribeToUpdates(callbacks);
+  }
+
+  static isUsingSupabase(): boolean {
+    return this.service.isUsingSupabase();
+  }
+
+  static getUserIds(): { clerkId: string | null; databaseId: string | null } {
+    return this.service.getUserIds();
+  }
+
+  static refreshData(): Promise<AppData> {
+    return this.service.refreshData();
+  }
+}
+
+export const createDataService = (options: DataServiceOptions = {}) => new DataServiceImpl(options);

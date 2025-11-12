@@ -19,8 +19,16 @@ const createMockDecimal = (value: number) => ({
   greaterThanOrEqualTo: (other: number) => value >= other,
   lessThan: (other: number) => value < other,
   isZero: () => value === 0,
+  isNegative: () => value < 0,
+  toDecimalPlaces: (decimals: number) => {
+    const factor = 10 ** decimals;
+    const rounded = Math.round(value * factor) / factor;
+    return createMockDecimal(Number(rounded.toFixed(decimals)));
+  },
   toNumber: () => value,
-  toFixed: (decimals: number) => value.toFixed(decimals)
+  toFixed: (decimals: number) => value.toFixed(decimals),
+  toString: () => value.toString(),
+  valueOf: () => value
 });
 
 vi.mock('../utils/decimal', () => ({

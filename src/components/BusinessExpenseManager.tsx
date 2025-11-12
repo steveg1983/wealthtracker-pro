@@ -32,19 +32,6 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
   });
   const { formatCurrency } = useCurrencyDecimal();
 
-  useEffect(() => {
-    loadExpenses();
-  }, []);
-
-  useEffect(() => {
-    applyFilters();
-  }, [applyFilters]);
-
-  const loadExpenses = () => {
-    const businessExpenses = businessService.getBusinessExpenses();
-    setExpenses(businessExpenses);
-  };
-
   const applyFilters = useCallback(() => {
     let filtered = [...expenses];
 
@@ -85,6 +72,19 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
 
     setFilteredExpenses(filtered);
   }, [expenses, filters]);
+
+  const loadExpenses = () => {
+    const businessExpenses = businessService.getBusinessExpenses();
+    setExpenses(businessExpenses);
+  };
+
+  useEffect(() => {
+    loadExpenses();
+  }, []);
+
+  useEffect(() => {
+    applyFilters();
+  }, [applyFilters]);
 
   const handleCreateExpense = () => {
     setEditingExpense(null);
@@ -164,7 +164,7 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
 
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Expenses</p>
@@ -176,7 +176,7 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Deductible Expenses</p>
@@ -188,7 +188,7 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total VAT</p>
@@ -202,7 +202,7 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
       </div>
 
       {/* Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
         <div className="flex items-center gap-2 mb-4">
           <FilterIcon size={20} className="text-gray-500" />
           <h3 className="font-semibold text-gray-900 dark:text-white">Filters</h3>
@@ -268,7 +268,7 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
       </div>
 
       {/* Expenses List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
         {filteredExpenses.length === 0 ? (
           <div className="text-center py-12">
             <DollarSignIcon size={48} className="mx-auto mb-4 text-gray-400" />
@@ -293,7 +293,7 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
             {/* Mobile card view */}
             <div className="sm:hidden space-y-3">
               {filteredExpenses.map((expense) => (
-                <div key={expense.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
+                <div key={expense.id} className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
                       {getCategoryIcon(expense.category)}
@@ -390,7 +390,7 @@ export default function BusinessExpenseManager({ onDataChange }: BusinessExpense
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="bg-[#d4dce8] dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {filteredExpenses.map((expense) => (
                     <tr key={expense.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -504,7 +504,7 @@ function BusinessExpenseModal({ expense, onClose, onSave }: BusinessExpenseModal
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-md">
         <form onSubmit={handleSubmit} className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

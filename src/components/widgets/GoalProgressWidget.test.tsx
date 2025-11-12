@@ -9,7 +9,9 @@ import { vi, describe, it, expect, beforeEach, Mock } from 'vitest';
 import GoalProgressWidget from './GoalProgressWidget';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 import type { Goal } from '../../types';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock the external dependencies
 vi.mock('../../contexts/AppContextSupabase', () => ({
@@ -47,13 +49,16 @@ const mockUseApp = useApp as Mock;
 const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
 
 describe('GoalProgressWidget', () => {
-  const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number'
-      ? amount
-      : typeof amount?.toNumber === 'function'
-        ? amount.toNumber()
-        : Number(amount);
-    return `£${value.toFixed(2)}`;
+  const formatGBP = (value: number) => formatCurrencyDecimal(value, 'GBP');
+
+  const mockFormatCurrency = vi.fn((amount: any, currency: string = 'GBP') => {
+    const value =
+      typeof amount === 'number'
+        ? amount
+        : typeof amount?.toNumber === 'function'
+          ? amount.toNumber()
+          : Number(amount);
+    return formatCurrencyDecimal(value, currency);
   });
 
   const mockGoals: Goal[] = [
@@ -267,12 +272,12 @@ describe('GoalProgressWidget', () => {
       render(<GoalProgressWidget size="medium" settings={{}} />);
       
       // Emergency Fund amounts
-      expect(screen.getByText('£6500.00')).toBeInTheDocument();
-      expect(screen.getByText('£10000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(6500))).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(10000))).toBeInTheDocument();
       
       // New Car amounts
-      expect(screen.getByText('£8000.00')).toBeInTheDocument();
-      expect(screen.getByText('£25000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(8000))).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(25000))).toBeInTheDocument();
     });
 
     it('shows target dates when available', () => {
@@ -454,8 +459,8 @@ describe('GoalProgressWidget', () => {
       render(<GoalProgressWidget size="small" settings={{}} />);
       
       // Should show amounts
-      expect(screen.getByText('£100.00')).toBeInTheDocument();
-      expect(screen.getByText('£0.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(100))).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(0))).toBeInTheDocument();
     });
   });
 });

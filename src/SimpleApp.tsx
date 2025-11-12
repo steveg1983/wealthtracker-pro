@@ -1,7 +1,10 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { createScopedLogger } from './loggers/scopedLogger';
+
+const simpleAppLogger = createScopedLogger('SimpleApp');
 
 export default function SimpleApp() {
-  console.log('SimpleApp rendering');
+  simpleAppLogger.info('Rendering SimpleApp');
   
   return (
     <Router>

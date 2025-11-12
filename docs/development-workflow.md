@@ -6,6 +6,7 @@
 - The `pre-commit` hook now runs from the repo root and executes:
   1. `npm run lint -- --no-cache`
   2. `npm run test:smoke`
+3. `npm run test:realtime` (realtime price + predictive loading + scheduled report + automatic backup + secure storage + theme scheduling + sync + auto sync + smart cache + notification + error handling + Stripe + stock price + logging + offline + mobile + performance + performance optimization + push notification + merchant logo + security + bank connection + offline data + dividend + anomaly detection + data migration + data intelligence + enhanced CSV import + budget recommendation + financial summary + custom report + encrypted storage + export + document + OCR + transaction API + account service + simple account service + user service + data service + supabase service + subscription + realtime-service suites)
 - Both commands execute directly against the flat app—no workspace forwarding required.
 
 ## Manual Execution
@@ -15,7 +16,10 @@ If you want to re-run the hook logic outside of Git:
 ```sh
 npm run lint -- --no-cache
 npm run test:smoke
+npm run test:realtime
 ```
+
+The realtime guard now covers deterministic suites for realtime price (subscribe/error/events/helpers), predictive loading, scheduled report, automatic backup, secure storage, theme scheduling, sync, auto sync, smart cache, notification, error handling, Stripe, stock price, logging, offline, mobile, performance, performance optimization, push notification, merchant logo, security, bank connection, offline data, dividend, anomaly detection, data migration, data intelligence, enhanced CSV import, budget recommendation, financial summary, custom report, encrypted storage, export, document, OCR, transaction API, account service, simple account service, user service, data service, supabase service, subscription, and realtime service flows.
 
 ## Supabase "REAL" smoke run
 

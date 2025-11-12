@@ -55,7 +55,7 @@ export default function EnhancedImport() {
 
         {/* Quick Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               <GlobeIcon size={20} className="text-blue-600 dark:text-blue-400" />
               <div>
@@ -67,7 +67,7 @@ export default function EnhancedImport() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               <FileTextIcon size={20} className="text-green-600 dark:text-green-400" />
               <div>
@@ -79,7 +79,7 @@ export default function EnhancedImport() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               <WrenchIcon size={20} className="text-purple-600 dark:text-purple-400" />
               <div>
@@ -91,7 +91,7 @@ export default function EnhancedImport() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               <RefreshCwIcon size={20} className="text-orange-600 dark:text-orange-400" />
               <div>
@@ -107,7 +107,7 @@ export default function EnhancedImport() {
         {/* Import Options */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           {/* Enhanced Import Wizard */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                 <UploadIcon size={24} className="text-blue-600 dark:text-blue-400" />
@@ -149,7 +149,7 @@ export default function EnhancedImport() {
           </div>
 
           {/* Batch Import */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-sm p-6">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
                 <FolderIcon size={24} className="text-green-600 dark:text-green-400" />
@@ -192,7 +192,7 @@ export default function EnhancedImport() {
         </div>
 
         {/* Import Rules Management */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
@@ -251,7 +251,7 @@ export default function EnhancedImport() {
         </div>
 
         {/* Supported Bank Formats */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-sm p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Supported Bank Formats ({bankFormats.length}+)
           </h3>
@@ -298,7 +298,7 @@ export default function EnhancedImport() {
       
       {showRulesManager && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold text-gray-900 dark:text-white">

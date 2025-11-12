@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import ReconciliationModal from './ReconciliationModal';
 import type { Transaction } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -77,7 +78,19 @@ const mockAccounts = [
   { id: 'acc3', name: 'Credit Card', type: 'credit' as const, balance: -500 }
 ];
 
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../hooks/useCurrencyDecimal', () => ({
+  useCurrencyDecimal: () => ({
+    formatCurrency: (amount: number, currency = 'GBP') =>
+      formatCurrencyDecimal(amount, currency),
+    displayCurrency: 'GBP',
+    getCurrencySymbol: () => '£',
+    convertAndFormat: vi.fn(),
+    convert: vi.fn(),
+    convertAndSum: vi.fn()
+  })
+}));
+
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     transactions: mockTransactions,
     accounts: mockAccounts,

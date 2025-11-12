@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import InvestmentSummaryWidget from './InvestmentSummaryWidget';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 import type { Account, Investment } from '../../types';
 
 // Mock the contexts and hooks
@@ -134,14 +135,16 @@ const mockInvestments: Investment[] = [
 ];
 
 describe('InvestmentSummaryWidget', () => {
-  const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number'
-      ? amount
-      : typeof amount?.toNumber === 'function'
-        ? amount.toNumber()
-        : Number(amount);
-    return `$${value.toFixed(2)}`;
-  });
+  const mockFormatCurrency = vi.fn((amount: any, currency: string = 'USD') =>
+    formatCurrencyDecimal(
+      typeof amount === 'number'
+        ? amount
+        : typeof amount?.toNumber === 'function'
+          ? amount.toNumber()
+          : Number(amount),
+      currency
+    )
+  );
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -189,7 +192,7 @@ describe('InvestmentSummaryWidget', () => {
       render(<InvestmentSummaryWidget size="medium" settings={{}} />);
       
       // Total value from accounts: 50000 + 25000 = 75000
-      expect(screen.getByText('$75000.00')).toBeInTheDocument();
+      expect(screen.getByText('$75,000.00')).toBeInTheDocument();
       expect(screen.getByText('Portfolio Value')).toBeInTheDocument();
     });
 
@@ -204,7 +207,7 @@ describe('InvestmentSummaryWidget', () => {
       // Total cost: (100 * 150) + (50 * 100) + (200 * 100) = 15000 + 5000 + 20000 = 40000
       // Total value: (100 * 180) + (50 * 120) + (200 * 110) = 18000 + 6000 + 22000 = 46000
       // Total gains: 46000 - 40000 = 6000
-      expect(screen.getByText('+$6000.00')).toBeInTheDocument();
+      expect(screen.getByText('+$6,000.00')).toBeInTheDocument();
       expect(screen.getByText('Total Gains')).toBeInTheDocument();
     });
 
@@ -244,7 +247,7 @@ describe('InvestmentSummaryWidget', () => {
       render(<InvestmentSummaryWidget size="medium" settings={{}} />);
       
       // Loss: (100 * 80) - (100 * 100) = -2000
-      expect(screen.getByText('-$2000.00')).toBeInTheDocument();
+      expect(screen.getByText('-$2,000.00')).toBeInTheDocument();
       expect(screen.getByText('Total Losses')).toBeInTheDocument();
       expect(screen.getByText('-20.00%')).toBeInTheDocument();
     });
@@ -463,7 +466,7 @@ describe('InvestmentSummaryWidget', () => {
 
       render(<InvestmentSummaryWidget size="medium" settings={{}} />);
       
-      expect(screen.getByText('$75000.00')).toBeInTheDocument();
+      expect(screen.getByText('$75,000.00')).toBeInTheDocument();
       expect(screen.getByText('+$0.00')).toBeInTheDocument(); // No gains  
       expect(screen.getByText('+0.00%')).toBeInTheDocument(); // No percentage gain
     });
@@ -503,7 +506,7 @@ describe('InvestmentSummaryWidget', () => {
         render(<InvestmentSummaryWidget size="medium" settings={{}} />);
       }).not.toThrow();
       
-      expect(screen.getByText('$75000.00')).toBeInTheDocument();
+      expect(screen.getByText('$75,000.00')).toBeInTheDocument();
     });
 
     it('handles zero cost basis', () => {

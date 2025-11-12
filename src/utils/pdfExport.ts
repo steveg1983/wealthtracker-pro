@@ -5,6 +5,7 @@ import { Transaction, Account } from '../types';
 import { formatCurrency as formatCurrencyDecimal } from './currency-decimal';
 import { toDecimal, Decimal } from './decimal';
 import { formatDecimal } from './decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface ReportData {
   title: string;
@@ -147,7 +148,7 @@ export async function generatePDFReport(data: ReportData, accounts: Account[]): 
         pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, imgHeight);
         yPosition += imgHeight + 10;
       } catch (error) {
-        console.error('Error capturing chart:', error);
+        pdfExportLogger.error('Error capturing chart for PDF', error);
       }
     }
   }
@@ -279,3 +280,4 @@ export function generateSimplePDFReport(data: ReportData, accounts: Account[]): 
   };
   generatePDFReport(reportData, accounts);
 }
+const pdfExportLogger = createScopedLogger('PDFExport');

@@ -197,7 +197,7 @@ export const AccessibilityDashboard: React.FC = () => {
             >
               <div className="flex items-center justify-between mb-3">
                 <h4 className={`font-medium ${accessibleColorClasses['text-primary']}`}>
-                  {combo.name}
+                  {combo.fg} on {combo.bg}
                 </h4>
                 {passes ? (
                   <CheckCircleIcon className="h-5 w-5 text-green-600" />

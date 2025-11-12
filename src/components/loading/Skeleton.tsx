@@ -68,7 +68,7 @@ export function SkeletonText({ lines = 1, spacing = 'normal', className = '' }: 
 
 export function SkeletonCard({ className = '' }: { className?: string }): React.JSX.Element {
   return (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg shadow p-6 ${className}`}>
+    <div className={`bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6 ${className}`}>
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <Skeleton variant="text" width="60%" height="24px" className="mb-2" />
@@ -97,7 +97,7 @@ export function SkeletonList({ items = 5, className = '' }: { items?: number; cl
   return (
     <div className={`space-y-4 ${className}`}>
       {Array.from({ length: items }).map((_, i) => (
-        <div key={i} className="flex items-center space-x-4 p-4 bg-white dark:bg-gray-800 rounded-lg">
+        <div key={i} className="flex items-center space-x-4 p-4 bg-[#d4dce8] dark:bg-gray-800 rounded-lg">
           <Skeleton variant="circular" width="48px" height="48px" />
           <div className="flex-1">
             <Skeleton variant="text" width="40%" className="mb-2" />

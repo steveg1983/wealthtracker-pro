@@ -12,7 +12,13 @@ import type { ReportSettings } from '../components/IncomeExpenditureReport';
 import PageWrapper from '../components/PageWrapper';
 
 // Lazy load heavy components
-const OptimizedCharts = lazy(() => import('../components/charts/OptimizedCharts'));
+// OptimizedCharts doesn't have a default export, so we create a wrapper component
+const OptimizedCharts = lazy(async () => {
+  const module = await import('../components/charts/OptimizedCharts');
+  return {
+    default: () => null // Placeholder since the module exports individual chart components
+  };
+});
 const DraggableGrid = lazy(() => import('../components/layout/DraggableGrid').then(m => ({ default: m.DraggableGrid })));
 const GridItem = lazy(() => import('../components/layout/GridItem').then(m => ({ default: m.GridItem })));
 const TestDataWarningModal = lazy(() => import('../components/TestDataWarningModal'));
@@ -122,7 +128,7 @@ export default function DashboardOptimized() {
             <div className="space-y-6">
               {/* Quick stats will load immediately */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                <div className="bg-[#d4dce8] dark:bg-gray-800 p-6 rounded-lg shadow">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm text-gray-500 dark:text-gray-400">Total Balance</p>
@@ -172,7 +178,7 @@ export default function DashboardOptimized() {
           <Suspense fallback={null}>
             <OnboardingModal
               isOpen={showOnboarding}
-              onClose={() => setShowOnboarding(false)}
+              onComplete={() => setShowOnboarding(false)}
             />
           </Suspense>
         )}

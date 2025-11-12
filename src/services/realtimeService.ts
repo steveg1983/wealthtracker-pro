@@ -9,7 +9,7 @@
  * - Subscription lifecycle management
  */
 
-import { RealtimeChannel } from '@supabase/supabase-js';
+import type { SupabaseClient, RealtimeChannel } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { userIdService } from './userIdService';
 import type { Account, Transaction, Budget, Goal } from '../types';
@@ -35,7 +35,19 @@ export interface ConnectionState {
 export type RealtimeCallback<T = any> = (event: RealtimeEvent<T>) => void;
 export type ConnectionCallback = (state: ConnectionState) => void;
 
-class RealtimeService {
+type UserIdServiceLike = typeof userIdService;
+type SupabaseLike = SupabaseClient | null;
+type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+
+export interface RealtimeServiceOptions {
+  supabaseClient?: SupabaseLike;
+  userIdService?: UserIdServiceLike;
+  logger?: Logger;
+  setTimeoutFn?: typeof setTimeout;
+  clearTimeoutFn?: typeof clearTimeout;
+}
+
+export class RealtimeService {
   private subscriptions: Map<string, RealtimeChannel> = new Map();
   private connectionState: ConnectionState = {
     isConnected: false,
@@ -50,12 +62,32 @@ class RealtimeService {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000; // Start with 1 second
   private isInitialized = false;
+  private supabaseClient: SupabaseLike;
+  private userService: UserIdServiceLike;
+  private readonly logger: Logger;
+  private readonly setTimeoutFn: typeof setTimeout;
+  private readonly clearTimeoutFn: typeof clearTimeout;
+
+  constructor(options: RealtimeServiceOptions = {}) {
+    this.supabaseClient = options.supabaseClient ?? supabase ?? null;
+    this.userService = options.userIdService ?? userIdService;
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      log: options.logger?.log ?? (fallbackLogger?.log?.bind(fallbackLogger) ?? (() => {})),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {})),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {}))
+    };
+    this.setTimeoutFn =
+      options.setTimeoutFn ?? ((handler: TimerHandler, timeout?: number, ...args: any[]) => setTimeout(handler, timeout, ...args));
+    this.clearTimeoutFn =
+      options.clearTimeoutFn ?? ((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
+  }
 
   /**
    * Initialize the real-time service
    */
   initialize(): void {
-    if (this.isInitialized || !supabase) {
+    if (this.isInitialized || !this.supabaseClient) {
       return;
     }
 
@@ -67,14 +99,14 @@ class RealtimeService {
    * Setup connection monitoring and automatic reconnection
    */
   private setupConnectionMonitoring(): void {
-    if (!supabase) return;
+    if (!this.supabaseClient) return;
 
     // For Supabase v2, we monitor connection through channel status
     // Set initial connection state as connected (optimistic)
     this.handleConnectionChange(true);
     
     // We'll monitor connection through subscription events instead
-    console.log('Realtime monitoring initialized');
+    this.logger.log('Realtime monitoring initialized');
   }
 
   /**
@@ -97,7 +129,7 @@ class RealtimeService {
 
     // Clear reconnect timeout if connection is restored
     if (isConnected && this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+      this.clearTimeoutFn(this.reconnectTimeout);
       this.reconnectTimeout = null;
       this.reconnectAttempts = 0;
     }
@@ -116,7 +148,7 @@ class RealtimeService {
    */
   private scheduleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.warn('Max reconnection attempts reached');
+      this.logger.warn('Max reconnection attempts reached');
       return;
     }
 
@@ -126,8 +158,8 @@ class RealtimeService {
     // Exponential backoff
     const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts);
     
-    this.reconnectTimeout = setTimeout(() => {
-      console.log(`Attempting to reconnect (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+    this.reconnectTimeout = this.setTimeoutFn(() => {
+      this.logger.log(`Attempting to reconnect (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
       this.reconnectAttempts++;
       
       // Attempt to reconnect by re-establishing subscriptions
@@ -139,7 +171,7 @@ class RealtimeService {
    * Reconnect all active subscriptions
    */
   private reconnectAllSubscriptions(): void {
-    if (!supabase) return;
+    if (!this.supabaseClient) return;
 
     const subscriptionKeys = Array.from(this.subscriptions.keys());
     
@@ -163,7 +195,7 @@ class RealtimeService {
   private reestablishSubscription(table: string, userId: string): void {
     // This would need to be enhanced based on specific subscription requirements
     // For now, we'll let the application re-subscribe when needed
-    console.log(`Re-establishing subscription for ${table}:${userId}`);
+    this.logger.log(`Re-establishing subscription for ${table}:${userId}`);
   }
 
   /**
@@ -175,14 +207,14 @@ class RealtimeService {
     callback: RealtimeCallback<Account>,
     options: { includeInitial?: boolean } = {}
   ): Promise<string | null> {
-    if (!supabase || !clerkOrDbId) return null;
+    if (!this.supabaseClient || !clerkOrDbId) return null;
 
     // Convert Clerk ID to database UUID if needed
     let dbUserId = clerkOrDbId;
     if (clerkOrDbId.startsWith('user_')) {
-      const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
+      const resolvedId = await this.userService.getDatabaseUserId(clerkOrDbId);
       if (!resolvedId) {
-        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        this.logger.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
         return null;
       }
       dbUserId = resolvedId;
@@ -193,7 +225,7 @@ class RealtimeService {
     // Remove existing subscription if any
     this.unsubscribe(subscriptionKey);
 
-    const channel = supabase
+    const channel = this.supabaseClient
       .channel(`accounts_${dbUserId}`)
       .on(
         'postgres_changes',
@@ -212,16 +244,16 @@ class RealtimeService {
             schema: payload.schema,
           };
           
-          console.log('Accounts real-time event:', event);
+          this.logger.log('Accounts real-time event:', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        console.log(`Accounts subscription status: ${status}`);
+        this.logger.log(`Accounts subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Accounts subscription error: ${err?.message || status}`);
+          this.logger.error(`Accounts subscription error: ${err?.message || status}`);
           this.handleConnectionChange(false);
         }
       });
@@ -239,14 +271,14 @@ class RealtimeService {
     callback: RealtimeCallback<Transaction>,
     options: { includeInitial?: boolean } = {}
   ): Promise<string | null> {
-    if (!supabase || !clerkOrDbId) return null;
+    if (!this.supabaseClient || !clerkOrDbId) return null;
 
     // Convert Clerk ID to database UUID if needed
     let dbUserId = clerkOrDbId;
     if (clerkOrDbId.startsWith('user_')) {
-      const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
+      const resolvedId = await this.userService.getDatabaseUserId(clerkOrDbId);
       if (!resolvedId) {
-        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        this.logger.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
         return null;
       }
       dbUserId = resolvedId;
@@ -257,7 +289,7 @@ class RealtimeService {
     // Remove existing subscription if any
     this.unsubscribe(subscriptionKey);
 
-    const channel = supabase
+    const channel = this.supabaseClient
       .channel(`transactions_${dbUserId}`)
       .on(
         'postgres_changes',
@@ -276,16 +308,16 @@ class RealtimeService {
             schema: payload.schema,
           };
           
-          console.log('Transactions real-time event:', event);
+      this.logger.log('Transactions real-time event:', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        console.log(`Transactions subscription status: ${status}`);
+        this.logger.log(`Transactions subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Transactions subscription error: ${err?.message || status}`);
+          this.logger.error(`Transactions subscription error: ${err?.message || status}`);
           this.handleConnectionChange(false);
         }
       });
@@ -303,14 +335,14 @@ class RealtimeService {
     callback: RealtimeCallback<Budget>,
     options: { includeInitial?: boolean } = {}
   ): Promise<string | null> {
-    if (!supabase || !clerkOrDbId) return null;
+    if (!this.supabaseClient || !clerkOrDbId) return null;
 
     // Convert Clerk ID to database UUID if needed
     let dbUserId = clerkOrDbId;
     if (clerkOrDbId.startsWith('user_')) {
-      const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
+      const resolvedId = await this.userService.getDatabaseUserId(clerkOrDbId);
       if (!resolvedId) {
-        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        this.logger.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
         return null;
       }
       dbUserId = resolvedId;
@@ -321,7 +353,7 @@ class RealtimeService {
     // Remove existing subscription if any
     this.unsubscribe(subscriptionKey);
 
-    const channel = supabase
+    const channel = this.supabaseClient
       .channel(`budgets_${dbUserId}`)
       .on(
         'postgres_changes',
@@ -340,16 +372,16 @@ class RealtimeService {
             schema: payload.schema,
           };
           
-          console.log('Budgets real-time event:', event);
+          this.logger.log('Budgets real-time event:', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        console.log(`Budgets subscription status: ${status}`);
+        this.logger.log(`Budgets subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Budgets subscription error: ${err?.message || status}`);
+          this.logger.error(`Budgets subscription error: ${err?.message || status}`);
           this.handleConnectionChange(false);
         }
       });
@@ -367,14 +399,14 @@ class RealtimeService {
     callback: RealtimeCallback<Goal>,
     options: { includeInitial?: boolean } = {}
   ): Promise<string | null> {
-    if (!supabase || !clerkOrDbId) return null;
+    if (!this.supabaseClient || !clerkOrDbId) return null;
 
     // Convert Clerk ID to database UUID if needed
     let dbUserId = clerkOrDbId;
     if (clerkOrDbId.startsWith('user_')) {
-      const resolvedId = await userIdService.getDatabaseUserId(clerkOrDbId);
+      const resolvedId = await this.userService.getDatabaseUserId(clerkOrDbId);
       if (!resolvedId) {
-        console.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
+        this.logger.error('[RealtimeService] Could not resolve database ID for Clerk ID:', clerkOrDbId);
         return null;
       }
       dbUserId = resolvedId;
@@ -385,7 +417,7 @@ class RealtimeService {
     // Remove existing subscription if any
     this.unsubscribe(subscriptionKey);
 
-    const channel = supabase
+    const channel = this.supabaseClient
       .channel(`goals_${dbUserId}`)
       .on(
         'postgres_changes',
@@ -404,16 +436,16 @@ class RealtimeService {
             schema: payload.schema,
           };
           
-          console.log('Goals real-time event:', event);
+          this.logger.log('Goals real-time event:', event);
           callback(event);
         }
       )
       .subscribe((status, err) => {
-        console.log(`Goals subscription status: ${status}`);
+        this.logger.log(`Goals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           this.handleConnectionChange(true);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error(`Goals subscription error: ${err?.message || status}`);
+          this.logger.error(`Goals subscription error: ${err?.message || status}`);
           this.handleConnectionChange(false);
         }
       });
@@ -430,7 +462,7 @@ class RealtimeService {
     if (channel) {
       channel.unsubscribe();
       this.subscriptions.delete(subscriptionKey);
-      console.log(`Unsubscribed from: ${subscriptionKey}`);
+    this.logger.log(`Unsubscribed from: ${subscriptionKey}`);
     }
   }
 
@@ -440,13 +472,13 @@ class RealtimeService {
   unsubscribeAll(): void {
     this.subscriptions.forEach((channel, key) => {
       channel.unsubscribe();
-      console.log(`Unsubscribed from: ${key}`);
+      this.logger.log(`Unsubscribed from: ${key}`);
     });
     this.subscriptions.clear();
 
     // Clear reconnect timeout
     if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+        this.clearTimeoutFn(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
 
@@ -478,7 +510,7 @@ class RealtimeService {
       try {
         callback(this.connectionState);
       } catch (error) {
-        console.error('Error in connection callback:', error);
+        this.logger.error('Error in connection callback:', error as Error);
       }
     });
   }
@@ -502,7 +534,7 @@ class RealtimeService {
    */
   forceReconnect(): void {
     if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+      this.clearTimeoutFn(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
     
@@ -520,7 +552,7 @@ class RealtimeService {
     this.reconnectAttempts = 0;
     
     if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+      this.clearTimeoutFn(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
   }

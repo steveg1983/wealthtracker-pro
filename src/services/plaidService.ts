@@ -388,16 +388,9 @@ class PlaidService {
       description: plaidTxn.merchant_name || plaidTxn.name,
       amount: -plaidTxn.amount, // Plaid uses positive for debits, we use negative
       category: this.mapPlaidCategory(plaidTxn.category),
-      pending: plaidTxn.pending,
-      plaidTransactionId: plaidTxn.transaction_id,
-      merchant: plaidTxn.merchant_name || undefined,
-      paymentChannel: plaidTxn.payment_channel,
-      location: plaidTxn.location.city ? {
-        city: plaidTxn.location.city,
-        region: plaidTxn.location.region,
-        country: plaidTxn.location.country
-      } : undefined
-    }));
+      type: plaidTxn.amount > 0 ? 'expense' as const : 'income' as const,
+      pending: plaidTxn.pending
+    } as Transaction));
     
     return transactions;
   }

@@ -1,4 +1,5 @@
 // QIF file parser optimized for Microsoft Money exports
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 export interface ParsedAccount {
   name: string;
@@ -21,6 +22,8 @@ export interface ParsedData {
   transactions: ParsedTransaction[];
 }
 
+const qifParserLogger = createScopedLogger('QIFParser');
+
 export function parseQIF(content: string): ParsedData {
   const lines = content.split(/\r?\n/);
   const transactions: ParsedTransaction[] = [];
@@ -30,7 +33,7 @@ export function parseQIF(content: string): ParsedData {
   let currentAccountName = '';
   let currentAccountType = 'checking';
   
-  console.log('Enhanced QIF parsing - looking for multiple accounts');
+  qifParserLogger.info('Parsing QIF content for multiple accounts');
   
   // First pass - look for explicit account definitions
   let i = 0;
@@ -77,7 +80,7 @@ export function parseQIF(content: string): ParsedData {
           type: accountType,
           balance: balance
         });
-        console.log('Found account:', accountName, 'Type:', accountType);
+        qifParserLogger.debug('Found account definition', { accountName, accountType });
       }
     } else if (line.startsWith('!Type:')) {
       // This might indicate the account type for following transactions
@@ -183,7 +186,7 @@ export function parseQIF(content: string): ParsedData {
         transactionCount++;
         
         if (transactionCount % 100 === 0) {
-          console.log(`Processed ${transactionCount} transactions...`);
+          qifParserLogger.debug('QIF transaction parsing progress', { transactionCount });
         }
       }
       currentTransaction = {};
@@ -225,7 +228,7 @@ export function parseQIF(content: string): ParsedData {
   // If we only found one generic account but have many transactions, 
   // try to extract more accounts from transaction patterns
   if (accountsMap.size <= 1 && transactions.length > 10) {
-    console.log('Only one account found, analyzing transactions for more accounts...');
+    qifParserLogger.info('Single account detected, analyzing transactions for patterns');
     
     // Look for patterns in payees that might indicate accounts
     transactions.forEach(t => {
@@ -270,7 +273,7 @@ export function parseQIF(content: string): ParsedData {
     });
   }
   
-  console.log(`Final result: ${accountsMap.size} accounts and ${transactions.length} transactions`);
+  qifParserLogger.info('QIF parsing complete', { accounts: accountsMap.size, transactions: transactions.length });
   
   return {
     accounts: Array.from(accountsMap.values()),

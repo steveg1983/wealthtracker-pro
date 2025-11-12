@@ -76,7 +76,7 @@ export default function EnhancedInvestments() {
       ) : (
         <div className="space-y-4">
           {rebalancingSuggestions.map((suggestion, index) => (
-            <div key={index} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+            <div key={index} className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-2">
@@ -126,7 +126,7 @@ export default function EnhancedInvestments() {
       {riskMetrics && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Portfolio Beta</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatDecimalValue(riskMetrics.portfolioBeta, 2)}
@@ -136,7 +136,7 @@ export default function EnhancedInvestments() {
               </p>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Sharpe Ratio</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {formatDecimalValue(riskMetrics.sharpeRatio, 2)}
@@ -146,7 +146,7 @@ export default function EnhancedInvestments() {
               </p>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Volatility</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {`${formatPercentage(riskMetrics.standardDeviation, 1)}%`}
@@ -156,7 +156,7 @@ export default function EnhancedInvestments() {
               </p>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
               <p className="text-sm text-gray-500 dark:text-gray-400 mb-1">Diversification Score</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {riskMetrics.diversificationScore}
@@ -171,7 +171,7 @@ export default function EnhancedInvestments() {
           </div>
 
           {riskMetrics.concentrationRisk.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
               <h4 className="font-semibold text-gray-900 dark:text-white mb-3">Concentration Risk</h4>
               <div className="space-y-2">
                 {riskMetrics.concentrationRisk.map((risk, index) => (
@@ -215,7 +215,7 @@ export default function EnhancedInvestments() {
         </div>
       ) : (
         <>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <p className="text-sm text-gray-500 dark:text-gray-400">Total Annual Dividends</p>
@@ -250,7 +250,7 @@ export default function EnhancedInvestments() {
 
           <div className="space-y-3">
             {dividendInfo.map((dividend, index) => (
-              <div key={index} className="bg-white dark:bg-gray-800 rounded-lg p-4">
+              <div key={index} className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
                 <div className="flex items-start justify-between">
                   <div>
                     <h4 className="font-semibold text-gray-900 dark:text-white">{dividend.name}</h4>
@@ -298,7 +298,7 @@ export default function EnhancedInvestments() {
 
       {benchmarkData && (
         <>
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-6">
             <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Portfolio Performance</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
@@ -338,7 +338,7 @@ export default function EnhancedInvestments() {
 
           <div className="space-y-3">
             {benchmarkData.benchmarks.map((benchmark, index) => (
-              <div key={index} className="bg-white dark:bg-gray-800 rounded-lg p-4">
+              <div key={index} className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-semibold text-gray-900 dark:text-white">{benchmark.name}</h4>
@@ -382,7 +382,7 @@ export default function EnhancedInvestments() {
       ) : (
         <div className="space-y-4">
           {esgScores.map((score, index) => (
-            <div key={index} className="bg-white dark:bg-gray-800 rounded-lg p-4">
+            <div key={index} className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h4 className="font-semibold text-gray-900 dark:text-white">{score.name}</h4>
@@ -503,7 +503,7 @@ export default function EnhancedInvestments() {
       )}
 
       {/* Tabs */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm mb-6">
         <div className="flex overflow-x-auto scrollbar-hide border-b border-gray-200 dark:border-gray-700">
           {tabs.map(tab => {
             const Icon = tab.icon;

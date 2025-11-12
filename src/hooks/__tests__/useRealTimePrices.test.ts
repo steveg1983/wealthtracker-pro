@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useRealTimePrices, useRealTimePrice } from '../useRealTimePrices';
-import { realTimePriceService } from '../../services/realtimePriceService';
+import { realTimePriceService } from '../../services/realtimePriceServiceInstance';
 import type { PriceUpdate } from '../../services/realtimePriceService';
 import type { StockQuote } from '../../services/stockPriceService';
 
 // Mock the real-time price service
-vi.mock('../../services/realtimePriceService', () => ({
+vi.mock('../../services/realtimePriceServiceInstance', () => ({
   realTimePriceService: {
     subscribeMultiple: vi.fn(),
     getMarketStatus: vi.fn(),

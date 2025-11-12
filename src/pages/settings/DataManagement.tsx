@@ -2,6 +2,7 @@ import { useState, lazy, Suspense } from 'react';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { DownloadIcon, DeleteIcon, AlertCircleIcon, UploadIcon, DatabaseIcon, FileTextIcon, SearchIcon, GridIcon, EditIcon, LinkIcon, WrenchIcon, CreditCardIcon, LightbulbIcon, XCircleIcon, FolderIcon, Building2Icon, KeyIcon } from '../../components/icons';
 import { LoadingState } from '../../components/loading/LoadingState';
+import { createScopedLogger } from '../../loggers/scopedLogger';
 
 // Lazy load heavy components to reduce initial bundle size
 const DataMigrationWizard = lazy(() => import('../../components/DataMigrationWizard'));
@@ -21,6 +22,7 @@ const ImportRulesManager = lazy(() => import('../../components/ImportRulesManage
 const BankConnections = lazy(() => import('../../components/BankConnections'));
 const BankAPISettings = lazy(() => import('../../components/BankAPISettings'));
 const AutomaticBackupSettings = lazy(() => import('../../components/AutomaticBackupSettings'));
+const dataManagementLogger = createScopedLogger('DataManagementPage');
 
 export default function DataManagementSettings() {
   const { accounts, transactions, budgets, clearAllData, exportData, loadTestData, hasTestData } = useApp();
@@ -85,7 +87,7 @@ export default function DataManagementSettings() {
       )}
 
       {/* Bank Connections */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Bank Connections</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -107,7 +109,7 @@ export default function DataManagementSettings() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Import Options</h3>
         
         {/* Migration Wizard - Full Width */}
@@ -169,7 +171,7 @@ export default function DataManagementSettings() {
         </Suspense>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6 mb-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Export Options</h3>
         
         {/* Enhanced Export Manager - Full Width */}
@@ -198,7 +200,7 @@ export default function DataManagementSettings() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Advanced System Data Options</h3>
         
         <div className="space-y-3">
@@ -271,7 +273,7 @@ export default function DataManagementSettings() {
       {/* Delete Confirmation Dialog */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircleIcon className="text-red-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Confirm Delete All Data</h3>
@@ -308,7 +310,7 @@ export default function DataManagementSettings() {
       {/* Test Data Confirmation Dialog */}
       {showTestDataConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <DatabaseIcon className="text-purple-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Load Test Data</h3>
@@ -348,7 +350,7 @@ export default function DataManagementSettings() {
           isOpen={showMigrationWizard}
           onClose={() => setShowMigrationWizard(false)}
           onComplete={(data) => {
-            console.log('Migration completed:', data);
+            dataManagementLogger.info('Migration completed', data);
             setShowMigrationWizard(false);
           }}
         />
@@ -438,7 +440,7 @@ export default function DataManagementSettings() {
       {/* Smart Categorization Modal */}
       {showSmartCategorization && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Smart Categorization</h2>
               <button
@@ -458,7 +460,7 @@ export default function DataManagementSettings() {
       {/* Import Rules Modal */}
       {showImportRules && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Import Rules & Transformations</h2>
               <button
@@ -480,7 +482,7 @@ export default function DataManagementSettings() {
       {/* Bank Connections Modal */}
       {showBankConnections && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bank Connections</h2>
               <button
@@ -504,7 +506,7 @@ export default function DataManagementSettings() {
       {/* Bank API Settings Modal */}
       {showBankAPISettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Bank API Configuration</h2>
               <button

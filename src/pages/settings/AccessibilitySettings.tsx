@@ -7,10 +7,27 @@ import AccessibilityChecklist from '../../components/AccessibilityChecklist';
 import { useHighContrastMode, useReducedMotion } from '../../hooks/useAccessibilityPreferences';
 
 export default function AccessibilitySettings(): React.JSX.Element {
-  const { preferences, updatePreferences } = usePreferences();
+  const preferencesContext = usePreferences();
   const [showAuditPanel, setShowAuditPanel] = useState(false);
   const isHighContrast = useHighContrastMode();
   const prefersReducedMotion = useReducedMotion();
+
+  // Create a preferences object with default values for accessibility settings
+  const [preferences, setPreferences] = useState({
+    largeTextMode: false,
+    highContrastBorders: false,
+    enhancedFocusIndicators: true,
+    showSkipLinks: true,
+    tabFocusHighlighting: true,
+    announceRouteChanges: true,
+    liveRegions: true,
+    reduceMotion: false,
+    disableAutoplay: false
+  });
+
+  const updatePreferences = (updates: Partial<typeof preferences>) => {
+    setPreferences(prev => ({ ...prev, ...updates }));
+  };
 
   const handleToggle = (key: string, value: boolean) => {
     updatePreferences({ [key]: value });
@@ -20,7 +37,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
     <PageWrapper title="Accessibility Settings">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* System Preferences Status */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             System Preferences Detected
           </h2>
@@ -41,7 +58,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
         </div>
 
         {/* Accessibility Audit */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -64,7 +81,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
         </div>
 
         {/* Visual Settings */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Visual Settings
@@ -121,7 +138,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
         </div>
 
         {/* Keyboard Navigation */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Keyboard Navigation
@@ -163,7 +180,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
         </div>
 
         {/* Screen Reader */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Screen Reader Support
@@ -205,7 +222,7 @@ export default function AccessibilitySettings(): React.JSX.Element {
         </div>
 
         {/* Motion Settings */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Motion & Animation

@@ -60,7 +60,7 @@ export default function BankAPISettings() {
       </div>
 
       {/* Plaid Configuration */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <KeyIcon size={20} />
@@ -147,7 +147,7 @@ export default function BankAPISettings() {
       </div>
 
       {/* TrueLayer Configuration */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <KeyIcon size={20} />

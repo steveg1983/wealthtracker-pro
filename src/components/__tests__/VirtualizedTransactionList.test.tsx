@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { VirtualizedTransactionList } from '../VirtualizedTransactionList';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock dependencies
 vi.mock('react-window', () => ({
@@ -114,17 +115,12 @@ describe('VirtualizedTransactionList', () => {
     }
   ];
 
-  const mockFormatCurrency = vi.fn((value: number) => {
-    const prefix = value < 0 ? '-$' : '$';
-    return `${prefix}${Math.abs(value).toFixed(2)}`;
-  });
+  const formatUSD = (value: number) => formatCurrencyDecimal(value, 'USD');
+  const mockFormatCurrency = vi.fn(formatUSD);
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFormatCurrency.mockImplementation((value: number) => {
-      const prefix = value < 0 ? '-$' : '$';
-      return `${prefix}${Math.abs(value).toFixed(2)}`;
-    });
+    mockFormatCurrency.mockImplementation(formatUSD);
   });
 
   afterEach(() => {
@@ -168,7 +164,7 @@ describe('VirtualizedTransactionList', () => {
       
       // Check formatted amounts
       expect(screen.getByText('-$5.99')).toBeInTheDocument();
-      expect(screen.getByText('+$2500.00')).toBeInTheDocument();
+      expect(screen.getByText('+$2,500.00')).toBeInTheDocument();
       expect(screen.getByText('-$85.50')).toBeInTheDocument();
       
       // Check categories

@@ -8,6 +8,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { ReactNode } from 'react';
 import { useCurrencyDecimal } from './useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatDecimal as formatDecimalHelper } from '../utils/decimal-format';
 
 // Mock the PreferencesContext
 vi.mock('../contexts/PreferencesContext', () => ({
@@ -19,9 +20,18 @@ vi.mock('../contexts/PreferencesContext', () => ({
 // Mock the currency-decimal utilities
 vi.mock('../utils/currency-decimal', () => ({
   formatCurrency: vi.fn((amount, currency) => {
-    const value = typeof amount === 'object' && amount.toNumber ? amount.toNumber() : amount;
+    const value = typeof amount === 'object' && typeof (amount as any).toNumber === 'function'
+      ? (amount as any).toNumber()
+      : Number(amount);
     const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£';
-    return `${symbol}${value.toFixed(2)}`;
+    if (Number.isNaN(value)) {
+      return `${symbol}NaN`;
+    }
+    if (!Number.isFinite(value)) {
+      return `${symbol}${value}`;
+    }
+    const formatted = formatDecimalHelper(Math.abs(value), 2, { group: false });
+    return value < 0 ? `${symbol}-${formatted}` : `${symbol}${formatted}`;
   }),
   getCurrencySymbol: vi.fn((currency) => {
     switch (currency) {

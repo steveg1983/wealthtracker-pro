@@ -9,6 +9,7 @@ import { createMockAccount, createMockTransaction, createMockBudget, createMockG
 import Dashboard from '../../pages/Dashboard';
 import Budget from '../../pages/Budget';
 import { toDecimal } from '../../utils/decimal';
+import { formatDecimal } from '../../utils/decimal-format';
 import { calculateTotalBalance, calculateBudgetUsage, calculateGoalProgress } from '../../utils/calculations-decimal';
 import { toDecimalAccount, toDecimalTransaction, toDecimalBudget, toDecimalGoal } from '../../utils/decimal-converters';
 
@@ -287,8 +288,8 @@ describe('Decimal Financial Integration Tests', () => {
       
       // Test operations on large numbers
       const afterInterest = balance.times(toDecimal('1.05')); // 5% increase
-      // Large numbers might be represented in exponential notation
-      expect(afterInterest.toDecimalPlaces(2).toFixed()).toBe('1049999999.99');
+      const formatted = formatDecimal(afterInterest, 2, { group: false });
+      expect(formatted).toBe('1049999999.99');
     });
 
     it('handles very small numbers correctly', () => {

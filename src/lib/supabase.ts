@@ -13,20 +13,24 @@ import { createClient } from '@supabase/supabase-js'
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Missing Supabase environment variables. App will run in local mode only.');
-  console.warn('To enable cloud features, add to your .env.local:');
-  console.warn('VITE_SUPABASE_URL=your-project-url');
-  console.warn('VITE_SUPABASE_ANON_KEY=your-anon-key');
+const fallbackLogger = typeof console !== 'undefined' ? console : undefined
+const logMissingEnv = () => {
+  fallbackLogger?.warn?.('Missing Supabase environment variables. App will run in local mode only.')
+  fallbackLogger?.warn?.('To enable cloud features, add to your .env.local:')
+  fallbackLogger?.warn?.('VITE_SUPABASE_URL=your-project-url')
+  fallbackLogger?.warn?.('VITE_SUPABASE_ANON_KEY=your-anon-key')
 }
 
-// Create Supabase client with enhanced configuration
+if (!supabaseUrl || !supabaseAnonKey) {
+  logMissingEnv()
+}
+
 export const supabase = supabaseUrl && supabaseAnonKey 
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
         autoRefreshToken: true,
         persistSession: true,
-        detectSessionInUrl: false, // We use Clerk for auth
+        detectSessionInUrl: false,
       },
       global: {
         headers: {
@@ -41,21 +45,15 @@ export const supabase = supabaseUrl && supabaseAnonKey
     })
   : null
 
-// DEPRECATED: Use userIdService.ensureUserExists() instead
-// This function is kept for backward compatibility but should not be used
-// It uses the wrong table (user_profiles instead of users)
 export async function syncClerkUser(clerkUserId: string, email: string, name?: string) {
-  console.warn('syncClerkUser is deprecated. Use userIdService.ensureUserExists() instead');
-  
-  // Import userIdService and delegate to it
+  fallbackLogger?.warn?.('syncClerkUser is deprecated. Use userIdService.ensureUserExists() instead');
   const { userIdService } = await import('../services/userIdService');
   const databaseId = await userIdService.ensureUserExists(
     clerkUserId,
     email,
-    name?.split(' ')[0], // firstName
-    name?.split(' ')[1]  // lastName
+    name?.split(' ')[0],
+    name?.split(' ')[1]
   );
-  
   return databaseId !== null;
 }
 

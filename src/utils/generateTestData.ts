@@ -1,3 +1,7 @@
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const testDataLogger = createScopedLogger('GenerateTestData');
+
 export function generateTestData() {
   const today = new Date();
   
@@ -160,10 +164,10 @@ export function generateTestData() {
   
   const totalMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + (endDate.getMonth() - startDate.getMonth());
   
-  console.log('Test data generation:', {
+  testDataLogger.info('Generating test data', {
     startDate: startDate.toDateString(),
     endDate: endDate.toDateString(),
-    daysDiff: daysDiff,
+    daysDiff,
     monthsDiff: totalMonths
   });
 
@@ -550,8 +554,11 @@ export function generateTestData() {
   // Sort transactions by date (newest first)
   transactions.sort((a, b) => b.date.getTime() - a.date.getTime());
   
-  console.log(`Generated ${transactions.length} transactions`);
-  console.log(`Date range: ${transactions[transactions.length - 1].date.toDateString()} to ${transactions[0].date.toDateString()}`);
+  testDataLogger.info('Generated transactions', { count: transactions.length });
+  testDataLogger.debug('Transaction date range', {
+    earliest: transactions[transactions.length - 1]?.date.toDateString(),
+    latest: transactions[0]?.date.toDateString()
+  });
 
   // Budgets
   const budgets = [

@@ -3,7 +3,7 @@ interface Category {
   id: string;
   name: string;
   level: 'type' | 'sub' | 'detail';
-  parentId?: string;
+  parentId?: string | null;
 }
 
 interface CategorySelectProps {

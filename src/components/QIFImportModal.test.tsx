@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import QIFImportModal from './QIFImportModal';
 import { qifImportService } from '../services/qifImportService';
 import type { QIFParseResult } from '../services/qifImportService';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -87,7 +88,8 @@ vi.mock('../services/qifImportService', () => ({
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `£${amount.toFixed(2)}`
+    formatCurrency: (amount: number, currency: string = 'GBP') =>
+      formatCurrencyDecimal(amount, currency)
   })
 }));
 

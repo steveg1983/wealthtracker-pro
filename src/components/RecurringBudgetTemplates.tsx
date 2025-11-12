@@ -140,14 +140,18 @@ export default function RecurringBudgetTemplates() {
     }
 
     // Apply template items
+    const now = new Date();
     template.budgetItems.forEach((item) => {
       // Create a budget for the first category in the item
       if (item.categoryIds.length > 0) {
         const newBudget = {
+          categoryId: item.categoryIds[0],
           category: item.categoryIds[0],
           amount: item.amount,
           period: 'monthly' as const,
-          isActive: true
+          isActive: true,
+          spent: 0,
+          updatedAt: now
         };
         addBudget(newBudget);
       }
@@ -383,7 +387,7 @@ export default function RecurringBudgetTemplates() {
       {/* Create Template Modal */}
       {showCreateTemplate && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Create Budget Template</h3>
             
             <div className="space-y-4">
@@ -464,7 +468,7 @@ export default function RecurringBudgetTemplates() {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recurring Settings</h3>
             
             <div className="space-y-4">

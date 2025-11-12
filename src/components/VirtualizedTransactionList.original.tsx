@@ -192,7 +192,7 @@ export const VirtualizedTransactionList: React.FC<VirtualizedTransactionListProp
   onSelectionChange,
   showBulkActions = false
 }) => {
-  const listRef = useRef<List>(null);
+  const listRef = useRef<List | null>(null);
   
   // Memoize the data object to prevent unnecessary re-renders
   const itemData = useMemo(() => ({
@@ -247,8 +247,8 @@ export const VirtualizedTransactionList: React.FC<VirtualizedTransactionListProp
                 ref={(list) => {
                   if (typeof ref === 'function') {
                     ref(list);
-                  } else if (ref && ref.current !== undefined) {
-                    ref.current = list;
+                  } else if (ref && 'current' in ref) {
+                    (ref as React.MutableRefObject<any>).current = list;
                   }
                   listRef.current = list;
                 }}

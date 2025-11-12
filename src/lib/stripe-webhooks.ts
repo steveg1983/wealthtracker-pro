@@ -1,6 +1,18 @@
 import { Stripe } from 'stripe';
 import { supabase } from './supabase';
 
+type Logger = Pick<Console, 'log' | 'error' | 'warn'>;
+
+let webhookLogger: Logger = typeof console !== 'undefined' ? console : {
+  log: () => {},
+  error: () => {},
+  warn: () => {}
+};
+
+export function configureStripeWebhookLogger(logger: Logger) {
+  webhookLogger = logger;
+}
+
 // Webhook event types we handle
 export const HANDLED_EVENTS = [
   'checkout.session.completed',
@@ -28,7 +40,7 @@ export async function processWebhookEvent(
   event: Stripe.Event
 ): Promise<WebhookHandlerResult> {
   try {
-    console.log(`Processing webhook event: ${event.type}`);
+    webhookLogger.log(`Processing webhook event: ${event.type}`);
 
     switch (event.type) {
       case 'checkout.session.completed':
@@ -54,11 +66,11 @@ export async function processWebhookEvent(
         return await handlePaymentMethodDetached(event);
       
       default:
-        console.log(`Unhandled event type: ${event.type}`);
+        webhookLogger.log(`Unhandled event type: ${event.type}`);
         return { success: true, message: 'Event type not handled' };
     }
   } catch (error) {
-    console.error('Webhook processing error:', error);
+    webhookLogger.error('Webhook processing error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error'
@@ -91,7 +103,7 @@ async function handleCheckoutSessionCompleted(
     .eq('user_id', session.client_reference_id!);
 
   if (error) {
-    console.error('Failed to update user subscription:', error);
+    webhookLogger.error('Failed to update user subscription:', error);
     return { success: false, error: error.message };
   }
 
@@ -125,12 +137,17 @@ async function handleSubscriptionUpdate(
   }
 
   // Update subscription details
+  // Handle current_period_end which might not exist on all subscription states
+  const periodEnd = 'current_period_end' in subscription && subscription.current_period_end
+    ? new Date((subscription.current_period_end as number) * 1000).toISOString()
+    : new Date().toISOString();
+
   const { error } = await supabase!
     .from('user_profiles')
     .update({
       subscription_status: status,
       subscription_tier: tier,
-      subscription_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+      subscription_period_end: periodEnd,
       cancel_at_period_end: subscription.cancel_at_period_end,
       updated_at: new Date().toISOString()
     })
@@ -198,7 +215,16 @@ async function handleInvoicePaid(
 ): Promise<WebhookHandlerResult> {
   const invoice = event.data.object;
 
-  if (!invoice.subscription) {
+  // Invoice may have subscription_id or lines.data[0].subscription
+  // Check for common subscription fields in Stripe invoices
+  let subscriptionId: string | undefined;
+
+  // Try to get subscription ID from various possible locations
+  if (invoice.lines?.data?.[0]?.subscription) {
+    subscriptionId = invoice.lines.data[0].subscription as string;
+  }
+
+  if (!subscriptionId) {
     return { success: true, message: 'One-time payment, no subscription to update' };
   }
 
@@ -215,7 +241,7 @@ async function handleInvoicePaid(
     });
 
   if (error) {
-    console.error('Failed to record payment:', error);
+    webhookLogger.error('Failed to record payment:', error);
   }
 
   return { success: true, message: 'Payment recorded' };
@@ -250,7 +276,7 @@ async function handlePaymentFailed(
     .eq('user_id', user.user_id);
 
   if (error) {
-    console.error('Failed to update subscription status:', error);
+    webhookLogger.error('Failed to update subscription status:', error);
   }
 
   // Send payment failed email
@@ -282,7 +308,7 @@ async function handlePaymentMethodAttached(
     .eq('stripe_customer_id', paymentMethod.customer as string);
 
   if (error) {
-    console.error('Failed to update payment method:', error);
+    webhookLogger.error('Failed to update payment method:', error);
   }
 
   return { success: true, message: 'Payment method attached' };
@@ -345,7 +371,7 @@ async function sendSubscriptionEmail(
   type: 'welcome' | 'canceled' | 'payment_failed'
 ): Promise<void> {
   // Integration with email service (SendGrid, AWS SES, etc.)
-  console.log(`Would send ${type} email to ${email}`);
+  webhookLogger.log(`Would send ${type} email to ${email}`);
   
   // In production, you would:
   // 1. Use an email service API
@@ -367,6 +393,6 @@ async function logSubscriptionEvent(
       created_at: new Date().toISOString()
     });
   } catch (error) {
-    console.error('Failed to log subscription event:', error);
+    webhookLogger.error('Failed to log subscription event:', error);
   }
 }

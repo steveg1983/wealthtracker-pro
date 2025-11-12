@@ -147,7 +147,7 @@ export function MobileTransactionActions({
               {transaction.description}
             </p>
             <p className="text-sm text-gray-600 dark:text-gray-400">
-              {transaction.amount} • {transaction.date}
+              {transaction.amount} • {transaction.date instanceof Date ? transaction.date.toLocaleDateString() : transaction.date}
             </p>
           </div>
 
@@ -203,7 +203,7 @@ export function TransactionDetailsSheet({
   const details = [
     { label: 'Description', value: transaction.description },
     { label: 'Amount', value: formatCurrency(transaction.amount) },
-    { label: 'Date', value: transaction.date },
+    { label: 'Date', value: transaction.date instanceof Date ? transaction.date.toLocaleDateString() : String(transaction.date) },
     { label: 'Category', value: transaction.category },
     { label: 'Account', value: transaction.accountId },
     { label: 'Status', value: transaction.cleared ? 'Cleared' : 'Pending' }

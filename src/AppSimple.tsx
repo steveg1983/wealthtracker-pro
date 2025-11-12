@@ -7,9 +7,12 @@ import Layout from './components/Layout';
 // Import pages directly without lazy loading
 import Welcome from './pages/Welcome';
 import Dashboard from './pages/Dashboard';
+import { createScopedLogger } from './loggers/scopedLogger';
+
+const appSimpleLogger = createScopedLogger('AppSimple');
 
 function AppSimple() {
-  console.log('AppSimple rendering');
+  appSimpleLogger.info('Rendering AppSimple');
   
   return (
     <ErrorBoundary>

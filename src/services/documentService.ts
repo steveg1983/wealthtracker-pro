@@ -77,7 +77,21 @@ export interface DocumentFilter {
   searchTerm?: string;
 }
 
-class DocumentService {
+type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+type Logger = Pick<Console, 'error' | 'warn' | 'log'>;
+type IndexedDBLike = typeof indexedDBService;
+type MigrateFn = typeof migrateFromLocalStorage;
+
+export interface DocumentServiceOptions {
+  storage?: StorageLike | null;
+  logger?: Logger;
+  dbService?: IndexedDBLike;
+  migrateFn?: MigrateFn;
+  now?: () => Date;
+  idGenerator?: () => string;
+}
+
+export class DocumentService {
   private initialized = false;
   private storageKey = 'wealthtracker_documents';
   private maxFileSize = 10 * 1024 * 1024; // 10MB
@@ -93,41 +107,62 @@ class DocumentService {
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   ];
+  private readonly storage: StorageLike | null;
+  private readonly logger: Logger;
+  private readonly dbService: IndexedDBLike;
+  private readonly migrateFn: MigrateFn;
+  private readonly nowProvider: () => Date;
+  private readonly idGenerator: () => string;
 
-  constructor() {
+  constructor(options: DocumentServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {})),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {})),
+      log: options.logger?.log ?? (fallbackLogger?.log?.bind(fallbackLogger) ?? (() => {}))
+    };
+    this.dbService = options.dbService ?? indexedDBService;
+    this.migrateFn = options.migrateFn ?? migrateFromLocalStorage;
+    this.nowProvider = options.now ?? (() => new Date());
+    this.idGenerator =
+      options.idGenerator ??
+      (() => `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
     this.init();
   }
 
   private async init() {
     try {
-      await indexedDBService.init();
+      await this.dbService.init();
       await this.migrateDocuments();
       this.initialized = true;
     } catch (error) {
-      console.error('Failed to initialize document service:', error);
+      this.logger.error('Failed to initialize document service:', error as Error);
       // Fallback to localStorage if IndexedDB fails
     }
   }
 
   private async migrateDocuments() {
     // Check if we have documents in localStorage that need migration
-    const stored = localStorage.getItem(this.storageKey);
+    const stored = this.storage?.getItem(this.storageKey);
     if (stored) {
-      await migrateFromLocalStorage<any>(this.storageKey, 'documents', (doc) => ({
+      await this.migrateFn<any>(this.storageKey, 'documents', (doc) => ({
         ...doc,
         uploadDate: new Date(doc.uploadDate),
         expiryDate: doc.expiryDate ? new Date(doc.expiryDate) : undefined,
-        extractedData: doc.extractedData ? {
-          ...doc.extractedData,
-          date: doc.extractedData.date ? new Date(doc.extractedData.date) : undefined
-        } : undefined
+        extractedData: doc.extractedData
+          ? {
+            ...doc.extractedData,
+            date: doc.extractedData.date ? new Date(doc.extractedData.date) : undefined
+          }
+          : undefined
       }));
       
       // Clear localStorage after successful migration
-      const count = await indexedDBService.count('documents');
+      const count = await this.dbService.count('documents');
       if (count > 0) {
-        localStorage.removeItem(this.storageKey);
-        console.log('Documents migrated to IndexedDB');
+        this.storage?.removeItem(this.storageKey);
+        this.logger.log('Documents migrated to IndexedDB');
       }
     }
   }
@@ -141,12 +176,12 @@ class DocumentService {
   private async loadDocuments(): Promise<Document[]> {
     try {
       await this.ensureInitialized();
-      return await indexedDBService.getAll<Document>('documents');
+      return await this.dbService.getAll<Document>('documents');
     } catch (error) {
-      console.error('Failed to load documents from IndexedDB:', error);
+      this.logger.error('Failed to load documents from IndexedDB:', error as Error);
       // Fallback to localStorage
       try {
-        const stored = localStorage.getItem(this.storageKey);
+        const stored = this.storage?.getItem(this.storageKey);
         if (stored) {
           const parsed = JSON.parse(stored);
           return parsed.map((doc: SavedDocument) => ({
@@ -160,7 +195,7 @@ class DocumentService {
           }));
         }
       } catch (err) {
-        console.error('Failed to load documents from localStorage:', err);
+        this.logger.error('Failed to load documents from localStorage:', err as Error);
       }
       return [];
     }
@@ -169,9 +204,9 @@ class DocumentService {
   private async saveDocument(document: Document): Promise<void> {
     try {
       await this.ensureInitialized();
-      await indexedDBService.put('documents', document);
+      await this.dbService.put('documents', document as unknown as Record<string, unknown>);
     } catch (error) {
-      console.error('Failed to save document to IndexedDB:', error);
+      this.logger.error('Failed to save document to IndexedDB:', error as Error);
       // Fallback: Keep in memory only, don't save to localStorage
       throw new Error('Failed to save document');
     }
@@ -191,7 +226,8 @@ class DocumentService {
       await this.ensureInitialized();
 
       // Create document object
-      const documentId = `doc-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const documentId = this.idGenerator();
+      const uploadTimestamp = this.nowProvider();
       const document: Document = {
         id: documentId,
         transactionId: options.transactionId,
@@ -200,7 +236,7 @@ class DocumentService {
         fileName: file.name,
         fileSize: file.size,
         mimeType: file.type,
-        uploadDate: new Date(),
+        uploadDate: uploadTimestamp,
         tags: options.tags || [],
         notes: options.notes,
         fullUrl: documentId, // Reference to blob storage
@@ -225,7 +261,7 @@ class DocumentService {
         try {
           document.extractedData = await this.extractDataFromDocument(file);
         } catch (error) {
-          console.error('OCR extraction failed:', error);
+          this.logger.error('OCR extraction failed:', error as Error);
           // Continue without extracted data
         }
       }
@@ -235,7 +271,7 @@ class DocumentService {
 
       return document;
     } catch (error) {
-      console.error('Failed to upload document:', error);
+      this.logger.error('Failed to upload document:', error as Error);
       throw error;
     }
   }
@@ -333,7 +369,6 @@ class DocumentService {
       // Clean up the object URL after loading
       img.onload = function() {
         URL.revokeObjectURL(url);
-        img.onload!();
       };
     });
   }
@@ -341,10 +376,10 @@ class DocumentService {
   async getDocument(documentId: string): Promise<Document | null> {
     try {
       await this.ensureInitialized();
-      const doc = await indexedDBService.get<Document>('documents', documentId);
+      const doc = await this.dbService.get<Document>('documents', documentId);
       return doc ?? null;
     } catch (error) {
-      console.error('Failed to get document:', error);
+      this.logger.error('Failed to get document:', error as Error);
       return null;
     }
   }
@@ -356,9 +391,9 @@ class DocumentService {
 
       // If filtering by specific IDs, use index queries
       if (filter?.transactionId) {
-        documents = await indexedDBService.getByIndex<Document>('documents', 'transactionId', filter.transactionId);
+        documents = await this.dbService.getByIndex<Document>('documents', 'transactionId', filter.transactionId);
       } else if (filter?.accountId) {
-        documents = await indexedDBService.getByIndex<Document>('documents', 'accountId', filter.accountId);
+        documents = await this.dbService.getByIndex<Document>('documents', 'accountId', filter.accountId);
       } else {
         documents = await this.loadDocuments();
       }
@@ -393,7 +428,7 @@ class DocumentService {
 
       return filtered.sort((a, b) => b.uploadDate.getTime() - a.uploadDate.getTime());
     } catch (error) {
-      console.error('Failed to get documents:', error);
+      this.logger.error('Failed to get documents:', error as Error);
       return [];
     }
   }
@@ -413,7 +448,7 @@ class DocumentService {
       await this.saveDocument(updated);
       return true;
     } catch (error) {
-      console.error('Failed to update document:', error);
+      this.logger.error('Failed to update document:', error as Error);
       return false;
     }
   }
@@ -423,15 +458,15 @@ class DocumentService {
       await this.ensureInitialized();
       
       // Delete document metadata
-      await indexedDBService.delete('documents', documentId);
+      await this.dbService.delete('documents', documentId);
       
       // Delete associated blobs
-      await indexedDBService.delete('documentBlobs', documentId);
-      await indexedDBService.delete('documentBlobs', `${documentId}-thumb`);
+      await this.dbService.delete('documentBlobs', documentId);
+      await this.dbService.delete('documentBlobs', `${documentId}-thumb`);
       
       return true;
     } catch (error) {
-      console.error('Failed to delete document:', error);
+      this.logger.error('Failed to delete document:', error as Error);
       return false;
     }
   }
@@ -450,9 +485,9 @@ class DocumentService {
   async getDocumentBlob(documentId: string): Promise<Blob | undefined> {
     try {
       await this.ensureInitialized();
-      return await indexedDBService.getBlob(documentId);
+      return await this.dbService.getBlob(documentId);
     } catch (error) {
-      console.error('Failed to get document blob:', error);
+      this.logger.error('Failed to get document blob:', error as Error);
       return undefined;
     }
   }
@@ -464,7 +499,7 @@ class DocumentService {
       if (!blob) return null;
       return URL.createObjectURL(blob);
     } catch (error) {
-      console.error('Failed to get document URL:', error);
+      this.logger.error('Failed to get document URL:', error as Error);
       return null;
     }
   }
@@ -481,7 +516,7 @@ class DocumentService {
       }, {} as Record<string, number>);
       
       // Get IndexedDB storage info
-      const storageInfo = await indexedDBService.getStorageInfo();
+      const storageInfo = await this.dbService.getStorageInfo();
 
       return {
         totalDocuments: documents.length,
@@ -496,7 +531,7 @@ class DocumentService {
         usagePercentage: storageInfo.quota > 0 ? (storageInfo.usage / storageInfo.quota) * 100 : 0
       };
     } catch (error) {
-      console.error('Failed to get storage stats:', error);
+      this.logger.error('Failed to get storage stats:', error as Error);
       return {
         totalDocuments: 0,
         totalSize: 0,
@@ -517,7 +552,7 @@ class DocumentService {
       const metadata = documents.map(({ fullUrl, thumbnailUrl, ...doc }) => doc);
       return JSON.stringify(metadata, null, 2);
     } catch (error) {
-      console.error('Failed to export metadata:', error);
+      this.logger.error('Failed to export metadata:', error as Error);
       return '[]';
     }
   }
@@ -526,7 +561,8 @@ class DocumentService {
   async cleanupOldDocuments(daysToKeep: number = 365): Promise<number> {
     try {
       await this.ensureInitialized();
-      const cutoffDate = new Date();
+      const now = this.nowProvider();
+      const cutoffDate = new Date(now);
       cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
       
       const documents = await this.loadDocuments();
@@ -537,11 +573,11 @@ class DocumentService {
       }
       
       // Clean up expired cache
-      await indexedDBService.cleanCache();
+      await this.dbService.cleanCache();
       
       return toDelete.length;
     } catch (error) {
-      console.error('Failed to cleanup old documents:', error);
+      this.logger.error('Failed to cleanup old documents:', error as Error);
       return 0;
     }
   }
@@ -563,7 +599,7 @@ class DocumentService {
         );
       });
     } catch (error) {
-      console.error('Failed to search documents:', error);
+      this.logger.error('Failed to search documents:', error as Error);
       return [];
     }
   }
@@ -572,16 +608,17 @@ class DocumentService {
   async getExpiringDocuments(daysAhead: number = 30): Promise<Document[]> {
     try {
       const documents = await this.loadDocuments();
-      const futureDate = new Date();
+      const now = this.nowProvider();
+      const futureDate = new Date(now);
       futureDate.setDate(futureDate.getDate() + daysAhead);
       
       return documents.filter(doc => 
         doc.expiryDate && 
         doc.expiryDate <= futureDate && 
-        doc.expiryDate >= new Date()
+        doc.expiryDate >= now
       );
     } catch (error) {
-      console.error('Failed to get expiring documents:', error);
+      this.logger.error('Failed to get expiring documents:', error as Error);
       return [];
     }
   }

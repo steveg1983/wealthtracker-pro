@@ -9,18 +9,60 @@ export interface PriceUpdate {
 
 export type PriceUpdateCallback = (update: PriceUpdate) => void;
 
-class RealTimePriceService {
+export interface RealTimePriceServiceOptions {
+  defaultUpdateFrequency?: number;
+  marketStatusCheckIntervalMs?: number;
+  enableMarketStatusCheck?: boolean;
+  now?: () => Date;
+  setIntervalFn?: (handler: (...args: any[]) => void, timeout: number) => NodeJS.Timeout;
+  clearIntervalFn?: (handle: NodeJS.Timeout) => void;
+}
+
+export function isMarketOpenAt(date: Date): boolean {
+  const day = date.getDay();
+  const hour = date.getHours();
+  const minute = date.getMinutes();
+  const currentTime = hour * 60 + minute;
+  const utcOffset = date.getTimezoneOffset();
+  const estOffset = 300; // EST is UTC-5
+  const adjustedTime = currentTime - (utcOffset - estOffset);
+  const marketOpen = 9 * 60 + 30;
+  const marketClose = 16 * 60;
+  return day >= 1 && day <= 5 && adjustedTime >= marketOpen && adjustedTime < marketClose;
+}
+
+export function clampUpdateFrequency(frequency: number): number {
+  return Math.max(10000, frequency);
+}
+
+export class RealTimePriceService {
   private intervals: Map<string, NodeJS.Timeout> = new Map();
   private subscriptions: Map<string, Set<PriceUpdateCallback>> = new Map();
-  private updateFrequency: number = 30000; // 30 seconds default
+  private updateFrequency: number;
   private isMarketOpen: boolean = false;
   private marketCheckInterval: NodeJS.Timeout | null = null;
   private eventListeners: Map<string, Set<(data: JsonValue) => void>> = new Map();
+  private readonly marketStatusCheckIntervalMs: number;
+  private readonly enableMarketStatusCheck: boolean;
+  private readonly now: () => Date;
+  private readonly setIntervalFn: (handler: (...args: any[]) => void, timeout: number) => NodeJS.Timeout;
+  private readonly clearIntervalFn: (handle: NodeJS.Timeout) => void;
   
-  constructor() {
-    this.checkMarketStatus();
-    // Check market status every 5 minutes
-    this.marketCheckInterval = setInterval(() => this.checkMarketStatus(), 5 * 60 * 1000);
+  constructor(options: RealTimePriceServiceOptions = {}) {
+    this.updateFrequency = options.defaultUpdateFrequency ?? 30000; // 30 seconds default
+    this.marketStatusCheckIntervalMs = options.marketStatusCheckIntervalMs ?? 5 * 60 * 1000;
+    this.enableMarketStatusCheck = options.enableMarketStatusCheck ?? true;
+    this.now = options.now ?? (() => new Date());
+    this.setIntervalFn = options.setIntervalFn ?? ((handler, timeout) => setInterval(handler, timeout));
+    this.clearIntervalFn = options.clearIntervalFn ?? ((handle) => clearInterval(handle));
+    
+    if (this.enableMarketStatusCheck) {
+      this.checkMarketStatus();
+      this.marketCheckInterval = this.setIntervalFn(
+        () => this.checkMarketStatus(),
+        this.marketStatusCheckIntervalMs
+      );
+    }
   }
   
   // Simple event emitter methods
@@ -58,27 +100,15 @@ class RealTimePriceService {
    * Check if markets are open (simplified - US market hours)
    */
   private checkMarketStatus(): void {
-    const now = new Date();
-    const day = now.getDay();
-    const hour = now.getHours();
-    const minute = now.getMinutes();
-    const currentTime = hour * 60 + minute;
+    this.isMarketOpen = isMarketOpenAt(this.now());
     
-    // Convert to EST/EDT (UTC-5 or UTC-4)
-    const utcOffset = now.getTimezoneOffset();
-    const estOffset = 300; // EST is UTC-5
-    const adjustedTime = currentTime - (utcOffset - estOffset);
-    
-    // Market hours: 9:30 AM - 4:00 PM EST, Monday-Friday
-    const marketOpen = 9 * 60 + 30;
-    const marketClose = 16 * 60;
-    
-    this.isMarketOpen = day >= 1 && day <= 5 && 
-                       adjustedTime >= marketOpen && 
-                       adjustedTime < marketClose;
-    
-    // Update frequency based on market status
-    this.updateFrequency = this.isMarketOpen ? 30000 : 300000; // 30s when open, 5min when closed
+    if (this.enableMarketStatusCheck) {
+      this.updateFrequency = this.isMarketOpen ? 30000 : 300000;
+      this.intervals.forEach((_, symbol) => {
+        this.stopPolling(symbol);
+        this.startPolling(symbol);
+      });
+    }
   }
 
   /**
@@ -125,7 +155,7 @@ class RealTimePriceService {
    * Start polling for a symbol
    */
   private startPolling(symbol: string): void {
-    const interval = setInterval(() => {
+    const interval = this.setIntervalFn(() => {
       this.fetchAndBroadcast(symbol);
     }, this.updateFrequency);
     
@@ -138,7 +168,7 @@ class RealTimePriceService {
   private stopPolling(symbol: string): void {
     const interval = this.intervals.get(symbol);
     if (interval) {
-      clearInterval(interval);
+      this.clearIntervalFn(interval);
       this.intervals.delete(symbol);
     }
   }
@@ -172,7 +202,7 @@ class RealTimePriceService {
             fiftyTwoWeekLow: update.quote.fiftyTwoWeekLow?.toString()
           },
           timestamp: update.timestamp.toISOString()
-        } as JsonValue);
+        } as unknown as JsonValue);
         
         // Call all callbacks
         const callbacks = this.subscriptions.get(symbol);
@@ -196,10 +226,10 @@ class RealTimePriceService {
    * Set update frequency (in milliseconds)
    */
   setUpdateFrequency(frequency: number): void {
-    this.updateFrequency = Math.max(10000, frequency); // Minimum 10 seconds
+    this.updateFrequency = clampUpdateFrequency(frequency);
     
     // Restart all intervals with new frequency
-    this.intervals.forEach((interval, symbol) => {
+    this.intervals.forEach((_, symbol) => {
       this.stopPolling(symbol);
       this.startPolling(symbol);
     });
@@ -211,7 +241,7 @@ class RealTimePriceService {
   getMarketStatus(): { isOpen: boolean; nextCheck: Date } {
     return {
       isOpen: this.isMarketOpen,
-      nextCheck: new Date(Date.now() + 5 * 60 * 1000)
+      nextCheck: new Date(Date.now() + this.marketStatusCheckIntervalMs)
     };
   }
 
@@ -219,15 +249,13 @@ class RealTimePriceService {
    * Clean up all intervals
    */
   dispose(): void {
-    this.intervals.forEach(interval => clearInterval(interval));
+    this.intervals.forEach(interval => this.clearIntervalFn(interval));
     this.intervals.clear();
     this.subscriptions.clear();
     if (this.marketCheckInterval) {
-      clearInterval(this.marketCheckInterval);
+      this.clearIntervalFn(this.marketCheckInterval);
+      this.marketCheckInterval = null;
     }
     this.eventListeners.clear();
   }
 }
-
-// Singleton instance
-export const realTimePriceService = new RealTimePriceService();

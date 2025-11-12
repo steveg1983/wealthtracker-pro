@@ -6,15 +6,20 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import type { Mock } from 'vitest';
 import AccountBalancesChart from './AccountBalancesChart';
-import { useApp } from '../contexts/AppContextSupabase';
-import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Account } from '../types';
+import { formatCurrency as formatCurrencyDecimal, getCurrencySymbol as getCurrencySymbolDecimal } from '../utils/currency-decimal';
 
 // Mock the external dependencies
-vi.mock('../contexts/AppContext');
-vi.mock('../hooks/useCurrencyDecimal');
+const mockUseApp = vi.fn();
+vi.mock('../contexts/AppContextSupabase', () => ({
+  useApp: () => mockUseApp()
+}));
+
+const mockUseCurrencyDecimal = vi.fn();
+vi.mock('../hooks/useCurrencyDecimal', () => ({
+  useCurrencyDecimal: () => mockUseCurrencyDecimal()
+}));
 
 // Mock Recharts components
 vi.mock('recharts', () => ({
@@ -72,12 +77,11 @@ vi.mock('recharts', () => ({
   )
 }));
 
-const mockUseApp = useApp as Mock;
-const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
-
 describe('AccountBalancesChart', () => {
-  const mockFormatCurrency = vi.fn((amount: number) => `£${amount.toFixed(2)}`);
-  const mockGetCurrencySymbol = vi.fn((_: string) => '£');
+  const mockFormatCurrency = vi.fn((amount: number, currency: string = 'GBP') =>
+    formatCurrencyDecimal(amount, currency)
+  );
+  const mockGetCurrencySymbol = vi.fn((currency: string = 'GBP') => getCurrencySymbolDecimal(currency));
 
   const mockAccounts: Account[] = [
     {
@@ -142,7 +146,8 @@ describe('AccountBalancesChart', () => {
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    mockUseApp.mockReset();
+    mockUseCurrencyDecimal.mockReset();
   });
 
   it('renders the chart with correct title', () => {

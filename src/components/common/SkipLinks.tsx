@@ -60,7 +60,7 @@ export const skipLinksStyles = `
     width: 1px;
     height: 1px;
     overflow: hidden;
-    background: #1a73e8;
+    background: #4b5563;
     color: white;
     padding: 0.75rem 1.5rem;
     text-decoration: none;
@@ -76,7 +76,7 @@ export const skipLinksStyles = `
     width: auto;
     height: auto;
     overflow: visible;
-    outline: 3px solid #4285f4;
+    outline: 2px solid #94a3b8;
     outline-offset: 2px;
   }
 `;

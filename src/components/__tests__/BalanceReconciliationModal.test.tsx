@@ -8,6 +8,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BalanceReconciliationModal from '../BalanceReconciliationModal';
 import type { ReconciliationOption } from '../BalanceReconciliationModal';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock icons to avoid import issues
 vi.mock('../icons', () => ({
@@ -35,11 +36,14 @@ vi.mock('../common/Modal', () => ({
 // Mock currency hook
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (value: number) => `£${value.toFixed(2)}`,
+    formatCurrency: (value: number, currency: string = 'GBP') =>
+      formatCurrencyDecimal(value, currency),
   }),
 }));
 
 describe('BalanceReconciliationModal', () => {
+  const formatGBP = (value: number) => formatCurrencyDecimal(value, 'GBP');
+
   const mockOption: ReconciliationOption = {
     type: 'opening-balance',
     accountId: 'acc-1',
@@ -68,8 +72,16 @@ describe('BalanceReconciliationModal', () => {
       
       expect(screen.getByText('Balance Reconciliation Options')).toBeInTheDocument();
       expect(screen.getByText(/Balance Mismatch Detected/)).toBeInTheDocument();
-      expect(screen.getByText(/Main Checking shows a balance of £1500.00/)).toBeInTheDocument();
-      expect(screen.getByText(/but your transactions sum to £1000.00/)).toBeInTheDocument();
+      expect(
+        screen.getByText((content) =>
+          content.includes(`Main Checking shows a balance of ${formatGBP(1500)}`)
+        )
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText((content) =>
+          content.includes(`but your transactions sum to ${formatGBP(1000)}`)
+        )
+      ).toBeInTheDocument();
     });
 
     it('does not render when closed', () => {
@@ -90,9 +102,9 @@ describe('BalanceReconciliationModal', () => {
       expect(screen.getByText('Adjust Opening Balance')).toBeInTheDocument();
       expect(screen.getByText(/Use this if the account had a balance before your first imported transaction/)).toBeInTheDocument();
       
-      // Check the specific £500.00 in the opening balance section
+      // Check the specific formatted difference in the opening balance section
       const openingBalanceSection = screen.getByText('Opening Balance').closest('div');
-      expect(openingBalanceSection).toHaveTextContent('£500.00');
+      expect(openingBalanceSection).toHaveTextContent(formatGBP(500));
     });
 
     it('shows adjustment transaction option', () => {
@@ -273,11 +285,18 @@ describe('BalanceReconciliationModal', () => {
       render(<BalanceReconciliationModal {...defaultProps} />);
       
       // Check all currency values are formatted
-      expect(screen.getByText(/£1500.00/)).toBeInTheDocument(); // Current balance
-      expect(screen.getByText(/£1000.00/)).toBeInTheDocument(); // Calculated balance
+      expect(
+        screen.getByText((content) => content.includes(formatGBP(mockOption.currentBalance)))
+      ).toBeInTheDocument(); // Current balance
+      expect(
+        screen.getByText((content) => content.includes(formatGBP(mockOption.calculatedBalance)))
+      ).toBeInTheDocument(); // Calculated balance
       
-      // There are multiple £500.00 on the page, check they exist
-      const fiveHundredElements = screen.getAllByText('£500.00');
+      // There are multiple formatted 500 values on the page, check they exist
+      const formattedDifference = formatGBP(500);
+      const fiveHundredElements = screen.getAllByText((content) =>
+        content.includes(formattedDifference)
+      );
       expect(fiveHundredElements.length).toBeGreaterThan(0);
     });
 

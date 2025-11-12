@@ -43,7 +43,17 @@ export interface RecommendationConfig {
   considerGoals: boolean;
 }
 
-class BudgetRecommendationService {
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+
+type Logger = Pick<Console, 'warn' | 'error'>;
+
+export interface BudgetRecommendationServiceOptions {
+  storage?: StorageLike | null;
+  logger?: Logger;
+  now?: () => number;
+}
+
+export class BudgetRecommendationService {
   private readonly STORAGE_KEY = 'budget_recommendation_config';
   
   // Default percentiles for different aggressiveness levels
@@ -61,14 +71,33 @@ class BudgetRecommendationService {
     'Entertainment': { 11: 1.2 }, // December
   };
 
+  private storage: StorageLike | null;
+  private logger: Logger;
+  private readonly nowProvider: () => number;
+
+  constructor(options: BudgetRecommendationServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => Date.now());
+  }
+
+  private getCurrentDate(): Date {
+    return new Date(this.nowProvider());
+  }
+
   getConfig(): RecommendationConfig {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = this.storage?.getItem(this.STORAGE_KEY);
       if (stored) {
         return JSON.parse(stored);
       }
     } catch (error) {
-      console.error('Failed to load recommendation config:', error);
+      this.logger.error('Failed to load recommendation config:', error as Error);
     }
     
     return {
@@ -81,9 +110,10 @@ class BudgetRecommendationService {
   }
 
   saveConfig(config: Partial<RecommendationConfig>): void {
+    if (!this.storage) return;
     const current = this.getConfig();
     const updated = { ...current, ...config };
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
+    this.storage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
   }
 
   analyzeBudgets(
@@ -150,7 +180,7 @@ class BudgetRecommendationService {
     lookbackMonths: number
   ): Map<string, CategorySpendingData> {
     const categoryData = new Map<string, CategorySpendingData>();
-    const now = new Date();
+    const now = this.getCurrentDate();
     
     // Analyze spending for each month
     for (let i = 0; i < lookbackMonths; i++) {
@@ -209,7 +239,7 @@ class BudgetRecommendationService {
       recommendedBudget = this.applySeasonalAdjustment(
         category.name,
         recommendedBudget,
-        new Date()
+        this.getCurrentDate()
       );
     }
 
@@ -363,7 +393,7 @@ class BudgetRecommendationService {
     recommendations: BudgetRecommendation[]
   ): BudgetInsight[] {
     const insights: BudgetInsight[] = [];
-    const now = new Date();
+    const now = this.getCurrentDate();
     const currentMonth = startOfMonth(now);
     
     // Check for categories with no budget but significant spending
@@ -453,7 +483,7 @@ class BudgetRecommendationService {
     recommendations: BudgetRecommendation[]
   ): number {
     let score = 100;
-    const now = new Date();
+    const now = this.getCurrentDate();
     const currentMonth = startOfMonth(now);
     
     // Deduct points for unbudgeted categories with significant spending
@@ -517,7 +547,7 @@ class BudgetRecommendationService {
   exportRecommendations(analysis: BudgetAnalysis): string {
     const lines = [
       'Budget Recommendations Report',
-      `Generated: ${format(new Date(), 'MMMM d, yyyy')}`,
+      `Generated: ${format(this.getCurrentDate(), 'MMMM d, yyyy')}`,
       `Budget Health Score: ${analysis.score}/100`,
       '',
       `Total Current Budget: $${formatDecimal(analysis.totalCurrentBudget, 2)}`,

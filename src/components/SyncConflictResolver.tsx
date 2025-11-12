@@ -44,7 +44,9 @@ const toTransactionLike = (data: Record<string, unknown> | null | undefined): Tr
   if (typeof data.amount === 'number') {
     next.amount = data.amount;
   }
-  if (typeof data.date === 'string' || data.date instanceof Date) {
+  if (typeof data.date === 'string') {
+    next.date = new Date(data.date);
+  } else if (data.date instanceof Date) {
     next.date = data.date;
   }
   if (typeof data.category === 'string') {
@@ -103,11 +105,11 @@ export function SyncConflictResolver(): React.JSX.Element | null {
     const unresolved: unknown[] = await offlineService.getConflicts();
     const normalized = unresolved
       .map(normalizeConflict)
-      .filter((conflict): conflict is Conflict => Boolean(conflict) && !conflict.resolved);
+      .filter((conflict): conflict is Conflict => Boolean(conflict) && conflict !== null && !conflict.resolved);
 
     setConflicts(normalized);
     setSelectedConflict(current =>
-      current ? normalized.find(conflict => conflict!.id === current.id) ?? null : null
+      current ? normalized.find(conflict => conflict.id === current.id) ?? null : null
     );
   }, []);
 
@@ -159,7 +161,7 @@ export function SyncConflictResolver(): React.JSX.Element | null {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
         <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>

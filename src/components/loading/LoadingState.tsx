@@ -52,7 +52,7 @@ export function LoadingOverlay({
 
   return (
     <div className={`${positionClass} inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center`}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 flex flex-col items-center">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-xl p-6 flex flex-col items-center">
         <RefreshCwIcon 
           size={32} 
           className="text-primary animate-spin mb-4"

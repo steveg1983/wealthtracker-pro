@@ -7,6 +7,10 @@ import React from 'react';
 import { indexedDBService } from '../services/indexedDBService';
 import type { Transaction, Account, Budget, Goal } from '../types';
 
+const offlineLogger = typeof console !== 'undefined'
+  ? console
+  : { log: () => {}, error: () => {} };
+
 export interface OfflineQueueItem {
   id?: string;
   type: 'create' | 'update' | 'delete';
@@ -83,9 +87,9 @@ class OfflineStorageService {
       await indexedDBService.put('offline-data', { id: 'init', initialized: true });
       await indexedDBService.put('conflicts', { id: 'init', initialized: true });
       // For sync-meta store with 'key' as keyPath
-      await indexedDBService.put('sync-meta', { key: 'lastSync', timestamp: null });
+    await indexedDBService.put('sync-meta', { key: 'lastSync', timestamp: null });
     } catch (error) {
-      console.error('[OfflineStorage] Failed to initialize stores:', error);
+      offlineLogger.error('[OfflineStorage] Failed to initialize stores:', error);
     }
   }
 
@@ -138,7 +142,7 @@ class OfflineStorageService {
       retries: 0
     };
 
-    await indexedDBService.put(this.OFFLINE_QUEUE_STORE, queueItem as Record<string, unknown>);
+    await indexedDBService.put(this.OFFLINE_QUEUE_STORE, { ...queueItem });
     this.offlineState.pendingChanges++;
     this.notifyStateChange();
 
@@ -183,7 +187,7 @@ class OfflineStorageService {
 
     try {
       const operations = await this.getPendingOperations();
-      console.log(`[OfflineStorage] Syncing ${operations.length} operations`);
+      offlineLogger.log(`[OfflineStorage] Syncing ${operations.length} operations`);
 
       for (const operation of operations) {
         try {
@@ -191,13 +195,13 @@ class OfflineStorageService {
           
           // Mark as synced
           operation.synced = true;
-          await indexedDBService.put(this.OFFLINE_QUEUE_STORE, operation as Record<string, unknown>);
+          await indexedDBService.put(this.OFFLINE_QUEUE_STORE, { ...operation });
           
           // Remove from queue after successful sync
           await indexedDBService.delete(this.OFFLINE_QUEUE_STORE, operation.id!);
           this.offlineState.pendingChanges--;
         } catch (error) {
-          console.error(`[OfflineStorage] Failed to sync operation ${operation.id}:`, error);
+          offlineLogger.error(`[OfflineStorage] Failed to sync operation ${operation.id}:`, error);
           
           // Handle conflict
           if ((error as any).status === 409) {
@@ -208,10 +212,9 @@ class OfflineStorageService {
             operation.error = (error as Error).message;
             
             if (operation.retries >= 3) {
-              // Move to dead letter queue or handle differently
-              console.error(`[OfflineStorage] Operation ${operation.id} failed after 3 retries`);
+              offlineLogger.error(`[OfflineStorage] Operation ${operation.id} failed after 3 retries`);
             } else {
-              await indexedDBService.put(this.OFFLINE_QUEUE_STORE, operation as Record<string, unknown>);
+              await indexedDBService.put(this.OFFLINE_QUEUE_STORE, { ...operation });
             }
           }
         }
@@ -443,7 +446,7 @@ class OfflineStorageService {
           await indexedDBService.put(this.OFFLINE_DATA_STORE, { id: key, ...data });
         }
       } catch (error) {
-        console.error(`[OfflineStorage] Failed to cache ${key}:`, error);
+        offlineLogger.error(`[OfflineStorage] Failed to cache ${key}:`, error);
       }
     }
   }
@@ -505,7 +508,7 @@ class OfflineStorageService {
     // Mark conflict as resolved
     conflict.resolved = true;
     conflict.resolutionData = resolution;
-    await indexedDBService.put(this.CONFLICT_STORE, conflict as Record<string, unknown>);
+    await indexedDBService.put(this.CONFLICT_STORE, { ...conflict });
   }
 
   /**

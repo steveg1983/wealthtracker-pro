@@ -194,7 +194,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
           {connections.map(connection => (
             <div
               key={connection.id}
-              className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
+              className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
@@ -307,7 +307,7 @@ export default function BankConnections({ onAccountsLinked }: BankConnectionsPro
                 disabled={isLoading}
                 className="w-full p-4 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors text-left flex items-center gap-4"
               >
-                <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                <div className="w-12 h-12 bg-[#d4dce8] dark:bg-gray-800 rounded-lg flex items-center justify-center">
                   <Building2Icon size={24} className="text-gray-600 dark:text-gray-400" />
                 </div>
                 <div className="flex-1">

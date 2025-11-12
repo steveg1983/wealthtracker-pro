@@ -1,19 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
+import type { Category } from '../types';
 import { ChevronDownIcon } from './icons/ChevronDownIcon';
 import { PlusIcon } from './icons/PlusIcon';
 import { TagIcon } from './icons/TagIcon';
-
-interface Category {
-  id: string;
-  name: string;
-  type: 'income' | 'expense' | 'both';
-  level: 'type' | 'sub' | 'detail';
-  parentId?: string;
-  color?: string;
-  icon?: string;
-  isSystem?: boolean;
-}
 
 interface CategorySelectorProps {
   selectedCategory: string;

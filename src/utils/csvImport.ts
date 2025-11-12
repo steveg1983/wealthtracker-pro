@@ -1,5 +1,8 @@
 import { toDecimal } from './decimal';
 import type { Transaction, Account } from '../types';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const csvImportLogger = createScopedLogger('CSVImport');
 
 /**
  * Parse CSV content into rows
@@ -105,7 +108,7 @@ export function importTransactionsFromCSV(
         cleared
       });
     } catch (error) {
-      console.error(`Error parsing row ${i}:`, error);
+      csvImportLogger.error('Error parsing CSV transaction row', { error, rowIndex: i });
       // Skip problematic rows
     }
   }
@@ -157,7 +160,7 @@ export function importAccountsFromCSV(content: string): Omit<Account, 'id' | 'la
         institution
       });
     } catch (error) {
-      console.error(`Error parsing account row ${i}:`, error);
+      csvImportLogger.error('Error parsing CSV account row', { error, rowIndex: i });
     }
   }
   

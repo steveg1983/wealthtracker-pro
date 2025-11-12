@@ -3,30 +3,63 @@ import { indexedDBService } from './indexedDBService';
 import type { JsonValue } from '../types/common';
 import type { StorageOptions, StoredData, StorageItem, BulkStorageItem, StorageEstimate, ExportedData } from '../types/storage';
 
-// Types are now imported from ../types/storage.ts
+type StorageReader = Pick<Storage, 'getItem'>;
+type StorageWriter = Pick<Storage, 'setItem' | 'removeItem'>;
+type Logger = Pick<Console, 'error' | 'warn'>;
+type NavigatorStorage = Pick<NavigatorStorage, 'estimate'>;
 
-class EncryptedStorageService {
+export interface EncryptedStorageServiceOptions {
+  sessionStorage?: StorageWriter & StorageReader | null;
+  localStorage?: StorageWriter & StorageReader | null;
+  logger?: Logger;
+  now?: () => number;
+  keyGenerator?: () => string;
+  navigatorRef?: Pick<Navigator, 'storage'> | null;
+}
+
+export class EncryptedStorageService {
   private encryptionKey: string;
   private storeName = 'secureData';
   private compressionThreshold = 10240; // 10KB
+  private readonly sessionStorageRef: (StorageWriter & StorageReader) | null;
+  private readonly localStorageRef: (StorageWriter & StorageReader) | null;
+  private readonly logger: Logger;
+  private readonly nowProvider: () => number;
+  private readonly keyGenerator: () => string;
+  private readonly navigatorRef: Pick<Navigator, 'storage'> | null;
+  private memoryKey?: string;
 
-  constructor() {
-    // Generate or retrieve encryption key
+  constructor(options: EncryptedStorageServiceOptions = {}) {
+    this.sessionStorageRef =
+      options.sessionStorage ?? (typeof sessionStorage !== 'undefined' ? sessionStorage : null);
+    this.localStorageRef =
+      options.localStorage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {})),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {}))
+    };
+    this.nowProvider = options.now ?? (() => Date.now());
+    this.keyGenerator =
+      options.keyGenerator ??
+      (() => CryptoJS.lib.WordArray.random(256 / 8).toString());
+    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
     this.encryptionKey = this.getOrCreateEncryptionKey();
   }
 
   private getOrCreateEncryptionKey(): string {
-    // In a production app, this should be derived from user credentials
-    // For now, we'll use a device-specific key
-    let key = sessionStorage.getItem('wt_enc_key');
-    
-    if (!key) {
-      // Generate a random key for this session
-      key = CryptoJS.lib.WordArray.random(256/8).toString();
-      sessionStorage.setItem('wt_enc_key', key);
+    if (this.sessionStorageRef) {
+      let key = this.sessionStorageRef.getItem('wt_enc_key');
+      if (!key) {
+        key = this.keyGenerator();
+        this.sessionStorageRef.setItem('wt_enc_key', key);
+      }
+      return key;
     }
-    
-    return key;
+    if (!this.memoryKey) {
+      this.memoryKey = this.keyGenerator();
+    }
+    return this.memoryKey;
   }
 
   // Encrypt data
@@ -42,7 +75,7 @@ class EncryptedStorageService {
       const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
       return JSON.parse(decryptedString) as JsonValue;
     } catch (error) {
-      console.error('Decryption failed:', error);
+      this.logger.error('Decryption failed:', error as Error);
       throw new Error('Failed to decrypt data');
     }
   }
@@ -74,21 +107,22 @@ class EncryptedStorageService {
 
     // Encrypt if requested
     if (encrypted) {
-      processedData = this.encrypt(value);
+      processedData = this.encrypt(value as JsonValue);
     } else if (shouldCompress) {
       processedData = this.compress(JSON.stringify(value));
     }
 
+    const now = this.nowProvider();
     const storedData: StoredData<T> = {
       data: processedData,
-      timestamp: Date.now(),
+      timestamp: now,
       encrypted,
       compressed: shouldCompress && !encrypted
     };
 
     // Add expiry if specified
     if (expiryDays) {
-      storedData.expiry = Date.now() + (expiryDays * 24 * 60 * 60 * 1000);
+      storedData.expiry = now + expiryDays * 24 * 60 * 60 * 1000;
     }
 
     await indexedDBService.put(this.storeName, { key, ...storedData });
@@ -113,14 +147,14 @@ class EncryptedStorageService {
 
       // Decrypt if encrypted
       if (storedData.encrypted && typeof data === 'string') {
-        data = this.decrypt(data);
+        data = this.decrypt(data) as T;
       } else if (storedData.compressed && typeof data === 'string') {
-        data = JSON.parse(this.decompress(data));
+        data = JSON.parse(this.decompress(data)) as T;
       }
 
       return data as T;
     } catch (error) {
-      console.error('Error retrieving data:', error);
+      this.logger.error('Error retrieving data:', error as Error);
       return null;
     }
   }
@@ -160,15 +194,16 @@ class EncryptedStorageService {
           processedData = this.compress(JSON.stringify(value));
         }
 
+        const now = this.nowProvider();
         const storedData: StoredData<T> = {
           data: processedData,
-          timestamp: Date.now(),
+          timestamp: now,
           encrypted,
           compressed: shouldCompress && !encrypted
         };
 
         if (expiryDays) {
-          storedData.expiry = Date.now() + (expiryDays * 24 * 60 * 60 * 1000);
+          storedData.expiry = now + expiryDays * 24 * 60 * 60 * 1000;
         }
 
         return { key, value: storedData } as BulkStorageItem;
@@ -182,8 +217,9 @@ class EncryptedStorageService {
   async migrateFromLocalStorage(keys: string[]): Promise<void> {
     const migrationItems: Array<StorageItem> = [];
 
+    if (!this.localStorageRef) return;
     for (const key of keys) {
-      const data = localStorage.getItem(key);
+      const data = this.localStorageRef.getItem(key);
       if (data) {
         try {
           // Try to parse as JSON first
@@ -201,7 +237,7 @@ class EncryptedStorageService {
             value: data,
             options: { encrypted: true }
           });
-          console.warn(`Migrating non-JSON value for key ${key}: "${data}"`);
+          this.logger.warn(`Migrating non-JSON value for key ${key}: "${data}"`);
         }
       }
     }
@@ -211,7 +247,7 @@ class EncryptedStorageService {
       
       // Remove from localStorage after successful migration
       for (const key of keys) {
-        localStorage.removeItem(key);
+        this.localStorageRef.removeItem(key);
       }
     }
   }
@@ -223,7 +259,7 @@ class EncryptedStorageService {
     for (const key of keys) {
       const storedData = await indexedDBService.get<StoredData<JsonValue>>(this.storeName, key);
       
-      if (storedData?.expiry && Date.now() > storedData.expiry) {
+      if (storedData?.expiry && this.nowProvider() > storedData.expiry) {
         await this.removeItem(key);
       }
     }
@@ -237,7 +273,7 @@ class EncryptedStorageService {
     for (const key of keys) {
       const data = await this.getItem(key);
       if (data !== null) {
-        exportedData[key] = data;
+        exportedData[key] = data as JsonValue;
       }
     }
 
@@ -257,8 +293,8 @@ class EncryptedStorageService {
 
   // Check storage usage
   async getStorageInfo(): Promise<StorageEstimate> {
-    if ('storage' in navigator && 'estimate' in navigator.storage) {
-      const estimate = await navigator.storage.estimate();
+    if (this.navigatorRef?.storage?.estimate) {
+      const estimate = await this.navigatorRef.storage.estimate();
       const usage = estimate.usage || 0;
       const quota = estimate.quota || 0;
       const percentUsed = quota > 0 ? (usage / quota) * 100 : 0;

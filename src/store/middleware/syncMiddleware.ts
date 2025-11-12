@@ -1,6 +1,9 @@
 import { Middleware } from '@reduxjs/toolkit';
 import { syncService } from '../../services/syncService';
 
+type Logger = Pick<Console, 'error'>;
+const syncLogger: Logger = typeof console !== 'undefined' ? console : { error: () => {} };
+
 // Action types to sync
 const SYNC_ACTIONS = {
   // Transactions
@@ -101,7 +104,7 @@ export const syncMiddleware: Middleware = (store) => (next) => (action: any) => 
         );
       }
     } catch (error) {
-      console.error('Failed to queue sync operation:', error);
+      syncLogger.error('Failed to queue sync operation:', error as Error);
     }
   }
   
@@ -208,7 +211,7 @@ export const initializeSyncListeners = (dispatch: any) => {
   
   // Handle sync failures
   syncService.on('sync-failed', (operation: any) => {
-    console.error('Sync operation failed:', operation);
+    syncLogger.error('Sync operation failed:', operation);
     // Could dispatch an action to show error to user
     dispatch({ 
       type: 'ui/showNotification', 

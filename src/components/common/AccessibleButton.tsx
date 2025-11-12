@@ -178,14 +178,14 @@ export const ButtonGroup: React.FC<ButtonGroupProps> = ({ children, ariaLabel })
           const isFirst = index === 0;
           const isLast = index === React.Children.count(children) - 1;
           
-          return React.cloneElement(child as React.ReactElement<unknown>, {
+          return React.cloneElement(child as React.ReactElement<any>, {
             className: `
-              ${child.props.className || ''}
+              ${(child.props as any).className || ''}
               ${!isFirst ? '-ml-px' : ''}
               ${isFirst ? 'rounded-r-none' : ''}
               ${isLast ? 'rounded-l-none' : ''}
               ${!isFirst && !isLast ? 'rounded-none' : ''}
-            `
+            `.trim()
           });
         }
         return child;

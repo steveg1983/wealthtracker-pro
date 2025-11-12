@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BrowserRouter } from 'react-router-dom';
 import DashboardModal from './DashboardModal';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock react-router-dom
 const mockNavigate = vi.fn();
@@ -80,7 +81,8 @@ vi.mock('./ErrorBoundary', () => ({
 // Mock currency hook
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `£${amount.toFixed(2)}`
+    formatCurrency: (amount: number, currency: string = 'GBP') =>
+      formatCurrencyDecimal(amount, currency)
   })
 }));
 
@@ -187,6 +189,8 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('DashboardModal', () => {
+  const formatGBP = (value: number) => formatCurrencyDecimal(value, 'GBP');
+
   const defaultProps = {
     isOpen: true,
     onClose: vi.fn(),
@@ -501,7 +505,7 @@ describe('DashboardModal', () => {
       
       expect(screen.getAllByText('2')[0]).toBeInTheDocument(); // Number of accounts
       expect(screen.getByText('7')).toBeInTheDocument(); // Total unreconciled (5 + 2)
-      expect(screen.getByText('£2300.00')).toBeInTheDocument(); // Total value (1500 + 800)
+      expect(screen.getByText(formatGBP(2300))).toBeInTheDocument(); // Total value (1500 + 800)
     });
 
     it('renders account reconciliation table', () => {
@@ -519,8 +523,8 @@ describe('DashboardModal', () => {
       expect(screen.getByText('Savings Account')).toBeInTheDocument();
       expect(screen.getByText('5')).toBeInTheDocument();
       expect(screen.getAllByText('2')[1]).toBeInTheDocument(); // Use the second instance (table row)
-      expect(screen.getByText('£1500.00')).toBeInTheDocument();
-      expect(screen.getByText('£800.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(1500))).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(800))).toBeInTheDocument();
     });
 
     it('handles account row click navigation', () => {
@@ -555,7 +559,7 @@ describe('DashboardModal', () => {
       const zeroTexts = screen.getAllByText('0');
       expect(zeroTexts[0]).toBeInTheDocument(); // Accounts
       expect(zeroTexts[1]).toBeInTheDocument(); // Unreconciled
-      expect(screen.getByText('£0.00')).toBeInTheDocument(); // Total value
+      expect(screen.getByText(formatGBP(0))).toBeInTheDocument(); // Total value
     });
   });
 
@@ -652,7 +656,7 @@ describe('DashboardModal', () => {
 
   describe('Responsive Behavior', () => {
     it('adjusts height in fullscreen mode', () => {
-      const { container } = render(
+      render(
         <TestWrapper>
           <DashboardModal 
             {...defaultProps} 
@@ -667,12 +671,12 @@ describe('DashboardModal', () => {
       fireEvent.click(maximizeButton);
       
       // Check that container classes change for fullscreen
-      const modal = container.querySelector('.bg-white');
+      const modal = screen.getByTestId('dashboard-modal-container');
       expect(modal).toHaveClass('max-w-[95vw]', 'h-[95vh]');
     });
 
     it('uses normal size in default mode', () => {
-      const { container } = render(
+      render(
         <TestWrapper>
           <DashboardModal 
             {...defaultProps} 
@@ -682,7 +686,7 @@ describe('DashboardModal', () => {
         </TestWrapper>
       );
       
-      const modal = container.querySelector('.bg-white');
+      const modal = screen.getByTestId('dashboard-modal-container');
       expect(modal).toHaveClass('max-w-6xl');
       expect(modal).not.toHaveClass('max-w-[95vw]');
     });
@@ -752,7 +756,7 @@ describe('DashboardModal', () => {
         </TestWrapper>
       );
       
-      const largeAmountTexts = screen.getAllByText('£1000000000.00');
+      const largeAmountTexts = screen.getAllByText(formatGBP(1000000000));
       expect(largeAmountTexts[0]).toBeInTheDocument(); // Total value in summary
     });
 

@@ -1,6 +1,41 @@
-import { Transaction, Account, Budget, Goal, Investment } from '../types';
-import type { AuditLogChanges, SavedAuditLog, BiometricAvailabilityResult } from '../types/security';
+import type { AuditLogChanges, SavedAuditLog } from '../types/security';
 import type { JsonValue } from '../types/common';
+
+interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+type CredentialsContainerLike = Pick<CredentialsContainer, 'create' | 'get'>;
+
+interface NavigatorLike {
+  userAgent?: string;
+  credentials?: CredentialsContainerLike | null;
+}
+
+interface LocationLike {
+  hostname: string;
+}
+
+interface CryptoLike {
+  getRandomValues<T extends ArrayBufferView | null>(array: T): T;
+  subtle: SubtleCrypto;
+}
+
+type PublicKeyCredentialLike = Pick<typeof PublicKeyCredential, 'isUserVerifyingPlatformAuthenticatorAvailable'>;
+
+type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+
+export interface SecurityServiceOptions {
+  storage?: StorageLike | null;
+  navigator?: NavigatorLike | null;
+  credentials?: CredentialsContainerLike | null;
+  publicKeyCredential?: PublicKeyCredentialLike | null;
+  location?: LocationLike | null;
+  crypto?: CryptoLike | null;
+  now?: () => number;
+  logger?: Logger;
+}
 
 export interface SecuritySettings {
   twoFactorEnabled: boolean;
@@ -44,21 +79,60 @@ const BIOMETRIC_CREDENTIALS_KEY = 'biometric_credentials';
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION = 30 * 60 * 1000; // 30 minutes
 
-class SecurityService {
+export class SecurityService {
   private settings: SecuritySettings;
   private auditLogs: AuditLog[] = [];
+  private storage: StorageLike | null;
+  private navigatorRef: NavigatorLike | null;
+  private credentials: CredentialsContainerLike | null;
+  private publicKeyCredential: PublicKeyCredentialLike | null;
+  private locationRef: LocationLike | null;
+  private cryptoRef: CryptoLike | null;
+  private nowProvider: () => number;
+  private logger: Logger;
 
-  constructor() {
+  constructor(options: SecurityServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
+    this.navigatorRef = options.navigator ?? (typeof navigator !== 'undefined' ? navigator : null);
+    this.credentials = options.credentials ?? this.navigatorRef?.credentials ?? null;
+    this.publicKeyCredential = options.publicKeyCredential ?? (typeof PublicKeyCredential !== 'undefined' ? PublicKeyCredential : null);
+    this.locationRef = options.location ?? (typeof window !== 'undefined' ? window.location : null);
+    this.cryptoRef = options.crypto ?? (typeof crypto !== 'undefined' ? crypto : null);
+    this.nowProvider = options.now ?? (() => Date.now());
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      log: options.logger?.log ?? (fallbackLogger?.log?.bind(fallbackLogger) ?? noop),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+
     this.settings = this.loadSettings();
     this.auditLogs = this.loadAuditLogs();
   }
 
   // Settings Management
   private loadSettings(): SecuritySettings {
-    const stored = localStorage.getItem(SECURITY_SETTINGS_KEY);
-    if (stored) {
-      return JSON.parse(stored);
+    if (!this.storage) {
+      return this.getDefaultSettings();
     }
+
+    const stored = this.storage.getItem(SECURITY_SETTINGS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored) as SecuritySettings;
+      if (parsed.lastLogin) {
+        parsed.lastLogin = new Date(parsed.lastLogin);
+      }
+      if (parsed.lockedUntil) {
+        parsed.lockedUntil = new Date(parsed.lockedUntil);
+      }
+      return parsed;
+    }
+
+    return this.getDefaultSettings();
+  }
+
+  private getDefaultSettings(): SecuritySettings {
     return {
       twoFactorEnabled: false,
       biometricEnabled: false,
@@ -70,7 +144,10 @@ class SecurityService {
   }
 
   private saveSettings() {
-    localStorage.setItem(SECURITY_SETTINGS_KEY, JSON.stringify(this.settings));
+    if (!this.storage) {
+      return;
+    }
+    this.storage.setItem(SECURITY_SETTINGS_KEY, JSON.stringify(this.settings));
   }
 
   getSecuritySettings(): SecuritySettings {
@@ -123,7 +200,7 @@ class SecurityService {
 
   private generateTOTPCode(secret: string): string {
     // Mock TOTP code generation
-    const time = Math.floor(Date.now() / 30000);
+    const time = Math.floor(this.nowProvider() / 30000);
     return String(Math.abs(this.hashCode(secret + time)) % 1000000).padStart(6, '0');
   }
 
@@ -139,26 +216,28 @@ class SecurityService {
 
   // Biometric Authentication
   async setupBiometric(): Promise<BiometricCredential | null> {
-    if (!this.isBiometricAvailable()) {
+    if (!(await this.isBiometricAvailable())) {
       throw new Error('Biometric authentication not available');
     }
 
-    try {
-      // Check if WebAuthn is available
-      if (!window.PublicKeyCredential) {
-        throw new Error('WebAuthn not supported');
-      }
+    if (!this.credentials?.create) {
+      throw new Error('Credentials API not available');
+    }
 
-      // Create credential options
+    if (!this.cryptoRef) {
+      throw new Error('Crypto API not available');
+    }
+
+    try {
       const challenge = new Uint8Array(32);
-      crypto.getRandomValues(challenge);
+      this.cryptoRef.getRandomValues(challenge);
 
       const createOptions: CredentialCreationOptions = {
         publicKey: {
           challenge,
           rp: {
             name: 'Wealth Tracker',
-            id: window.location.hostname
+            id: this.locationRef?.hostname ?? 'localhost'
           },
           user: {
             id: new TextEncoder().encode('user-id'),
@@ -178,30 +257,32 @@ class SecurityService {
         }
       };
 
-      // Create credential
-      const credential = await navigator.credentials.create(createOptions) as PublicKeyCredential;
+      const credential = await this.credentials.create(createOptions) as PublicKeyCredential | null;
       
       if (credential) {
         const biometricCredential: BiometricCredential = {
           credentialId: this.arrayBufferToBase64(credential.rawId),
           publicKey: 'mock-public-key',
           counter: 0,
-          createdAt: new Date()
+          createdAt: new Date(this.nowProvider())
         };
 
-        // Save credential
         this.saveBiometricCredential(biometricCredential);
         return biometricCredential;
       }
     } catch (error) {
-      console.error('Biometric setup failed:', error);
+      this.logger.error('Biometric setup failed:', error);
     }
 
     return null;
   }
 
   async verifyBiometric(): Promise<boolean> {
-    if (!this.isBiometricAvailable()) {
+    if (!(await this.isBiometricAvailable())) {
+      return false;
+    }
+
+    if (!this.credentials?.get || !this.cryptoRef) {
       return false;
     }
 
@@ -212,7 +293,7 @@ class SecurityService {
       }
 
       const challenge = new Uint8Array(32);
-      crypto.getRandomValues(challenge);
+      this.cryptoRef.getRandomValues(challenge);
 
       const getOptions: CredentialRequestOptions = {
         publicKey: {
@@ -226,46 +307,60 @@ class SecurityService {
         }
       };
 
-      const assertion = await navigator.credentials.get(getOptions);
+      const assertion = await this.credentials.get(getOptions);
       return assertion !== null;
     } catch (error) {
-      console.error('Biometric verification failed:', error);
+      this.logger.error('Biometric verification failed:', error);
       return false;
     }
   }
 
   async isBiometricAvailable(): Promise<boolean> {
-    // Check for WebAuthn support
-    if (!window.PublicKeyCredential) {
+    if (!this.publicKeyCredential) {
       return false;
     }
 
-    // Check for platform authenticator (Touch ID, Face ID, Windows Hello)
-    if (PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+    const availabilityChecker = this.publicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable;
+    if (typeof availabilityChecker === 'function') {
       try {
-        return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        return await availabilityChecker();
       } catch {
         return false;
       }
     }
-    
+
     return false;
   }
 
   private saveBiometricCredential(credential: BiometricCredential) {
     const credentials = this.loadBiometricCredentials();
     credentials.push(credential);
-    localStorage.setItem(BIOMETRIC_CREDENTIALS_KEY, JSON.stringify(credentials));
+    this.storage?.setItem(BIOMETRIC_CREDENTIALS_KEY, JSON.stringify(credentials));
   }
 
   private loadBiometricCredentials(): BiometricCredential[] {
-    const stored = localStorage.getItem(BIOMETRIC_CREDENTIALS_KEY);
-    return stored ? JSON.parse(stored) : [];
+    if (!this.storage) {
+      return [];
+    }
+    const stored = this.storage.getItem(BIOMETRIC_CREDENTIALS_KEY);
+    if (!stored) {
+      return [];
+    }
+
+    return JSON.parse(stored).map((cred: BiometricCredential) => ({
+      ...cred,
+      createdAt: cred.createdAt ? new Date(cred.createdAt) : new Date(this.nowProvider())
+    }));
   }
 
   // Encryption
   async encryptData(data: string): Promise<string> {
     if (!this.settings.encryptionEnabled) {
+      return data;
+    }
+
+    if (!this.cryptoRef?.subtle) {
+      this.logger.warn('Encryption requested but crypto API unavailable. Returning plaintext.');
       return data;
     }
 
@@ -277,10 +372,10 @@ class SecurityService {
       const key = await this.getEncryptionKey();
       
       // Generate IV
-      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const iv = this.cryptoRef.getRandomValues(new Uint8Array(12));
       
       // Encrypt
-      const encryptedBuffer = await crypto.subtle.encrypt(
+      const encryptedBuffer = await this.cryptoRef.subtle.encrypt(
         { name: 'AES-GCM', iv },
         key,
         dataBuffer
@@ -293,13 +388,18 @@ class SecurityService {
       
       return this.arrayBufferToBase64(combined.buffer);
     } catch (error) {
-      console.error('Encryption failed:', error);
+      this.logger.error('Encryption failed:', error);
       return data;
     }
   }
 
   async decryptData(encryptedData: string): Promise<string> {
     if (!this.settings.encryptionEnabled) {
+      return encryptedData;
+    }
+
+    if (!this.cryptoRef?.subtle) {
+      this.logger.warn('Decryption requested but crypto API unavailable. Returning input.');
       return encryptedData;
     }
 
@@ -315,7 +415,7 @@ class SecurityService {
       const key = await this.getEncryptionKey();
       
       // Decrypt
-      const decryptedBuffer = await crypto.subtle.decrypt(
+      const decryptedBuffer = await this.cryptoRef.subtle.decrypt(
         { name: 'AES-GCM', iv },
         key,
         encrypted
@@ -324,14 +424,18 @@ class SecurityService {
       const decoder = new TextDecoder();
       return decoder.decode(decryptedBuffer);
     } catch (error) {
-      console.error('Decryption failed:', error);
+      this.logger.error('Decryption failed:', error);
       return encryptedData;
     }
   }
 
   private async getEncryptionKey(): Promise<CryptoKey> {
+    if (!this.cryptoRef?.subtle) {
+      throw new Error('Crypto API unavailable');
+    }
+
     // In production, derive key from user password or use key management service
-    const keyMaterial = await crypto.subtle.importKey(
+    const keyMaterial = await this.cryptoRef.subtle.importKey(
       'raw',
       new TextEncoder().encode('temporary-encryption-key-32bytes'),
       'PBKDF2',
@@ -339,7 +443,7 @@ class SecurityService {
       ['deriveKey']
     );
     
-    return crypto.subtle.deriveKey(
+    return this.cryptoRef.subtle.deriveKey(
       {
         name: 'PBKDF2',
         salt: new TextEncoder().encode('wealth-tracker-salt'),
@@ -375,7 +479,10 @@ class SecurityService {
 
   // Audit Logging
   private loadAuditLogs(): AuditLog[] {
-    const stored = localStorage.getItem(AUDIT_LOGS_KEY);
+    if (!this.storage) {
+      return [];
+    }
+    const stored = this.storage.getItem(AUDIT_LOGS_KEY);
     if (stored) {
       const logs = JSON.parse(stored);
       // Convert date strings back to Date objects
@@ -390,7 +497,7 @@ class SecurityService {
   private saveAuditLogs() {
     // Keep only last 1000 logs
     const logsToSave = this.auditLogs.slice(-1000);
-    localStorage.setItem(AUDIT_LOGS_KEY, JSON.stringify(logsToSave));
+    this.storage?.setItem(AUDIT_LOGS_KEY, JSON.stringify(logsToSave));
   }
 
   logAction(
@@ -401,14 +508,14 @@ class SecurityService {
   ) {
     const log: AuditLog = {
       id: this.generateRandomString(16),
-      timestamp: new Date(),
+      timestamp: new Date(this.nowProvider()),
       userId: 'current-user',
       action,
       resourceType,
       resourceId,
       changes,
       ipAddress: 'localhost',
-      userAgent: navigator.userAgent
+      userAgent: this.navigatorRef?.userAgent ?? 'unknown'
     };
     
     this.auditLogs.push(log);
@@ -447,14 +554,14 @@ class SecurityService {
       return false;
     }
     
-    const sessionDuration = Date.now() - this.settings.lastLogin.getTime();
+    const sessionDuration = this.nowProvider() - this.settings.lastLogin.getTime();
     const timeoutMs = this.settings.sessionTimeout * 60 * 1000;
     
     return sessionDuration < timeoutMs;
   }
 
   updateLastActivity() {
-    this.settings.lastLogin = new Date();
+    this.settings.lastLogin = new Date(this.nowProvider());
     this.saveSettings();
   }
 
@@ -463,7 +570,7 @@ class SecurityService {
     this.settings.failedAttempts++;
     
     if (this.settings.failedAttempts >= MAX_FAILED_ATTEMPTS) {
-      this.settings.lockedUntil = new Date(Date.now() + LOCKOUT_DURATION);
+      this.settings.lockedUntil = new Date(this.nowProvider() + LOCKOUT_DURATION);
     }
     
     this.saveSettings();
@@ -480,7 +587,7 @@ class SecurityService {
       return false;
     }
     
-    if (new Date() > this.settings.lockedUntil) {
+    if (this.nowProvider() > this.settings.lockedUntil.getTime()) {
       this.resetFailedAttempts();
       return false;
     }
@@ -493,7 +600,13 @@ class SecurityService {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     let result = '';
     const randomValues = new Uint8Array(length);
-    crypto.getRandomValues(randomValues);
+    if (this.cryptoRef?.getRandomValues) {
+      this.cryptoRef.getRandomValues(randomValues);
+    } else {
+      for (let i = 0; i < length; i++) {
+        randomValues[i] = Math.floor(Math.random() * chars.length);
+      }
+    }
     
     for (let i = 0; i < length; i++) {
       result += chars[randomValues[i] % chars.length];
@@ -504,20 +617,39 @@ class SecurityService {
 
   private arrayBufferToBase64(buffer: ArrayBuffer): string {
     const bytes = new Uint8Array(buffer);
-    let binary = '';
-    for (let i = 0; i < bytes.byteLength; i++) {
-      binary += String.fromCharCode(bytes[i]);
+    if (typeof btoa === 'function') {
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return btoa(binary);
     }
-    return btoa(binary);
+
+    const nodeBuffer = (globalThis as { Buffer?: { from: (input: ArrayBuffer | Uint8Array) => { toString: (encoding: string) => string } } }).Buffer;
+    if (nodeBuffer) {
+      return nodeBuffer.from(bytes).toString('base64');
+    }
+
+    throw new Error('Base64 encoding not supported in this environment');
   }
 
   private base64ToArrayBuffer(base64: string): ArrayBuffer {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
+    if (typeof atob === 'function') {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      return bytes.buffer;
     }
-    return bytes.buffer;
+
+    const nodeBuffer = (globalThis as { Buffer?: { from: (input: string, encoding: string) => Uint8Array } }).Buffer;
+    if (nodeBuffer) {
+      const buffer = nodeBuffer.from(base64, 'base64');
+      return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    }
+
+    throw new Error('Base64 decoding not supported in this environment');
   }
 }
 

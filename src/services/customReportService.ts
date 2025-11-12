@@ -3,22 +3,42 @@ import type { Transaction, Account, Budget, Category } from '../types';
 import Decimal from 'decimal.js';
 import { startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths, subYears, parseISO, format } from 'date-fns';
 
-class CustomReportService {
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+type Logger = Pick<Console, 'error'>;
+
+export interface CustomReportServiceOptions {
+  storage?: StorageLike | null;
+  logger?: Logger;
+}
+
+export class CustomReportService {
   private readonly STORAGE_KEY = 'money_management_custom_reports';
+  private readonly storage: StorageLike | null;
+  private readonly logger: Logger;
+
+  constructor(options: CustomReportServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {}))
+    };
+  }
 
   // Get all custom reports
   getCustomReports(): CustomReport[] {
+    if (!this.storage) return [];
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = this.storage.getItem(this.STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
-      console.error('Failed to load custom reports:', error);
+      this.logger.error('Failed to load custom reports:', error as Error);
       return [];
     }
   }
 
   // Save a custom report
   saveCustomReport(report: CustomReport): void {
+    if (!this.storage) return;
     const reports = this.getCustomReports();
     const index = reports.findIndex(r => r.id === report.id);
     
@@ -28,13 +48,14 @@ class CustomReportService {
       reports.push(report);
     }
     
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
+    this.storage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
   }
 
   // Delete a custom report
   deleteCustomReport(reportId: string): void {
+    if (!this.storage) return;
     const reports = this.getCustomReports().filter(r => r.id !== reportId);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
+    this.storage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
   }
 
   // Generate report data based on configuration

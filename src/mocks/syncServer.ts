@@ -198,6 +198,7 @@ class MockSyncServer {
       id,
       type,
       entity,
+      entityId,
       data,
       timestamp,
       clientId,

@@ -31,16 +31,20 @@ function deserializeAccount(account: SerializedAccount): Account {
   return {
     ...account,
     lastUpdated: new Date(account.lastUpdated),
-    openingBalanceDate: account.openingBalanceDate ? new Date(account.openingBalanceDate) : undefined
-  };
+    openingBalanceDate: account.openingBalanceDate ? new Date(account.openingBalanceDate) : undefined,
+    createdAt: account.createdAt ? new Date(account.createdAt) : undefined,
+    updatedAt: account.updatedAt ? new Date(account.updatedAt) : undefined
+  } as Account;
 }
 
 function deserializeTransaction(transaction: SerializedTransaction): Transaction {
   return {
     ...transaction,
     date: new Date(transaction.date),
-    createdAt: transaction.createdAt ? new Date(transaction.createdAt) : undefined
-  };
+    createdAt: transaction.createdAt ? new Date(transaction.createdAt) : undefined,
+    updatedAt: transaction.updatedAt ? new Date(transaction.updatedAt) : undefined,
+    reconciledDate: transaction.reconciledDate ? new Date(transaction.reconciledDate) : undefined
+  } as Transaction;
 }
 
 function deserializeBudget(budget: SerializedBudget): Budget {
@@ -48,16 +52,18 @@ function deserializeBudget(budget: SerializedBudget): Budget {
     ...budget,
     startDate: budget.startDate ? new Date(budget.startDate) : undefined,
     endDate: budget.endDate ? new Date(budget.endDate) : undefined,
-    createdAt: budget.createdAt ? new Date(budget.createdAt) : undefined
-  };
+    createdAt: budget.createdAt ? new Date(budget.createdAt) : new Date(),
+    updatedAt: budget.updatedAt ? new Date(budget.updatedAt) : new Date()
+  } as unknown as Budget;
 }
 
 function deserializeGoal(goal: SerializedGoal): Goal {
   return {
     ...goal,
     targetDate: new Date(goal.targetDate),
-    createdAt: goal.createdAt ? new Date(goal.createdAt) : undefined
-  };
+    createdAt: goal.createdAt ? new Date(goal.createdAt) : new Date(),
+    updatedAt: goal.updatedAt ? new Date(goal.updatedAt) : new Date()
+  } as unknown as Goal;
 }
 
 interface MigrationStatus {
@@ -72,27 +78,78 @@ interface MigrationStatus {
   };
 }
 
+type SupabaseClientLike = {
+  from: (table: string) => any;
+};
+
+type StoreLike = Pick<typeof store, 'getState'>;
+
+type UserIdServiceLike = Pick<typeof userIdService, 'ensureUserExists'>;
+
+type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+
+export interface DataMigrationServiceOptions {
+  supabaseClient?: SupabaseClientLike | null;
+  store?: StoreLike;
+  userIdService?: UserIdServiceLike;
+  storage?: StorageLike | null;
+  logger?: Logger;
+  now?: () => number;
+}
+
 export class DataMigrationService {
-  private static migrationStatus: MigrationStatus = {
-    inProgress: false,
-    completed: false,
-    error: null,
-    stats: {
-      accounts: { total: 0, migrated: 0, failed: 0 },
-      transactions: { total: 0, migrated: 0, failed: 0 },
-      budgets: { total: 0, migrated: 0, failed: 0 },
-      goals: { total: 0, migrated: 0, failed: 0 },
-    },
-  };
+  private readonly supabaseClient: SupabaseClientLike | null;
+  private readonly storeRef: StoreLike;
+  private readonly userIdSvc: UserIdServiceLike;
+  private readonly storage: StorageLike | null;
+  private readonly logger: Logger;
+  private readonly nowProvider: () => number;
+  private migrationStatus: MigrationStatus = this.createInitialStatus();
+  private accountIdMapping: Map<string, string> = new Map();
+
+  constructor(options: DataMigrationServiceOptions = {}) {
+    this.supabaseClient = options.supabaseClient ?? supabase;
+    this.storeRef = options.store ?? store;
+    this.userIdSvc = options.userIdService ?? userIdService;
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      log: options.logger?.log ?? (fallbackLogger?.log?.bind(fallbackLogger) ?? noop),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => Date.now());
+  }
+
+  private createInitialStatus(): MigrationStatus {
+    return {
+      inProgress: false,
+      completed: false,
+      error: null,
+      stats: {
+        accounts: { total: 0, migrated: 0, failed: 0 },
+        transactions: { total: 0, migrated: 0, failed: 0 },
+        budgets: { total: 0, migrated: 0, failed: 0 },
+        goals: { total: 0, migrated: 0, failed: 0 }
+      }
+    };
+  }
+
+  private getCurrentIsoString(): string {
+    return new Date(this.nowProvider()).toISOString();
+  }
 
   /**
    * Check if user has any data in Supabase
    */
-  static async hasCloudData(userId: string): Promise<boolean> {
-    if (!supabase) return false;
+  async hasCloudData(userId: string): Promise<boolean> {
+    if (!this.supabaseClient) return false;
 
     try {
-      const { data: profile } = await supabase
+      const { data: profile } = await this.supabaseClient
         .from('user_profiles')
         .select('id')
         .eq('id', userId)
@@ -101,7 +158,7 @@ export class DataMigrationService {
       if (!profile) return false;
 
       // Check if user has any accounts (most basic data)
-      const { data: accounts } = await supabase
+      const { data: accounts } = await this.supabaseClient
         .from('accounts')
         .select('id')
         .eq('user_id', userId)
@@ -109,7 +166,7 @@ export class DataMigrationService {
 
       return (accounts && accounts.length > 0) || false;
     } catch (error) {
-      console.error('Error checking cloud data:', error);
+      this.logger.error('Error checking cloud data:', error as Error);
       return false;
     }
   }
@@ -118,12 +175,12 @@ export class DataMigrationService {
    * Get user's Supabase profile ID from Clerk ID (create if doesn't exist)
    * Now delegates to centralized userIdService
    */
-  static async getUserProfileId(clerkUserId: string): Promise<string | null> {
-    if (!supabase) return null;
+  async getUserProfileId(clerkUserId: string): Promise<string | null> {
+    if (!this.supabaseClient) return null;
 
     try {
       // Use centralized userIdService for all ID conversions and user creation
-      const databaseUserId = await userIdService.ensureUserExists(
+      const databaseUserId = await this.userIdSvc.ensureUserExists(
         clerkUserId,
         'migrated@example.com', // Placeholder, will be updated by user profile
         undefined,
@@ -131,13 +188,13 @@ export class DataMigrationService {
       );
 
       if (!databaseUserId) {
-        console.error('Failed to get or create user for migration');
+        this.logger.error('Failed to get or create user for migration');
         return null;
       }
 
       return databaseUserId;
     } catch (error) {
-      console.error('Error in getUserProfileId:', error);
+      this.logger.error('Error in getUserProfileId:', error as Error);
       return null;
     }
   }
@@ -145,10 +202,10 @@ export class DataMigrationService {
   /**
    * Migrate all accounts to Supabase
    */
-  static async migrateAccounts(userId: string, accounts: Account[]): Promise<boolean> {
-    if (!supabase || accounts.length === 0) return true;
+  async migrateAccounts(userId: string, accounts: Account[]): Promise<boolean> {
+    if (!this.supabaseClient || accounts.length === 0) return true;
 
-    console.log(`📦 Migrating ${accounts.length} accounts...`);
+    this.logger.log(`📦 Migrating ${accounts.length} accounts...`);
     this.migrationStatus.stats.accounts.total = accounts.length;
 
     try {
@@ -163,24 +220,24 @@ export class DataMigrationService {
         is_active: account.isActive !== false,
         color: (account as LegacyAccount).color || null,
         icon: (account as LegacyAccount).icon || null,
-        created_at: account.createdAt || new Date().toISOString(),
+        created_at: account.createdAt || this.getCurrentIsoString(),
       }));
 
       // Insert all accounts
-      const { data, error } = await supabase
+      const { data, error } = await this.supabaseClient
         .from('accounts')
         .insert(accountsToInsert)
         .select();
 
       if (error) {
-        console.error('Error migrating accounts:', error);
+        this.logger.error('Error migrating accounts:', error);
         this.migrationStatus.error = error.message;
         this.migrationStatus.stats.accounts.failed = accounts.length;
         return false;
       }
 
       this.migrationStatus.stats.accounts.migrated = data?.length || 0;
-      console.log(`✅ Migrated ${data?.length || 0} accounts successfully`);
+      this.logger.log(`✅ Migrated ${data?.length || 0} accounts successfully`);
       
       // Store mapping of old IDs to new IDs for transaction migration
       const idMapping = new Map<string, string>();
@@ -190,12 +247,11 @@ export class DataMigrationService {
         }
       });
       
-      // Store mapping for transaction migration
-      (window as any).__accountIdMapping = idMapping;
+      this.accountIdMapping = idMapping;
       
       return true;
     } catch (error) {
-      console.error('Failed to migrate accounts:', error);
+      this.logger.error('Failed to migrate accounts:', error as Error);
       this.migrationStatus.error = 'Failed to migrate accounts';
       return false;
     }
@@ -204,17 +260,15 @@ export class DataMigrationService {
   /**
    * Migrate all transactions to Supabase
    */
-  static async migrateTransactions(userId: string, transactions: Transaction[]): Promise<boolean> {
-    if (!supabase || transactions.length === 0) return true;
+  async migrateTransactions(userId: string, transactions: Transaction[]): Promise<boolean> {
+    if (!this.supabaseClient || transactions.length === 0) return true;
 
-    console.log(`📦 Migrating ${transactions.length} transactions...`);
+    this.logger.log(`📦 Migrating ${transactions.length} transactions...`);
     this.migrationStatus.stats.transactions.total = transactions.length;
 
     try {
-      // Get account ID mapping
-      const idMapping = (window as any).__accountIdMapping as Map<string, string>;
-      if (!idMapping) {
-        console.error('Account ID mapping not found');
+      if (!this.accountIdMapping || this.accountIdMapping.size === 0) {
+        this.logger.error('Account ID mapping not found');
         return false;
       }
 
@@ -227,7 +281,7 @@ export class DataMigrationService {
         
         const transactionsToInsert = batch.map(transaction => ({
           user_id: userId,
-          account_id: idMapping.get(transaction.accountId) || transaction.accountId,
+          account_id: this.accountIdMapping.get(transaction.accountId) || transaction.accountId,
           date: transaction.date,
           description: transaction.description,
           amount: Math.abs(transaction.amount), // Store as positive
@@ -239,28 +293,28 @@ export class DataMigrationService {
           merchant: transaction.merchant,
           is_cleared: transaction.cleared !== false,
           is_reconciled: (transaction as LegacyTransaction).reconciled || false,
-          created_at: transaction.createdAt || new Date().toISOString(),
+          created_at: transaction.createdAt || this.getCurrentIsoString(),
         }));
 
-        const { data, error } = await supabase
+        const { data, error } = await this.supabaseClient
           .from('transactions')
           .insert(transactionsToInsert)
           .select();
 
         if (error) {
-          console.error(`Error migrating transaction batch ${i / batchSize + 1}:`, error);
+          this.logger.error(`Error migrating transaction batch ${i / batchSize + 1}:`, error);
           this.migrationStatus.stats.transactions.failed += batch.length;
         } else {
           migrated += data?.length || 0;
           this.migrationStatus.stats.transactions.migrated = migrated;
-          console.log(`✅ Migrated batch ${i / batchSize + 1} (${data?.length} transactions)`);
+          this.logger.log(`✅ Migrated batch ${i / batchSize + 1} (${data?.length} transactions)`);
         }
       }
 
-      console.log(`✅ Migrated ${migrated} of ${transactions.length} transactions`);
+      this.logger.log(`✅ Migrated ${migrated} of ${transactions.length} transactions`);
       return migrated > 0;
     } catch (error) {
-      console.error('Failed to migrate transactions:', error);
+      this.logger.error('Failed to migrate transactions:', error as Error);
       this.migrationStatus.error = 'Failed to migrate transactions';
       return false;
     }
@@ -269,10 +323,10 @@ export class DataMigrationService {
   /**
    * Migrate all budgets to Supabase
    */
-  static async migrateBudgets(userId: string, budgets: Budget[]): Promise<boolean> {
-    if (!supabase || budgets.length === 0) return true;
+  async migrateBudgets(userId: string, budgets: Budget[]): Promise<boolean> {
+    if (!this.supabaseClient || budgets.length === 0) return true;
 
-    console.log(`📦 Migrating ${budgets.length} budgets...`);
+    this.logger.log(`📦 Migrating ${budgets.length} budgets...`);
     this.migrationStatus.stats.budgets.total = budgets.length;
 
     try {
@@ -282,30 +336,30 @@ export class DataMigrationService {
         category: budget.categoryId,
         amount: budget.amount,
         period: budget.period || 'monthly',
-        start_date: budget.startDate || new Date().toISOString().split('T')[0],
+        start_date: budget.startDate || this.getCurrentIsoString().split('T')[0],
         is_active: budget.isActive !== false,
         alert_enabled: (budget as LegacyBudget).alertEnabled !== false,
         alert_threshold: budget.alertThreshold || 80,
-        created_at: budget.createdAt || new Date().toISOString(),
+        created_at: budget.createdAt || this.getCurrentIsoString(),
       }));
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabaseClient
         .from('budgets')
         .insert(budgetsToInsert)
         .select();
 
       if (error) {
-        console.error('Error migrating budgets:', error);
+        this.logger.error('Error migrating budgets:', error);
         this.migrationStatus.error = error.message;
         this.migrationStatus.stats.budgets.failed = budgets.length;
         return false;
       }
 
       this.migrationStatus.stats.budgets.migrated = data?.length || 0;
-      console.log(`✅ Migrated ${data?.length || 0} budgets successfully`);
+      this.logger.log(`✅ Migrated ${data?.length || 0} budgets successfully`);
       return true;
     } catch (error) {
-      console.error('Failed to migrate budgets:', error);
+      this.logger.error('Failed to migrate budgets:', error as Error);
       this.migrationStatus.error = 'Failed to migrate budgets';
       return false;
     }
@@ -314,10 +368,10 @@ export class DataMigrationService {
   /**
    * Migrate all goals to Supabase
    */
-  static async migrateGoals(userId: string, goals: Goal[]): Promise<boolean> {
-    if (!supabase || goals.length === 0) return true;
+  async migrateGoals(userId: string, goals: Goal[]): Promise<boolean> {
+    if (!this.supabaseClient || goals.length === 0) return true;
 
-    console.log(`📦 Migrating ${goals.length} goals...`);
+    this.logger.log(`📦 Migrating ${goals.length} goals...`);
     this.migrationStatus.stats.goals.total = goals.length;
 
     try {
@@ -331,26 +385,26 @@ export class DataMigrationService {
         category: goal.category,
         priority: 'medium', // Default priority
         is_achieved: goal.achieved || false,
-        created_at: goal.createdAt || new Date().toISOString(),
+        created_at: goal.createdAt || this.getCurrentIsoString(),
       }));
 
-      const { data, error } = await supabase
+      const { data, error } = await this.supabaseClient
         .from('goals')
         .insert(goalsToInsert)
         .select();
 
       if (error) {
-        console.error('Error migrating goals:', error);
+        this.logger.error('Error migrating goals:', error);
         this.migrationStatus.error = error.message;
         this.migrationStatus.stats.goals.failed = goals.length;
         return false;
       }
 
       this.migrationStatus.stats.goals.migrated = data?.length || 0;
-      console.log(`✅ Migrated ${data?.length || 0} goals successfully`);
+      this.logger.log(`✅ Migrated ${data?.length || 0} goals successfully`);
       return true;
     } catch (error) {
-      console.error('Failed to migrate goals:', error);
+      this.logger.error('Failed to migrate goals:', error as Error);
       this.migrationStatus.error = 'Failed to migrate goals';
       return false;
     }
@@ -359,15 +413,13 @@ export class DataMigrationService {
   /**
    * Main migration function - migrates all data
    */
-  static async migrateToSupabase(clerkUserId: string): Promise<MigrationStatus> {
-    if (!supabase) {
-      return {
-        ...this.migrationStatus,
-        error: 'Supabase not configured',
-      };
+  async migrateToSupabase(clerkUserId: string): Promise<MigrationStatus> {
+    if (!this.supabaseClient) {
+      this.migrationStatus.error = 'Supabase not configured';
+      return { ...this.migrationStatus };
     }
 
-    console.log('🚀 Starting data migration to Supabase...');
+    this.logger.log('🚀 Starting data migration to Supabase...');
     this.migrationStatus.inProgress = true;
     this.migrationStatus.error = null;
 
@@ -381,16 +433,15 @@ export class DataMigrationService {
       // Check if user already has cloud data
       const hasData = await this.hasCloudData(userId);
       if (hasData) {
-        console.log('⚠️ User already has cloud data. Skipping migration.');
-        return {
-          ...this.migrationStatus,
-          completed: true,
-          error: 'User already has cloud data',
-        };
+        this.logger.warn('⚠️ User already has cloud data. Skipping migration.');
+        this.migrationStatus.completed = true;
+        this.migrationStatus.inProgress = false;
+        this.migrationStatus.error = 'User already has cloud data';
+        return { ...this.migrationStatus };
       }
 
       // Get current state from Redux
-      const state = store.getState();
+      const state = this.storeRef.getState();
       const { accounts, transactions, budgets, goals } = state;
 
       // Migrate each data type - deserialize from Redux state
@@ -403,45 +454,50 @@ export class DataMigrationService {
       const deserializedTransactions = transactions.transactions.map(deserializeTransaction);
       const transactionsSuccess = await this.migrateTransactions(userId, deserializedTransactions);
       if (!transactionsSuccess) {
-        console.warn('Some transactions failed to migrate');
+        this.logger.warn('Some transactions failed to migrate');
       }
 
       const deserializedBudgets = budgets.budgets.map(deserializeBudget);
       const budgetsSuccess = await this.migrateBudgets(userId, deserializedBudgets);
       if (!budgetsSuccess) {
-        console.warn('Some budgets failed to migrate');
+        this.logger.warn('Some budgets failed to migrate');
       }
 
       const deserializedGoals = goals.goals.map(deserializeGoal);
       const goalsSuccess = await this.migrateGoals(userId, deserializedGoals);
       if (!goalsSuccess) {
-        console.warn('Some goals failed to migrate');
+        this.logger.warn('Some goals failed to migrate');
       }
 
       // Mark migration as complete
       this.migrationStatus.completed = true;
       this.migrationStatus.inProgress = false;
 
-      // Store migration status in localStorage
-      localStorage.setItem('supabaseMigrationCompleted', 'true');
-      localStorage.setItem('supabaseMigrationDate', new Date().toISOString());
+      if (this.storage) {
+        try {
+          this.storage.setItem('supabaseMigrationCompleted', 'true');
+          this.storage.setItem('supabaseMigrationDate', this.getCurrentIsoString());
+        } catch (storageError) {
+          this.logger.warn('Failed to persist migration flags:', storageError as Error);
+        }
+      }
 
-      console.log('✅ Migration completed successfully!');
-      console.log('📊 Migration stats:', this.migrationStatus.stats);
+      this.logger.log('✅ Migration completed successfully!');
+      this.logger.log('📊 Migration stats:', this.migrationStatus.stats);
 
-      return this.migrationStatus;
+      return { ...this.migrationStatus };
     } catch (error) {
-      console.error('❌ Migration failed:', error);
+      this.logger.error('❌ Migration failed:', error as Error);
       this.migrationStatus.error = error instanceof Error ? error.message : 'Unknown error';
       this.migrationStatus.inProgress = false;
-      return this.migrationStatus;
+      return { ...this.migrationStatus };
     }
   }
 
   /**
    * Helper to map account types
    */
-  private static mapAccountType(type: string): string {
+  private mapAccountType(type: string): string {
     const typeMap: Record<string, string> = {
       'current': 'checking',
       'savings': 'savings',
@@ -456,26 +512,19 @@ export class DataMigrationService {
   /**
    * Check if migration has been completed
    */
-  static isMigrationCompleted(): boolean {
-    return localStorage.getItem('supabaseMigrationCompleted') === 'true';
+  isMigrationCompleted(): boolean {
+    return this.storage?.getItem('supabaseMigrationCompleted') === 'true';
   }
 
   /**
    * Reset migration status (for testing)
    */
-  static resetMigration(): void {
-    localStorage.removeItem('supabaseMigrationCompleted');
-    localStorage.removeItem('supabaseMigrationDate');
-    this.migrationStatus = {
-      inProgress: false,
-      completed: false,
-      error: null,
-      stats: {
-        accounts: { total: 0, migrated: 0, failed: 0 },
-        transactions: { total: 0, migrated: 0, failed: 0 },
-        budgets: { total: 0, migrated: 0, failed: 0 },
-        goals: { total: 0, migrated: 0, failed: 0 },
-      },
-    };
+  resetMigration(): void {
+    this.storage?.removeItem?.('supabaseMigrationCompleted');
+    this.storage?.removeItem?.('supabaseMigrationDate');
+    this.migrationStatus = this.createInitialStatus();
+    this.accountIdMapping.clear();
   }
 }
+
+export const dataMigrationService = new DataMigrationService();

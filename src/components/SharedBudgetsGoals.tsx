@@ -114,7 +114,9 @@ export default function SharedBudgetsGoals() {
           categoryId: budgetForm.categoryId,
           amount: Number(budgetForm.amount),
           period: budgetForm.period,
-          isActive: true
+          isActive: true,
+          spent: 0,
+          updatedAt: new Date()
         },
         household.id,
         currentMember.id,
@@ -130,7 +132,10 @@ export default function SharedBudgetsGoals() {
         name: budgetForm.name,
         categoryId: budgetForm.categoryId,
         amount: Number(budgetForm.amount),
-        period: budgetForm.period
+        period: budgetForm.period,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
 
       setShowCreateBudget(false);
@@ -160,7 +165,11 @@ export default function SharedBudgetsGoals() {
           targetAmount: Number(goalForm.targetAmount),
           currentAmount: 0,
           targetDate: new Date(goalForm.targetDate),
-          description: goalForm.description
+          description: goalForm.description,
+          type: 'savings' as const,
+          isActive: true,
+          progress: 0,
+          updatedAt: new Date()
         },
         household.id,
         currentMember.id,
@@ -173,7 +182,12 @@ export default function SharedBudgetsGoals() {
         name: goalForm.name,
         targetAmount: Number(goalForm.targetAmount),
         targetDate: new Date(goalForm.targetDate),
-        description: goalForm.description
+        description: goalForm.description,
+        currentAmount: 0,
+        type: 'savings' as const,
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
       });
 
       setShowCreateGoal(false);
@@ -273,7 +287,7 @@ export default function SharedBudgetsGoals() {
           </h3>
           <div className="space-y-2">
             {pendingApprovals.map(approval => (
-              <div key={approval.id} className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg">
+              <div key={approval.id} className="flex items-center justify-between p-3 bg-[#d4dce8] dark:bg-gray-800 rounded-lg">
                 <div>
                   <p className="font-medium">
                     {approval.requestedByName} requested to change budget to {formatCurrency(approval.amount)}
@@ -307,7 +321,7 @@ export default function SharedBudgetsGoals() {
       )}
 
       {/* Tabs */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-1 flex">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-1 flex">
         <button
           onClick={() => setActiveTab('budgets')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
@@ -356,7 +370,7 @@ export default function SharedBudgetsGoals() {
             const isExceeded = spending > budget.amount;
 
             return (
-              <div key={budget.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+              <div key={budget.id} className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold">{budget.name}</h3>
@@ -379,7 +393,7 @@ export default function SharedBudgetsGoals() {
                   <div className="bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                     <div 
                       className={`h-full transition-all duration-300 ${
-                        isExceeded ? 'bg-red-500' : percentage > 80 ? 'bg-yellow-500' : 'bg-green-500'
+                        isExceeded ? 'bg-red-500' : percentageDecimal.toNumber() > 80 ? 'bg-yellow-500' : 'bg-green-500'
                       }`}
                       style={{ width: `${Math.min(percentageDecimal.toNumber(), 100)}%` }}
                     />
@@ -451,7 +465,7 @@ export default function SharedBudgetsGoals() {
             const myContribution = goal.contributors.find(c => c.memberId === currentMember?.id);
 
             return (
-              <div key={goal.id} className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+              <div key={goal.id} className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <h3 className="text-lg font-semibold">{goal.name}</h3>
@@ -553,7 +567,7 @@ export default function SharedBudgetsGoals() {
       )}
 
       {/* Recent Activity */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
         <div className="space-y-3">
           {activities.slice(0, 5).map(activity => (
@@ -577,7 +591,7 @@ export default function SharedBudgetsGoals() {
       {/* Create Budget Modal */}
       {showCreateBudget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold mb-4">Create Shared Budget</h3>
             
             <form onSubmit={handleCreateBudget} className="space-y-4">
@@ -691,7 +705,7 @@ export default function SharedBudgetsGoals() {
       {/* Create Goal Modal */}
       {showCreateGoal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
             <h3 className="text-lg font-semibold mb-4">Create Shared Goal</h3>
             
             <form onSubmit={handleCreateGoal} className="space-y-4">

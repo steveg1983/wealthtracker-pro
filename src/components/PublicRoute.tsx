@@ -1,7 +1,7 @@
 import { useAuth } from '@clerk/clerk-react';
 import { Navigate } from 'react-router-dom';
 import { ReactNode } from 'react';
-import { Skeleton } from '../loading/Skeleton';
+import { Skeleton } from './loading/Skeleton';
 
 interface PublicRouteProps {
   children: ReactNode;

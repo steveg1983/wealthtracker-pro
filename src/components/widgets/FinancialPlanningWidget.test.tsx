@@ -3,30 +3,11 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import FinancialPlanningWidget from './FinancialPlanningWidget';
 import { financialPlanningService } from '../../services/financialPlanningService';
 import { useNavigate } from 'react-router-dom';
-import { toDecimal } from '../../utils/decimal';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 import type { RetirementPlan, FinancialGoal } from '../../services/financialPlanningService';
 
-const testCurrencySymbols: Record<string, string> = {
-  USD: '$',
-  GBP: '£',
-  EUR: '€',
-  CHF: 'CHF',
-};
-
-const formatCurrencyMock = (value: any, currency: string = 'USD'): string => {
-  const decimalValue = toDecimal(value);
-  const rounded = decimalValue.toDecimalPlaces(0);
-  const isNegative = rounded.isNegative();
-  const absolute = rounded.abs();
-  const grouped = absolute.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const symbol = testCurrencySymbols[currency] ?? currency;
-
-  if (currency === 'CHF') {
-    return `${isNegative ? '-' : ''}${grouped} ${symbol}`;
-  }
-
-  return `${isNegative ? '-' : ''}${symbol}${grouped}`;
-};
+const formatCurrencyMock = (value: any, currency: string = 'USD'): string =>
+  formatCurrencyDecimal(value, currency);
 
 const mockUseCurrencyDecimal = vi.fn();
 
@@ -254,7 +235,7 @@ describe('FinancialPlanningWidget', () => {
         expect(screen.getByText('401k Plan')).toBeInTheDocument();
         expect(screen.getByText('IRA Plan')).toBeInTheDocument();
         expect(screen.getAllByText('30 years to go')).toHaveLength(2);
-        expect(screen.getAllByText('$825,000')).toHaveLength(2);
+        expect(screen.getAllByText('$825,000.00')).toHaveLength(2);
       });
     });
 
@@ -402,7 +383,7 @@ describe('FinancialPlanningWidget', () => {
       render(<FinancialPlanningWidget />);
       
       await waitFor(() => {
-        const amounts = screen.getAllByText('$1,250,000');
+        const amounts = screen.getAllByText('$1,250,000.00');
         expect(amounts.length).toBeGreaterThan(0);
       });
     });
@@ -411,8 +392,8 @@ describe('FinancialPlanningWidget', () => {
       render(<FinancialPlanningWidget />);
       
       await waitFor(() => {
-        expect(screen.getByText('$15,000')).toBeInTheDocument(); // Emergency Fund
-        expect(screen.getByText('$5,000')).toBeInTheDocument(); // Dream Vacation
+        expect(screen.getByText('$15,000.00')).toBeInTheDocument(); // Emergency Fund
+        expect(screen.getByText('$5,000.00')).toBeInTheDocument(); // Dream Vacation
       });
     });
   });

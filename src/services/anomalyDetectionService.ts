@@ -29,9 +29,22 @@ export interface AnomalyDetectionConfig {
   autoAlert: boolean;
 }
 
-class AnomalyDetectionService {
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+
+type Logger = Pick<Console, 'warn' | 'error'>;
+
+export interface AnomalyDetectionServiceOptions {
+  storage?: StorageLike | null;
+  logger?: Logger;
+  now?: () => number;
+}
+
+export class AnomalyDetectionService {
   private readonly STORAGE_KEY = 'money_management_anomaly_config';
   private readonly ANOMALIES_KEY = 'money_management_detected_anomalies';
+  private storage: StorageLike | null;
+  private logger: Logger;
+  private readonly nowProvider: () => number;
   
   // Default thresholds by sensitivity level
   private readonly THRESHOLDS = {
@@ -52,16 +65,52 @@ class AnomalyDetectionService {
     }
   };
 
+  constructor(options: AnomalyDetectionServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => Date.now());
+  }
+
+  private getCurrentDate(): Date {
+    return new Date(this.nowProvider());
+  }
+
+  private readFromStorage<T>(key: string): T | null {
+    if (!this.storage) return null;
+    try {
+      const stored = this.storage.getItem(key);
+      return stored ? JSON.parse(stored) as T : null;
+    } catch (error) {
+      this.logger.warn(`Failed to read ${key} from storage:`, error as Error);
+      return null;
+    }
+  }
+
+  private writeToStorage(key: string, value: unknown): void {
+    if (!this.storage) return;
+    try {
+      this.storage.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      this.logger.warn(`Failed to persist ${key} to storage:`, error as Error);
+    }
+  }
+
   getConfig(): AnomalyDetectionConfig {
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = this.readFromStorage<AnomalyDetectionConfig & { enabledTypes: string[] }>(this.STORAGE_KEY);
       if (stored) {
-        const config = JSON.parse(stored);
-        config.enabledTypes = new Set(config.enabledTypes);
-        return config;
+        return {
+          ...stored,
+          enabledTypes: new Set(stored.enabledTypes)
+        };
       }
     } catch (error) {
-      console.error('Failed to load anomaly detection config:', error);
+      this.logger.error('Failed to load anomaly detection config:', error as Error);
     }
     
     // Default config
@@ -76,12 +125,15 @@ class AnomalyDetectionService {
 
   saveConfig(config: Partial<AnomalyDetectionConfig>): void {
     const current = this.getConfig();
-    const updated = {
+    const updated: AnomalyDetectionConfig = {
       ...current,
       ...config,
-      enabledTypes: config.enabledTypes ? Array.from(config.enabledTypes) : Array.from(current.enabledTypes)
+      enabledTypes: config.enabledTypes ?? current.enabledTypes
     };
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(updated));
+    this.writeToStorage(this.STORAGE_KEY, {
+      ...updated,
+      enabledTypes: Array.from(updated.enabledTypes)
+    });
   }
 
   async detectAnomalies(
@@ -92,7 +144,7 @@ class AnomalyDetectionService {
     const anomalies: Anomaly[] = [];
     
     // Filter to recent transactions based on lookback period
-    const cutoffDate = subMonths(new Date(), config.lookbackMonths);
+    const cutoffDate = subMonths(this.getCurrentDate(), config.lookbackMonths);
     const recentTransactions = transactions.filter(t => new Date(t.date) >= cutoffDate);
     
     // Need minimum transaction history
@@ -188,7 +240,7 @@ class AnomalyDetectionService {
             transactionId: transaction.id,
             title: 'Unusual Transaction Amount',
             description: `${transaction.description} - ${formattedAmount} is ${zScoreDisplay} standard deviations from your typical ${category} spending`,
-            detectedAt: new Date(),
+            detectedAt: this.getCurrentDate(),
             amount,
             category,
             merchant: this.extractMerchant(transaction.description),
@@ -250,13 +302,13 @@ class AnomalyDetectionService {
         const recentTrans = sortedTrans.slice(-3); // Last 3 transactions
         
         anomalies.push({
-          id: `frequency-spike-${merchant}-${Date.now()}`,
+          id: `frequency-spike-${merchant}-${this.nowProvider()}`,
           type: 'frequency_spike',
           severity: lastInterval < avgInterval / (threshold * 1.5) ? 'high' : 'medium',
           transactions: recentTrans.map(t => t.id),
           title: 'Unusual Frequency Increase',
           description: `You've made ${recentTrans.length} purchases at ${merchant} in ${lastInterval} days, much more frequent than your usual ${formatDecimal(new Decimal(avgInterval), 0)} day interval`,
-          detectedAt: new Date(),
+          detectedAt: this.getCurrentDate(),
           merchant,
           suggestedAction: 'Check for duplicate charges or subscription changes'
         });
@@ -274,7 +326,7 @@ class AnomalyDetectionService {
     
     // Get all historical merchants
     const historicalMerchants = new Set<string>();
-    const sixMonthsAgo = subMonths(new Date(), 6);
+    const sixMonthsAgo = subMonths(this.getCurrentDate(), 6);
     
     allTransactions
       .filter(t => new Date(t.date) < sixMonthsAgo)
@@ -310,7 +362,7 @@ class AnomalyDetectionService {
           transactions: data.transactions,
           title: 'New Merchant Detected',
           description: `First time purchasing from ${merchant} - ${data.count} transaction(s) totaling ${totalFormatted}`,
-          detectedAt: new Date(),
+          detectedAt: this.getCurrentDate(),
           amount: data.amount,
           merchant,
           suggestedAction: 'Verify this is a legitimate merchant and these charges are authorized'
@@ -330,7 +382,7 @@ class AnomalyDetectionService {
     const threshold = this.THRESHOLDS[config.sensitivityLevel].categoryOverspend;
     
     // Calculate current month spending by category
-    const now = new Date();
+    const now = this.getCurrentDate();
     const currentMonthStart = startOfMonth(now);
     const currentMonthEnd = endOfMonth(now);
     
@@ -398,7 +450,7 @@ class AnomalyDetectionService {
           severity: percentOver > 100 ? 'high' : percentOver > 50 ? 'medium' : 'low',
           title: 'Category Overspending',
           description: `${category?.name || categoryId} spending is ${formatDecimal(new Decimal(percentOver), 0)}% higher than your 3-month average`,
-          detectedAt: new Date(),
+          detectedAt: this.getCurrentDate(),
           amount: amount,
           category: categoryId,
           suggestedAction: `Review ${category?.name || categoryId} expenses and consider adjusting your budget`
@@ -430,13 +482,13 @@ class AnomalyDetectionService {
 
     if (suspiciousTimeTransactions.length > 0) {
       anomalies.push({
-        id: `time-pattern-${Date.now()}`,
+        id: `time-pattern-${this.nowProvider()}`,
         type: 'time_pattern',
         severity: suspiciousTimeTransactions.length > 3 ? 'high' : 'medium',
         transactions: suspiciousTimeTransactions.map(t => t.id),
         title: 'Unusual Transaction Times',
         description: `${suspiciousTimeTransactions.length} transaction(s) occurred during unusual hours (midnight-5AM)`,
-        detectedAt: new Date(),
+        detectedAt: this.getCurrentDate(),
         suggestedAction: 'Verify these late-night transactions are legitimate'
       });
     }
@@ -478,7 +530,7 @@ class AnomalyDetectionService {
               transactions: [group[i].id, group[j].id],
               title: 'Possible Duplicate Charge',
               description: `Two identical charges of ${formatCurrency(Math.abs(group[i].amount), 'USD')} at ${this.extractMerchant(group[i].description)} within ${daysDiff} days`,
-              detectedAt: new Date(),
+              detectedAt: this.getCurrentDate(),
               amount: Math.abs(group[i].amount),
               merchant: this.extractMerchant(group[i].description),
               suggestedAction: 'Check if one of these is a duplicate charge and contact the merchant if needed'
@@ -506,17 +558,13 @@ class AnomalyDetectionService {
 
   // Save detected anomalies
   saveAnomalies(anomalies: Anomaly[]): void {
-    localStorage.setItem(this.ANOMALIES_KEY, JSON.stringify(anomalies));
+    this.writeToStorage(this.ANOMALIES_KEY, anomalies);
   }
 
   // Get saved anomalies
   getSavedAnomalies(): Anomaly[] {
-    try {
-      const stored = localStorage.getItem(this.ANOMALIES_KEY);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+    const stored = this.readFromStorage<Anomaly[]>(this.ANOMALIES_KEY);
+    return Array.isArray(stored) ? stored : [];
   }
 
   // Dismiss an anomaly

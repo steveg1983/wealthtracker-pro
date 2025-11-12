@@ -16,6 +16,7 @@ import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import TransactionReconciliation from './TransactionReconciliation';
 import type { Transaction, Account } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -120,7 +121,8 @@ vi.mock('../contexts/AppContext', () => ({
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `$${amount.toFixed(2)}`
+    formatCurrency: (amount: number, currency: string = 'USD') =>
+      formatCurrencyDecimal(amount, currency)
   })
 }));
 

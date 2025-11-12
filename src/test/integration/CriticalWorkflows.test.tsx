@@ -7,6 +7,8 @@ import { AppProvider } from '../../contexts/AppContext';
 import { PreferencesProvider } from '../../contexts/PreferencesContext';
 import { NotificationProvider } from '../../contexts/NotificationContext';
 import type { Transaction, Account, Budget, Goal } from '../../types';
+import { formatCurrency as formatCurrencyDecimal, formatCurrencyWhole } from '../../utils/currency-decimal';
+import { formatDecimal } from '../../utils/decimal-format';
 
 // Test wrapper with all required providers
 const TestWrapper: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -65,7 +67,7 @@ const TestAccountManager = () => {
       <div data-testid="accounts-list">
         {accounts.map(account => (
           <div key={account.id} data-testid={`account-${account.id}`}>
-            <span>{account.name}: £{account.balance.toFixed(2)}</span>
+            <span>{account.name}: {formatCurrencyDecimal(account.balance, 'GBP')}</span>
             <button 
               onClick={() => updateBalance(account.id, 100)}
               data-testid={`deposit-${account.id}`}
@@ -82,7 +84,7 @@ const TestAccountManager = () => {
         ))}
       </div>
       <div data-testid="total-balance">
-        Total: £{accounts.reduce((sum, acc) => sum + acc.balance, 0).toFixed(2)}
+        Total: {formatCurrencyDecimal(accounts.reduce((sum, acc) => sum + acc.balance, 0), 'GBP')}
       </div>
     </div>
   );
@@ -154,14 +156,14 @@ const TestTransactionManager = () => {
       <div data-testid="transactions-list">
         {transactions.map(transaction => (
           <div key={transaction.id} data-testid={`transaction-${transaction.id}`}>
-            {transaction.type}: {transaction.description} - £{transaction.amount.toFixed(2)}
+            {transaction.type}: {transaction.description} - {formatCurrencyDecimal(transaction.amount, 'GBP')}
           </div>
         ))}
       </div>
       <div data-testid="transaction-summary">
-        <div>Income: £{totalIncome.toFixed(2)}</div>
-        <div>Expenses: £{totalExpenses.toFixed(2)}</div>
-        <div>Net: £{(totalIncome - totalExpenses).toFixed(2)}</div>
+        <div>Income: {formatCurrencyDecimal(totalIncome, 'GBP')}</div>
+        <div>Expenses: {formatCurrencyDecimal(totalExpenses, 'GBP')}</div>
+        <div>Net: {formatCurrencyDecimal(totalIncome - totalExpenses, 'GBP')}</div>
       </div>
     </div>
   );
@@ -175,6 +177,7 @@ const TestBudgetManager = () => {
     const newBudget: Budget = {
       id: Date.now().toString(),
       category,
+      categoryId: category,
       amount,
       period: 'monthly',
       createdAt: new Date(),
@@ -207,18 +210,19 @@ const TestBudgetManager = () => {
       </button>
       <div data-testid="budgets-list">
         {budgets.map(budget => {
-          const spent = spending[budget.categoryId] || 0;
+          const categoryKey = (budget as Budget & { category?: string }).categoryId ?? (budget as any).category ?? '';
+          const spent = spending[categoryKey] || 0;
           const percentage = budget.amount > 0 ? (spent / budget.amount) * 100 : 0;
           const remaining = Math.max(0, budget.amount - spent);
           
           return (
-            <div key={budget.id} data-testid={`budget-${budget.categoryId}`}>
-              <div>{budget.categoryId}: £{budget.amount}/month</div>
-              <div>Spent: £{spent.toFixed(2)} ({percentage.toFixed(0)}%)</div>
-              <div>Remaining: £{remaining.toFixed(2)}</div>
+            <div key={budget.id} data-testid={`budget-${categoryKey}`}>
+              <div>{categoryKey}: {formatCurrencyWhole(budget.amount, 'GBP')}/month</div>
+              <div>Spent: {formatCurrencyDecimal(spent, 'GBP')} ({formatDecimal(percentage, 0)}%)</div>
+              <div>Remaining: {formatCurrencyDecimal(remaining, 'GBP')}</div>
               <button 
-                onClick={() => recordSpending(budget.categoryId, 50)}
-                data-testid={`spend-${budget.categoryId}`}
+                onClick={() => recordSpending(categoryKey, 50)}
+                data-testid={`spend-${categoryKey}`}
               >
                 Spend £50
               </button>
@@ -257,7 +261,7 @@ describe('Critical Workflows Integration Tests', () => {
       await waitFor(() => {
         const accountsList = screen.getByTestId('accounts-list');
         expect(accountsList).toHaveTextContent('Checking Account');
-        expect(accountsList).toHaveTextContent('0.00');
+        expect(accountsList).toHaveTextContent('£0.00');
       });
 
       // Add second account
@@ -275,7 +279,7 @@ describe('Critical Workflows Integration Tests', () => {
       // Verify deposit worked
       await waitFor(() => {
         const accountsList = screen.getByTestId('accounts-list');
-        expect(accountsList).toHaveTextContent('100.00');
+        expect(accountsList).toHaveTextContent('£100.00');
       });
 
       const savingsDeposit = screen.getAllByText('Deposit £100')[1];
@@ -284,7 +288,7 @@ describe('Critical Workflows Integration Tests', () => {
       // Verify multiple deposits
       await waitFor(() => {
         const accountsList = screen.getByTestId('accounts-list');
-        expect(accountsList).toHaveTextContent('300.00');
+        expect(accountsList).toHaveTextContent('£300.00');
       });
 
       // Verify total balance - both accounts have 300 each = 600
@@ -296,7 +300,7 @@ describe('Critical Workflows Integration Tests', () => {
       // Verify withdrawal worked
       await waitFor(() => {
         const accountsList = screen.getByTestId('accounts-list');
-        expect(accountsList).toHaveTextContent('250.00');
+        expect(accountsList).toHaveTextContent('£250.00');
       });
       expect(screen.getByTestId('total-balance')).toHaveTextContent('Total: £500.00');
     });
@@ -321,7 +325,7 @@ describe('Critical Workflows Integration Tests', () => {
       await user.type(amountInput, '3000');
       await user.click(addButton);
 
-      expect(screen.getByText('income: Monthly Salary - £3000.00')).toBeInTheDocument();
+      expect(screen.getByText('income: Monthly Salary - £3,000.00')).toBeInTheDocument();
 
       // Add expense transactions
       await user.selectOptions(typeSelect, 'expense');
@@ -338,14 +342,14 @@ describe('Critical Workflows Integration Tests', () => {
       await user.click(addButton);
 
       // Verify transactions
-      expect(screen.getByText('expense: Rent Payment - £1200.00')).toBeInTheDocument();
+      expect(screen.getByText('expense: Rent Payment - £1,200.00')).toBeInTheDocument();
       expect(screen.getByText('expense: Grocery Shopping - £350.00')).toBeInTheDocument();
 
       // Verify summary calculations
       const summary = screen.getByTestId('transaction-summary');
-      expect(summary).toHaveTextContent('Income: £3000.00');
-      expect(summary).toHaveTextContent('Expenses: £1550.00');
-      expect(summary).toHaveTextContent('Net: £1450.00');
+      expect(summary).toHaveTextContent('Income: £3,000.00');
+      expect(summary).toHaveTextContent('Expenses: £1,550.00');
+      expect(summary).toHaveTextContent('Net: £1,450.00');
     });
   });
 
@@ -447,7 +451,7 @@ describe('Critical Workflows Integration Tests', () => {
         await user.click(depositBtn);
       }
 
-      expect(screen.getByText('Main Checking: £4000.00')).toBeInTheDocument();
+      expect(screen.getByText('Main Checking: £4,000.00')).toBeInTheDocument();
 
       // Step 3: Set budgets
       await user.click(screen.getByTestId('add-groceries-budget'));
@@ -487,13 +491,13 @@ describe('Critical Workflows Integration Tests', () => {
 
       // Step 5: Verify final status
       // Account balance: £4000 - £150 = £3850
-      expect(screen.getByText('Main Checking: £3850.00')).toBeInTheDocument();
+      expect(screen.getByText('Main Checking: £3,850.00')).toBeInTheDocument();
 
       // Transaction summary
       const summary = screen.getByTestId('transaction-summary');
-      expect(summary).toHaveTextContent('Income: £4000.00');
+      expect(summary).toHaveTextContent('Income: £4,000.00');
       expect(summary).toHaveTextContent('Expenses: £150.00');
-      expect(summary).toHaveTextContent('Net: £3850.00');
+      expect(summary).toHaveTextContent('Net: £3,850.00');
 
       // Budget status
       const groceriesBudget = screen.getByTestId('budget-groceries');

@@ -2,7 +2,19 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, X, Filter, Calendar, DollarSign, Tag, FileText } from 'lucide-react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { Transaction } from '../types';
-import { debounce } from 'lodash';
+// Simple debounce implementation to avoid lodash type issues
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): ((...args: Parameters<T>) => void) & { cancel: () => void } {
+  let timeout: NodeJS.Timeout | undefined;
+  const debounced = function (...args: Parameters<T>) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+  debounced.cancel = () => clearTimeout(timeout);
+  return debounced;
+}
 
 interface TransactionSearchProps {
   onResultsChange?: (results: Transaction[]) => void;
@@ -47,21 +59,23 @@ export default function TransactionSearch({
 
     // Date filters
     if (currentFilters.dateFrom) {
-      filtered = filtered.filter(t => t.date >= currentFilters.dateFrom);
+      const fromDate = new Date(currentFilters.dateFrom);
+      filtered = filtered.filter(t => t.date >= fromDate);
     }
     if (currentFilters.dateTo) {
-      filtered = filtered.filter(t => t.date <= currentFilters.dateTo);
+      const toDate = new Date(currentFilters.dateTo);
+      filtered = filtered.filter(t => t.date <= toDate);
     }
 
     // Amount filters
     if (currentFilters.amountMin) {
-      filtered = filtered.filter(t => 
-        Math.abs(parseFloat(t.amount)) >= parseFloat(currentFilters.amountMin)
+      filtered = filtered.filter(t =>
+        Math.abs(t.amount) >= parseFloat(currentFilters.amountMin)
       );
     }
     if (currentFilters.amountMax) {
-      filtered = filtered.filter(t => 
-        Math.abs(parseFloat(t.amount)) <= parseFloat(currentFilters.amountMax)
+      filtered = filtered.filter(t =>
+        Math.abs(t.amount) <= parseFloat(currentFilters.amountMax)
       );
     }
 
@@ -78,7 +92,7 @@ export default function TransactionSearch({
     // Type filter
     if (currentFilters.type !== 'all') {
       filtered = filtered.filter(t => {
-        const amount = parseFloat(t.amount);
+        const amount = t.amount;
         return currentFilters.type === 'income' ? amount > 0 : amount < 0;
       });
     }

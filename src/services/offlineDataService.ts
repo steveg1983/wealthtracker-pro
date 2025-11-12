@@ -22,13 +22,46 @@ interface OfflineCache {
 const DB_NAME = 'WealthTrackerOfflineDB';
 const DB_VERSION = 2;
 
-class OfflineDataService {
+interface IDBFactoryLike {
+  open(name: string, version?: number): IDBOpenDBRequest;
+}
+
+interface NavigatorLike {
+  onLine?: boolean;
+  serviceWorker?: Pick<ServiceWorkerContainer, 'ready'>;
+}
+
+interface WindowLike {
+  addEventListener?: Window['addEventListener'];
+  setInterval?: typeof setInterval;
+  console?: Console;
+}
+
+interface OfflineDataServiceOptions {
+  indexedDB?: IDBFactoryLike;
+  navigatorRef?: NavigatorLike | null;
+  windowRef?: WindowLike | null;
+  fetchFn?: typeof fetch;
+}
+
+export class OfflineDataService {
   private db: IDBDatabase | null = null;
   private syncInProgress = false;
+  private indexedDBRef: IDBFactoryLike;
+  private navigatorRef: NavigatorLike | null;
+  private windowRef: WindowLike | null;
+  private fetchFn: typeof fetch;
+
+  constructor(options: OfflineDataServiceOptions = {}) {
+    this.indexedDBRef = options.indexedDB ?? indexedDB;
+    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
+    this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
+    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : (async () => new Response()) as any);
+  }
 
   async initialize(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+      const request = this.indexedDBRef.open(DB_NAME, DB_VERSION);
 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => {
@@ -83,7 +116,7 @@ class OfflineDataService {
     await this.promisifyRequest(store.add(sync));
 
     // Trigger sync if online
-    if (navigator.onLine) {
+    if (this.navigatorRef?.onLine) {
       this.triggerSync();
     }
   }
@@ -194,14 +227,14 @@ class OfflineDataService {
 
   // Trigger background sync
   async triggerSync(): Promise<void> {
-    if (this.syncInProgress || !navigator.onLine) return;
+    if (this.syncInProgress || !this.navigatorRef?.onLine) return;
 
     this.syncInProgress = true;
     
     try {
       // Register background sync if available
-      if ('serviceWorker' in navigator && 'sync' in ServiceWorkerRegistration.prototype) {
-        const registration = await navigator.serviceWorker.ready;
+      if (this.navigatorRef?.serviceWorker && 'sync' in ServiceWorkerRegistration.prototype) {
+        const registration = await this.navigatorRef.serviceWorker.ready;
         await (registration as any).sync.register('sync-data');
       } else {
         // Fallback to immediate sync
@@ -248,7 +281,7 @@ class OfflineDataService {
     const method = this.getHttpMethod(sync.action);
     
     try {
-      const response = await fetch(endpoint, {
+      const response = await this.fetchFn(endpoint, {
         method,
         headers: {
           'Content-Type': 'application/json',
@@ -268,7 +301,6 @@ class OfflineDataService {
     if (!this.db) await this.initialize();
 
     const conflict = {
-      id: sync.id,
       ...sync,
       conflictedAt: Date.now()
     };

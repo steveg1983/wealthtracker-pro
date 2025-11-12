@@ -8,9 +8,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import DataValidation from '../DataValidation';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock dependencies
-vi.mock('../../contexts/AppContext', () => ({
+vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     transactions: [
       {
@@ -110,7 +111,11 @@ vi.mock('../../contexts/AppContext', () => ({
 
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `$${amount.toFixed(2)}`
+    formatCurrency: (amount: number | { toNumber: () => number }, currency: string = 'USD') =>
+      formatCurrencyDecimal(
+        typeof amount === 'number' ? amount : amount.toNumber(),
+        currency
+      )
   })
 }));
 

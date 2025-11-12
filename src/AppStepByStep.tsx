@@ -6,14 +6,16 @@ import { AppProvider } from './contexts/AppContext';
 import { LayoutProvider } from './contexts/LayoutContext';
 import Layout from './components/Layout';
 import PageLoader from './components/PageLoader';
+import { createScopedLogger } from './loggers/scopedLogger';
 
 // Test lazy loading
 const Welcome = lazy(() => import('./pages/Welcome'));
+const stepLogger = createScopedLogger('AppStepByStep');
 
 export default function AppStepByStep() {
   const [step, setStep] = useState(1);
   
-  console.log('AppStepByStep rendering, step:', step);
+  stepLogger.info('Rendering AppStepByStep', { step });
   
   if (step === 1) {
     return (

@@ -1,13 +1,23 @@
 import * as Sentry from '@sentry/react';
 
+type Logger = Pick<Console, 'log' | 'error'>;
+
 const SENTRY_DSN = import.meta.env.VITE_SENTRY_DSN;
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
 const APP_ENV = import.meta.env.VITE_APP_ENV || 'development';
 const ENABLE_ERROR_TRACKING = import.meta.env.VITE_ENABLE_ERROR_TRACKING === 'true';
 
+let sentryLogger: Logger = typeof console !== 'undefined'
+  ? console
+  : { log: () => {}, error: () => {} };
+
+export function configureSentryLogger(logger: Logger) {
+  sentryLogger = logger;
+}
+
 export function initSentry() {
   if (!ENABLE_ERROR_TRACKING || !SENTRY_DSN) {
-    console.log('Sentry error tracking is disabled');
+    sentryLogger.log('Sentry error tracking is disabled');
     return;
   }
 
@@ -37,7 +47,7 @@ export function initSentry() {
       
       // Don't send events in development unless explicitly enabled
       if (APP_ENV === 'development' && !import.meta.env.VITE_SENTRY_SEND_IN_DEV) {
-        console.log('Sentry event captured (not sent in dev):', event, hint);
+        sentryLogger.log('Sentry event captured (not sent in dev):', event, hint);
         return null;
       }
       
@@ -85,7 +95,7 @@ export function clearSentryUser() {
 
 export function captureException(error: Error, context?: Record<string, any>) {
   if (!ENABLE_ERROR_TRACKING) {
-    console.error('Error captured:', error, context);
+    sentryLogger.error('Error captured:', error, context);
     return;
   }
   
@@ -98,7 +108,7 @@ export function captureException(error: Error, context?: Record<string, any>) {
 
 export function captureMessage(message: string, level: Sentry.SeverityLevel = 'info', context?: Record<string, any>) {
   if (!ENABLE_ERROR_TRACKING) {
-    console.log(`[${level}] ${message}`, context);
+    sentryLogger.log(`[${level}] ${message}`, context);
     return;
   }
   

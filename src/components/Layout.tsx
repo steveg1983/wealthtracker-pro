@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { UserButton } from '@clerk/clerk-react';
 import { HomeIcon, CreditCardIcon, WalletIcon, TrendingUpIcon, SettingsIcon, MenuIcon, XIcon, ArrowRightLeftIcon, BarChart3Icon, GoalIcon, ChevronRightIcon, DatabaseIcon, TagIcon, Settings2Icon, LineChartIcon, HashIcon, SearchIcon, MagicWandIcon, PieChartIcon, CalculatorIcon, ShieldIcon, UsersIcon, BriefcaseIcon, UploadIcon, DownloadIcon, FolderIcon, BankIcon, LightbulbIcon, FileTextIcon, ArchiveIcon } from '../components/icons';
@@ -18,8 +18,7 @@ import { MobilePullToRefreshWrapper } from './MobilePullToRefreshWrapper';
 import { QuickAddOfflineButton } from './pwa/QuickAddOfflineButton';
 import { EnhancedConflictResolutionModal } from './pwa/EnhancedConflictResolutionModal';
 import { useConflictResolution } from '../hooks/useConflictResolution';
-import GlobalSearch from './GlobalSearch';
-import { useGlobalSearchDialog } from '../hooks/useGlobalSearchDialog';
+import GlobalSearch, { type GlobalSearchHandle } from './GlobalSearch';
 import KeyboardShortcutsHelp from './KeyboardShortcutsHelp';
 import { useKeyboardShortcutsHelp } from '../hooks/useKeyboardShortcutsHelp';
 import EnhancedNotificationBell from './EnhancedNotificationBell';
@@ -29,7 +28,6 @@ import KeyboardSequenceIndicator from './KeyboardSequenceIndicator';
 import { RealtimeStatusDot } from './RealtimeStatusIndicator';
 import MobileBottomNav from './MobileBottomNav';
 import { useSwipeGestures } from '../hooks/useSwipeGestures';
-import ErrorBoundary from './ErrorBoundary';
 import { FloatingActionButton } from './FloatingActionButton';
 import DemoModeIndicator from './DemoModeIndicator';
 import SyncStatusIndicator from './SyncStatusIndicator';
@@ -66,7 +64,7 @@ function SidebarLink({ to, icon: Icon, label, isCollapsed, hasSubItems, isSubIte
 
   const content = (
     <>
-      <Icon size={18} />
+      <Icon size={isCollapsed ? 24 : 18} />
       {!isCollapsed && (
         <>
           <span className="flex-1 text-sm">{label}</span>
@@ -113,6 +111,9 @@ export default function Layout(): React.JSX.Element {
   const [forecastingExpanded, setForecastingExpanded] = useState(false);
   const [advancedExpanded, setAdvancedExpanded] = useState(false);
   const [investmentsExpanded, setInvestmentsExpanded] = useState(false);
+  const [isMobileSearchVisible, setIsMobileSearchVisible] = useState(false);
+  const desktopSearchRef = useRef<GlobalSearchHandle | null>(null);
+  const mobileSearchRef = useRef<GlobalSearchHandle | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const searchParams = new URLSearchParams(location.search);
@@ -131,8 +132,22 @@ export default function Layout(): React.JSX.Element {
     showSummaries
   } = usePreferences();
   const { isWideView } = useLayout();
-  const { isOpen: isSearchOpen, openSearch, closeSearch } = useGlobalSearchDialog();
   const { isOpen: isHelpOpen, openHelp, closeHelp } = useKeyboardShortcutsHelp();
+
+  const openMobileSearch = useCallback(() => {
+    setIsMobileSearchVisible(true);
+    requestAnimationFrame(() => {
+      mobileSearchRef.current?.focusInput();
+    });
+  }, []);
+
+  const focusSearch = useCallback(() => {
+    if (window.innerWidth <= 768) {
+      openMobileSearch();
+    } else {
+      desktopSearchRef.current?.focusInput();
+    }
+  }, [openMobileSearch]);
   
   // Initialize conflict resolution
   const {
@@ -188,6 +203,10 @@ export default function Layout(): React.JSX.Element {
     }
   }, [isWideView]);
 
+  useEffect(() => {
+    setIsMobileSearchVisible(false);
+  }, [location.pathname]);
+
   const toggleMobileMenu = useCallback(() => {
     setIsMobileMenuOpen((prev) => !prev);
   }, []);
@@ -198,7 +217,7 @@ export default function Layout(): React.JSX.Element {
       // Ctrl/Cmd + K to open global search
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        openSearch();
+        focusSearch();
       }
       
       // ? to open keyboard shortcuts help
@@ -228,7 +247,7 @@ export default function Layout(): React.JSX.Element {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isMobileMenuOpen, openSearch, openHelp, toggleMobileMenu, toggleSidebar]);
+  }, [isMobileMenuOpen, focusSearch, openHelp, toggleMobileMenu, toggleSidebar]);
 
   // Removed auto-expand logic - users control collapsible sections manually
 
@@ -245,7 +264,7 @@ export default function Layout(): React.JSX.Element {
   // }, []);
 
   return (
-    <div className="flex min-h-screen bg-tertiary dark:bg-gray-900">
+    <div className="flex min-h-screen bg-[#f0f7ff] dark:bg-gray-900">
       <DemoModeIndicator />
       <EnhancedSkipLinks />
       <FocusIndicator />
@@ -269,7 +288,7 @@ export default function Layout(): React.JSX.Element {
       {/* Desktop Sidebar Navigation */}
       <aside
         className={`${
-          isSidebarCollapsed ? 'w-14' : 'w-52'
+          isSidebarCollapsed ? 'w-20' : 'w-52'
         } bg-sidebar dark:bg-gray-800 shadow-2xl rounded-2xl transition-all duration-300 hidden md:block m-4 h-[calc(100vh-2rem)] fixed`}
         aria-label="Main navigation sidebar"
       >
@@ -279,16 +298,6 @@ export default function Layout(): React.JSX.Element {
               <h1 className="text-lg font-bold text-white dark:text-white">Wealth Tracker</h1>
             )}
             <div className="flex items-center space-x-2">
-              {!isSidebarCollapsed && (
-                <button
-                  onClick={openSearch}
-                  className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
-                  aria-label="Open global search"
-                  title="Search (Ctrl+K)"
-                >
-                  <SearchIcon size={18} className="text-white dark:text-gray-400" />
-                </button>
-              )}
               <button
                 onClick={toggleSidebar}
                 className="p-1 rounded hover:bg-white/20 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
@@ -305,7 +314,6 @@ export default function Layout(): React.JSX.Element {
             role="navigation" 
             aria-label="Main navigation menu"
           >
-            <SidebarLink to="/" icon={HomeIcon} label="Home" isCollapsed={isSidebarCollapsed} />
             <SidebarLink to="/dashboard" icon={BarChart3Icon} label="Dashboard" isCollapsed={isSidebarCollapsed} />
             
             {/* Accounts with Sub-navigation (but no "All Accounts" redundancy) */}
@@ -500,7 +508,7 @@ export default function Layout(): React.JSX.Element {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-white dark:bg-gray-800 shadow-md" role="banner">
+      <header className="md:hidden fixed top-0 left-0 right-0 z-40 bg-[#d4dce8] dark:bg-gray-800 shadow-md" role="banner">
         <div className="flex items-center justify-between p-4">
           <button
             onClick={toggleMobileMenu}
@@ -519,7 +527,13 @@ export default function Layout(): React.JSX.Element {
             <SyncStatusIndicator variant="compact" className="mr-1" />
             <EnhancedNotificationBell />
             <button
-              onClick={openSearch}
+              onClick={() => {
+                if (isMobileSearchVisible) {
+                  setIsMobileSearchVisible(false);
+                } else {
+                  openMobileSearch();
+                }
+              }}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
               aria-label="Search"
             >
@@ -538,23 +552,22 @@ export default function Layout(): React.JSX.Element {
           </div>
         </div>
       </header>
+
+      {isMobileSearchVisible && (
+        <div
+          data-testid="mobile-search-container"
+          className="md:hidden px-4 pb-3 bg-[#d4dce8] dark:bg-gray-800 shadow-sm"
+        >
+          <GlobalSearch
+            ref={mobileSearchRef}
+            placeholder="Search transactions, accounts, budgets..."
+            autoFocus
+            onResultSelect={() => setIsMobileSearchVisible(false)}
+          />
+        </div>
+      )}
       
-      {/* Desktop Notification Bell, User Profile and Theme Switcher */}
-      <div className="hidden md:flex items-center gap-3 fixed top-4 right-4 z-30" role="toolbar" aria-label="User tools">
-        <SyncStatusIndicator variant="compact" />
-        <EnhancedNotificationBell />
-        <RealtimeStatusDot />
-        <UserButton 
-          afterSignOutUrl="/"
-          appearance={{
-            elements: {
-              avatarBox: "w-10 h-10",
-              userButtonPopoverCard: "shadow-xl",
-              userButtonPopoverActions: "mt-2"
-            }
-          }}
-        />
-      </div>
+      {/* Desktop icons now in search bar - section removed to prevent duplication */}
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
@@ -579,7 +592,7 @@ export default function Layout(): React.JSX.Element {
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={() => {
-                      openSearch();
+                      openMobileSearch();
                       toggleMobileMenu();
                     }}
                     className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-white/50"
@@ -718,8 +731,8 @@ export default function Layout(): React.JSX.Element {
       )}
 
       {/* Main Content */}
-      <main 
-        ref={swipeRef as React.RefObject<HTMLElement>}
+      <main
+        ref={swipeRef.ref}
         id="main-content"
         className={`flex-1 md:pl-0 mt-16 md:mt-0 ${isSidebarCollapsed ? 'md:ml-[5.5rem]' : 'md:ml-[14.5rem]'} transition-all duration-300`}
         style={{ WebkitOverflowScrolling: 'touch' }}
@@ -730,24 +743,17 @@ export default function Layout(): React.JSX.Element {
         <NavigationProgress />
         
         {/* Desktop Search Bar - Always Visible */}
-        <div className="hidden md:block sticky top-0 z-30 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex-1 max-w-2xl">
-              <button
-                onClick={openSearch}
-                className="w-full flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg text-left transition-colors group"
-                aria-label="Search transactions, accounts, and more"
-              >
-                <SearchIcon size={20} className="text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
-                <span className="text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-300">
-                  Search transactions, accounts, budgets...
-                </span>
-                <span className="ml-auto text-xs text-gray-400 dark:text-gray-500 font-mono">
-                  Ctrl+K
-                </span>
-              </button>
+        <div className="hidden md:block sticky top-0 z-30 px-6 py-3">
+          <div className="max-w-7xl mx-auto flex items-center justify-center relative">
+            <div className="flex-1 max-w-2xl mx-auto">
+              <div className="w-full bg-white rounded-2xl shadow-sm border-2 border-[#d4dce8] focus-within:border-[#d4dce8]" style={{ outline: 'none !important', boxShadow: 'none !important' }}>
+                <GlobalSearch
+                  ref={desktopSearchRef}
+                  placeholder="Search transactions, accounts, budgets..."
+                />
+              </div>
             </div>
-            <div className="flex items-center gap-4 ml-6">
+            <div className="flex items-center gap-4 absolute right-0">
               <EnhancedNotificationBell />
               <RealtimeStatusDot />
               <UserButton 
@@ -804,11 +810,6 @@ export default function Layout(): React.JSX.Element {
       <PWAInstallPrompt />
       
       
-      {/* Global Search */}
-      <ErrorBoundary>
-        <GlobalSearch isOpen={isSearchOpen} onClose={closeSearch} />
-      </ErrorBoundary>
-      
       {/* Keyboard Shortcuts Help */}
       <KeyboardShortcutsHelp isOpen={isHelpOpen} onClose={closeHelp} />
       
@@ -854,9 +855,8 @@ export default function Layout(): React.JSX.Element {
       
       {/* Mobile Bottom Navigation */}
       <MobileBottomNav />
-      
-      {/* Floating Action Button for quick transaction entry */}
-      <FloatingActionButton />
+
+      {/* Floating Action Button removed from dashboard - using action buttons instead */}
     </div>
   );
 }

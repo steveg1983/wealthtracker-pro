@@ -17,7 +17,7 @@ export default function DataSourceIndicator(): React.JSX.Element | null {
 
   return (
     <div className="fixed bottom-4 right-4 z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 min-w-[200px]">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 min-w-[200px]">
         <div className="flex items-center justify-between mb-2">
           <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
             Data Source

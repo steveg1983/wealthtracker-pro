@@ -108,7 +108,7 @@ describe('Modal', () => {
       );
       
       const modal = screen.getByRole('dialog', { hidden: true });
-      expect(modal.className).toContain('max-w-lg');
+      expect(modal.className).toContain('max-w-2xl');
     });
 
     it('applies extra large size', () => {
@@ -119,7 +119,7 @@ describe('Modal', () => {
       );
       
       const modal = screen.getByRole('dialog', { hidden: true });
-      expect(modal.className).toContain('max-w-xl');
+      expect(modal.className).toContain('max-w-4xl');
     });
 
     it('applies full size', () => {
@@ -156,7 +156,7 @@ describe('Modal', () => {
         </Modal>
       );
       
-      const backdrop = screen.getByRole('dialog', { hidden: true }).parentElement;
+      const backdrop = document.querySelector('[aria-hidden="true"]');
       fireEvent.click(backdrop!);
       
       expect(mockOnClose).toHaveBeenCalledTimes(1);
@@ -392,8 +392,8 @@ describe('ModalBody', () => {
     );
     
     const body = container.firstChild;
-    expect(body?.className).toContain('p-4');
-    expect(body?.className).toContain('sm:p-6');
+      expect(body?.className).toContain('px-6');
+      expect(body?.className).toContain('py-5');
   });
 
   it('applies custom className', () => {
@@ -405,7 +405,7 @@ describe('ModalBody', () => {
     
     const body = container.firstChild;
     expect(body?.className).toContain('custom-body');
-    expect(body?.className).toContain('p-4');
+      expect(body?.className).toContain('px-6');
   });
 
   it('renders complex children', () => {
@@ -434,8 +434,8 @@ describe('ModalFooter', () => {
     );
     
     const footer = container.firstChild;
-    expect(footer?.className).toContain('p-4');
-    expect(footer?.className).toContain('sm:p-6');
+    expect(footer?.className).toContain('px-6');
+    expect(footer?.className).toContain('py-5');
     expect(footer?.className).toContain('border-t');
     expect(footer?.className).toContain('border-gray-200');
   });

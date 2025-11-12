@@ -11,10 +11,11 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import StripeService from '../../services/stripeService';
-import type { 
-  UserSubscription, 
-  BillingHistory, 
-  SubscriptionTier 
+import type {
+  UserSubscription,
+  BillingHistory,
+  SubscriptionTier,
+  SubscriptionPlan
 } from '../../types/subscription';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
@@ -127,14 +128,22 @@ export default function BillingDashboard({
     });
   };
 
-  const getTierDisplayName = (tier: SubscriptionTier) => {
-    const plan = StripeService.getPlanByTier(tier);
-    return plan?.name || tier;
+  const getTierDisplayName = (tier: SubscriptionTier | SubscriptionPlan | undefined) => {
+    if (!tier) return 'Free';
+
+    // Handle SubscriptionPlan (string) directly
+    if (typeof tier === 'string') {
+      const plan = StripeService.getPlanByTier(tier);
+      return plan?.name || tier;
+    }
+
+    // Handle SubscriptionTier object
+    return tier.name || tier.plan;
   };
 
   const formattedSubscriptionAmount = useMemo(() => {
     if (!subscription?.tier) return null;
-    const plan = StripeService.getPlanByTier(subscription.tier);
+    const plan = StripeService.getPlanByTier(subscription.tier as any);
     if (!plan || plan.price === undefined || plan.price === null) {
       return null;
     }
@@ -218,7 +227,7 @@ export default function BillingDashboard({
       </div>
 
       {/* Current Subscription */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
           <CreditCardIcon size={20} />
           Current Subscription
@@ -231,7 +240,7 @@ export default function BillingDashboard({
               <div>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Plan</p>
                 <p className="text-xl font-semibold text-gray-900 dark:text-white">
-                  {getTierDisplayName(subscription.tier)}
+                  {getTierDisplayName(subscription.tier || subscription.plan)}
                 </p>
                 {formattedSubscriptionAmount && (
                   <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -343,7 +352,7 @@ export default function BillingDashboard({
 
       {/* Payment Methods */}
       {billingHistory?.paymentMethods && billingHistory.paymentMethods.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Payment Methods
           </h3>
@@ -384,7 +393,7 @@ export default function BillingDashboard({
 
       {/* Billing History */}
       {billingHistory?.invoices && billingHistory.invoices.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
             Billing History
           </h3>
@@ -454,7 +463,7 @@ export default function BillingDashboard({
       {/* Cancel Subscription Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Cancel Subscription
             </h3>

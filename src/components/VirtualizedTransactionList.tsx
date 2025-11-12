@@ -252,7 +252,7 @@ export const VirtualizedTransactionList = memo(function VirtualizedTransactionLi
   onSelectionChange,
   showBulkActions = false
 }: VirtualizedTransactionListProps): React.JSX.Element {
-  const listRef = useRef<List>(null);
+  const listRef = useRef<List | null>(null);
 
   // Memoize item data to prevent re-renders
   const itemData = useMemo(() => ({
@@ -310,8 +310,8 @@ export const VirtualizedTransactionList = memo(function VirtualizedTransactionLi
                     listRef.current = list;
                     if (typeof ref === 'function') {
                       ref(list);
-                    } else if (ref) {
-                      ref.current = list;
+                    } else if (ref && 'current' in ref) {
+                      (ref as React.MutableRefObject<any>).current = list;
                     }
                   }
                 }}

@@ -10,7 +10,7 @@ import GoalModal from './GoalModal';
 import type { Goal } from '../types';
 
 // Mock all dependencies
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     addGoal: vi.fn(),
     updateGoal: vi.fn(),

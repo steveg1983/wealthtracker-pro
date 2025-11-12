@@ -45,7 +45,7 @@ export default function OCRTest() {
     <div className="max-w-4xl mx-auto p-6">
       <h2 className="text-2xl font-bold mb-6">OCR Test - Receipt Scanner</h2>
       
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6 mb-6">
         <h3 className="text-lg font-semibold mb-4">Upload Receipt Image</h3>
         
         <input
@@ -77,7 +77,7 @@ export default function OCRTest() {
       </div>
       
       {extractedData && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Extracted Data</h3>
           
           <div className="space-y-2">

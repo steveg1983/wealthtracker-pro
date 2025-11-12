@@ -22,16 +22,16 @@ export const SafeHTML: React.FC<SafeHTMLProps> = ({
   allowedAttributes,
 }) => {
   const sanitizedHTML = React.useMemo(() => {
-    const config: DOMPurify.Config = {};
-    
+    const config: Parameters<typeof DOMPurify.sanitize>[1] = {};
+
     if (allowedTags) {
       config.ALLOWED_TAGS = allowedTags;
     }
-    
+
     if (allowedAttributes) {
       config.ALLOWED_ATTR = allowedAttributes;
     }
-    
+
     return DOMPurify.sanitize(children, config);
   }, [children, allowedTags, allowedAttributes]);
 

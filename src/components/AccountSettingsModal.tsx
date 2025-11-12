@@ -5,7 +5,7 @@ import type { Account as BaseAccount } from '../types';
 
 // Extend the base Account type with additional fields needed for settings
 interface Account extends BaseAccount {
-  type: "current" | "savings" | "credit" | "loan" | "investment" | "assets" | "other";
+  type: "current" | "savings" | "credit" | "loan" | "investment" | "assets" | "other" | "mortgage" | "checking" | "asset";
   sortCode?: string;
   accountNumber?: string;
 }

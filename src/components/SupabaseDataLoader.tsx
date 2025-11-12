@@ -38,8 +38,8 @@ export function SupabaseDataLoader({ children }: SupabaseDataLoaderProps) {
         const databaseId = await userIdService.ensureUserExists(
           user.id,
           user.email || 'user@example.com',
-          user.firstName,
-          user.lastName
+          user.name?.split(' ')[0], // firstName
+          user.name?.split(' ').slice(1).join(' ') // lastName
         );
 
         if (!databaseId) {

@@ -55,8 +55,8 @@ export function VisualBudgetProgress({
       .filter(t =>
         t.category === budget.categoryId &&
         t.type === 'expense' &&
-        new Date(t.date) >= new Date(budget.startDate) &&
-        new Date(t.date) <= new Date(budget.endDate)
+        (!budget.startDate || new Date(t.date) >= new Date(budget.startDate)) &&
+        (!budget.endDate || new Date(t.date) <= new Date(budget.endDate))
       )
       .reduce((sum, t) => sum + Math.abs(t.amount), 0);
   }, [transactions, budget]);
@@ -64,8 +64,8 @@ export function VisualBudgetProgress({
   // Calculate spending velocity and predictions
   const velocity = useMemo((): SpendingVelocity => {
     const now = new Date();
-    const start = new Date(budget.startDate);
-    const end = new Date(budget.endDate);
+    const start = budget.startDate ? new Date(budget.startDate) : new Date();
+    const end = budget.endDate ? new Date(budget.endDate) : new Date(now.getFullYear(), now.getMonth() + 1, 0);
     
     // Calculate days
     const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
@@ -182,7 +182,7 @@ export function VisualBudgetProgress({
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
@@ -352,7 +352,7 @@ export function BudgetDashboard({ compact = false }: BudgetDashboardProps): Reac
     const sorted = [...filteredBudgets];
     sorted.sort((a, b) => {
       if (sortBy === 'name') {
-        return a.name.localeCompare(b.name);
+        return (a.name || '').localeCompare(b.name || '');
       }
       if (sortBy === 'amount') {
         return b.amount - a.amount;

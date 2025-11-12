@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Account, Category, Transaction } from '../types';
+import { formatCurrency as formatCurrencyDecimal, getCurrencySymbol as getDecimalCurrencySymbol } from '../utils/currency-decimal';
 
 // Mock child components
 vi.mock('./CategoryCreationModal', () => ({
@@ -26,8 +27,8 @@ vi.mock('./icons', () => ({
 
 // Mock utility functions
 vi.mock('../utils/currency', () => ({
-  formatCurrency: (amount: number, currency: string) => `${currency} ${amount.toFixed(2)}`,
-  getCurrencySymbol: (currency: string) => currency === 'USD' ? '$' : currency,
+  formatCurrency: (amount: number, currency: string) => formatCurrencyDecimal(amount, currency),
+  getCurrencySymbol: (currency: string) => getDecimalCurrencySymbol(currency),
 }));
 
 // Mock data
@@ -69,8 +70,8 @@ const mockCategories: Category[] = [
 ];
 
 // Mock useApp hook
-vi.mock('../contexts/AppContext', () => ({
-  useApp: vi.fn(() => ({
+const useAppMock = vi.hoisted(() =>
+  vi.fn(() => ({
     accounts: mockAccounts,
     transactions: mockTransactions,
     categories: mockCategories,
@@ -82,7 +83,11 @@ vi.mock('../contexts/AppContext', () => ({
     getDetailCategories: (subId: string) => {
       return mockCategories.filter(cat => cat.level === 'detail' && cat.parentId === subId);
     },
-  })),
+  }))
+);
+
+vi.mock('../contexts/AppContextSupabase', () => ({
+  useApp: useAppMock,
 }));
 
 // Import after mocking
@@ -99,7 +104,7 @@ describe('AccountReconciliationModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset the mock to default values
-    (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
+    useAppMock.mockReturnValue({
       accounts: mockAccounts,
       transactions: mockTransactions,
       categories: mockCategories,
@@ -147,7 +152,7 @@ describe('AccountReconciliationModal', () => {
       render(<AccountReconciliationModal {...defaultProps} />);
       
       // Opening balance (500) + Income (200) - Expense (100) = 600
-      expect(screen.getByText('USD 600.00')).toBeInTheDocument();
+      expect(screen.getByText(formatCurrencyDecimal(600, 'USD'))).toBeInTheDocument();
     });
 
     it('calculates balance up to reconciliation date', () => {
@@ -161,7 +166,7 @@ describe('AccountReconciliationModal', () => {
       fireEvent.change(dateField, { target: { value: '2024-01-17' } });
       
       // Should only include trans1 (before Jan 17), so 500 + 200 = 700
-      expect(screen.getByText('USD 700.00')).toBeInTheDocument();
+      expect(screen.getByText(formatCurrencyDecimal(700, 'USD'))).toBeInTheDocument();
     });
 
     it('handles accounts without opening balance', () => {
@@ -169,7 +174,7 @@ describe('AccountReconciliationModal', () => {
         { ...mockAccounts[0], openingBalance: undefined }
       ];
       
-      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
+      useAppMock.mockReturnValue({
         accounts: accountsWithoutOpeningBalance,
         transactions: mockTransactions,
         categories: mockCategories,
@@ -181,7 +186,7 @@ describe('AccountReconciliationModal', () => {
       render(<AccountReconciliationModal {...defaultProps} />);
       
       // 0 + Income (200) - Expense (100) = 100
-      expect(screen.getByText('USD 100.00')).toBeInTheDocument();
+      expect(screen.getByText(formatCurrencyDecimal(100, 'USD'))).toBeInTheDocument();
     });
   });
 
@@ -211,7 +216,8 @@ describe('AccountReconciliationModal', () => {
       fireEvent.change(balanceInput, { target: { value: '750' } });
       
       expect(screen.getByText('Difference')).toBeInTheDocument();
-      expect(screen.getByText('USD 150.00')).toBeInTheDocument(); // 750 - 600 = 150
+      const differenceSection = screen.getByText('Difference').closest('div');
+      expect(differenceSection).toHaveTextContent(formatCurrencyDecimal(150, 'USD')); // 750 - 600 = 150
     });
 
     it('shows positive adjustment message', () => {
@@ -220,7 +226,8 @@ describe('AccountReconciliationModal', () => {
       const balanceInput = screen.getByPlaceholderText(/Enter balance from your bank statement/);
       fireEvent.change(balanceInput, { target: { value: '750' } });
       
-      expect(screen.getByText(/A positive adjustment of USD 150.00 will be added/)).toBeInTheDocument();
+      const positiveAdjustment = screen.getByText(/A positive adjustment of/);
+      expect(positiveAdjustment).toHaveTextContent(formatCurrencyDecimal(150, 'USD'));
     });
 
     it('shows negative adjustment message', () => {
@@ -229,7 +236,8 @@ describe('AccountReconciliationModal', () => {
       const balanceInput = screen.getByPlaceholderText(/Enter balance from your bank statement/);
       fireEvent.change(balanceInput, { target: { value: '450' } });
       
-      expect(screen.getByText(/A negative adjustment of USD 150.00 will be added/)).toBeInTheDocument();
+      const negativeAdjustment = screen.getByText(/A negative adjustment of/);
+      expect(negativeAdjustment).toHaveTextContent(formatCurrencyDecimal(150, 'USD'));
     });
 
     it('updates notes field', () => {
@@ -300,7 +308,7 @@ describe('AccountReconciliationModal', () => {
   describe('Form submission', () => {
     it('creates adjustment transaction for positive difference', async () => {
       const mockAddTransaction = vi.fn();
-      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
+      useAppMock.mockReturnValue({
         accounts: mockAccounts,
         transactions: mockTransactions,
         categories: mockCategories,
@@ -324,7 +332,7 @@ describe('AccountReconciliationModal', () => {
           type: 'income',
           category: 'cat-blank',
           accountId: 'acc1',
-          notes: 'Reconciliation adjustment to match statement balance of USD 750.00',
+          notes: `Reconciliation adjustment to match statement balance of ${formatCurrencyDecimal(750, 'USD')}`,
           cleared: true,
           tags: ['reconciliation', 'adjustment'],
         });
@@ -333,7 +341,7 @@ describe('AccountReconciliationModal', () => {
 
     it('creates adjustment transaction for negative difference', async () => {
       const mockAddTransaction = vi.fn();
-      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
+      useAppMock.mockReturnValue({
         accounts: mockAccounts,
         transactions: mockTransactions,
         categories: mockCategories,
@@ -357,7 +365,7 @@ describe('AccountReconciliationModal', () => {
           type: 'expense',
           category: 'cat-blank',
           accountId: 'acc1',
-          notes: 'Reconciliation adjustment to match statement balance of USD 450.00',
+          notes: `Reconciliation adjustment to match statement balance of ${formatCurrencyDecimal(450, 'USD')}`,
           cleared: true,
           tags: ['reconciliation', 'adjustment'],
         });
@@ -368,7 +376,7 @@ describe('AccountReconciliationModal', () => {
       const mockAddTransaction = vi.fn();
       const onClose = vi.fn();
       
-      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
+      useAppMock.mockReturnValue({
         accounts: mockAccounts,
         transactions: mockTransactions,
         categories: mockCategories,
@@ -392,7 +400,7 @@ describe('AccountReconciliationModal', () => {
 
     it('uses custom notes when provided', async () => {
       const mockAddTransaction = vi.fn();
-      (useApp as ReturnType<typeof vi.fn>).mockReturnValue({
+      useAppMock.mockReturnValue({
         accounts: mockAccounts,
         transactions: mockTransactions,
         categories: mockCategories,
@@ -476,7 +484,7 @@ describe('AccountReconciliationModal', () => {
 
       render(<AccountReconciliationModal {...defaultProps} />);
       
-      expect(screen.getByText(/Statement Balance \(EUR\)/)).toBeInTheDocument();
+      expect(screen.getByText(/Statement Balance \(€\)/)).toBeInTheDocument();
     });
   });
 
@@ -489,7 +497,7 @@ describe('AccountReconciliationModal', () => {
       
       // Difference is 0.005 which formats to 0.00 (2 decimal places)
       const differenceSection = screen.getByText('Difference').parentElement;
-      expect(differenceSection).toHaveTextContent('USD 0.00');
+      expect(differenceSection).toHaveTextContent(formatCurrencyDecimal(0, 'USD'));
       
       // Since abs(0.005) < 0.01, it should show green (balanced)
       const amountElement = differenceSection.querySelector('.text-xl.font-bold');
@@ -516,10 +524,11 @@ describe('AccountReconciliationModal', () => {
       
       // System balance is 600, statement is 0, so difference is -600
       const differenceSection = screen.getByText('Difference').parentElement;
-      expect(differenceSection).toHaveTextContent('USD -600.00');
+      expect(differenceSection).toHaveTextContent(formatCurrencyDecimal(-600, 'USD'));
       
       // Should also show adjustment message
-      expect(screen.getByText(/A negative adjustment of USD 600.00 will be added/)).toBeInTheDocument();
+      const negativeAdjustment = screen.getByText(/A negative adjustment of/);
+      expect(negativeAdjustment).toHaveTextContent(formatCurrencyDecimal(600, 'USD'));
     });
   });
 });

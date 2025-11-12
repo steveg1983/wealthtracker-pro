@@ -149,8 +149,11 @@ export default function SubscriptionPage({
   };
 
   const getCurrentTier = (): SubscriptionPlan => {
-    if (currentSubscription) {
+    if (currentSubscription?.tier) {
       return currentSubscription.tier;
+    }
+    if (currentSubscription?.plan) {
+      return currentSubscription.plan;
     }
     return 'free';
   };

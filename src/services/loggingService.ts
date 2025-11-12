@@ -18,13 +18,66 @@ interface LogEntry {
   source?: string;
 }
 
+type ConsoleLike = Pick<Console, 'debug' | 'info' | 'warn' | 'error'>;
+
+interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem?(key: string): void;
+}
+
+interface LoggingDependencies {
+  env?: {
+    isDevelopment?: boolean;
+    isTest?: boolean;
+  };
+  console?: ConsoleLike;
+  captureException?: typeof captureException;
+  captureMessage?: typeof captureMessage;
+  storage?: StorageLike | null;
+  userAgentProvider?: () => string;
+  urlProvider?: () => string;
+  dateFactory?: () => Date;
+  maxHistorySize?: number;
+}
+
 import { captureException, captureMessage } from '../lib/sentry';
 
 class LoggingService {
-  private isDevelopment = import.meta.env.DEV;
-  private isTest = import.meta.env.MODE === 'test';
+  private readonly isDevelopment: boolean;
+  private readonly isTest: boolean;
+  private readonly console: ConsoleLike;
+  private readonly captureExceptionFn: typeof captureException;
+  private readonly captureMessageFn: typeof captureMessage;
+  private readonly storage: StorageLike | null;
+  private readonly userAgentProvider: () => string;
+  private readonly urlProvider: () => string;
+  private readonly dateFactory: () => Date;
   private logHistory: LogEntry[] = [];
-  private maxHistorySize = 100;
+  private readonly maxHistorySize: number;
+
+  constructor(dependencies: LoggingDependencies = {}) {
+    const envIsDev = typeof import.meta !== 'undefined'
+      ? import.meta.env?.DEV
+      : (typeof process !== 'undefined' ? process.env?.NODE_ENV !== 'production' : false);
+    const envMode = typeof import.meta !== 'undefined'
+      ? import.meta.env?.MODE
+      : (typeof process !== 'undefined' ? process.env?.NODE_ENV : undefined);
+    const defaultConsole: ConsoleLike = typeof console !== 'undefined'
+      ?console 
+      : { debug: () => {}, info: () => {}, warn: () => {}, error: () => {} };
+
+    this.isDevelopment = dependencies.env?.isDevelopment ?? !!envIsDev;
+    this.isTest = dependencies.env?.isTest ?? envMode === 'test';
+    this.console = dependencies.console ?? defaultConsole;
+    this.captureExceptionFn = dependencies.captureException ?? captureException;
+    this.captureMessageFn = dependencies.captureMessage ?? captureMessage;
+    this.storage = dependencies.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    this.userAgentProvider = dependencies.userAgentProvider ?? (() => (typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'));
+    this.urlProvider = dependencies.urlProvider ?? (() => (typeof window !== 'undefined' ? window.location.href : 'unknown'));
+    this.dateFactory = dependencies.dateFactory ?? (() => new Date());
+    this.maxHistorySize = dependencies.maxHistorySize ?? 100;
+  }
 
   /**
    * Log debug information (development only)
@@ -74,7 +127,7 @@ class LoggingService {
     const entry: LogEntry = {
       level,
       message,
-      timestamp: new Date(),
+      timestamp: this.dateFactory()
     };
 
     if (data !== undefined) {
@@ -92,24 +145,24 @@ class LoggingService {
     }
 
     // Output to console in development
-    if (this.isDevelopment) {
+    if (this.isDevelopment || level === 'warn' || level === 'error') {
       const prefix = source ? `[${source}]` : '';
-      const isoTimestamp = new Date().toISOString();
+      const isoTimestamp = entry.timestamp.toISOString();
       const timeSection = isoTimestamp.split('T')[1] ?? '';
       const timestamp = timeSection.split('.')[0] ?? timeSection;
 
       switch (level) {
         case 'debug':
-          console.debug(`🔍 ${timestamp} ${prefix}`, message, data || '');
+          this.console.debug(`🔍 ${timestamp} ${prefix}`, message, data ?? '');
           break;
         case 'info':
-          console.info(`ℹ️ ${timestamp} ${prefix}`, message, data || '');
+          this.console.info(`ℹ️ ${timestamp} ${prefix}`, message, data ?? '');
           break;
         case 'warn':
-          console.warn(`⚠️ ${timestamp} ${prefix}`, message, data || '');
+          this.console.warn(`⚠️ ${timestamp} ${prefix}`, message, data ?? '');
           break;
         case 'error':
-          console.error(`❌ ${timestamp} ${prefix}`, message, data || '');
+          this.console.error(`❌ ${timestamp} ${prefix}`, message, data ?? '');
           break;
       }
     }
@@ -124,19 +177,19 @@ class LoggingService {
       this.persistErrorLog(message, error, source);
     } catch (trackingError) {
       if (this.isDevelopment) {
-        console.warn('Failed to send error to tracking service', trackingError);
+        this.console.warn('Failed to send error to tracking service', trackingError);
       }
     }
   }
 
   private captureWithTracking(message: string, error: unknown, source?: string): void {
     if (error instanceof Error) {
-      captureException(error, { source, message });
+      this.captureExceptionFn(error, { source, message });
       return;
     }
 
     const serializedError = this.serializeError(error);
-    captureMessage(message, 'error', {
+    this.captureMessageFn(message, 'error', {
       source,
       error: serializedError,
     });
@@ -144,21 +197,24 @@ class LoggingService {
 
   private persistErrorLog(message: string, error: unknown, source?: string): void {
     try {
+      if (!this.storage) {
+        return;
+      }
       const errorLog = {
         message,
         error: this.serializeError(error),
         stack: error instanceof Error ? error.stack : undefined,
         source,
-        timestamp: new Date().toISOString(),
-        userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown',
-        url: typeof window !== 'undefined' ? window.location.href : 'unknown',
+        timestamp: this.dateFactory().toISOString(),
+        userAgent: this.userAgentProvider(),
+        url: this.urlProvider(),
       };
 
-      const existing = localStorage.getItem('app_errors');
+      const existing = this.storage.getItem('app_errors');
       const errors: typeof errorLog[] = existing ? JSON.parse(existing) : [];
       errors.push(errorLog);
       if (errors.length > 10) errors.shift();
-      localStorage.setItem('app_errors', JSON.stringify(errors));
+      this.storage.setItem('app_errors', JSON.stringify(errors));
     } catch {
       // Ignore storage failures
     }
@@ -202,6 +258,8 @@ class LoggingService {
   }
 }
 
+export const createLoggingService = (deps?: LoggingDependencies) => new LoggingService(deps);
+
 // Export singleton instance
 export const logger = new LoggingService();
 
@@ -210,4 +268,4 @@ export type LoggingServiceContract = Pick<
   'debug' | 'info' | 'warn' | 'error' | 'getHistory' | 'clearHistory'
 >;
 
-export type { LogLevel, LogEntry };
+export type { LogLevel, LogEntry, LoggingDependencies };

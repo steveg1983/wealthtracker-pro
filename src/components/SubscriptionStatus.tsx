@@ -89,33 +89,36 @@ const resolvePlanKey = (value: unknown): PlanKey => {
 };
 
 export default function SubscriptionStatus(): React.JSX.Element {
-  const { 
-    subscriptionTier, 
-    isLoading, 
-    billingCycle,
-    nextBillingDate,
-    cancelAtPeriodEnd,
-    updateSubscription,
-    cancelSubscription,
-    reactivateSubscription
+  const {
+    tier,
+    subscription,
+    isLoading
   } = useSubscription();
+
+  // These properties are not yet implemented in the context
+  const billingCycle = subscription?.billingPeriod || 'monthly';
+  const nextBillingDate = subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd) : null;
+  const cancelAtPeriodEnd = subscription?.cancelAtPeriodEnd || false;
+  const updateSubscription = async () => { /* Not yet implemented */ };
+  const cancelSubscription = async () => { /* Not yet implemented */ };
+  const reactivateSubscription = async () => { /* Not yet implemented */ };
 
   if (isLoading) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 animate-pulse">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6 animate-pulse">
         <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4"></div>
         <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
       </div>
     );
   }
 
-  const resolvedPlanKey = resolvePlanKey(subscriptionTier);
+  const resolvedPlanKey = resolvePlanKey(tier);
   const currentPlan = PLAN_DETAILS[resolvedPlanKey];
   const Icon = currentPlan.icon;
 
-  const handleUpgrade = async (newTier: 'pro' | 'business'): Promise<void> => {
+  const handleUpgrade = async (newTier: 'basic' | 'premium' | 'enterprise'): Promise<void> => {
     try {
-      await updateSubscription(newTier);
+      await updateSubscription();
     } catch (error) {
       console.error('Failed to upgrade subscription:', error);
     }
@@ -142,7 +145,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
   return (
     <div className="space-y-6">
       {/* Current Plan Card */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
         <div className="flex items-start justify-between mb-6">
           <div>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
@@ -172,7 +175,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             </div>
           </div>
 
-          {subscriptionTier !== 'free' && (
+          {tier !== 'free' && (
             <>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Billing</span>
@@ -231,16 +234,16 @@ export default function SubscriptionStatus(): React.JSX.Element {
 
         {/* Action Buttons */}
         <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700 flex gap-3">
-          {subscriptionTier === 'free' && (
+          {tier === 'free' && (
             <>
               <button
-                onClick={() => handleUpgrade('pro')}
+                onClick={() => handleUpgrade('basic')}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Upgrade to Pro
               </button>
               <button
-                onClick={() => handleUpgrade('business')}
+                onClick={() => handleUpgrade('premium')}
                 className="flex-1 px-4 py-2 border border-purple-600 text-purple-600 dark:text-purple-400 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
               >
                 Upgrade to Business
@@ -248,10 +251,10 @@ export default function SubscriptionStatus(): React.JSX.Element {
             </>
           )}
           
-          {subscriptionTier === 'pro' && (
+          {tier === 'basic' && (
             <>
               <button
-                onClick={() => handleUpgrade('business')}
+                onClick={() => handleUpgrade('premium')}
                 className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
               >
                 Upgrade to Business
@@ -267,7 +270,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             </>
           )}
 
-          {subscriptionTier === 'business' && !cancelAtPeriodEnd && (
+          {tier === 'premium' && !cancelAtPeriodEnd && (
             <button
               onClick={handleCancel}
               className="px-4 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -287,7 +290,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
       </div>
 
       {/* Upgrade Options */}
-      {subscriptionTier === 'free' && (
+      {tier === 'free' && (
         <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
             Unlock Premium Features
@@ -296,7 +299,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
             Upgrade to Pro or Business to access unlimited accounts, bank sync, advanced analytics, and more.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Crown size={20} className="text-blue-600" />
                 <span className="font-medium text-gray-900 dark:text-white">Pro</span>
@@ -306,7 +309,7 @@ export default function SubscriptionStatus(): React.JSX.Element {
                 Perfect for individuals managing personal finances
               </p>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Users size={20} className="text-purple-600" />
                 <span className="font-medium text-gray-900 dark:text-white">Business</span>

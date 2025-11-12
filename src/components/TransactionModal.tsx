@@ -231,7 +231,7 @@ export default function TransactionModal({ isOpen, onClose, transaction }: Trans
     >
       <div 
         ref={modalRef}
-        className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md"
+        className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md"
         role="document"
       >
         <div className="flex justify-between items-center mb-4">

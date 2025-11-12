@@ -1,5 +1,6 @@
 // Microsoft Money .mny file parser with manual mapping support
 import { formatDecimal } from './decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 export interface ParsedAccount {
   name: string;
@@ -36,11 +37,13 @@ export interface FieldMapping {
   type?: number;
 }
 
+const mnyParserLogger = createScopedLogger('MNYParser');
+
 export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const uint8Array = new Uint8Array(arrayBuffer);
   const dataView = new DataView(arrayBuffer);
   
-  console.log('Parsing Microsoft Money .mny file, size:', arrayBuffer.byteLength);
+  mnyParserLogger.info('Parsing Microsoft Money .mny file', { size: arrayBuffer.byteLength });
   
   // Try to extract structured data that could be transactions
   const potentialRecords: Array<Record<string, unknown>> = [];
@@ -96,12 +99,12 @@ export async function parseMNY(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
     
     // Progress
     if (offset % (1024 * 1024) === 0 && offset > 0) {
-      console.log(`Scanned ${formatDecimal(offset / (1024 * 1024), 1)}MB...`);
+      mnyParserLogger.debug('MNY scan progress', { scannedMB: formatDecimal(offset / (1024 * 1024), 1) });
       await new Promise(resolve => setTimeout(resolve, 0));
     }
   }
   
-  console.log(`Extracted ${potentialRecords.length} potential records`);
+  mnyParserLogger.info('MNY extraction complete', { records: potentialRecords.length });
   
   if (potentialRecords.length > 10) {
     // We found structured data - let user map it
@@ -206,7 +209,7 @@ export function applyMappingToData(rawData: Array<Record<string, unknown>>, mapp
       });
       
     } catch (error) {
-      console.error('Error processing record:', error);
+      mnyParserLogger.error('Error processing mapped record', error);
     }
   });
   
@@ -228,13 +231,13 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const uint8Array = new Uint8Array(arrayBuffer);
   const dataView = new DataView(arrayBuffer);
   
-  console.log('Parsing Microsoft Money .mbf backup file, size:', arrayBuffer.byteLength);
+  mnyParserLogger.info('Parsing Microsoft Money .mbf backup file', { size: arrayBuffer.byteLength });
   
   // Check file header to understand format
   const header = Array.from(uint8Array.slice(0, 64))
     .map(b => b.toString(16).padStart(2, '0'))
     .join(' ');
-  console.log('MBF file header:', header);
+  mnyParserLogger.debug('MBF file header', { header });
   
   // Check if file appears to be compressed or encrypted
   let textFound = 0;
@@ -246,7 +249,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   }
   
   const textPercentage = (textFound / Math.min(10000, arrayBuffer.byteLength)) * 100;
-  console.log(`Readable text percentage in first 10KB: ${formatDecimal(textPercentage, 1)}%`);
+  mnyParserLogger.debug('MBF readable text percentage', { percentage: formatDecimal(textPercentage, 1) });
   
   // Try to extract structured data
   const potentialRecords: Array<Record<string, unknown>> = [];
@@ -258,7 +261,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   const recordSizes = [128, 256, 512, 1024]; // Common record sizes
   
   for (const recordSize of recordSizes) {
-    console.log(`Trying record size: ${recordSize} bytes`);
+    mnyParserLogger.debug('Trying MBF record size', { recordSize });
     const testRecords: Array<Record<string, unknown>> = [];
     
     for (let offset = 0; offset < Math.min(50000, arrayBuffer.byteLength) && testRecords.length < 100; offset += recordSize) {
@@ -323,7 +326,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
     
     // If this record size found good data, use it
     if (testRecords.length > 10) {
-      console.log(`Found ${testRecords.length} records with size ${recordSize}`);
+      mnyParserLogger.info('MBF record size matched', { recordSize, count: testRecords.length });
       potentialRecords.push(...testRecords);
       break;
     }
@@ -331,7 +334,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
   
   // Approach 2: Look for specific MBF patterns
   if (potentialRecords.length < 10) {
-    console.log('Trying pattern-based extraction...');
+    mnyParserLogger.debug('Falling back to pattern-based MBF extraction');
     
     // MBF might use different date encoding
     for (let i = 0; i < Math.min(arrayBuffer.byteLength - 100, 100000); i++) {
@@ -397,7 +400,7 @@ export async function parseMBF(arrayBuffer: ArrayBuffer): Promise<ParseResult> {
     }
   }
   
-  console.log(`Extracted ${potentialRecords.length} potential records from MBF file`);
+  mnyParserLogger.info('MBF extraction complete', { records: potentialRecords.length });
   
   if (potentialRecords.length > 10) {
     return {

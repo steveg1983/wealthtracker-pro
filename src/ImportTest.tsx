@@ -1,16 +1,19 @@
 import { useState } from 'react';
+import { createScopedLogger } from './loggers/scopedLogger';
+
+const importTestLogger = createScopedLogger('ImportTest');
 
 export default function ImportTest() {
   const [test, setTest] = useState(0);
   
   const testImport = async (name: string, importFn: () => Promise<unknown>) => {
     try {
-      console.log(`Testing import: ${name}...`);
+      importTestLogger.info(`Testing import: ${name}`);
       await importFn();
-      console.log(`✅ ${name} imported successfully`);
+      importTestLogger.info(`${name} imported successfully`);
       return true;
     } catch (error) {
-      console.error(`❌ ${name} import failed:`, error);
+      importTestLogger.error(`${name} import failed`, error);
       return false;
     }
   };

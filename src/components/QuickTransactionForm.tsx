@@ -167,7 +167,7 @@ export function QuickTransactionForm({
       
       {/* Quick Form */}
       <div 
-        className="relative bg-white dark:bg-gray-800 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl transform transition-transform duration-300"
+        className="relative bg-[#d4dce8] dark:bg-gray-800 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-2xl transform transition-transform duration-300"
         onKeyDown={handleKeyDown}
       >
         {/* Header */}
@@ -273,7 +273,7 @@ export function QuickTransactionForm({
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
                     className="w-full px-2 py-2 text-sm bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                    required={type !== 'transfer'}
+                    required
                   >
                     {filteredCategories.map(cat => (
                       <option key={cat.id} value={cat.id}>

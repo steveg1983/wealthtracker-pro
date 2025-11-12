@@ -1,10 +1,11 @@
-import { Decimal, toDecimal } from './decimal';
+import Decimal from 'decimal.js';
+import { toDecimal, DecimalInstance } from './decimal';
 
 interface FormatDecimalOptions {
   group?: boolean;
 }
 
-function toPlainString(value: Decimal): string {
+function toPlainString(value: DecimalInstance): string {
   let str = value.toString();
   if (!str.includes('e') && !str.includes('E')) {
     return str;
@@ -39,7 +40,7 @@ function toPlainString(value: Decimal): string {
 }
 
 export function formatDecimal(
-  value: number | string | Decimal,
+  value: number | string | DecimalInstance,
   decimals: number = 2,
   options: FormatDecimalOptions = {}
 ): string {
@@ -67,7 +68,7 @@ export function formatDecimal(
 }
 
 export function formatSignedDecimal(
-  value: number | string | Decimal,
+  value: number | string | DecimalInstance,
   decimals: number = 2,
   options: FormatDecimalOptions = {}
 ): string {

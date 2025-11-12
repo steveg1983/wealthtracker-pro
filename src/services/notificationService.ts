@@ -61,7 +61,20 @@ export interface GoalCelebrationConfig {
   enableProgressReminders: boolean;
 }
 
-class NotificationService {
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+
+type NavigateFn = (path: string) => void;
+
+type Logger = Pick<Console, 'warn' | 'error'>;
+
+export interface NotificationServiceOptions {
+  storage?: StorageLike | null;
+  navigate?: NavigateFn | null;
+  logger?: Logger;
+  now?: () => number;
+}
+
+export class NotificationService {
   private rules: NotificationRule[] = [];
   private budgetAlertConfig: BudgetAlertConfig = {
     warningThreshold: 80,
@@ -73,15 +86,34 @@ class NotificationService {
   private transactionAlertConfig: TransactionAlertConfig = {
     largeTransactionThreshold: 500,
     unusualSpendingEnabled: true,
-    duplicateDetectionEnabled: true
+    duplicateDetectionEnabled: true,
+    merchantAlertEnabled: true,
+    foreignTransactionEnabled: true
   };
   private goalCelebrationConfig: GoalCelebrationConfig = {
     milestonePercentages: [25, 50, 75, 100],
-    enableSoundEffects: false,
+    enableCompletionCelebration: true,
+    enableMilestoneNotifications: true,
     enableProgressReminders: true
   };
+  private storage: StorageLike | null;
+  private navigate: NavigateFn | null;
+  private logger: Logger;
+  private nowProvider: () => number;
 
-  constructor() {
+  constructor(options: NotificationServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    this.navigate = options.navigate ?? ((path: string) => {
+      if (typeof window !== 'undefined' && window?.location) {
+        window.location.href = path;
+      }
+    });
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {})),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {}))
+    };
+    this.nowProvider = options.now ?? (() => Date.now());
     this.loadConfig();
     this.loadRules();
   }
@@ -94,7 +126,7 @@ class NotificationService {
       enableMonthlyReset: true,
       enableProjectedOverspend: true,
       enableCategoryComparison: true,
-      ...this.loadFromStorage('notificationService_budgetConfig')
+      ...this.readConfig<BudgetAlertConfig>('notificationService_budgetConfig')
     };
 
     // Load transaction alert configuration
@@ -104,7 +136,7 @@ class NotificationService {
       duplicateDetectionEnabled: true,
       merchantAlertEnabled: false,
       foreignTransactionEnabled: true,
-      ...this.loadFromStorage('notificationService_transactionConfig')
+      ...this.readConfig<TransactionAlertConfig>('notificationService_transactionConfig')
     };
 
     // Load goal celebration configuration
@@ -113,35 +145,55 @@ class NotificationService {
       enableCompletionCelebration: true,
       enableMilestoneNotifications: true,
       enableProgressReminders: true,
-      ...this.loadFromStorage('notificationService_goalConfig')
+      ...this.readConfig<GoalCelebrationConfig>('notificationService_goalConfig')
     };
   }
 
   private loadRules() {
     const storedRules = this.loadFromStorage('notificationService_rules');
-    this.rules = Array.isArray(storedRules) ? storedRules as NotificationRule[] : this.getDefaultRules();
+    if (Array.isArray(storedRules)) {
+      this.rules = storedRules.map(rule => ({
+        ...rule,
+        created: rule.created ? new Date(rule.created) : new Date(this.nowProvider()),
+        lastTriggered: rule.lastTriggered ? new Date(rule.lastTriggered) : undefined
+      }));
+    } else {
+      this.rules = this.getDefaultRules();
+    }
   }
 
-  private loadFromStorage(key: string): Record<string, unknown> {
+  private readConfig<T>(key: string): Partial<T> {
+    const value = this.loadFromStorage(key);
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      return value as Partial<T>;
+    }
+    return {};
+  }
+
+  private loadFromStorage<T = Record<string, unknown>>(key: string): T | Record<string, unknown> {
+    if (!this.storage) return {};
     try {
-      const stored = localStorage.getItem(key);
+      const stored = this.storage.getItem(key);
       if (!stored) return {};
       const parsed = JSON.parse(stored);
-      return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed : {};
-    } catch {
+      return parsed;
+    } catch (error) {
+      this.logger.warn?.(`Failed to load "${key}" from storage:`, error as Error);
       return {};
     }
   }
 
   private saveToStorage(key: string, data: JsonValue) {
+    if (!this.storage) return;
     try {
-      localStorage.setItem(key, JSON.stringify(data));
+      this.storage.setItem(key, JSON.stringify(data));
     } catch (error) {
-      console.warn('Failed to save to localStorage:', error);
+      this.logger.warn?.(`Failed to save "${key}" to storage:`, error as Error);
     }
   }
 
   private getDefaultRules(): NotificationRule[] {
+    const timestamp = this.getCurrentDate();
     return [
       {
         id: 'budget-warning',
@@ -171,7 +223,7 @@ class NotificationService {
         ],
         priority: 'medium',
         cooldown: 60, // 1 hour
-        created: new Date()
+        created: timestamp
       },
       {
         id: 'budget-exceeded',
@@ -201,7 +253,7 @@ class NotificationService {
         ],
         priority: 'high',
         cooldown: 30, // 30 minutes
-        created: new Date()
+        created: timestamp
       },
       {
         id: 'large-transaction',
@@ -231,7 +283,7 @@ class NotificationService {
         ],
         priority: 'medium',
         cooldown: 5, // 5 minutes
-        created: new Date()
+        created: timestamp
       },
       {
         id: 'goal-milestone',
@@ -261,7 +313,7 @@ class NotificationService {
         ],
         priority: 'medium',
         cooldown: 60, // 1 hour
-        created: new Date()
+        created: timestamp
       },
       {
         id: 'goal-completed',
@@ -291,7 +343,7 @@ class NotificationService {
         ],
         priority: 'high',
         cooldown: 0, // No cooldown for celebrations
-        created: new Date()
+        created: timestamp
       }
     ];
   }
@@ -299,7 +351,7 @@ class NotificationService {
   // Budget Alert Methods
   checkBudgetAlerts(budgets: Budget[], transactions: Transaction[], categories: Category[]): Notification[] {
     const notifications: Notification[] = [];
-    const now = new Date();
+    const now = this.getCurrentDate();
 
     budgets.forEach(budget => {
       // Calculate spent amount for this budget
@@ -345,7 +397,7 @@ class NotificationService {
   // Transaction Alert Methods
   checkTransactionAlerts(transaction: Transaction, transactions: Transaction[]): Notification[] {
     const notifications: Notification[] = [];
-    const now = new Date();
+    const now = this.getCurrentDate();
 
     const applicableRules = this.rules.filter(rule => 
       rule.type === 'transaction' && 
@@ -388,7 +440,7 @@ class NotificationService {
   // Goal Celebration Methods
   checkGoalProgress(goals: Goal[], previousGoals?: Goal[]): Notification[] {
     const notifications: Notification[] = [];
-    const now = new Date();
+    const now = this.getCurrentDate();
 
     goals.forEach(goal => {
       const currentProgress = this.calculateGoalProgress(goal);
@@ -425,12 +477,12 @@ class NotificationService {
           type: 'success',
           title: `🎯 ${milestone}% Goal Progress!`,
           message: `You're ${milestone}% of the way to "${goal.name}"! Keep it up!`,
-          timestamp: new Date(),
+          timestamp: this.getCurrentDate(),
           read: false,
           action: {
             label: 'View Goal',
             onClick: () => {
-              window.location.href = '/goals';
+              this.navigate?.('/goals');
             }
           }
         };
@@ -446,12 +498,12 @@ class NotificationService {
       type: 'success',
       title: '🏆 Goal Achieved!',
       message: `Congratulations! You've completed "${goal.name}"! Time to celebrate! 🎉`,
-      timestamp: new Date(),
+      timestamp: this.getCurrentDate(),
       read: false,
       action: {
         label: 'View Achievement',
         onClick: () => {
-          window.location.href = '/goals';
+          this.navigate?.('/goals');
         }
       }
     };
@@ -476,7 +528,7 @@ class NotificationService {
         action: {
           label: 'Review Transactions',
           onClick: () => {
-            window.location.href = '/transactions';
+            this.navigate?.('/transactions');
           }
         }
       };
@@ -486,7 +538,7 @@ class NotificationService {
   }
 
   private calculateBudgetSpent(budget: Budget, transactions: Transaction[]): number {
-    const now = new Date();
+    const now = this.getCurrentDate();
     let startDate: Date;
     let endDate: Date;
 
@@ -555,17 +607,17 @@ class NotificationService {
     const message = this.interpolateString(action.config.message, context);
 
     return {
-      id: `rule-${rule.id}-${Date.now()}`,
+      id: `rule-${rule.id}-${this.nowProvider()}`,
       type: this.mapPriorityToType(rule.priority),
       title,
       message,
-      timestamp: new Date(),
+      timestamp: this.getCurrentDate(),
       read: false,
       action: action.config.actionButton ? {
         label: action.config.actionButton.label,
         onClick: () => {
           if (action.config.actionButton) {
-            window.location.href = action.config.actionButton.action;
+            this.navigate?.(action.config.actionButton.action);
           }
         }
       } : undefined
@@ -625,11 +677,15 @@ class NotificationService {
     return [...this.rules];
   }
 
+  private getCurrentDate(): Date {
+    return new Date(this.nowProvider());
+  }
+
   addRule(rule: Omit<NotificationRule, 'id' | 'created'>): NotificationRule {
     const newRule: NotificationRule = {
       ...rule,
-      id: `rule-${Date.now()}`,
-      created: new Date()
+      id: `rule-${this.nowProvider()}`,
+      created: this.getCurrentDate()
     };
     
     this.rules.push(newRule);

@@ -4,6 +4,15 @@ import type { CustomReport } from '../components/CustomReportBuilder';
 import type { Transaction, Account, Budget, Category } from '../types';
 import { format } from 'date-fns';
 
+type StorageAdapter = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+export interface ScheduledReportServiceOptions {
+  storage?: StorageAdapter | null;
+  setIntervalFn?: typeof setInterval;
+  clearIntervalFn?: typeof clearInterval;
+  now?: () => Date;
+}
+
 export interface ScheduledCustomReport {
   id: string;
   customReportId: string; // Reference to custom report
@@ -21,33 +30,48 @@ export interface ScheduledCustomReport {
   updatedAt: Date;
 }
 
-class ScheduledReportService {
+export class ScheduledReportService {
   private readonly STORAGE_KEY = 'money_management_scheduled_custom_reports';
-  private checkInterval: number | null = null;
+  private checkInterval: ReturnType<typeof setInterval> | null = null;
+  private storage: StorageAdapter | null;
+  private readonly setIntervalFn: typeof setInterval;
+  private readonly clearIntervalFn: typeof clearInterval;
+  private readonly now: () => Date;
+
+  constructor(options: ScheduledReportServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    this.setIntervalFn = options.setIntervalFn ?? ((handler: TimerHandler, timeout?: number, ...args: any[]) =>
+      setInterval(handler, timeout, ...args)
+    );
+    this.clearIntervalFn = options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
+    this.now = options.now ?? (() => new Date());
+  }
 
   // Initialize the service
   initialize(): void {
+    if (this.checkInterval) return;
     // Check for due reports every minute
-    this.checkInterval = setInterval(() => {
-      this.checkAndRunDueReports();
+    this.checkInterval = this.setIntervalFn(() => {
+      void this.checkAndRunDueReports();
     }, 60000); // 1 minute
 
     // Check immediately on initialization
-    this.checkAndRunDueReports();
+    void this.checkAndRunDueReports();
   }
 
   // Clean up
   destroy(): void {
     if (this.checkInterval) {
-      clearInterval(this.checkInterval);
+      this.clearIntervalFn(this.checkInterval);
       this.checkInterval = null;
     }
   }
 
   // Get all scheduled reports
   getScheduledReports(): ScheduledCustomReport[] {
+    if (!this.storage) return [];
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = this.storage.getItem(this.STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch (error) {
       console.error('Failed to load scheduled reports:', error);
@@ -65,24 +89,24 @@ class ScheduledReportService {
     } else {
       reports.push(report);
     }
-    
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
+    this.storage?.setItem(this.STORAGE_KEY, JSON.stringify(reports));
   }
 
   // Delete a scheduled report
   deleteScheduledReport(reportId: string): void {
     const reports = this.getScheduledReports().filter(r => r.id !== reportId);
-    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(reports));
+    this.storage?.setItem(this.STORAGE_KEY, JSON.stringify(reports));
   }
 
   // Calculate next run time
-  calculateNextRun(report: ScheduledCustomReport, fromDate: Date = new Date()): Date {
+  calculateNextRun(report: ScheduledCustomReport, fromDate?: Date): Date {
+    const baseDate = fromDate ?? this.now();
     const [hours, minutes] = report.time.split(':').map(Number);
-    const nextRun = new Date(fromDate);
+    const nextRun = new Date(baseDate);
     nextRun.setHours(hours, minutes, 0, 0);
 
     // If the time has already passed today, start from tomorrow
-    if (nextRun <= fromDate) {
+    if (nextRun <= baseDate) {
       nextRun.setDate(nextRun.getDate() + 1);
     }
 
@@ -103,7 +127,7 @@ class ScheduledReportService {
         const targetDate = report.dayOfMonth || 1;
         nextRun.setDate(targetDate);
         // If we've passed this month's date, go to next month
-        if (nextRun <= fromDate) {
+        if (nextRun <= baseDate) {
           nextRun.setMonth(nextRun.getMonth() + 1);
         }
         break;
@@ -119,11 +143,11 @@ class ScheduledReportService {
       
       case 'yearly':
         nextRun.setMonth(0, 1); // January 1st
-        if (nextRun <= fromDate) {
+        if (nextRun <= baseDate) {
           nextRun.setFullYear(nextRun.getFullYear() + 1);
         }
         break;
-    }
+      }
 
     return nextRun;
   }
@@ -131,7 +155,7 @@ class ScheduledReportService {
   // Check and run due reports
   private async checkAndRunDueReports(): Promise<void> {
     const reports = this.getScheduledReports();
-    const now = new Date();
+    const now = this.now();
     
     for (const report of reports) {
       if (report.enabled && new Date(report.nextRun) <= now) {
@@ -228,11 +252,16 @@ class ScheduledReportService {
     budgets: Budget[];
     categories: Category[];
   } {
+    const storage = this.storage;
+    const getJSON = (key: string) => {
+      if (!storage) return '[]';
+      return storage.getItem(key) ?? '[]';
+    };
     return {
-      transactions: JSON.parse(localStorage.getItem('money_management_transactions') || '[]') as Transaction[],
-      accounts: JSON.parse(localStorage.getItem('money_management_accounts') || '[]') as Account[],
-      budgets: JSON.parse(localStorage.getItem('money_management_budgets') || '[]') as Budget[],
-      categories: JSON.parse(localStorage.getItem('money_management_categories') || '[]') as Category[]
+      transactions: JSON.parse(getJSON('money_management_transactions')) as Transaction[],
+      accounts: JSON.parse(getJSON('money_management_accounts')) as Account[],
+      budgets: JSON.parse(getJSON('money_management_budgets')) as Budget[],
+      categories: JSON.parse(getJSON('money_management_categories')) as Category[]
     };
   }
 
@@ -320,17 +349,27 @@ class ScheduledReportService {
   private notifyEmailReady(report: ScheduledCustomReport, attachment: any): void {
     // In a real implementation, this would send an email
     // For now, just show a notification
-    const notification = new Notification('Report Ready for Email', {
-      body: `${report.reportName} has been generated and is ready to email to ${report.emailRecipients?.join(', ')}`,
-      icon: '/icon-192.png',
-      tag: 'scheduled-report-email'
-    });
+    if (typeof Notification !== 'undefined') {
+      // eslint-disable-next-line no-new
+      new Notification('Report Ready for Email', {
+        body: `${report.reportName} has been generated and is ready to email to ${report.emailRecipients?.join(', ')}`,
+        icon: '/icon-192.png',
+        tag: 'scheduled-report-email'
+      });
+    } else {
+      console.log('[ScheduledReports] Email notification ready:', {
+        report: report.reportName,
+        recipients: report.emailRecipients,
+        attachment
+      });
+    }
   }
 
   // Add to history
   private addToHistory(entry: any): void {
     const historyKey = 'money_management_report_history';
-    const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+    const historyJson = this.storage?.getItem(historyKey) ?? '[]';
+    const history = JSON.parse(historyJson);
     history.unshift(entry);
     
     // Keep only last 100 entries
@@ -338,13 +377,14 @@ class ScheduledReportService {
       history.splice(100);
     }
     
-    localStorage.setItem(historyKey, JSON.stringify(history));
+    this.storage?.setItem(historyKey, JSON.stringify(history));
   }
 
   // Get report history
   getReportHistory(): any[] {
     const historyKey = 'money_management_report_history';
-    return JSON.parse(localStorage.getItem(historyKey) || '[]');
+    const historyJson = this.storage?.getItem(historyKey) ?? '[]';
+    return JSON.parse(historyJson);
   }
 }
 

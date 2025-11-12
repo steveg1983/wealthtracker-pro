@@ -3,6 +3,7 @@ import {
   currencySymbols,
   getCurrencySymbol as getCurrencySymbolDecimal,
 } from './currency-decimal';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 // Currency conversion utilities
 interface ExchangeRates {
@@ -16,6 +17,7 @@ let ratesCache: {
 } | null = null;
 
 const CACHE_DURATION = 60 * 60 * 1000; // 1 hour in milliseconds
+const currencyLogger = createScopedLogger('CurrencyUtils');
 
 export { currencySymbols };
 export const getCurrencySymbol = getCurrencySymbolDecimal;
@@ -91,7 +93,7 @@ async function fetchExchangeRates(): Promise<ExchangeRates> {
     const data = await response.json();
     return data.rates;
   } catch (error) {
-    console.error('Error fetching exchange rates:', error);
+    currencyLogger.error('Error fetching exchange rates', error);
     
     // Fallback to approximate rates if API fails
     return {
@@ -143,7 +145,7 @@ export async function convertCurrencyAsync(
     
     // Check if we have rates for both currencies
     if (!rates[fromCurrency] || !rates[toCurrency]) {
-      console.warn(`Missing exchange rate for ${fromCurrency} or ${toCurrency}`);
+      currencyLogger.warn('Missing exchange rate for conversion', { fromCurrency, toCurrency });
       return amount; // Return original amount if conversion fails
     }
     
@@ -153,7 +155,7 @@ export async function convertCurrencyAsync(
     
     return converted;
   } catch (error) {
-    console.error('Currency conversion error:', error);
+    currencyLogger.error('Currency conversion error', error);
     return amount; // Return original amount if conversion fails
   }
 }
@@ -173,7 +175,7 @@ export async function convertMultipleCurrencies(
       
       // Check if we have rates for the currency
       if (!rates[currency] || !rates[toCurrency]) {
-        console.warn(`Missing exchange rate for ${currency} or ${toCurrency}`);
+        currencyLogger.warn('Missing exchange rate for batch conversion', { currency, toCurrency });
         return total + amount; // Add unconverted amount
       }
       
@@ -184,7 +186,7 @@ export async function convertMultipleCurrencies(
       return total + converted;
     }, 0);
   } catch (error) {
-    console.error('Currency conversion error:', error);
+    currencyLogger.error('Currency conversion error (batch)', error);
     // Fallback: just sum amounts without conversion
     return amounts.reduce((sum, { amount }) => sum + amount, 0);
   }

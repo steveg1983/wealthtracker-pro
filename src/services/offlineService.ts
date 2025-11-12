@@ -45,45 +45,87 @@ interface OfflineDB extends DBSchema {
   };
 }
 
-class OfflineService {
+interface WindowLike {
+  addEventListener?: Window['addEventListener'];
+  removeEventListener?: Window['removeEventListener'];
+  dispatchEvent?: Window['dispatchEvent'];
+}
+
+interface DocumentLike {
+  addEventListener?: Document['addEventListener'];
+  removeEventListener?: Document['removeEventListener'];
+  hidden?: boolean;
+}
+
+interface NavigatorLike {
+  onLine?: boolean;
+  serviceWorker?: Pick<typeof navigator.serviceWorker, 'ready'>;
+}
+
+type DbFactory = () => Promise<IDBPDatabase<OfflineDB>>;
+type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+
+export interface OfflineServiceOptions {
+  windowRef?: WindowLike | null;
+  documentRef?: DocumentLike | null;
+  navigatorRef?: NavigatorLike | null;
+  dbFactory?: DbFactory;
+  logger?: Logger;
+}
+
+export class OfflineService {
   private db: IDBPDatabase<OfflineDB> | null = null;
   private syncInProgress = false;
   private readonly DB_NAME = 'WealthTrackerOffline';
   private readonly DB_VERSION = 1;
+  private windowRef: WindowLike | null;
+  private documentRef: DocumentLike | null;
+  private navigatorRef: NavigatorLike | null;
+  private onlineHandler?: () => void;
+  private visibilityHandler?: () => void;
+  private readonly dbFactory: DbFactory;
+  private readonly logger: Logger;
+
+  constructor(options: OfflineServiceOptions = {}) {
+    this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
+    this.documentRef = options.documentRef ?? (typeof document !== 'undefined' ? document : null);
+    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
+    this.dbFactory = options.dbFactory ?? (() =>
+      openDB<OfflineDB>(this.DB_NAME, this.DB_VERSION, {
+        upgrade(db) {
+          if (!db.objectStoreNames.contains('transactions')) {
+            const transactionStore = db.createObjectStore('transactions', { keyPath: 'id' });
+            transactionStore.createIndex('by-date', 'date');
+            transactionStore.createIndex('by-sync-status', 'syncStatus');
+          }
+          if (!db.objectStoreNames.contains('accounts')) {
+            db.createObjectStore('accounts', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('budgets')) {
+            db.createObjectStore('budgets', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('goals')) {
+            db.createObjectStore('goals', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('offlineQueue')) {
+            db.createObjectStore('offlineQueue', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('conflicts')) {
+            db.createObjectStore('conflicts', { keyPath: 'id' });
+          }
+        }
+      })
+    );
+    const defaultLogger = typeof console !== 'undefined'
+      ? console
+      : { log: () => {}, warn: () => {}, error: () => {} };
+    this.logger = options.logger ?? defaultLogger;
+  }
 
   async init(): Promise<void> {
     if (this.db) return;
 
-    this.db = await openDB<OfflineDB>(this.DB_NAME, this.DB_VERSION, {
-      upgrade(db) {
-        // Create object stores
-        if (!db.objectStoreNames.contains('transactions')) {
-          const transactionStore = db.createObjectStore('transactions', { keyPath: 'id' });
-          transactionStore.createIndex('by-date', 'date');
-          transactionStore.createIndex('by-sync-status', 'syncStatus');
-        }
-
-        if (!db.objectStoreNames.contains('accounts')) {
-          db.createObjectStore('accounts', { keyPath: 'id' });
-        }
-
-        if (!db.objectStoreNames.contains('budgets')) {
-          db.createObjectStore('budgets', { keyPath: 'id' });
-        }
-
-        if (!db.objectStoreNames.contains('goals')) {
-          db.createObjectStore('goals', { keyPath: 'id' });
-        }
-
-        if (!db.objectStoreNames.contains('offlineQueue')) {
-          db.createObjectStore('offlineQueue', { keyPath: 'id' });
-        }
-
-        if (!db.objectStoreNames.contains('conflicts')) {
-          db.createObjectStore('conflicts', { keyPath: 'id' });
-        }
-      },
-    });
+    this.db = await this.dbFactory();
 
     // Set up event listeners
     this.setupEventListeners();
@@ -91,25 +133,32 @@ class OfflineService {
 
   private setupEventListeners(): void {
     // Listen for online/offline events
-    window.addEventListener('online', () => {
-      console.log('Back online - starting sync');
-      this.syncOfflineData();
-    });
+    this.onlineHandler = () => {
+      this.logger.log('Back online - starting sync');
+      void this.syncOfflineData();
+    };
+    this.windowRef?.addEventListener?.('online', this.onlineHandler);
 
-    // Listen for visibility change to sync when app becomes visible
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden && navigator.onLine) {
-        this.syncOfflineData();
+    this.visibilityHandler = () => {
+      if (!this.documentRef?.hidden && this.navigatorRef?.onLine) {
+        void this.syncOfflineData();
       }
-    });
+    };
+    this.documentRef?.addEventListener?.('visibilitychange', this.visibilityHandler);
 
-    // Background sync registration
-    if ('serviceWorker' in navigator && 'SyncManager' in window) {
-      navigator.serviceWorker.ready.then((registration) => {
-        return (registration as any).sync.register('sync-offline-data');
-      }).catch((err) => {
-        console.error('Failed to register background sync:', err);
-      });
+    if (this.navigatorRef?.serviceWorker?.ready && (this.windowRef as any)?.SyncManager) {
+      this.navigatorRef.serviceWorker.ready
+        .then((registration) => (registration as any).sync?.register?.('sync-offline-data'))
+        .catch((err) => this.logger.error('Failed to register background sync:', err));
+    }
+  }
+
+  destroy(): void {
+    if (this.windowRef && this.onlineHandler) {
+      this.windowRef.removeEventListener?.('online', this.onlineHandler);
+    }
+    if (this.documentRef && this.visibilityHandler) {
+      this.documentRef.removeEventListener?.('visibilitychange', this.visibilityHandler);
     }
   }
 
@@ -162,7 +211,7 @@ class OfflineService {
       const updated = {
         ...existing,
         ...updates,
-        syncStatus: isOffline ? 'pending' : 'synced',
+        syncStatus: isOffline ? 'pending' as const : 'synced' as const,
       };
       
       await tx.objectStore('transactions').put(updated);
@@ -205,7 +254,7 @@ class OfflineService {
 
   // Sync operations
   async syncOfflineData(): Promise<void> {
-    if (this.syncInProgress || !navigator.onLine) return;
+    if (this.syncInProgress || !this.navigatorRef?.onLine) return;
     
     this.syncInProgress = true;
     
@@ -218,7 +267,7 @@ class OfflineService {
       // Sort by timestamp to maintain order
       queue.sort((a, b) => a.timestamp - b.timestamp);
       
-      console.log(`Syncing ${queue.length} offline items`);
+      this.logger.log(`Syncing ${queue.length} offline items`);
       
       for (const item of queue) {
         try {
@@ -226,7 +275,7 @@ class OfflineService {
           // Remove from queue on success
           await this.db!.delete('offlineQueue', item.id);
         } catch (error) {
-          console.error(`Failed to sync item ${item.id}:`, error);
+          this.logger.error(`Failed to sync item ${item.id}:`, error);
           
           // Update retry count and error
           item.retries += 1;
@@ -243,7 +292,7 @@ class OfflineService {
       }
       
       // Emit sync complete event
-      window.dispatchEvent(new CustomEvent('offline-sync-complete', {
+      this.windowRef?.dispatchEvent?.(new CustomEvent('offline-sync-complete', {
         detail: { itemsSynced: queue.length }
       }));
       
@@ -293,7 +342,7 @@ class OfflineService {
     });
     
     // Emit conflict event
-    window.dispatchEvent(new CustomEvent('offline-sync-conflict', {
+    this.windowRef?.dispatchEvent?.(new CustomEvent('offline-sync-conflict', {
       detail: { entity: item.entity, data: item.data }
     }));
   }
@@ -315,7 +364,7 @@ class OfflineService {
       await this.db!.put('offlineQueue', {
         id: `resolved-${conflictId}`,
         type: 'update',
-        entity: conflict.entity,
+        entity: conflict.entity as 'transaction' | 'account' | 'budget' | 'goal',
         data: conflict.localData,
         timestamp: Date.now(),
         retries: 0,
@@ -355,10 +404,10 @@ class OfflineService {
   async clearOfflineData(): Promise<void> {
     if (!this.db) await this.init();
     
-    const stores: Array<keyof OfflineDB> = ['transactions', 'accounts', 'budgets', 'goals', 'offlineQueue', 'conflicts'];
-    
-    const tx = this.db!.transaction(stores, 'readwrite');
-    
+    const stores = ['transactions', 'accounts', 'budgets', 'goals', 'offlineQueue', 'conflicts'] as const;
+
+    const tx = this.db!.transaction([...stores], 'readwrite');
+
     for (const store of stores) {
       await tx.objectStore(store).clear();
     }

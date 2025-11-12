@@ -211,9 +211,9 @@ export function ImprovedDashboard() {
   const displayedAccounts = accounts.filter(a => selectedAccountIds.includes(a.id));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-w-[1400px] mx-auto">
       {/* Primary Focus: Net Worth Hero Card */}
-      <div className="bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
+      <div className="bg-[#6b7d98] rounded-2xl p-6 sm:p-8 text-white shadow-xl">
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <h2 className="text-lg sm:text-xl opacity-90 font-medium">Your Net Worth</h2>
@@ -263,7 +263,7 @@ export function ImprovedDashboard() {
       </div>
 
       {/* Secondary Focus: This Month's Performance */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           This Month's Performance
         </h3>
@@ -306,7 +306,7 @@ export function ImprovedDashboard() {
 
       {/* Budget Status Section - Shows current budget progress */}
       {metrics.budgetStatus.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6" data-testid="budget-status">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6" data-testid="budget-status">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <PieChartIcon size={24} className="text-gray-500" />
             Budget Status
@@ -355,7 +355,7 @@ export function ImprovedDashboard() {
       )}
 
       {/* Account Balances Section - Customizable by user */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
             <WalletIcon size={24} className="text-gray-500" />
@@ -486,7 +486,7 @@ export function ImprovedDashboard() {
             {metrics.accountsNeedingAttention.map(account => (
               <div 
                 key={account.id}
-                className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg cursor-pointer hover:shadow-md transition-shadow"
+                className="flex items-center justify-between p-3 bg-[#d4dce8] dark:bg-gray-800 rounded-lg cursor-pointer hover:shadow-md transition-shadow"
               >
                 <div className="flex items-center gap-3">
                   <WalletIcon size={20} className="text-gray-500" />
@@ -509,7 +509,7 @@ export function ImprovedDashboard() {
       )}
 
       {/* Net Worth Chart */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <BarChart3Icon size={24} className="text-gray-500" />
           Net Worth Over Time
@@ -555,7 +555,7 @@ export function ImprovedDashboard() {
 
       {/* Account Distribution Chart */}
       {pieData.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <PieChartIcon size={24} className="text-gray-500" />
             Account Distribution
@@ -581,7 +581,7 @@ export function ImprovedDashboard() {
       )}
 
       {/* Recent Transactions Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
           <CreditCardIcon size={24} className="text-gray-500" />
           Recent Transactions
@@ -633,43 +633,43 @@ export function ImprovedDashboard() {
 
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <button 
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+        <button
           onClick={() => setShowAddTransactionModal(true)}
-          className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center"
+          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center"
         >
-          <CreditCardIcon size={24} className="mx-auto mb-2 text-blue-600" />
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
+          <CreditCardIcon size={32} className="mx-auto mb-3 text-blue-600" />
+          <span className="text-base font-semibold text-gray-900 dark:text-white">
             Add Transaction
           </span>
         </button>
-        
-        <button 
+
+        <button
           onClick={() => navigate(preserveDemoParam('/accounts', location.search))}
-          className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center"
+          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center"
         >
-          <WalletIcon size={24} className="mx-auto mb-2 text-green-600" />
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
+          <WalletIcon size={32} className="mx-auto mb-3 text-green-600" />
+          <span className="text-base font-semibold text-gray-900 dark:text-white">
             View Accounts
           </span>
         </button>
-        
-        <button 
+
+        <button
           onClick={() => navigate(preserveDemoParam('/budget', location.search))}
-          className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center"
+          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center"
         >
-          <TargetIcon size={24} className="mx-auto mb-2 text-purple-600" />
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
+          <TargetIcon size={32} className="mx-auto mb-3 text-purple-600" />
+          <span className="text-base font-semibold text-gray-900 dark:text-white">
             Set Budget
           </span>
         </button>
-        
-        <button 
+
+        <button
           onClick={() => navigate(preserveDemoParam('/analytics', location.search))}
-          className="p-4 bg-white dark:bg-gray-800 rounded-lg shadow hover:shadow-lg transition-shadow text-center"
+          className="p-8 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-md hover:shadow-xl transition-all text-center min-h-[140px] flex flex-col items-center justify-center"
         >
-          <TrendingUpIcon size={24} className="mx-auto mb-2 text-orange-600" />
-          <span className="text-sm font-medium text-gray-900 dark:text-white">
+          <TrendingUpIcon size={32} className="mx-auto mb-3 text-orange-600" />
+          <span className="text-base font-semibold text-gray-900 dark:text-white">
             Analytics
           </span>
         </button>

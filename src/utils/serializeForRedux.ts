@@ -18,7 +18,7 @@ export function serializeForRedux<T>(data: T): T {
         serialized[key] = serializeForRedux(data[key]);
       }
     }
-    return serialized;
+    return serialized as T;
   }
 
   return data;
@@ -52,7 +52,7 @@ export function deserializeFromRedux<T>(data: T, dateFields: string[] = []): T {
         }
       }
     }
-    return deserialized;
+    return deserialized as T;
   }
 
   return data;

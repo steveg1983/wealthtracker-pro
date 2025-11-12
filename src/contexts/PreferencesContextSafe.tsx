@@ -54,7 +54,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     darkStartTime: '18:00'
   });
 
-  const actualTheme = 'light'; // Simplified for testing
+  const actualTheme: 'light' | 'dark' = 'light'; // Simplified for testing
 
   console.log('PreferencesProvider state initialized');
 

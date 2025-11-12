@@ -44,7 +44,7 @@ export default function KeyboardShortcutsHelp({ isOpen, onClose }: KeyboardShort
 
   return (
     <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden">
         <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-600">
           <div className="flex items-center space-x-3">
             <KeyboardIcon size={24} className="text-[var(--color-primary)]" />

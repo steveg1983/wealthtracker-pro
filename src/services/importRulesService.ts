@@ -5,27 +5,52 @@ interface TransactionWithSkip extends Partial<Transaction> {
   __skip?: boolean;
 }
 
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+type Logger = Pick<Console, 'error'>;
+type NowFn = () => Date;
+
+export interface ImportRulesServiceOptions {
+  storage?: StorageLike | null;
+  logger?: Logger;
+  now?: NowFn;
+}
+
 export class ImportRulesService {
   private rules: ImportRule[] = [];
+  private readonly storage: StorageLike | null;
+  private readonly logger: Logger;
+  private readonly nowProvider: NowFn;
+  private readonly storageKey = 'wealthtracker_import_rules';
 
-  constructor() {
+  constructor(options: ImportRulesServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {}))
+    };
+    this.nowProvider = options.now ?? (() => new Date());
     this.loadRules();
   }
 
   private loadRules(): void {
+    if (!this.storage) {
+      this.rules = [];
+      return;
+    }
     try {
-      const saved = localStorage.getItem('wealthtracker_import_rules');
+      const saved = this.storage.getItem(this.storageKey);
       if (saved) {
         this.rules = JSON.parse(saved);
       }
     } catch (error) {
-      console.error('Error loading import rules:', error);
+      this.logger.error('Error loading import rules:', error as Error);
       this.rules = [];
     }
   }
 
   private saveRules(): void {
-    localStorage.setItem('wealthtracker_import_rules', JSON.stringify(this.rules));
+    if (!this.storage) return;
+    this.storage.setItem(this.storageKey, JSON.stringify(this.rules));
   }
 
   getRules(): ImportRule[] {
@@ -37,11 +62,12 @@ export class ImportRulesService {
   }
 
   addRule(rule: Omit<ImportRule, 'id' | 'createdAt' | 'updatedAt'>): ImportRule {
+    const timestamp = this.nowProvider();
     const newRule: ImportRule = {
       ...rule,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      updatedAt: new Date()
+      id: timestamp.getTime().toString(),
+      createdAt: timestamp,
+      updatedAt: timestamp
     };
     this.rules.push(newRule);
     this.saveRules();
@@ -54,7 +80,7 @@ export class ImportRulesService {
       this.rules[index] = {
         ...this.rules[index],
         ...updates,
-        updatedAt: new Date()
+        updatedAt: this.nowProvider()
       };
       this.saveRules();
     }
@@ -234,7 +260,7 @@ export class ImportRulesService {
       description: testData.description,
       amount: testData.amount,
       accountId: testData.accountId,
-      date: testData.date || new Date()
+      date: testData.date || this.nowProvider()
     };
 
     return rule.conditions.every(condition => 

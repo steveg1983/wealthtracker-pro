@@ -1,5 +1,5 @@
 // Dividend Tracking Service
-import { Decimal, toDecimal } from '../utils/decimal';
+import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { errorHandlingService, ErrorCategory, ErrorSeverity, validate } from './errorHandlingService';
 import type { SavedDividend } from '../types/dividend';
@@ -52,19 +52,64 @@ export interface DividendProjection {
   basedOn: 'history' | 'yield' | 'manual';
 }
 
-class DividendService {
-  private dividends: Dividend[] = [];
-  private storageKey = 'wealthtracker_dividends';
-  private yieldData: Record<string, number> = {}; // Symbol -> annual yield %
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
-  constructor() {
+type Logger = Pick<Console, 'warn' | 'error'>;
+
+export interface DividendServiceOptions {
+  storage?: StorageLike | null;
+  logger?: Logger;
+  now?: () => number;
+  random?: () => number;
+}
+
+export class DividendService {
+  private dividends: Dividend[] = [];
+  private readonly storageKey = 'wealthtracker_dividends';
+  private readonly yieldStorageKey = 'wealthtracker_yield_data';
+  private yieldData: Record<string, number> = {}; // Symbol -> annual yield %
+  private storage: StorageLike | null;
+  private logger: Logger;
+  private readonly nowProvider: () => number;
+  private readonly randomProvider: () => number;
+
+  constructor(options: DividendServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => Date.now());
+    this.randomProvider = options.random ?? (() => Math.random());
     this.loadDividends();
     this.loadYieldData();
   }
 
-  private loadDividends() {
+  private getCurrentDate(): Date {
+    return new Date(this.nowProvider());
+  }
+
+  private readJsonFromStorage<T>(key: string): T | null {
+    if (!this.storage) return null;
     try {
-      const stored = localStorage.getItem(this.storageKey);
+      const raw = this.storage.getItem(key);
+      return raw ? JSON.parse(raw) as T : null;
+    } catch (error) {
+      this.logger.warn(`Failed to parse ${key} from storage:`, error as Error);
+      return null;
+    }
+  }
+
+  private loadDividends() {
+    if (!this.storage) {
+      this.dividends = [];
+      return;
+    }
+
+    try {
+      const stored = this.storage.getItem(this.storageKey);
       if (stored) {
         const parsed = JSON.parse(stored);
         this.dividends = parsed.map((div: SavedDividend) => ({
@@ -76,14 +121,15 @@ class DividendService {
         }));
       }
     } catch (error) {
-      console.error('Failed to load dividends:', error);
+      this.logger.error('Failed to load dividends:', error as Error);
       this.dividends = [];
     }
   }
 
   private saveDividends() {
+    if (!this.storage) return;
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(this.dividends));
+      this.storage.setItem(this.storageKey, JSON.stringify(this.dividends));
     } catch (error) {
       errorHandlingService.handleError(error as Error, {
         category: ErrorCategory.STORAGE,
@@ -96,6 +142,13 @@ class DividendService {
   }
 
   private loadYieldData() {
+    const storedYields = this.readJsonFromStorage<Record<string, number>>(this.yieldStorageKey);
+
+    if (storedYields && Object.keys(storedYields).length > 0) {
+      this.yieldData = storedYields;
+      return;
+    }
+
     // In production, this would fetch from a financial API
     // For now, use some example yields
     this.yieldData = {
@@ -146,7 +199,7 @@ class DividendService {
 
       const newDividend: Dividend = {
         ...dividend,
-        id: `div-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        id: `div-${this.nowProvider()}-${Math.floor(this.randomProvider() * 1e9).toString(36)}`
       };
       
       this.dividends.push(newDividend);
@@ -296,7 +349,7 @@ class DividendService {
   // Calculate projected annual dividend income
   private calculateProjectedAnnualIncome(): DecimalInstance {
     const recentDividends = this.getDividends({
-      startDate: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) // Last year
+      startDate: new Date(this.nowProvider() - 365 * 24 * 60 * 60 * 1000) // Last year
     });
 
     // Group by symbol and frequency
@@ -337,12 +390,14 @@ class DividendService {
   // Get dividend projections
   getDividendProjections(holdings: Array<{ symbol: string; shares: number; currentValue: number }>): DividendProjection[] {
     const projections: DividendProjection[] = [];
-    const today = new Date();
+    const today = this.getCurrentDate();
 
     holdings.forEach(holding => {
+      const lookbackStart = new Date(today);
+      lookbackStart.setFullYear(lookbackStart.getFullYear() - 1);
       const recentDividends = this.getDividends({
         symbol: holding.symbol,
-        startDate: new Date(today.getFullYear() - 1, today.getMonth(), today.getDate())
+        startDate: lookbackStart
       });
 
       if (recentDividends.length > 0) {
@@ -479,7 +534,7 @@ class DividendService {
   // Get dividend yield for a symbol
   getDividendYield(symbol: string, currentPrice: number): number | null {
     // First try to calculate from actual dividend history
-    const oneYearAgo = new Date();
+    const oneYearAgo = this.getCurrentDate();
     oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
     
     const recentDividends = this.getDividends({
@@ -499,7 +554,12 @@ class DividendService {
   // Update yield data (for manual updates or API integration)
   updateYieldData(symbol: string, annualYieldPercent: number) {
     this.yieldData[symbol] = annualYieldPercent;
-    localStorage.setItem('wealthtracker_yield_data', JSON.stringify(this.yieldData));
+    if (!this.storage) return;
+    try {
+      this.storage.setItem(this.yieldStorageKey, JSON.stringify(this.yieldData));
+    } catch (error) {
+      this.logger.warn('Failed to persist yield data:', error as Error);
+    }
   }
 
   // Export dividends to CSV

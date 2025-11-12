@@ -34,7 +34,7 @@ interface TouchPoint {
  * Advanced swipe gesture detection hook
  * Supports swipe, tap, double tap, long press, pinch, and rotate
  */
-export function useSwipeGestures(
+export function useSwipeGestures<T extends HTMLElement = HTMLElement>(
   handlers: SwipeHandlers,
   config: SwipeConfig = {}
 ) {
@@ -60,7 +60,7 @@ export function useSwipeGestures(
   const longPressTimer = useRef<NodeJS.Timeout>();
   const initialDistance = useRef<number>(0);
   const initialAngle = useRef<number>(0);
-  const elementRef = useRef<HTMLElement>(null);
+  const elementRef = useRef<T>(null);
 
   // Calculate distance between two points
   const getDistance = useCallback((p1: Touch, p2: Touch): number => {

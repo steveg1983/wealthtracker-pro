@@ -46,9 +46,31 @@ export interface SummaryData {
   };
 }
 
-class FinancialSummaryService {
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+
+type Logger = Pick<Console, 'error'>;
+
+export interface FinancialSummaryServiceOptions {
+  storage?: StorageLike | null;
+  logger?: Logger;
+  now?: () => Date;
+}
+
+export class FinancialSummaryService {
   private readonly STORAGE_KEY = 'financialSummaries';
   private readonly LAST_SUMMARY_KEY = 'lastSummaryGenerated';
+  private readonly storage: StorageLike | null;
+  private readonly logger: Logger;
+  private readonly nowProvider: () => Date;
+
+  constructor(options: FinancialSummaryServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {}))
+    };
+    this.nowProvider = options.now ?? (() => new Date());
+  }
 
   /**
    * Generate a weekly summary
@@ -215,11 +237,11 @@ class FinancialSummaryService {
       const limit = toDecimal(limitValue);
       
       return {
-        budgetName: budget.name,
+        budgetName: budget.name || 'Unnamed Budget',
         spent,
         limit,
-        percentage: limit.greaterThan(0) 
-          ? spent.dividedBy(limit).times(100).toNumber() 
+        percentage: limit.greaterThan(0)
+          ? spent.dividedBy(limit).times(100).toNumber()
           : 0
       };
     });
@@ -308,6 +330,7 @@ class FinancialSummaryService {
    * Save summary to history
    */
   saveSummary(summary: SummaryData): void {
+    if (!this.storage) return;
     try {
       const summaries = this.getSummaryHistory();
       summaries.push(summary);
@@ -318,10 +341,10 @@ class FinancialSummaryService {
         summaries.splice(0, summaries.length - maxCount);
       }
       
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(summaries));
-      localStorage.setItem(this.LAST_SUMMARY_KEY, new Date().toISOString());
+      this.storage.setItem(this.STORAGE_KEY, JSON.stringify(summaries));
+      this.storage.setItem(this.LAST_SUMMARY_KEY, this.nowProvider().toISOString());
     } catch (error) {
-      console.error('Failed to save summary:', error);
+      this.logger.error('Failed to save summary:', error as Error);
     }
   }
 
@@ -329,8 +352,9 @@ class FinancialSummaryService {
    * Get summary history
    */
   getSummaryHistory(): SummaryData[] {
+    if (!this.storage) return [];
     try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
+      const stored = this.storage.getItem(this.STORAGE_KEY);
       return stored ? JSON.parse(stored) : [];
     } catch {
       return [];
@@ -341,12 +365,13 @@ class FinancialSummaryService {
    * Check if it's time to generate a new summary
    */
   shouldGenerateSummary(period: 'weekly' | 'monthly'): boolean {
+    if (!this.storage) return true;
     try {
-      const lastGenerated = localStorage.getItem(this.LAST_SUMMARY_KEY);
+      const lastGenerated = this.storage.getItem(this.LAST_SUMMARY_KEY);
       if (!lastGenerated) return true;
       
       const last = new Date(lastGenerated);
-      const now = new Date();
+      const now = this.nowProvider();
       
       if (period === 'weekly') {
         // Generate on Mondays

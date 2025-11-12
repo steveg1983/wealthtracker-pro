@@ -39,7 +39,7 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
   const currentLocaleInfo = SUPPORTED_LOCALES.find(l => l.code === currentLocale) || SUPPORTED_LOCALES[0];
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+    <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
       <div className="flex items-center gap-3 mb-4">
         <GlobeIcon size={24} className="text-blue-600 dark:text-blue-400" />
         <div>
@@ -82,13 +82,13 @@ export default function LocaleSelector({ onLocaleChange }: LocaleSelectorProps):
           <div className="grid grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Format Pattern</p>
-              <p className="text-sm font-mono text-gray-900 dark:text-white bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-600">
+              <p className="text-sm font-mono text-gray-900 dark:text-white bg-[#d4dce8] dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-600">
                 {currentLocaleInfo.dateFormat}
               </p>
             </div>
             <div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Example</p>
-              <p className="text-sm font-mono text-gray-900 dark:text-white bg-white dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-600">
+              <p className="text-sm font-mono text-gray-900 dark:text-white bg-[#d4dce8] dark:bg-gray-800 px-3 py-2 rounded border border-gray-200 dark:border-gray-600">
                 {currentLocaleInfo.example}
               </p>
             </div>

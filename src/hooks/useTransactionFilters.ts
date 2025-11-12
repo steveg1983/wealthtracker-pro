@@ -29,7 +29,9 @@ const parseDate = (() => {
     // Limit cache size
     if (cache.size > 1000) {
       const firstKey = cache.keys().next().value;
-      cache.delete(firstKey);
+      if (firstKey) {
+        cache.delete(firstKey);
+      }
     }
     
     cache.set(key, timestamp);

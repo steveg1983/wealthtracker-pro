@@ -8,9 +8,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BulkTransactionEdit from '../BulkTransactionEdit';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock dependencies
-vi.mock('../../contexts/AppContext', () => ({
+vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     transactions: [
       {
@@ -90,7 +91,8 @@ vi.mock('../../contexts/AppContext', () => ({
 
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `$${amount.toFixed(2)}`
+    formatCurrency: (amount: number, currency: string = 'USD') =>
+      formatCurrencyDecimal(amount, currency)
   })
 }));
 
@@ -111,6 +113,9 @@ vi.mock('../icons', () => ({
   DeselectAllIcon: () => <div data-testid="deselect-all-icon">DeselectAll</div>,
   ArrowRightIcon: ({ className }: { className?: string }) => <div data-testid="arrow-right-icon" className={className}>ArrowRight</div>,
   RefreshCwIcon: ({ className }: { className?: string }) => <div data-testid="refresh-icon" className={className}>Refresh</div>,
+  UndoIcon: ({ className }: { className?: string }) => <div data-testid="undo-icon" className={className}>Undo</div>,
+  RepeatIcon: ({ className }: { className?: string }) => <div data-testid="repeat-icon" className={className}>Repeat</div>,
+  EyeIcon: ({ className }: { className?: string }) => <div data-testid="eye-icon" className={className}>Eye</div>,
   X: ({ className }: { className?: string }) => <div data-testid="x-icon" className={className}>X</div>
 }));
 
@@ -199,9 +204,11 @@ describe('BulkTransactionEdit', () => {
       await userEvent.click(selectAllButton);
       
       const checkboxes = screen.getAllByRole('checkbox');
-      checkboxes.forEach(checkbox => {
+      const transactionCheckboxes = checkboxes.slice(0, 4);
+      transactionCheckboxes.forEach(checkbox => {
         expect(checkbox).toBeChecked();
       });
+      expect(screen.getByText('4 of 4 transactions selected')).toBeInTheDocument();
     });
 
     it('handles clear selection', async () => {
@@ -357,9 +364,10 @@ describe('BulkTransactionEdit', () => {
         await userEvent.selectOptions(clearedSelect, 'true');
       }
       
-      // Should show warning
-      expect(screen.getByText(/These changes will be applied to all 2 selected transactions/)).toBeInTheDocument();
-      expect(screen.getByText(/This action cannot be undone/)).toBeInTheDocument();
+      // Should show warning with the formatted selection count
+      const warningMessage = screen.getByText(/These changes will be applied to all 2 selected transactions/);
+      expect(warningMessage).toBeInTheDocument();
+      expect(screen.getByTestId('alert-circle-icon')).toBeInTheDocument();
     });
   });
 

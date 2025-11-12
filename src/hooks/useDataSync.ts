@@ -23,8 +23,7 @@ export function useDataSync(): DataSyncHook {
     deleteTransaction,
     addAccount,
     updateAccount,
-    deleteAccount,
-    dispatch
+    deleteAccount
   } = useApp();
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(syncService.getStatus());
@@ -32,12 +31,16 @@ export function useDataSync(): DataSyncHook {
 
   // Listen for sync status changes
   useEffect(() => {
-    const handleStatusChange = (status: SyncStatus) => {
-      setSyncStatus(status);
+    const handleStatusChange = (payload?: unknown) => {
+      if (payload) {
+        setSyncStatus(payload as SyncStatus);
+      }
     };
 
-    const handleConflict = (conflict: SyncConflict) => {
-      setConflicts(prev => [...prev, conflict]);
+    const handleConflict = (payload?: unknown) => {
+      if (payload) {
+        setConflicts(prev => [...prev, payload as SyncConflict]);
+      }
     };
 
     syncService.on('status-changed', handleStatusChange);

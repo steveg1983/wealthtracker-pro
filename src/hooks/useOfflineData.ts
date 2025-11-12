@@ -6,7 +6,11 @@ interface UseOfflineDataReturn {
   syncInProgress: boolean;
   pendingSyncCount: number;
   conflicts: any[];
-  addToSyncQueue: (type: string, action: string, data: any) => Promise<void>;
+  addToSyncQueue: (
+    type: 'transaction' | 'account' | 'budget' | 'goal',
+    action: 'create' | 'update' | 'delete',
+    data: any
+  ) => Promise<void>;
   resolveConflict: (id: string) => Promise<void>;
   triggerSync: () => Promise<void>;
   clearOfflineData: () => Promise<void>;

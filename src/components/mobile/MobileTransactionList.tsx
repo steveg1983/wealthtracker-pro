@@ -29,7 +29,7 @@ export const MobileTransactionList: React.FC<MobileTransactionListProps> = ({
 
   return (
     <div className="mobile-transaction-list">
-      <div className="px-4 py-3 bg-white dark:bg-gray-800 sticky top-0 z-10 border-b">
+      <div className="px-4 py-3 bg-[#d4dce8] dark:bg-gray-800 sticky top-0 z-10 border-b">
         <h2 className="text-lg font-semibold">Recent Transactions</h2>
         <p className="text-sm text-gray-500">Tap to view details</p>
       </div>
@@ -44,7 +44,7 @@ export const MobileTransactionList: React.FC<MobileTransactionListProps> = ({
               <div
                 key={transaction.id}
                 onClick={() => onView(transaction)}
-                className="px-4 py-3 bg-white dark:bg-gray-800 active:bg-gray-50 transition-colors"
+                className="px-4 py-3 bg-[#d4dce8] dark:bg-gray-800 active:bg-gray-50 transition-colors"
               >
                 <div className="flex justify-between items-start">
                   <div className="flex-1 min-w-0 mr-2">

@@ -23,7 +23,7 @@ export default function SafariWarning(): React.JSX.Element | null {
         setCompatInfo(compat);
         
         // Only show if there are actual issues
-        if (compat.warnings && compat.warnings.length > 0) {
+        if ('warnings' in compat && compat.warnings && compat.warnings.length > 0) {
           setShow(true);
         }
       }
@@ -54,7 +54,7 @@ export default function SafariWarning(): React.JSX.Element | null {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-orange-500 to-red-500 px-6 py-4">
           <div className="flex items-center justify-between text-white">

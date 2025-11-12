@@ -5,10 +5,14 @@ import { exportTransactionsToCSV, downloadCSV } from '../utils/csvExport';
 import { generatePDFReport, generateSimplePDFReport } from '../utils/pdfExport';
 import ScheduledReports from '../components/ScheduledReports';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
-import { LazyLineChart, LazyDoughnutChart } from '../components/charts/LazyChart';
+import { LineChart } from '../components/charts/LazyChart';
+import DoughnutChart from '../components/charts/DoughnutChart';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
-import { toDecimal, Decimal } from '../utils/decimal';
+import { toDecimal, DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const reportsLogger = createScopedLogger('ReportsPage');
 
 export default function Reports() {
   const { transactions, accounts } = useApp();
@@ -86,7 +90,7 @@ export default function Reports() {
     };
   }, [filteredTransactions]);
 
-  const formatPercentage = (value: Decimal | number, decimals: number = 1) => {
+  const formatPercentage = (value: DecimalInstance | number, decimals: number = 1) => {
     return formatDecimal(value, decimals);
   };
 
@@ -105,7 +109,7 @@ export default function Reports() {
   const categoryData = useMemo(() => {
     const categoryTotals = filteredTransactions
       .filter(t => t.type === 'expense')
-      .reduce<Record<string, Decimal>>((acc, t) => {
+      .reduce<Record<string, DecimalInstance>>((acc, t) => {
         const key = t.category || 'Uncategorized';
         const current = acc[key] ?? toDecimal(0);
         acc[key] = current.plus(t.amount);
@@ -130,7 +134,7 @@ export default function Reports() {
 
   // Prepare data for monthly trend
   const monthlyTrendData = useMemo(() => {
-    const monthlyData: Record<string, { income: Decimal; expenses: Decimal }> = {};
+    const monthlyData: Record<string, { income: DecimalInstance; expenses: DecimalInstance }> = {};
 
     filteredTransactions.forEach(t => {
       const monthKey = new Date(t.date).toISOString().slice(0, 7);
@@ -183,7 +187,7 @@ export default function Reports() {
       // Prepare category breakdown data
       const expenseTotals = filteredTransactions
         .filter(t => t.type === 'expense')
-        .reduce<Record<string, Decimal>>((acc, t) => {
+        .reduce<Record<string, DecimalInstance>>((acc, t) => {
           const key = t.category || 'Uncategorized';
           const current = acc[key] ?? toDecimal(0);
           acc[key] = current.plus(t.amount);
@@ -226,7 +230,7 @@ export default function Reports() {
         generateSimplePDFReport(reportData, accounts);
       }
     } catch (error) {
-      console.error('Error generating PDF:', error);
+      reportsLogger.error('Error generating PDF', error);
       alert('Failed to generate PDF report. Please try again.');
     } finally {
       setIsGeneratingPDF(false);
@@ -361,22 +365,10 @@ export default function Reports() {
             {isLoading ? (
               <SkeletonCard className="h-full w-full" />
             ) : (
-            <LazyLineChart
-              data={monthlyTrendData}
-              options={{
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                  legend: {
-                    position: 'bottom'
-                  }
-                },
-                scales: {
-                  y: {
-                    beginAtZero: true
-                  }
-                }
-              }}
+            <LineChart
+              data={monthlyTrendData as unknown as Parameters<typeof LineChart>[0]['data']}
+              width={500}
+              height={250}
             />
             )}
           </div>
@@ -392,7 +384,7 @@ export default function Reports() {
             {isLoading ? (
               <SkeletonCard className="h-full w-full" />
             ) : (
-            <LazyDoughnutChart
+            <DoughnutChart
               data={categoryData}
               options={{
                 responsive: true,

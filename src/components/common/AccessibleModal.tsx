@@ -156,7 +156,7 @@ export const AccessibleModal: React.FC<AccessibleModalProps> = ({
         onClick={handleBackdropClick}
       >
         <div
-          className={`bg-white dark:bg-gray-800 rounded-lg shadow-xl ${maxWidth} w-full max-h-[90vh] overflow-hidden flex flex-col`}
+          className={`bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-xl ${maxWidth} w-full max-h-[90vh] overflow-hidden flex flex-col`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}

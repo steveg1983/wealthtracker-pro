@@ -38,7 +38,18 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
   const decimalAccounts = useMemo(() => accounts.map(a => ({
     ...a,
     balance: toDecimal(a.balance),
-    initialBalance: a.openingBalance ? toDecimal(a.openingBalance) : undefined
+    openingBalance: a.openingBalance ? toDecimal(a.openingBalance) : undefined,
+    holdings: a.holdings ? a.holdings.map(h => ({
+      ...h,
+      shares: toDecimal(h.shares),
+      value: toDecimal(h.value),
+      averageCost: h.averageCost ? toDecimal(h.averageCost) : undefined,
+      currentPrice: h.currentPrice ? toDecimal(h.currentPrice) : undefined,
+      marketValue: h.marketValue ? toDecimal(h.marketValue) : undefined,
+      gain: h.gain ? toDecimal(h.gain) : undefined,
+      gainPercent: h.gainPercent ? toDecimal(h.gainPercent) : undefined,
+      costBasis: h.costBasis ? toDecimal(h.costBasis) : undefined
+    })) : undefined
   })), [accounts]);
   
   // Group accounts by type (memoized)
@@ -453,7 +464,7 @@ export default function Accounts({ onAccountClick }: { onAccountClick?: (account
         
         return (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <PortfolioView
                   accountId={portfolioAccountId}

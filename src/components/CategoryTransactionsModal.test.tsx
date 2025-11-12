@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import CategoryTransactionsModal from './CategoryTransactionsModal';
 import type { Transaction, Account } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock icons
 vi.mock('./icons/XIcon', () => ({
@@ -116,7 +117,8 @@ vi.mock('../contexts/AppContext', () => ({
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `$${Math.abs(amount).toFixed(2)}`,
+    formatCurrency: (amount: number, currency: string = 'USD') =>
+      formatCurrencyDecimal(Math.abs(amount), currency),
   })
 }));
 

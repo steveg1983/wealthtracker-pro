@@ -11,18 +11,18 @@ interface PlatformAwareComponentProps<TProps> {
  * Wrapper component that renders different components based on device type
  * This allows gradual migration to desktop-first approach
  */
-export function PlatformAwareComponent<TProps>({
+export function PlatformAwareComponent<TProps extends Record<string, any> = Record<string, any>>({
   desktopComponent: DesktopComponent,
   mobileComponent: MobileComponent,
-  props = {}
+  props = {} as TProps
 }: PlatformAwareComponentProps<TProps>): React.JSX.Element {
   const { isDesktop } = useDeviceType();
   const componentProps = (props ?? {}) as TProps;
-  
+
   if (isDesktop) {
     return <DesktopComponent {...componentProps} />;
   }
-  
+
   return <MobileComponent {...componentProps} />;
 }
 

@@ -2,7 +2,7 @@
 
 /* Enhanced focus indicators when keyboard navigation is active */
 .keyboard-navigation *:focus {
-  outline: 2px solid var(--color-primary, #3b82f6);
+  outline: 2px solid var(--focus-ring-color, #94a3b8);
   outline-offset: 2px;
   transition: outline-offset 0.2s ease;
 }
@@ -12,9 +12,9 @@
 .keyboard-navigation input:focus,
 .keyboard-navigation select:focus,
 .keyboard-navigation textarea:focus {
-  outline: 3px solid var(--color-primary, #3b82f6);
+  outline: 2px solid var(--focus-ring-color, #94a3b8);
   outline-offset: 3px;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.25);
 }
 
 /* Remove focus indicators for mouse users */
@@ -27,8 +27,8 @@ body:not(.keyboard-navigation) *:focus {
   position: absolute;
   top: -40px;
   left: 0;
-  background: var(--color-primary, #3b82f6);
-  color: white;
+  background: #475569;
+  color: #f8fafc;
   padding: 8px 16px;
   text-decoration: none;
   border-radius: 0 0 4px 0;
@@ -78,8 +78,8 @@ body:not(.keyboard-navigation) *:focus {
 
 /* Selected item highlight for vim mode */
 [data-vim-selected="true"] {
-  background-color: rgba(59, 130, 246, 0.1) !important;
-  border-left: 3px solid var(--color-primary, #3b82f6);
+  background-color: rgba(148, 163, 184, 0.15) !important;
+  border-left: 3px solid var(--focus-ring-color, #94a3b8);
 }
 
 /* Command mode indicator */
@@ -155,7 +155,7 @@ body:not(.keyboard-navigation) *:focus {
 }
 
 .js-focus-visible .focus-visible {
-  outline: 2px solid var(--color-primary, #3b82f6);
+  outline: 2px solid var(--focus-ring-color, #94a3b8);
   outline-offset: 2px;
 }
 
@@ -163,9 +163,9 @@ body:not(.keyboard-navigation) *:focus {
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--color-primary, #3b82f6);
+  outline: 2px solid var(--focus-ring-color, #94a3b8);
   outline-offset: 2px;
-  border-color: var(--color-primary, #3b82f6);
+  border-color: var(--focus-ring-color, #94a3b8);
 }
 
 /* High contrast mode support */

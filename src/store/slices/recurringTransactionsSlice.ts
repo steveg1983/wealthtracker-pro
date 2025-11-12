@@ -43,13 +43,17 @@ const recurringTransactionsSlice = createSlice({
       state.error = null;
     },
     addRecurringTransaction: (state, action: PayloadAction<Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt'>>) => {
-      const newRecurring: RecurringTransaction = {
+      const newRecurring: SerializedRecurringTransaction = {
         ...action.payload,
         id: crypto.randomUUID(),
         createdAt: getCurrentISOString(),
         updatedAt: getCurrentISOString(),
+        startDate: action.payload.startDate instanceof Date ? action.payload.startDate.toISOString() : action.payload.startDate,
+        endDate: action.payload.endDate ? (action.payload.endDate instanceof Date ? action.payload.endDate.toISOString() : action.payload.endDate) : undefined,
+        lastProcessed: action.payload.lastProcessed ? (action.payload.lastProcessed instanceof Date ? action.payload.lastProcessed.toISOString() : action.payload.lastProcessed) : undefined,
+        nextDate: action.payload.nextDate instanceof Date ? action.payload.nextDate.toISOString() : action.payload.nextDate
       };
-      state.recurringTransactions.push(newRecurring as unknown as SerializedRecurringTransaction);
+      state.recurringTransactions.push(newRecurring);
     },
     updateRecurringTransaction: (state, action: PayloadAction<{ id: string; updates: Partial<RecurringTransaction> }>) => {
       const index = state.recurringTransactions.findIndex((r: SerializedRecurringTransaction) => r.id === action.payload.id);

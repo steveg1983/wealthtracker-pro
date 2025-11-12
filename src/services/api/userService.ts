@@ -1,32 +1,91 @@
-import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
-import { useUser } from '@clerk/clerk-react';
-import type { User } from '../../types';
 
-export class UserService {
-  /**
-   * Get or create user profile in Supabase
-   */
-  static async getOrCreateUser(clerkId: string, email: string, firstName?: string, lastName?: string): Promise<User | null> {
-    if (!isSupabaseConfigured()) {
-      console.warn('Supabase not configured, using local storage');
+import { supabase, isSupabaseConfigured, handleSupabaseError } from './supabaseClient';
+import type { User } from '../../types';
+import { storageAdapter } from '../storageAdapter';
+
+type SupabaseClientLike = typeof supabase;
+type SupabaseConfiguredChecker = () => boolean;
+type StorageAdapterLike = Pick<typeof storageAdapter, 'get' | 'set'>;
+type Logger = Pick<Console, 'error' | 'warn' | 'log'>;
+type DateProvider = () => Date;
+type LocalStorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+
+export interface UserServiceOptions {
+  supabaseClient?: SupabaseClientLike;
+  isSupabaseConfigured?: SupabaseConfiguredChecker;
+  storageAdapter?: StorageAdapterLike;
+  localStorage?: LocalStorageLike | null;
+  logger?: Logger;
+  now?: DateProvider;
+}
+
+class UserServiceImpl {
+  private readonly supabaseClient: SupabaseClientLike;
+  private readonly supabaseChecker: SupabaseConfiguredChecker;
+  private readonly storage: StorageAdapterLike;
+  private readonly localStorageRef: LocalStorageLike | null;
+  private readonly logger: Logger;
+  private readonly nowProvider: DateProvider;
+
+  constructor(options: UserServiceOptions = {}) {
+    this.supabaseClient = options.supabaseClient ?? supabase;
+    this.supabaseChecker = options.isSupabaseConfigured ?? isSupabaseConfigured;
+    this.storage = options.storageAdapter ?? storageAdapter;
+    if ('localStorage' in options) {
+      this.localStorageRef = options.localStorage ?? null;
+    } else {
+      this.localStorageRef = typeof window !== 'undefined' ? window.localStorage : null;
+    }
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      log: options.logger?.log ?? (fallbackLogger?.log?.bind(fallbackLogger) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => new Date());
+  }
+
+  private isSupabaseReady(): boolean {
+    return Boolean(this.supabaseClient && this.supabaseChecker());
+  }
+
+  private nowIso(): string {
+    return this.nowProvider().toISOString();
+  }
+
+  private persistLocally(key: string, value: Record<string, unknown>): void {
+    if (!this.localStorageRef) {
+      this.logger.warn(`Local storage unavailable; skipping write for ${key}`);
+      return;
+    }
+    try {
+      this.localStorageRef.setItem(key, JSON.stringify(value));
+    } catch (error) {
+      this.logger.error(`Failed to persist ${key}:`, error as Error);
+    }
+  }
+
+  async getOrCreateUser(clerkId: string, email: string, firstName?: string, lastName?: string): Promise<User | null> {
+    if (!this.isSupabaseReady()) {
+      this.logger.warn('Supabase not configured, using local storage');
       return null;
     }
 
     try {
-      // First, try to get existing user
-      const { data: existingUser, error: fetchError } = await supabase!
+      const client = this.supabaseClient!;
+      const { data: existingUser, error: fetchError } = await client
         .from('users')
         .select('*')
         .eq('clerk_id', clerkId)
         .single();
 
       if (existingUser) {
-        return existingUser;
+        return existingUser as User;
       }
 
-      // If user doesn't exist, create new user
-      if (fetchError?.code === 'PGRST116') { // Not found error
-        const { data: newUser, error: createError } = await supabase!
+      if (fetchError?.code === 'PGRST116') {
+        const { data: newUser, error: createError } = await (client as any)
           .from('users')
           .insert({
             clerk_id: clerkId,
@@ -42,36 +101,33 @@ export class UserService {
           .single();
 
         if (createError) {
-          console.error('Error creating user:', createError);
+          this.logger.error('Error creating user:', createError);
           throw new Error(handleSupabaseError(createError));
         }
 
-        return newUser;
+        return newUser as User;
       }
 
-      // Handle other errors
       if (fetchError) {
-        console.error('Error fetching user:', fetchError);
+        this.logger.error('Error fetching user:', fetchError);
         throw new Error(handleSupabaseError(fetchError));
       }
 
       return null;
     } catch (error) {
-      console.error('UserService.getOrCreateUser error:', error);
+      this.logger.error('UserService.getOrCreateUser error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Update user profile
-   */
-  static async updateUser(clerkId: string, updates: Partial<User>): Promise<User | null> {
-    if (!isSupabaseConfigured()) {
+  async updateUser(clerkId: string, updates: Partial<User>): Promise<User | null> {
+    if (!this.isSupabaseReady()) {
       return null;
     }
 
     try {
-      const { data, error } = await supabase!
+      const client = this.supabaseClient!;
+      const { data, error } = await (client as any)
         .from('users')
         .update(updates)
         .eq('clerk_id', clerkId)
@@ -79,120 +135,148 @@ export class UserService {
         .single();
 
       if (error) {
-        console.error('Error updating user:', error);
+        this.logger.error('Error updating user:', error);
         throw new Error(handleSupabaseError(error));
       }
 
-      return data;
+      return data as User;
     } catch (error) {
-      console.error('UserService.updateUser error:', error);
+      this.logger.error('UserService.updateUser error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Update user preferences
-   */
-  static async updatePreferences(clerkId: string, preferences: Record<string, any>): Promise<void> {
-    if (!isSupabaseConfigured()) {
-      // Fallback to localStorage
-      localStorage.setItem('wealthtracker_preferences', JSON.stringify(preferences));
+  async updatePreferences(clerkId: string, preferences: Record<string, unknown>): Promise<void> {
+    if (!this.isSupabaseReady()) {
+      this.persistLocally('wealthtracker_preferences', preferences);
       return;
     }
 
     try {
-      const { error } = await supabase!
+      const client = this.supabaseClient!;
+      const { error } = await (client as any)
         .from('users')
         .update({ preferences })
         .eq('clerk_id', clerkId);
 
       if (error) {
-        console.error('Error updating preferences:', error);
+        this.logger.error('Error updating preferences:', error);
         throw new Error(handleSupabaseError(error));
       }
     } catch (error) {
-      console.error('UserService.updatePreferences error:', error);
+      this.logger.error('UserService.updatePreferences error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Update user settings
-   */
-  static async updateSettings(clerkId: string, settings: Record<string, any>): Promise<void> {
-    if (!isSupabaseConfigured()) {
-      // Fallback to localStorage
-      localStorage.setItem('wealthtracker_settings', JSON.stringify(settings));
+  async updateSettings(clerkId: string, settings: Record<string, unknown>): Promise<void> {
+    if (!this.isSupabaseReady()) {
+      this.persistLocally('wealthtracker_settings', settings);
       return;
     }
 
     try {
-      const { error } = await supabase!
+      const client = this.supabaseClient!;
+      const { error } = await (client as any)
         .from('users')
         .update({ settings })
         .eq('clerk_id', clerkId);
 
       if (error) {
-        console.error('Error updating settings:', error);
+        this.logger.error('Error updating settings:', error);
         throw new Error(handleSupabaseError(error));
       }
     } catch (error) {
-      console.error('UserService.updateSettings error:', error);
+      this.logger.error('UserService.updateSettings error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Get user by Clerk ID
-   */
-  static async getUserByClerkId(clerkId: string): Promise<User | null> {
-    if (!isSupabaseConfigured()) {
+  async getUserByClerkId(clerkId: string): Promise<User | null> {
+    if (!this.isSupabaseReady()) {
       return null;
     }
 
     try {
-      const { data, error } = await supabase!
+      const client = this.supabaseClient!;
+      const { data, error } = await client
         .from('users')
         .select('*')
         .eq('clerk_id', clerkId)
         .single();
 
       if (error) {
-        if (error.code === 'PGRST116') { // Not found
+        if ((error as any).code === 'PGRST116') {
           return null;
         }
-        console.error('Error fetching user:', error);
+        this.logger.error('Error fetching user:', error);
         throw new Error(handleSupabaseError(error));
       }
 
-      return data;
+      return data as User;
     } catch (error) {
-      console.error('UserService.getUserByClerkId error:', error);
+      this.logger.error('UserService.getUserByClerkId error:', error as Error);
       throw error;
     }
   }
 
-  /**
-   * Update last sync timestamp
-   */
-  static async updateLastSync(clerkId: string): Promise<void> {
-    if (!isSupabaseConfigured()) {
+  async updateLastSync(clerkId: string): Promise<void> {
+    if (!this.isSupabaseReady()) {
       return;
     }
 
     try {
-      const { error } = await supabase!
+      const client = this.supabaseClient!;
+      const { error } = await (client as any)
         .from('users')
-        .update({ last_sync_at: new Date().toISOString() })
+        .update({ last_sync_at: this.nowIso() })
         .eq('clerk_id', clerkId);
 
       if (error) {
-        console.error('Error updating last sync:', error);
+        this.logger.error('Error updating last sync:', error);
         throw new Error(handleSupabaseError(error));
       }
     } catch (error) {
-      console.error('UserService.updateLastSync error:', error);
+      this.logger.error('UserService.updateLastSync error:', error as Error);
       throw error;
     }
   }
 }
+
+let defaultUserService = new UserServiceImpl();
+
+export class UserService {
+  static configure(options: UserServiceOptions = {}) {
+    defaultUserService = new UserServiceImpl(options);
+  }
+
+  private static get service(): UserServiceImpl {
+    return defaultUserService;
+  }
+
+  static getOrCreateUser(clerkId: string, email: string, firstName?: string, lastName?: string): Promise<User | null> {
+    return this.service.getOrCreateUser(clerkId, email, firstName, lastName);
+  }
+
+  static updateUser(clerkId: string, updates: Partial<User>): Promise<User | null> {
+    return this.service.updateUser(clerkId, updates);
+  }
+
+  static updatePreferences(clerkId: string, preferences: Record<string, any>): Promise<void> {
+    return this.service.updatePreferences(clerkId, preferences);
+  }
+
+  static updateSettings(clerkId: string, settings: Record<string, any>): Promise<void> {
+    return this.service.updateSettings(clerkId, settings);
+  }
+
+  static getUserByClerkId(clerkId: string): Promise<User | null> {
+    return this.service.getUserByClerkId(clerkId);
+  }
+
+  static updateLastSync(clerkId: string): Promise<void> {
+    return this.service.updateLastSync(clerkId);
+  }
+}
+
+export const createUserService = (options: UserServiceOptions = {}) => new UserServiceImpl(options);

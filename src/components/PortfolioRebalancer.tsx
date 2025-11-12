@@ -116,10 +116,10 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
     }
 
     const savedTarget = portfolioRebalanceService.savePortfolioTarget({
-      id: editingTarget?.id,
-      name: target.name,
-      description: target.description,
-      allocations: target.allocations,
+      id: editingTarget?.id || crypto.randomUUID(),
+      name: target.name!,
+      description: target.description || '',
+      allocations: target.allocations!,
       rebalanceThreshold: target.rebalanceThreshold ?? 5,
       isActive: true,
       lastRebalanced: editingTarget?.lastRebalanced
@@ -225,7 +225,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
 
       {/* Active Target */}
       {activeTarget && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">{activeTarget.name}</h3>
             <button
@@ -263,7 +263,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
       {/* Current Allocation */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chart */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Current Allocation</h3>
           
           {chartData.length > 0 ? (
@@ -276,7 +276,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
                   outerRadius={100}
                   fill="#8884d8"
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${formatDecimal(percent ?? 0, 1)}%`}
+                  label={({ name, percent }) => `${name} ${formatDecimal((percent ?? 0) as number, 1)}%`}
                 >
                   {chartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -291,7 +291,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
         </div>
 
         {/* Allocation Table */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold mb-4">Allocation Details</h3>
           
           <div className="space-y-2">
@@ -333,7 +333,7 @@ export default function PortfolioRebalancer({ accountId }: PortfolioRebalancerPr
 
       {/* Rebalancing Actions */}
       {rebalanceActions.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold">Rebalancing Actions</h3>
             <button

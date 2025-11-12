@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useAppDispatch } from '../store/hooks/useAppRedux';
+import { useAppDispatch } from '../store';
 
 interface OptimisticUpdate<T> {
   id: string;

@@ -2,7 +2,7 @@
 // Note: In production, you might want to use a server-side OCR service like Google Vision API or AWS Textract
 
 import type { ExtractedData, ExtractedItem } from './documentService';
-import type { TesseractWorker, TesseractLine, TesseractLogMessage } from '../types/tesseract';
+import type { TesseractWorker, TesseractLine } from '../types/tesseract';
 
 interface OCRResult {
   text: string;
@@ -10,18 +10,56 @@ interface OCRResult {
   lines: string[];
 }
 
-class OCRService {
+type Logger = Pick<Console, 'error' | 'warn'>;
+
+interface UrlAdapter {
+  createObjectURL(file: File): string;
+  revokeObjectURL(url: string): void;
+}
+
+type TesseractImporter = () => Promise<{ createWorker: (lang: string) => Promise<TesseractWorker> }>;
+
+export interface OCRServiceOptions {
+  logger?: Logger;
+  urlAdapter?: UrlAdapter | null;
+  tesseractLoader?: TesseractImporter;
+}
+
+export class OCRService {
   private tesseractLoaded = false;
   private tesseractWorker: TesseractWorker | null = null;
+  private readonly logger: Logger;
+  private readonly urlAdapter: UrlAdapter | null;
+  private readonly tesseractLoader: TesseractImporter;
+
+  constructor(options: OCRServiceOptions = {}) {
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+    this.urlAdapter = options.urlAdapter ?? this.getBrowserUrlAdapter();
+    this.tesseractLoader = options.tesseractLoader ?? (() => import('tesseract.js'));
+  }
+
+  private getBrowserUrlAdapter(): UrlAdapter | null {
+    if (typeof URL === 'undefined' || !URL.createObjectURL || !URL.revokeObjectURL) {
+      return null;
+    }
+    return {
+      createObjectURL: URL.createObjectURL.bind(URL),
+      revokeObjectURL: URL.revokeObjectURL.bind(URL)
+    };
+  }
 
   async initialize() {
     if (this.tesseractLoaded) return;
 
     try {
       // Dynamically import Tesseract.js to avoid bundling it if not used
-      const Tesseract = await import('tesseract.js');
-      
-      this.tesseractWorker = await Tesseract.createWorker('eng') as unknown as TesseractWorker;
+      const tesseractModule = await this.tesseractLoader();
+      this.tesseractWorker = await tesseractModule.createWorker('eng');
 
       if (this.tesseractWorker) {
         await this.tesseractWorker.loadLanguage('eng');
@@ -30,7 +68,7 @@ class OCRService {
       
       this.tesseractLoaded = true;
     } catch (error) {
-      console.error('Failed to initialize OCR:', error);
+      this.logger.error('Failed to initialize OCR:', error as Error);
       throw new Error('OCR initialization failed');
     }
   }
@@ -50,7 +88,7 @@ class OCRService {
         lines: data.lines.map((line: TesseractLine) => line.text)
       };
     } catch (error) {
-      console.error('OCR extraction failed:', error);
+      this.logger.error('OCR extraction failed:', error as Error);
       throw new Error('Failed to extract text from image');
     }
   }
@@ -63,7 +101,12 @@ class OCRService {
 
     // For images, use Tesseract.js
     if (file.type.startsWith('image/')) {
-      const imageUrl = URL.createObjectURL(file);
+      if (!this.urlAdapter) {
+        this.logger.warn('Image OCR unavailable: URL.createObjectURL not supported in this environment.');
+        return { confidence: 0, rawText: '', error: 'Image OCR not supported' };
+      }
+
+      const imageUrl = this.urlAdapter.createObjectURL(file);
       try {
         const ocrResult = await this.extractTextFromImage(imageUrl);
         const extractedData = this.parseReceiptText(ocrResult.text, ocrResult.lines);
@@ -74,7 +117,7 @@ class OCRService {
           rawText: ocrResult.text
         };
       } finally {
-        URL.revokeObjectURL(imageUrl);
+        this.urlAdapter.revokeObjectURL(imageUrl);
       }
     }
 
@@ -267,7 +310,7 @@ class OCRService {
   private async extractDataFromPDF(file: File): Promise<ExtractedData> {
     // This is a placeholder for PDF extraction
     // In a real implementation, you would use pdf.js or a similar library
-    console.warn('PDF extraction not yet implemented');
+    this.logger.warn('PDF extraction not yet implemented');
     
     return {
       confidence: 0,
@@ -287,12 +330,20 @@ class OCRService {
 // Export singleton instance
 export const ocrService = new OCRService();
 
+type PerformOCRLogger = Pick<Console, 'error'>;
+
 // Export function to use in document service
-export async function performOCR(file: File): Promise<ExtractedData> {
+export async function performOCR(
+  file: File,
+  options: { service?: OCRService; logger?: PerformOCRLogger } = {}
+): Promise<ExtractedData> {
+  const service = options.service ?? ocrService;
+  const fallbackLogger = options.logger ?? (typeof console !== 'undefined' ? console : undefined);
+
   try {
-    return await ocrService.extractDataFromDocument(file);
+    return await service.extractDataFromDocument(file);
   } catch (error) {
-    console.error('OCR failed:', error);
+    fallbackLogger?.error?.('OCR failed:', error);
     // Return minimal data on error
     return {
       confidence: 0,

@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home, Chrome } from 'lucide-react';
 import { handleClerkSafariError } from '../utils/clerkSafarifix';
 import { isSafari } from '../utils/safariCompat';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 interface Props {
   children: ReactNode;
@@ -14,6 +15,8 @@ interface State {
   isSafariIssue: boolean;
   safariSolution: { message: string; solution: string } | null;
 }
+
+const clerkLogger = createScopedLogger('ClerkErrorBoundary');
 
 export class ClerkErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
@@ -49,11 +52,13 @@ export class ClerkErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Clerk authentication error:', error, errorInfo);
+    clerkLogger.error('Clerk authentication error', error);
+    clerkLogger.warn('Clerk authentication error info', errorInfo);
     
     // Log to error tracking service if available
     if (window.Sentry) {
-      window.Sentry.captureException(error, {
+      // Sentry.captureException type expects only one argument, but actual API supports two
+      (window.Sentry.captureException as any)(error, {
         contexts: {
           react: {
             componentStack: errorInfo.componentStack
@@ -108,7 +113,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
       // Reload
       window.location.reload();
     } catch (error) {
-      console.error('Failed to clear storage:', error);
+      clerkLogger.error('Failed to clear storage', error);
       alert('Failed to clear storage. Please try manually clearing your browser data.');
     }
   };
@@ -117,7 +122,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
+          <div className="max-w-md w-full bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
             {/* Header */}
             <div className={`px-6 py-4 ${
               this.state.isSafariIssue 

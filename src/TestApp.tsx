@@ -1,5 +1,9 @@
+import { createScopedLogger } from './loggers/scopedLogger';
+
+const testAppLogger = createScopedLogger('TestApp');
+
 export default function TestApp() {
-  console.log('TestApp component rendering');
+  testAppLogger.info('Rendering TestApp component');
   return (
     <div style={{ 
       padding: '20px', 

@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useAppDispatch, useAppSelector } from '../index';
+import { createScopedLogger } from '../../loggers/scopedLogger';
 import {
   addTransaction as addTransactionThunk,
   updateTransaction as updateTransactionThunk,
@@ -47,6 +48,8 @@ import {
   setRecurringTransactions
 } from '../slices/recurringTransactionsSlice';
 import type { Account, Transaction, Budget, Category, Goal, RecurringTransaction } from '../../types';
+
+const reduxLogger = createScopedLogger('useAppRedux');
 
 // This hook provides the same interface as the existing AppContext
 export function useAppRedux() {
@@ -100,7 +103,9 @@ export function useAppRedux() {
   
   // Budget methods (now using Supabase for creation)
   const addBudget = useCallback(async (budget: Omit<Budget, 'id' | 'createdAt' | 'updatedAt'>) => {
-    await dispatch(createBudgetInSupabase(budget));
+    // Remove updatedAt from the budget before passing to createBudgetInSupabase
+    const { spent, ...budgetData } = budget;
+    await dispatch(createBudgetInSupabase(budgetData as Omit<Budget, 'id' | 'createdAt' | 'spent'>));
   }, [dispatch]);
   
   const updateBudget = useCallback(async (id: string, updates: Partial<Budget>) => {
@@ -136,7 +141,9 @@ export function useAppRedux() {
   
   // Goal methods (now using Supabase for creation)
   const addGoal = useCallback(async (goal: Omit<Goal, 'id' | 'createdAt' | 'updatedAt'>) => {
-    await dispatch(createGoalInSupabase(goal));
+    // Remove updatedAt and ensure currentAmount is excluded
+    const { currentAmount, ...goalData } = goal;
+    await dispatch(createGoalInSupabase(goalData as Omit<Goal, 'id' | 'createdAt' | 'currentAmount'>));
   }, [dispatch]);
   
   const updateGoal = useCallback(async (id: string, updates: Partial<Goal>) => {
@@ -152,19 +159,58 @@ export function useAppRedux() {
   // Recurring transaction methods
   const addRecurringTransaction = useCallback(async (recurring: Omit<RecurringTransaction, 'id' | 'createdAt' | 'updatedAt'>) => {
     dispatch(addRecurringTransactionAction(recurring));
-    const newRecurring = [...recurringTransactions, { ...recurring, id: crypto.randomUUID(), createdAt: new Date(), updatedAt: new Date() }];
+    const newRecurring: RecurringTransaction[] = recurringTransactions.map(r => ({
+      ...r,
+      startDate: new Date(r.startDate),
+      endDate: r.endDate ? new Date(r.endDate) : undefined,
+      nextDate: new Date(r.nextDate),
+      lastProcessed: r.lastProcessed ? new Date(r.lastProcessed) : undefined,
+      createdAt: new Date(r.createdAt),
+      updatedAt: new Date(r.updatedAt)
+    }));
+    newRecurring.push({
+      ...recurring,
+      id: crypto.randomUUID(),
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
     await dispatch(saveRecurringTransactions(newRecurring));
   }, [dispatch, recurringTransactions]);
   
   const updateRecurringTransaction = useCallback(async (id: string, updates: Partial<RecurringTransaction>) => {
     dispatch(updateRecurringTransactionAction({ id, updates }));
-    const updatedRecurring = recurringTransactions.map(r => r.id === id ? { ...r, ...updates, updatedAt: new Date() } : r);
+    const updatedRecurring: RecurringTransaction[] = recurringTransactions.map(r => {
+      const deserialized = {
+        ...r,
+        startDate: new Date(r.startDate),
+        endDate: r.endDate ? new Date(r.endDate) : undefined,
+        nextDate: new Date(r.nextDate),
+        lastProcessed: r.lastProcessed ? new Date(r.lastProcessed) : undefined,
+        createdAt: new Date(r.createdAt),
+        updatedAt: new Date(r.updatedAt)
+      };
+
+      if (r.id === id) {
+        return { ...deserialized, ...updates, updatedAt: new Date() };
+      }
+      return deserialized;
+    });
     await dispatch(saveRecurringTransactions(updatedRecurring));
   }, [dispatch, recurringTransactions]);
   
   const deleteRecurringTransaction = useCallback(async (id: string) => {
     dispatch(deleteRecurringTransactionAction(id));
-    const filteredRecurring = recurringTransactions.filter(r => r.id !== id);
+    const filteredRecurring: RecurringTransaction[] = recurringTransactions
+      .filter(r => r.id !== id)
+      .map(r => ({
+        ...r,
+        startDate: new Date(r.startDate),
+        endDate: r.endDate ? new Date(r.endDate) : undefined,
+        nextDate: new Date(r.nextDate),
+        lastProcessed: r.lastProcessed ? new Date(r.lastProcessed) : undefined,
+        createdAt: new Date(r.createdAt),
+        updatedAt: new Date(r.updatedAt)
+      }));
     await dispatch(saveRecurringTransactions(filteredRecurring));
   }, [dispatch, recurringTransactions]);
   
@@ -184,7 +230,7 @@ export function useAppRedux() {
   
   const loadTestData = useCallback(async () => {
     // This would be implemented to load test data
-    console.log('Load test data not implemented in Redux version yet');
+    reduxLogger.info('Load test data not implemented in Redux version yet');
   }, []);
   
   const exportData = useCallback(async () => {

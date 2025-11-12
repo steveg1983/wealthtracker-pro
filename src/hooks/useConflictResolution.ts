@@ -94,8 +94,11 @@ export function useConflictResolution() {
     if (!currentConflict) return;
     
     try {
+      // Map resolution types: client -> local, server -> remote
+      const syncResolution = resolution === 'client' ? 'local' : resolution === 'server' ? 'remote' : 'merge';
+
       // Resolve via sync service
-      syncService.resolveConflict(currentConflict.id, resolution, mergedData);
+      syncService.resolveConflict(currentConflict.id, syncResolution, mergedData);
       
       // Remove from state
       setConflictState(prev => ({

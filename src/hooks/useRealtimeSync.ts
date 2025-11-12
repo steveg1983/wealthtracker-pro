@@ -54,7 +54,7 @@ interface UseRealtimeSyncOptions {
   };
 }
 
-interface UseRealtimeSyncReturn {
+export interface UseRealtimeSyncReturn {
   /**
    * Current connection state
    */

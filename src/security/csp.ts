@@ -160,6 +160,8 @@ export const getSecurityHeaders = (): Record<string, string> => {
 };
 
 // Apply CSP meta tag to document (for client-side enforcement)
+const securityLogger = typeof console !== 'undefined' ? console : { error: () => {} };
+
 export const applyCSPMetaTag = (): void => {
   if (typeof document === 'undefined') return;
   
@@ -180,7 +182,7 @@ export const applyCSPMetaTag = (): void => {
 export const setupCSPReporting = (): void => {
   if (typeof window !== 'undefined' && 'SecurityPolicyViolationEvent' in window && typeof document !== 'undefined') {
     document.addEventListener('securitypolicyviolation', (e: SecurityPolicyViolationEvent) => {
-      console.error('CSP Violation:', {
+      securityLogger.error('CSP Violation:', {
         blockedURI: e.blockedURI,
         violatedDirective: e.violatedDirective,
         originalPolicy: e.originalPolicy,

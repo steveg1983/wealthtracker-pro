@@ -1,6 +1,20 @@
 import { exportService } from './exportService';
 import type { ExportOptions } from './exportService';
 
+type StorageAdapter = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+export interface AutomaticBackupServiceOptions {
+  storage?: StorageAdapter | null;
+  setIntervalFn?: typeof setInterval;
+  clearIntervalFn?: typeof clearInterval;
+  dateNow?: () => number;
+  dateFactory?: () => Date;
+  notificationFactory?: (title: string, options?: NotificationOptions) => void;
+  navigatorRef?: Navigator | null;
+  windowRef?: Window | null;
+  permissionsQuery?: (descriptor: PermissionDescriptor) => Promise<PermissionStatus>;
+}
+
 export interface BackupConfig {
   enabled: boolean;
   frequency: 'daily' | 'weekly' | 'monthly';
@@ -12,47 +26,81 @@ export interface BackupConfig {
   includeAttachments: boolean;
 }
 
-class AutomaticBackupService {
+export class AutomaticBackupService {
   private readonly BACKUP_CONFIG_KEY = 'money_management_backup_config';
   private readonly BACKUP_HISTORY_KEY = 'money_management_backup_history';
   private readonly MAX_HISTORY_ENTRIES = 30;
+  private storage: StorageAdapter | null;
+  private readonly setIntervalFn: typeof setInterval;
+  private readonly clearIntervalFn: typeof clearInterval;
+  private readonly dateNow: () => number;
+  private readonly dateFactory: () => Date;
+  private readonly notificationFactory?: (title: string, options?: NotificationOptions) => void;
+  private readonly navigatorRef?: Navigator | null;
+  private readonly windowRef?: Window | null;
+  private readonly permissionsQuery?: (descriptor: PermissionDescriptor) => Promise<PermissionStatus>;
+  private fallbackInterval?: ReturnType<typeof setInterval>;
+
+  constructor(options: AutomaticBackupServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    this.setIntervalFn =
+      options.setIntervalFn ??
+      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setInterval(handler, timeout, ...args));
+    this.clearIntervalFn = options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
+    this.dateNow = options.dateNow ?? (() => Date.now());
+    this.dateFactory = options.dateFactory ?? (() => new Date());
+    this.notificationFactory = options.notificationFactory;
+    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
+    this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
+    if (options.permissionsQuery) {
+      this.permissionsQuery = options.permissionsQuery;
+    } else if (this.navigatorRef?.permissions?.query) {
+      this.permissionsQuery = (descriptor) => this.navigatorRef!.permissions!.query(descriptor);
+    }
+  }
 
   async initializeBackups(): Promise<void> {
     const config = this.getBackupConfig();
     
     if (!config.enabled) {
       console.log('[AutomaticBackup] Backups disabled');
+      this.clearFallbackScheduler();
       return;
     }
 
-    // Register periodic background sync if available
-    if ('periodicSync' in self.registration) {
+    const navigatorRef = this.navigatorRef;
+    const registration = (this.windowRef as any)?.registration;
+    const supportsPeriodicSync =
+      Boolean(navigatorRef?.serviceWorker?.controller) &&
+      Boolean(registration && 'periodicSync' in registration);
+
+    if (supportsPeriodicSync && this.permissionsQuery) {
       try {
-        // Request permission for periodic background sync
-        const status = await navigator.permissions.query({
-          name: 'periodic-background-sync' as PermissionName,
+        const status = await this.permissionsQuery({
+          name: 'periodic-background-sync' as PermissionName
         });
-        
         if (status.state === 'granted') {
           await this.registerPeriodicSync();
-        } else {
-          console.log('[AutomaticBackup] Periodic sync permission not granted');
-          // Fall back to regular scheduling
-          this.setupFallbackScheduler();
+          return;
         }
+        console.log('[AutomaticBackup] Periodic sync permission not granted');
       } catch (error) {
         console.error('[AutomaticBackup] Failed to setup periodic sync:', error);
-        this.setupFallbackScheduler();
       }
-    } else {
-      // Browser doesn't support periodic sync
-      this.setupFallbackScheduler();
     }
+
+    // Browser/environment does not support periodic sync or permission denied
+    this.setupFallbackScheduler();
   }
 
   private async registerPeriodicSync(): Promise<void> {
+    const navigatorRef = this.navigatorRef;
+    if (!navigatorRef?.serviceWorker) {
+      throw new Error('Service worker not available');
+    }
+
     const config = this.getBackupConfig();
-    const registration = await navigator.serviceWorker.ready;
+    const registration = await navigatorRef.serviceWorker.ready;
     
     // Calculate minimum interval based on frequency
     const minInterval = this.getMinInterval(config.frequency);
@@ -81,22 +129,30 @@ class AutomaticBackupService {
     }
   }
 
+  private clearFallbackScheduler(): void {
+    if (this.fallbackInterval) {
+      this.clearIntervalFn(this.fallbackInterval);
+      this.fallbackInterval = undefined;
+    }
+  }
+
   private setupFallbackScheduler(): void {
+    this.clearFallbackScheduler();
     // Check if it's time to backup when the app loads
     const lastBackup = this.getLastBackupTime();
     const config = this.getBackupConfig();
     const nextBackupTime = this.calculateNextBackupTime(lastBackup, config);
     
-    if (Date.now() >= nextBackupTime) {
-      this.performBackup();
+    if (this.dateNow() >= nextBackupTime) {
+      void this.performBackup();
     }
     
     // Also check periodically while app is open
-    setInterval(() => {
-      const now = Date.now();
+    this.fallbackInterval = this.setIntervalFn(() => {
+      const now = this.dateNow();
       const next = this.calculateNextBackupTime(this.getLastBackupTime(), this.getBackupConfig());
       if (now >= next) {
-        this.performBackup();
+        void this.performBackup();
       }
     }, 60 * 60 * 1000); // Check every hour
   }
@@ -132,7 +188,7 @@ class AutomaticBackupService {
       
       // Update backup history
       this.updateBackupHistory({
-        timestamp: Date.now(),
+        timestamp: this.dateNow(),
         success: true,
         format: config.format,
         filesCreated: backupFiles.length,
@@ -149,7 +205,7 @@ class AutomaticBackupService {
       console.error('[AutomaticBackup] Backup failed:', error);
       
       this.updateBackupHistory({
-        timestamp: Date.now(),
+        timestamp: this.dateNow(),
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
@@ -182,7 +238,7 @@ class AutomaticBackupService {
     };
     
     for (const key of keys) {
-      const value = localStorage.getItem(key);
+      const value = this.storage?.getItem(key) ?? null;
       if (value) {
         try {
           data[key.replace('money_management_', '')] = JSON.parse(value);
@@ -286,7 +342,7 @@ class AutomaticBackupService {
         filename: backup.filename,
         format: backup.format,
         data: backup.data,
-        timestamp: Date.now(),
+        timestamp: this.dateNow(),
         cloudSynced: false,
       });
     }
@@ -339,7 +395,7 @@ class AutomaticBackupService {
     const store = transaction.objectStore('backups');
     const index = store.index('timestamp');
     
-    const cutoffTime = Date.now() - (retentionDays * 24 * 60 * 60 * 1000);
+    const cutoffTime = this.dateNow() - (retentionDays * 24 * 60 * 60 * 1000);
     const range = IDBKeyRange.upperBound(cutoffTime);
     
     const request = index.openCursor(range);
@@ -359,27 +415,33 @@ class AutomaticBackupService {
   }
 
   private sendBackupNotification(success: boolean, error?: any): void {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      const notification = new Notification(
-        success ? 'Backup Completed' : 'Backup Failed',
-        {
-          body: success 
-            ? 'Your financial data has been backed up successfully.'
-            : `Backup failed: ${error?.message || 'Unknown error'}`,
-          icon: '/icon-192.png',
-          tag: 'backup-notification',
-        }
-      );
-      
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-      };
+    const title = success ? 'Backup Completed' : 'Backup Failed';
+    const options: NotificationOptions = {
+      body: success
+        ? 'Your financial data has been backed up successfully.'
+        : `Backup failed: ${error?.message || 'Unknown error'}`,
+      icon: '/icon-192.png',
+      tag: 'backup-notification'
+    };
+
+    if (this.notificationFactory) {
+      this.notificationFactory(title, options);
+      return;
     }
+
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+      return;
+    }
+
+    const notification = new Notification(title, options);
+    notification.onclick = () => {
+      this.windowRef?.focus?.();
+      notification.close();
+    };
   }
 
   getBackupConfig(): BackupConfig {
-    const stored = localStorage.getItem(this.BACKUP_CONFIG_KEY);
+    const stored = this.storage?.getItem(this.BACKUP_CONFIG_KEY);
     
     if (stored) {
       try {
@@ -405,7 +467,7 @@ class AutomaticBackupService {
     const current = this.getBackupConfig();
     const updated = { ...current, ...config };
     
-    localStorage.setItem(this.BACKUP_CONFIG_KEY, JSON.stringify(updated));
+    this.storage?.setItem(this.BACKUP_CONFIG_KEY, JSON.stringify(updated));
     
     // Re-initialize if enabled state changed
     if (config.enabled !== undefined) {
@@ -450,7 +512,7 @@ class AutomaticBackupService {
   }
 
   private getBackupHistory(): Array<any> {
-    const stored = localStorage.getItem(this.BACKUP_HISTORY_KEY);
+    const stored = this.storage?.getItem(this.BACKUP_HISTORY_KEY);
     
     if (stored) {
       try {
@@ -472,7 +534,7 @@ class AutomaticBackupService {
       history.splice(this.MAX_HISTORY_ENTRIES);
     }
     
-    localStorage.setItem(this.BACKUP_HISTORY_KEY, JSON.stringify(history));
+    this.storage?.setItem(this.BACKUP_HISTORY_KEY, JSON.stringify(history));
   }
 
   async getStoredBackups(): Promise<Array<{
@@ -542,6 +604,10 @@ class AutomaticBackupService {
       request.onsuccess = () => resolve();
       request.onerror = () => reject(request.error);
     });
+  }
+
+  destroy(): void {
+    this.clearFallbackScheduler();
   }
 }
 

@@ -63,8 +63,8 @@ export function ReduxMigrationWrapper({ children }: { children: React.ReactNode 
     // Convert AppContext RecurringTransaction to Redux RecurringTransaction
     const convertedRecurringTransactions = recurringTransactions.map(rt => ({
       ...rt,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      createdAt: rt.createdAt instanceof Date ? rt.createdAt : new Date(),
+      updatedAt: rt.updatedAt instanceof Date ? rt.updatedAt : new Date()
     }));
     dispatch(setRecurringTransactions(serializeForRedux(convertedRecurringTransactions)));
   }, [dispatch, recurringTransactions]);

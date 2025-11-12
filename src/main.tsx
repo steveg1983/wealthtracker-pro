@@ -68,8 +68,8 @@ try {
     createRoot(root).render(
       <StrictMode>
         <ClerkErrorBoundary>
-          <ClerkProvider 
-            publishableKey={PUBLISHABLE_KEY} 
+          <ClerkProvider
+            publishableKey={PUBLISHABLE_KEY}
             afterSignOutUrl="/"
             appearance={{
               variables: {
@@ -77,6 +77,8 @@ try {
               }
             }}
             allowedRedirectOrigins={[window.location.origin]}
+            isSatellite={false}
+            domain={window.location.hostname}
           >
             <Provider store={store}>
               <App />

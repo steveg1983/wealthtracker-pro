@@ -1,6 +1,6 @@
 import Decimal from 'decimal.js';
 
-type DecimalInstance = InstanceType<typeof Decimal>;
+export type DecimalInstance = InstanceType<typeof Decimal>;
 
 // Configure Decimal for financial calculations
 Decimal.config({
@@ -61,4 +61,3 @@ export function decimalsEqual(a: DecimalInstance | number, b: DecimalInstance | 
  * Export Decimal class for direct use
  */
 export { Decimal };
-export type { DecimalInstance };

@@ -39,16 +39,12 @@ class ImportService {
       const results: any[] = [];
       const errors: string[] = [];
 
-      parseCSV(content, {
-        columns: true,
-        skip_empty_lines: true,
-        trim: true
-      }, (err: any, records: any) => {
-        if (err) {
-          errors.push(err.message);
-          resolve({ transactions: [], errors, warnings: [] });
-          return;
-        }
+      try {
+        const records = parseCSV(content, {
+          columns: true,
+          skip_empty_lines: true,
+          trim: true
+        });
 
         // Map CSV records to transactions
         const transactions = records.map((record: any) => ({
@@ -63,7 +59,10 @@ class ImportService {
           errors: [],
           warnings: []
         });
-      });
+      } catch (err: any) {
+        errors.push(err.message);
+        resolve({ transactions: [], errors, warnings: [] });
+      }
     });
   }
 

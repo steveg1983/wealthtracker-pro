@@ -1,5 +1,32 @@
 import type { SavedThemeSchedule, SavedThemePreset } from '../types/theme';
 
+interface StorageLike {
+  length?: number;
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem?(key: string): void;
+  key?(index: number): string | null;
+}
+
+type ClassList = Pick<DOMTokenList, 'add' | 'remove' | 'contains' | 'toggle'>;
+
+interface DocumentLike {
+  documentElement: {
+    classList: ClassList;
+  };
+}
+
+type Logger = Pick<Console, 'error' | 'warn'>;
+
+interface ThemeSchedulingServiceOptions {
+  localStorage?: StorageLike | null;
+  documentRef?: DocumentLike | null;
+  setIntervalFn?: typeof setInterval;
+  clearIntervalFn?: typeof clearInterval;
+  dateFactory?: () => Date;
+  logger?: Logger;
+}
+
 export interface ThemeSchedule {
   id: string;
   name: string;
@@ -49,14 +76,38 @@ export interface ThemePreset {
   createdAt: Date;
 }
 
-class ThemeSchedulingService {
+export class ThemeSchedulingService {
   private schedules: ThemeSchedule[] = [];
   private presets: ThemePreset[] = [];
   private currentSchedule: ThemeSchedule | null = null;
   private schedulingInterval: NodeJS.Timeout | null = null;
   private onThemeChange?: (theme: 'light' | 'dark') => void;
+  private storage: StorageLike | null;
+  private documentRef: DocumentLike | null;
+  private readonly setIntervalFn: typeof setInterval;
+  private readonly clearIntervalFn: typeof clearInterval;
+  private readonly dateFactory: () => Date;
+  private readonly logger: Logger;
 
-  constructor() {
+  constructor(options: ThemeSchedulingServiceOptions = {}) {
+    const defaultStorage = typeof window !== 'undefined' ? window.localStorage : null;
+    const defaultDocument = typeof document !== 'undefined' ? document : null;
+
+    this.storage = options.localStorage ?? defaultStorage;
+    this.documentRef = options.documentRef ?? defaultDocument;
+    this.setIntervalFn =
+      options.setIntervalFn ??
+      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setInterval(handler, timeout, ...args));
+    this.clearIntervalFn =
+      options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
+    this.dateFactory = options.dateFactory ?? (() => new Date());
+    const noop = () => {};
+    const globalLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      error: options.logger?.error ?? (globalLogger?.error?.bind(globalLogger) ?? noop),
+      warn: options.logger?.warn ?? (globalLogger?.warn?.bind(globalLogger) ?? noop)
+    };
+
     this.loadData();
     this.initializeDefaultPresets();
     this.initializeDefaultSchedules();
@@ -64,8 +115,9 @@ class ThemeSchedulingService {
   }
 
   private loadData() {
+    if (!this.storage) return;
     try {
-      const savedSchedules = localStorage.getItem('theme-schedules');
+      const savedSchedules = this.storage.getItem('theme-schedules');
       if (savedSchedules) {
         this.schedules = JSON.parse(savedSchedules).map((schedule: SavedThemeSchedule) => ({
           ...schedule,
@@ -74,7 +126,7 @@ class ThemeSchedulingService {
         }));
       }
 
-      const savedPresets = localStorage.getItem('theme-presets');
+      const savedPresets = this.storage.getItem('theme-presets');
       if (savedPresets) {
         this.presets = JSON.parse(savedPresets).map((preset: SavedThemePreset) => ({
           ...preset,
@@ -82,23 +134,24 @@ class ThemeSchedulingService {
         }));
       }
 
-      const savedCurrentSchedule = localStorage.getItem('current-theme-schedule');
+      const savedCurrentSchedule = this.storage.getItem('current-theme-schedule');
       if (savedCurrentSchedule) {
         const scheduleId = JSON.parse(savedCurrentSchedule);
         this.currentSchedule = this.schedules.find(s => s.id === scheduleId) || null;
       }
     } catch (error) {
-      console.error('Error loading theme scheduling data:', error);
+      this.logger.error('Error loading theme scheduling data:', error as Error);
     }
   }
 
   private saveData() {
+    if (!this.storage) return;
     try {
-      localStorage.setItem('theme-schedules', JSON.stringify(this.schedules));
-      localStorage.setItem('theme-presets', JSON.stringify(this.presets));
-      localStorage.setItem('current-theme-schedule', JSON.stringify(this.currentSchedule?.id || null));
+      this.storage.setItem('theme-schedules', JSON.stringify(this.schedules));
+      this.storage.setItem('theme-presets', JSON.stringify(this.presets));
+      this.storage.setItem('current-theme-schedule', JSON.stringify(this.currentSchedule?.id || null));
     } catch (error) {
-      console.error('Error saving theme scheduling data:', error);
+      this.logger.error('Error saving theme scheduling data:', error as Error);
     }
   }
 
@@ -194,7 +247,7 @@ class ThemeSchedulingService {
       this.presets = defaultPresets.map((preset, index) => ({
         ...preset,
         id: `preset-${index + 1}`,
-        createdAt: new Date()
+        createdAt: this.now()
       }));
     }
   }
@@ -237,8 +290,8 @@ class ThemeSchedulingService {
       this.schedules = defaultSchedules.map((schedule, index) => ({
         ...schedule,
         id: `schedule-${index + 1}`,
-        createdAt: new Date(),
-        lastUpdated: new Date()
+        createdAt: this.now(),
+        lastUpdated: this.now()
       }));
     }
   }
@@ -251,9 +304,9 @@ class ThemeSchedulingService {
   createSchedule(schedule: Omit<ThemeSchedule, 'id' | 'createdAt' | 'lastUpdated'>): ThemeSchedule {
     const newSchedule: ThemeSchedule = {
       ...schedule,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      lastUpdated: new Date()
+      id: this.now().getTime().toString(),
+      createdAt: this.now(),
+      lastUpdated: this.now()
     };
 
     this.schedules.push(newSchedule);
@@ -268,7 +321,7 @@ class ThemeSchedulingService {
     this.schedules[index] = {
       ...this.schedules[index],
       ...updates,
-      lastUpdated: new Date()
+      lastUpdated: this.now()
     };
 
     // Update current schedule if it's the one being modified
@@ -334,8 +387,8 @@ class ThemeSchedulingService {
   createPreset(preset: Omit<ThemePreset, 'id' | 'createdAt'>): ThemePreset {
     const newPreset: ThemePreset = {
       ...preset,
-      id: Date.now().toString(),
-      createdAt: new Date()
+      id: this.now().getTime().toString(),
+      createdAt: this.now()
     };
 
     this.presets.push(newPreset);
@@ -367,20 +420,22 @@ class ThemeSchedulingService {
   }
 
   private startScheduling(): void {
-    // Check every minute
-    this.schedulingInterval = setInterval(() => {
+    if (this.schedulingInterval) {
+      this.clearIntervalFn(this.schedulingInterval);
+    }
+
+    this.schedulingInterval = this.setIntervalFn(() => {
       this.checkAndApplySchedule();
     }, 60000);
 
-    // Check immediately
     this.checkAndApplySchedule();
   }
 
   private checkAndApplySchedule(): void {
     if (!this.currentSchedule || !this.currentSchedule.isActive) return;
-
+    const classList = this.getClassList();
     const shouldBeDark = this.shouldUseDarkTheme();
-    const currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+    const currentTheme = classList?.contains('dark') ? 'dark' : 'light';
     
     if ((shouldBeDark && currentTheme === 'light') || (!shouldBeDark && currentTheme === 'dark')) {
       this.applyTheme(shouldBeDark ? 'dark' : 'light');
@@ -390,7 +445,7 @@ class ThemeSchedulingService {
   private shouldUseDarkTheme(): boolean {
     if (!this.currentSchedule) return false;
 
-    const now = new Date();
+    const now = this.now();
     const currentDay = now.getDay();
     const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -481,14 +536,17 @@ class ThemeSchedulingService {
   }
 
   private applyTheme(theme: 'light' | 'dark'): void {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
+    const classList = this.getClassList();
+    if (classList) {
+      if (theme === 'dark') {
+        classList.add('dark');
+      } else {
+        classList.remove('dark');
+      }
     }
 
     // Update localStorage for persistence
-    localStorage.setItem('theme', theme);
+    this.storage?.setItem('theme', theme);
 
     // Notify callback
     if (this.onThemeChange) {
@@ -508,7 +566,7 @@ class ThemeSchedulingService {
     if (!this.currentSchedule || !this.currentSchedule.isActive) return null;
 
     if (this.currentSchedule.scheduleType === 'time-based') {
-      const now = new Date();
+      const now = this.now();
       const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
       const isDark = this.shouldUseDarkTheme();
       
@@ -527,7 +585,7 @@ class ThemeSchedulingService {
 
     if (this.currentSchedule.scheduleType === 'sunrise-sunset' && 
         this.currentSchedule.latitude && this.currentSchedule.longitude) {
-      const now = new Date();
+      const now = this.now();
       const { sunrise, sunset } = this.calculateSunriseSunset(
         this.currentSchedule.latitude,
         this.currentSchedule.longitude,
@@ -547,9 +605,17 @@ class ThemeSchedulingService {
     return null;
   }
 
+  private now(): Date {
+    return this.dateFactory();
+  }
+
+  private getClassList(): DOMTokenList | null {
+    return this.documentRef?.documentElement?.classList ?? null;
+  }
+
   cleanup(): void {
     if (this.schedulingInterval) {
-      clearInterval(this.schedulingInterval);
+      this.clearIntervalFn(this.schedulingInterval);
       this.schedulingInterval = null;
     }
   }

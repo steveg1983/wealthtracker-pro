@@ -1,4 +1,5 @@
 import { formatDecimal } from './decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 /**
  * Dynamic Import Utilities
@@ -108,6 +109,8 @@ export const featureImports = {
 };
 
 // Utility to measure import time
+const dynamicImportLogger = createScopedLogger('DynamicImports');
+
 export async function measureImport<T>(
   name: string, 
   importFn: () => Promise<T>
@@ -118,12 +121,12 @@ export async function measureImport<T>(
       const result = await importFn();
       const end = performance.now();
       const duration = formatDecimal(end - start, 2);
-      console.log(`✅ Loaded ${name} in ${duration}ms`);
+      dynamicImportLogger.info(`Loaded ${name}`, { durationMs: duration });
       return result;
     } catch (error) {
       const end = performance.now();
       const duration = formatDecimal(end - start, 2);
-      console.error(`❌ Failed to load ${name} after ${duration}ms`, error);
+      dynamicImportLogger.error(`Failed to load ${name}`, { durationMs: duration, error });
       throw error;
     }
   }

@@ -28,6 +28,9 @@ import { formatCurrencyWhole } from '../utils/currency-decimal';
 import { toDecimal, Decimal } from '../utils/decimal';
 import type { DecimalInstance } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const dataIntelligenceLogger = createScopedLogger('DataIntelligencePage');
 
 type ActiveTab = 'overview' | 'subscriptions' | 'merchants' | 'patterns' | 'insights';
 
@@ -57,7 +60,7 @@ export default function DataIntelligence() {
       setInsights(dataIntelligenceService.getInsights());
       setSubscriptions(dataIntelligenceService.getSubscriptions());
     } catch (error) {
-      console.error('Error loading data intelligence data:', error);
+      dataIntelligenceLogger.error('Error loading data intelligence data', error);
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +80,7 @@ export default function DataIntelligence() {
       // For now, we'll just refresh the data
       loadData();
     } catch (error) {
-      console.error('Error running analysis:', error);
+      dataIntelligenceLogger.error('Error running analysis', error);
     } finally {
       setIsAnalyzing(false);
     }
@@ -165,7 +168,7 @@ export default function DataIntelligence() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm mb-6">
           <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex space-x-8 overflow-x-auto">
               <button
@@ -247,7 +250,7 @@ export default function DataIntelligence() {
           <div className="space-y-6">
             {/* Key Statistics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Total Merchants</p>
@@ -262,7 +265,7 @@ export default function DataIntelligence() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Active Subscriptions</p>
@@ -277,7 +280,7 @@ export default function DataIntelligence() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Patterns Detected</p>
@@ -292,7 +295,7 @@ export default function DataIntelligence() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Active Insights</p>
@@ -309,7 +312,7 @@ export default function DataIntelligence() {
             </div>
 
             {/* Recent Insights */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                   <BellIcon size={20} className="text-orange-600 dark:text-orange-400" />
@@ -362,7 +365,7 @@ export default function DataIntelligence() {
 
             {/* Subscription Overview */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <CreditCardIcon size={20} className="text-green-600 dark:text-green-400" />
@@ -415,7 +418,7 @@ export default function DataIntelligence() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
                     <TrendingUpIcon size={20} className="text-purple-600 dark:text-purple-400" />

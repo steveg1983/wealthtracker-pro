@@ -27,15 +27,64 @@ interface NotificationPreferences {
   unusualSpending: boolean;
 }
 
-class PushNotificationService {
+interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem?(key: string): void;
+}
+
+interface NotificationAPI {
+  permission: NotificationPermission;
+  requestPermission(): Promise<NotificationPermission>;
+}
+
+interface NavigatorLike {
+  serviceWorker?: Pick<ServiceWorkerContainer, 'ready'>;
+}
+
+interface WindowLike {
+  atob?: typeof window.atob;
+  PushManager?: typeof PushManager;
+}
+
+type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+
+export interface PushNotificationServiceOptions {
+  storage?: StorageLike | null;
+  navigatorRef?: NavigatorLike | null;
+  windowRef?: WindowLike | null;
+  fetchFn?: typeof fetch;
+  notificationAPI?: NotificationAPI;
+  logger?: Logger;
+}
+
+export class PushNotificationService {
   private vapidPublicKey: string;
   private registration: ServiceWorkerRegistration | null = null;
+  private storage: StorageLike | null;
+  private navigatorRef: NavigatorLike | null;
+  private windowRef: WindowLike | null;
+  private fetchFn: typeof fetch;
+  private notificationAPI: NotificationAPI;
+  private logger: Logger;
 
-  constructor() {
+  constructor(options: PushNotificationServiceOptions = {}) {
     // This should be your VAPID public key from your server
     // For now, using a placeholder - replace with actual key
     this.vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY || 
       'BKcvxvtwNpK2QFYwpwKyTjdGaNzHKdvLXYqfT2VzQd6X0gSJI_6R5gSjB2LqvJJcQ_8G9pYsvGLPCmWYYZrJe1Y';
+    this.storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
+    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
+    this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
+    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : (async () => new Response()) as any);
+    const defaultNotification = typeof Notification !== 'undefined'
+      ? Notification
+      : { permission: 'default' as NotificationPermission, requestPermission: async () => 'default' as NotificationPermission };
+    this.notificationAPI = options.notificationAPI ?? defaultNotification;
+    const defaultLogger = typeof console !== 'undefined'
+      ? console
+      : { log: () => {}, warn: () => {}, error: () => {} };
+    this.logger = options.logger ?? defaultLogger;
   }
 
   /**
@@ -44,27 +93,27 @@ class PushNotificationService {
   async initialize(): Promise<void> {
     try {
       // Check if service worker is supported
-      if (!('serviceWorker' in navigator)) {
-        console.warn('Service Worker not supported');
+      if (!this.navigatorRef?.serviceWorker) {
+        this.logger.warn('Service Worker not supported');
         return;
       }
 
       // Check if push notifications are supported
-      if (!('PushManager' in window)) {
-        console.warn('Push notifications not supported');
+      if (!this.windowRef?.PushManager) {
+        this.logger.warn('Push notifications not supported');
         return;
       }
 
       // Get service worker registration
-      const reg = await navigator.serviceWorker.ready;
+      const reg = await this.navigatorRef.serviceWorker.ready;
       this.registration = reg;
 
       // Check current permission status
       const permission = await this.getPermissionState();
-      console.log('Push notification permission:', permission);
+      this.logger.log('Push notification permission:', permission);
 
     } catch (error) {
-      console.error('Failed to initialize push notifications:', error);
+      this.logger.error('Failed to initialize push notifications:', error);
     }
   }
 
@@ -73,7 +122,7 @@ class PushNotificationService {
    */
   async requestPermission(): Promise<NotificationPermission> {
     try {
-      const permission = await Notification.requestPermission();
+      const permission = await this.notificationAPI.requestPermission();
       
       if (permission === 'granted') {
         // Subscribe to push notifications
@@ -82,7 +131,7 @@ class PushNotificationService {
       
       return permission;
     } catch (error) {
-      console.error('Failed to request notification permission:', error);
+      this.logger.error('Failed to request notification permission:', error);
       return 'denied';
     }
   }
@@ -91,7 +140,7 @@ class PushNotificationService {
    * Get current permission state
    */
   async getPermissionState(): Promise<NotificationPermission> {
-    return Notification.permission;
+    return this.notificationAPI.permission;
   }
 
   /**
@@ -129,7 +178,7 @@ class PushNotificationService {
 
       return subscription;
     } catch (error) {
-      console.error('Failed to subscribe to push notifications:', error);
+      this.logger.error('Failed to subscribe to push notifications:', error);
       return null;
     }
   }
@@ -157,7 +206,7 @@ class PushNotificationService {
       
       return false;
     } catch (error) {
-      console.error('Failed to unsubscribe from push notifications:', error);
+      this.logger.error('Failed to unsubscribe from push notifications:', error);
       return false;
     }
   }
@@ -167,7 +216,7 @@ class PushNotificationService {
    */
   private async sendSubscriptionToServer(subscription: PushSubscription): Promise<void> {
     try {
-      await fetch('/api/notifications/subscribe', {
+      await this.fetchFn('/api/notifications/subscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -178,7 +227,7 @@ class PushNotificationService {
         })
       });
     } catch (error) {
-      console.error('Failed to send subscription to server:', error);
+      this.logger.error('Failed to send subscription to server:', error);
     }
   }
 
@@ -187,7 +236,7 @@ class PushNotificationService {
    */
   private async removeSubscriptionFromServer(subscription: PushSubscription): Promise<void> {
     try {
-      await fetch('/api/notifications/unsubscribe', {
+      await this.fetchFn('/api/notifications/unsubscribe', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -195,7 +244,7 @@ class PushNotificationService {
         body: JSON.stringify({ subscription })
       });
     } catch (error) {
-      console.error('Failed to remove subscription from server:', error);
+      this.logger.error('Failed to remove subscription from server:', error);
     }
   }
 
@@ -204,12 +253,12 @@ class PushNotificationService {
    */
   async updatePreferences(preferences: NotificationPreferences): Promise<void> {
     // Save to local storage
-    localStorage.setItem('notificationPreferences', JSON.stringify(preferences));
+    this.storage?.setItem('notificationPreferences', JSON.stringify(preferences));
 
     // Update on server if subscribed
     if (await this.isSubscribed()) {
       try {
-        await fetch('/api/notifications/preferences', {
+        await this.fetchFn('/api/notifications/preferences', {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
@@ -217,7 +266,7 @@ class PushNotificationService {
           body: JSON.stringify({ preferences })
         });
       } catch (error) {
-        console.error('Failed to update notification preferences:', error);
+        this.logger.error('Failed to update notification preferences:', error);
       }
     }
   }
@@ -226,7 +275,7 @@ class PushNotificationService {
    * Get notification preferences
    */
   getNotificationPreferences(): NotificationPreferences {
-    const stored = localStorage.getItem('notificationPreferences');
+    const stored = this.storage?.getItem('notificationPreferences');
     
     if (stored) {
       return JSON.parse(stored);
@@ -251,7 +300,7 @@ class PushNotificationService {
       throw new Error('Service worker not registered');
     }
 
-    if (Notification.permission !== 'granted') {
+    if (this.notificationAPI.permission !== 'granted') {
       throw new Error('Notification permission not granted');
     }
 
@@ -263,7 +312,7 @@ class PushNotificationService {
       data: options.data,
       actions: options.actions,
       requireInteraction: options.requireInteraction
-    });
+    } as NotificationOptions);
   }
 
   /**
@@ -290,7 +339,7 @@ class PushNotificationService {
       .replace(/-/g, '+')
       .replace(/_/g, '/');
 
-    const rawData = window.atob(base64);
+    const rawData = this.windowRef?.atob ? this.windowRef.atob(base64) : atob(base64);
     const outputArray = new Uint8Array(rawData.length);
 
     for (let i = 0; i < rawData.length; ++i) {

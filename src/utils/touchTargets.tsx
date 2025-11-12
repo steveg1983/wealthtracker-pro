@@ -24,13 +24,16 @@ export default function TouchTarget({
   as: Component = 'button'
 }: TouchTargetProps): React.JSX.Element {
   const touchClasses = useTouchTarget(className);
-  
-  const props = {
+
+  const baseProps = {
     className: touchClasses,
     onClick: disabled ? undefined : onClick,
-    disabled,
-    type: Component === 'button' ? 'button' as const : undefined
+    disabled
   };
-  
-  return <Component {...props}>{children}</Component>;
+
+  if (Component === 'button') {
+    return <Component {...baseProps} type="button">{children}</Component>;
+  }
+
+  return <Component {...baseProps}>{children}</Component>;
 }

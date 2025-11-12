@@ -159,7 +159,7 @@ export default function PricingPlans({
             className={`relative rounded-2xl border-2 transition-all duration-200 ${
               plan.isPopular
                 ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/10 scale-105'
-                : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                : 'border-gray-200 dark:border-gray-700 bg-[#d4dce8] dark:bg-gray-800'
             } ${plan.tier === currentTier ? 'ring-2 ring-green-500' : ''}`}
           >
             {/* Popular Badge */}

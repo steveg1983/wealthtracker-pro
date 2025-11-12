@@ -19,6 +19,14 @@ import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 import { BackgroundSyncPlugin } from 'workbox-background-sync';
 import { Queue } from 'workbox-background-sync';
 
+const swLogger = {
+  error: (...args: unknown[]) => {
+    if (typeof console !== 'undefined') {
+      console.error(...args);
+    }
+  }
+};
+
 // Types
 interface SyncQueueItem {
   id?: number;
@@ -53,7 +61,7 @@ precacheAndRoute(self.__WB_MANIFEST);
 // Queue for offline requests
 const syncQueue = new Queue('wealthtracker-sync', {
   onSync: async ({ queue }) => {
-    let entry;
+    let entry: { request: Request; timestamp?: number } | undefined;
     while ((entry = await queue.shiftRequest())) {
       try {
         const response = await fetch(entry.request.clone());
@@ -66,12 +74,12 @@ const syncQueue = new Queue('wealthtracker-sync', {
         clients.forEach(client => {
           client.postMessage({
             type: 'sync-success',
-            url: entry.request.url,
+            url: entry?.request.url || '',
             timestamp: Date.now()
           });
         });
       } catch (error) {
-        console.error('Sync failed, will retry:', error);
+        swLogger.error('Sync failed, will retry:', error);
         await queue.unshiftRequest(entry);
         throw error;
       }
@@ -209,7 +217,7 @@ async function handleSyncWithConflictResolution(queue: any) {
         }
       }
     } catch (error) {
-      console.error('Sync with conflict resolution failed:', error);
+      swLogger.error('Sync with conflict resolution failed:', error);
       await queue.unshiftRequest(entry);
       throw error;
     }
@@ -376,7 +384,7 @@ async function updateAccountBalances() {
       });
     }
   } catch (error) {
-    console.error('Failed to update account balances:', error);
+    swLogger.error('Failed to update account balances', error);
   }
 }
 
@@ -409,7 +417,7 @@ async function checkUpcomingBills() {
       }
     }
   } catch (error) {
-    console.error('Failed to check upcoming bills:', error);
+    swLogger.error('Failed to check upcoming bills', error);
   }
 }
 
@@ -441,8 +449,8 @@ async function updateInvestmentPrices() {
       }
     }
   } catch (error) {
-    console.error('Failed to update investment prices:', error);
-  }
+    swLogger.error('Failed to update investment prices', error);
+}
 }
 
 // Message handling for client communication

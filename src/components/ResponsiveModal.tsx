@@ -47,11 +47,12 @@ export function ResponsiveModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={title}
+      title={title || ''}
       size={size}
-      className={className}
     >
-      {children}
+      <div className={className}>
+        {children}
+      </div>
     </Modal>
   );
 }

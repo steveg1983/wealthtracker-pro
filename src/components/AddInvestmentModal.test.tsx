@@ -8,6 +8,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import AddInvestmentModal from './AddInvestmentModal';
 import type { Account } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock icons
 vi.mock('./icons/PlusIcon', () => ({
@@ -44,10 +45,9 @@ vi.mock('./common/Modal', () => ({
 // Mock hooks
 const mockAddTransaction = vi.fn();
 const mockSetFormData = vi.fn();
-const mockFormatCurrency = vi.fn((value: number, currency?: string) => {
-  const symbol = currency === 'USD' ? '$' : '£';
-  return `${symbol}${value.toFixed(2)}`;
-});
+const mockFormatCurrency = vi.fn((value: number, currency?: string) =>
+  formatCurrencyDecimal(value, currency ?? 'GBP')
+);
 
 // Mock form data state
 let mockFormData = {
@@ -111,10 +111,6 @@ vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
     formatCurrency: mockFormatCurrency
   })
-}));
-
-vi.mock('../utils/currency-decimal', () => ({
-  getCurrencySymbol: (currency: string) => currency === 'USD' ? '$' : '£'
 }));
 
 // Global alert mock
@@ -290,7 +286,7 @@ describe('AddInvestmentModal', () => {
       
       render(<AddInvestmentModal isOpen={true} onClose={vi.fn()} accountId="1" />);
       
-      expect(screen.getByText('£1005.00')).toBeInTheDocument();
+      expect(screen.getByText('£1,005.00')).toBeInTheDocument();
     });
 
     it('shows calculation breakdown when fees present', () => {

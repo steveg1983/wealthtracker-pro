@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useApp } from '../contexts/AppContextSupabase';
-import type { RecurringTransaction } from '../contexts/AppContextSupabase';
+import type { RecurringTransaction } from '../types';
 import { RepeatIcon } from './icons';
 import { Modal, ModalBody } from './common/Modal';
 import { useModalForm } from '../hooks/useModalForm';
@@ -23,7 +23,14 @@ interface RecurringTransactionFormData {
 }
 
 export default function RecurringTransactionModal({ isOpen, onClose }: RecurringTransactionModalProps): React.JSX.Element {
-  const { accounts, addTransaction, recurringTransactions = [], addRecurringTransaction, deleteRecurringTransaction } = useApp();
+  const { accounts, addTransaction, recurringTransactions = [] } = useApp();
+  // TODO: Add these methods to AppContextSupabase
+  const addRecurringTransaction = (transaction: Omit<RecurringTransaction, 'id' | 'nextDate' | 'createdAt' | 'updatedAt'>) => {
+    console.warn('addRecurringTransaction not yet implemented in AppContextSupabase');
+  };
+  const deleteRecurringTransaction = (id: string) => {
+    console.warn('deleteRecurringTransaction not yet implemented in AppContextSupabase');
+  };
   const [showForm, setShowForm] = useState(false);
   const { formatCurrency } = useCurrencyDecimal();
   

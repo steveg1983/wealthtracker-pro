@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import BalanceReconciliationModal from './BalanceReconciliationModal';
 import type { ReconciliationOption } from './BalanceReconciliationModal';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock Modal component
 vi.mock('./common/Modal', () => ({
@@ -28,12 +29,15 @@ vi.mock('./icons', () => ({
 // Mock useCurrencyDecimal hook
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `$${amount.toFixed(2)}`,
+    formatCurrency: (amount: number, currency: string = 'USD') =>
+      formatCurrencyDecimal(amount, currency),
     parseCurrencyInput: (value: string) => parseFloat(value.replace(/[^0-9.-]/g, '')),
   })
 }));
 
 describe('BalanceReconciliationModal', () => {
+  const formatUSD = (value: number) => formatCurrencyDecimal(value, 'USD');
+
   const mockOption: ReconciliationOption = {
     type: 'opening-balance',
     accountId: 'acc1',
@@ -72,9 +76,10 @@ describe('BalanceReconciliationModal', () => {
       render(<BalanceReconciliationModal {...defaultProps} />);
       
       expect(screen.getByText('Balance Mismatch Detected')).toBeInTheDocument();
-      expect(screen.getByText(/Checking Account shows a balance of \$1500.00/)).toBeInTheDocument();
-      expect(screen.getByText(/but your transactions sum to \$1000.00/)).toBeInTheDocument();
-      expect(screen.getByText(/The difference is \$500.00/)).toBeInTheDocument();
+      const summary = screen.getByText('Balance Mismatch Detected').parentElement;
+      expect(summary?.textContent).toContain(formatUSD(1500));
+      expect(summary?.textContent).toContain(formatUSD(1000));
+      expect(summary?.textContent).toContain(formatUSD(500));
     });
 
     it('displays both reconciliation options', () => {
@@ -91,7 +96,7 @@ describe('BalanceReconciliationModal', () => {
       expect(screen.getByText('Opening Balance')).toBeInTheDocument();
       // There are multiple $500.00 values, check the one in opening balance section
       const openingBalanceSection = screen.getByText('Adjust Opening Balance').closest('.flex-1');
-      expect(openingBalanceSection).toHaveTextContent('$500.00');
+      expect(openingBalanceSection).toHaveTextContent(formatUSD(500));
     });
 
     it('shows adjustment transaction option details', () => {
@@ -117,7 +122,7 @@ describe('BalanceReconciliationModal', () => {
       expect(screen.getByText('Expense')).toBeInTheDocument();
       // Multiple $500.00 values exist, verify it's in the adjustment transaction section
       const adjustmentSection = screen.getByText('Create Adjustment Transaction').closest('.flex-1');
-      expect(adjustmentSection).toHaveTextContent('$500.00');
+      expect(adjustmentSection).toHaveTextContent(formatUSD(500));
     });
 
     it('shows income transaction for positive difference', () => {
@@ -126,7 +131,7 @@ describe('BalanceReconciliationModal', () => {
       expect(screen.getByText('Income')).toBeInTheDocument();
       // Multiple $500.00 values exist, verify it's in the adjustment transaction section
       const adjustmentSection = screen.getByText('Create Adjustment Transaction').closest('.flex-1');
-      expect(adjustmentSection).toHaveTextContent('$500.00');
+      expect(adjustmentSection).toHaveTextContent(formatUSD(500));
     });
   });
 
@@ -300,8 +305,10 @@ describe('BalanceReconciliationModal', () => {
       
       render(<BalanceReconciliationModal {...defaultProps} option={zeroOption} />);
       
-      // Check that the difference text shows $0.00
-      expect(screen.getByText(/The difference is \$0.00/)).toBeInTheDocument();
+      // Check that the difference text shows the formatted zero amount
+      expect(
+        screen.getByText((content) => content.includes(`The difference is ${formatUSD(0)}`))
+      ).toBeInTheDocument();
     });
 
     it('handles very large differences', () => {
@@ -314,8 +321,10 @@ describe('BalanceReconciliationModal', () => {
       
       render(<BalanceReconciliationModal {...defaultProps} option={largeOption} />);
       
-      // Check that the large difference is displayed correctly
-      expect(screen.getByText(/The difference is \$1000000.00/)).toBeInTheDocument();
+      // Check that the large difference is displayed correctly with grouping
+      expect(
+        screen.getByText((content) => content.includes(`The difference is ${formatUSD(1000000)}`))
+      ).toBeInTheDocument();
     });
 
     it('handles long account names', () => {

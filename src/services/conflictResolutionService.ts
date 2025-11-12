@@ -170,7 +170,7 @@ export class ConflictResolutionService {
         
         // Check if we can auto-resolve this conflict
         const rule = this.getMergeRule(entityType, field);
-        if (!rule || rule.strategy === 'manual') {
+        if (!rule) {
           canAutoResolve = false;
           confidence = 0;
         } else {

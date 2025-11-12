@@ -475,7 +475,7 @@ export default function CategoriesSettings() {
                 return (
                   <div key={subCategory.id}>
                     <SortableCategory
-                      category={subCategory}
+                      category={subCategory as Category}
                       isEditMode={isEditMode}
                       isDeleteMode={isDeleteMode}
                       isEditing={editingCategoryId === subCategory.id}
@@ -518,7 +518,7 @@ export default function CategoriesSettings() {
                               return (
                                 <SortableCategory
                                   key={detailCategory.id}
-                                  category={detailCategory}
+                                  category={detailCategory as Category}
                                   isEditMode={isEditMode}
                                   isDeleteMode={isDeleteMode}
                                   isEditing={editingCategoryId === detailCategory.id}
@@ -657,7 +657,7 @@ export default function CategoriesSettings() {
                 return (
                   <div key={category.id} className="ml-4">
                     <SortableCategory
-                      category={category}
+                      category={category as Category}
                       isEditMode={isEditMode}
                       isDeleteMode={isDeleteMode}
                       isEditing={editingCategoryId === category.id}
@@ -695,7 +695,7 @@ export default function CategoriesSettings() {
       {/* Category Delete Confirmation Dialog */}
       {deletingCategoryId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <div className="flex items-center gap-3 mb-4">
               <AlertCircleIcon className="text-orange-500" size={24} />
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete Category</h3>
@@ -778,7 +778,7 @@ export default function CategoriesSettings() {
       {/* View Transactions Confirmation */}
       {viewingCategoryId && !showTransactionsModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               View Transactions
             </h3>

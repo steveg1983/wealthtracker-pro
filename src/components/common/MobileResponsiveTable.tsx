@@ -42,7 +42,7 @@ export function MobileResponsiveTable<T>({
     }
 
     const value = (row as Record<string, unknown>)[column.key];
-    return value ?? '';
+    return <>{value ?? ''}</>;
   };
 
   // Sort columns by priority for mobile view
@@ -63,7 +63,7 @@ export function MobileResponsiveTable<T>({
         {/* Mobile skeleton */}
         <div className="sm:hidden space-y-3">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow">
+            <div key={i} className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow">
               <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-3" />
               <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2" />
               <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-2/3" />
@@ -76,7 +76,7 @@ export function MobileResponsiveTable<T>({
 
   if (data.length === 0) {
     return (
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
         <p className="text-gray-500 dark:text-gray-400">{emptyMessage}</p>
       </div>
     );
@@ -93,7 +93,7 @@ export function MobileResponsiveTable<T>({
       )}
 
       {/* Desktop Table View */}
-      <div className="hidden sm:block bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+      <div className="hidden sm:block bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-secondary dark:bg-gray-700 text-white sticky top-0 z-10">
@@ -117,7 +117,7 @@ export function MobileResponsiveTable<T>({
                     onClick={onRowClick ? () => onRowClick(item) : undefined}
                     className={`
                       ${onRowClick ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700' : ''}
-                      ${index % 2 === 0 ? 'bg-white dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}
+                      ${index % 2 === 0 ? 'bg-[#d4dce8] dark:bg-gray-800' : 'bg-gray-50 dark:bg-gray-900'}
                     `}
                   >
                     {columns.map(column => (
@@ -148,7 +148,7 @@ export function MobileResponsiveTable<T>({
               key={key}
               onClick={onRowClick ? () => onRowClick(item) : undefined}
               className={`
-                bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4
+                bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4
                 ${onRowClick ? 'cursor-pointer active:scale-[0.98] transition-transform' : ''}
               `}
             >

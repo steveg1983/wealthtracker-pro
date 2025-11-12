@@ -150,8 +150,10 @@ export const sanitizeFormData = (formData: FormData): FormData => {
  */
 export const createSanitizedProxy = <T extends Record<string, any>>(target: T): T => {
   return new Proxy(target, {
-    set(obj, prop: string, value) {
-      obj[prop] = sanitizeByFieldName(prop, value);
+    set(obj, prop: string | symbol, value) {
+      if (typeof prop === 'string') {
+        Reflect.set(obj, prop, sanitizeByFieldName(prop, value));
+      }
       return true;
     },
     get(obj, prop: string) {

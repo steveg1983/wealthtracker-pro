@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import ExpenseBreakdownWidget from './ExpenseBreakdownWidget';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { formatCurrency as formatCurrencyDecimal, getCurrencySymbol as getCurrencySymbolDecimal } from '../../utils/currency-decimal';
 import type { Transaction, Category } from '../../types';
 
 // Mock the contexts and hooks
@@ -123,15 +124,17 @@ const mockTransactions: Transaction[] = [
 ];
 
 describe('ExpenseBreakdownWidget', () => {
-  const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number'
-      ? amount
-      : typeof amount?.toNumber === 'function'
-        ? amount.toNumber()
-        : Number(amount);
-    return `$${value.toFixed(2)}`;
-  });
-  const mockGetCurrencySymbol = vi.fn(() => '$');
+  const mockFormatCurrency = vi.fn((amount: any, currency: string = 'USD') =>
+    formatCurrencyDecimal(
+      typeof amount === 'number'
+        ? amount
+        : typeof amount?.toNumber === 'function'
+          ? amount.toNumber()
+          : Number(amount),
+      currency
+    )
+  );
+  const mockGetCurrencySymbol = vi.fn((currency: string = 'USD') => getCurrencySymbolDecimal(currency));
 
   beforeEach(() => {
     vi.clearAllMocks();

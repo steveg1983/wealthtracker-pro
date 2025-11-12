@@ -1,60 +1,92 @@
 /**
- * Supabase Service - Handles all database operations
- * 
- * This service provides methods to:
- * - Create, read, update, delete data
- * - Handle real-time subscriptions
- * - Manage user data with proper isolation
+ * Supabase Service - Handles all database operations and subscriptions.
+ * Now supports dependency injection so it can be deterministically tested.
  */
 
 import { supabase } from '../lib/supabase';
 import type { Account, Transaction, Budget, Goal } from '../types';
 
-export class SupabaseService {
-  /**
-   * Get or create user profile
-   */
-  static async getUserProfile(clerkUserId: string) {
-    if (!supabase) return null;
-    
-    const { data, error } = await supabase
+type SupabaseClientLike = typeof supabase;
+type Logger = Pick<Console, 'error' | 'warn'>;
+
+interface SupabaseTableQuery {
+  select: (...args: any[]) => SupabaseTableQuery;
+  eq: (column: string, value: unknown) => SupabaseTableQuery;
+  order: (column: string, options?: Record<string, unknown>) => SupabaseTableQuery;
+  limit?: (value: number) => SupabaseTableQuery;
+  single?: () => SupabaseTableQuery;
+}
+
+export interface SupabaseServiceOptions {
+  supabaseClient?: SupabaseClientLike | null;
+  logger?: Logger;
+}
+
+class SupabaseServiceImpl {
+  private readonly client: SupabaseClientLike | null;
+  private readonly logger: Logger;
+
+  constructor(options: SupabaseServiceOptions = {}) {
+    if ('supabaseClient' in options) {
+      this.client = options.supabaseClient ?? null;
+    } else {
+      this.client = supabase ?? null;
+    }
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop)
+    };
+  }
+
+  private ensureClient() {
+    if (!this.client) {
+      return null;
+    }
+    return this.client;
+  }
+
+  async getUserProfile(clerkUserId: string) {
+    const client = this.ensureClient();
+    if (!client) return null;
+
+    const { data, error } = await client
       .from('user_profiles')
       .select('*')
       .eq('clerk_user_id', clerkUserId)
       .single();
-    
+
     if (error) {
-      console.error('Error fetching user profile:', error);
+      this.logger.error('Error fetching user profile:', error);
       return null;
     }
-    
     return data;
   }
 
-  /**
-   * Accounts Management
-   */
-  static async getAccounts(userId: string) {
-    if (!supabase) return [];
-    
-    const { data, error } = await supabase
+  async getAccounts(userId: string) {
+    const client = this.ensureClient();
+    if (!client) return [];
+
+    const { data, error } = await client
       .from('accounts')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: true });
-    
+
     if (error) {
-      console.error('Error fetching accounts:', error);
+      this.logger.error('Error fetching accounts:', error);
       return [];
     }
-    
+
     return data || [];
   }
 
-  static async createAccount(userId: string, account: Partial<Account>) {
-    if (!supabase) return null;
-    
-    const { data, error } = await supabase
+  async createAccount(userId: string, account: Partial<Account>) {
+    const client = this.ensureClient();
+    if (!client) return null;
+
+    const { data, error } = await client
       .from('accounts')
       .insert({
         user_id: userId,
@@ -63,78 +95,80 @@ export class SupabaseService {
         balance: account.balance || 0,
         currency: account.currency || 'USD',
         institution: account.institution,
-        is_active: true,
+        is_active: true
       })
       .select()
       .single();
-    
+
     if (error) {
-      console.error('Error creating account:', error);
+      this.logger.error('Error creating account:', error);
       return null;
     }
-    
+
     return data;
   }
 
-  static async updateAccount(accountId: string, updates: Partial<Account>) {
-    if (!supabase) return null;
-    
-    const { data, error } = await supabase
+  async updateAccount(accountId: string, updates: Partial<Account>) {
+    const client = this.ensureClient();
+    if (!client) return null;
+
+    const { data, error } = await client
       .from('accounts')
       .update(updates)
       .eq('id', accountId)
       .select()
       .single();
-    
+
     if (error) {
-      console.error('Error updating account:', error);
+      this.logger.error('Error updating account:', error);
       return null;
     }
-    
+
     return data;
   }
 
-  static async deleteAccount(accountId: string) {
-    if (!supabase) return false;
-    
-    const { error } = await supabase
+  async deleteAccount(accountId: string) {
+    const client = this.ensureClient();
+    if (!client) return false;
+
+    const { error } = await client
       .from('accounts')
       .delete()
       .eq('id', accountId);
-    
+
     if (error) {
-      console.error('Error deleting account:', error);
+      this.logger.error('Error deleting account:', error);
       return false;
     }
-    
+
     return true;
   }
 
-  /**
-   * Transactions Management
-   */
-  static async getTransactions(userId: string, limit = 100) {
-    if (!supabase) return [];
-    
-    const { data, error } = await supabase
+  async getTransactions(userId: string, limit = 100) {
+    const client = this.ensureClient();
+    if (!client) return [];
+
+    const query = client
       .from('transactions')
       .select('*')
       .eq('user_id', userId)
-      .order('date', { ascending: false })
-      .limit(limit);
-    
+      .order('date', { ascending: false });
+
+    const { data, error } = await (typeof query.limit === 'function' ? query.limit(limit) : query);
+
     if (error) {
-      console.error('Error fetching transactions:', error);
+      this.logger.error('Error fetching transactions:', error);
       return [];
     }
-    
+
     return data || [];
   }
 
-  static async createTransaction(userId: string, transaction: Partial<Transaction>) {
-    if (!supabase) return null;
-    
-    const { data, error } = await supabase
+  async createTransaction(userId: string, transaction: Partial<Transaction>) {
+    const client = this.ensureClient();
+    if (!client) return null;
+
+    const { data, error } = await client
       .from('transactions')
       .insert({
         user_id: userId,
@@ -145,78 +179,79 @@ export class SupabaseService {
         type: transaction.type,
         category: transaction.category,
         notes: transaction.notes,
-        tags: transaction.tags,
+        tags: transaction.tags
       })
       .select()
       .single();
-    
+
     if (error) {
-      console.error('Error creating transaction:', error);
+      this.logger.error('Error creating transaction:', error);
       return null;
     }
-    
+
     return data;
   }
 
-  static async updateTransaction(transactionId: string, updates: Partial<Transaction>) {
-    if (!supabase) return null;
-    
-    const { data, error } = await supabase
+  async updateTransaction(transactionId: string, updates: Partial<Transaction>) {
+    const client = this.ensureClient();
+    if (!client) return null;
+
+    const { data, error } = await client
       .from('transactions')
       .update(updates)
       .eq('id', transactionId)
       .select()
       .single();
-    
+
     if (error) {
-      console.error('Error updating transaction:', error);
+      this.logger.error('Error updating transaction:', error);
       return null;
     }
-    
+
     return data;
   }
 
-  static async deleteTransaction(transactionId: string) {
-    if (!supabase) return false;
-    
-    const { error } = await supabase
+  async deleteTransaction(transactionId: string) {
+    const client = this.ensureClient();
+    if (!client) return false;
+
+    const { error } = await client
       .from('transactions')
       .delete()
       .eq('id', transactionId);
-    
+
     if (error) {
-      console.error('Error deleting transaction:', error);
+      this.logger.error('Error deleting transaction:', error);
       return false;
     }
-    
+
     return true;
   }
 
-  /**
-   * Budgets Management
-   */
-  static async getBudgets(userId: string) {
-    if (!supabase) return [];
-    
-    const { data, error } = await supabase
+  async getBudgets(userId: string) {
+    const client = this.ensureClient();
+    if (!client) return [];
+
+    const { data, error } = await client
       .from('budgets')
       .select('*')
       .eq('user_id', userId)
       .eq('is_active', true)
       .order('category', { ascending: true });
-    
+
     if (error) {
-      console.error('Error fetching budgets:', error);
+      this.logger.error('Error fetching budgets:', error);
       return [];
     }
-    
+
     return data || [];
   }
 
-  static async createBudget(userId: string, budget: Partial<Budget>) {
-    if (!supabase) return null;
-    
-    const { data, error } = await supabase
+  async createBudget(userId: string, budget: Partial<Budget>) {
+    const client = this.ensureClient();
+    if (!client) return null;
+
+    const { data, error } = await client
       .from('budgets')
       .insert({
         user_id: userId,
@@ -225,43 +260,42 @@ export class SupabaseService {
         amount: budget.amount,
         period: budget.period || 'monthly',
         start_date: budget.startDate,
-        is_active: true,
+        is_active: true
       })
       .select()
       .single();
-    
+
     if (error) {
-      console.error('Error creating budget:', error);
+      this.logger.error('Error creating budget:', error);
       return null;
     }
-    
+
     return data;
   }
 
-  /**
-   * Goals Management
-   */
-  static async getGoals(userId: string) {
-    if (!supabase) return [];
-    
-    const { data, error } = await supabase
+  async getGoals(userId: string) {
+    const client = this.ensureClient();
+    if (!client) return [];
+
+    const { data, error } = await client
       .from('goals')
       .select('*')
       .eq('user_id', userId)
       .order('target_date', { ascending: true });
-    
+
     if (error) {
-      console.error('Error fetching goals:', error);
+      this.logger.error('Error fetching goals:', error);
       return [];
     }
-    
+
     return data || [];
   }
 
-  static async createGoal(userId: string, goal: Partial<Goal>) {
-    if (!supabase) return null;
-    
-    const { data, error } = await supabase
+  async createGoal(userId: string, goal: Partial<Goal>) {
+    const client = this.ensureClient();
+    if (!client) return null;
+
+    const { data, error } = await client
       .from('goals')
       .insert({
         user_id: userId,
@@ -270,26 +304,24 @@ export class SupabaseService {
         target_amount: goal.targetAmount,
         current_amount: goal.currentAmount || 0,
         target_date: goal.targetDate,
-        category: goal.category,
+        category: goal.category
       })
       .select()
       .single();
-    
+
     if (error) {
-      console.error('Error creating goal:', error);
+      this.logger.error('Error creating goal:', error);
       return null;
     }
-    
+
     return data;
   }
 
-  /**
-   * Real-time Subscriptions
-   */
-  static subscribeToAccounts(userId: string, callback: (payload: any) => void) {
-    if (!supabase) return null;
-    
-    return supabase
+  subscribeToAccounts(userId: string, callback: (payload: any) => void) {
+    const client = this.ensureClient();
+    if (!client) return null;
+
+    return client
       .channel('accounts_changes')
       .on(
         'postgres_changes',
@@ -297,17 +329,18 @@ export class SupabaseService {
           event: '*',
           schema: 'public',
           table: 'accounts',
-          filter: `user_id=eq.${userId}`,
+          filter: `user_id=eq.${userId}`
         },
         callback
       )
       .subscribe();
   }
 
-  static subscribeToTransactions(userId: string, callback: (payload: any) => void) {
-    if (!supabase) return null;
-    
-    return supabase
+  subscribeToTransactions(userId: string, callback: (payload: any) => void) {
+    const client = this.ensureClient();
+    if (!client) return null;
+
+    return client
       .channel('transactions_changes')
       .on(
         'postgres_changes',
@@ -315,26 +348,103 @@ export class SupabaseService {
           event: '*',
           schema: 'public',
           table: 'transactions',
-          filter: `user_id=eq.${userId}`,
+          filter: `user_id=eq.${userId}`
         },
         callback
       )
       .subscribe();
   }
 
-  /**
-   * Batch Operations
-   */
-  static async importTransactions(userId: string, transactions: Partial<Transaction>[]) {
-    if (!supabase) return { success: 0, failed: 0 };
-    
+  async importTransactions(userId: string, transactions: Partial<Transaction>[]) {
+    const client = this.ensureClient();
+    if (!client) return { success: 0, failed: 0 };
+
     const results = await Promise.allSettled(
       transactions.map(t => this.createTransaction(userId, t))
     );
-    
+
     const success = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
-    
+
     return { success, failed };
   }
 }
+
+let defaultSupabaseService = new SupabaseServiceImpl();
+
+export class SupabaseService {
+  static configure(options: SupabaseServiceOptions = {}) {
+    defaultSupabaseService = new SupabaseServiceImpl(options);
+  }
+
+  private static get service(): SupabaseServiceImpl {
+    return defaultSupabaseService;
+  }
+
+  static getUserProfile(clerkUserId: string) {
+    return this.service.getUserProfile(clerkUserId);
+  }
+
+  static getAccounts(userId: string) {
+    return this.service.getAccounts(userId);
+  }
+
+  static createAccount(userId: string, account: Partial<Account>) {
+    return this.service.createAccount(userId, account);
+  }
+
+  static updateAccount(accountId: string, updates: Partial<Account>) {
+    return this.service.updateAccount(accountId, updates);
+  }
+
+  static deleteAccount(accountId: string) {
+    return this.service.deleteAccount(accountId);
+  }
+
+  static getTransactions(userId: string, limit?: number) {
+    return this.service.getTransactions(userId, limit);
+  }
+
+  static createTransaction(userId: string, transaction: Partial<Transaction>) {
+    return this.service.createTransaction(userId, transaction);
+  }
+
+  static updateTransaction(transactionId: string, updates: Partial<Transaction>) {
+    return this.service.updateTransaction(transactionId, updates);
+  }
+
+  static deleteTransaction(transactionId: string) {
+    return this.service.deleteTransaction(transactionId);
+  }
+
+  static getBudgets(userId: string) {
+    return this.service.getBudgets(userId);
+  }
+
+  static createBudget(userId: string, budget: Partial<Budget>) {
+    return this.service.createBudget(userId, budget);
+  }
+
+  static getGoals(userId: string) {
+    return this.service.getGoals(userId);
+  }
+
+  static createGoal(userId: string, goal: Partial<Goal>) {
+    return this.service.createGoal(userId, goal);
+  }
+
+  static subscribeToAccounts(userId: string, callback: (payload: any) => void) {
+    return this.service.subscribeToAccounts(userId, callback);
+  }
+
+  static subscribeToTransactions(userId: string, callback: (payload: any) => void) {
+    return this.service.subscribeToTransactions(userId, callback);
+  }
+
+  static importTransactions(userId: string, transactions: Partial<Transaction>[]) {
+    return this.service.importTransactions(userId, transactions);
+  }
+}
+
+export const createSupabaseService = (options: SupabaseServiceOptions = {}) =>
+  new SupabaseServiceImpl(options);

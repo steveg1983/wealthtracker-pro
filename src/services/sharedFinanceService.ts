@@ -12,6 +12,7 @@ export interface SharedBudget extends Budget {
   approvalThreshold: number;
   lastModifiedBy?: string;
   lastModifiedAt?: Date;
+  isExceeded?: boolean;
 }
 
 export interface BudgetAllocation {
@@ -32,6 +33,7 @@ export interface SharedGoal extends Goal {
   approvalRequired: boolean;
   lastModifiedBy?: string;
   lastModifiedAt?: Date;
+  isDeleted?: boolean;
 }
 
 export interface GoalContributor {

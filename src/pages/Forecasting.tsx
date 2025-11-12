@@ -29,6 +29,7 @@ import BudgetRollover from '../components/BudgetRollover';
 import SpendingAlerts from '../components/SpendingAlerts';
 import ZeroBasedBudgeting from '../components/ZeroBasedBudgeting';
 import type { Budget } from '../types';
+import type { DecimalBudget } from '../types/decimal-types';
 import { calculateBudgetSpending, calculateBudgetRemaining, calculateBudgetPercentage } from '../utils/calculations-decimal';
 import { toDecimal } from '../utils/decimal';
 import { SkeletonCard, SkeletonText } from '../components/loading/Skeleton';
@@ -59,10 +60,9 @@ export default function Forecasting() {
       .filter(budget => budget !== null && budget !== undefined)
       .map((budget) => {
         // Convert to decimal for calculations
-        const decimalBudget = {
+        const decimalBudget: DecimalBudget = {
           ...budget,
-          amount: toDecimal(budget.amount),
-          spent: toDecimal(0)
+          amount: toDecimal(budget.amount)
         };
         
         // Convert transactions to decimal for calculations
@@ -412,17 +412,17 @@ export default function Forecasting() {
                         </div>
                         <div className="flex items-center gap-1">
                           <IconButton
-                            icon={EditIcon}
+                            icon={<EditIcon />}
                             onClick={() => handleEdit(budget)}
                             className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                            ariaLabel="Edit budget"
+                            aria-label="Edit budget"
                             title="Edit budget"
                           />
                           <IconButton
-                            icon={DeleteIcon}
+                            icon={<DeleteIcon />}
                             onClick={() => deleteBudget(budget.id)}
                             className="p-1.5 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg text-red-600 dark:text-red-400"
-                            ariaLabel="Delete budget"
+                            aria-label="Delete budget"
                             title="Delete budget"
                           />
                           <button
@@ -625,7 +625,7 @@ export default function Forecasting() {
         <BudgetModal
           isOpen={isModalOpen}
           onClose={handleModalClose}
-          budget={editingBudget}
+          budget={editingBudget || undefined}
         />
       )}
     </PageWrapper>

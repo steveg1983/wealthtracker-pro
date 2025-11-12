@@ -46,14 +46,57 @@ interface TrueLayerConfig {
   redirectUri?: string;
 }
 
-class BankConnectionService {
+interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+interface LocationLike {
+  origin: string;
+}
+
+type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+
+export interface BankConnectionServiceOptions {
+  storage?: StorageLike | null;
+  location?: LocationLike | null;
+  logger?: Logger;
+  now?: () => number;
+  idFactory?: () => string;
+}
+
+export class BankConnectionService {
   private connections: BankConnection[] = [];
   private plaidConfig: PlaidConfig = {};
   private trueLayerConfig: TrueLayerConfig = {};
+  private storage: StorageLike | null;
+  private location: LocationLike | null;
+  private logger: Logger;
+  private nowProvider: () => number;
+  private idFactory: () => string;
   
-  constructor() {
+  constructor(options: BankConnectionServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
+    this.location = options.location ?? (typeof window !== 'undefined' ? window.location : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      log: options.logger?.log ?? (fallbackLogger?.log?.bind(fallbackLogger) ?? noop),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => Date.now());
+    this.idFactory = options.idFactory ?? (() => `conn_${this.nowProvider()}`);
     this.loadConnections();
     this.loadConfig();
+  }
+
+  private getOrigin(): string {
+    return this.location?.origin ?? 'http://localhost:3000';
+  }
+
+  private getNowDate(offsetMs = 0): Date {
+    return new Date(this.nowProvider() + offsetMs);
   }
 
   /**
@@ -149,10 +192,11 @@ class BankConnectionService {
     
     if (provider === 'truelayer') {
       // Mock TrueLayer OAuth URL
+      const redirectUri = this.trueLayerConfig.redirectUri ?? `${this.getOrigin()}/auth/callback`;
       const authUrl = `https://auth.truelayer.com/?response_type=code&client_id=${
         this.trueLayerConfig.clientId || 'demo'
       }&scope=info%20accounts%20balance%20transactions&redirect_uri=${
-        encodeURIComponent(this.trueLayerConfig.redirectUri || window.location.origin + '/auth/callback')
+        encodeURIComponent(redirectUri)
       }&providers=${institutionId}`;
       
       return { url: authUrl };
@@ -171,16 +215,19 @@ class BankConnectionService {
     // 2. Fetch account information
     // 3. Create a bank connection record
     
+    const createdAt = this.getNowDate();
+    const expiresAt = this.getNowDate(90 * 24 * 60 * 60 * 1000);
+
     const connection: BankConnection = {
-      id: `conn_${Date.now()}`,
+      id: this.idFactory(),
       provider: 'truelayer',
       institutionId: 'demo-bank',
       institutionName: 'Demo Bank',
       status: 'connected',
-      lastSync: new Date(),
+      lastSync: createdAt,
       accounts: [],
-      createdAt: new Date(),
-      expiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000) // 90 days
+      createdAt,
+      expiresAt
     };
     
     this.connections.push(connection);
@@ -210,7 +257,7 @@ class BankConnectionService {
       // 3. Import new transactions
       // 4. Handle duplicates and reconciliation
       
-      connection.lastSync = new Date();
+      connection.lastSync = this.getNowDate();
       connection.status = 'connected';
       this.saveConnections();
       
@@ -224,6 +271,7 @@ class BankConnectionService {
       connection.status = 'error';
       connection.error = error instanceof Error ? error.message : 'Unknown error';
       this.saveConnections();
+      this.logger.error('Failed to sync bank connection:', error);
       
       return {
         success: false,
@@ -285,9 +333,10 @@ class BankConnectionService {
    * Check if any connections need reauthorization
    */
   needsReauth(): BankConnection[] {
+    const now = this.nowProvider();
     return this.connections.filter(c => 
       c.status === 'reauth_required' || 
-      (c.expiresAt && new Date(c.expiresAt) < new Date())
+      (c.expiresAt && new Date(c.expiresAt).getTime() < now)
     );
   }
 
@@ -329,13 +378,25 @@ class BankConnectionService {
    * Load connections from localStorage
    */
   private loadConnections(): void {
+    if (!this.storage) {
+      this.connections = [];
+      return;
+    }
     try {
-      const stored = localStorage.getItem('bankConnections');
+      const stored = this.storage.getItem('bankConnections');
       if (stored) {
-        this.connections = JSON.parse(stored);
+        const rawConnections = JSON.parse(stored) as BankConnection[];
+        this.connections = rawConnections.map(connection => ({
+          ...connection,
+          createdAt: connection.createdAt ? new Date(connection.createdAt) : this.getNowDate(),
+          lastSync: connection.lastSync ? new Date(connection.lastSync) : undefined,
+          expiresAt: connection.expiresAt ? new Date(connection.expiresAt) : undefined
+        }));
+      } else {
+        this.connections = [];
       }
     } catch (error) {
-      console.error('Failed to load bank connections:', error);
+      this.logger.error('Failed to load bank connections:', error);
       this.connections = [];
     }
   }
@@ -344,10 +405,13 @@ class BankConnectionService {
    * Save connections to localStorage
    */
   private saveConnections(): void {
+    if (!this.storage) {
+      return;
+    }
     try {
-      localStorage.setItem('bankConnections', JSON.stringify(this.connections));
+      this.storage.setItem('bankConnections', JSON.stringify(this.connections));
     } catch (error) {
-      console.error('Failed to save bank connections:', error);
+      this.logger.error('Failed to save bank connections:', error);
     }
   }
 
@@ -355,15 +419,18 @@ class BankConnectionService {
    * Load API configuration
    */
   private loadConfig(): void {
+    if (!this.storage) {
+      return;
+    }
     try {
-      const stored = localStorage.getItem('bankAPIConfig');
+      const stored = this.storage.getItem('bankAPIConfig');
       if (stored) {
         const config = JSON.parse(stored);
         this.plaidConfig = config.plaid || {};
         this.trueLayerConfig = config.trueLayer || {};
       }
     } catch (error) {
-      console.error('Failed to load bank API config:', error);
+      this.logger.error('Failed to load bank API config:', error);
     }
   }
 
@@ -371,14 +438,17 @@ class BankConnectionService {
    * Save API configuration
    */
   private saveConfig(): void {
+    if (!this.storage) {
+      return;
+    }
     try {
       const config = {
         plaid: this.plaidConfig,
         trueLayer: this.trueLayerConfig
       };
-      localStorage.setItem('bankAPIConfig', JSON.stringify(config));
+      this.storage.setItem('bankAPIConfig', JSON.stringify(config));
     } catch (error) {
-      console.error('Failed to save bank API config:', error);
+      this.logger.error('Failed to save bank API config:', error);
     }
   }
 }

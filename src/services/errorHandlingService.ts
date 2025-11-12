@@ -1,23 +1,44 @@
 // Centralized Error Handling Service
 // Provides consistent error handling, logging, and user notifications
 
-export enum ErrorSeverity {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical'
+interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
 }
 
-export enum ErrorCategory {
-  NETWORK = 'network',
-  VALIDATION = 'validation',
-  STORAGE = 'storage',
-  CALCULATION = 'calculation',
-  AUTHENTICATION = 'authentication',
-  AUTHORIZATION = 'authorization',
-  INTEGRATION = 'integration',
-  UNKNOWN = 'unknown'
+interface WindowLike {
+  addEventListener?: Window['addEventListener'];
+  removeEventListener?: Window['removeEventListener'];
 }
+
+interface TimerAdapter {
+  setTimeout(handler: () => void, timeout: number): ReturnType<typeof setTimeout>;
+  clearTimeout(id: ReturnType<typeof setTimeout>): void;
+}
+
+type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+
+export const ErrorSeverity = {
+  LOW: 'low',
+  MEDIUM: 'medium',
+  HIGH: 'high',
+  CRITICAL: 'critical'
+} as const;
+
+export type ErrorSeverity = typeof ErrorSeverity[keyof typeof ErrorSeverity];
+
+export const ErrorCategory = {
+  NETWORK: 'network',
+  VALIDATION: 'validation',
+  STORAGE: 'storage',
+  CALCULATION: 'calculation',
+  AUTHENTICATION: 'authentication',
+  AUTHORIZATION: 'authorization',
+  INTEGRATION: 'integration',
+  UNKNOWN: 'unknown'
+} as const;
+
+export type ErrorCategory = typeof ErrorCategory[keyof typeof ErrorCategory];
 
 export interface AppError {
   id: string;
@@ -36,63 +57,117 @@ export interface ErrorHandler {
   (error: AppError): void | Promise<void>;
 }
 
-class ErrorHandlingService {
+export interface ErrorHandlingServiceOptions {
+  storage?: StorageLike | null;
+  window?: WindowLike | null;
+  timers?: TimerAdapter;
+  logger?: Logger;
+  now?: () => number;
+  random?: () => number;
+  environment?: string;
+}
+
+export class ErrorHandlingService {
   private errors: AppError[] = [];
   private handlers: Map<ErrorCategory, ErrorHandler[]> = new Map();
   private maxErrors = 100; // Keep last 100 errors in memory
   private storageKey = 'wealthtracker_error_log';
 
-  constructor() {
+  private storage: StorageLike | null;
+  private windowRef: WindowLike | null;
+  private timers: TimerAdapter;
+  private logger: Logger;
+  private nowProvider: () => number;
+  private randomProvider: () => number;
+  private environment: string;
+
+  constructor(options: ErrorHandlingServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
+    this.windowRef = options.window ?? (typeof window !== 'undefined' ? window : null);
+    this.timers = options.timers ?? {
+      setTimeout: (handler, timeout) => setTimeout(handler, timeout),
+      clearTimeout: (id) => clearTimeout(id)
+    };
+    const noop = () => {};
+    const globalConsole = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      log: options.logger?.log ?? (globalConsole?.log?.bind(globalConsole) ?? noop),
+      warn: options.logger?.warn ?? (globalConsole?.warn?.bind(globalConsole) ?? noop),
+      error: options.logger?.error ?? (globalConsole?.error?.bind(globalConsole) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => Date.now());
+    this.randomProvider = options.random ?? Math.random;
+    const detectedEnv =
+      options.environment ??
+      (typeof process !== 'undefined' ? process.env?.NODE_ENV : undefined);
+    this.environment = detectedEnv ?? 'production';
+
     this.setupGlobalErrorHandlers();
     this.loadErrors();
   }
 
   private setupGlobalErrorHandlers() {
+    if (!this.windowRef?.addEventListener) {
+      return;
+    }
     // Handle unhandled promise rejections
-    window.addEventListener('unhandledrejection', (event) => {
-      this.handleError(new Error(event.reason), {
+    this.windowRef.addEventListener('unhandledrejection', (event: unknown) => {
+      const rejectionEvent = event as PromiseRejectionEvent;
+      const reason = rejectionEvent?.reason;
+      this.handleError(reason instanceof Error ? reason : new Error(String(reason)), {
         category: ErrorCategory.UNKNOWN,
         severity: ErrorSeverity.HIGH,
         context: { type: 'unhandledRejection' }
       });
-      event.preventDefault();
+      rejectionEvent?.preventDefault();
     });
 
     // Handle global errors
-    window.addEventListener('error', (event) => {
-      this.handleError(event.error || new Error(event.message), {
+    this.windowRef.addEventListener('error', (event: unknown) => {
+      const errorEvent = event as ErrorEvent;
+      this.handleError(errorEvent?.error || new Error(errorEvent?.message ?? 'Unknown error'), {
         category: ErrorCategory.UNKNOWN,
         severity: ErrorSeverity.HIGH,
         context: { 
           type: 'globalError',
-          filename: event.filename,
-          lineno: event.lineno,
-          colno: event.colno
+          filename: errorEvent?.filename,
+          lineno: errorEvent?.lineno,
+          colno: errorEvent?.colno
         }
       });
     });
   }
 
   private loadErrors() {
+    if (!this.storage) {
+      this.errors = [];
+      return;
+    }
     try {
-      const stored = localStorage.getItem(this.storageKey);
+      const stored = this.storage.getItem(this.storageKey);
       if (stored) {
         const parsed = JSON.parse(stored) as Array<Omit<AppError, 'timestamp'> & { timestamp: string }>;
         this.errors = parsed.map((err) => ({
           ...err,
           timestamp: new Date(err.timestamp)
         })).slice(-this.maxErrors);
+      } else {
+        this.errors = [];
       }
     } catch (error) {
-      console.error('Failed to load error log:', error);
+      this.logger.error('Failed to load error log:', error);
+      this.errors = [];
     }
   }
 
   private saveErrors() {
+    if (!this.storage) {
+      return;
+    }
     try {
-      localStorage.setItem(this.storageKey, JSON.stringify(this.errors.slice(-this.maxErrors)));
+      this.storage.setItem(this.storageKey, JSON.stringify(this.errors.slice(-this.maxErrors)));
     } catch (error) {
-      console.error('Failed to save error log:', error);
+      this.logger.error('Failed to save error log:', error);
     }
   }
 
@@ -109,11 +184,11 @@ class ErrorHandlingService {
     } = {}
   ): AppError {
     const errorObj: AppError = {
-      id: `err-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `err-${this.nowProvider()}-${Math.floor(this.randomProvider() * 1e9).toString(36)}`,
       message: error instanceof Error ? error.message : error,
       category: options.category || this.categorizeError(error),
       severity: options.severity || ErrorSeverity.MEDIUM,
-      timestamp: new Date(),
+      timestamp: new Date(this.nowProvider()),
       context: options.context,
       stack: error instanceof Error ? error.stack : undefined,
       userMessage: options.userMessage || this.getUserMessage(error, options.category),
@@ -126,8 +201,8 @@ class ErrorHandlingService {
     this.saveErrors();
 
     // Log to console in development
-    if (process.env.NODE_ENV === 'development') {
-      console.error('App Error:', errorObj);
+    if (this.environment === 'development') {
+      this.logger.error('App Error:', errorObj);
     }
 
     // Call registered handlers
@@ -136,7 +211,7 @@ class ErrorHandlingService {
       try {
         handler(errorObj);
       } catch (err) {
-        console.error('Error in error handler:', err);
+        this.logger.error('Error in error handler:', err);
       }
     });
 
@@ -239,6 +314,7 @@ class ErrorHandlingService {
       maxDelay?: number;
       factor?: number;
       onRetry?: (attempt: number, error: Error) => void;
+      sleep?: (delay: number) => Promise<void>;
     } = {}
   ): Promise<T> {
     const {
@@ -246,10 +322,20 @@ class ErrorHandlingService {
       initialDelay = 1000,
       maxDelay = 10000,
       factor = 2,
-      onRetry
+      onRetry,
+      sleep
     } = options;
 
     let lastError: Error;
+    const sleeper =
+      sleep ??
+      ((delay: number) =>
+        new Promise<void>((resolve) => {
+          const timeoutId = this.timers.setTimeout(() => {
+            this.timers.clearTimeout(timeoutId);
+            resolve();
+          }, delay);
+        }));
     
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
       try {
@@ -264,7 +350,7 @@ class ErrorHandlingService {
             onRetry(attempt + 1, lastError);
           }
           
-          await new Promise(resolve => setTimeout(resolve, delay));
+          await sleeper(delay);
         }
       }
     }

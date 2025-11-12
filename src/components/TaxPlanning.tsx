@@ -121,7 +121,7 @@ export default function TaxPlanning(): React.JSX.Element {
       {/* Quick Stats */}
       {taxEstimate && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl p-6 shadow">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">Total Income</span>
               <DollarSignIcon size={20} className="text-green-600 dark:text-green-400" />
@@ -131,7 +131,7 @@ export default function TaxPlanning(): React.JSX.Element {
             </p>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl p-6 shadow">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">Total Deductions</span>
               <FileTextIcon size={20} className="text-blue-600 dark:text-blue-400" />
@@ -141,7 +141,7 @@ export default function TaxPlanning(): React.JSX.Element {
             </p>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl p-6 shadow">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">Estimated Tax</span>
               <CalculatorIcon size={20} className="text-red-600 dark:text-red-400" />
@@ -154,7 +154,7 @@ export default function TaxPlanning(): React.JSX.Element {
             </p>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl p-6 shadow">
             <div className="flex items-center justify-between mb-2">
               <span className="text-sm text-gray-600 dark:text-gray-400">Tax Savings</span>
               <PiggyBankIcon size={20} className="text-purple-600 dark:text-purple-400" />
@@ -193,7 +193,7 @@ export default function TaxPlanning(): React.JSX.Element {
       </div>
 
       {/* Content */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
         {isCalculating ? (
           <div className="flex items-center justify-center py-12">
             <div className="text-center">

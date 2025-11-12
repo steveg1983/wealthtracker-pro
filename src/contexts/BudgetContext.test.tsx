@@ -5,7 +5,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import { BudgetProvider, useBudgets } from './BudgetContext';
 
 // Mock localStorage
@@ -28,6 +28,31 @@ vi.mock('uuid', () => ({
 
 // Mock console.error
 const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+class HookErrorBoundary extends React.Component<{
+  onError: (error: Error) => void;
+  children: ReactNode;
+}, { error: Error | null }> {
+  constructor(props: { onError: (error: Error) => void; children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error) {
+    this.props.onError(error);
+  }
+
+  render() {
+    if (this.state.error) {
+      return null;
+    }
+    return this.props.children;
+  }
+}
 
 describe('BudgetContext', () => {
   beforeEach(() => {
@@ -55,14 +80,30 @@ describe('BudgetContext', () => {
       <BudgetProvider initialBudgets={initialBudgets}>{children}</BudgetProvider>
     );
 
-  const createMockBudget = (overrides = {}) => ({
-    category: 'food',
-    amount: 500,
-    period: 'monthly' as const,
-    isActive: true,
-    createdAt: new Date('2025-01-01'),
-    ...overrides,
-  });
+  const createMockBudget = (overrides = {}) => {
+    const overrideObj = overrides as { category?: string; categoryId?: string };
+    const category = overrideObj.category ?? 'food';
+    const categoryId = overrideObj.categoryId ?? category;
+
+    const budget = {
+      category,
+      categoryId,
+      amount: 500,
+      period: 'monthly' as const,
+      isActive: true,
+      createdAt: new Date('2025-01-01'),
+      ...overrides,
+    };
+
+    if (budget.categoryId === undefined) {
+      budget.categoryId = budget.category ?? categoryId;
+    }
+    if (budget.category === undefined) {
+      budget.category = category;
+    }
+
+    return budget;
+  };
 
   describe('initialization', () => {
     it('provides empty array when localStorage is empty', () => {
@@ -569,9 +610,24 @@ describe('BudgetContext', () => {
 
   describe('error handling', () => {
     it('throws error when useBudgets is used outside provider', () => {
-      expect(() => {
-        renderHook(() => useBudgets());
-      }).toThrow('useBudgets must be used within BudgetProvider');
+      let capturedError: Error | null = null;
+      const errorHandler = (event: ErrorEvent) => {
+        if (event.message?.includes('useBudgets must be used within BudgetProvider')) {
+          event.preventDefault();
+        }
+      };
+      window.addEventListener('error', errorHandler);
+      const BoundaryWrapper = ({ children }: { children: ReactNode }) => (
+        <HookErrorBoundary onError={(error) => { capturedError = error; }}>
+          {children}
+        </HookErrorBoundary>
+      );
+
+      renderHook(() => useBudgets(), { wrapper: BoundaryWrapper });
+      window.removeEventListener('error', errorHandler);
+
+      expect(capturedError).toBeInstanceOf(Error);
+      expect(capturedError?.message).toBe('useBudgets must be used within BudgetProvider');
     });
 
     it('throws when localStorage fails', () => {

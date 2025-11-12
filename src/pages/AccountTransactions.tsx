@@ -272,6 +272,7 @@ export default function AccountTransactions() {
         description: quickAddForm.description,
         amount: Math.abs(amount), // Positive amount for receiving account
         type: 'transfer',
+        category: 'Transfer', // Required category field for transfers
         accountId: quickAddForm.category, // Target account receives the transfer
         tags: quickAddForm.tags,
         notes: quickAddForm.notes,
@@ -624,9 +625,9 @@ export default function AccountTransactions() {
       >
         <VirtualizedTable
           items={transactionsWithBalance}
-          columns={columns}
-          getItemKey={(transaction) => transaction.id}
-          onRowClick={handleTransactionClick}
+          columns={columns as any}
+          getItemKey={(transaction) => (transaction as Transaction & { balance: number }).id}
+          onRowClick={(item, index) => handleTransactionClick(item as Transaction)}
           rowHeight={compactView ? 48 : 64}
           selectedItems={selectedTransactionId ? new Set([selectedTransactionId]) : new Set()}
           onSort={(column, direction) => {
@@ -639,10 +640,10 @@ export default function AccountTransactions() {
           sortDirection={sortDirection}
           emptyMessage="No transactions found"
           threshold={50}
-          className="virtualized-table bg-white dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
+          className="virtualized-table bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-lg border-2 border-[#6B86B3] h-full"
           headerClassName="bg-secondary dark:bg-gray-700 text-white"
           rowClassName={(transaction, index) => {
-            const isSelected = selectedTransactionId === transaction.id;
+            const isSelected = selectedTransactionId === (transaction as Transaction & { balance: number }).id;
             return isSelected ? 'selected-transaction-row' : '';
           }}
         />
@@ -802,7 +803,7 @@ export default function AccountTransactions() {
       {/* Delete Confirmation */}
       {deleteConfirmTransaction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold mb-4 dark:text-white">Delete Transaction</h3>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
               Are you sure you want to delete "{deleteConfirmTransaction.description}"?

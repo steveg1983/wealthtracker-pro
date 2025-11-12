@@ -1,6 +1,9 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import './index.css';
+import { createScopedLogger } from './loggers/scopedLogger';
+
+const simpleEntryLogger = createScopedLogger('SimpleEntry');
 
 // Minimal app for Safari testing
 function SimpleApp() {
@@ -16,7 +19,7 @@ function SimpleApp() {
 
 // Simple error handling
 window.addEventListener('error', (e) => {
-  console.error('Error:', e);
+  simpleEntryLogger.error('Window error event', e);
   document.body.innerHTML = `<div style="color: red; padding: 20px;">Error: ${e.message}</div>`;
 });
 
@@ -33,6 +36,6 @@ try {
     document.body.innerHTML = '<div style="color: red; padding: 20px;">Root element not found</div>';
   }
 } catch (error) {
-  console.error('Render error:', error);
+  simpleEntryLogger.error('Render error', error);
   document.body.innerHTML = `<div style="color: red; padding: 20px;">Render error: ${error}</div>`;
 }

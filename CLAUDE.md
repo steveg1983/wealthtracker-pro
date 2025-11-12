@@ -1,7 +1,7 @@
 # SINGLE ENGINEERING BIBLE – WealthTracker (Web)
 
 **Owner**: Frontend lead (ChatGPT)  
-**Last updated**: 2025-10-29
+**Last updated**: 2025-11-11
 
 ---
 
@@ -29,6 +29,7 @@
 ### Frontend Collaboration Rules
 
 - All frontend branches must keep `npm run lint`, `npm run typecheck:strict`, and the dashboard/import Vitest suites green (`npx vitest run src/test/integration/DashboardInteractionsIntegration.test.tsx --environment jsdom`, etc.).
+- `npm run test:realtime` (deterministic Vitest split for the realtime price, predictive loading, scheduled report, automatic backup, secure storage, theme scheduling, sync, auto sync, smart cache, notification, error handling, Stripe, stock price, logging, offline, mobile, performance, performance optimization, push notification, merchant logo, security, bank connection, offline data, dividend, anomaly detection, data migration, data intelligence, enhanced CSV import, budget recommendation, financial summary, custom report, encrypted storage, export, document, OCR, transaction API, account service, simple account service, user service, data service, supabase service, and subscription services) is now a hard gate. Husky (pre-commit & pre-push) and CI run it after the smoke suite; keep the suite fast by mocking intervals like the existing tests.
 - Do not touch Supabase schema or service contracts without a matching smoke update; coordinate with backend branches via feature flags if API shape changes are needed.
 - Log every multi-file UI refactor or bundle-impacting change in `docs/regression-audit-20251029.md` (or the latest audit doc) so backend teams know which journeys changed.
 - For shared files (context providers, hooks), open a PR draft and @mention the backend owner before merging.
@@ -37,6 +38,7 @@
 - Keep component copy/IDs stable unless the change is part of a planned UX update; dashboard/import regression tests rely on those selectors.
 
 - **Coverage Gate**: CI must run `scripts/verify-coverage-threshold.mjs` (≥75 % statements, ≥55 % branches) after `npm run test:coverage`; the script now auto-merges Vitest shard outputs from `coverage/.tmp` into `coverage/coverage-final.json`, so no manual cleanup is required.
+- **Realtime Guard**: `npm run test:realtime` now bundles the four deterministic realtime-price suites (`subscribe`, `error`, `events`, `helpers`) plus the predictive loading, scheduled report, automatic backup, secure storage, theme scheduling, sync, auto sync, smart cache, notification, error handling, Stripe, stock price, logging, offline, mobile, performance, performance optimization, push notification, merchant logo, security, bank connection, offline data, dividend, anomaly detection, data migration, data intelligence, enhanced CSV import, budget recommendation, financial summary, custom report, encrypted storage, export, document, OCR, transaction API, account service, simple account service, user service, data service, supabase service, and subscription suites. Husky hooks call it after `npm run test:smoke`, and `.github/workflows/handoff-snapshot.yml` runs it between smoke and coverage. Keep any new realtime work wired into those suites.
 - **Build Script**: Root `package.json` `"build"` delegates to `node scripts/build-web.mjs` to stay compatible with Vercel’s npm.
 - **Supabase Real Tests**: Set `RUN_SUPABASE_REAL_TESTS=true` and the three Supabase env vars. The script automatically maps `VITE_SUPABASE_SERVICE_ROLE_KEY` → `SUPABASE_SERVICE_ROLE_KEY`.
 - **Supabase Migrations**: Migrations live under `supabase/migrations/` and are managed via Supabase CLI (see `supabase/README.md`). Use npm scripts (`db:migration:new`, `db:migrate`, `db:diff`, `db:lint`, `db:reset`) with `SUPABASE_DB_URL` scoped to staging/test.
@@ -55,7 +57,14 @@
 2. ~~**Vercel Monitoring** – Watch next preview deployment to ensure `scripts/build-web.mjs` exits cleanly without timeouts; capture logs and update this file with deployment timestamp.~~ ✅ Logged deployment `wealthtracker-l514dsq11` (2025-10-29 21:33 UTC).
 3. ~~**Bundle Optimisation Plan** – Document an action list for the large chunks (Plotly/export bundles showing >1 MB). Start by identifying candidate routes for dynamic imports.~~ ✅ See `docs/bundle-optimization-plan.md`.
 4. ~~**Documentation Sweep** – Remove or archive references to the old workspace layout (e.g., README snippets, CI docs) so future work doesn’t re-introduce the broken structure.~~ ✅ `docs/` updated for flat layout.
-5. ~~**Regression Audit** – Harness restored and runs logged in `docs/regression-audit-20251029.md`; dashboard + import journeys are now green under Vitest. Keep budgeting/import fixtures in sync with future UI tweaks and re-run the regression triad periodically.~~ ✅ 2025-11-01 triad re-run documented in `docs/regression-audit-20251101.md` (dashboard/budget/import + Supabase smoke).
+ 5. ~~**Regression Audit** – Harness restored and runs logged in `docs/regression-audit-20251029.md`; dashboard + import journeys are now green under Vitest. Keep budgeting/import fixtures in sync with future UI tweaks and re-run the regression triad periodically.~~ ✅ 2025-11-01 triad re-run documented in `docs/regression-audit-20251101.md` (dashboard/budget/import + Supabase smoke).
+6. **Realtime Suite Expansion** – predictive loading, scheduled reports, automatic backups, secure storage, theme scheduling, sync, auto sync, smart cache, notification, error handling, Stripe, stock price, logging, offline, mobile, performance, performance optimization, push notification, merchant logo, security, bank connection, offline data, dividend, anomaly detection, data migration, data intelligence, enhanced CSV import, budget recommendation, financial summary, custom report, encrypted storage, export, document, OCR, transaction API, account service, simple account service, user service, data service, supabase service, and subscription services now ride on the deterministic runner. Continue extending this pattern to remaining timer-heavy services so `npm run test:realtime` remains the one-stop guardrail.
+
+**Next Steps**
+1. **PWA/Mobile Telemetry Enhancements** – Now that service worker + mobile services emit scoped logs, thread those through to client message handlers (broadcast channel/AppContext hooks) so we can surface sync/camera errors in the UI and optionally forward them to Sentry.
+2. **Clerk/Sentry Config Messaging** – Mirror the new scoped logger pattern inside `docs/development-workflow.md` and any onboarding scripts so missing env keys or Sentry misconfigurations raise actionable warnings in CI/dev shells.
+3. **Legacy Import Tooling** – Finish wiring the remaining Money backup helpers (`src/utils/mbfParser.ts`, env-check utilities, color-contrast audits) into `createScopedLogger` or dev-only bridges so regression tests stay deterministic.
+4. **Supabase Smoke Workflow Monitoring** – Keep watching `.github/workflows/supabase-smoke.yml` nightly runs; add targeted RLS/import checks if the smoke logs show churn once the new logging surfaces more detail.
 
 **Next Major Initiative** – Monitor the new Supabase smoke workflow (`.github/workflows/supabase-smoke.yml`) nightly runs; add targeted cases (RLS edge cases, imports) as coverage gaps appear.
 

@@ -124,7 +124,7 @@ export default function InvoiceManager({ onDataChange }: InvoiceManagerProps) {
       </div>
 
       {/* Invoices List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
         {invoices.length === 0 ? (
           <div className="text-center py-12">
             <FileTextIcon size={48} className="mx-auto mb-4 text-gray-400" />
@@ -147,7 +147,7 @@ export default function InvoiceManager({ onDataChange }: InvoiceManagerProps) {
             {/* Mobile card view */}
             <div className="sm:hidden space-y-3">
               {invoices.map((invoice) => (
-                <div key={invoice.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
+                <div key={invoice.id} className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4 border border-gray-200 dark:border-gray-700">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
                       <FileTextIcon size={20} className="text-gray-400" />
@@ -254,7 +254,7 @@ export default function InvoiceManager({ onDataChange }: InvoiceManagerProps) {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="bg-[#d4dce8] dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                   {invoices.map((invoice) => (
                     <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -433,7 +433,7 @@ function InvoiceModal({ invoice, onClose, onSave }: InvoiceModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <form onSubmit={handleSubmit} className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -703,7 +703,7 @@ function InvoiceViewModal({ invoice, onClose }: InvoiceViewModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

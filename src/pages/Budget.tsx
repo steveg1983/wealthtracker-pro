@@ -51,8 +51,7 @@ export default function Budget() {
         // Convert to decimal for calculations
         const decimalBudget = {
           ...budget,
-          amount: toDecimal(budget.amount),
-          spent: toDecimal(0)
+          amount: toDecimal(budget.amount)
         };
         
         // Convert transactions to decimal for calculations

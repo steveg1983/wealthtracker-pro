@@ -1,5 +1,50 @@
 import { formatDecimal } from './decimal-format';
 
+const noop = () => {};
+const consoleTarget: Pick<Console, 'log' | 'warn'> & Partial<Pick<Console, 'group' | 'groupEnd'>> =
+  typeof console !== 'undefined'
+    ? console
+    : {
+        log: noop,
+        warn: noop,
+        group: noop,
+        groupEnd: noop,
+      };
+
+const isTestMode = typeof import.meta !== 'undefined'
+  ? import.meta.env?.MODE === 'test'
+  : (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test');
+
+const isDevMode = typeof import.meta !== 'undefined'
+  ? !!import.meta.env?.DEV
+  : (typeof process !== 'undefined' ? process.env?.NODE_ENV !== 'production' : false);
+
+const devLoggingEnabled = isDevMode && !isTestMode;
+
+const devLog = (...args: Parameters<Console['log']>) => {
+  if (devLoggingEnabled) {
+    consoleTarget.log(...args);
+  }
+};
+
+const devWarn = (...args: Parameters<Console['warn']>) => {
+  if (devLoggingEnabled) {
+    consoleTarget.warn(...args);
+  }
+};
+
+const devGroup = (...args: Parameters<Console['group']>) => {
+  if (devLoggingEnabled && typeof consoleTarget.group === 'function') {
+    consoleTarget.group(...args);
+  }
+};
+
+const devGroupEnd = () => {
+  if (devLoggingEnabled && typeof consoleTarget.groupEnd === 'function') {
+    consoleTarget.groupEnd();
+  }
+};
+
 /**
  * Performance Monitoring Utilities
  * Track and report application performance metrics
@@ -70,7 +115,7 @@ export class PerformanceMonitor {
         lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
         this.observers.push(lcpObserver);
       } catch (e) {
-        console.warn('Performance Observer not supported:', e);
+        devWarn('Performance Observer not supported:', e);
       }
     }
   }
@@ -143,7 +188,7 @@ export class PerformanceMonitor {
           this.metrics.customMetrics[name] = entries[entries.length - 1].duration;
         }
       } catch (e) {
-        console.warn('Performance measure failed:', e);
+        devWarn('Performance measure failed:', e);
       }
     }
   }
@@ -156,36 +201,36 @@ export class PerformanceMonitor {
 
   logMetrics(): void {
     const metrics = this.getMetrics();
-    console.group('📊 Performance Metrics');
+    devGroup('📊 Performance Metrics');
     
     if (metrics.domContentLoaded) {
-      console.log(`DOM Content Loaded: ${formatDecimal(metrics.domContentLoaded, 2)}ms`);
+      devLog(`DOM Content Loaded: ${formatDecimal(metrics.domContentLoaded, 2)}ms`);
     }
     if (metrics.loadComplete) {
-      console.log(`Page Load Complete: ${formatDecimal(metrics.loadComplete, 2)}ms`);
+      devLog(`Page Load Complete: ${formatDecimal(metrics.loadComplete, 2)}ms`);
     }
     if (metrics.firstContentfulPaint) {
-      console.log(`First Contentful Paint: ${formatDecimal(metrics.firstContentfulPaint, 2)}ms`);
+      devLog(`First Contentful Paint: ${formatDecimal(metrics.firstContentfulPaint, 2)}ms`);
     }
     if (metrics.largestContentfulPaint) {
-      console.log(`Largest Contentful Paint: ${formatDecimal(metrics.largestContentfulPaint, 2)}ms`);
+      devLog(`Largest Contentful Paint: ${formatDecimal(metrics.largestContentfulPaint, 2)}ms`);
     }
     
-    console.log('\n📦 Resource Metrics:');
-    console.log(`Total Resources: ${metrics.totalResources}`);
-    console.log(`JS Size: ${this.formatBytes(metrics.jsSize || 0)}`);
-    console.log(`CSS Size: ${this.formatBytes(metrics.cssSize || 0)}`);
-    console.log(`Image Size: ${this.formatBytes(metrics.imageSize || 0)}`);
-    console.log(`Total Size: ${this.formatBytes(metrics.totalResourceSize || 0)}`);
+    devLog('\n📦 Resource Metrics:');
+    devLog(`Total Resources: ${metrics.totalResources}`);
+    devLog(`JS Size: ${this.formatBytes(metrics.jsSize || 0)}`);
+    devLog(`CSS Size: ${this.formatBytes(metrics.cssSize || 0)}`);
+    devLog(`Image Size: ${this.formatBytes(metrics.imageSize || 0)}`);
+    devLog(`Total Size: ${this.formatBytes(metrics.totalResourceSize || 0)}`);
     
     if (metrics.customMetrics && Object.keys(metrics.customMetrics).length > 0) {
-      console.log('\n⏱️ Custom Metrics:');
+      devLog('\n⏱️ Custom Metrics:');
       Object.entries(metrics.customMetrics).forEach(([name, duration]) => {
-        console.log(`${name}: ${formatDecimal(duration, 2)}ms`);
+        devLog(`${name}: ${formatDecimal(duration, 2)}ms`);
       });
     }
     
-    console.groupEnd();
+    devGroupEnd();
   }
 
   private formatBytes(bytes: number): string {
@@ -220,7 +265,7 @@ export function measureComponentRender(componentName: string): { start: () => vo
 
 export function reportWebVitals(metric: any): void {
   // Send to analytics or logging service
-  console.log('Web Vital:', metric.name, metric.value);
+  devLog('Web Vital:', metric.name, metric.value);
   
   // Thresholds based on Core Web Vitals
   const thresholds: Record<string, { good: number; needsImprovement: number }> = {
@@ -240,6 +285,6 @@ export function reportWebVitals(metric: any): void {
       rating = 'needs improvement';
     }
     
-    console.log(`${metric.name} rating: ${rating}`);
+    devLog(`${metric.name} rating: ${rating}`);
   }
 }

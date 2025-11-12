@@ -88,7 +88,7 @@ export function RealtimeStatusIndicator({
         <div className={`w-3 h-3 rounded-full ${getStatusColor()} border-2 border-white shadow-lg`} />
         
         {showTooltip && showDetails && (
-          <div className="absolute top-full mt-2 right-0 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 min-w-[200px]">
+          <div className="absolute top-full mt-2 right-0 bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3 min-w-[200px]">
             <div className="text-sm font-medium text-gray-900 dark:text-white mb-2">
               Real-time Sync
             </div>
@@ -115,7 +115,7 @@ export function RealtimeStatusIndicator({
 
   return (
     <div className={`fixed ${positionClasses[position]} z-50`}>
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-3">
         <div 
           className="flex items-center space-x-2 cursor-pointer"
           onClick={() => showDetails && setIsExpanded(!isExpanded)}

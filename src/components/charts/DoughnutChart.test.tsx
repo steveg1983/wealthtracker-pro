@@ -2,6 +2,8 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import DoughnutChart from './DoughnutChart';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
+import { formatDecimal } from '../../utils/decimal-format';
 
 // Mock Chart.js
 vi.mock('chart.js', () => ({
@@ -72,8 +74,8 @@ describe('DoughnutChart', () => {
             const label = context.label || '';
             const value = context.parsed || 0;
             const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0);
-            const percentage = ((value / total) * 100).toFixed(1);
-            return `${label}: $${value} (${percentage}%)`;
+            const percentage = formatDecimal((value / total) * 100, 1);
+            return `${label}: ${formatCurrencyDecimal(value, 'USD')} (${percentage}%)`;
           }
         }
       }
@@ -348,7 +350,7 @@ describe('DoughnutChart', () => {
               label: function(context: any) {
                 const label = context.label || '';
                 const value = context.parsed || 0;
-                return `${label}: $${value.toLocaleString()}`;
+                return `${label}: ${formatCurrencyDecimal(value, 'USD')}`;
               }
             }
           },

@@ -78,6 +78,11 @@ jobs:
           CI: true
         run: npm run test:smoke
 
+      - name: Run realtime backend tests
+        env:
+          CI: true
+        run: npm run test:realtime
+
       - name: Run coverage
         env:
           CI: true

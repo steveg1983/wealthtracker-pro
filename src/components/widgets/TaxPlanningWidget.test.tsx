@@ -5,28 +5,11 @@ import { useApp } from '../../contexts/AppContextSupabase';
 import { taxPlanningService } from '../../services/taxPlanningService';
 import { useNavigate } from 'react-router-dom';
 import { toDecimal } from '../../utils/decimal';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 import type { Transaction, Account } from '../../types';
 
-const testCurrencySymbols: Record<string, string> = {
-  USD: '$',
-  GBP: '£',
-  EUR: '€',
-  CHF: 'CHF',
-};
-
-const formatCurrencyMock = (value: any, currency: string = 'USD'): string => {
-  const decimalValue = toDecimal(value).toDecimalPlaces(0);
-  const isNegative = decimalValue.isNegative();
-  const absolute = decimalValue.abs();
-  const grouped = absolute.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const symbol = testCurrencySymbols[currency] ?? currency;
-
-  if (currency === 'CHF') {
-    return `${isNegative ? '-' : ''}${grouped} ${symbol}`;
-  }
-
-  return `${isNegative ? '-' : ''}${symbol}${grouped}`;
-};
+const formatCurrencyMock = (value: any, currency: string = 'USD'): string =>
+  formatCurrencyDecimal(value, currency);
 
 const mockUseCurrencyDecimal = vi.fn();
 
@@ -136,7 +119,7 @@ describe('TaxPlanningWidget', () => {
       render(<TaxPlanningWidget size="small" />);
       
       expect(screen.getByText('Tax Planning')).toBeInTheDocument();
-      expect(screen.getByText('$5,251')).toBeInTheDocument();
+      expect(screen.getByText('$5,250.75')).toBeInTheDocument();
       expect(screen.getByText('Est. Tax (18.5%)')).toBeInTheDocument();
       expect(screen.getByTestId('CalculatorIcon')).toHaveAttribute('data-size', '20');
     });
@@ -191,7 +174,9 @@ describe('TaxPlanningWidget', () => {
       render(<TaxPlanningWidget />);
       
       // Total deductions: 500 + 250 + 150 = 900
-      expect(screen.getByText('$900')).toBeInTheDocument();
+      expect(
+        screen.getByText((content) => content.includes('$900.00'))
+      ).toBeInTheDocument();
       expect(screen.getByText('Tracked YTD')).toBeInTheDocument();
     });
   });
@@ -243,10 +228,12 @@ describe('TaxPlanningWidget', () => {
       expect(screen.getByText('Tax Planning')).toBeInTheDocument();
       expect(screen.getByText('2024 Tax Year')).toBeInTheDocument();
       expect(screen.getByText('Estimated Tax')).toBeInTheDocument();
-      expect(screen.getByText('$5,251')).toBeInTheDocument();
+      expect(screen.getByText('$5,250.75')).toBeInTheDocument();
       expect(screen.getByText('18.5% rate')).toBeInTheDocument();
       expect(screen.getByText('Deductions')).toBeInTheDocument();
-      expect(screen.getByText('$900')).toBeInTheDocument();
+      expect(
+        screen.getByText((content) => content.includes('$900.00'))
+      ).toBeInTheDocument();
     });
 
     it('shows track receipts message', () => {
@@ -299,7 +286,7 @@ describe('TaxPlanningWidget', () => {
       
       render(<TaxPlanningWidget />);
       
-      expect(screen.getByText('$0')).toBeInTheDocument();
+      expect(screen.getByText('$0.00')).toBeInTheDocument();
       expect(screen.getByText('0.0% rate')).toBeInTheDocument();
     });
 
@@ -308,7 +295,7 @@ describe('TaxPlanningWidget', () => {
       
       render(<TaxPlanningWidget />);
       
-      const deductionElements = screen.getAllByText('$0');
+      const deductionElements = screen.getAllByText('$0.00');
       expect(deductionElements.length).toBeGreaterThan(0);
     });
 
@@ -331,7 +318,7 @@ describe('TaxPlanningWidget', () => {
       
       render(<TaxPlanningWidget size="small" />);
       
-      expect(screen.getByText('$125,001')).toBeInTheDocument();
+      expect(screen.getByText('$125,000.50')).toBeInTheDocument();
     });
   });
 
@@ -347,11 +334,11 @@ describe('TaxPlanningWidget', () => {
       render(<TaxPlanningWidget />);
       
       // Estimated tax should be in red (expense)
-      const taxAmount = screen.getByText('$5,251');
+      const taxAmount = screen.getByText('$5,250.75');
       expect(taxAmount).toHaveClass('text-red-600');
       
       // Deductions should be in green (benefit)
-      const deductionAmount = screen.getByText('$900');
+      const deductionAmount = screen.getByText('$900.00');
       expect(deductionAmount).toHaveClass('text-green-600');
     });
 

@@ -113,10 +113,12 @@ export default function ExpenseBreakdownWidget({ size, settings }: ExpenseBreakd
               cx="50%"
               cy="50%"
               labelLine={false}
-              label={size !== 'small' ? ({ name, percent }) => {
+              label={size !== 'small' ? ((props: { name?: string; percent?: number }) => {
+                const { name, percent } = props;
+                if (!name) return '';
                 const percentage = toDecimal(percent ?? 0).times(100);
                 return `${name} ${formatPercentage(percentage.toNumber(), 0)}%`;
-              } : false}
+              }) : undefined}
               outerRadius={size === 'small' ? 60 : size === 'medium' ? 80 : 100}
               fill="#8884d8"
               dataKey="value"

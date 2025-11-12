@@ -5,6 +5,7 @@ import { renderWithProviders, createTestData, mockLocalStorage } from './test-ut
 import { toDecimal } from '../../utils/decimal';
 import { calculateTotalBalance } from '../../utils/calculations-decimal';
 import { toDecimalAccount } from '../../utils/decimal-converters';
+import { formatDecimal } from '../../utils/decimal-format';
 
 // Mock components to avoid complex dependencies
 vi.mock('../../pages/Dashboard', () => ({
@@ -287,7 +288,7 @@ describe('Error Handling Integration Tests', () => {
       const result = veryLargeNumber.plus(one);
       
       // Should handle large numbers without overflow
-      expect(result.toFixed()).toBeDefined();
+      expect(() => formatDecimal(result, 2, { group: false })).not.toThrow();
       // Decimal.js might handle this differently - check if result is at least as large
       expect(result.greaterThanOrEqualTo(veryLargeNumber)).toBe(true);
     });

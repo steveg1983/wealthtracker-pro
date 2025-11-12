@@ -209,7 +209,7 @@ export default function RecurringTransactions(): React.JSX.Element {
 
       {/* Templates List */}
       {templates.length === 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
           <Repeat size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
           <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
             No Recurring Transactions
@@ -229,7 +229,7 @@ export default function RecurringTransactions(): React.JSX.Element {
           {templates.map(template => (
             <div
               key={template.id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
+              className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -321,7 +321,7 @@ export default function RecurringTransactions(): React.JSX.Element {
       {/* Add/Edit Modal would go here - keeping this simple for now */}
       {(showAddModal || editingTemplate) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-xl p-6 max-w-md w-full">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               {editingTemplate ? 'Edit' : 'Add'} Recurring Transaction
             </h3>

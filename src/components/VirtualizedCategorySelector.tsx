@@ -194,7 +194,7 @@ export function VirtualizedCategorySelector({
       {/* Selected value display */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500 transition-colors text-left"
+        className="w-full px-4 py-3 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500 transition-colors text-left"
       >
         {selectedCategory ? (
           <div className="flex items-center gap-3">
@@ -219,7 +219,7 @@ export function VirtualizedCategorySelector({
 
       {/* Dropdown */}
       {isOpen && (
-        <div className="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="absolute z-50 w-full mt-2 bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
           {/* Search input */}
           <div className="p-3 border-b border-gray-200 dark:border-gray-700">
             <div className="relative">

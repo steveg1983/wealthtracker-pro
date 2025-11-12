@@ -23,6 +23,11 @@ export default function RealtimeSyncTest() {
       return;
     }
 
+    if (!supabase) {
+      addStatus('Supabase client is not initialized');
+      return;
+    }
+
     const runTest = async () => {
       addStatus(`Starting test for Clerk user: ${clerkId}`);
       addStatus(`Using database ID: ${databaseId}`);
@@ -30,7 +35,7 @@ export default function RealtimeSyncTest() {
       setDbUserId(databaseId);
 
       // Step 2: Check current channels
-      const channels = supabase!.getChannels();
+      const channels = supabase?.getChannels() || [];
       addStatus(`Active channels: ${channels.length}`);
       channels.forEach(ch => {
         addStatus(`  - ${ch.topic}: ${ch.state}`);
@@ -38,7 +43,12 @@ export default function RealtimeSyncTest() {
 
       // Step 3: Set up subscription
       addStatus('Setting up realtime subscription...');
-      
+
+      if (!supabase) {
+        addStatus('ERROR: Supabase client not available');
+        return;
+      }
+
       const channel = supabase
         .channel(`test-accounts-${databaseId}`)
         .on(
@@ -115,7 +125,7 @@ export default function RealtimeSyncTest() {
   }, [clerkId, databaseId, isLoading]);
 
   return (
-    <div className="fixed top-20 right-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-md max-h-96 overflow-y-auto z-50 border-2 border-blue-500">
+    <div className="fixed top-20 right-4 bg-[#d4dce8] dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-md max-h-96 overflow-y-auto z-50 border-2 border-blue-500">
       <h3 className="font-bold text-sm mb-2 text-blue-600">🧪 Realtime Sync Test</h3>
       <div className="text-xs space-y-1 font-mono">
         <div>Clerk ID: {clerkId?.slice(0, 10)}...</div>

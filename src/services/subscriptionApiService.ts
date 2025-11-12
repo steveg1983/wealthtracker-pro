@@ -9,21 +9,50 @@
  */
 
 import { loadStripe } from '@stripe/stripe-js';
-import { useUser } from '@clerk/clerk-react';
 import SupabaseSubscriptionService from './supabaseSubscriptionService';
-import type { 
+import type {
   CreateSubscriptionRequest,
   CreateSubscriptionResponse,
   UpdateSubscriptionRequest,
   UserSubscription,
   BillingHistory,
   PaymentMethod,
+  BillingInvoice,
+  SubscriptionPlan,
   SubscriptionPreview
 } from '../types/subscription';
 import { toDecimal, toStorageNumber } from '../utils/decimal';
 
+type SupabaseService = typeof SupabaseSubscriptionService;
+type Logger = Pick<Console, 'error' | 'warn'>;
+type StripeLoader = typeof loadStripe;
+
+export interface SubscriptionApiServiceConfig {
+  supabaseService?: SupabaseService;
+  logger?: Logger;
+  stripeLoader?: StripeLoader;
+}
+
 export class SubscriptionApiService {
-  private static stripe = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+  private static supabaseService: SupabaseService = SupabaseSubscriptionService;
+  private static logger: Logger = typeof console !== 'undefined'
+    ? console
+    : { error: () => {}, warn: () => {} };
+  private static stripePromise = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY
+    ? loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY)
+    : Promise.resolve(null);
+
+  static configure(options: SubscriptionApiServiceConfig = {}) {
+    if (options.supabaseService) {
+      this.supabaseService = options.supabaseService;
+    }
+    if (options.logger) {
+      this.logger = options.logger;
+    }
+    if (options.stripeLoader && import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY) {
+      this.stripePromise = options.stripeLoader(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+    }
+  }
 
   /**
    * Create a subscription (simulates backend endpoint)
@@ -50,7 +79,7 @@ export class SubscriptionApiService {
         '- POST /api/billing/portal (create portal session)'
       );
     } catch (error) {
-      console.error('Error creating subscription:', error);
+      this.logger.error('Error creating subscription:', error as Error);
       throw error;
     }
   }
@@ -68,7 +97,7 @@ export class SubscriptionApiService {
         'See createSubscription method for implementation guidance.'
       );
     } catch (error) {
-      console.error('Error updating subscription:', error);
+      this.logger.error('Error updating subscription:', error as Error);
       throw error;
     }
   }
@@ -79,12 +108,12 @@ export class SubscriptionApiService {
   static async getCurrentSubscription(clerkUserId: string): Promise<UserSubscription | null> {
     try {
       // Get user profile to get internal user ID
-      const userProfile = await SupabaseSubscriptionService.getUserProfile(clerkUserId);
+      const userProfile = await this.supabaseService.getUserProfile(clerkUserId);
       if (!userProfile) return null;
 
-      return await SupabaseSubscriptionService.getCurrentSubscription(userProfile.id);
+      return await this.supabaseService.getCurrentSubscription(userProfile.id);
     } catch (error) {
-      console.error('Error getting current subscription:', error);
+      this.logger.error('Error getting current subscription:', error as Error);
       return null;
     }
   }
@@ -94,17 +123,17 @@ export class SubscriptionApiService {
    */
   static async getBillingHistory(clerkUserId: string): Promise<BillingHistory> {
     try {
-      const userProfile = await SupabaseSubscriptionService.getUserProfile(clerkUserId);
+      const userProfile = await this.supabaseService.getUserProfile(clerkUserId);
       if (!userProfile) {
         throw new Error('User profile not found');
       }
 
       const [paymentMethods, invoices] = await Promise.all([
-        SupabaseSubscriptionService.getPaymentMethods(userProfile.id),
-        SupabaseSubscriptionService.getInvoices(userProfile.id)
+        this.supabaseService.getPaymentMethods(userProfile.id),
+        this.supabaseService.getInvoices(userProfile.id)
       ]);
 
-      const subscription = await SupabaseSubscriptionService.getCurrentSubscription(userProfile.id);
+      const subscription = await this.supabaseService.getCurrentSubscription(userProfile.id);
 
       const paidInvoices = invoices.filter(i => i.status === 'paid');
       const totalPaidDecimal = paidInvoices
@@ -112,14 +141,18 @@ export class SubscriptionApiService {
       const totalPaidCurrency = paidInvoices.length > 0 ? paidInvoices[0].currency ?? null : null;
 
       return {
-        invoices,
+        invoices: invoices.map(inv => ({
+          ...inv,
+          currency: inv.currency || undefined,
+          createdAt: inv.createdAt || new Date()
+        })) as BillingInvoice[],
         paymentMethods,
         nextBillingDate: subscription?.currentPeriodEnd,
         totalPaid: toStorageNumber(totalPaidDecimal),
         totalPaidCurrency,
       };
     } catch (error) {
-      console.error('Error getting billing history:', error);
+      this.logger.error('Error getting billing history:', error as Error);
       throw error;
     }
   }
@@ -137,7 +170,7 @@ export class SubscriptionApiService {
         '3. Returns portal URL'
       );
     } catch (error) {
-      console.error('Error creating portal session:', error);
+      this.logger.error('Error creating portal session:', error as Error);
       throw error;
     }
   }
@@ -150,7 +183,7 @@ export class SubscriptionApiService {
     tier: 'premium' | 'pro'
   ): Promise<UserSubscription> {
     try {
-      const userProfile = await SupabaseSubscriptionService.getUserProfile(clerkUserId);
+      const userProfile = await this.supabaseService.getUserProfile(clerkUserId);
       if (!userProfile) {
         throw new Error('User profile not found');
       }
@@ -158,7 +191,7 @@ export class SubscriptionApiService {
       // Create a demo subscription in the database
       const demoSubscription: Partial<UserSubscription> = {
         userId: userProfile.id,
-        tier,
+        tier: tier === 'pro' ? 'enterprise' : tier as SubscriptionPlan,
         status: 'trialing',
         stripeCustomerId: `cus_demo_${Date.now()}`,
         stripeSubscriptionId: `sub_demo_${Date.now()}`,
@@ -170,9 +203,9 @@ export class SubscriptionApiService {
         cancelAtPeriodEnd: false
       };
 
-      return await SupabaseSubscriptionService.upsertSubscription(demoSubscription);
+      return await this.supabaseService.upsertSubscription(demoSubscription);
     } catch (error) {
-      console.error('Error creating demo subscription:', error);
+      this.logger.error('Error creating demo subscription:', error as Error);
       throw error;
     }
   }
@@ -182,12 +215,12 @@ export class SubscriptionApiService {
    */
   static async cancelDemoSubscription(clerkUserId: string): Promise<UserSubscription> {
     try {
-      const userProfile = await SupabaseSubscriptionService.getUserProfile(clerkUserId);
+      const userProfile = await this.supabaseService.getUserProfile(clerkUserId);
       if (!userProfile) {
         throw new Error('User profile not found');
       }
 
-      const currentSubscription = await SupabaseSubscriptionService.getCurrentSubscription(userProfile.id);
+      const currentSubscription = await this.supabaseService.getCurrentSubscription(userProfile.id);
       if (!currentSubscription) {
         throw new Error('No subscription found');
       }
@@ -199,9 +232,9 @@ export class SubscriptionApiService {
         cancelAtPeriodEnd: true
       };
 
-      return await SupabaseSubscriptionService.upsertSubscription(updatedSubscription);
+      return await this.supabaseService.upsertSubscription(updatedSubscription);
     } catch (error) {
-      console.error('Error canceling demo subscription:', error);
+      this.logger.error('Error canceling demo subscription:', error as Error);
       throw error;
     }
   }
@@ -215,15 +248,15 @@ export class SubscriptionApiService {
     fullName?: string
   ): Promise<void> {
     try {
-      await SupabaseSubscriptionService.createUserProfile(clerkUserId, email, fullName);
+      await this.supabaseService.createUserProfile(clerkUserId, email, fullName);
       
       // Initialize usage tracking
-      const userProfile = await SupabaseSubscriptionService.getUserProfile(clerkUserId);
+      const userProfile = await this.supabaseService.getUserProfile(clerkUserId);
       if (userProfile) {
-        await SupabaseSubscriptionService.refreshUsageCounts(userProfile.id);
+        await this.supabaseService.refreshUsageCounts(userProfile.id);
       }
     } catch (error) {
-      console.error('Error initializing user profile:', error);
+      this.logger.error('Error initializing user profile:', error as Error);
       // Don't throw here as this might be called multiple times
     }
   }
@@ -233,12 +266,12 @@ export class SubscriptionApiService {
    */
   static async checkFeatureAccess(clerkUserId: string, feature: string): Promise<boolean> {
     try {
-      const userProfile = await SupabaseSubscriptionService.getUserProfile(clerkUserId);
+      const userProfile = await this.supabaseService.getUserProfile(clerkUserId);
       if (!userProfile) return false;
 
-      return await SupabaseSubscriptionService.hasFeatureAccess(userProfile.id, feature);
+      return await this.supabaseService.hasFeatureAccess(userProfile.id, feature);
     } catch (error) {
-      console.error('Error checking feature access:', error);
+      this.logger.error('Error checking feature access:', error as Error);
       return false;
     }
   }
@@ -248,14 +281,14 @@ export class SubscriptionApiService {
    */
   static async getUsageInfo(clerkUserId: string) {
     try {
-      const userProfile = await SupabaseSubscriptionService.getUserProfile(clerkUserId);
+      const userProfile = await this.supabaseService.getUserProfile(clerkUserId);
       if (!userProfile) {
         throw new Error('User profile not found');
       }
 
       const [subscription, usage] = await Promise.all([
-        SupabaseSubscriptionService.getCurrentSubscription(userProfile.id),
-        SupabaseSubscriptionService.getSubscriptionUsage(userProfile.id)
+        this.supabaseService.getCurrentSubscription(userProfile.id),
+        this.supabaseService.getSubscriptionUsage(userProfile.id)
       ]);
 
       return {
@@ -264,7 +297,7 @@ export class SubscriptionApiService {
         tier: subscription?.tier || 'free'
       };
     } catch (error) {
-      console.error('Error getting usage info:', error);
+      this.logger.error('Error getting usage info:', error as Error);
       throw error;
     }
   }

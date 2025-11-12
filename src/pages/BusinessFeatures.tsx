@@ -22,6 +22,9 @@ import type { BusinessMetrics } from '../services/businessService';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal, Decimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const businessFeaturesLogger = createScopedLogger('BusinessFeaturesPage');
 
 export default function BusinessFeatures() {
   const [activeTab, setActiveTab] = useState<'overview' | 'invoices' | 'expenses' | 'mileage'>('overview');
@@ -39,7 +42,7 @@ export default function BusinessFeatures() {
       const businessMetrics = businessService.getBusinessMetrics();
       setMetrics(businessMetrics);
     } catch (error) {
-      console.error('Error loading business data:', error);
+      businessFeaturesLogger.error('Error loading business data', error);
     } finally {
       setIsLoading(false);
     }
@@ -80,7 +83,7 @@ export default function BusinessFeatures() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm mb-6">
           <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex space-x-8">
               <button
@@ -144,7 +147,7 @@ export default function BusinessFeatures() {
           <div className="space-y-6">
             {/* Key Metrics */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
@@ -156,7 +159,7 @@ export default function BusinessFeatures() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Total Expenses</p>
@@ -168,7 +171,7 @@ export default function BusinessFeatures() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Net Profit</p>
@@ -186,7 +189,7 @@ export default function BusinessFeatures() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Profit Margin</p>
@@ -207,7 +210,7 @@ export default function BusinessFeatures() {
 
             {/* Invoice Status */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <FileTextIcon size={20} className="text-blue-600 dark:text-blue-400" />
                   <h3 className="font-semibold text-gray-900 dark:text-white">Invoice Status</h3>
@@ -234,7 +237,7 @@ export default function BusinessFeatures() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <DollarSignIcon size={20} className="text-green-600 dark:text-green-400" />
                   <h3 className="font-semibold text-gray-900 dark:text-white">Top Expenses</h3>
@@ -253,7 +256,7 @@ export default function BusinessFeatures() {
                 </div>
               </div>
 
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <CalendarIcon size={20} className="text-purple-600 dark:text-purple-400" />
                   <h3 className="font-semibold text-gray-900 dark:text-white">This Month</h3>
@@ -290,7 +293,7 @@ export default function BusinessFeatures() {
             </div>
 
             {/* Monthly Trends Chart */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
               <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Monthly Trends</h3>
               <div className="space-y-4">
                 {metrics.monthlyTrends.slice(-6).map((trend, index) => (

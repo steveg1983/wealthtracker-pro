@@ -606,7 +606,7 @@ export default function CSVImportWizard({ isOpen, onClose, type }: CSVImportWiza
                         ))}
                     </tr>
                   </thead>
-                  <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
+                  <tbody className="bg-[#d4dce8] dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
                     {data.slice(0, 5).map((row, rowIndex) => (
                       <tr key={rowIndex}>
                         {targetFields

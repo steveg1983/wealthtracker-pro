@@ -7,6 +7,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Remove all blue focus outlines globally */
+*:focus,
+*:focus-visible,
+*:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 /* Pull to Refresh Styles */
 .pull-to-refresh {
   position: relative;
@@ -89,6 +97,8 @@
   --color-sidebar: #5a729a; /* Changed from #8ea9db to meet contrast requirements */
   --color-sidebar-active: #b8d4f1;
   --color-sidebar-border: #4a6fa5;
+  --focus-ring-color: #94a3b8;
+  --color-border-focus: #94a3b8;
 }
 
 /* Blue Theme (Default) */
@@ -249,6 +259,9 @@
 /* Default button styling to prevent square corners */
 button {
   border-radius: 0.5rem; /* Default to rounded-lg */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 /* Touch gesture styles */
@@ -532,7 +545,6 @@ button.rounded-full:focus-visible,
     /* Larger buttons on mobile */
     button {
       @apply min-h-[48px] touch-target;
-      padding: 12px 24px;
     }
     
     /* Better modal spacing on mobile */
@@ -607,7 +619,7 @@ button.rounded-full:focus-visible,
 
   /* Focus Visible for Better Keyboard Navigation */
   :focus-visible {
-    outline: 2px solid #4285f4;
+    outline: 2px solid #94a3b8;
     outline-offset: 2px;
   }
 

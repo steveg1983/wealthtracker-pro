@@ -103,7 +103,7 @@ const DEFAULT_ALERT_CONFIGS: AlertConfig[] = [
 ];
 
 export default function SpendingAlerts() {
-  const { categories, getDecimalTransactions, getDecimalBudgets } = useApp();
+  const { categories, getDecimalTransactions } = useApp();
   const { budgets } = useBudgets();
   const { formatCurrency } = useCurrencyDecimal();
   
@@ -116,7 +116,11 @@ export default function SpendingAlerts() {
   // Check for new alerts
   useEffect(() => {
     const checkAlerts = () => {
-      const decimalBudgets = getDecimalBudgets();
+      // Convert regular budgets to decimal budgets
+      const decimalBudgets: DecimalBudget[] = budgets.map(b => ({
+        ...b,
+        amount: toDecimal(b.amount)
+      }));
       const decimalTransactions = getDecimalTransactions();
       const newAlerts: Alert[] = [];
       
@@ -207,7 +211,7 @@ export default function SpendingAlerts() {
     const interval = setInterval(checkAlerts, 60000); // Check every minute
     
     return () => clearInterval(interval);
-  }, [budgets, alertConfigs, mutedCategories, getDecimalBudgets, getDecimalTransactions, alerts, setAlerts]);
+  }, [budgets, alertConfigs, mutedCategories, getDecimalTransactions, alerts, setAlerts]);
 
   // Calculate alert statistics
   const alertStats = useMemo((): AlertStats => {
@@ -484,7 +488,7 @@ export default function SpendingAlerts() {
       {/* Settings Modal */}
       {showSettings && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-3xl p-6 max-h-[80vh] overflow-y-auto">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-3xl p-6 max-h-[80vh] overflow-y-auto">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Alert Configuration
             </h3>

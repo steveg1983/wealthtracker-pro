@@ -10,6 +10,7 @@ import BudgetSummaryWidget from './BudgetSummaryWidget';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useBudgets } from '../../contexts/BudgetContext';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 import { budgetCalculationService } from '../../services/budgetCalculationService';
 import type { Transaction, Category, Budget } from '../../types';
 
@@ -78,14 +79,16 @@ const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
 const mockBudgetCalculationService = budgetCalculationService as any;
 
 describe('BudgetSummaryWidget', () => {
-  const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number'
-      ? amount
-      : typeof amount?.toNumber === 'function'
-        ? amount.toNumber()
-        : Number(amount);
-    return `£${value.toFixed(2)}`;
-  });
+  const mockFormatCurrency = vi.fn((amount: any, currency: string = 'GBP') =>
+    formatCurrencyDecimal(
+      typeof amount === 'number'
+        ? amount
+        : typeof amount?.toNumber === 'function'
+          ? amount.toNumber()
+          : Number(amount),
+      currency
+    )
+  );
 
   const mockBudgets: Budget[] = [
     {
@@ -273,7 +276,7 @@ describe('BudgetSummaryWidget', () => {
       render(<BudgetSummaryWidget size="small" settings={{}} />);
       
       // Should show negative remaining amount
-      expect(screen.getByText('£-50.00')).toBeInTheDocument();
+      expect(screen.getByText('-£50.00')).toBeInTheDocument();
       
       // Should show over budget status
       expect(screen.getByText('Over budget')).toBeInTheDocument();
@@ -315,7 +318,7 @@ describe('BudgetSummaryWidget', () => {
       expect(screen.getByText('+£750.00')).toBeInTheDocument();
       
       // Should show budget summary
-      expect(screen.getByText('£250.00 of £1000.00')).toBeInTheDocument();
+      expect(screen.getByText('£250.00 of £1,000.00')).toBeInTheDocument();
       
       // Should show budgeted and spent sections
       expect(screen.getByText('Budgeted')).toBeInTheDocument();

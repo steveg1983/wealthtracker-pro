@@ -7,6 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AccessibleTable } from './AccessibleTable';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock data types for testing
 interface TestData {
@@ -702,6 +703,8 @@ describe('AccessibleTable', () => {
         { id: 't3', date: '2024-01-18', description: 'Electric Bill', amount: -85.00, category: 'Utilities' },
       ];
 
+      const formatUSD = (value: number) => formatCurrencyDecimal(value, 'USD');
+
       const columns = [
         { key: 'date', label: 'Date', sortable: true },
         { key: 'description', label: 'Description' },
@@ -711,7 +714,7 @@ describe('AccessibleTable', () => {
           sortable: true,
           render: (tx: typeof transactions[0]) => (
             <span className={tx.amount < 0 ? 'text-red-600' : 'text-green-600'}>
-              ${Math.abs(tx.amount).toFixed(2)}
+              {formatUSD(tx.amount)}
             </span>
           )
         },
@@ -731,8 +734,8 @@ describe('AccessibleTable', () => {
       );
 
       // Verify proper rendering
-      expect(screen.getByText('$125.50')).toHaveClass('text-red-600');
-      expect(screen.getByText('$3000.00')).toHaveClass('text-green-600');
+      expect(screen.getByText('-$125.50')).toHaveClass('text-red-600');
+      expect(screen.getByText('$3,000.00')).toHaveClass('text-green-600');
       expect(screen.getByRole('columnheader', { name: /Date column, sortable, sorted descending/ })).toBeInTheDocument();
     });
 

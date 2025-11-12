@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-npm run test:smoke || exit 1
+npm run test:supabase-smoke || exit 1
+npm run test:realtime || exit 1
+npm run test:coverage || exit 1
+node scripts/verify-coverage-threshold.mjs coverage/coverage-final.json --statements=75 --branches=55 || exit 1

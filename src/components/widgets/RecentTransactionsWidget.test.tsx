@@ -9,6 +9,7 @@ import { vi, describe, it, expect, beforeEach, Mock } from 'vitest';
 import RecentTransactionsWidget from './RecentTransactionsWidget';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 import type { Transaction, Account, Category } from '../../types';
 
 // Mock the external dependencies
@@ -34,14 +35,16 @@ const mockUseApp = useApp as Mock;
 const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
 
 describe('RecentTransactionsWidget', () => {
-  const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number'
-      ? amount
-      : typeof amount?.toNumber === 'function'
-        ? amount.toNumber()
-        : Number(amount);
-    return `£${value.toFixed(2)}`;
-  });
+  const mockFormatCurrency = vi.fn((amount: any, currency: string = 'GBP') =>
+    formatCurrencyDecimal(
+      typeof amount === 'number'
+        ? amount
+        : typeof amount?.toNumber === 'function'
+          ? amount.toNumber()
+          : Number(amount),
+      currency
+    )
+  );
 
   const mockTransactions: Transaction[] = [
     {
@@ -186,9 +189,9 @@ describe('RecentTransactionsWidget', () => {
       render(<RecentTransactionsWidget size="small" settings={{}} />);
       
       // Check amounts are displayed correctly with signs
-      expect(screen.getByText('+£3000.00')).toBeInTheDocument();
-      expect(screen.getByText('£-120.50')).toBeInTheDocument();
-      expect(screen.getByText('£-85.00')).toBeInTheDocument();
+      expect(screen.getByText('+£3,000.00')).toBeInTheDocument();
+      expect(screen.getByText('-£120.50')).toBeInTheDocument();
+      expect(screen.getByText('-£85.00')).toBeInTheDocument();
     });
 
     it('applies correct styling classes', () => {
@@ -437,14 +440,14 @@ describe('RecentTransactionsWidget', () => {
     it('applies correct colors for income amounts', () => {
       render(<RecentTransactionsWidget size="medium" settings={{}} />);
       
-      const incomeAmount = screen.getByText('+£3000.00');
+      const incomeAmount = screen.getByText('+£3,000.00');
       expect(incomeAmount).toHaveClass('text-green-600', 'dark:text-green-400');
     });
 
     it('applies correct colors for expense amounts', () => {
       render(<RecentTransactionsWidget size="medium" settings={{}} />);
       
-      const expenseAmount = screen.getByText('£-120.50');
+      const expenseAmount = screen.getByText('-£120.50');
       expect(expenseAmount).toHaveClass('text-red-600', 'dark:text-red-400');
     });
 

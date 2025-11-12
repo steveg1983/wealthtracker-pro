@@ -1,4 +1,4 @@
-import { LRUCache } from 'lru-cache';
+import LRUCache from 'lru-cache';
 
 interface CacheEntry<T> {
   data: T;
@@ -14,6 +14,26 @@ interface CacheOptions {
   staleWhileRevalidate?: boolean;
   persistToStorage?: boolean;
   compressionThreshold?: number;
+}
+
+interface StorageLike {
+  length?: number;
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem?(key: string): void;
+  clear?(): void;
+  key?(index: number): string | null;
+}
+
+type Logger = Pick<Console, 'warn' | 'error'>;
+
+type WorkerFactory = () => Worker | null;
+
+interface SmartCacheServiceOptions extends CacheOptions {
+  storage?: StorageLike | null;
+  now?: () => number;
+  createWorker?: WorkerFactory;
+  logger?: Logger;
 }
 
 interface CacheStats {
@@ -33,23 +53,32 @@ interface CacheStats {
  * 4. Automatic compression for large data
  * 5. Performance metrics tracking
  */
-class SmartCacheService {
+export class SmartCacheService {
   private memoryCache: LRUCache<string, CacheEntry<any>>;
   private stats: CacheStats;
   private dependencies: Map<string, Set<string>>;
   private revalidationQueue: Set<string>;
   private compressionWorker?: Worker;
+  private storage: StorageLike | null;
+  private readonly nowFn: () => number;
+  private readonly createWorker?: WorkerFactory;
+  private readonly logger: Logger;
 
-  constructor(options: CacheOptions = {}) {
+  constructor(options: SmartCacheServiceOptions = {}) {
     const {
       maxSize = 100,
       ttl = 5 * 60 * 1000, // 5 minutes default
       staleWhileRevalidate = true,
-      persistToStorage = true
+      persistToStorage = true,
+      storage,
+      now,
+      createWorker,
+      logger
     } = options;
 
     this.memoryCache = new LRUCache({
       max: maxSize,
+      maxSize,
       ttl,
       updateAgeOnGet: true,
       updateAgeOnHas: false,
@@ -73,14 +102,26 @@ class SmartCacheService {
 
     this.dependencies = new Map();
     this.revalidationQueue = new Set();
+    this.storage = storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    this.nowFn = now ?? (() => Date.now());
+    this.createWorker = createWorker;
+    const noop = () => {};
+    const globalLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      warn: logger?.warn ?? (globalLogger?.warn?.bind(globalLogger) ?? noop),
+      error: logger?.error ?? (globalLogger?.error?.bind(globalLogger) ?? noop)
+    };
 
     // Initialize compression worker if available
-    if (typeof Worker !== 'undefined') {
+    const injectedWorker = this.createWorker?.();
+    if (injectedWorker) {
+      this.compressionWorker = injectedWorker;
+    } else if (typeof Worker !== 'undefined') {
       this.initCompressionWorker();
     }
 
     // Load persisted cache if enabled
-    if (persistToStorage) {
+    if (persistToStorage && this.storage) {
       this.loadFromStorage();
     }
   }
@@ -154,7 +195,7 @@ class SmartCacheService {
   ): void {
     const entry: CacheEntry<T> = {
       data,
-      timestamp: Date.now(),
+      timestamp: this.nowFn(),
       hits: 0,
       dependencies: options.dependencies
     };
@@ -252,51 +293,50 @@ class SmartCacheService {
     const prefKey = `pref:${key}`;
     this.set(prefKey, value, { ttl: Infinity }); // Never expire preferences
     
-    // Persist to localStorage
+    if (!this.storage) return;
     try {
-      localStorage.setItem(prefKey, JSON.stringify(value));
+      this.storage.setItem(prefKey, JSON.stringify(value));
     } catch (e) {
-      console.warn('Failed to persist preference:', e);
+      this.logger.warn('Failed to persist preference:', e as Error);
     }
   }
 
   /**
    * Get cached preference
    */
-  getPreference<T>(key: string, defaultValue?: T): T | undefined {
+  async getPreference<T>(key: string, defaultValue?: T): Promise<T | undefined> {
     const prefKey = `pref:${key}`;
-    
+
     // Try memory cache first
-    let value = this.get<T>(prefKey);
-    
+    let value = await this.get<T>(prefKey);
+
     // Fall back to localStorage
-    if (value === null) {
+    if (value === null && this.storage) {
       try {
-        const stored = localStorage.getItem(prefKey);
+        const stored = this.storage.getItem(prefKey);
         if (stored) {
           value = JSON.parse(stored);
-          // Re-populate memory cache
           this.set(prefKey, value, { ttl: Infinity });
         }
       } catch (e) {
-        console.warn('Failed to load preference:', e);
+        this.logger.warn('Failed to load preference:', e as Error);
       }
     }
-    
+
     return value ?? defaultValue;
   }
 
   /**
    * Cache filter states
    */
-  cacheFilters(page: string, filters: any): void {
+  async cacheFilters(page: string, filters: any): Promise<void> {
     const filterKey = `filters:${page}`;
     this.set(filterKey, filters, { ttl: 24 * 60 * 60 * 1000 }); // 24 hours
-    
+
     // Track recent filters
     const recentKey = 'filters:recent';
-    const recent = this.get<any[]>(recentKey) || [];
-    const updated = [filters, ...recent.filter((f: any) => 
+    const recent = await this.get<any[]>(recentKey) || [];
+    const updated = [filters, ...recent.filter((f: any) =>
       JSON.stringify(f) !== JSON.stringify(filters)
     )].slice(0, 10);
     this.set(recentKey, updated);
@@ -305,7 +345,7 @@ class SmartCacheService {
   /**
    * Get cached filters
    */
-  getCachedFilters(page: string): any {
+  async getCachedFilters(page: string): Promise<any> {
     return this.get(`filters:${page}`);
   }
 
@@ -328,7 +368,7 @@ class SmartCacheService {
   /**
    * Get cached calculation
    */
-  getCachedCalculation<T>(type: string, params: any): T | null {
+  async getCachedCalculation<T>(type: string, params: any): Promise<T | null> {
     const key = `calc:${type}:${JSON.stringify(params)}`;
     return this.get<T>(key);
   }
@@ -340,7 +380,7 @@ class SmartCacheService {
     key: string;
     fetcher: () => Promise<T>;
     options?: any;
-  }>): Promise<T[]> {
+  }>): Promise<(T | null)[]> {
     return Promise.all(
       operations.map(op => this.get(op.key, op.fetcher, op.options))
     );
@@ -421,7 +461,7 @@ class SmartCacheService {
         this.set(key, data, options);
       })
       .catch(error => {
-        console.warn(`Failed to revalidate cache for ${key}:`, error);
+        this.logger.warn(`Failed to revalidate cache for ${key}:`, error as Error);
       })
       .finally(() => {
         this.revalidationQueue.delete(key);
@@ -430,7 +470,7 @@ class SmartCacheService {
 
   private isStale(entry: CacheEntry<any>, ttl?: number): boolean {
     const maxAge = ttl || 5 * 60 * 1000; // 5 minutes default
-    return Date.now() - entry.timestamp > maxAge;
+    return this.nowFn() - entry.timestamp > maxAge;
   }
 
   private trackDependencies(key: string, dependencies: string[]): void {
@@ -481,23 +521,26 @@ class SmartCacheService {
   }
 
   private loadFromStorage(): void {
+    if (!this.storage) return;
+    const length = this.storage.length ?? 0;
+    const keyFn = this.storage.key;
+    if (typeof keyFn !== 'function') {
+      return;
+    }
     try {
-      // Load preferences from localStorage
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith('pref:')) {
-          const value = localStorage.getItem(key);
-          if (value) {
-            try {
-              this.set(key, JSON.parse(value), { ttl: Infinity });
-            } catch (e) {
-              // Invalid JSON, skip
-            }
-          }
+      for (let i = 0; i < length; i++) {
+        const key = keyFn.call(this.storage, i);
+        if (!key || !key.startsWith('pref:')) continue;
+        const value = this.storage.getItem(key);
+        if (!value) continue;
+        try {
+          this.set(key, JSON.parse(value), { ttl: Infinity });
+        } catch {
+          // Invalid JSON, skip
         }
       }
     } catch (e) {
-      console.warn('Failed to load cache from storage:', e);
+      this.logger.warn('Failed to load cache from storage:', e as Error);
     }
   }
 
@@ -526,7 +569,7 @@ export const smartCache = new SmartCacheService({
 });
 
 // LRU Cache implementation (simplified version)
-class LRUCache<K, V> {
+class SimpleLRUCache<K, V> {
   private cache: Map<K, V>;
   private maxSize: number;
   private ttl: number;
@@ -553,7 +596,9 @@ class LRUCache<K, V> {
     // Remove oldest if at capacity
     if (this.cache.size >= this.maxSize && !this.cache.has(key)) {
       const firstKey = this.cache.keys().next().value;
-      this.delete(firstKey);
+      if (firstKey !== undefined) {
+        this.delete(firstKey);
+      }
     }
 
     this.cache.set(key, value);

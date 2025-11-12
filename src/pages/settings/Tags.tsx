@@ -301,7 +301,7 @@ export default function Tags() {
 
       {/* Usage Statistics */}
       {tags.length > 0 && (
-        <div className="mt-6 bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div className="mt-6 bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <AlertCircleIcon size={20} />
             Tag Usage Statistics

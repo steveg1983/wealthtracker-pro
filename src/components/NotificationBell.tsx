@@ -67,7 +67,7 @@ export default function NotificationBell(): React.JSX.Element {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 max-h-[32rem] flex flex-col">
+        <div className="absolute right-0 mt-2 w-80 bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 max-h-[32rem] flex flex-col">
           {/* Header */}
           <div className="p-4 border-b border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between">

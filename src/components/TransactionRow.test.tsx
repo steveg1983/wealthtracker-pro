@@ -8,6 +8,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { TransactionRow } from './TransactionRow';
 import type { Transaction, Account } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock the external components and hooks
 vi.mock('./LocalMerchantLogo', () => ({
@@ -66,10 +67,9 @@ vi.mock('./icons/IconButton', () => ({
 }));
 
 describe('TransactionRow', () => {
-  const mockFormatCurrency = vi.fn((amount: number, currency?: string) => {
-    const symbol = currency === 'USD' ? '$' : '£';
-    return `${symbol}${amount.toFixed(2)}`;
-  });
+  const mockFormatCurrency = vi.fn((amount: number, currency?: string) =>
+    formatCurrencyDecimal(amount, currency || 'GBP')
+  );
 
   const mockTransaction: Transaction = {
     id: 'tx-1',
@@ -141,7 +141,7 @@ describe('TransactionRow', () => {
       expect(screen.getByText('Food & Dining > Groceries')).toBeInTheDocument();
       
       // Amount
-      expect(screen.getByText('£-45.50')).toBeInTheDocument();
+      expect(screen.getByText('-£45.50')).toBeInTheDocument();
       
       // Notes
       expect(screen.getByTestId('markdown-note')).toHaveAttribute('data-content', 'Weekly groceries');
@@ -167,8 +167,8 @@ describe('TransactionRow', () => {
       );
 
       // Should show plus sign and green color
-      expect(screen.getByText('+£3000.00')).toBeInTheDocument();
-      expect(screen.getByText('+£3000.00')).toHaveClass('text-green-600');
+      expect(screen.getByText('+£3,000.00')).toBeInTheDocument();
+      expect(screen.getByText('+£3,000.00')).toHaveClass('text-green-600');
       
       // Should show up trending icon
       expect(screen.getByTestId('trending-up-icon')).toBeInTheDocument();
@@ -184,8 +184,8 @@ describe('TransactionRow', () => {
       );
 
       // Should show minus sign and red color
-      expect(screen.getByText('£-45.50')).toBeInTheDocument();
-      expect(screen.getByText('£-45.50')).toHaveClass('text-red-600');
+      expect(screen.getByText('-£45.50')).toBeInTheDocument();
+      expect(screen.getByText('-£45.50')).toHaveClass('text-red-600');
       
       // Should show down trending icon
       expect(screen.getByTestId('trending-down-icon')).toBeInTheDocument();
@@ -429,7 +429,7 @@ describe('TransactionRow', () => {
       const cells = screen.getByRole('row').querySelectorAll('td');
       
       // First cell should be amount
-      expect(cells[0].textContent).toContain('£-45.50');
+      expect(cells[0].textContent).toContain('-£45.50');
       
       // Second cell should be description
       expect(cells[1].textContent).toContain('Grocery Store Purchase');
@@ -557,7 +557,7 @@ describe('TransactionRow', () => {
         </table>
       );
 
-      expect(screen.getByText('£-100.00')).toHaveClass('text-red-600');
+      expect(screen.getByText('-£100.00')).toHaveClass('text-red-600');
       expect(screen.getByTestId('trending-down-icon')).toBeInTheDocument();
     });
   });
@@ -577,7 +577,7 @@ describe('TransactionRow', () => {
         </table>
       );
 
-      expect(screen.getByText('$-45.50')).toBeInTheDocument();
+      expect(screen.getByText('-$45.50')).toBeInTheDocument();
     });
 
     it('uses default formatting when account has no currency', () => {
@@ -594,7 +594,7 @@ describe('TransactionRow', () => {
         </table>
       );
 
-      expect(screen.getByText('£-45.50')).toBeInTheDocument();
+      expect(screen.getByText('-£45.50')).toBeInTheDocument();
     });
   });
 

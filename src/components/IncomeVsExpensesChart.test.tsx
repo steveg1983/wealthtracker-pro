@@ -10,6 +10,7 @@ import IncomeVsExpensesChart from './IncomeVsExpensesChart';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import type { Transaction } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock the external dependencies
 vi.mock('../contexts/AppContextSupabase');
@@ -47,7 +48,9 @@ const mockUseApp = useApp as Mock;
 const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
 
 describe('IncomeVsExpensesChart', () => {
-  const mockFormatCurrency = vi.fn((amount: number) => `£${amount.toFixed(2)}`);
+  const mockFormatCurrency = vi.fn((amount: number, currency: string = 'GBP') =>
+    formatCurrencyDecimal(amount, currency)
+  );
 
   const mockTransactions: Transaction[] = [
     // Current month (Jan 2024) data

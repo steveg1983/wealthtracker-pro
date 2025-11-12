@@ -3,26 +3,28 @@ import React, { useCallback } from 'react';
 /**
  * Haptic feedback patterns
  */
-export enum HapticPattern {
+export const HapticPattern = {
   /** Light tap - for button presses, UI feedback */
-  LIGHT = 'light',
+  LIGHT: 'light',
   /** Medium tap - for selection, toggle actions */
-  MEDIUM = 'medium',
+  MEDIUM: 'medium',
   /** Heavy tap - for important actions, confirmations */
-  HEAVY = 'heavy',
+  HEAVY: 'heavy',
   /** Success - for successful operations */
-  SUCCESS = 'success',
+  SUCCESS: 'success',
   /** Warning - for warning states */
-  WARNING = 'warning',
+  WARNING: 'warning',
   /** Error - for error states */
-  ERROR = 'error',
+  ERROR: 'error',
   /** Selection - for item selection */
-  SELECTION = 'selection',
+  SELECTION: 'selection',
   /** Impact - for collisions, drops */
-  IMPACT = 'impact',
+  IMPACT: 'impact',
   /** Notification - for notifications, alerts */
-  NOTIFICATION = 'notification'
-}
+  NOTIFICATION: 'notification'
+} as const;
+
+export type HapticPatternType = typeof HapticPattern[keyof typeof HapticPattern];
 
 interface HapticOptions {
   /** Force the haptic even if user has disabled it */
@@ -44,7 +46,8 @@ export function useHapticFeedback() {
     if ('navigator' in window && 'vibrate' in navigator) return true;
     
     // iOS specific haptic feedback (iOS 10+)
-    if (window.DeviceMotionEvent && typeof DeviceMotionEvent.requestPermission === 'function') {
+    // Check for requestPermission on DeviceMotionEvent (iOS 13+)
+    if (window.DeviceMotionEvent && 'requestPermission' in DeviceMotionEvent) {
       return true;
     }
     
@@ -78,7 +81,7 @@ export function useHapticFeedback() {
 
   // Trigger haptic feedback
   const triggerHaptic = useCallback(async (
-    pattern: HapticPattern = HapticPattern.LIGHT,
+    pattern: HapticPatternType = HapticPattern.LIGHT,
     options: HapticOptions = {}
   ): Promise<boolean> => {
     const { force = false, delay = 0, intensity = 1.0 } = options;
@@ -206,7 +209,7 @@ export function useHapticFeedback() {
 /**
  * Get vibration pattern for Web Vibration API
  */
-function getVibrationPattern(pattern: HapticPattern, intensity: number = 1.0): number | number[] {
+function getVibrationPattern(pattern: HapticPatternType, intensity: number = 1.0): number | number[] {
   const baseIntensity = Math.max(0, Math.min(1, intensity));
   
   switch (pattern) {
@@ -267,7 +270,7 @@ function getVibrationPattern(pattern: HapticPattern, intensity: number = 1.0): n
 /**
  * Get iOS haptic type
  */
-function getIOSHapticType(pattern: HapticPattern): string {
+function getIOSHapticType(pattern: HapticPatternType): string {
   switch (pattern) {
     case HapticPattern.LIGHT:
     case HapticPattern.SELECTION:
@@ -300,7 +303,7 @@ function getIOSHapticType(pattern: HapticPattern): string {
 /**
  * Get gamepad vibration parameters
  */
-function getGamepadVibration(pattern: HapticPattern, intensity: number = 1.0) {
+function getGamepadVibration(pattern: HapticPatternType, intensity: number = 1.0) {
   const baseIntensity = Math.max(0, Math.min(1, intensity));
   
   switch (pattern) {
@@ -365,7 +368,7 @@ export function HapticWrapper({
   disabled = false
 }: {
   children: React.ReactElement;
-  pattern?: HapticPattern;
+  pattern?: HapticPatternType;
   trigger?: 'click' | 'focus' | 'hover' | 'touchstart';
   options?: HapticOptions;
   disabled?: boolean;
@@ -415,10 +418,10 @@ export function HapticWrapper({
  */
 export function withHapticFeedback<P extends object>(
   Component: React.ComponentType<P>,
-  defaultPattern: HapticPattern = HapticPattern.LIGHT
+  defaultPattern: HapticPatternType = HapticPattern.LIGHT
 ) {
   return function HapticEnhancedComponent(props: P & {
-    hapticPattern?: HapticPattern;
+    hapticPattern?: HapticPatternType;
     hapticOptions?: HapticOptions;
     hapticDisabled?: boolean;
   }) {

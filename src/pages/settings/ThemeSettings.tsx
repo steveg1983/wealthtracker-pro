@@ -20,6 +20,9 @@ import {
 } from '../../components/icons';
 import PageWrapper from '../../components/PageWrapper';
 import { formatDecimal } from '../../utils/decimal-format';
+import { createScopedLogger } from '../../loggers/scopedLogger';
+
+const themeSettingsLogger = createScopedLogger('ThemeSettingsPage');
 
 type ActiveTab = 'schedules' | 'presets' | 'settings';
 
@@ -38,7 +41,7 @@ export default function ThemeSettings() {
     
     // Set up theme change callback
     themeSchedulingService.setThemeChangeCallback((theme) => {
-      console.log(`Theme changed to: ${theme}`);
+      themeSettingsLogger.info('Theme changed', { theme });
       loadData(); // Refresh data after theme changes
     });
 
@@ -138,7 +141,7 @@ export default function ThemeSettings() {
 
         {/* Current Status */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               {getCurrentTheme() === 'dark' ? (
                 <MoonIcon size={20} className="text-blue-600 dark:text-blue-400" />
@@ -154,7 +157,7 @@ export default function ThemeSettings() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               <ClockIcon size={20} className="text-green-600 dark:text-green-400" />
               <div>
@@ -166,7 +169,7 @@ export default function ThemeSettings() {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
             <div className="flex items-center gap-3">
               <RefreshCwIcon size={20} className="text-purple-600 dark:text-purple-400" />
               <div>
@@ -180,7 +183,7 @@ export default function ThemeSettings() {
         </div>
 
         {/* Tab Navigation */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm mb-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm mb-6">
           <div className="border-b border-gray-200 dark:border-gray-700">
             <nav className="flex space-x-8 overflow-x-auto">
               <button
@@ -241,7 +244,7 @@ export default function ThemeSettings() {
             </div>
 
             {schedules.length === 0 ? (
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
                 <ClockIcon size={48} className="mx-auto mb-4 text-gray-400" />
                 <p className="text-gray-500 dark:text-gray-400">No theme schedules created yet</p>
               </div>
@@ -250,7 +253,7 @@ export default function ThemeSettings() {
                 {schedules.map((schedule) => (
                   <div
                     key={schedule.id}
-                    className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 border-2 ${
+                    className={`bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6 border-2 ${
                       schedule.isActive
                         ? 'border-green-500 dark:border-green-400'
                         : 'border-transparent'
@@ -370,7 +373,7 @@ export default function ThemeSettings() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {presets.map((preset) => (
-                <div key={preset.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                <div key={preset.id} className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
                   <div className="flex items-start justify-between mb-4">
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
@@ -444,7 +447,7 @@ export default function ThemeSettings() {
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Advanced Settings</h3>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
               <h4 className="font-medium text-gray-900 dark:text-white mb-4">System Integration</h4>
               <div className="space-y-4">
                 <label className="flex items-center justify-between">
@@ -469,7 +472,7 @@ export default function ThemeSettings() {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
               <h4 className="font-medium text-gray-900 dark:text-white mb-4">Performance</h4>
               <div className="space-y-4">
                 <label className="flex items-center justify-between">
@@ -499,7 +502,7 @@ export default function ThemeSettings() {
         {/* Create Schedule Modal - Simplified for this implementation */}
         {showCreateSchedule && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                 Create Theme Schedule
               </h3>

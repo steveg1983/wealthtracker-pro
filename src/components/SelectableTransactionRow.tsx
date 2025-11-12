@@ -1,6 +1,7 @@
-import React, { memo } from 'react';
+import React, { memo, useCallback } from 'react';
 import { TransactionRow } from './TransactionRow';
 import type { Transaction, Account } from '../types';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 interface SelectableTransactionRowProps {
   transaction: Transaction;
@@ -27,6 +28,15 @@ export const SelectableTransactionRow = memo(function SelectableTransactionRow({
   displayCurrency,
   isCompact = false
 }: SelectableTransactionRowProps): React.JSX.Element {
+  const { formatCurrency: formatCurrencyDecimal } = useCurrencyDecimal();
+
+  const formatCurrencyForRow = useCallback(
+    (amount: number, currency?: string) => {
+      return formatCurrencyDecimal(amount, currency || displayCurrency);
+    },
+    [displayCurrency, formatCurrencyDecimal]
+  );
+
   const handleRowClick = (e: React.MouseEvent) => {
     // Don't toggle selection if clicking on action buttons
     if ((e.target as HTMLElement).closest('[data-action-button]')) {
@@ -63,11 +73,14 @@ export const SelectableTransactionRow = memo(function SelectableTransactionRow({
         <TransactionRow
           transaction={transaction}
           account={account}
+          categoryPath={transaction.category}
+          compactView={isCompact}
+          formatCurrency={formatCurrencyForRow}
           onEdit={onEdit}
-          onDelete={onDelete}
+          onDelete={(id) => onDelete(transaction)}
           onView={onView}
-          displayCurrency={displayCurrency}
-          isCompact={isCompact}
+          columnOrder={['date', 'description', 'category', 'amount']}
+          columnWidths={{ date: 100, description: 200, category: 150, amount: 100 }}
         />
       </div>
     </div>

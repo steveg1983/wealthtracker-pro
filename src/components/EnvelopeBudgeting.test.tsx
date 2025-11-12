@@ -10,6 +10,8 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import EnvelopeBudgeting from './EnvelopeBudgeting';
 import type { Category, DecimalTransaction } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
+import { toDecimal } from '../utils/decimal';
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -25,22 +27,6 @@ vi.mock('./icons', () => ({
 }));
 
 // Mock decimal utility
-const createMockDecimal = (value: number) => ({
-  plus: (other: any) => createMockDecimal(value + (typeof other === 'number' ? other : other.toNumber())),
-  minus: (other: any) => createMockDecimal(value - (typeof other === 'number' ? other : other.toNumber())),
-  times: (other: number) => createMockDecimal(value * other),
-  dividedBy: (other: any) => createMockDecimal(value / (typeof other === 'number' ? other : other.toNumber())),
-  greaterThan: (other: number) => value > other,
-  greaterThanOrEqualTo: (other: number) => value >= other,
-  lessThan: (other: number) => value < other,
-  toNumber: () => value,
-  toFixed: (decimals: number) => value.toFixed(decimals)
-});
-
-vi.mock('../utils/decimal', () => ({
-  toDecimal: (value: number) => createMockDecimal(value)
-}));
-
 // Mock categories
 const mockCategories: Category[] = [
   { id: 'cat1', name: 'Groceries', type: 'expense', color: '#FF6B6B' },
@@ -53,7 +39,7 @@ const mockTransactions: DecimalTransaction[] = [
   {
     id: 't1',
     accountId: 'acc1',
-    amount: createMockDecimal(150),
+    amount: toDecimal(150),
     type: 'expense',
     date: new Date(),
     description: 'Grocery shopping',
@@ -62,7 +48,7 @@ const mockTransactions: DecimalTransaction[] = [
   {
     id: 't2',
     accountId: 'acc1',
-    amount: createMockDecimal(50),
+    amount: toDecimal(50),
     type: 'expense',
     date: new Date(),
     description: 'Movie tickets',
@@ -74,6 +60,7 @@ const mockTransactions: DecimalTransaction[] = [
 const mockBudgets = [
   {
     id: 'b1',
+    categoryId: 'cat1',
     category: 'cat1',
     amount: 500,
     period: 'monthly' as const,
@@ -81,6 +68,7 @@ const mockBudgets = [
   },
   {
     id: 'b2',
+    categoryId: 'cat2',
     category: 'cat2',
     amount: 200,
     period: 'monthly' as const,
@@ -88,6 +76,7 @@ const mockBudgets = [
   },
   {
     id: 'b3',
+    categoryId: 'cat3',
     category: 'cat3',
     amount: 300,
     period: 'monthly' as const,
@@ -101,7 +90,7 @@ let mockUpdateBudget = vi.fn();
 let currentMockBudgets = mockBudgets;
 
 // Mock hooks
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     categories: mockCategories,
     getDecimalTransactions: () => mockTransactions
@@ -118,14 +107,15 @@ vi.mock('../contexts/BudgetContext', () => ({
 
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (value: any) => {
+    formatCurrency: (value: any, currency: string = 'USD') => {
       const num = typeof value === 'number' ? value : value.toNumber();
-      return `$${num.toFixed(2)}`;
+      return formatCurrencyDecimal(num, currency);
     }
   })
 }));
 
 describe('EnvelopeBudgeting', () => {
+  const formatUSD = (value: number) => formatCurrencyDecimal(value, 'USD');
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset mocks to defaults
@@ -172,19 +162,23 @@ describe('EnvelopeBudgeting', () => {
       render(<EnvelopeBudgeting />);
       
       // Use getAllByText since categories appear multiple times
-      expect(screen.getAllByText('Groceries').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Entertainment').length).toBeGreaterThan(0);
-      expect(screen.getAllByText('Utilities').length).toBeGreaterThan(0);
+      const hasGroceries = screen.getAllByText((content) => content.includes('Groceries'));
+      const hasEntertainment = screen.getAllByText((content) => content.includes('Entertainment'));
+      const hasUtilities = screen.getAllByText((content) => content.includes('Utilities'));
+
+      expect(hasGroceries.length).toBeGreaterThan(0);
+      expect(hasEntertainment.length).toBeGreaterThan(0);
+      expect(hasUtilities.length).toBeGreaterThan(0);
     });
 
     it('displays budgeted amounts', () => {
       render(<EnvelopeBudgeting />);
       
-      expect(screen.getByText('$500.00')).toBeInTheDocument();
-      // $200.00 appears multiple times (budget amount and total spent)
-      expect(screen.getAllByText('$200.00').length).toBeGreaterThan(0);
+      expect(screen.getByText(formatUSD(500))).toBeInTheDocument();
+      // The $200.00 formatted value appears multiple times (budget amount and total spent)
+      expect(screen.getAllByText(formatUSD(200)).length).toBeGreaterThan(0);
       // $300.00 also appears multiple times
-      expect(screen.getAllByText('$300.00').length).toBeGreaterThan(0);
+      expect(screen.getAllByText(formatUSD(300)).length).toBeGreaterThan(0);
     });
 
     it('shows priority badges', () => {
@@ -208,23 +202,23 @@ describe('EnvelopeBudgeting', () => {
       render(<EnvelopeBudgeting />);
       
       // 500 + 200 + 300 = 1000
-      expect(screen.getByText('$1000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatUSD(1000))).toBeInTheDocument();
     });
 
     it('calculates total spent correctly', () => {
       render(<EnvelopeBudgeting />);
       
       // 150 + 50 = 200
-      // $200.00 appears multiple times, check within Total Spent context
+      // The formatted $200.00 appears multiple times, check within Total Spent context
       const totalSpentSection = screen.getByText('Total Spent').parentElement?.parentElement;
-      expect(totalSpentSection).toHaveTextContent('$200.00');
+      expect(totalSpentSection).toHaveTextContent(formatUSD(200));
     });
 
     it('calculates remaining correctly', () => {
       render(<EnvelopeBudgeting />);
       
       // 1000 - 200 = 800
-      expect(screen.getByText('$800.00')).toBeInTheDocument();
+      expect(screen.getByText(formatUSD(800))).toBeInTheDocument();
     });
 
     it('counts overbudget envelopes', () => {
@@ -240,7 +234,7 @@ describe('EnvelopeBudgeting', () => {
       render(<EnvelopeBudgeting />);
       
       // Find the first Groceries text and get its envelope container
-      const groceriesTexts = screen.getAllByText('Groceries');
+      const groceriesTexts = screen.getAllByText((content) => content.includes('Groceries'));
       const groceriesEnvelope = groceriesTexts[0].closest('[class*="cursor-pointer"]');
       fireEvent.click(groceriesEnvelope!);
       
@@ -444,7 +438,7 @@ describe('EnvelopeBudgeting', () => {
       render(<EnvelopeBudgeting />);
       
       // Find the first envelope with Groceries text
-      const groceriesTexts = screen.getAllByText('Groceries');
+      const groceriesTexts = screen.getAllByText((content) => content.includes('Groceries'));
       const envelopeContainer = groceriesTexts[0].closest('[class*="bg-white/70"]');
       const colorIndicator = envelopeContainer?.querySelector('.w-4.h-4.rounded-full');
       expect(colorIndicator).toBeInTheDocument();
@@ -500,8 +494,8 @@ describe('EnvelopeBudgeting', () => {
       
       render(<EnvelopeBudgeting />);
       
-      // There are multiple $0.00 values (Total Budgeted, Total Spent, Remaining)
-      const zeroValues = screen.getAllByText('$0.00');
+      // There are multiple formatted zero values (Total Budgeted, Total Spent, Remaining)
+      const zeroValues = screen.getAllByText(formatUSD(0));
       expect(zeroValues.length).toBeGreaterThan(0);
     });
   });

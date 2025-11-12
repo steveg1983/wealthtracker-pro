@@ -10,6 +10,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import EnhancedPortfolioView from './EnhancedPortfolioView';
 import type { Holding } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock react-router-dom
 vi.mock('react-router-dom', () => ({
@@ -112,7 +113,8 @@ vi.mock('../services/stockPriceService', () => ({
 
 // Mock utils
 vi.mock('../utils/currency', () => ({
-  formatCurrency: (amount: number) => `$${amount.toFixed(2)}`
+  formatCurrency: (amount: number, currency: string = 'USD') =>
+    formatCurrencyDecimal(amount, currency)
 }));
 
 describe('EnhancedPortfolioView', () => {

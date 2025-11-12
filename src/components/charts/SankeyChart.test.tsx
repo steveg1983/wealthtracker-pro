@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import SankeyChart from './SankeyChart';
 import type { Transaction, Account } from '../../types';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock hooks and contexts
 const mockCategories = [
@@ -13,7 +14,7 @@ const mockCategories = [
   { id: 'cat5', name: 'Utilities', type: 'expense', level: 'category', color: '#EF4444' }
 ];
 
-vi.mock('../../contexts/AppContext', () => ({
+vi.mock('../../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     categories: mockCategories
   })
@@ -21,7 +22,8 @@ vi.mock('../../contexts/AppContext', () => ({
 
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `$${amount.toFixed(2)}`
+    formatCurrency: (amount: number, currency: string = 'USD') =>
+      formatCurrencyDecimal(amount, currency)
   })
 }));
 

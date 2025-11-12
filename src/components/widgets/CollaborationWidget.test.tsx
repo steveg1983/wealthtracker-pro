@@ -4,30 +4,11 @@ import CollaborationWidget from './CollaborationWidget';
 import { collaborationService } from '../../services/collaborationService';
 import { useNavigate } from 'react-router-dom';
 import { toDecimal } from '../../utils/decimal';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 import type { Household, ExpenseSplit, Settlement } from '../../services/collaborationService';
 
-const testCurrencySymbols: Record<string, string> = {
-  USD: '$',
-  GBP: '£',
-  EUR: '€',
-  CHF: 'CHF',
-};
-
-const formatCurrencyMock = (value: any, currency: string = 'USD'): string => {
-  const decimalValue = toDecimal(value);
-  const isNegative = decimalValue.isNegative();
-  const absolute = decimalValue.abs();
-  const [integerPart, fractionalPart = ''] = absolute.toFixed(2).split('.');
-  const groupedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const symbol = testCurrencySymbols[currency] ?? currency;
-  const formatted = `${groupedInteger}.${fractionalPart.padEnd(2, '0')}`;
-
-  if (currency === 'CHF') {
-    return `${isNegative ? '-' : ''}${formatted} ${symbol}`;
-  }
-
-  return `${isNegative ? '-' : ''}${symbol}${formatted}`;
-};
+const formatCurrencyMock = (value: any, currency: string = 'USD'): string =>
+  formatCurrencyDecimal(value, currency);
 
 const mockUseCurrencyDecimal = vi.fn();
 

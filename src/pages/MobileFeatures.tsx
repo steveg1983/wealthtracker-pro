@@ -16,6 +16,9 @@ import PageWrapper from '../components/PageWrapper';
 import QuickExpenseCapture from '../components/QuickExpenseCapture';
 import NotificationSettings from '../components/NotificationSettings';
 import type { OfflineTransaction, PushNotification } from '../services/mobileService';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const mobileFeaturesLogger = createScopedLogger('MobileFeaturesPage');
 
 export default function MobileFeatures() {
   const [isOffline, setIsOffline] = useState(mobileService.isOffline());
@@ -59,7 +62,7 @@ export default function MobileFeatures() {
       await mobileService.syncOfflineTransactions();
       loadData();
     } catch (error) {
-      console.error('Sync failed:', error);
+      mobileFeaturesLogger.error('Sync failed', error);
     } finally {
       setIsSyncing(false);
     }
@@ -74,7 +77,7 @@ export default function MobileFeatures() {
         alert('PWA installation not available on this device.');
       }
     } catch (error) {
-      console.error('PWA installation failed:', error);
+      mobileFeaturesLogger.error('PWA installation failed', error);
     }
   };
 
@@ -114,7 +117,7 @@ export default function MobileFeatures() {
         </div>
 
         {/* Connection Status */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Connection Status
@@ -174,7 +177,7 @@ export default function MobileFeatures() {
         </div>
 
         {/* Quick Actions */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Quick Actions
           </h2>
@@ -214,7 +217,7 @@ export default function MobileFeatures() {
 
         {/* PWA Installation */}
         {!isPWAInstalled && (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -235,7 +238,7 @@ export default function MobileFeatures() {
         )}
 
         {/* Notifications */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               Notifications
@@ -325,7 +328,7 @@ export default function MobileFeatures() {
         </div>
 
         {/* Mobile Features Info */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Mobile Features
           </h2>
@@ -379,7 +382,7 @@ export default function MobileFeatures() {
         isOpen={showQuickCapture}
         onClose={() => setShowQuickCapture(false)}
         onExpenseCreated={(expense) => {
-          console.log('Expense created:', expense);
+          mobileFeaturesLogger.info('Expense created', expense);
           // Refresh data
           loadData();
         }}

@@ -1,7 +1,11 @@
-import { Stripe } from 'stripe';
+import Stripe from 'stripe';
 import type { IncomingHttpHeaders } from 'node:http';
 import type { Readable } from 'node:stream';
-import { processWebhookEvent, HANDLED_EVENTS } from '../lib/stripe-webhooks';
+import { processWebhookEvent, HANDLED_EVENTS, configureStripeWebhookLogger } from '../lib/stripe-webhooks';
+import { createConsoleBridgeLogger } from '../loggers/scopedLogger';
+
+const webhookLogger = createConsoleBridgeLogger('StripeWebhook');
+configureStripeWebhookLogger(webhookLogger);
 
 // Initialize Stripe with secret key
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '', {
@@ -52,12 +56,12 @@ export function createExpressWebhookHandler() {
       // Construct event from raw body
       event = stripe.webhooks.constructEvent(
         req.body, // Should be raw body string
-        sig,
+        sig || '',
         webhookSecret
       );
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error('Unknown webhook error');
-      console.error('Webhook signature verification failed:', error);
+      webhookLogger.error('Webhook signature verification failed', error);
       return res.status(400).send(`Webhook Error: ${error.message}`);
     }
 
@@ -90,13 +94,13 @@ export async function handleNextJsWebhook(req: NextApiRequestLike, res: NextApiR
   try {
     event = stripe.webhooks.constructEvent(
       buf.toString(),
-      sig,
+      sig || '',
       webhookSecret
     );
   } catch (err: unknown) {
-    const error = err instanceof Error ? err : new Error('Unknown webhook error');
-    console.error('Webhook signature verification failed:', error);
-    return res.status(400).send(`Webhook Error: ${error.message}`);
+      const error = err instanceof Error ? err : new Error('Unknown webhook error');
+      webhookLogger.error('Webhook signature verification failed', error);
+      return res.status(400).send(`Webhook Error: ${error.message}`);
   }
 
   // Process the event
@@ -127,7 +131,7 @@ export async function handleVercelEdgeWebhook(request: Request) {
     event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
   } catch (err: unknown) {
     const error = err instanceof Error ? err : new Error('Unknown webhook error');
-    console.error('Webhook signature verification failed:', error);
+    webhookLogger.error('Webhook signature verification failed', error);
     return new Response(
       JSON.stringify({ error: 'Webhook signature verification failed' }),
       { status: 400, headers: { 'Content-Type': 'application/json' } }
@@ -182,15 +186,15 @@ async function buffer(readable: Readable | AsyncIterable<Uint8Array | string>) {
 // ============================================
 export function createTestWebhookEvent(
   type: Stripe.Event.Type,
-  data: Stripe.Event.Data.Object
+  dataObject: Stripe.Event.Data.Object
 ): Stripe.Event {
   return {
     id: 'evt_test_' + Date.now(),
-    object: 'event',
-    api_version: '2023-10-16',
+    object: 'event' as const,
+    api_version: '2023-10-16' as Stripe.Event['api_version'],
     created: Math.floor(Date.now() / 1000),
     data: {
-      object: data,
+      object: dataObject,
       previous_attributes: {}
     },
     livemode: false,
@@ -200,5 +204,5 @@ export function createTestWebhookEvent(
       idempotency_key: null
     },
     type
-  };
+  } as Stripe.Event;
 }

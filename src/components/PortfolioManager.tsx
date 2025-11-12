@@ -180,7 +180,7 @@ export default function PortfolioManager({ accountId: _accountId, holdings, onUp
           {holdings.map((holding) => (
             <div
               key={holding.id}
-              className="flex items-center justify-between p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow"
+              className="flex items-center justify-between p-4 bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm hover:shadow-md transition-shadow"
             >
               <div className="flex-1">
                 <h4 className="font-semibold text-gray-900 dark:text-white">

@@ -118,7 +118,7 @@ export default function DashboardBuilder({
   onClose,
   readOnly = false
 }: DashboardBuilderProps) {
-  const { showNotification } = useNotifications();
+  const { addNotification } = useNotifications();
   
   // State
   const [widgets, setWidgets] = useState<DashboardWidget[]>(dashboard?.widgets || []);
@@ -185,14 +185,14 @@ export default function DashboardBuilder({
     
     setWidgets([...widgets, newWidget]);
     setIsAddingWidget(false);
-    showNotification('success', `Added ${widgetType.name} widget`);
-  }, [widgets, showNotification]);
+    addNotification({ type: 'success', title: 'Widget Added', message: `Added ${widgetType.name} widget` });
+  }, [widgets, addNotification]);
   
   // Remove widget
   const handleRemoveWidget = useCallback((widgetId: string) => {
     setWidgets(widgets.filter(w => w.id !== widgetId));
-    showNotification('info', 'Widget removed');
-  }, [widgets, showNotification]);
+    addNotification({ type: 'info', title: 'Widget Removed', message: 'Widget removed' });
+  }, [widgets, addNotification]);
   
   // Toggle widget lock
   const handleToggleLock = useCallback((widgetId: string) => {
@@ -220,8 +220,8 @@ export default function DashboardBuilder({
     };
     
     onSave?.(dashboardData);
-    showNotification('success', 'Dashboard saved successfully');
-  }, [dashboard, dashboardName, dashboardDescription, widgets, onSave, showNotification]);
+    addNotification({ type: 'success', title: 'Dashboard Saved', message: 'Dashboard saved successfully' });
+  }, [dashboard, dashboardName, dashboardDescription, widgets, onSave, addNotification]);
   
   // Export dashboard
   const handleExportDashboard = useCallback(() => {
@@ -240,13 +240,13 @@ export default function DashboardBuilder({
     a.click();
     URL.revokeObjectURL(url);
     
-    showNotification('success', 'Dashboard exported');
-  }, [dashboardName, dashboardDescription, widgets, showNotification]);
+    addNotification({ type: 'success', title: 'Dashboard Exported', message: 'Dashboard exported' });
+  }, [dashboardName, dashboardDescription, widgets, addNotification]);
   
   return (
     <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <GridIcon size={24} className="text-primary" />
@@ -312,7 +312,7 @@ export default function DashboardBuilder({
                 </button>
                 
                 <button
-                  onClick={() => showNotification('info', 'Settings panel coming soon')}
+                  onClick={() => addNotification({ type: 'info', title: 'Coming Soon', message: 'Settings panel coming soon' })}
                   className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <SettingsIcon size={20} />
@@ -349,7 +349,7 @@ export default function DashboardBuilder({
           {widgets.map(widget => (
             <div
               key={widget.id}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
+              className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden"
               data-grid={{
                 x: widget.layout.x,
                 y: widget.layout.y,
@@ -366,7 +366,7 @@ export default function DashboardBuilder({
                 {isEditMode && (
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => showNotification('info', 'Widget configuration coming soon')}
+                      onClick={() => addNotification({ type: 'info', title: 'Coming Soon', message: 'Widget configuration coming soon' })}
                       className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
                     >
                       <SettingsIcon size={14} />
@@ -428,7 +428,7 @@ export default function DashboardBuilder({
       {/* Add Widget Modal */}
       {isAddingWidget && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold">Add Widget</h2>

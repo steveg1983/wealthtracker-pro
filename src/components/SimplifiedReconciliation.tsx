@@ -45,7 +45,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
     return transactions
       .filter(t => t.accountId === account.id)
       .reduce((sum, t) => {
-        if (account.type === 'liability') {
+        if (account.type === 'credit' || account.type === 'loan' || account.type === 'mortgage') {
           return sum - t.amount; // Liabilities are negative
         }
         return sum + t.amount;
@@ -143,7 +143,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
   if (showSuccess) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md mx-4 text-center">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl p-8 max-w-md mx-4 text-center">
           <CheckCircleIcon size={64} className="text-green-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Reconciliation Complete!
@@ -158,7 +158,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
@@ -208,7 +208,7 @@ export function SimplifiedReconciliation({ account, onClose }: SimplifiedReconci
                   value={targetBalance}
                   onChange={(e) => setTargetBalance(e.target.value)}
                   placeholder="0.00"
-                  className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="flex-1 px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 />
                 <button
                   onClick={autoMatch}

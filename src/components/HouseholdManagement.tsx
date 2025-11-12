@@ -164,7 +164,7 @@ export default function HouseholdManagement() {
   if (!household) {
     return (
       <div className="max-w-2xl mx-auto">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-lg p-8 text-center">
           <UsersIcon className="mx-auto text-gray-400 mb-4" size={64} />
           <h2 className="text-2xl font-bold mb-2">Create a Household</h2>
           <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -289,7 +289,7 @@ export default function HouseholdManagement() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-1 flex">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-1 flex">
         <button
           onClick={() => setActiveTab('overview')}
           className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg transition-colors ${
@@ -330,7 +330,7 @@ export default function HouseholdManagement() {
         <>
           {/* Settings Panel */}
           {showSettings && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Household Settings</h3>
           <div className="space-y-4">
             <div>
@@ -382,7 +382,7 @@ export default function HouseholdManagement() {
       )}
 
       {/* Members Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Members</h3>
           {currentMember?.permissions.canInviteMembers && (
@@ -508,7 +508,7 @@ export default function HouseholdManagement() {
       </div>
 
       {/* Recent Activity */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
         
         {activities.length === 0 ? (
@@ -537,7 +537,7 @@ export default function HouseholdManagement() {
       </div>
 
       {/* Contribution Details */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Monthly Contributions</h3>
         
         <div className="space-y-4">
@@ -606,7 +606,7 @@ export default function HouseholdManagement() {
       {activeTab === 'members' && (
         <>
           {/* Members Section */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Members</h3>
               {currentMember?.permissions.canInviteMembers && (
@@ -732,7 +732,7 @@ export default function HouseholdManagement() {
           </div>
 
           {/* Recent Activity */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-6">
             <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
             
             {activities.length === 0 ? (

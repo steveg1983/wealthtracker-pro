@@ -2,6 +2,17 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { AppDispatch, RootState } from '../index';
 import Decimal from 'decimal.js';
 import type { Transaction } from '../../types';
+import type { SerializedTransaction } from '../../types/redux-types';
+
+// Helper to deserialize transaction
+const deserializeTransaction = (transaction: SerializedTransaction): Transaction => {
+  return {
+    ...transaction,
+    date: new Date(transaction.date),
+    createdAt: transaction.createdAt ? new Date(transaction.createdAt) : undefined,
+    reconciledDate: transaction.reconciledDate ? new Date(transaction.reconciledDate) : undefined
+  } as Transaction;
+};
 import { 
   addTransaction as addTransactionAction,
   updateTransaction as updateTransactionAction,
@@ -48,7 +59,7 @@ export const loadAllData = createAsyncThunk<void, void, { dispatch: AppDispatch 
       // Sync any offline changes
       dispatch(syncOfflineData());
     } catch (error) {
-      console.error('Failed to load data from Supabase:', error);
+      thunkLogger.error('Failed to load data from Supabase:', error);
       // The individual thunks will handle fallback to localStorage
     }
   }
@@ -139,8 +150,9 @@ export const updateTransaction = createAsyncThunk<
         if (!accountId) continue;
         const account = stateAfter.accounts.accounts.find(a => a.id === accountId);
         if (account) {
+          const deserializedTransactions = stateAfter.transactions.transactions.map(deserializeTransaction);
           const balance = calculateAccountBalance(
-            stateAfter.transactions.transactions,
+            deserializedTransactions,
             accountId,
             account.openingBalance || 0
           );
@@ -152,7 +164,7 @@ export const updateTransaction = createAsyncThunk<
       }
       
       // Recalculate affected budgets
-      recalculateAffectedBudgets(oldTransaction, updatedTransaction, stateAfter, dispatch);
+      recalculateAffectedBudgets(deserializeTransaction(oldTransaction), deserializeTransaction(updatedTransaction), stateAfter, dispatch);
       
       // Update linked goals
       updateLinkedGoalProgress(updatedTransaction, stateAfter, dispatch);
@@ -188,13 +200,14 @@ export const deleteTransaction = createAsyncThunk<
       if (transaction.accountId) {
         const account = stateAfter.accounts.accounts.find(a => a.id === transaction.accountId);
         if (account) {
+          const deserializedTransactions = stateAfter.transactions.transactions.map(deserializeTransaction);
           const balance = calculateAccountBalance(
-            stateAfter.transactions.transactions,
+            deserializedTransactions,
             transaction.accountId,
             account.openingBalance || 0
           );
-          dispatch(updateAccountInSupabase({ 
-            id: transaction.accountId, 
+          dispatch(updateAccountInSupabase({
+            id: transaction.accountId,
             updates: { balance }
           }));
         }
@@ -204,12 +217,13 @@ export const deleteTransaction = createAsyncThunk<
       if (transaction.type === 'expense' && transaction.category) {
         const budgets = stateAfter.budgets.budgets.filter(b =>
           b.categoryId === transaction.category &&
-          isTransactionInBudgetPeriod(transaction.date, b)
+          isTransactionInBudgetPeriod(new Date(transaction.date), b)
         );
-        
+
         for (const budget of budgets) {
+          const deserializedTransactions = stateAfter.transactions.transactions.map(deserializeTransaction);
           const spent = calculateBudgetSpent(
-            stateAfter.transactions.transactions,
+            deserializedTransactions,
             budget
           );
           dispatch(updateBudgetSpent({ id: budget.id, spent }));
@@ -217,7 +231,7 @@ export const deleteTransaction = createAsyncThunk<
       }
       
       // Update linked goals
-      updateLinkedGoalProgress(transaction, stateAfter, dispatch);
+      updateLinkedGoalProgress(deserializeTransaction(transaction), stateAfter, dispatch);
     }
   }
 );
@@ -257,7 +271,7 @@ function calculateBudgetSpent(
     t.category === budget.categoryId &&
     isTransactionInBudgetPeriod(t.date, budget)
   );
-  
+
   return budgetTransactions.reduce((sum, t) => {
     return new Decimal(sum).plus(t.amount).toNumber();
   }, 0);
@@ -345,7 +359,8 @@ function recalculateAffectedBudgets(
   for (const budgetId of affectedBudgetIds) {
     const budget = state.budgets.budgets.find(b => b.id === budgetId);
     if (budget) {
-      const spent = calculateBudgetSpent(state.transactions.transactions, budget);
+      const deserializedTransactions = state.transactions.transactions.map(deserializeTransaction);
+      const spent = calculateBudgetSpent(deserializedTransactions, budget);
       dispatch(updateBudgetSpent({ id: budgetId, spent }));
     }
   }

@@ -68,7 +68,7 @@ export function BottomSheet({
   }, [snapPoints]);
 
   // Setup swipe gestures for drag to dismiss
-  const { ref: dragHandleRef } = useSwipeGestures({
+  const { ref: dragHandleRef } = useSwipeGestures<HTMLDivElement>({
     onSwipeDown: () => {
       if (snapPoints.length > 0 && currentSnapIndex.current > 0) {
         snapToPoint(currentSnapIndex.current - 1);

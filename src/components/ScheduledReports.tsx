@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { useNotifications } from '../contexts/NotificationContext';
@@ -64,15 +64,23 @@ export default function ScheduledReports() {
     localStorage.setItem('money_management_scheduled_reports', JSON.stringify(reports));
   }, [reports]);
 
+  // Declare stub functions to fix hoisting issue
+  const generateReportRef = useRef<(report: ScheduledReport) => Promise<void>>();
+  const updateNextRunTimeRef = useRef<(reportId: string) => void>();
+
   // Check for due reports
   useEffect(() => {
     const checkDueReports = () => {
       const now = new Date();
-      
+
       reports.forEach(report => {
         if (report.enabled && new Date(report.nextRun) <= now) {
-          void generateReport(report);
-          updateNextRunTime(report.id);
+          if (generateReportRef.current) {
+            void generateReportRef.current(report);
+          }
+          if (updateNextRunTimeRef.current) {
+            updateNextRunTimeRef.current(report.id);
+          }
         }
       });
     };
@@ -82,7 +90,7 @@ export default function ScheduledReports() {
     checkDueReports(); // Check immediately
 
     return () => clearInterval(interval);
-  }, [reports, generateReport, updateNextRunTime]);
+  }, [reports]);
 
   const calculateNextRun = useCallback((report: ScheduledReport, fromDate: Date = new Date()): Date => {
     const [hours, minutes] = report.time.split(':').map(Number);
@@ -287,6 +295,12 @@ ${Object.entries(
       });
     }
   }, [transactions, categories, accounts, formatCurrency, addNotification]);
+
+  // Update refs after functions are defined
+  useEffect(() => {
+    generateReportRef.current = generateReport;
+    updateNextRunTimeRef.current = updateNextRunTime;
+  }, [generateReport, updateNextRunTime]);
 
   const handleAddReport = (reportData: Partial<ScheduledReport>) => {
     const newReport: ScheduledReport = {
@@ -503,7 +517,7 @@ ${Object.entries(
       {/* Generated Report Modal */}
       {generatedReport && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -577,7 +591,7 @@ function ReportFormModal({ report, onSave, onClose }: ReportFormModalProps) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-lg">
         <form onSubmit={handleSubmit}>
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

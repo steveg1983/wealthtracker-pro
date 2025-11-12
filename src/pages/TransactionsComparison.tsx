@@ -7,6 +7,7 @@ import AddTransactionModal from '../components/AddTransactionModal';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useAppSelector } from '../store';
 import { PlusIcon } from '../components/icons';
+import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 
 /**
  * Page that allows comparing Context API vs Redux implementations
@@ -15,7 +16,8 @@ import { PlusIcon } from '../components/icons';
 export default function TransactionsComparison() {
   const [useRedux, setUseRedux] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  
+  const { formatCurrency } = useCurrencyDecimal();
+
   // Get data from both sources for comparison
   const contextTransactions = useApp().transactions;
   const reduxTransactions = useAppSelector(state => state.transactions.transactions);
@@ -25,17 +27,22 @@ export default function TransactionsComparison() {
   return (
     <PageWrapper
       title="Transactions"
-      subtitle="Compare Context API vs Redux implementations"
-      icon={<BarChart3Icon size={24} />}
-      actions={
-        <div className="flex items-center gap-4">
+      headerContent={
+        <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-2">
+            <BarChart3Icon size={24} />
+            <span className="text-sm text-gray-600 dark:text-gray-400">
+              Compare Context API vs Redux implementations
+            </span>
+          </div>
+          <div className="flex items-center gap-4">
           {/* Toggle Switch */}
           <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             <button
               onClick={() => setUseRedux(false)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 !useRedux 
-                  ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow' 
+                  ? 'bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white shadow' 
                   : 'text-gray-600 dark:text-gray-400'
               }`}
             >
@@ -46,7 +53,7 @@ export default function TransactionsComparison() {
               onClick={() => setUseRedux(true)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
                 useRedux 
-                  ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow' 
+                  ? 'bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white shadow' 
                   : 'text-gray-600 dark:text-gray-400'
               }`}
             >
@@ -63,6 +70,7 @@ export default function TransactionsComparison() {
             <PlusIcon size={20} />
             Add Transaction
           </button>
+          </div>
         </div>
       }
     >
@@ -102,7 +110,10 @@ export default function TransactionsComparison() {
               <strong>Context Mode:</strong> This is the original implementation using Context API.
             </p>
           </div>
-          <VirtualizedTransactionList />
+          <VirtualizedTransactionList
+            transactions={contextTransactions}
+            formatCurrency={formatCurrency}
+          />
         </div>
       )}
 
@@ -110,7 +121,6 @@ export default function TransactionsComparison() {
       <AddTransactionModal
         isOpen={showAddModal}
         onClose={() => setShowAddModal(false)}
-        onSave={() => setShowAddModal(false)}
       />
     </PageWrapper>
   );

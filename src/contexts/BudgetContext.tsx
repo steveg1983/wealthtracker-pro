@@ -4,6 +4,15 @@ import type { ReactNode } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { Budget } from '../types';
 
+type BudgetLike = Budget & { category?: string };
+
+function normalizeBudgetCategory<T extends { categoryId?: string; category?: string }>(budget: T): T {
+  if (budget.categoryId === undefined && budget.category !== undefined) {
+    return { ...budget, categoryId: budget.category };
+  }
+  return budget;
+}
+
 interface BudgetContextType {
   budgets: Budget[];
   addBudget: (budget: Omit<Budget, 'id' | 'createdAt'>) => void;
@@ -24,13 +33,14 @@ export function BudgetProvider({ children, initialBudgets = [] }: BudgetProvider
     const savedBudgets = localStorage.getItem('money_management_budgets');
     if (savedBudgets) {
       try {
-        return JSON.parse(savedBudgets);
+        const parsed = JSON.parse(savedBudgets) as BudgetLike[];
+        return parsed.map(normalizeBudgetCategory);
       } catch (error) {
         console.error('Error parsing saved budgets:', error);
-        return initialBudgets;
+        return initialBudgets.map(normalizeBudgetCategory);
       }
     }
-    return initialBudgets;
+    return initialBudgets.map(normalizeBudgetCategory);
   });
 
   // Save budgets to localStorage whenever they change
@@ -39,21 +49,25 @@ export function BudgetProvider({ children, initialBudgets = [] }: BudgetProvider
   }, [budgets]);
 
   const addBudget = (budgetData: Omit<Budget, 'id' | 'createdAt'>) => {
+    const normalizedData = normalizeBudgetCategory(budgetData as BudgetLike);
     const newBudget: Budget = {
-      ...budgetData,
+      ...normalizedData,
       id: uuidv4(),
-      isActive: budgetData.isActive !== false,
+      isActive: normalizedData.isActive !== false,
       createdAt: new Date()
     };
-    setBudgets(prev => [...prev, newBudget]);
+    setBudgets(prev => [...prev, normalizeBudgetCategory(newBudget)]);
   };
 
   const updateBudget = (id: string, updates: Partial<Budget>) => {
-    setBudgets(prev => prev.map(budget => 
-      budget.id === id 
-        ? { ...budget, ...updates }
-        : budget
-    ));
+    const normalizedUpdates = normalizeBudgetCategory(updates as BudgetLike);
+    setBudgets(prev =>
+      prev.map(budget =>
+        budget.id === id
+          ? normalizeBudgetCategory({ ...budget, ...normalizedUpdates })
+          : budget
+      )
+    );
   };
 
   const deleteBudget = (id: string) => {
@@ -61,7 +75,11 @@ export function BudgetProvider({ children, initialBudgets = [] }: BudgetProvider
   };
 
   const getBudgetByCategory = (category: string) => {
-    return budgets.find(budget => budget.categoryId === category && budget.isActive !== false);
+    return budgets.find(budget => {
+      const budgetWithCategory = budget as BudgetLike;
+      const categoryKey = budgetWithCategory.categoryId ?? budgetWithCategory.category;
+      return categoryKey === category && budget.isActive !== false;
+    });
   };
 
   return (

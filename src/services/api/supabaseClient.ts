@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '../../types/supabase';
+
+// Database type is not properly exported, using unknown for now
+type Database = unknown;
 
 // Get environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;

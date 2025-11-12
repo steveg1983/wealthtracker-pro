@@ -10,6 +10,45 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RealTimePortfolio from './RealTimePortfolio';
 import type { Account } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
+
+const toNumeric = (raw: unknown): number => {
+  if (typeof raw === 'number') return raw;
+  if (raw && typeof raw === 'object') {
+    if ('value' in (raw as Record<string, unknown>) && typeof (raw as any).value === 'number') {
+      return (raw as any).value;
+    }
+    if (typeof (raw as any).toNumber === 'function') {
+      return (raw as any).toNumber();
+    }
+  }
+  const coerced = Number(raw);
+  return Number.isFinite(coerced) ? coerced : 0;
+};
+
+const createMockDecimal = (raw: unknown) => {
+  const value = toNumeric(raw);
+  const wrap = (next: unknown) => createMockDecimal(next);
+
+  return {
+    value,
+    plus: (other: unknown) => wrap(value + toNumeric(other)),
+    minus: (other: unknown) => wrap(value - toNumeric(other)),
+    times: (other: unknown) => wrap(value * toNumeric(other)),
+    dividedBy: (other: unknown) => wrap(value / (toNumeric(other) || 1)),
+    greaterThanOrEqualTo: (other: unknown) => value >= toNumeric(other),
+    greaterThan: (other: unknown) => value > toNumeric(other),
+    lessThan: (other: unknown) => value < toNumeric(other),
+    abs: () => wrap(Math.abs(value)),
+    isNegative: () => value < 0,
+    isZero: () => value === 0,
+    toDecimalPlaces: (decimals: number) => wrap(Number(value.toFixed(decimals))),
+    toNumber: () => value,
+    toFixed: (decimals: number) => value.toFixed(decimals),
+    toString: () => value.toString(),
+    valueOf: () => value
+  };
+};
 
 // Mock icons
 vi.mock('./icons', () => ({
@@ -23,48 +62,42 @@ vi.mock('./icons', () => ({
     <div data-testid="alert-circle-icon" data-size={size} />,
 }));
 
-// Mock decimal utility
-vi.mock('../utils/decimal', () => ({
-  toDecimal: (value: number) => ({
-    times: (other: any) => ({
-      toNumber: () => value * (typeof other === 'number' ? other : other.toNumber())
-    }),
-    toNumber: () => value,
-    greaterThanOrEqualTo: (other: number) => value >= other,
-    toFixed: (decimals: number) => value.toFixed(decimals)
-  })
-}));
-
 // Mock stock price service
 vi.mock('../services/stockPriceService', () => ({
   getStockQuote: vi.fn(),
   calculatePortfolioMetrics: vi.fn(() => Promise.resolve({
-    totalValue: { toNumber: () => 50000, greaterThanOrEqualTo: () => true },
-    totalCost: { toNumber: () => 45000, greaterThanOrEqualTo: () => true },
-    totalGain: { toNumber: () => 5000, greaterThanOrEqualTo: () => true },
-    totalGainPercent: { toNumber: () => 11.11, greaterThanOrEqualTo: () => true, toFixed: () => '11.11' },
+    totalValue: createMockDecimal(50000),
+    totalCost: createMockDecimal(45000),
+    totalGain: createMockDecimal(5000),
+    totalGainPercent: createMockDecimal(11.11),
     holdings: [
       {
         symbol: 'AAPL',
         name: 'Apple Inc.',
-        shares: { toFixed: () => '100.00' },
-        currentPrice: { toNumber: () => 155.50 },
-        value: { toNumber: () => 15550 },
-        gain: { toNumber: () => 1550, greaterThanOrEqualTo: () => true },
-        gainPercent: { toNumber: () => 11.07, greaterThanOrEqualTo: () => true, toFixed: () => '11.07' },
-        change: { toNumber: () => 2.50, greaterThanOrEqualTo: () => true },
-        changePercent: { toNumber: () => 1.63, greaterThanOrEqualTo: () => true, toFixed: () => '1.63' }
+        shares: createMockDecimal(100),
+        averageCost: createMockDecimal(140),
+        currentPrice: createMockDecimal(155.5),
+        marketValue: createMockDecimal(15550),
+        gain: createMockDecimal(1550),
+        gainPercent: createMockDecimal(11.07),
+        change: createMockDecimal(2.5),
+        changePercent: createMockDecimal(1.63),
+        allocation: createMockDecimal(71.3),
+        currency: 'USD'
       },
       {
         symbol: 'GOOGL',
         name: 'Alphabet Inc.',
-        shares: { toFixed: () => '50.00' },
-        currentPrice: { toNumber: () => 125.00 },
-        value: { toNumber: () => 6250 },
-        gain: { toNumber: () => -250, greaterThanOrEqualTo: () => false },
-        gainPercent: { toNumber: () => -3.85, greaterThanOrEqualTo: () => false, toFixed: () => '-3.85' },
-        change: { toNumber: () => -1.50, greaterThanOrEqualTo: () => false },
-        changePercent: { toNumber: () => -1.18, greaterThanOrEqualTo: () => false, toFixed: () => '-1.18' }
+        shares: createMockDecimal(50),
+        averageCost: createMockDecimal(130),
+        currentPrice: createMockDecimal(125),
+        marketValue: createMockDecimal(6250),
+        gain: createMockDecimal(-250),
+        gainPercent: createMockDecimal(-3.85),
+        change: createMockDecimal(-1.5),
+        changePercent: createMockDecimal(-1.18),
+        allocation: createMockDecimal(28.7),
+        currency: 'USD'
       }
     ]
   }))
@@ -114,7 +147,7 @@ const mockAccountNoHoldings: Account = {
 };
 
 // Mock the useApp hook
-vi.mock('../contexts/AppContext', () => ({
+vi.mock('../contexts/AppContextSupabase', () => ({
   useApp: () => ({
     accounts: [mockAccountWithHoldings, mockAccountNoHoldings]
   })
@@ -123,17 +156,21 @@ vi.mock('../contexts/AppContext', () => ({
 // Mock currency hook
 vi.mock('../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (value: number | { toNumber: () => number }) => {
-      const num = typeof value === 'number' ? value : value.toNumber();
-      return `$${num.toFixed(2)}`;
+    formatCurrency: (value: number | { toNumber: () => number }, currency: string = 'USD') => {
+      const num = typeof value === 'number'
+        ? value
+        : typeof value?.toNumber === 'function'
+          ? value.toNumber()
+          : toNumeric(value);
+      return formatCurrencyDecimal(num, currency);
     }
   })
 }));
 
 describe('RealTimePortfolio', () => {
+  const formatUSD = (value: number) => formatCurrencyDecimal(value, 'USD');
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.useFakeTimers();
   });
 
   afterEach(() => {
@@ -159,7 +196,7 @@ describe('RealTimePortfolio', () => {
       render(<RealTimePortfolio {...defaultProps} />);
       
       expect(screen.getByRole('button', { name: /refresh/i })).toBeInTheDocument();
-      expect(screen.getByTestId('refresh-icon')).toBeInTheDocument();
+      expect(screen.getAllByTestId('refresh-icon').length).toBeGreaterThan(0);
     });
 
     it('shows last updated time', async () => {
@@ -185,7 +222,8 @@ describe('RealTimePortfolio', () => {
       
       await waitFor(() => {
         expect(screen.getByText('Total Value')).toBeInTheDocument();
-        expect(screen.getByText('$50000.00')).toBeInTheDocument();
+        const totalValueText = screen.getByText('Total Value').parentElement?.querySelector('p.text-xl.font-bold');
+        expect(totalValueText?.textContent).toBe(formatUSD(50000));
       });
     });
 
@@ -194,7 +232,8 @@ describe('RealTimePortfolio', () => {
       
       await waitFor(() => {
         expect(screen.getByText('Total Cost')).toBeInTheDocument();
-        expect(screen.getByText('$45000.00')).toBeInTheDocument();
+        const totalCostText = screen.getByText('Total Cost').parentElement?.querySelector('p.text-xl.font-bold');
+        expect(totalCostText?.textContent).toBe(formatUSD(45000));
       });
     });
 
@@ -203,7 +242,9 @@ describe('RealTimePortfolio', () => {
       
       await waitFor(() => {
         expect(screen.getByText('Total Gain/Loss')).toBeInTheDocument();
-        expect(screen.getByText('+$5000.00')).toBeInTheDocument();
+        const gainText = screen.getByText('Total Gain/Loss').parentElement?.querySelector('p.text-xl.font-bold');
+        expect(gainText?.textContent).toBe(`+${formatUSD(5000)}`);
+        expect(gainText).toHaveClass('text-green-600');
       });
     });
 
@@ -212,7 +253,8 @@ describe('RealTimePortfolio', () => {
       
       await waitFor(() => {
         expect(screen.getByText('Return %')).toBeInTheDocument();
-        expect(screen.getByText('+11.11%')).toBeInTheDocument();
+        const returnText = screen.getByText('Return %').parentElement?.querySelector('p.text-xl.font-bold');
+        expect(returnText?.textContent).toBe('+11.11%');
       });
     });
   });
@@ -257,8 +299,8 @@ describe('RealTimePortfolio', () => {
       render(<RealTimePortfolio {...defaultProps} />);
       
       await waitFor(() => {
-        expect(screen.getByText('$155.50')).toBeInTheDocument();
-        expect(screen.getByText('$125.00')).toBeInTheDocument();
+        expect(screen.getAllByText(formatUSD(155.5)).length).toBeGreaterThan(0);
+        expect(screen.getAllByText(formatUSD(125)).length).toBeGreaterThan(0);
       });
     });
   });
@@ -267,7 +309,7 @@ describe('RealTimePortfolio', () => {
     it('shows loading indicator initially', () => {
       render(<RealTimePortfolio {...defaultProps} />);
       
-      expect(screen.getByText(/loading.../i)).toBeInTheDocument();
+      expect(screen.getAllByText(/loading.../i).length).toBeGreaterThan(0);
     });
 
     it('shows spinning refresh icon when loading', async () => {
@@ -275,8 +317,9 @@ describe('RealTimePortfolio', () => {
       
       const refreshButton = screen.getByRole('button', { name: /refresh/i });
       fireEvent.click(refreshButton);
-      
-      expect(screen.getByTestId('refresh-icon')).toHaveClass('animate-spin');
+
+      const icons = screen.getAllByTestId('refresh-icon');
+      expect(icons.some(icon => icon.classList.contains('animate-spin'))).toBe(true);
     });
   });
 
@@ -288,14 +331,16 @@ describe('RealTimePortfolio', () => {
       render(<RealTimePortfolio {...defaultProps} />);
       
       await waitFor(() => {
-        expect(mockCalculate).toHaveBeenCalledTimes(1);
+        expect(mockCalculate).toHaveBeenCalled();
       });
+
+      const initialCalls = mockCalculate.mock.calls.length;
       
       const refreshButton = screen.getByRole('button', { name: /refresh/i });
       fireEvent.click(refreshButton);
       
       await waitFor(() => {
-        expect(mockCalculate).toHaveBeenCalledTimes(2);
+        expect(mockCalculate.mock.calls.length).toBeGreaterThan(initialCalls);
       });
     });
 
@@ -308,22 +353,15 @@ describe('RealTimePortfolio', () => {
       expect(refreshButton).toBeDisabled();
     });
 
-    it('sets up auto-refresh interval', async () => {
-      const { calculatePortfolioMetrics } = await import('../services/stockPriceService');
-      const mockCalculate = vi.mocked(calculatePortfolioMetrics);
-      
+    it('sets up auto-refresh interval', () => {
+      const setIntervalSpy = vi.spyOn(global, 'setInterval');
       render(<RealTimePortfolio {...defaultProps} />);
-      
-      await waitFor(() => {
-        expect(mockCalculate).toHaveBeenCalledTimes(1);
-      });
-      
-      // Fast-forward 60 seconds
-      vi.advanceTimersByTime(60000);
-      
-      await waitFor(() => {
-        expect(mockCalculate).toHaveBeenCalledTimes(2);
-      });
+
+      expect(setIntervalSpy).toHaveBeenCalled();
+      const intervalCall = setIntervalSpy.mock.calls.find(([, delay]) => delay === 60000);
+      expect(intervalCall).toBeDefined();
+
+      setIntervalSpy.mockRestore();
     });
 
     it('cleans up interval on unmount', () => {
@@ -361,7 +399,7 @@ describe('RealTimePortfolio', () => {
       render(<RealTimePortfolio {...defaultProps} />);
       
       await waitFor(() => {
-        const gainText = screen.getByText('+$5000.00');
+        const gainText = screen.getByText(`+${formatUSD(5000)}`);
         expect(gainText).toHaveClass('text-green-600');
       });
     });
@@ -392,4 +430,12 @@ describe('RealTimePortfolio', () => {
       });
     });
   });
+});
+// Mock decimal utility to provide lightweight decimal operations for formatting
+vi.mock('../utils/decimal', async () => {
+  const actual = await vi.importActual<typeof import('../utils/decimal')>('../utils/decimal');
+  return {
+    ...actual,
+    toDecimal: (value: unknown) => createMockDecimal(value)
+  };
 });

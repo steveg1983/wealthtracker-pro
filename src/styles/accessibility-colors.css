@@ -41,8 +41,8 @@
   position: absolute !important;
   left: -9999px !important;
   z-index: 999 !important;
-  background-color: #1e40af !important; /* blue-800 for better contrast */
-  color: #ffffff !important;
+  background-color: #475569 !important; /* slate-600 */
+  color: #f8fafc !important;
   padding: 0.75rem 1.5rem !important;
   font-weight: 600 !important;
   text-decoration: none !important;
@@ -59,25 +59,25 @@
   position: static !important;
   left: auto !important;
   top: 1rem !important;
-  outline: 3px solid #3b82f6 !important;
+  outline: 2px solid var(--focus-ring-color, #94a3b8) !important;
   outline-offset: 2px !important;
 }
 
 /* Focus indicators - ensure 3:1 contrast */
 *:focus-visible {
-  outline: 3px solid #1e40af !important;
+  outline: 2px solid var(--focus-ring-color, #94a3b8) !important;
   outline-offset: 2px !important;
 }
 
 /* Button focus states */
 button:focus-visible {
-  outline: 3px solid #1e40af !important;
+  outline: 2px solid var(--focus-ring-color, #94a3b8) !important;
   outline-offset: 2px !important;
 }
 
 /* Link focus states */
 a:focus-visible {
-  outline: 3px solid #1e40af !important;
+  outline: 2px solid var(--focus-ring-color, #94a3b8) !important;
   outline-offset: 1px !important;
 }
 
@@ -85,9 +85,9 @@ a:focus-visible {
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 3px solid #1e40af !important;
+  outline: 2px solid var(--focus-ring-color, #94a3b8) !important;
   outline-offset: 0px !important;
-  border-color: #1e40af !important;
+  border-color: var(--focus-ring-color, #94a3b8) !important;
 }
 
 /* Ensure table headers have proper contrast */

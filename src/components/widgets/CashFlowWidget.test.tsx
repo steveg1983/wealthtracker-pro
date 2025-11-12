@@ -10,6 +10,7 @@ import CashFlowWidget from './CashFlowWidget';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import type { Transaction } from '../../types';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock the external dependencies
 vi.mock('../../contexts/AppContextSupabase', () => ({
@@ -91,13 +92,16 @@ const mockRandom = vi.fn();
 global.Math.random = mockRandom;
 
 describe('CashFlowWidget', () => {
-  const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number'
-      ? amount
-      : typeof amount?.toNumber === 'function'
-        ? amount.toNumber()
-        : Number(amount);
-    return `£${value.toFixed(2)}`;
+  const formatGBP = (value: number) => formatCurrencyDecimal(value, 'GBP');
+
+  const mockFormatCurrency = vi.fn((amount: any, currency: string = 'GBP') => {
+    const value =
+      typeof amount === 'number'
+        ? amount
+        : typeof amount?.toNumber === 'function'
+          ? amount.toNumber()
+          : Number(amount);
+    return formatCurrencyDecimal(value, currency);
   });
 
   const mockTransactions: Transaction[] = [
@@ -224,7 +228,7 @@ describe('CashFlowWidget', () => {
       expect(screen.getByText('This Month')).toBeInTheDocument();
       
       // Current month flow = income - expenses = 3000 - (1200 + 300) = 1500
-      expect(screen.getByText('£1500.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(1500))).toBeInTheDocument();
       
       // Should show trending up icon for positive flow
       expect(screen.getByTestId('trending-up-icon')).toBeInTheDocument();
@@ -277,10 +281,10 @@ describe('CashFlowWidget', () => {
       render(<CashFlowWidget size="small" settings={{}} />);
       
       // Should show negative amount (1000 - 2000 = -1000)
-      expect(screen.getByText('£-1000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(-1000))).toBeInTheDocument();
       
       // Should have red styling
-      const amountElement = screen.getByText('£-1000.00');
+      const amountElement = screen.getByText(formatGBP(-1000));
       expect(amountElement).toHaveClass('text-red-600', 'dark:text-red-400');
       
       // Should show trending down icon
@@ -297,7 +301,7 @@ describe('CashFlowWidget', () => {
       const monthLabel = screen.getByText('This Month');
       expect(monthLabel).toHaveClass('text-sm', 'text-gray-600', 'dark:text-gray-400', 'mb-1');
       
-      const amountElement = screen.getByText('£1500.00');
+      const amountElement = screen.getByText(formatGBP(1500));
       expect(amountElement).toHaveClass('text-2xl', 'font-bold', 'mb-2', 'text-green-600', 'dark:text-green-400');
     });
 
@@ -319,7 +323,7 @@ describe('CashFlowWidget', () => {
       // Get the current month flow value specifically from the main display area
       const currentFlowContainer = screen.getByText('Current Month Flow').parentElement;
       const currentFlowValue = currentFlowContainer?.querySelector('.text-2xl');
-      expect(currentFlowValue).toHaveTextContent('£1500.00');
+      expect(currentFlowValue).toHaveTextContent(formatGBP(1500));
       
       // Should show projected average
       expect(screen.getByText('Projected Avg')).toBeInTheDocument();
@@ -527,7 +531,7 @@ describe('CashFlowWidget', () => {
       // Get the specific current month flow value
       const currentFlowContainer = screen.getByText('Current Month Flow').parentElement;
       const currentFlowValue = currentFlowContainer?.querySelector('.text-2xl');
-      expect(currentFlowValue).toHaveTextContent('£1500.00');
+      expect(currentFlowValue).toHaveTextContent(formatGBP(1500));
     });
 
     it('calculates historical averages correctly', () => {
@@ -549,7 +553,7 @@ describe('CashFlowWidget', () => {
       // Should show £0.00 for current month - get specific element
       const currentFlowContainer = screen.getByText('Current Month Flow').parentElement;
       const currentFlowValue = currentFlowContainer?.querySelector('.text-2xl');
-      expect(currentFlowValue).toHaveTextContent('£0.00');
+      expect(currentFlowValue).toHaveTextContent(formatGBP(0));
     });
 
     it('handles transactions with decimal amounts', () => {
@@ -583,7 +587,7 @@ describe('CashFlowWidget', () => {
       render(<CashFlowWidget size="small" settings={{}} />);
       
       // 3000.55 - 1234.89 = 1765.66
-      expect(screen.getByText('£1765.66')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(1765.66))).toBeInTheDocument();
     });
 
     it('filters transactions by date correctly', () => {
@@ -614,7 +618,7 @@ describe('CashFlowWidget', () => {
       // January: Income 3000 - Expenses (1200 + 300) = 1500
       const thisMonthElement = screen.getByText('This Month');
       const amountElement = thisMonthElement.parentElement?.querySelector('.text-2xl');
-      expect(amountElement).toHaveTextContent('£1500.00');
+      expect(amountElement).toHaveTextContent(formatGBP(1500));
     });
   });
 
@@ -673,7 +677,7 @@ describe('CashFlowWidget', () => {
       render(<CashFlowWidget size="small" settings={{}} />);
       
       // Positive flow should be green
-      const positiveAmount = screen.getByText('£1500.00');
+      const positiveAmount = screen.getByText(formatGBP(1500));
       expect(positiveAmount).toHaveClass('text-green-600', 'dark:text-green-400');
       
       // Projected flow indicator should also have appropriate color
@@ -737,16 +741,16 @@ describe('CashFlowWidget', () => {
       // Initial render - get specific current month flow value
       const currentFlowContainer = screen.getByText('Current Month Flow').parentElement;
       const currentFlowValue = currentFlowContainer?.querySelector('.text-2xl');
-      expect(currentFlowValue).toHaveTextContent('£1500.00');
+      expect(currentFlowValue).toHaveTextContent(formatGBP(1500));
       
       // Re-render with same props - should use memoized values
       rerender(<CashFlowWidget size="medium" settings={{}} />);
-      expect(currentFlowValue).toHaveTextContent('£1500.00');
+      expect(currentFlowValue).toHaveTextContent(formatGBP(1500));
       
       // Change forecast period - should recalculate
       rerender(<CashFlowWidget size="medium" settings={{ forecastPeriod: 12 }} />);
       // Should still show same current month flow
-      expect(currentFlowValue).toHaveTextContent('£1500.00');
+      expect(currentFlowValue).toHaveTextContent(formatGBP(1500));
     });
   });
 });

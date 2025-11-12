@@ -147,7 +147,7 @@ export default function PaymentForm({
   return (
     <div className={`max-w-lg mx-auto ${className}`}>
       {/* Plan Summary */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
             Subscription Summary
@@ -201,7 +201,7 @@ export default function PaymentForm({
 
       {/* Payment Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
             <CreditCardIcon size={20} />
             Payment Method
@@ -251,7 +251,7 @@ export default function PaymentForm({
             type="button"
             onClick={onCancel}
             disabled={isLoading}
-            className="flex-1 px-6 py-3 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            className="flex-1 px-6 py-3 text-gray-700 dark:text-gray-300 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
           >
             Cancel
           </button>

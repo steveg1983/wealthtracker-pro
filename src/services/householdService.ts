@@ -210,7 +210,7 @@ class HouseholdService {
     
     // Check for existing pending invite
     const existingInvite = this.invites.find(
-      i => i.email === email && i.status === 'pending' && i.householdId === this.household.id
+      i => i.email === email && i.status === 'pending' && i.householdId === this.household?.id
     );
     if (existingInvite) {
       throw new Error('An invitation is already pending for this email');

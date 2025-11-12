@@ -29,11 +29,14 @@ export default function BudgetModal({ isOpen, onClose, budget }: BudgetModalProp
     },
     {
       onSubmit: (data) => {
+        const now = new Date();
         const budgetData = {
           categoryId: data.category,
           amount: parseFloat(data.amount),
           period: data.period,
-          isActive: data.isActive
+          isActive: data.isActive,
+          createdAt: budget?.createdAt || now,
+          updatedAt: now
         };
 
         if (budget) {

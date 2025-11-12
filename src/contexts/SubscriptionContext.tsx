@@ -24,7 +24,7 @@ import type {
 interface SubscriptionContextType {
   // Subscription state
   subscription: UserSubscription | null;
-  tier: SubscriptionTier;
+  tier: SubscriptionPlan;
   limits: FeatureLimits;
   usage: SubscriptionUsage | null;
   
@@ -177,7 +177,7 @@ export function SubscriptionProvider({ children }: SubscriptionProviderProps): R
     
     const limitKey = `max${feature.charAt(0).toUpperCase() + feature.slice(1)}` as keyof FeatureLimits;
     const limit = limits[limitKey] as number;
-    const currentUsage = usage[feature];
+    const currentUsage = usage.usage[feature];
     
     // -1 means unlimited
     if (limit === -1) return Infinity;
@@ -257,7 +257,7 @@ export function useUsageLimit(
 ) {
   const { canUseFeature, getRemainingUsage, limits, usage } = useSubscription();
   
-  const currentUsage = usage?.[feature] || 0;
+  const currentUsage = usage?.usage?.[feature] || 0;
   const canAdd = canUseFeature(feature, currentUsage + 1);
   const remaining = getRemainingUsage(feature);
   const limitKey = `max${feature.charAt(0).toUpperCase() + feature.slice(1)}` as keyof FeatureLimits;

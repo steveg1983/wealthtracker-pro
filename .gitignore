@@ -6,3 +6,4 @@ logs/
 dist/
 .DS_Store
 coverage-final.json
+WealthTracker-Backups/backups/wealthtracker-backup-2025111*.tar.gz

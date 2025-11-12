@@ -38,7 +38,7 @@ export function ThemeSwitcher(): React.JSX.Element {
             className="fixed inset-0 z-10"
             onClick={() => setShowDropdown(false)}
           />
-          <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-20">
+          <div className="absolute right-0 mt-2 w-48 rounded-lg shadow-lg bg-[#d4dce8] dark:bg-gray-800 ring-1 ring-black ring-opacity-5 z-20">
             <div className="py-1">
               <div className="px-4 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                 Mode

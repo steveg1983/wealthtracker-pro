@@ -32,7 +32,27 @@ interface SyncStatus {
   syncErrors: string[];
 }
 
-class AutoSyncService {
+type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+interface WindowLike {
+  addEventListener?: Window['addEventListener'];
+  removeEventListener?: Window['removeEventListener'];
+}
+
+type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+
+export interface AutoSyncServiceOptions {
+  storage?: StorageLike | null;
+  windowRef?: WindowLike | null;
+  uuidGenerator?: () => string;
+  setIntervalFn?: typeof setInterval;
+  clearIntervalFn?: typeof clearInterval;
+  dateFactory?: () => Date;
+  now?: () => number;
+  logger?: Logger;
+}
+
+export class AutoSyncService {
   private static instance: AutoSyncService;
   private syncQueue: SyncQueueItem[] = [];
   private syncStatus: SyncStatus = {
@@ -45,12 +65,39 @@ class AutoSyncService {
   private syncInterval: NodeJS.Timeout | null = null;
   private userId: string | null = null;
   private isInitialized = false;
+  private storage: StorageLike | null;
+  private windowRef: WindowLike | null;
+  private readonly uuidGenerator: () => string;
+  private readonly setIntervalFn: typeof setInterval;
+  private readonly clearIntervalFn: typeof clearInterval;
+  private readonly dateFactory: () => Date;
+  private readonly now: () => number;
+  private readonly onlineHandler: () => void;
+  private readonly offlineHandler: () => void;
+  private readonly logger: Logger;
 
-  private constructor() {
-    // Monitor online/offline status
-    if (typeof window !== 'undefined') {
-      window.addEventListener('online', () => this.handleOnline());
-      window.addEventListener('offline', () => this.handleOffline());
+  constructor(options: AutoSyncServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
+    this.uuidGenerator = options.uuidGenerator ?? (() => (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`));
+    this.setIntervalFn =
+      options.setIntervalFn ??
+      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setInterval(handler, timeout, ...args));
+    this.clearIntervalFn =
+      options.clearIntervalFn ??
+      ((id: ReturnType<typeof setInterval>) => clearInterval(id));
+    this.dateFactory = options.dateFactory ?? (() => new Date());
+    this.now = options.now ?? (() => Date.now());
+    const defaultLogger = typeof console !== 'undefined'
+      ? console
+      : { log: () => {}, warn: () => {}, error: () => {} };
+    this.logger = options.logger ?? defaultLogger;
+    this.onlineHandler = () => this.handleOnline();
+    this.offlineHandler = () => this.handleOffline();
+
+    if (this.windowRef?.addEventListener) {
+      this.windowRef.addEventListener('online', this.onlineHandler);
+      this.windowRef.addEventListener('offline', this.offlineHandler);
     }
   }
 
@@ -67,33 +114,33 @@ class AutoSyncService {
    */
   async initialize(userId: string): Promise<void> {
     if (this.isInitialized && this.userId === userId) {
-      console.log('[AutoSync] Already initialized for user:', userId);
+      this.logger.log('[AutoSync] Already initialized for user:', userId);
       return;
     }
 
-    console.log('[AutoSync] Initializing for user:', userId);
+    this.logger.log('[AutoSync] Initializing for user:', userId);
     this.userId = userId;
 
     try {
       // Step 1: Load local data
       const localData = await this.loadLocalData();
-      console.log('[AutoSync] Local data loaded:', {
+      this.logger.log('[AutoSync] Local data loaded:', {
         accounts: localData.accounts?.length || 0,
         transactions: localData.transactions?.length || 0
       });
 
       // Step 2: Check cloud data status
       const hasCloudData = await this.checkCloudData(userId);
-      console.log('[AutoSync] Cloud data exists:', hasCloudData);
+      this.logger.log('[AutoSync] Cloud data exists:', hasCloudData);
 
       // Step 3: Intelligent merge and sync
       if (!hasCloudData && this.hasLocalData(localData)) {
         // First time user with local data - migrate silently
-        console.log('[AutoSync] Performing silent migration...');
+        this.logger.log('[AutoSync] Performing silent migration...');
         await this.migrateToCloud(userId, localData);
       } else if (hasCloudData && this.hasLocalData(localData)) {
         // Both local and cloud data exist - merge intelligently
-        console.log('[AutoSync] Merging local and cloud data...');
+        this.logger.log('[AutoSync] Merging local and cloud data...');
         await this.mergeData(userId, localData);
       }
       // If only cloud data exists, AppContext will load it normally
@@ -105,9 +152,9 @@ class AutoSyncService {
       this.startContinuousSync();
       
       this.isInitialized = true;
-      console.log('[AutoSync] Initialization complete');
+      this.logger.log('[AutoSync] Initialization complete');
     } catch (error) {
-      console.error('[AutoSync] Initialization failed:', error);
+      this.logger.error('[AutoSync] Initialization failed:', error);
       // Don't throw - app should work even if sync fails
     }
   }
@@ -131,9 +178,9 @@ class AutoSyncService {
         .eq('user_id', databaseUserId)
         .limit(1);
 
-      return accounts && accounts.length > 0;
+      return (accounts && accounts.length > 0) || false;
     } catch (error) {
-      console.error('[AutoSync] Error checking cloud data:', error);
+      this.logger.error('[AutoSync] Error checking cloud data:', error);
       return false;
     }
   }
@@ -169,7 +216,7 @@ class AutoSyncService {
   private async migrateToCloud(userId: string, localData: any): Promise<void> {
     if (!supabase) return;
 
-    console.log('[AutoSync] Starting silent migration to cloud...');
+    this.logger.log('[AutoSync] Starting silent migration to cloud...');
 
     try {
       // Ensure user exists in database
@@ -188,7 +235,7 @@ class AutoSyncService {
           currency: account.currency || 'GBP',
           institution: account.institution || null,
           is_active: account.isActive !== false,
-          initial_balance: account.initialBalance || account.balance || 0,
+          initial_balance: (account as any).initialBalance || account.balance || 0,
           created_at: account.createdAt || new Date().toISOString(),
           updated_at: account.updatedAt || new Date().toISOString()
         }));
@@ -198,9 +245,9 @@ class AutoSyncService {
           .insert(accountsToInsert);
 
         if (accountError) {
-          console.error('[AutoSync] Failed to migrate accounts:', accountError);
+          this.logger.error('[AutoSync] Failed to migrate accounts:', accountError);
         } else {
-          console.log('[AutoSync] Migrated', accountsToInsert.length, 'accounts');
+          this.logger.log('[AutoSync] Migrated', accountsToInsert.length, 'accounts');
         }
       }
 
@@ -247,21 +294,21 @@ class AutoSyncService {
                 .insert(batch);
 
               if (error) {
-                console.error('[AutoSync] Failed to migrate transaction batch:', error);
+                this.logger.error('[AutoSync] Failed to migrate transaction batch:', error);
               }
             }
-            console.log('[AutoSync] Migrated', transactionsToInsert.length, 'transactions');
+            this.logger.log('[AutoSync] Migrated', transactionsToInsert.length, 'transactions');
           }
         }
       }
 
       // Mark migration as complete
-      localStorage.setItem('autoSyncMigrationComplete', 'true');
-      localStorage.setItem('autoSyncMigrationDate', new Date().toISOString());
+      this.storage?.setItem?.('autoSyncMigrationComplete', 'true');
+      this.storage?.setItem?.('autoSyncMigrationDate', new Date().toISOString());
       
-      console.log('[AutoSync] Silent migration complete');
+      this.logger.log('[AutoSync] Silent migration complete');
     } catch (error) {
-      console.error('[AutoSync] Migration failed:', error);
+      this.logger.error('[AutoSync] Migration failed:', error);
       // Don't throw - app should continue working
     }
   }
@@ -289,13 +336,13 @@ class AutoSyncService {
       );
 
       if (!databaseUserId) {
-        console.error('[AutoSync] Failed to create user');
+        this.logger.error('[AutoSync] Failed to create user');
         return null;
       }
 
       return databaseUserId;
     } catch (error) {
-      console.error('[AutoSync] Error ensuring user exists:', error);
+      this.logger.error('[AutoSync] Error ensuring user exists:', error);
       return null;
     }
   }
@@ -306,7 +353,7 @@ class AutoSyncService {
   private async mergeData(userId: string, localData: any): Promise<void> {
     // For now, prefer cloud data (it's the source of truth)
     // In the future, implement proper conflict resolution
-    console.log('[AutoSync] Merge complete - using cloud as source of truth');
+    this.logger.log('[AutoSync] Merge complete - using cloud as source of truth');
   }
 
   /**
@@ -314,21 +361,21 @@ class AutoSyncService {
    */
   private async convertLocalToCache(): Promise<void> {
     // Mark that we're now using cloud as primary storage
-    localStorage.setItem('primaryStorage', 'cloud');
+    this.storage?.setItem('primaryStorage', 'cloud');
     // Keep local data as cache for offline access
-    console.log('[AutoSync] Local storage converted to cache mode');
+    this.logger.log('[AutoSync] Local storage converted to cache mode');
   }
 
   /**
    * Start continuous background sync
    */
   private startContinuousSync(): void {
-    // Process sync queue every 5 seconds
-    this.syncInterval = setInterval(() => {
-      this.processSyncQueue();
+    this.stopSync();
+    this.syncInterval = this.setIntervalFn(() => {
+      void this.processSyncQueue();
     }, 5000);
 
-    console.log('[AutoSync] Continuous sync started');
+    this.logger.log('[AutoSync] Continuous sync started');
   }
 
   /**
@@ -336,10 +383,18 @@ class AutoSyncService {
    */
   stopSync(): void {
     if (this.syncInterval) {
-      clearInterval(this.syncInterval);
+      this.clearIntervalFn(this.syncInterval);
       this.syncInterval = null;
     }
-    console.log('[AutoSync] Continuous sync stopped');
+    this.logger.log('[AutoSync] Continuous sync stopped');
+  }
+
+  destroy(): void {
+    this.stopSync();
+    if (this.windowRef?.removeEventListener) {
+      this.windowRef.removeEventListener('online', this.onlineHandler);
+      this.windowRef.removeEventListener('offline', this.offlineHandler);
+    }
   }
 
   /**
@@ -347,11 +402,11 @@ class AutoSyncService {
    */
   queueOperation(type: SyncQueueItem['type'], entity: SyncQueueItem['entity'], data: any): void {
     const item: SyncQueueItem = {
-      id: crypto.randomUUID(),
+      id: this.uuidGenerator(),
       type,
       entity,
       data,
-      timestamp: Date.now(),
+      timestamp: this.now(),
       retries: 0,
       status: 'pending'
     };
@@ -389,7 +444,7 @@ class AutoSyncService {
         // Remove completed items from queue
         this.syncQueue = this.syncQueue.filter(i => i.id !== item.id);
       } catch (error) {
-        console.error('[AutoSync] Sync failed for item:', item, error);
+        this.logger.error('[AutoSync] Sync failed for item:', item, error);
         item.status = 'pending';
         item.retries++;
 
@@ -402,7 +457,7 @@ class AutoSyncService {
     }
 
     this.syncStatus.isSyncing = false;
-    this.syncStatus.lastSyncTime = new Date();
+    this.syncStatus.lastSyncTime = this.dateFactory();
     this.syncStatus.pendingChanges = this.syncQueue.filter(i => i.status === 'pending').length;
   }
 
@@ -427,7 +482,7 @@ class AutoSyncService {
       case 'CREATE':
         // Don't create if it already has a database ID
         if (item.data.id && item.data.id.length === 36) {
-          console.log('[AutoSync] Skipping CREATE - item already has database ID:', item.data.id);
+          this.logger.log('[AutoSync] Skipping CREATE - item already has database ID:', item.data.id);
           return;
         }
         await supabase.from(table).insert({
@@ -458,7 +513,7 @@ class AutoSyncService {
    * Handle coming online
    */
   private handleOnline(): void {
-    console.log('[AutoSync] Connection restored');
+    this.logger.log('[AutoSync] Connection restored');
     this.syncStatus.isOnline = true;
     this.processSyncQueue();
   }
@@ -467,7 +522,7 @@ class AutoSyncService {
    * Handle going offline
    */
   private handleOffline(): void {
-    console.log('[AutoSync] Connection lost - will sync when online');
+    this.logger.log('[AutoSync] Connection lost - will sync when online');
     this.syncStatus.isOnline = false;
   }
 

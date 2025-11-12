@@ -1,5 +1,8 @@
 import { useEffect, useCallback } from 'react';
 
+type Logger = Pick<Console, 'log' | 'warn'>;
+const perfLogger: Logger = typeof console !== 'undefined' ? console : { log: () => {}, warn: () => {} };
+
 interface PerformanceMetrics {
   fcp?: number; // First Contentful Paint
   lcp?: number; // Largest Contentful Paint
@@ -32,7 +35,7 @@ export const usePerformanceMonitoring = () => {
       const entries = entryList.getEntries();
       const lastEntry = entries[entries.length - 1] as any;
       metrics.lcp = lastEntry.renderTime || lastEntry.loadTime;
-      console.log('LCP:', metrics.lcp);
+      perfLogger.log('LCP:', metrics.lcp);
     });
 
     // Observe First Input Delay
@@ -40,7 +43,7 @@ export const usePerformanceMonitoring = () => {
       const entries = entryList.getEntries();
       entries.forEach((entry: any) => {
         metrics.fid = entry.processingStart - entry.startTime;
-        console.log('FID:', metrics.fid);
+        perfLogger.log('FID:', metrics.fid);
       });
     });
 
@@ -53,7 +56,7 @@ export const usePerformanceMonitoring = () => {
         }
       });
       metrics.cls = cls;
-      console.log('CLS:', metrics.cls);
+      perfLogger.log('CLS:', metrics.cls);
     });
 
     // Observe Interaction to Next Paint
@@ -61,7 +64,7 @@ export const usePerformanceMonitoring = () => {
       const entries = entryList.getEntries();
       entries.forEach((entry: any) => {
         metrics.inp = entry.duration;
-        console.log('INP:', metrics.inp);
+        perfLogger.log('INP:', metrics.inp);
       });
     });
 
@@ -69,9 +72,9 @@ export const usePerformanceMonitoring = () => {
       lcpObserver.observe({ type: 'largest-contentful-paint', buffered: true });
       fidObserver.observe({ type: 'first-input', buffered: true });
       clsObserver.observe({ type: 'layout-shift', buffered: true });
-      inpObserver.observe({ type: 'event', buffered: true, durationThreshold: 40 });
+      inpObserver.observe({ type: 'event', buffered: true } as PerformanceObserverInit);
     } catch (error) {
-      console.warn('Performance monitoring not supported:', error);
+      perfLogger.warn('Performance monitoring not supported:', error);
     }
 
     // Get First Contentful Paint
@@ -79,7 +82,7 @@ export const usePerformanceMonitoring = () => {
     paintEntries.forEach((entry) => {
       if (entry.name === 'first-contentful-paint') {
         metrics.fcp = entry.startTime;
-        console.log('FCP:', metrics.fcp);
+        perfLogger.log('FCP:', metrics.fcp);
       }
     });
 
@@ -88,7 +91,7 @@ export const usePerformanceMonitoring = () => {
     if (navigationEntries.length > 0) {
       const navEntry = navigationEntries[0];
       metrics.ttfb = navEntry.responseStart - navEntry.requestStart;
-      console.log('TTFB:', metrics.ttfb);
+      perfLogger.log('TTFB:', metrics.ttfb);
     }
 
     return metrics;
@@ -125,7 +128,7 @@ export const usePerformanceMonitoring = () => {
       start: 0,
       duration: value
     });
-    console.log(`Custom metric ${name}:`, value);
+    perfLogger.log(`Custom metric ${name}:`, value);
   }, []);
 
   // Track component render time
@@ -140,7 +143,7 @@ export const usePerformanceMonitoring = () => {
         performance.mark(endMark);
         performance.measure(measureName, startMark, endMark);
         const measure = performance.getEntriesByName(measureName)[0];
-        console.log(`${componentName} render time:`, measure.duration);
+        perfLogger.log(`${componentName} render time:`, measure.duration);
         return measure.duration;
       }
     };
@@ -151,7 +154,7 @@ export const usePerformanceMonitoring = () => {
     if ('PerformanceObserver' in window) {
       const observer = new PerformanceObserver((list) => {
         list.getEntries().forEach((entry: any) => {
-          console.warn('Long task detected:', {
+          perfLogger.warn('Long task detected:', {
             duration: entry.duration,
             startTime: entry.startTime,
             attribution: entry.attribution
@@ -162,7 +165,7 @@ export const usePerformanceMonitoring = () => {
       try {
         observer.observe({ entryTypes: ['longtask'] });
       } catch (error) {
-        console.warn('Long task monitoring not supported');
+        perfLogger.warn('Long task monitoring not supported');
       }
     }
   }, []);

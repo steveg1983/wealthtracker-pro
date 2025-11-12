@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useRef, useMemo, useEffect, ReactNode } from 'react';
-import { FixedSizeList as List, VariableSizeList } from 'react-window';
+import { FixedSizeList as List, VariableSizeList, ListChildComponentProps } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
 import AutoSizer from 'react-virtualized-auto-sizer';
 
@@ -36,18 +36,18 @@ interface ItemRendererProps<T> {
 }
 
 // Memoized item renderer component
-const ItemRenderer = memo(function ItemRenderer<T>({ 
-  index, 
-  style, 
-  data 
-}: ItemRendererProps<T>) {
+const ItemRenderer = memo(function ItemRenderer({
+  index,
+  style,
+  data
+}: ListChildComponentProps<ItemData<any>>) {
   const { items, renderItem } = data;
   const item = items[index];
-  
+
   if (!item) return null;
-  
+
   return <>{renderItem(item, index, style)}</>;
-});
+}) as React.ComponentType<ListChildComponentProps<ItemData<any>>>;
 
 export const VirtualizedList = memo(function VirtualizedList<T>({
   items,
@@ -63,7 +63,7 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
   threshold = 100,
   onItemsRendered
 }: VirtualizedListProps<T>) {
-  const listRef = useRef<List | VariableSizeList>(null);
+  const listRef = useRef<List | VariableSizeList | null>(null);
   const itemHeightMap = useRef<Map<number, number>>(new Map());
   
   // Determine if we need variable size list
@@ -140,15 +140,16 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
           >
             {({ onItemsRendered: onInfiniteItemsRendered, ref }) => {
               return isVariableHeight ? (
-                <VariableSizeList
+                <VariableSizeList<ItemData<T>>
                   ref={(list) => {
                     // Handle both refs
                     if (list) {
                       listRef.current = list;
                       if (typeof ref === 'function') {
                         ref(list);
-                      } else if (ref) {
-                        ref.current = list;
+                      } else if (ref && 'current' in ref) {
+                        // Type assertion for mutable ref
+                        (ref as React.MutableRefObject<any>).current = list;
                       }
                     }
                   }}
@@ -171,15 +172,16 @@ export const VirtualizedList = memo(function VirtualizedList<T>({
                   {ItemRenderer}
                 </VariableSizeList>
               ) : (
-                <List
+                <List<ItemData<T>>
                   ref={(list) => {
                     // Handle both refs
                     if (list) {
                       listRef.current = list;
                       if (typeof ref === 'function') {
                         ref(list);
-                      } else if (ref) {
-                        ref.current = list;
+                      } else if (ref && 'current' in ref) {
+                        // Type assertion for mutable ref
+                        (ref as React.MutableRefObject<any>).current = list;
                       }
                     }
                   }}

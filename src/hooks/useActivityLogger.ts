@@ -28,7 +28,7 @@ export function useActivityLogger() {
         title: 'New Transaction',
         description: latest.description,
         category: latest.category,
-        amount: parseFloat(latest.amount),
+        amount: latest.amount,
         actionUrl: '/transactions'
       });
     }
@@ -65,10 +65,10 @@ export function useActivityLogger() {
     // Check for budget alerts
     budgets.forEach(budget => {
       const spent = Math.abs(transactions
-        .filter(t => t.category === budget.categoryId && parseFloat(t.amount) < 0)
-        .reduce((sum, t) => sum + parseFloat(t.amount), 0));
-      
-      const percentage = (spent / parseFloat(budget.amount)) * 100;
+        .filter(t => t.category === budget.categoryId && t.amount < 0)
+        .reduce((sum, t) => sum + t.amount, 0));
+
+      const percentage = (spent / budget.amount) * 100;
       const alertKey = `budget_alert_${budget.id}_${new Date().getMonth()}`;
       const alreadyAlerted = localStorage.getItem(alertKey);
 
@@ -95,7 +95,7 @@ export function useActivityLogger() {
   // Track goal progress
   useEffect(() => {
     goals.forEach(goal => {
-      const percentage = (parseFloat(goal.currentAmount) / parseFloat(goal.targetAmount)) * 100;
+      const percentage = (goal.currentAmount / goal.targetAmount) * 100;
       const milestoneKey = `goal_milestone_${goal.id}`;
       const lastMilestone = parseInt(localStorage.getItem(milestoneKey) || '0');
       

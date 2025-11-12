@@ -287,7 +287,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
 
       {/* Period Selector */}
       {periods.length > 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-4">
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm font-medium">Budget Period</label>
             <select
@@ -328,7 +328,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Income</p>
@@ -338,7 +338,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Allocated</p>
@@ -349,7 +349,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Approved</p>
@@ -360,7 +360,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Remaining</p>
@@ -413,7 +413,7 @@ export default function ZeroBasedBudgeting(): React.JSX.Element {
           </div>
 
           {/* Budget Items */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6">
             <h3 className="text-lg font-semibold mb-4">Budget Items</h3>
             
             {filteredItems.length === 0 ? (

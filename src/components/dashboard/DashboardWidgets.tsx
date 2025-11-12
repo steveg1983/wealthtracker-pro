@@ -16,7 +16,7 @@ interface SummaryCardProps {
 export const SummaryCard = memo(({ title, value, trend, icon, onClick }: SummaryCardProps) => {
   return (
     <div 
-      className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
+      className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow cursor-pointer"
       onClick={onClick}
     >
       <div className="flex items-center justify-between">
@@ -82,7 +82,7 @@ export const AccountDistributionChart = memo(({ accounts, formatCurrency, onAcco
           outerRadius={80}
           fill="#8884d8"
           dataKey="value"
-          label={({ name, percent }) => `${name} ${formatDecimal((percent ?? 0) * 100, 0)}%`}
+          label={({ name, percent }) => `${name} ${formatDecimal(((percent ?? 0) as number) * 100, 0)}%`}
         >
           {accountData.map((entry, index) => (
             <Cell 

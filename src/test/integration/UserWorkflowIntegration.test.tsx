@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
 import React from 'react';
 import { renderWithProviders, createTestData, mockLocalStorage } from './test-utils';
+import { formatDecimal } from '../../utils/decimal-format';
 
 // Mock components to avoid complex dependencies
 vi.mock('../../pages/Dashboard', () => ({
@@ -121,17 +122,24 @@ vi.mock('../../pages/Budget', () => {
     
     // Calculate budget usage
     const budgetUsage = budgets?.map((budget) => {
+      const categoryKey =
+        (budget as BudgetMockBudget & { categoryId?: string }).category ??
+        (budget as BudgetMockBudget & { categoryId?: string }).categoryId ??
+        '';
+
       const spent = transactions
-        ?.filter((transaction) => transaction.type === 'expense' && transaction.category === budget.categoryId)
+        ?.filter((transaction) => transaction.type === 'expense' && transaction.category === categoryKey)
         .reduce((sum, transaction) => sum + transaction.amount, 0) || 0;
       const percentage = (spent / budget.amount) * 100;
-      const categoryName = categories?.find((category) => category.id === budget.categoryId)?.name || budget.categoryId;
+      const categoryName =
+        categories?.find((category) => category.id === categoryKey)?.name || categoryKey;
       
       return {
         ...budget,
         spent,
         percentage,
         categoryName,
+        categoryKey,
         isOverBudget: spent > budget.amount
       };
     }) || [];
@@ -142,8 +150,8 @@ vi.mock('../../pages/Budget', () => {
         <button onClick={() => setShowModal(true)}>Add Budget</button>
         {budgetUsage.map((budget) => (
           <div key={budget.id}>
-            <div>{budget.categoryIdName}</div>
-            <div>{budget.percentage.toFixed(0)}%</div>
+            <div>{budget.categoryIdName ?? budget.categoryName ?? budget.categoryKey ?? budget.categoryId}</div>
+            <div>{formatDecimal(budget.percentage, 0)}%</div>
             {budget.isOverBudget && <div>Over budget!</div>}
           </div>
         ))}
@@ -196,7 +204,7 @@ vi.mock('../../pages/Goals', () => {
         {goals?.map((goal) => (
           <div key={goal.id}>
             <div>{goal.name}</div>
-            <div>{((goal.currentAmount / goal.targetAmount) * 100).toFixed(0)}%</div>
+            <div>{formatDecimal((goal.currentAmount / goal.targetAmount) * 100, 0)}%</div>
           </div>
         ))}
         {showModal && (

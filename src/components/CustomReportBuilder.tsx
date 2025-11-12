@@ -448,7 +448,7 @@ export default function CustomReportBuilder({
               type="text"
               value={reportName}
               onChange={(e) => setReportName(e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Monthly Financial Summary"
             />
           </div>
@@ -460,7 +460,7 @@ export default function CustomReportBuilder({
               type="text"
               value={reportDescription}
               onChange={(e) => setReportDescription(e.target.value)}
-              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Overview of monthly income, expenses, and savings"
             />
           </div>
@@ -476,7 +476,7 @@ export default function CustomReportBuilder({
           <select
             value={filters.dateRange}
             onChange={(e) => handleDateRangeChange(e.target.value as CustomReport['filters']['dateRange'])}
-            className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+            className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
           >
             <option value="month">This Month</option>
             <option value="quarter">This Quarter</option>
@@ -490,13 +490,13 @@ export default function CustomReportBuilder({
                 type="date"
                 value={filters.customStartDate || ''}
                 onChange={(e) => handleCustomStartDateChange(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+                className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
               />
               <input
                 type="date"
                 value={filters.customEndDate || ''}
                 onChange={(e) => handleCustomEndDateChange(e.target.value)}
-                className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
+                className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm"
               />
             </>
           )}
@@ -506,7 +506,7 @@ export default function CustomReportBuilder({
               multiple
               value={filters.accounts ?? []}
               onChange={handleAccountSelection}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px]"
+              className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px]"
             >
               {accounts.map(account => (
                 <option key={account.id} value={account.id}>
@@ -521,7 +521,7 @@ export default function CustomReportBuilder({
               multiple
               value={filters.categories ?? []}
               onChange={handleCategorySelection}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px]"
+              className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px]"
             >
               {categories.map(category => (
                 <option key={category.id} value={category.id}>
@@ -536,11 +536,11 @@ export default function CustomReportBuilder({
               multiple
               value={filters.tags ?? []}
               onChange={handleTagSelection}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px]"
+              className="px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm min-w-[160px]"
             >
               {tags.map(tag => (
-                <option key={tag} value={tag}>
-                  {tag}
+                <option key={String(tag)} value={String(tag)}>
+                  {String(tag)}
                 </option>
               ))}
             </select>
@@ -558,7 +558,7 @@ export default function CustomReportBuilder({
             return (
               <div
                 key={component.id}
-                className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
+                className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
                   <div className="flex items-center gap-3">
@@ -677,7 +677,7 @@ export default function CustomReportBuilder({
       {/* Component Catalog Modal */}
       {showCatalog && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-hidden">
             <div className="p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -699,7 +699,7 @@ export default function CustomReportBuilder({
                     onClick={() => addComponent(item.type)}
                     className="flex items-start gap-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-left"
                   >
-                    <div className="p-2 bg-white dark:bg-gray-800 rounded-lg">
+                    <div className="p-2 bg-[#d4dce8] dark:bg-gray-800 rounded-lg">
                       <item.icon size={24} className="text-primary" />
                     </div>
                     <div>

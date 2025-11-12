@@ -6,6 +6,8 @@
 import DOMPurify from 'dompurify';
 import { formatDecimal } from '../utils/decimal-format';
 
+const xssLogger = typeof console !== 'undefined' ? console : { warn: () => {} };
+
 // Configure DOMPurify options for different contexts
 const DEFAULT_CONFIG: DOMPurify.Config = {
   ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'u', 'br', 'p', 'span', 'div'],
@@ -34,7 +36,8 @@ const MARKDOWN_CONFIG: DOMPurify.Config = {
  */
 export const sanitizeHTML = (dirty: string, config: DOMPurify.Config = DEFAULT_CONFIG): string => {
   if (!dirty) return '';
-  return DOMPurify.sanitize(dirty, config) as string;
+  // Cast config to compatible type
+  return DOMPurify.sanitize(dirty, config as Parameters<typeof DOMPurify.sanitize>[1]) as string;
 };
 
 /**
@@ -43,7 +46,7 @@ export const sanitizeHTML = (dirty: string, config: DOMPurify.Config = DEFAULT_C
  */
 export const sanitizeText = (dirty: string): string => {
   if (!dirty) return '';
-  return DOMPurify.sanitize(dirty, STRICT_CONFIG) as string;
+  return DOMPurify.sanitize(dirty, STRICT_CONFIG as Parameters<typeof DOMPurify.sanitize>[1]) as string;
 };
 
 /**
@@ -55,7 +58,7 @@ export const sanitizeMarkdown = (dirty: string): string => {
   if (!dirty) return '';
   
   // First, sanitize any embedded HTML/scripts in the markdown
-  let safe = DOMPurify.sanitize(dirty, STRICT_CONFIG) as string;
+  let safe = DOMPurify.sanitize(dirty, STRICT_CONFIG as Parameters<typeof DOMPurify.sanitize>[1]) as string;
 
   // Then remove dangerous markdown patterns
   // Match markdown links with better handling of nested parentheses
@@ -88,7 +91,7 @@ export const sanitizeURL = (url: string): string => {
   // Block dangerous protocols
   const dangerousProtocols = ['javascript:', 'data:', 'vbscript:', 'file:'];
   if (dangerousProtocols.some(protocol => cleanUrl.startsWith(protocol))) {
-    console.warn('Blocked dangerous URL:', url);
+    xssLogger.warn('Blocked dangerous URL:', url);
     return '';
   }
   
@@ -120,7 +123,7 @@ export const sanitizeJSON = (jsonString: string): string => {
     const sanitized = sanitizeJSONObject(parsed);
     return JSON.stringify(sanitized);
   } catch {
-    console.warn('Invalid JSON input:', jsonString);
+    xssLogger.warn('Invalid JSON input:', jsonString);
     return '{}';
   }
 };
@@ -303,7 +306,7 @@ if (typeof window !== 'undefined') {
   if (isDevelopment) {
     DOMPurify.addHook('beforeSanitizeElements', (node, data: any, config) => {
       if (data && data.tagName && ['script', 'iframe', 'object', 'embed'].includes(data.tagName)) {
-        console.warn('DOMPurify blocked dangerous element:', data.tagName);
+        xssLogger.warn('DOMPurify blocked dangerous element:', data.tagName);
       }
     });
   }

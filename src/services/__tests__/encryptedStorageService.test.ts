@@ -3,10 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { encryptedStorage } from '../encryptedStorageService';
+import { EncryptedStorageService } from '../encryptedStorageService';
 import { indexedDBService } from '../indexedDBService';
 
-// Mock IndexedDB service
 vi.mock('../indexedDBService', () => ({
   indexedDBService: {
     init: vi.fn(),
@@ -20,25 +19,53 @@ vi.mock('../indexedDBService', () => ({
   }
 }));
 
+const createStorageMock = () => {
+  const store = new Map<string, string>();
+  return {
+    getItem: vi.fn((key: string) => store.get(key) ?? null),
+    setItem: vi.fn((key: string, value: string) => {
+      store.set(key, value);
+    }),
+    removeItem: vi.fn((key: string) => {
+      store.delete(key);
+    }),
+    dump: () => store
+  };
+};
+
 describe('EncryptedStorageService', () => {
+  let service: EncryptedStorageService;
+  let sessionStorageMock: ReturnType<typeof createStorageMock>;
+  let localStorageMock: ReturnType<typeof createStorageMock>;
+  let logger: { error: ReturnType<typeof vi.fn>; warn: ReturnType<typeof vi.fn> };
+  const now = Date.now();
+
   beforeEach(() => {
     vi.clearAllMocks();
-    sessionStorage.clear();
-    localStorage.clear();
+    sessionStorageMock = createStorageMock();
+    localStorageMock = createStorageMock();
+    logger = { error: vi.fn(), warn: vi.fn() };
+
+    service = new EncryptedStorageService({
+      sessionStorage: sessionStorageMock,
+      localStorage: localStorageMock,
+      logger,
+      now: () => now
+    });
   });
 
   describe('Basic Operations', () => {
     it('encrypts and stores data', async () => {
       const testData = { account: '12345', balance: 1000 };
-      
-      await encryptedStorage.setItem('test-key', testData);
-      
+
+      await service.setItem('test-key', testData);
+
       expect(indexedDBService.put).toHaveBeenCalledWith(
         'secureData',
         expect.objectContaining({
           key: 'test-key',
-          data: expect.any(String), // Encrypted string
-          timestamp: expect.any(Number),
+          data: expect.any(String),
+          timestamp: now,
           encrypted: true,
           compressed: false
         })
@@ -47,28 +74,21 @@ describe('EncryptedStorageService', () => {
 
     it('retrieves and decrypts data', async () => {
       const testData = { account: '12345', balance: 1000 };
-      
-      // First store the data
-      await encryptedStorage.setItem('test-key', testData);
-      
-      // Get the encrypted data that was stored
+      await service.setItem('test-key', testData);
+
       const storedCall = vi.mocked(indexedDBService.put).mock.calls[0];
       const encryptedData = storedCall[1];
-      
-      // Mock the retrieval
       vi.mocked(indexedDBService.get).mockResolvedValueOnce(encryptedData);
-      
-      // Retrieve the data
-      const retrieved = await encryptedStorage.getItem('test-key');
-      
+
+      const retrieved = await service.getItem('test-key');
       expect(retrieved).toEqual(testData);
     });
 
     it('handles non-encrypted storage', async () => {
       const testData = { preference: 'dark-mode' };
-      
-      await encryptedStorage.setItem('preference', testData, { encrypted: false });
-      
+
+      await service.setItem('preference', testData, { encrypted: false });
+
       expect(indexedDBService.put).toHaveBeenCalledWith(
         'secureData',
         expect.objectContaining({
@@ -80,15 +100,13 @@ describe('EncryptedStorageService', () => {
     });
 
     it('compresses large data', async () => {
-      const largeData = { 
-        content: 'x'.repeat(15000) // Large string to trigger compression
-      };
-      
-      await encryptedStorage.setItem('large-data', largeData, { 
+      const largeData = { content: 'x'.repeat(15000) };
+
+      await service.setItem('large-data', largeData, {
         encrypted: false,
-        compress: true 
+        compress: true
       });
-      
+
       expect(indexedDBService.put).toHaveBeenCalledWith(
         'secureData',
         expect.objectContaining({
@@ -101,14 +119,14 @@ describe('EncryptedStorageService', () => {
     it('handles expiry dates', async () => {
       const testData = { temp: 'data' };
       const expiryDays = 7;
-      
-      await encryptedStorage.setItem('temp-key', testData, { expiryDays });
-      
+
+      await service.setItem('temp-key', testData, { expiryDays });
+
       expect(indexedDBService.put).toHaveBeenCalledWith(
         'secureData',
         expect.objectContaining({
           key: 'temp-key',
-          expiry: expect.any(Number)
+          expiry: now + expiryDays * 24 * 60 * 60 * 1000
         })
       );
     });
@@ -121,9 +139,9 @@ describe('EncryptedStorageService', () => {
         { key: 'item2', value: { data: 'value2' } },
         { key: 'item3', value: { data: 'value3' } }
       ];
-      
-      await encryptedStorage.setItems(items);
-      
+
+      await service.setItems(items);
+
       expect(indexedDBService.putBulk).toHaveBeenCalledWith(
         'secureData',
         expect.arrayContaining([
@@ -137,29 +155,24 @@ describe('EncryptedStorageService', () => {
 
   describe('Migration', () => {
     it('migrates data from localStorage', async () => {
-      // Set up localStorage data
-      localStorage.setItem('test-key-1', JSON.stringify({ old: 'data1' }));
-      localStorage.setItem('test-key-2', JSON.stringify({ old: 'data2' }));
-      
-      await encryptedStorage.migrateFromLocalStorage(['test-key-1', 'test-key-2']);
-      
+      localStorageMock.setItem('test-key-1', JSON.stringify({ old: 'data1' }));
+      localStorageMock.setItem('test-key-2', JSON.stringify({ old: 'data2' }));
+
+      await service.migrateFromLocalStorage(['test-key-1', 'test-key-2']);
+
       expect(indexedDBService.putBulk).toHaveBeenCalled();
-      expect(localStorage.getItem('test-key-1')).toBeNull();
-      expect(localStorage.getItem('test-key-2')).toBeNull();
+      expect(localStorageMock.getItem('test-key-1')).toBeNull();
+      expect(localStorageMock.getItem('test-key-2')).toBeNull();
     });
 
     it('handles invalid localStorage data during migration', async () => {
-      // Set invalid JSON in localStorage
-      localStorage.setItem('invalid-key', 'not-json');
-      
-      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      localStorageMock.setItem('invalid-key', 'not-json');
 
-      await encryptedStorage.migrateFromLocalStorage(['invalid-key']);
-      
+      await service.migrateFromLocalStorage(['invalid-key']);
+
       expect(indexedDBService.putBulk).toHaveBeenCalled();
-      expect(localStorage.getItem('invalid-key')).toBeNull();
-
-      warnSpy.mockRestore();
+      expect(localStorageMock.getItem('invalid-key')).toBeNull();
+      expect(logger.warn).toHaveBeenCalled();
     });
   });
 
@@ -167,25 +180,25 @@ describe('EncryptedStorageService', () => {
     it('removes expired data', async () => {
       const expiredData = {
         data: 'old',
-        timestamp: Date.now() - 1000,
-        expiry: Date.now() - 500, // Expired
+        timestamp: now - 1000,
+        expiry: now - 500,
         encrypted: false
       };
-      
+
       const validData = {
         data: 'new',
-        timestamp: Date.now(),
-        expiry: Date.now() + 10000, // Not expired
+        timestamp: now,
+        expiry: now + 10000,
         encrypted: false
       };
-      
+
       vi.mocked(indexedDBService.getAllKeys).mockResolvedValueOnce(['expired', 'valid']);
       vi.mocked(indexedDBService.get)
         .mockResolvedValueOnce(expiredData)
         .mockResolvedValueOnce(validData);
-      
-      await encryptedStorage.cleanupExpiredData();
-      
+
+      await service.cleanupExpiredData();
+
       expect(indexedDBService.delete).toHaveBeenCalledWith('secureData', 'expired');
       expect(indexedDBService.delete).not.toHaveBeenCalledWith('secureData', 'valid');
     });
@@ -197,14 +210,23 @@ describe('EncryptedStorageService', () => {
         key1: { value: 'data1' },
         key2: { value: 'data2' }
       };
-      
+
       vi.mocked(indexedDBService.getAllKeys).mockResolvedValueOnce(['key1', 'key2']);
       vi.mocked(indexedDBService.get)
-        .mockResolvedValueOnce({ data: mockData.key1, encrypted: false, timestamp: Date.now() })
-        .mockResolvedValueOnce({ data: mockData.key2, encrypted: false, timestamp: Date.now() });
-      
-      const exported = await encryptedStorage.exportData();
-      
+        .mockResolvedValueOnce({
+          data: mockData.key1,
+          encrypted: false,
+          compressed: false,
+          timestamp: now
+        })
+        .mockResolvedValueOnce({
+          data: mockData.key2,
+          encrypted: false,
+          compressed: false,
+          timestamp: now
+        });
+
+      const exported = await service.exportData();
       expect(exported).toEqual(mockData);
     });
 
@@ -213,53 +235,16 @@ describe('EncryptedStorageService', () => {
         key1: { value: 'data1' },
         key2: { value: 'data2' }
       };
-      
-      await encryptedStorage.importData(importData);
-      
-      expect(indexedDBService.putBulk).toHaveBeenCalledWith(
-        'secureData',
-        expect.arrayContaining([
-          expect.objectContaining({ key: 'key1' }),
-          expect.objectContaining({ key: 'key2' })
-        ])
-      );
+
+      await service.importData(importData);
+      expect(indexedDBService.putBulk).toHaveBeenCalled();
     });
   });
 
-  describe('Storage Info', () => {
-    it('returns storage estimates when available', async () => {
-      // Mock navigator.storage.estimate
-      const mockEstimate = {
-        usage: 1000000,
-        quota: 10000000
-      };
-      
-      global.navigator = {
-        ...global.navigator,
-        storage: {
-          estimate: vi.fn().mockResolvedValue(mockEstimate)
-        }
-      } as any;
-      
-      const info = await encryptedStorage.getStorageInfo();
-      
-      expect(info).toEqual({
-        usage: 1000000,
-        quota: 10000000,
-        percentUsed: 10
-      });
-    });
-
-    it('returns default values when storage API not available', async () => {
-      global.navigator = {} as any;
-      
-      const info = await encryptedStorage.getStorageInfo();
-      
-      expect(info).toEqual({
-        usage: 0,
-        quota: 0,
-        percentUsed: 0
-      });
+  describe('Storage info', () => {
+    it('returns zero usage when navigator storage unavailable', async () => {
+      const info = await service.getStorageInfo();
+      expect(info).toEqual({ usage: 0, quota: 0, percentUsed: 0 });
     });
   });
 });

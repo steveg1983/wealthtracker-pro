@@ -34,7 +34,7 @@ export function PreferencesRedux() {
       </div>
 
       {/* User Profile */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
           <UserIcon size={20} />
           User Profile
@@ -74,7 +74,7 @@ export function PreferencesRedux() {
       </div>
 
       {/* Currency Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
           <GlobeIcon size={20} />
           Currency
@@ -103,7 +103,7 @@ export function PreferencesRedux() {
       </div>
 
       {/* Theme Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 dark:text-white">
           <SunIcon size={20} />
           Theme
@@ -141,7 +141,7 @@ export function PreferencesRedux() {
 
       {/* Notification Settings - These fields are not available in Redux state yet */}
       {/* 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4 dark:text-white">
           Notification Preferences
         </h3>
@@ -181,7 +181,7 @@ export function PreferencesRedux() {
       */}
 
       {/* Goal Celebration Settings */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4 dark:text-white">
           Goal Settings
         </h3>

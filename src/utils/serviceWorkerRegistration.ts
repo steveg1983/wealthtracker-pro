@@ -1,4 +1,7 @@
 // Service Worker Registration with enhanced update handling
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const swRegistrationLogger = createScopedLogger('ServiceWorkerRegistration');
 
 const isLocalhost = Boolean(
   window.location.hostname === 'localhost' ||
@@ -27,8 +30,8 @@ export function register(config?: Config): void {
       if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) {
         baseUrl = import.meta.env.BASE_URL;
       }
-    } catch {
-      console.warn('Failed to access import.meta.env.BASE_URL, using default');
+    } catch (error) {
+      swRegistrationLogger.warn('Failed to access import.meta.env.BASE_URL, using default', error);
     }
     
     const publicUrl = new URL(baseUrl, window.location.href);
@@ -47,9 +50,7 @@ export function register(config?: Config): void {
 
         // Add some additional logging to localhost
         navigator.serviceWorker.ready.then(() => {
-          console.log(
-            'This web app is being served cache-first by a service worker.'
-          );
+          swRegistrationLogger.info('App is being served cache-first by a service worker');
         });
       } else {
         // Is not localhost. Just register service worker
@@ -89,9 +90,7 @@ function registerValidSW(swUrl: string, config?: Config): void {
               // At this point, the updated precached content has been fetched,
               // but the previous service worker will still serve the older
               // content until all client tabs are closed.
-              console.log(
-                'New content is available and will be used when all tabs are closed.'
-              );
+              swRegistrationLogger.info('New content is available and will be used when all tabs are closed');
 
               // Execute callback
               if (config && config.onUpdate) {
@@ -99,7 +98,7 @@ function registerValidSW(swUrl: string, config?: Config): void {
               }
             } else {
               // At this point, everything has been precached.
-              console.log('Content is cached for offline use.');
+              swRegistrationLogger.info('Content is cached for offline use');
 
               // Execute callback
               if (config && config.onSuccess) {
@@ -116,19 +115,19 @@ function registerValidSW(swUrl: string, config?: Config): void {
         
         switch (type) {
           case 'sync-success':
-            console.log('Data synced successfully:', data);
+            swRegistrationLogger.log('Data synced successfully:', data);
             break;
           case 'accounts-updated':
-            console.log('Accounts updated in background:', data);
+            swRegistrationLogger.log('Accounts updated in background:', data);
             break;
           case 'sync-status':
-            console.log('Sync status:', data);
+            swRegistrationLogger.log('Sync status:', data);
             break;
         }
       });
     })
     .catch((error) => {
-      console.error('Error during service worker registration:', error);
+      swRegistrationLogger.error('Error during service worker registration:', error);
     });
 }
 
@@ -156,7 +155,7 @@ function checkValidServiceWorker(swUrl: string, config?: Config): void {
       }
     })
     .catch(() => {
-      console.log('No internet connection found. App is running in offline mode.');
+      swRegistrationLogger.warn('No internet connection found. App is running in offline mode.');
     });
 }
 
@@ -167,7 +166,7 @@ export function unregister(): void {
         registration.unregister();
       })
       .catch((error) => {
-        console.error(error.message);
+        swRegistrationLogger.error('Service worker unregister failed', error);
       });
   }
 }
@@ -203,7 +202,7 @@ export function clearCaches(): Promise<void> {
     return caches.keys().then((names) => {
       return Promise.all(names.map(name => caches.delete(name)));
     }).then(() => {
-      console.log('All caches cleared');
+      swRegistrationLogger.info('All caches cleared');
     });
   }
   return Promise.resolve();

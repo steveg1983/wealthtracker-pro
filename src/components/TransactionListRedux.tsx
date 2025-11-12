@@ -100,7 +100,7 @@ export function TransactionListRedux() {
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Search */}
           <div className="relative">
@@ -167,7 +167,7 @@ export function TransactionListRedux() {
       </div>
 
       {/* Transaction List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow">
         <div className="p-6">
           <h3 className="text-lg font-semibold mb-4 dark:text-white">
             Transactions ({sortedTransactions.length})
@@ -218,7 +218,12 @@ export function TransactionListRedux() {
                         
                         <div className="flex gap-1">
                           <button
-                            onClick={() => setEditingTransaction(transaction)}
+                            onClick={() => setEditingTransaction({
+                              ...transaction,
+                              date: new Date(transaction.date),
+                              createdAt: transaction.createdAt ? new Date(transaction.createdAt) : new Date(),
+                              updatedAt: new Date(transaction.updatedAt || new Date())
+                            } as Transaction)}
                             className="p-1.5 text-gray-600 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400"
                             title="Edit transaction"
                           >

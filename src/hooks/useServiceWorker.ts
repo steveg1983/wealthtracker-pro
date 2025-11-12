@@ -17,6 +17,9 @@ interface ServiceWorkerState {
   } | null;
 }
 
+type Logger = Pick<Console, 'error'>;
+const serviceWorkerLogger: Logger = typeof console !== 'undefined' ? console : { error: () => {} };
+
 export function useServiceWorker() {
   const [state, setState] = useState<ServiceWorkerState>({
     registration: null,
@@ -98,7 +101,7 @@ export function useServiceWorker() {
     try {
       await checkForUpdates();
     } catch (error) {
-      console.error('Failed to check for updates:', error);
+      serviceWorkerLogger.error('Failed to check for updates:', error as Error);
     }
   }, []);
 
@@ -107,7 +110,7 @@ export function useServiceWorker() {
       const status = await getSyncStatus();
       setState(prev => ({ ...prev, syncStatus: status }));
     } catch (error) {
-      console.error('Failed to get sync status:', error);
+      serviceWorkerLogger.error('Failed to get sync status:', error as Error);
     }
   }, []);
 

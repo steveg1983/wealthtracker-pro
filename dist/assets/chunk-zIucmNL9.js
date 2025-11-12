@@ -1,1 +1,0 @@
-function e(e,r="en-US"){return t.useMemo(()=>{const t=`${e.toString()}_${r}`;if(n.has(t))return n.get(t);const o=("string"==typeof e?new Date(e):e).toLocaleDateString(r,{year:"numeric",month:"short",day:"numeric"});if(n.size>1e3){const e=n.keys().next().value;n.delete(e)}return n.set(t,o),o},[e,r])}import{r as t}from"./chunk-DowOIOga.js";const n=new Map;export{e as u};

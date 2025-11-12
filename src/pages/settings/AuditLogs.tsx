@@ -232,7 +232,7 @@ export default function AuditLogs() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <FilterIcon size={20} className="text-gray-600 dark:text-gray-400" />
             <h3 className="font-semibold text-gray-900 dark:text-white">Filters</h3>
@@ -341,8 +341,8 @@ export default function AuditLogs() {
         <div style={{ height: '600px' }}>
           <VirtualizedTable
             items={filteredLogs}
-            columns={columns}
-            getItemKey={(log) => log.id}
+            columns={columns as any}
+            getItemKey={(log) => (log as AuditLog).id}
             rowHeight={80}
             emptyMessage={
               logs.length === 0 

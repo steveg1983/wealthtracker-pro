@@ -11,7 +11,7 @@ export function EnhancedSkipLinks() {
   return (
     <>
       <SkipLinks />
-      <style jsx>{`
+      <style dangerouslySetInnerHTML={{ __html: `
         :global(.skip-link) {
           position: absolute;
           left: -10000px;
@@ -19,7 +19,7 @@ export function EnhancedSkipLinks() {
           width: 1px;
           height: 1px;
           overflow: hidden;
-          background-color: #1a73e8;
+          background-color: #4b5563;
           color: white;
           padding: 0.75rem 1.5rem;
           text-decoration: none;
@@ -36,7 +36,7 @@ export function EnhancedSkipLinks() {
           width: auto;
           height: auto;
           overflow: visible;
-          outline: 3px solid #4285f4;
+          outline: 2px solid #94a3b8;
           outline-offset: 2px;
           animation: slideIn 0.2s ease-out;
         }
@@ -51,7 +51,7 @@ export function EnhancedSkipLinks() {
             opacity: 1;
           }
         }
-      `}</style>
+      `}} />
     </>
   );
 }
@@ -99,10 +99,10 @@ export function FocusIndicator() {
   }, []);
 
   return (
-    <style jsx global>{`
+    <style dangerouslySetInnerHTML={{ __html: `
       /* Enhanced focus styles for keyboard navigation */
-      .user-is-tabbing *:focus {
-        outline: 3px solid #4285f4 !important;
+      .user-is-tabbing *:focus-visible:not([data-suppress-focus-outline="true"]) {
+        outline: 2px solid #94a3b8 !important;
         outline-offset: 2px !important;
       }
 
@@ -122,7 +122,7 @@ export function FocusIndicator() {
         min-height: auto;
         min-width: auto;
       }
-    `}</style>
+    `}} />
   );
 }
 

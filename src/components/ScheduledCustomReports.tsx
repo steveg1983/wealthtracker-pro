@@ -152,7 +152,7 @@ export default function ScheduledCustomReports(): React.JSX.Element {
                 key={report.id}
                 className={`p-4 rounded-lg border ${
                   report.enabled 
-                    ? 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700' 
+                    ? 'bg-[#d4dce8] dark:bg-gray-800 border-gray-200 dark:border-gray-700' 
                     : 'bg-gray-50 dark:bg-gray-900 border-gray-300 dark:border-gray-800 opacity-60'
                 }`}
               >
@@ -365,7 +365,7 @@ function ScheduleReportModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl max-w-lg w-full max-h-[90vh] overflow-hidden">
         <form onSubmit={handleSubmit}>
           <div className="p-6 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
@@ -382,7 +382,7 @@ function ScheduleReportModal({
               <select
                 value={formData.customReportId}
                 onChange={(e) => setFormData({ ...formData, customReportId: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
+                className="w-full px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
                 required
               >
                 <option value="">Select a report...</option>
@@ -403,7 +403,7 @@ function ScheduleReportModal({
                 type="text"
                 value={formData.reportName}
                 onChange={(e) => setFormData({ ...formData, reportName: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
+                className="w-full px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
                 required
               />
             </div>
@@ -421,7 +421,7 @@ function ScheduleReportModal({
                     frequency: e.target.value as ScheduledCustomReport['frequency']
                   })
                 }
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
+                className="w-full px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -440,7 +440,7 @@ function ScheduleReportModal({
                 <select
                   value={formData.dayOfWeek}
                   onChange={(e) => setFormData({ ...formData, dayOfWeek: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
+                  className="w-full px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
                 >
                   <option value="0">Sunday</option>
                   <option value="1">Monday</option>
@@ -465,7 +465,7 @@ function ScheduleReportModal({
                   max="31"
                   value={formData.dayOfMonth}
                   onChange={(e) => setFormData({ ...formData, dayOfMonth: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
+                  className="w-full px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
                 />
               </div>
             )}
@@ -479,7 +479,7 @@ function ScheduleReportModal({
                 type="time"
                 value={formData.time}
                 onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
+                className="w-full px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
               />
             </div>
 
@@ -496,7 +496,7 @@ function ScheduleReportModal({
                     deliveryFormat: e.target.value as ScheduledCustomReport['deliveryFormat']
                   })
                 }
-                className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
+                className="w-full px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
               >
                 <option value="pdf">PDF</option>
                 <option value="csv">CSV</option>
@@ -517,7 +517,7 @@ function ScheduleReportModal({
                     value={emailInput}
                     onChange={(e) => setEmailInput(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addEmail())}
-                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
+                    className="flex-1 px-3 py-2 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg"
                     placeholder="email@example.com"
                   />
                   <button

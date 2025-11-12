@@ -52,12 +52,16 @@ export default function BudgetRecommendations() {
     if (existingBudget) {
       updateBudget(existingBudget.id, { amount: recommendation.recommendedBudget });
     } else {
+      const now = new Date();
       addBudget({
         name: `${recommendation.categoryName} Budget`,
         categoryId: recommendation.categoryId,
         amount: recommendation.recommendedBudget,
         period: 'monthly',
-        rollover: false
+        rollover: false,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now
       });
     }
     
@@ -79,12 +83,16 @@ export default function BudgetRecommendations() {
       if (existingBudget) {
         updateBudget(existingBudget.id, { amount });
       } else if (category) {
+        const now = new Date();
         addBudget({
           name: `${category.name} Budget`,
           categoryId: categoryId,
           amount,
           period: 'monthly',
-          rollover: false
+          rollover: false,
+          isActive: true,
+          createdAt: now,
+          updatedAt: now
         });
       }
     });
@@ -204,7 +212,7 @@ export default function BudgetRecommendations() {
 
       {/* Settings Panel */}
       {showSettings && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow-lg p-6">
           <h3 className="text-lg font-semibold mb-4">Recommendation Settings</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -229,7 +237,7 @@ export default function BudgetRecommendations() {
               </label>
               <select
                 value={config.aggressiveness}
-                onChange={(e) => updateConfig('aggressiveness', e.target.value)}
+                onChange={(e) => updateConfig('aggressiveness', e.target.value as 'conservative' | 'moderate' | 'aggressive')}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
               >
                 <option value="conservative">Conservative (75th percentile)</option>
@@ -326,7 +334,7 @@ export default function BudgetRecommendations() {
           {analysis.recommendations.map(recommendation => (
             <div
               key={recommendation.categoryId}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow p-4"
+              className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-4"
             >
               <div className="flex items-start gap-4">
                 <input
@@ -418,7 +426,7 @@ export default function BudgetRecommendations() {
       )}
 
       {analysis.recommendations.length === 0 && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-8 text-center">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-xl shadow p-8 text-center">
           <CheckIcon className="mx-auto text-green-500 mb-3" size={48} />
           <h3 className="text-lg font-semibold mb-2">No Recommendations Available</h3>
           <p className="text-gray-600 dark:text-gray-400">

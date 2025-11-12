@@ -25,7 +25,7 @@ export default function RealtimeDebugger() {
   const [events, setEvents] = useState<DebugEvent[]>([]);
 
   useEffect(() => {
-    if (isLoading || !databaseId) return;
+    if (isLoading || !databaseId || !supabase) return;
 
     // Expose supabase to window for debugging
     window.supabase = supabase;
@@ -72,12 +72,14 @@ export default function RealtimeDebugger() {
 
     return () => {
       console.log('🔚 [RealtimeDebugger] Cleaning up');
-      supabase!.removeChannel(channel);
+      if (supabase) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [databaseId, isLoading]);
 
   return (
-    <div className="fixed bottom-4 left-4 bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-md z-50">
+    <div className="fixed bottom-4 left-4 bg-[#d4dce8] dark:bg-gray-800 p-4 rounded-lg shadow-lg max-w-md z-50">
       <h3 className="font-bold text-sm mb-2">Realtime Debugger</h3>
       <div className="text-xs space-y-1">
         <div>Status: <span className={status === 'SUBSCRIBED' ? 'text-green-600' : 'text-yellow-600'}>{status}</span></div>

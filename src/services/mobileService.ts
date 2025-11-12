@@ -1,6 +1,7 @@
 import { Transaction, Account, Budget } from '../types';
 import { Decimal, toDecimal } from '../utils/decimal';
 import { formatDecimal } from '../utils/decimal-format';
+import { createScopedLogger, type ScopedLogger } from '../loggers/scopedLogger';
 import type {
   NotificationAction,
   NotificationData,
@@ -68,13 +69,67 @@ const OFFLINE_TRANSACTIONS_KEY = 'offline_transactions';
 const NOTIFICATION_SETTINGS_KEY = 'notification_settings';
 const PUSH_NOTIFICATIONS_KEY = 'push_notifications';
 
-class MobileService {
+interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+interface WindowLike {
+  addEventListener?: Window['addEventListener'];
+  removeEventListener?: Window['removeEventListener'];
+}
+
+interface NavigatorLike {
+  onLine?: boolean;
+  serviceWorker?: Pick<typeof navigator.serviceWorker, 'ready'>;
+}
+
+interface NotificationAdapter {
+  getPermission(): NotificationPermission;
+  requestPermission(): Promise<NotificationPermission>;
+  show(title: string, options?: NotificationOptions): void;
+}
+
+export interface MobileServiceOptions {
+  storage?: StorageLike | null;
+  windowRef?: WindowLike | null;
+  navigatorRef?: NavigatorLike | null;
+  notificationAdapter?: NotificationAdapter;
+  logger?: ScopedLogger;
+}
+
+export class MobileService {
   private offlineTransactions: OfflineTransaction[] = [];
   private notificationSettings: NotificationSettings;
   private pushNotifications: PushNotification[] = [];
-  private isOnline = navigator.onLine;
+  private isOnline: boolean;
+  private storage: StorageLike | null;
+  private windowRef: WindowLike | null;
+  private navigatorRef: NavigatorLike | null;
+  private notificationAdapter: NotificationAdapter;
+  private readonly logger: ScopedLogger;
 
-  constructor() {
+  constructor(options: MobileServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
+    this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
+    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
+    const globalNotification = typeof Notification !== 'undefined' ? Notification : undefined;
+    this.notificationAdapter = options.notificationAdapter ?? {
+      getPermission: () => globalNotification?.permission ?? 'default',
+      requestPermission: () =>
+        globalNotification?.requestPermission
+          ? globalNotification.requestPermission()
+          : Promise.resolve('default'),
+      show: (title, opts) => {
+        if (globalNotification && globalNotification.permission === 'granted') {
+          // eslint-disable-next-line no-new
+          new globalNotification(title, opts);
+        }
+      }
+    };
+    this.isOnline = this.navigatorRef?.onLine ?? true;
+    this.logger = options.logger ?? createScopedLogger('MobileService');
+
     this.loadOfflineData();
     this.notificationSettings = this.loadNotificationSettings();
     this.pushNotifications = this.loadPushNotifications();
@@ -83,7 +138,7 @@ class MobileService {
   }
 
   private loadOfflineData() {
-    const stored = localStorage.getItem(OFFLINE_TRANSACTIONS_KEY);
+    const stored = this.storage?.getItem(OFFLINE_TRANSACTIONS_KEY);
     if (stored) {
       this.offlineTransactions = JSON.parse(stored).map((item: SavedOfflineTransaction) => ({
         ...item,
@@ -93,11 +148,11 @@ class MobileService {
   }
 
   private saveOfflineData() {
-    localStorage.setItem(OFFLINE_TRANSACTIONS_KEY, JSON.stringify(this.offlineTransactions));
+    this.storage?.setItem(OFFLINE_TRANSACTIONS_KEY, JSON.stringify(this.offlineTransactions));
   }
 
   private loadNotificationSettings(): NotificationSettings {
-    const stored = localStorage.getItem(NOTIFICATION_SETTINGS_KEY);
+    const stored = this.storage?.getItem(NOTIFICATION_SETTINGS_KEY);
     if (stored) {
       return JSON.parse(stored);
     }
@@ -115,11 +170,11 @@ class MobileService {
   }
 
   private saveNotificationSettings() {
-    localStorage.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(this.notificationSettings));
+    this.storage?.setItem(NOTIFICATION_SETTINGS_KEY, JSON.stringify(this.notificationSettings));
   }
 
   private loadPushNotifications(): PushNotification[] {
-    const stored = localStorage.getItem(PUSH_NOTIFICATIONS_KEY);
+    const stored = this.storage?.getItem(PUSH_NOTIFICATIONS_KEY);
     if (stored) {
       return JSON.parse(stored).map((item: SavedPushNotification) => ({
         ...item,
@@ -130,32 +185,30 @@ class MobileService {
   }
 
   private savePushNotifications() {
-    localStorage.setItem(PUSH_NOTIFICATIONS_KEY, JSON.stringify(this.pushNotifications));
+    this.storage?.setItem(PUSH_NOTIFICATIONS_KEY, JSON.stringify(this.pushNotifications));
   }
 
   private setupNetworkListeners() {
-    window.addEventListener('online', () => {
+    this.windowRef?.addEventListener?.('online', () => {
       this.isOnline = true;
       this.syncOfflineTransactions();
     });
 
-    window.addEventListener('offline', () => {
+    this.windowRef?.addEventListener?.('offline', () => {
       this.isOnline = false;
     });
   }
 
   private async setupNotificationPermissions() {
-    if ('Notification' in window && 'serviceWorker' in navigator) {
+    if (this.navigatorRef?.serviceWorker) {
       try {
-        const registration = await navigator.serviceWorker.ready;
-        
         // Check if permission already granted
-        if (Notification.permission === 'granted') {
+        if (this.notificationAdapter.getPermission() === 'granted') {
           this.notificationSettings.enabled = true;
           this.saveNotificationSettings();
         }
       } catch (error) {
-        console.error('Error setting up notifications:', error);
+        this.logger.error('Error setting up notifications', error);
       }
     }
   }
@@ -198,7 +251,7 @@ class MobileService {
         transaction.retry_count = 0;
       } catch (error) {
         transaction.retry_count++;
-        console.error('Failed to sync transaction:', error);
+        this.logger.error('Failed to sync transaction', error);
         
         // Remove after 5 failed attempts
         if (transaction.retry_count >= 5) {
@@ -272,7 +325,7 @@ class MobileService {
         };
       });
     } catch (error) {
-      console.error('Camera capture failed:', error);
+      this.logger.error('Camera capture failed', error);
       throw error;
     }
   }
@@ -360,14 +413,10 @@ class MobileService {
 
   // Push Notifications
   async requestNotificationPermission(): Promise<boolean> {
-    if (!('Notification' in window)) {
-      return false;
-    }
-
-    let permission = Notification.permission;
+    let permission = this.notificationAdapter.getPermission();
     
     if (permission === 'default') {
-      permission = await Notification.requestPermission();
+      permission = await this.notificationAdapter.requestPermission();
     }
     
     const granted = permission === 'granted';
@@ -404,8 +453,8 @@ class MobileService {
     this.savePushNotifications();
 
     // Send browser notification
-    if (Notification.permission === 'granted') {
-      new Notification(title, {
+    if (this.notificationSettings.enabled) {
+      this.notificationAdapter.show(title, {
         body,
         icon: '/icon-192x192.png',
         badge: '/icon-192x192.png',

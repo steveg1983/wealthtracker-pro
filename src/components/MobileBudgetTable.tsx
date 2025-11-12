@@ -103,7 +103,7 @@ export default function MobileBudgetTable({
       getRowKey={(budget) => budget.id}
       onRowClick={onBudgetClick}
       emptyMessage="No budgets configured"
-      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden"
+      className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden"
       mobileCardClassName="px-4 py-2"
     />
   );

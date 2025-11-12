@@ -35,7 +35,7 @@ export interface SearchResult<T> {
   matches: Array<{
     field: string;
     value: string;
-    indices: Array<[number, number]>;
+    indices: ReadonlyArray<readonly [number, number]>;
   }>;
 }
 

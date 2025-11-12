@@ -153,6 +153,8 @@ describe('recurringTransactionsSlice', () => {
       expect(state.recurringTransactions).toHaveLength(1);
       expect(state.recurringTransactions[0]).toMatchObject({
         ...newRecurring,
+        startDate: newRecurring.startDate.toISOString(),
+        nextDate: newRecurring.nextDate.toISOString(),
         id: 'test-uuid-123',
         createdAt: now.toISOString(),
         updatedAt: now.toISOString(),
@@ -274,7 +276,13 @@ describe('recurringTransactionsSlice', () => {
       store.dispatch(addRecurringTransaction(recurringWithOptionals));
 
       const state = store.getState().recurringTransactions;
-      expect(state.recurringTransactions[0]).toMatchObject(recurringWithOptionals);
+      expect(state.recurringTransactions[0]).toMatchObject({
+        ...recurringWithOptionals,
+        startDate: (recurringWithOptionals.startDate as Date).toISOString(),
+        endDate: (recurringWithOptionals.endDate as Date)?.toISOString(),
+        lastProcessed: (recurringWithOptionals.lastProcessed as Date).toISOString(),
+        nextDate: (recurringWithOptionals.nextDate as Date).toISOString(),
+      });
     });
 
     it('adds inactive recurring transaction', () => {

@@ -25,6 +25,7 @@ import type {
   RecurringTransaction,
   AppState 
 } from '../types';
+import { createScopedLogger } from '../loggers/scopedLogger';
 
 export interface Tag {
   id: string;
@@ -37,7 +38,7 @@ export interface Tag {
 
 export interface AppContextType extends AppState {
   // Account operations
-  addAccount: (account: Omit<Account, 'id' | 'balance'>) => void;
+  addAccount: (account: Omit<Account, 'id'> & { initialBalance?: number }) => Promise<Account>;
   updateAccount: (id: string, updates: Partial<Account>) => void;
   deleteAccount: (id: string) => void;
   
@@ -73,7 +74,7 @@ export interface AppContextType extends AppState {
   
   // Other operations
   importData: (data: Partial<AppState>) => void;
-  exportData: () => AppState;
+  exportData: () => string;
   clearAllData: () => Promise<void>;
   getDecimalTransactions: () => any[]; // Returns DecimalTransaction[] for decimal calculations
   getDecimalAccounts: () => any[]; // Returns DecimalAccount[] for decimal calculations
@@ -88,6 +89,7 @@ export interface AppContextType extends AppState {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+const appLogger = createScopedLogger('AppContext');
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useUser();
@@ -118,10 +120,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setSyncError(null);
 
       try {
-        console.log('[AppContext] Initializing with user:', user?.id);
+        appLogger.info('Initializing app context', { userId: user?.id });
         // Initialize DataService with user info
         if (user) {
-          console.log('[AppContext] User found, initializing services');
+          appLogger.info('User found, initializing services');
           
           // Initialize userIdService first - this is now the single source of truth
           const databaseId = await userIdService.ensureUserExists(
@@ -130,9 +132,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             user.firstName || undefined,
             user.lastName || undefined
           );
-          
           if (databaseId) {
-            console.log('[AppContext] Database user ID resolved:', databaseId);
+            appLogger.info('Database user ID resolved', { databaseId });
             
             // Initialize AutoSync with the database ID ready
             await AutoSyncService.initialize(user.id);
@@ -143,20 +144,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               user.firstName || undefined,
               user.lastName || undefined
             );
-            
-            console.log('[AppContext] Loading app data...');
+            appLogger.info('Loading application data');
             
             // Use the database ID we just got - no need to fetch it again!
             const accounts = await SimpleAccountService.getAccounts(databaseId);
-            console.log('[AppContext] Accounts loaded:', accounts.length);
+            appLogger.info('Accounts loaded', { count: accounts.length });
             setAccounts(accounts);
           } else {
-            console.warn('[AppContext] Failed to resolve database user ID - no data will be loaded');
+            appLogger.warn('Failed to resolve database user ID - no data will be loaded');
             setAccounts([]);
           }
         } else {
           // No user logged in
-          console.log('[AppContext] No user logged in');
+          appLogger.info('No user logged in');
           setAccounts([]);
         }
         
@@ -185,7 +185,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (lastUpdateRef.current && 
                 lastUpdateRef.current.type === updateType && 
                 now - lastUpdateRef.current.timestamp < 1000) {
-              console.log(`[AppContext] Skipping duplicate ${updateType} update`);
+              appLogger.debug('Skipping duplicate real-time update', { updateType });
               return;
             }
             
@@ -205,19 +205,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const unsubscribeAccountsPromise = SimpleAccountService.subscribeToAccountChanges(
             user.id,
             async (payload) => {
-              console.log('[AppContext] Real-time account update received:', payload);
-              console.log('[AppContext] Update type:', payload.eventType);
+              appLogger.debug('Real-time account update received', payload);
+              appLogger.debug('Real-time account update type', { eventType: payload.eventType });
               
               // Handle different event types
               if (payload.eventType === 'UPDATE' && payload.new && !payload.new.is_active) {
-                console.log('[AppContext] Account was soft-deleted (is_active = false)');
+                appLogger.debug('Real-time account marked inactive');
               }
               
               debouncedUpdate('account', async () => {
-                console.log('[AppContext] Reloading accounts after real-time update');
+                appLogger.debug('Reloading accounts after real-time update');
                 // Reload accounts when any change happens
                 const updatedAccounts = await SimpleAccountService.getAccounts(user.id);
-                console.log('[AppContext] Updated accounts:', updatedAccounts.length, 'accounts');
+                appLogger.debug('Accounts reloaded', { count: updatedAccounts.length });
                 setAccounts(updatedAccounts);
                 setLastSyncTime(new Date());
                 
@@ -236,7 +236,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // Don't subscribe to accounts here - already handled by SimpleAccountService above
             // This prevents duplicate subscriptions and duplicate real-time events
             onTransactionUpdate: async (payload) => {
-              console.log('[AppContext] Transaction update:', payload);
+              appLogger.debug('Transaction update received', payload);
               
               debouncedUpdate('transaction', async () => {
                 // Reload transactions when any change happens
@@ -260,8 +260,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           };
         }
       } catch (error) {
-        console.error('[AppContext] Failed to initialize data:', error);
-        console.error('[AppContext] Error details:', {
+        appLogger.error('Failed to initialize data', error);
+        appLogger.error('Initialization details', {
           message: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined
         });
@@ -289,7 +289,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setLastSyncTime(new Date());
       setSyncError(null);
     } catch (error) {
-      console.error('Failed to refresh data:', error);
+      appLogger.error('Failed to refresh data', error);
       setSyncError('Failed to sync data');
     } finally {
       setIsSyncing(false);
@@ -299,7 +299,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Account operations
   const addAccount = useCallback(async (account: Omit<Account, 'id'> & { initialBalance?: number }) => {
     try {
-      console.log('[AppContext] Adding account:', account);
+      appLogger.info('Adding account', account);
       
       if (!user?.id) {
         throw new Error('User not authenticated');
@@ -314,7 +314,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       // Create in database directly and wait for response
       const newAccount = await SimpleAccountService.createAccount(user.id, accountToCreate);
-      console.log('[AppContext] Account created:', newAccount);
+      appLogger.info('Account created', newAccount);
       
       // Add to state
       setAccounts(prev => [...prev, newAccount]);
@@ -324,7 +324,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       return newAccount;
     } catch (error) {
-      console.error('[AppContext] Failed to add account:', error);
+      appLogger.error('Failed to add account', error);
       throw error;
     }
   }, [user]);
@@ -334,7 +334,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const updatedAccount = await DataService.updateAccount(id, updates);
       setAccounts(prev => prev.map(a => a.id === id ? updatedAccount : a));
     } catch (error) {
-      console.error('Failed to update account:', error);
+      appLogger.error('Failed to update account', error);
       throw error;
     }
   }, []);
@@ -346,7 +346,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // Also remove related transactions
       setTransactions(prev => prev.filter(t => t.accountId !== id));
     } catch (error) {
-      console.error('Failed to delete account:', error);
+      appLogger.error('Failed to delete account', error);
       throw error;
     }
   }, []);
@@ -368,7 +368,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return acc;
       }));
     } catch (error) {
-      console.error('Failed to add transaction:', error);
+      appLogger.error('Failed to add transaction', error);
       throw error;
     }
   }, []);
@@ -393,7 +393,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }));
       }
     } catch (error) {
-      console.error('Failed to update transaction:', error);
+      appLogger.error('Failed to update transaction', error);
       throw error;
     }
   }, [transactions]);
@@ -417,7 +417,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }));
       }
     } catch (error) {
-      console.error('Failed to delete transaction:', error);
+      appLogger.error('Failed to delete transaction', error);
       throw error;
     }
   }, [transactions]);
@@ -539,8 +539,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (data.recurringTransactions) setRecurringTransactions(data.recurringTransactions);
   }, []);
 
-  const exportData = useCallback((): AppState => {
-    return {
+  const exportData = useCallback((): string => {
+    const data = {
       accounts,
       transactions,
       budgets,
@@ -553,6 +553,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isUsingSupabase: true,
       hasTestData: false
     };
+    return JSON.stringify(data, null, 2);
   }, [accounts, transactions, budgets, goals, categories, tags, recurringTransactions]);
 
   const getDecimalTransactions = useCallback(() => {
@@ -578,6 +579,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setCategories(getDefaultCategories());
     setTags([]);
     setRecurringTransactions([]);
+  }, []);
+
+  const loadTestData = useCallback(() => {
+    // Load test data - this would be implemented with actual test data
+    appLogger.info('Loading test data');
   }, []);
 
   const value: AppContextType = {
@@ -638,7 +644,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     isSyncing,
     lastSyncTime,
     syncError,
-    isUsingSupabase
+    isUsingSupabase,
+    hasTestData: false,
+    loadTestData
   };
 
   // The value object is always defined, no need to check
@@ -649,7 +657,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 export function useApp() {
   const context = useContext(AppContext);
   if (context === undefined) {
-    console.error('useApp called outside of AppProvider');
+    appLogger.error('useApp called outside of AppProvider');
     throw new Error('useApp must be used within an AppProvider');
   }
   return context;

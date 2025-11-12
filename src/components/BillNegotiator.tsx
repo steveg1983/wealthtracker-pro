@@ -89,7 +89,7 @@ export default function BillNegotiator() {
             return (
               <div
                 key={suggestion.merchant}
-                className={`bg-white dark:bg-gray-800 rounded-xl p-6 border ${
+                className={`bg-[#d4dce8] dark:bg-gray-800 rounded-xl p-6 border ${
                   isCompleted 
                     ? 'border-green-200 dark:border-green-800 opacity-75' 
                     : 'border-gray-200 dark:border-gray-700'

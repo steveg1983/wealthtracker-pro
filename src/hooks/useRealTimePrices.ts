@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { realTimePriceService, type PriceUpdate } from '../services/realtimePriceService';
+import { realTimePriceService } from '../services/realtimePriceServiceInstance';
+import type { PriceUpdate } from '../services/realtimePriceService';
 import type { StockQuote } from '../services/stockPriceService';
+import type { JsonValue } from '../types/common';
 
 interface UseRealTimePricesOptions {
   symbols: string[];
@@ -70,9 +72,12 @@ export function useRealTimePrices({
     }, 60000); // Check every minute
 
     // Handle errors
-    const handleError = ({ symbol, error }: { symbol: string; error: Error }) => {
-      setError(`Failed to fetch price for ${symbol}: ${error.message}`);
-      setIsLoading(false);
+    const handleError = (data: JsonValue) => {
+      if (data && typeof data === 'object' && !Array.isArray(data) && 'symbol' in data && 'error' in data) {
+        const errorData = data as { symbol: string; error: { message: string } };
+        setError(`Failed to fetch price for ${errorData.symbol}: ${errorData.error.message}`);
+        setIsLoading(false);
+      }
     };
 
     realTimePriceService.on('error', handleError);

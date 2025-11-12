@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApp } from '../contexts/AppContextSupabase';
+import { toast } from 'react-hot-toast';
 
 interface KeyboardShortcut {
   key: string;
@@ -40,11 +41,10 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
 
   const navigate = useNavigate();
   const location = useLocation();
-  const { 
-    transactions, 
-    accounts, 
-    categories,
-    showToast 
+  const {
+    transactions,
+    accounts,
+    categories
   } = useApp();
   
   const [isCommandMode, setIsCommandMode] = useState(false);
@@ -138,7 +138,7 @@ export function useKeyboardNavigation(options: KeyboardNavigationOptions = {}) {
       description: 'Save/Sync',
       category: 'actions',
       action: () => {
-        showToast?.('Data synced', 'success');
+        toast.success('Data synced');
       }
     },
     

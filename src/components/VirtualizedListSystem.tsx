@@ -56,7 +56,7 @@ export function VirtualizedList<T>({
 }: VirtualizedListProps<T>): React.JSX.Element {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollPositionRef = useRef(0);
-  const listRef = useRef<FixedSizeList | VariableSizeList>(null);
+  const listRef = useRef<FixedSizeList | VariableSizeList | null>(null);
 
   // Determine if we should use fixed or variable size list
   const isFixedHeight = typeof itemHeight === 'number';
@@ -110,8 +110,8 @@ export function VirtualizedList<T>({
       }
       if (typeof loaderRef === 'function') {
         loaderRef(instance);
-      } else {
-        loaderRef.current = instance;
+      } else if ('current' in loaderRef) {
+        (loaderRef as MutableRefObject<FixedSizeList | VariableSizeList | null>).current = instance;
       }
     },
     []
@@ -492,13 +492,13 @@ export function VirtualizedDropdown<T>({
     <div ref={dropdownRef} className={`relative ${className}`}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 text-left bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500"
+        className="w-full px-4 py-2 text-left bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:border-gray-400 dark:hover:border-gray-500"
       >
         {value ? renderOption(value) : <span className="text-gray-500">{placeholder}</span>}
       </button>
 
       {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden">
+        <div className="absolute z-50 w-full mt-1 bg-[#d4dce8] dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg overflow-hidden">
           {searchable && (
             <input
               type="text"

@@ -1,6 +1,43 @@
 import smartCache from './smartCacheService';
 
-interface PredictionRule {
+type StorageAdapter = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+
+interface BandwidthInfo {
+  effectiveType?: string;
+  saveData?: boolean;
+}
+
+type Logger = Pick<Console, 'warn'>;
+
+interface WindowLike {
+  location?: { pathname: string };
+  innerWidth?: number;
+}
+
+interface NavigatorLike {
+  connection?: {
+    effectiveType?: string;
+    saveData?: boolean;
+    addEventListener?: (type: string, listener: () => void) => void;
+    removeEventListener?: (type: string, listener: () => void) => void;
+  };
+}
+
+export interface PredictiveLoadingServiceOptions {
+  storage?: StorageAdapter | null;
+  bandwidthDetector?: () => BandwidthInfo | undefined;
+  setIntervalFn?: typeof setInterval;
+  clearIntervalFn?: typeof clearInterval;
+  analyticsFlushInterval?: number;
+  intersectionObserverFactory?: typeof IntersectionObserver;
+  fetchFn?: typeof fetch;
+  windowRef?: WindowLike | null;
+  navigatorRef?: NavigatorLike | null;
+  logger?: Logger;
+  now?: () => Date;
+}
+
+export interface PredictionRule {
   id: string;
   condition: (context: NavigationContext) => boolean;
   predictions: Prediction[];
@@ -8,7 +45,7 @@ interface PredictionRule {
   confidence: number;
 }
 
-interface Prediction {
+export interface Prediction {
   type: 'page' | 'data' | 'component' | 'image';
   target: string;
   loader: () => Promise<any>;
@@ -16,7 +53,7 @@ interface Prediction {
   ttl?: number;
 }
 
-interface NavigationContext {
+export interface NavigationContext {
   currentPath: string;
   previousPath?: string;
   userRole?: string;
@@ -27,7 +64,7 @@ interface NavigationContext {
   deviceType: 'mobile' | 'tablet' | 'desktop';
 }
 
-interface UserPattern {
+export interface UserPattern {
   sequence: string[];
   count: number;
   lastSeen: Date;
@@ -43,7 +80,7 @@ interface UserPattern {
  * 4. Bandwidth-aware loading
  * 5. Machine learning ready
  */
-class PredictiveLoadingService {
+export class PredictiveLoadingService {
   private rules: Map<string, PredictionRule>;
   private userPatterns: Map<string, UserPattern>;
   private loadingQueue: Map<string, Promise<any>>;
@@ -52,19 +89,56 @@ class PredictiveLoadingService {
   private prefetchObserver?: IntersectionObserver;
   private hoverTimeout?: NodeJS.Timeout;
   private analyticsQueue: any[];
+  private storage?: StorageAdapter | null;
+  private setIntervalFn: typeof setInterval;
+  private clearIntervalFn: typeof clearInterval;
+  private analyticsFlushTimer?: ReturnType<typeof setInterval>;
+  private analyticsFlushInterval: number;
+  private bandwidthDetector?: () => BandwidthInfo | undefined;
+  private intersectionObserverFactory?: typeof IntersectionObserver;
+  private connectionChangeCleanup?: () => void;
+  private fetchFn: typeof fetch;
+  private windowRef: WindowLike | null;
+  private navigatorRef: NavigatorLike | null;
+  private logger: Logger;
+  private readonly nowProvider: () => Date;
 
-  constructor() {
+  constructor(options: PredictiveLoadingServiceOptions = {}) {
     this.rules = new Map();
     this.userPatterns = new Map();
     this.loadingQueue = new Map();
     this.resourceBudget = 5; // Max concurrent preloads
     this.isLowBandwidth = false;
     this.analyticsQueue = [];
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    this.setIntervalFn = options.setIntervalFn ?? globalThis.setInterval;
+    this.clearIntervalFn = options.clearIntervalFn ?? globalThis.clearInterval;
+    this.analyticsFlushInterval = options.analyticsFlushInterval ?? 30_000;
+    this.bandwidthDetector = options.bandwidthDetector;
+    this.intersectionObserverFactory = options.intersectionObserverFactory ?? (typeof IntersectionObserver !== 'undefined' ? IntersectionObserver : undefined);
+    const defaultFetch = typeof fetch !== 'undefined' ? fetch.bind(globalThis) : undefined;
+    this.fetchFn = options.fetchFn ?? defaultFetch ?? (() => {
+      throw new Error('Fetch API is not available and no fetchFn override was provided.');
+    });
+    this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
+    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {}))
+    };
+    this.nowProvider = options.now ?? (() => new Date());
 
     this.initializeRules();
     this.loadUserPatterns();
     this.detectBandwidth();
     this.setupPrefetchObserver();
+    this.startAnalyticsQueueFlush();
+  }
+
+  private startAnalyticsQueueFlush() {
+    this.analyticsFlushTimer = this.setIntervalFn(() => {
+      this.flushAnalyticsQueue();
+    }, this.analyticsFlushInterval);
   }
 
   /**
@@ -263,7 +337,7 @@ class PredictiveLoadingService {
   /**
    * Preload a resource
    */
-  private async preload(prediction: Prediction) {
+  public async preload(prediction: Prediction) {
     const key = `${prediction.type}:${prediction.target}`;
     
     // Check if already loading or loaded
@@ -281,7 +355,7 @@ class PredictiveLoadingService {
         return data;
       })
       .catch(error => {
-        console.warn(`Failed to preload ${key}:`, error);
+        this.logger.warn(`Failed to preload ${key}: ${(error as Error).message ?? error}`);
         this.trackPredictionFailure(prediction);
       })
       .finally(() => {
@@ -336,9 +410,10 @@ class PredictiveLoadingService {
    * Setup intersection observer for viewport-based prefetching
    */
   private setupPrefetchObserver() {
-    if (typeof IntersectionObserver === 'undefined') return;
+    const Observer = this.intersectionObserverFactory;
+    if (!Observer) return;
 
-    this.prefetchObserver = new IntersectionObserver(
+    this.prefetchObserver = new Observer(
       (entries) => {
         entries.forEach(entry => {
           if (entry.isIntersecting) {
@@ -424,36 +499,51 @@ class PredictiveLoadingService {
    * Detect bandwidth and adjust strategy
    */
   private detectBandwidth() {
-    if ('connection' in navigator) {
-      const connection = (navigator as any).connection;
-      
-      // Check effective type
-      if (connection.effectiveType) {
-        this.isLowBandwidth = ['slow-2g', '2g'].includes(connection.effectiveType);
-      }
+    if (this.bandwidthDetector) {
+      this.applyBandwidthInfo(this.bandwidthDetector());
+      return;
+    }
 
-      // Listen for changes
-      connection.addEventListener('change', () => {
-        this.isLowBandwidth = ['slow-2g', '2g'].includes(connection.effectiveType);
-        
-        if (this.isLowBandwidth) {
-          // Cancel pending preloads
-          this.loadingQueue.clear();
-        }
+    if (this.navigatorRef?.connection) {
+      const connection = this.navigatorRef.connection;
+      const updateBandwidthInfo = () => {
+        this.applyBandwidthInfo({
+          effectiveType: connection.effectiveType,
+          saveData: connection.saveData
+        });
+      };
+
+      connection.addEventListener?.('change', updateBandwidthInfo);
+      this.connectionChangeCleanup = () => {
+        connection.removeEventListener?.('change', updateBandwidthInfo);
+      };
+      updateBandwidthInfo();
+      return;
+    }
+
+    if (this.navigatorRef?.connection?.saveData) {
+      this.applyBandwidthInfo({
+        saveData: true
       });
     }
+  }
 
-    // Also check save data preference
-    if ('connection' in navigator && (navigator as any).connection.saveData) {
-      this.isLowBandwidth = true;
+  private applyBandwidthInfo(info?: BandwidthInfo) {
+    if (!info) return;
+    const shouldThrottle = Boolean(info.saveData) || ['slow-2g', '2g'].includes(info.effectiveType ?? '');
+    
+    if (shouldThrottle && !this.isLowBandwidth) {
+      this.loadingQueue.clear();
     }
+
+    this.isLowBandwidth = shouldThrottle;
   }
 
   // Helper methods
 
   private async preloadPage(path: string): Promise<void> {
     // Simulate page preload - in production, use actual routing preload
-    const response = await fetch(path, { 
+    const response = await this.fetchFn(path, { 
       method: 'HEAD',
       credentials: 'same-origin'
     });
@@ -465,7 +555,7 @@ class PredictiveLoadingService {
 
   private async fetchData(target: string): Promise<any> {
     // Generic data fetcher - implement based on your API
-    const response = await fetch(`/api/${target}`);
+    const response = await this.fetchFn(`/api/${target}`);
     return response.json();
   }
 
@@ -535,24 +625,42 @@ class PredictiveLoadingService {
     });
   }
 
+  private flushAnalyticsQueue() {
+    if (!this.analyticsQueue.length) return;
+    // Placeholder for future analytics pipeline; for now, keep queue bounded
+    this.analyticsQueue = [];
+  }
+
   private loadUserPatterns() {
+    if (!this.storage) return;
     try {
-      const saved = localStorage.getItem('userNavigationPatterns');
+      const saved = this.storage.getItem('userNavigationPatterns');
       if (saved) {
         const patterns = JSON.parse(saved);
-        this.userPatterns = new Map(Object.entries(patterns));
+        const entries = Object.entries(patterns).map(([key, value]) => {
+          const pattern = value as UserPattern & { lastSeen?: string | Date };
+          return [
+            key,
+            {
+              ...pattern,
+              lastSeen: pattern.lastSeen ? new Date(pattern.lastSeen) : this.nowProvider()
+            }
+          ] as const;
+        });
+        this.userPatterns = new Map(entries);
       }
     } catch (e) {
-      console.warn('Failed to load user patterns:', e);
+      this.logger.warn('Failed to load user patterns:', e as Error);
     }
   }
 
   private saveUserPatterns() {
+    if (!this.storage) return;
     try {
       const patterns = Object.fromEntries(this.userPatterns);
-      localStorage.setItem('userNavigationPatterns', JSON.stringify(patterns));
+      this.storage.setItem('userNavigationPatterns', JSON.stringify(patterns));
     } catch (e) {
-      console.warn('Failed to save user patterns:', e);
+      this.logger.warn('Failed to save user patterns:', e as Error);
     }
   }
 
@@ -560,7 +668,7 @@ class PredictiveLoadingService {
    * Get current context
    */
   getCurrentContext(): NavigationContext {
-    const now = new Date();
+    const now = this.nowProvider();
     const hour = now.getHours();
     
     let timeOfDay: NavigationContext['timeOfDay'];
@@ -573,7 +681,7 @@ class PredictiveLoadingService {
     const isMonthEnd = now.getDate() >= lastDayOfMonth - 3;
 
     return {
-      currentPath: window.location.pathname,
+      currentPath: this.windowRef?.location?.pathname ?? '/',
       timeOfDay,
       dayOfWeek: now.getDay(),
       isMonthEnd,
@@ -583,10 +691,35 @@ class PredictiveLoadingService {
   }
 
   private getDeviceType(): 'mobile' | 'tablet' | 'desktop' {
-    const width = window.innerWidth;
+    const width = this.windowRef?.innerWidth ?? 1280;
     if (width < 768) return 'mobile';
     if (width < 1024) return 'tablet';
     return 'desktop';
+  }
+
+  dispose(): void {
+    this.loadingQueue.forEach(promise => {
+      void promise;
+    });
+    this.loadingQueue.clear();
+    this.rules.clear();
+    this.userPatterns.clear();
+    if (this.prefetchObserver) {
+      this.prefetchObserver.disconnect();
+      this.prefetchObserver = undefined;
+    }
+    if (this.hoverTimeout) {
+      clearTimeout(this.hoverTimeout);
+      this.hoverTimeout = undefined;
+    }
+    if (this.analyticsFlushTimer) {
+      this.clearIntervalFn(this.analyticsFlushTimer);
+      this.analyticsFlushTimer = undefined;
+    }
+    if (this.connectionChangeCleanup) {
+      this.connectionChangeCleanup();
+      this.connectionChangeCleanup = undefined;
+    }
   }
 }
 

@@ -10,6 +10,8 @@ import NetWorthWidget from './NetWorthWidget';
 import { useApp } from '../../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../../hooks/useCurrencyDecimal';
 import { toDecimal } from '../../utils/decimal';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 import type { Account, Transaction } from '../../types';
 import type { DecimalAccount, DecimalTransaction } from '../../types/decimal-types';
 
@@ -77,13 +79,16 @@ const mockUseApp = useApp as Mock;
 const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
 
 describe('NetWorthWidget', () => {
-  const mockFormatCurrency = vi.fn((amount: any) => {
-    const value = typeof amount === 'number'
-      ? amount
-      : typeof amount?.toNumber === 'function'
-        ? amount.toNumber()
-        : Number(amount);
-    return `£${value.toFixed(2)}`;
+  const formatGBP = (value: number) => formatCurrencyDecimal(value, 'GBP');
+
+  const mockFormatCurrency = vi.fn((amount: any, currency: string = 'GBP') => {
+    const value =
+      typeof amount === 'number'
+        ? amount
+        : typeof amount?.toNumber === 'function'
+          ? amount.toNumber()
+          : Number(amount);
+    return formatCurrencyDecimal(value, currency);
   });
 
   const mockAccounts: Account[] = [
@@ -190,7 +195,7 @@ describe('NetWorthWidget', () => {
       render(<NetWorthWidget size="small" settings={{}} />);
       
       // Should display formatted net worth
-      expect(screen.getByText('£18000.00')).toBeInTheDocument(); // 5000 + 15000 - 2000 = 18000
+      expect(screen.getByText(formatGBP(18000))).toBeInTheDocument(); // 5000 + 15000 - 2000 = 18000
       
       // Should show trending icon and change
       const trendingIcon = screen.getByTestId(/trending-(up|down)-icon/);
@@ -253,10 +258,10 @@ describe('NetWorthWidget', () => {
     it('applies correct styling classes', () => {
       render(<NetWorthWidget size="small" settings={{}} />);
       
-      const container = screen.getByText('£18000.00').parentElement;
+      const container = screen.getByText(formatGBP(18000)).parentElement;
       expect(container).toHaveClass('text-center');
       
-      const netWorthElement = screen.getByText('£18000.00');
+      const netWorthElement = screen.getByText(formatGBP(18000));
       expect(netWorthElement).toHaveClass('text-2xl', 'font-bold', 'text-gray-900', 'dark:text-white', 'mb-2');
     });
 
@@ -273,7 +278,7 @@ describe('NetWorthWidget', () => {
       render(<NetWorthWidget size="medium" settings={{}} />);
       
       // Should display formatted net worth
-      expect(screen.getByText('£18000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(18000))).toBeInTheDocument();
       
       // Should show trending icon
       const trendingIcon = screen.getByTestId(/trending-(up|down)-icon/);
@@ -285,7 +290,7 @@ describe('NetWorthWidget', () => {
       render(<NetWorthWidget size="medium" settings={{}} />);
       
       // Should show percentage change (pattern matches like "(+5.23%)" or "(-2.15%)")
-      const container = screen.getByText('£18000.00').parentElement;
+      const container = screen.getByText(formatGBP(18000)).parentElement;
       expect(container?.textContent).toMatch(/\([+-]?\d+\.\d{2}%\)/);
     });
 
@@ -296,7 +301,7 @@ describe('NetWorthWidget', () => {
       const rootContainer = container.firstChild as HTMLElement;
       expect(rootContainer).toHaveClass('h-full', 'flex', 'flex-col');
       
-      const netWorthElement = screen.getByText('£18000.00');
+      const netWorthElement = screen.getByText(formatGBP(18000));
       expect(netWorthElement).toHaveClass('text-3xl', 'font-bold', 'text-gray-900', 'dark:text-white');
     });
 
@@ -313,7 +318,7 @@ describe('NetWorthWidget', () => {
       render(<NetWorthWidget size="large" settings={{}} />);
       
       // Should display formatted net worth
-      expect(screen.getByText('£18000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(18000))).toBeInTheDocument();
       
       // Should show chart components
       expect(screen.getByTestId('responsive-container')).toBeInTheDocument();
@@ -413,7 +418,7 @@ describe('NetWorthWidget', () => {
       render(<NetWorthWidget {...defaultProps} />);
       
       // Net worth = 5000 + 15000 + (-2000) = 18000
-      expect(screen.getByText('£18000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(18000))).toBeInTheDocument();
     });
 
     it('handles empty accounts', () => {
@@ -424,7 +429,7 @@ describe('NetWorthWidget', () => {
 
       render(<NetWorthWidget {...defaultProps} />);
       
-      expect(screen.getByText('£0.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(0))).toBeInTheDocument();
     });
 
     it('handles empty transactions', () => {
@@ -436,7 +441,7 @@ describe('NetWorthWidget', () => {
       render(<NetWorthWidget {...defaultProps} />);
       
       // Should still calculate based on account balances
-      expect(screen.getByText('£18000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(18000))).toBeInTheDocument();
     });
 
     it('handles accounts with negative balances', () => {
@@ -458,7 +463,7 @@ describe('NetWorthWidget', () => {
 
       render(<NetWorthWidget {...defaultProps} />);
       
-      expect(screen.getByText('£-3000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(-3000))).toBeInTheDocument();
     });
 
     it('handles large amounts', () => {
@@ -476,7 +481,7 @@ describe('NetWorthWidget', () => {
 
       render(<NetWorthWidget {...defaultProps} />);
       
-      expect(screen.getByText('£1000000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(1000000))).toBeInTheDocument();
     });
   });
 
@@ -491,7 +496,7 @@ describe('NetWorthWidget', () => {
       
       // With no transactions, change should be based on historical calculation
       // which would likely show some change due to the algorithm
-      const container = screen.getByText('£18000.00').parentElement;
+      const container = screen.getByText(formatGBP(18000)).parentElement;
       expect(container).toBeInTheDocument();
     });
 
@@ -499,7 +504,7 @@ describe('NetWorthWidget', () => {
       render(<NetWorthWidget size="medium" settings={{}} />);
       
       // Should show percentage change in parentheses
-      const container = screen.getByText('£18000.00').parentElement;
+      const container = screen.getByText(formatGBP(18000)).parentElement;
       expect(container?.textContent).toMatch(/\([+-]?\d+\.\d{2}%\)/);
     });
 
@@ -527,7 +532,7 @@ describe('NetWorthWidget', () => {
       render(<NetWorthWidget size="medium" settings={{}} />);
       
       // Should show plus sign for positive change
-      const container = screen.getByText('£18000.00').parentElement;
+      const container = screen.getByText(formatGBP(18000)).parentElement;
       const hasPositiveChange = container?.textContent?.includes('+');
       expect(hasPositiveChange).toBe(true);
     });
@@ -538,7 +543,7 @@ describe('NetWorthWidget', () => {
       const { rerender, container } = render(<NetWorthWidget size="small" settings={{}} />);
       
       // Small size should be centered
-      const textContainer = screen.getByText('£18000.00').parentElement;
+      const textContainer = screen.getByText(formatGBP(18000)).parentElement;
       expect(textContainer).toHaveClass('text-center');
       
       rerender(<NetWorthWidget size="medium" settings={{}} />);
@@ -565,7 +570,7 @@ describe('NetWorthWidget', () => {
       render(<NetWorthWidget size="large" settings={customSettings} />);
       
       // Should still render normally regardless of settings
-      expect(screen.getByText('£18000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(18000))).toBeInTheDocument();
     });
   });
 
@@ -581,7 +586,7 @@ describe('NetWorthWidget', () => {
       }).not.toThrow();
       
       // Should show zero
-      expect(screen.getByText('£0.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(0))).toBeInTheDocument();
     });
 
     it('handles invalid transaction data gracefully', () => {
@@ -595,7 +600,7 @@ describe('NetWorthWidget', () => {
       }).not.toThrow();
       
       // Should still show account balances
-      expect(screen.getByText('£18000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(18000))).toBeInTheDocument();
     });
   });
 
@@ -616,7 +621,7 @@ describe('NetWorthWidget', () => {
       expect(getDecimalTransactionsMock).toHaveBeenCalled();
       
       // Check that the component renders correctly (indicating memoization is working)
-      expect(screen.getByText('£18000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatGBP(18000))).toBeInTheDocument();
     });
   });
 });

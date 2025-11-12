@@ -26,19 +26,109 @@ import type {
   SubscriptionProduct
 } from '../types/subscription';
 
+type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type Logger = Pick<Console, 'warn' | 'error'>;
+
+interface StripeServiceDependencies {
+  fetch?: FetchLike | null;
+  loadStripe?: typeof loadStripe;
+  apiBaseUrl?: string | null;
+  locationOrigin?: string | null;
+  publishableKey?: string | null;
+  premiumPriceId?: string | null;
+  proPriceId?: string | null;
+  logger?: Logger;
+}
+
+interface NormalizedDependencies {
+  fetch: FetchLike | null;
+  loadStripe: typeof loadStripe;
+  apiBaseUrl: string;
+  locationOrigin: string;
+  publishableKey: string;
+  premiumPriceId: string;
+  proPriceId: string;
+  logger: Logger;
+}
+
 export class StripeService {
   private static stripe: Promise<Stripe | null> | null = null;
+  private static dependencies: NormalizedDependencies = StripeService.getDefaultDependencies();
+  
+  static configure(overrides: StripeServiceDependencies = {}): void {
+    const normalized = StripeService.normalizeOverrides(overrides);
+    this.dependencies = { ...this.dependencies, ...normalized };
+    if (overrides.publishableKey !== undefined || overrides.loadStripe !== undefined) {
+      this.stripe = null;
+    }
+  }
+
+  static resetForTesting(): void {
+    this.dependencies = StripeService.getDefaultDependencies();
+    this.stripe = null;
+  }
+
+  private static getDefaultDependencies(): NormalizedDependencies {
+    const globalFetch =
+      typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null;
+    const locationOrigin =
+      typeof window !== 'undefined' && window.location ? window.location.origin : 'http://localhost:3000';
+    const env = typeof import.meta !== 'undefined' ? import.meta.env ?? {} : {};
+    const logger = typeof console !== 'undefined' ? console : { warn: () => {}, error: () => {} };
+
+    return {
+      fetch: globalFetch,
+      loadStripe,
+      apiBaseUrl: env.VITE_API_BASE_URL ?? env.VITE_API_URL ?? 'http://localhost:3000',
+      locationOrigin,
+      publishableKey: env.VITE_STRIPE_PUBLISHABLE_KEY ?? '',
+      premiumPriceId: env.VITE_STRIPE_PREMIUM_PRICE_ID ?? env.STRIPE_PREMIUM_PRICE_ID ?? '',
+      proPriceId: env.VITE_STRIPE_PRO_PRICE_ID ?? env.STRIPE_PRO_PRICE_ID ?? '',
+      logger
+    };
+  }
+
+  private static normalizeOverrides(overrides: StripeServiceDependencies): Partial<NormalizedDependencies> {
+    const normalized: Partial<NormalizedDependencies> = {};
+    if (overrides.fetch !== undefined) {
+      normalized.fetch = overrides.fetch;
+    }
+    if (overrides.loadStripe !== undefined) {
+      normalized.loadStripe = overrides.loadStripe!;
+    }
+    if (overrides.apiBaseUrl !== undefined) {
+      normalized.apiBaseUrl = overrides.apiBaseUrl ?? '';
+    }
+    if (overrides.locationOrigin !== undefined) {
+      normalized.locationOrigin = overrides.locationOrigin ?? '';
+    }
+    if (overrides.publishableKey !== undefined) {
+      normalized.publishableKey = overrides.publishableKey ?? '';
+    }
+    if (overrides.premiumPriceId !== undefined) {
+      normalized.premiumPriceId = overrides.premiumPriceId ?? '';
+    }
+    if (overrides.proPriceId !== undefined) {
+      normalized.proPriceId = overrides.proPriceId ?? '';
+    }
+    if (overrides.logger !== undefined) {
+      normalized.logger = overrides.logger;
+    }
+    return normalized;
+  }
   
   /**
    * Initialize Stripe with publishable key
    */
   static getStripe(): Promise<Stripe | null> {
     if (!this.stripe) {
-      const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY;
-      if (!publishableKey) {
-        throw new Error('Stripe publishable key not found in environment variables');
+      const publishableKey = this.dependencies.publishableKey;
+      if (!publishableKey || publishableKey === '') {
+        this.dependencies.logger.warn('Stripe publishable key not configured - payment features will be disabled');
+        this.stripe = Promise.resolve(null);
+        return this.stripe;
       }
-      this.stripe = loadStripe(publishableKey);
+      this.stripe = this.dependencies.loadStripe(publishableKey);
     }
     return this.stripe;
   }
@@ -82,7 +172,7 @@ export class StripeService {
         price: 7.99,
         currency: 'gbp',
         interval: 'month',
-        stripePriceId: import.meta.env.STRIPE_PREMIUM_PRICE_ID || '',
+        stripePriceId: this.dependencies.premiumPriceId || '',
         features: [
           'Unlimited accounts',
           'Unlimited transactions',
@@ -112,7 +202,7 @@ export class StripeService {
         price: 15.99,
         currency: 'gbp',
         interval: 'month',
-        stripePriceId: import.meta.env.STRIPE_PRO_PRICE_ID || '',
+        stripePriceId: this.dependencies.proPriceId || '',
         features: [
           'Everything in Premium',
           'API access',
@@ -197,7 +287,8 @@ export class StripeService {
     clerkToken: string
   ): Promise<{ sessionId: string; url: string }> {
     try {
-      const response = await fetch('http://localhost:3000/api/subscriptions/create-checkout', {
+      const fetchFn = this.ensureFetch();
+      const response = await fetchFn(this.resolveUrl('/api/subscriptions/create-checkout'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -205,8 +296,8 @@ export class StripeService {
         },
         body: JSON.stringify({
           planType,
-          successUrl: `${window.location.origin}/subscription?success=true`,
-          cancelUrl: `${window.location.origin}/subscription`
+          successUrl: `${this.dependencies.locationOrigin}/subscription?success=true`,
+          cancelUrl: `${this.dependencies.locationOrigin}/subscription`
         }),
       });
 
@@ -218,7 +309,7 @@ export class StripeService {
       const data = await response.json();
       return data.data;
     } catch (error) {
-      console.error('Error creating checkout session:', error);
+      this.dependencies.logger.error('Error creating checkout session:', error);
       throw error;
     }
   }
@@ -241,7 +332,8 @@ export class StripeService {
     request: UpdateSubscriptionRequest
   ): Promise<UserSubscription> {
     try {
-      const response = await fetch(`/api/subscriptions/${subscriptionId}`, {
+      const fetchFn = this.ensureFetch();
+      const response = await fetchFn(this.resolveUrl(`/api/subscriptions/${subscriptionId}`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -255,7 +347,7 @@ export class StripeService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error updating subscription:', error);
+      this.dependencies.logger.error('Error updating subscription:', error);
       throw error;
     }
   }
@@ -278,8 +370,9 @@ export class StripeService {
     newPriceId: string
   ): Promise<SubscriptionPreview> {
     try {
-      const response = await fetch(
-        `/api/subscriptions/${subscriptionId}/preview?priceId=${newPriceId}`
+      const fetchFn = this.ensureFetch();
+      const response = await fetchFn(
+        this.resolveUrl(`/api/subscriptions/${subscriptionId}/preview?priceId=${encodeURIComponent(newPriceId)}`)
       );
 
       if (!response.ok) {
@@ -288,7 +381,7 @@ export class StripeService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting subscription preview:', error);
+      this.dependencies.logger.error('Error getting subscription preview:', error);
       throw error;
     }
   }
@@ -300,11 +393,12 @@ export class StripeService {
     try {
       // If no token provided, we can't make the request
       if (!clerkToken) {
-        console.warn('No authentication token provided');
+        this.dependencies.logger.warn('No authentication token provided');
         return null;
       }
 
-      const response = await fetch('http://localhost:3000/api/subscriptions/status', {
+      const fetchFn = this.ensureFetch();
+      const response = await fetchFn(this.resolveUrl('/api/subscriptions/status'), {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${clerkToken}`
@@ -332,12 +426,15 @@ export class StripeService {
           currentPeriodStart: data.data.currentPeriodStart,
           currentPeriodEnd: data.data.currentPeriodEnd,
           trialEnd: data.data.trialEnd,
-          cancelAtPeriodEnd: data.data.cancelAtPeriodEnd
+          cancelAtPeriodEnd: data.data.cancelAtPeriodEnd,
+          billingPeriod: 'monthly',
+          createdAt: new Date(),
+          updatedAt: new Date()
         };
       }
       return null;
     } catch (error) {
-      console.error('Error getting current subscription:', error);
+      this.dependencies.logger.error('Error getting current subscription:', error);
       throw error;
     }
   }
@@ -347,7 +444,8 @@ export class StripeService {
    */
   static async getBillingHistory(): Promise<BillingHistory> {
     try {
-      const response = await fetch('/api/billing/history');
+      const fetchFn = this.ensureFetch();
+      const response = await fetchFn(this.resolveUrl('/api/billing/history'));
 
       if (!response.ok) {
         throw new Error(`Failed to get billing history: ${response.statusText}`);
@@ -355,7 +453,7 @@ export class StripeService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error getting billing history:', error);
+      this.dependencies.logger.error('Error getting billing history:', error);
       throw error;
     }
   }
@@ -365,7 +463,8 @@ export class StripeService {
    */
   static async addPaymentMethod(paymentMethodId: string): Promise<PaymentMethod> {
     try {
-      const response = await fetch('/api/billing/payment-methods', {
+      const fetchFn = this.ensureFetch();
+      const response = await fetchFn(this.resolveUrl('/api/billing/payment-methods'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -379,7 +478,7 @@ export class StripeService {
 
       return await response.json();
     } catch (error) {
-      console.error('Error adding payment method:', error);
+      this.dependencies.logger.error('Error adding payment method:', error);
       throw error;
     }
   }
@@ -389,7 +488,8 @@ export class StripeService {
    */
   static async setDefaultPaymentMethod(paymentMethodId: string): Promise<void> {
     try {
-      const response = await fetch(`/api/billing/payment-methods/${paymentMethodId}/default`, {
+      const fetchFn = this.ensureFetch();
+      const response = await fetchFn(this.resolveUrl(`/api/billing/payment-methods/${paymentMethodId}/default`), {
         method: 'PUT',
       });
 
@@ -397,7 +497,7 @@ export class StripeService {
         throw new Error(`Failed to set default payment method: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Error setting default payment method:', error);
+      this.dependencies.logger.error('Error setting default payment method:', error);
       throw error;
     }
   }
@@ -407,7 +507,8 @@ export class StripeService {
    */
   static async removePaymentMethod(paymentMethodId: string): Promise<void> {
     try {
-      const response = await fetch(`/api/billing/payment-methods/${paymentMethodId}`, {
+      const fetchFn = this.ensureFetch();
+      const response = await fetchFn(this.resolveUrl(`/api/billing/payment-methods/${paymentMethodId}`), {
         method: 'DELETE',
       });
 
@@ -415,7 +516,7 @@ export class StripeService {
         throw new Error(`Failed to remove payment method: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Error removing payment method:', error);
+      this.dependencies.logger.error('Error removing payment method:', error);
       throw error;
     }
   }
@@ -425,7 +526,8 @@ export class StripeService {
    */
   static async createPortalSession(): Promise<string> {
     try {
-      const response = await fetch('/api/billing/portal', {
+      const fetchFn = this.ensureFetch();
+      const response = await fetchFn(this.resolveUrl('/api/billing/portal'), {
         method: 'POST',
       });
 
@@ -436,7 +538,7 @@ export class StripeService {
       const { url } = await response.json();
       return url;
     } catch (error) {
-      console.error('Error creating portal session:', error);
+      this.dependencies.logger.error('Error creating portal session:', error);
       throw error;
     }
   }
@@ -451,7 +553,7 @@ export class StripeService {
   /**
    * Get plan by tier
    */
-  static getPlanByTier(tier: SubscriptionTier): any | undefined {
+  static getPlanByTier(tier: SubscriptionPlan): any | undefined {
     return this.getSubscriptionPlans().find(plan => plan.tier === tier);
   }
 
@@ -473,6 +575,27 @@ export class StripeService {
     const currentIndex = tierOrder.indexOf(currentTier);
     const newIndex = tierOrder.indexOf(newTier);
     return newIndex < currentIndex;
+  }
+
+  private static ensureFetch(): FetchLike {
+    if (!this.dependencies.fetch) {
+      throw new Error('Fetch API is not available. Provide a fetch implementation via StripeService.configure.');
+    }
+    return this.dependencies.fetch;
+  }
+
+  private static resolveUrl(path: string): string {
+    if (/^https?:\/\//i.test(path)) {
+      return path;
+    }
+    const base = (this.dependencies.apiBaseUrl ?? '').replace(/\/+$/, '');
+    if (!path) {
+      return base;
+    }
+    if (path.startsWith('/')) {
+      return `${base}${path}`;
+    }
+    return `${base}/${path}`;
   }
 }
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Account, Category } from '../types';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 
 // Mock child components
 vi.mock('./CategoryCreationModal', () => ({
@@ -20,10 +21,17 @@ vi.mock('./icons', () => ({
   TagIcon: (_props: { size?: number }) => <div data-testid="tag-icon">Tag</div>,
 }));
 
-// Mock utility functions
-vi.mock('../utils/currency', () => ({
-  formatCurrency: (amount: number, currency: string) => `${currency} ${amount.toFixed(2)}`,
-}));
+// Mock utility functions to align with Decimal formatting
+vi.mock('../utils/currency', async () => {
+  const actual = await vi.importActual<typeof import('../utils/currency')>('../utils/currency');
+  return {
+    ...actual,
+    formatCurrency: (amount: number, currency: string) =>
+      formatCurrencyDecimal(amount, currency),
+    formatDisplayCurrency: (amount: number, currency: string) =>
+      formatCurrencyDecimal(amount, currency),
+  };
+});
 
 // Mock data
 const mockAccounts: Account[] = [
@@ -38,24 +46,16 @@ const mockCategories: Category[] = [
   { id: 'cat-misc', name: 'Miscellaneous', type: 'expense', level: 'detail', parentId: 'sub-other-expense' },
 ];
 
-// Mock useApp hook
-vi.mock('../contexts/AppContext', () => ({
-  useApp: vi.fn(() => ({
-    accounts: mockAccounts,
-    categories: mockCategories,
-    addTransaction: vi.fn(),
-    getSubCategories: (typeId: string) => {
-      const type = typeId.replace('type-', '');
-      return mockCategories.filter(cat => cat.level === 'sub' && cat.type === type);
-    },
-    getDetailCategories: (subId: string) => {
-      return mockCategories.filter(cat => cat.level === 'detail' && cat.parentId === subId);
-    },
-  })),
+// Mock useApp hook with hoisted reference for Vitest
+const { useAppMock } = vi.hoisted(() => ({
+  useAppMock: vi.fn(),
+}));
+
+vi.mock('../contexts/AppContextSupabase', () => ({
+  useApp: useAppMock,
 }));
 
 // Import after mocking
-import { useApp } from '../contexts/AppContextSupabase';
 import BalanceAdjustmentModal from './BalanceAdjustmentModal';
 
 describe('BalanceAdjustmentModal', () => {
@@ -70,7 +70,7 @@ describe('BalanceAdjustmentModal', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset the mock to default values
-    (useApp as any).mockReturnValue({
+    useAppMock.mockReturnValue({
       accounts: mockAccounts,
       categories: mockCategories,
       addTransaction: vi.fn(),
@@ -99,24 +99,24 @@ describe('BalanceAdjustmentModal', () => {
       render(<BalanceAdjustmentModal {...defaultProps} />);
       
       expect(screen.getByText('Current Balance')).toBeInTheDocument();
-      expect(screen.getByText('USD 1000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatCurrencyDecimal(1000, 'USD'))).toBeInTheDocument();
       expect(screen.getByText('New Balance')).toBeInTheDocument();
-      expect(screen.getByText('USD 1500.00')).toBeInTheDocument();
+      expect(screen.getByText(formatCurrencyDecimal(1500, 'USD'))).toBeInTheDocument();
       expect(screen.getByText('Adjustment Amount')).toBeInTheDocument();
-      expect(screen.getByText('+USD 500.00')).toBeInTheDocument();
+      expect(screen.getByText(`+${formatCurrencyDecimal(500, 'USD')}`)).toBeInTheDocument();
     });
 
     it('shows positive adjustment with green color', () => {
       render(<BalanceAdjustmentModal {...defaultProps} />);
       
-      const adjustmentAmount = screen.getByText('+USD 500.00');
+      const adjustmentAmount = screen.getByText(`+${formatCurrencyDecimal(500, 'USD')}`);
       expect(adjustmentAmount).toHaveClass('text-green-600');
     });
 
     it('shows negative adjustment with red color', () => {
       render(<BalanceAdjustmentModal {...defaultProps} newBalance="500" />);
       
-      const adjustmentAmount = screen.getByText('-USD 500.00');
+      const adjustmentAmount = screen.getByText(`-${formatCurrencyDecimal(500, 'USD')}`);
       expect(adjustmentAmount).toHaveClass('text-red-600');
     });
 
@@ -206,7 +206,7 @@ describe('BalanceAdjustmentModal', () => {
   describe('Form submission', () => {
     it('creates adjustment transaction for positive difference', async () => {
       const mockAddTransaction = vi.fn();
-      (useApp as any).mockReturnValue({
+      useAppMock.mockReturnValue({
         accounts: mockAccounts,
         categories: mockCategories,
         addTransaction: mockAddTransaction,
@@ -219,6 +219,9 @@ describe('BalanceAdjustmentModal', () => {
       fireEvent.click(screen.getByText('Create Adjustment'));
       
       await waitFor(() => {
+        const currentFormatted = formatCurrencyDecimal(1000, 'USD');
+        const newFormatted = formatCurrencyDecimal(1500, 'USD');
+
         expect(mockAddTransaction).toHaveBeenCalledWith({
           date: expect.any(Date),
           description: 'Balance Adjustment',
@@ -226,7 +229,7 @@ describe('BalanceAdjustmentModal', () => {
           type: 'income',
           category: 'cat-blank',
           accountId: 'acc1',
-          notes: 'Manual balance adjustment from USD 1000.00 to USD 1500.00',
+          notes: `Manual balance adjustment from ${currentFormatted} to ${newFormatted}`,
           cleared: true,
           tags: ['balance-adjustment'],
         });
@@ -235,7 +238,7 @@ describe('BalanceAdjustmentModal', () => {
 
     it('creates adjustment transaction for negative difference', async () => {
       const mockAddTransaction = vi.fn();
-      (useApp as any).mockReturnValue({
+      useAppMock.mockReturnValue({
         accounts: mockAccounts,
         categories: mockCategories,
         addTransaction: mockAddTransaction,
@@ -248,6 +251,9 @@ describe('BalanceAdjustmentModal', () => {
       fireEvent.click(screen.getByText('Create Adjustment'));
       
       await waitFor(() => {
+        const currentFormatted = formatCurrencyDecimal(1000, 'USD');
+        const newFormatted = formatCurrencyDecimal(500, 'USD');
+
         expect(mockAddTransaction).toHaveBeenCalledWith({
           date: expect.any(Date),
           description: 'Balance Adjustment',
@@ -255,7 +261,7 @@ describe('BalanceAdjustmentModal', () => {
           type: 'expense',
           category: 'cat-blank',
           accountId: 'acc1',
-          notes: 'Manual balance adjustment from USD 1000.00 to USD 500.00',
+          notes: `Manual balance adjustment from ${currentFormatted} to ${newFormatted}`,
           cleared: true,
           tags: ['balance-adjustment'],
         });
@@ -276,7 +282,7 @@ describe('BalanceAdjustmentModal', () => {
     it('closes modal without creating transaction when difference is zero', async () => {
       const mockAddTransaction = vi.fn();
       const onClose = vi.fn();
-      (useApp as any).mockReturnValue({
+      useAppMock.mockReturnValue({
         accounts: mockAccounts,
         categories: mockCategories,
         addTransaction: mockAddTransaction,
@@ -296,7 +302,7 @@ describe('BalanceAdjustmentModal', () => {
 
     it('uses custom notes when provided', async () => {
       const mockAddTransaction = vi.fn();
-      (useApp as any).mockReturnValue({
+      useAppMock.mockReturnValue({
         accounts: mockAccounts,
         categories: mockCategories,
         addTransaction: mockAddTransaction,
@@ -353,7 +359,7 @@ describe('BalanceAdjustmentModal', () => {
         { id: 'acc1', name: 'Euro Account', type: 'checking' as const, balance: 1000, createdAt: new Date(), currency: 'EUR' },
       ];
       
-      (useApp as any).mockReturnValue({
+      useAppMock.mockReturnValue({
         accounts: customAccounts,
         categories: mockCategories,
         addTransaction: vi.fn(),
@@ -363,8 +369,8 @@ describe('BalanceAdjustmentModal', () => {
 
       render(<BalanceAdjustmentModal {...defaultProps} />);
       
-      expect(screen.getByText('EUR 1000.00')).toBeInTheDocument();
-      expect(screen.getByText('EUR 1500.00')).toBeInTheDocument();
+      expect(screen.getByText(formatCurrencyDecimal(1000, 'EUR'))).toBeInTheDocument();
+      expect(screen.getByText(formatCurrencyDecimal(1500, 'EUR'))).toBeInTheDocument();
     });
   });
 
@@ -379,16 +385,16 @@ describe('BalanceAdjustmentModal', () => {
       render(<BalanceAdjustmentModal {...defaultProps} newBalance="1234.56" />);
       
       // Check that the values are displayed (currency from account is USD)
-      expect(screen.getByText('USD 1234.56')).toBeInTheDocument();
-      expect(screen.getByText('+USD 234.56')).toBeInTheDocument();
+      expect(screen.getByText(formatCurrencyDecimal(1234.56, 'USD'))).toBeInTheDocument();
+      expect(screen.getByText(`+${formatCurrencyDecimal(234.56, 'USD')}`)).toBeInTheDocument();
     });
 
     it('handles invalid newBalance gracefully', () => {
       render(<BalanceAdjustmentModal {...defaultProps} newBalance="invalid" />);
       
       // Check that the values are displayed with 0 for invalid input
-      expect(screen.getByText('USD 0.00')).toBeInTheDocument();
-      expect(screen.getByText('-USD 1000.00')).toBeInTheDocument();
+      expect(screen.getByText(formatCurrencyDecimal(0, 'USD'))).toBeInTheDocument();
+      expect(screen.getByText(`-${formatCurrencyDecimal(1000, 'USD')}`)).toBeInTheDocument();
     });
   });
 });

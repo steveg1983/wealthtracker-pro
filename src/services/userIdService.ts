@@ -18,6 +18,8 @@
 import { supabase, isSupabaseConfigured } from './api/supabaseClient';
 import { UserService } from './api/userService';
 
+const userIdLogger = typeof console !== 'undefined' ? console : { log: () => {}, warn: () => {}, error: () => {} };
+
 // Types for clarity
 export type ClerkUserId = string; // Format: "user_2abc123..."
 export type DatabaseUserId = string; // Format: UUID
@@ -41,44 +43,44 @@ class UserIdService {
    */
   async getDatabaseUserId(clerkId: ClerkUserId): Promise<DatabaseUserId | null> {
     if (!clerkId) {
-      console.warn('[UserIdService] No Clerk ID provided');
+      userIdLogger.warn('[UserIdService] No Clerk ID provided');
       return null;
     }
 
     // Check cache first
     const cached = this.cache.get(clerkId);
     if (cached && Date.now() - cached.timestamp < this.CACHE_DURATION) {
-      console.log('[UserIdService] Using cached database ID for Clerk ID:', clerkId);
+      userIdLogger.log('[UserIdService] Using cached database ID for Clerk ID:', clerkId);
       return cached.databaseId;
     }
 
     // If not using Supabase, return null (localStorage mode)
     if (!isSupabaseConfigured() || !supabase) {
-      console.log('[UserIdService] Supabase not configured, using localStorage mode');
+      userIdLogger.log('[UserIdService] Supabase not configured, using localStorage mode');
       return null;
     }
 
     try {
-      console.log('[UserIdService] Fetching database ID for Clerk ID:', clerkId);
+      userIdLogger.log('[UserIdService] Fetching database ID for Clerk ID:', clerkId);
       
       // Query the users table to get the database ID
       const { data: user, error } = await supabase
         .from('users')
         .select('id')
         .eq('clerk_id', clerkId)
-        .single();
+        .single() as { data: { id: string } | null; error: { code?: string; message?: string } | null };
 
       if (error) {
         if (error.code === 'PGRST116') { // Not found
-          console.log('[UserIdService] User not found for Clerk ID:', clerkId);
+          userIdLogger.log('[UserIdService] User not found for Clerk ID:', clerkId);
           return null;
         }
-        console.error('[UserIdService] Error fetching user:', error);
+        userIdLogger.error('[UserIdService] Error fetching user:', error);
         return null;
       }
 
       if (!user) {
-        console.log('[UserIdService] No user found for Clerk ID:', clerkId);
+        userIdLogger.log('[UserIdService] No user found for Clerk ID:', clerkId);
         return null;
       }
 
@@ -89,10 +91,10 @@ class UserIdService {
         timestamp: Date.now()
       });
 
-      console.log('[UserIdService] Found database ID:', user.id, 'for Clerk ID:', clerkId);
+      userIdLogger.log('[UserIdService] Found database ID:', user.id, 'for Clerk ID:', clerkId);
       return user.id;
     } catch (error) {
-      console.error('[UserIdService] Failed to get database user ID:', error);
+      userIdLogger.error('[UserIdService] Failed to get database user ID:', error);
       return null;
     }
   }
@@ -119,7 +121,7 @@ class UserIdService {
       this.currentDatabaseId = fetchedId;
     }
 
-    console.log('[UserIdService] Current user set - Clerk ID:', clerkId, 'Database ID:', this.currentDatabaseId);
+    userIdLogger.log('[UserIdService] Current user set - Clerk ID:', clerkId, 'Database ID:', this.currentDatabaseId);
   }
 
   /**
@@ -156,7 +158,7 @@ class UserIdService {
     this.cache.clear();
     this.currentClerkId = null;
     this.currentDatabaseId = null;
-    console.log('[UserIdService] Cache cleared');
+    userIdLogger.log('[UserIdService] Cache cleared');
   }
 
   /**
@@ -180,7 +182,7 @@ class UserIdService {
       
       if (!databaseId) {
         // User doesn't exist, create them
-        console.log('[UserIdService] User not found, creating new user');
+        userIdLogger.log('[UserIdService] User not found, creating new user');
         const user = await UserService.getOrCreateUser(clerkId, email, firstName, lastName);
         
         if (user) {
@@ -199,12 +201,12 @@ class UserIdService {
       if (databaseId) {
         this.currentClerkId = clerkId;
         this.currentDatabaseId = databaseId;
-        console.log('[UserIdService] Current user set - Clerk ID:', clerkId, 'Database ID:', databaseId);
+        userIdLogger.log('[UserIdService] Current user set - Clerk ID:', clerkId, 'Database ID:', databaseId);
       }
       
       return databaseId;
     } catch (error) {
-      console.error('[UserIdService] Failed to ensure user exists:', error);
+      userIdLogger.error('[UserIdService] Failed to ensure user exists:', error);
       return null;
     }
   }
@@ -213,11 +215,11 @@ class UserIdService {
    * Debug function to log current state
    */
   debug(): void {
-    console.log('[UserIdService] Debug Info:');
-    console.log('  Current Clerk ID:', this.currentClerkId);
-    console.log('  Current Database ID:', this.currentDatabaseId);
-    console.log('  Cache size:', this.cache.size);
-    console.log('  Cache entries:', Array.from(this.cache.entries()).map(([key, value]) => ({
+    userIdLogger.log('[UserIdService] Debug Info:');
+    userIdLogger.log('  Current Clerk ID:', this.currentClerkId);
+    userIdLogger.log('  Current Database ID:', this.currentDatabaseId);
+    userIdLogger.log('  Cache size:', this.cache.size);
+    userIdLogger.log('  Cache entries:', Array.from(this.cache.entries()).map(([key, value]) => ({
       clerkId: key,
       databaseId: value.databaseId,
       age: Math.round((Date.now() - value.timestamp) / 1000) + 's'

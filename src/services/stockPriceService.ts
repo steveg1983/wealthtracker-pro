@@ -3,6 +3,25 @@ import { toDecimal } from '../utils/decimal';
 import type { DecimalInstance } from '../types/decimal-types';
 import { errorHandlingService, ErrorCategory, ErrorSeverity, retryWithBackoff } from './errorHandlingService';
 
+type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+type Logger = Pick<Console, 'warn' | 'error'>;
+
+interface StockPriceDependencies {
+  fetch?: FetchLike | null;
+  locationSearch?: () => string;
+  now?: () => number;
+  timeoutSignal?: (ms: number) => AbortSignal | null;
+  logger?: Logger;
+}
+
+interface NormalizedDependencies {
+  fetch: FetchLike | null;
+  locationSearch: () => string;
+  now: () => number;
+  timeoutSignal: (ms: number) => AbortSignal | null;
+  logger: Logger;
+}
+
 export interface StockQuote {
   symbol: string;
   price: DecimalInstance;
@@ -28,6 +47,48 @@ interface CachedQuote extends StockQuote {
 // Cache for stock quotes (1 minute TTL)
 const quoteCache = new Map<string, CachedQuote>();
 const CACHE_TTL = 60 * 1000; // 1 minute
+
+let dependencies: NormalizedDependencies = getDefaultDependencies();
+
+function getDefaultDependencies(): NormalizedDependencies {
+  const globalFetch = typeof fetch !== 'undefined' ? fetch.bind(globalThis) : null;
+  const logger = typeof console !== 'undefined' ? console : { warn: () => {}, error: () => {} };
+  const locationSearch = () => {
+    if (typeof window !== 'undefined' && window.location) {
+      return window.location.search ?? '';
+    }
+    return '';
+  };
+  const timeoutSignal = (ms: number) => {
+    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function') {
+      return AbortSignal.timeout(ms);
+    }
+    return null;
+  };
+  return {
+    fetch: globalFetch,
+    locationSearch,
+    now: () => Date.now(),
+    timeoutSignal,
+    logger
+  };
+}
+
+export function configureStockPriceService(overrides: StockPriceDependencies = {}): void {
+  dependencies = {
+    ...dependencies,
+    ...(overrides.fetch !== undefined ? { fetch: overrides.fetch } : {}),
+    ...(overrides.locationSearch ? { locationSearch: overrides.locationSearch } : {}),
+    ...(overrides.now ? { now: overrides.now } : {}),
+    ...(overrides.timeoutSignal ? { timeoutSignal: overrides.timeoutSignal } : {}),
+    ...(overrides.logger ? { logger: overrides.logger } : {})
+  }; // apply overrides
+}
+
+export function resetStockPriceService(): void {
+  dependencies = getDefaultDependencies();
+  quoteCache.clear();
+}
 
 // Yahoo Finance API proxy endpoints
 // Note: Using proxy services as Yahoo Finance doesn't have official API
@@ -88,7 +149,7 @@ function generateMockStockQuote(symbol: string): StockQuote {
     fiftyTwoWeekLow: price.times(toDecimal(0.5 + Math.random() * 0.3)),
     name: data.name,
     exchange: 'NASDAQ',
-    lastUpdated: new Date()
+    lastUpdated: getCurrentDate()
   };
 }
 
@@ -105,7 +166,7 @@ export async function getStockQuote(symbol: string): Promise<StockQuote | null> 
     }
 
     // Check if we're in demo mode
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(dependencies.locationSearch());
     const isDemoMode = urlParams.get('demo') === 'true';
     
     if (isDemoMode) {
@@ -115,7 +176,7 @@ export async function getStockQuote(symbol: string): Promise<StockQuote | null> 
     
     // Check cache first
     const cached = quoteCache.get(cleanedSymbol);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    if (cached && dependencies.now() - cached.timestamp < CACHE_TTL) {
       return cached;
     }
 
@@ -126,7 +187,7 @@ export async function getStockQuote(symbol: string): Promise<StockQuote | null> 
         maxRetries: 3,
         initialDelay: 500,
         onRetry: (attempt, error) => {
-          console.warn(`Stock quote fetch attempt ${attempt} failed:`, error.message);
+          dependencies.logger.warn?.(`Stock quote fetch attempt ${attempt} failed:`, error.message);
         }
       }
     );
@@ -135,7 +196,7 @@ export async function getStockQuote(symbol: string): Promise<StockQuote | null> 
       // Cache the result
       const cachedQuote: CachedQuote = {
         ...quote,
-        timestamp: Date.now()
+        timestamp: dependencies.now()
       };
       quoteCache.set(cleanedSymbol, cachedQuote);
     }
@@ -158,15 +219,16 @@ export async function getStockQuote(symbol: string): Promise<StockQuote | null> 
  */
 async function fetchQuoteFromEndpoints(symbol: string): Promise<StockQuote | null> {
   const errors: Error[] = [];
+  const fetchImpl = ensureFetch();
   
   // Try multiple endpoints for redundancy
   for (const endpoint of YAHOO_FINANCE_ENDPOINTS) {
     try {
-      const response = await fetch(`${endpoint}${symbol}`, {
+      const response = await fetchImpl(`${endpoint}${symbol}`, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         },
-        signal: AbortSignal.timeout(5000) // 5 second timeout
+        signal: dependencies.timeoutSignal(5000) ?? undefined
       });
 
       if (!response.ok) {
@@ -208,7 +270,7 @@ async function fetchQuoteFromEndpoints(symbol: string): Promise<StockQuote | nul
         fiftyTwoWeekLow: meta.fiftyTwoWeekLow ? toDecimal(meta.fiftyTwoWeekLow) : undefined,
         name: meta.longName || meta.shortName,
         exchange: meta.exchangeName,
-        lastUpdated: new Date()
+        lastUpdated: getCurrentDate()
       };
 
       return stockQuote;
@@ -297,7 +359,7 @@ export async function convertStockPrice(
 
     return priceInBaseCurrency;
   } catch (error) {
-    console.error('Error converting stock price:', error);
+    dependencies.logger.error('Error converting stock price:', error as Error);
     return price; // Return original price if conversion fails
   }
 }
@@ -395,4 +457,15 @@ export function clearQuoteCache(): void {
 export async function validateSymbol(symbol: string): Promise<boolean> {
   const quote = await getStockQuote(symbol);
   return quote !== null;
+}
+
+function ensureFetch(): FetchLike {
+  if (!dependencies.fetch) {
+    throw new Error('Fetch API is not available. Provide a fetch implementation via configureStockPriceService.');
+  }
+  return dependencies.fetch;
+}
+
+function getCurrentDate(): Date {
+  return new Date(dependencies.now());
 }

@@ -6,6 +6,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useCurrency } from './useCurrency';
+import { formatDecimal as formatDecimalHelper } from '../utils/decimal-format';
 
 // Mock the PreferencesContext
 vi.mock('../contexts/PreferencesContext', () => ({
@@ -18,7 +19,18 @@ vi.mock('../contexts/PreferencesContext', () => ({
 vi.mock('../utils/currency', () => ({
   formatCurrency: vi.fn((amount, currency) => {
     const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '£';
-    return `${symbol}${amount.toFixed(2)}`;
+    const numeric = typeof amount === 'number' ? amount : Number(amount);
+
+    if (Number.isNaN(numeric)) {
+      return `${symbol}NaN`;
+    }
+
+    if (!Number.isFinite(numeric)) {
+      return `${symbol}${numeric}`;
+    }
+
+    const formatted = formatDecimalHelper(Math.abs(numeric), 2, { group: false });
+    return numeric < 0 ? `${symbol}-${formatted}` : `${symbol}${formatted}`;
   }),
   getCurrencySymbol: vi.fn((currency) => {
     switch (currency) {

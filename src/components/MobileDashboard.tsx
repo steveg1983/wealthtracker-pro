@@ -46,7 +46,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
   }
 
   const SummaryCard: React.FC<SummaryCardProps> = ({ title, value, trend, color }) => (
-    <div className={`bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm ${color}`}>
+    <div className={`bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm ${color}`}>
       <h3 className="text-sm font-medium text-gray-600 dark:text-gray-400">{title}</h3>
       <p className="text-xl font-semibold mt-1">{value}</p>
       {trend && (
@@ -88,7 +88,7 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
       </div>
 
       {/* Recent Transactions - Load immediately */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
         <h3 className="text-lg font-semibold mb-3">Recent Transactions</h3>
         <div className="space-y-2">
           {recentTransactions.map((transaction) => (
@@ -111,8 +111,8 @@ export const MobileDashboard: React.FC<MobileDashboardProps> = ({
       {showCharts && (
         <Suspense fallback={
           <div className="space-y-4">
-            <SkeletonCard height={200} />
-            <SkeletonCard height={200} />
+            <SkeletonCard />
+            <SkeletonCard />
           </div>
         }>
           <ChartComponents accounts={accounts} transactions={transactions} />

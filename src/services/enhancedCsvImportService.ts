@@ -1,9 +1,25 @@
-import { toDecimal } from '../utils/decimal';
 import type { Transaction, Account, Category } from '../types';
-import type { DecimalInstance } from '../types/decimal-types';
 import { smartCategorizationService } from './smartCategorizationService';
 import { importRulesService } from './importRulesService';
 import type { JsonValue } from '../types/common';
+
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+
+type Logger = Pick<Console, 'warn' | 'error'>;
+
+type CategorizationServiceLike = Pick<typeof smartCategorizationService, 'learnFromTransactions' | 'suggestCategories'>;
+
+type ImportRulesServiceLike = Pick<typeof importRulesService, 'applyRules'>;
+
+export interface EnhancedCsvImportServiceOptions {
+  storage?: StorageLike | null;
+  logger?: Logger;
+  now?: () => number;
+  categorizationService?: CategorizationServiceLike;
+  rulesService?: ImportRulesServiceLike;
+}
 
 export interface ColumnMapping {
   sourceColumn: string;
@@ -42,8 +58,40 @@ export interface ImportResult {
   }>;
 }
 
-class EnhancedCsvImportService {
-  private profiles: ImportProfile[] = this.loadProfiles();
+export class EnhancedCsvImportService {
+  private profiles: ImportProfile[] = [];
+  private readonly storage: StorageLike | null;
+  private readonly logger: Logger;
+  private readonly nowProvider: () => number;
+  private readonly categorizationService: CategorizationServiceLike;
+  private readonly rulesService: ImportRulesServiceLike;
+  private idCounter = 0;
+
+  constructor(options: EnhancedCsvImportServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => Date.now());
+    this.categorizationService = options.categorizationService ?? smartCategorizationService;
+    this.rulesService = options.rulesService ?? importRulesService;
+    this.profiles = this.loadProfiles();
+  }
+
+  private createDate(offsetMs = 0): Date {
+    return new Date(this.nowProvider() + offsetMs);
+  }
+
+  private getCurrentDateString(): string {
+    return this.createDate().toISOString().split('T')[0];
+  }
+
+  private createId(prefix: string, index: number): string {
+    return `${prefix}-${this.nowProvider()}-${index}-${this.idCounter++}`;
+  }
 
   /**
    * Parse CSV with intelligent header detection
@@ -283,8 +331,8 @@ class EnhancedCsvImportService {
     }
     
     // Default to today if parsing fails
-    console.warn(`Cannot parse date: ${value}, using today's date`);
-    return new Date().toISOString().split('T')[0];
+    this.logger.warn(`Cannot parse date: ${value}, using today's date`);
+    return this.getCurrentDateString();
   }
 
   /**
@@ -316,7 +364,7 @@ class EnhancedCsvImportService {
       const dateDiff = Math.abs(
         new Date(transaction.date!).getTime() - new Date(existing.date).getTime()
       );
-      const dateProximity = dateDiff < 3 * 24 * 60 * 60 * 1000;
+      const dateProximity = dateDiff < 3 * DAY_IN_MS;
       
       if (!dateProximity) continue;
       
@@ -424,9 +472,9 @@ class EnhancedCsvImportService {
               // Apply date parsing for date fields without transform
               transaction.date = new Date(this.parseDate(value));
             } else if (mapping.transform) {
-              transaction[mapping.targetField as keyof Transaction] = mapping.transform(value);
+              (transaction as any)[mapping.targetField] = mapping.transform(value);
             } else {
-              transaction[mapping.targetField as keyof Transaction] = value as JsonValue;
+              (transaction as any)[mapping.targetField] = value;
             }
           }
         }
@@ -473,11 +521,11 @@ class EnhancedCsvImportService {
         if (options.autoCategorize && options.categories && !transaction.category) {
           // Train the model if we have existing transactions
           if (existingTransactions.length > 0) {
-            smartCategorizationService.learnFromTransactions(existingTransactions, options.categories);
+            this.categorizationService.learnFromTransactions(existingTransactions, options.categories);
           }
           
           // Get category suggestions
-          const suggestions = smartCategorizationService.suggestCategories(transaction as Transaction, 1);
+          const suggestions = this.categorizationService.suggestCategories(transaction as Transaction, 1);
           
           if (suggestions.length > 0) {
             const confidenceThreshold = options.categoryConfidenceThreshold || 0.7;
@@ -488,7 +536,7 @@ class EnhancedCsvImportService {
         }
         
         // Apply import rules
-        const processedTransaction = importRulesService.applyRules(transaction);
+        const processedTransaction = this.rulesService.applyRules(transaction);
         
         // Skip transaction if rules indicate to skip
         if (!processedTransaction) {
@@ -496,7 +544,7 @@ class EnhancedCsvImportService {
         }
         
         // Add transaction
-        processedTransaction.id = `import-${Date.now()}-${rowIndex}`;
+        processedTransaction.id = this.createId('import', rowIndex);
         result.items.push(processedTransaction as Transaction);
         result.success++;
         
@@ -540,10 +588,12 @@ class EnhancedCsvImportService {
    * Load profiles from localStorage
    */
   private loadProfiles(): ImportProfile[] {
+    if (!this.storage) return [];
     try {
-      const saved = localStorage.getItem('csvImportProfiles');
+      const saved = this.storage.getItem('csvImportProfiles');
       return saved ? JSON.parse(saved) : [];
-    } catch {
+    } catch (error) {
+      this.logger.warn('Failed to load import profiles from storage:', error as Error);
       return [];
     }
   }
@@ -552,10 +602,11 @@ class EnhancedCsvImportService {
    * Save profiles to localStorage
    */
   private saveProfiles(): void {
+    if (!this.storage) return;
     try {
-      localStorage.setItem('csvImportProfiles', JSON.stringify(this.profiles));
+      this.storage.setItem('csvImportProfiles', JSON.stringify(this.profiles));
     } catch (error) {
-      console.error('Failed to save import profiles:', error);
+      this.logger.error('Failed to save import profiles:', error as Error);
     }
   }
 
@@ -597,9 +648,9 @@ class EnhancedCsvImportService {
             } else if (mapping.targetField === 'date' && !mapping.transform) {
               transaction.date = new Date(this.parseDate(value));
             } else if (mapping.transform) {
-              transaction[mapping.targetField as keyof Transaction] = mapping.transform(value);
+              (transaction as any)[mapping.targetField] = mapping.transform(value);
             } else {
-              transaction[mapping.targetField as keyof Transaction] = value as JsonValue;
+              (transaction as any)[mapping.targetField] = value;
             }
           }
         }
@@ -613,11 +664,11 @@ class EnhancedCsvImportService {
         }
         
         // Add transaction
-        transaction.id = `preview-${Date.now()}-${rowIndex}`;
+        transaction.id = this.createId('preview', rowIndex);
         transactions.push(transaction);
         
       } catch (error) {
-        console.warn(`Failed to parse row ${rowIndex}:`, error);
+        this.logger.warn(`Failed to parse row ${rowIndex}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     

@@ -471,11 +471,13 @@ class CollaborationService {
 
     const budget: JointBudget = {
       id: this.generateId(),
-      categoryId: category,
+      categoryId,
       amount,
       period,
       isActive: true,
       createdAt: new Date(),
+      updatedAt: new Date(),
+      spent: 0,
       householdId: household.id,
       assignedMembers,
       approvedBy: ['current-user'],

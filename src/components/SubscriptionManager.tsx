@@ -194,7 +194,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Active</p>
@@ -206,7 +206,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Monthly Cost</p>
@@ -218,7 +218,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Due Soon</p>
@@ -230,7 +230,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Cancelled</p>
@@ -251,7 +251,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
             id="filter-select"
             value={filter}
             onChange={handleFilterChange}
-            className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             aria-label="Filter subscriptions by status"
           >
             {FILTER_OPTIONS.map(option => (
@@ -268,7 +268,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
             id="sort-select"
             value={sortBy}
             onChange={handleSortChange}
-            className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             aria-label="Sort subscriptions by"
           >
             {SORT_OPTIONS.map(option => (
@@ -282,7 +282,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
       </div>
 
       {/* Subscriptions List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
         {filteredSubscriptions.length === 0 ? (
           <div className="text-center py-8">
             <CreditCardIcon size={48} className="mx-auto mb-4 text-gray-400" />
@@ -314,7 +314,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="bg-[#d4dce8] dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {filteredSubscriptions.map((subscription) => {
                   const daysUntilRenewal = getDaysUntilRenewal(subscription.nextPaymentDate);
                   const isUpcoming = daysUntilRenewal <= 7 && daysUntilRenewal > 0;
@@ -392,7 +392,7 @@ export default function SubscriptionManager({ onDataChange }: SubscriptionManage
       {/* Add/Edit Modal would go here - simplified for this implementation */}
       {(showAddModal || editingSubscription) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               {editingSubscription ? 'Edit Subscription' : 'Add Subscription'}
             </h3>

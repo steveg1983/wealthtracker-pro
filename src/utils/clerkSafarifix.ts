@@ -4,6 +4,9 @@
  */
 
 import { isSafari } from './safariCompat';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const clerkSafariLogger = createScopedLogger('ClerkSafariFix');
 
 // Check if third-party cookies are blocked
 export const checkThirdPartyCookies = async (): Promise<boolean> => {
@@ -19,7 +22,7 @@ export const checkThirdPartyCookies = async (): Promise<boolean> => {
     
     return cookieSet;
   } catch (error) {
-    console.warn('Cookie test failed:', error);
+    clerkSafariLogger.warn('Cookie test failed', error);
     return false;
   }
 };
@@ -54,7 +57,7 @@ export const initClerkSafariCompat = async () => {
     return { compatible: true };
   }
 
-  console.log('🦁 Safari detected - checking Clerk compatibility...');
+  clerkSafariLogger.info('Safari detected - checking Clerk compatibility');
 
   const results = {
     safari: true,
@@ -86,7 +89,7 @@ export const initClerkSafariCompat = async () => {
   }
 
   if (results.warnings.length > 0) {
-    console.warn('⚠️ Safari compatibility warnings:', results.warnings);
+    clerkSafariLogger.warn('Safari compatibility warnings', results.warnings);
   }
 
   return results;
@@ -110,7 +113,7 @@ const applySafariFixes = () => {
       return originalFetch.apply(this, [url, options]);
     };
   } catch (error) {
-    console.error('Failed to patch fetch for Safari:', error);
+    clerkSafariLogger.error('Failed to patch fetch for Safari', error);
   }
 
   // 2. Add storage event listeners to sync auth state
@@ -118,7 +121,7 @@ const applySafariFixes = () => {
     window.addEventListener('storage', (e) => {
       // Sync Clerk session across tabs in Safari
       if (e.key?.includes('clerk') || e.key?.includes('__session')) {
-        console.log('Safari: Syncing Clerk session across tabs');
+        clerkSafariLogger.info('Safari: syncing Clerk session across tabs');
         // Force a session refresh
         window.location.reload();
       }
@@ -135,10 +138,10 @@ const polyfillSafari = () => {
   if (!Promise.allSettled) {
     Promise.allSettled = function(promises: Promise<any>[]) {
       return Promise.all(
-        promises.map(p => 
+        promises.map(p =>
           Promise.resolve(p).then(
-            value => ({ status: 'fulfilled', value }),
-            reason => ({ status: 'rejected', reason })
+            value => ({ status: 'fulfilled' as const, value }),
+            reason => ({ status: 'rejected' as const, reason })
           )
         )
       );
@@ -157,11 +160,11 @@ const polyfillSafari = () => {
     // Request storage access for third-party contexts
     document.hasStorageAccess().then(hasAccess => {
       if (!hasAccess) {
-        console.log('Requesting storage access for Safari...');
+        clerkSafariLogger.info('Requesting storage access for Safari');
         return document.requestStorageAccess();
       }
     }).catch(error => {
-      console.warn('Storage access request failed:', error);
+      clerkSafariLogger.warn('Storage access request failed', error);
     });
   }
 };

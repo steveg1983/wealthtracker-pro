@@ -9,6 +9,18 @@ import type {
 } from '../types/data-intelligence';
 import { formatDecimal } from '../utils/decimal-format';
 
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+
+type Logger = Pick<Console, 'warn' | 'error'>;
+
+export interface DataIntelligenceServiceOptions {
+  storage?: StorageLike | null;
+  logger?: Logger;
+  now?: () => number;
+}
+
 export interface MerchantData {
   id: string;
   name: string;
@@ -123,34 +135,61 @@ export interface DataIntelligenceStats {
   lastAnalysisRun: Date;
 }
 
-class DataIntelligenceService {
+export class DataIntelligenceService {
   private merchants: MerchantData[] = [];
   private subscriptions: Subscription[] = [];
   private spendingPatterns: SpendingPattern[] = [];
   private smartCategories: SmartCategory[] = [];
   private insights: SpendingInsight[] = [];
+  private readonly storage: StorageLike | null;
+  private readonly logger: Logger;
+  private readonly nowProvider: () => number;
 
-  constructor() {
+  constructor(options: DataIntelligenceServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    const noop = () => {};
+    this.logger = {
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? noop),
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? noop)
+    };
+    this.nowProvider = options.now ?? (() => Date.now());
     this.loadData();
     this.initializeMerchantDatabase();
     this.initializeSmartCategories();
     this.createSampleData();
   }
 
-  private loadData() {
+  private createDate(offsetMs = 0): Date {
+    return new Date(this.nowProvider() + offsetMs);
+  }
+
+  private readJsonFromStorage<T>(key: string): T | null {
+    if (!this.storage) return null;
     try {
-      const savedMerchants = localStorage.getItem('data-intelligence-merchants');
+      const raw = this.storage.getItem(key);
+      return raw ? JSON.parse(raw) as T : null;
+    } catch (error) {
+      this.logger.warn(`Failed to read ${key} from storage:`, error as Error);
+      return null;
+    }
+  }
+
+  private loadData() {
+    if (!this.storage) return;
+    try {
+      const savedMerchants = this.readJsonFromStorage<SavedMerchantData[]>('data-intelligence-merchants');
       if (savedMerchants) {
-        this.merchants = JSON.parse(savedMerchants).map((merchant: SavedMerchantData) => ({
+        this.merchants = savedMerchants.map((merchant: SavedMerchantData) => ({
           ...merchant,
           createdAt: new Date(merchant.createdAt),
           lastUpdated: new Date(merchant.lastUpdated)
         }));
       }
 
-      const savedSubscriptions = localStorage.getItem('data-intelligence-subscriptions');
+      const savedSubscriptions = this.readJsonFromStorage<SavedSubscription[]>('data-intelligence-subscriptions');
       if (savedSubscriptions) {
-        this.subscriptions = JSON.parse(savedSubscriptions).map((sub: SavedSubscription) => ({
+        this.subscriptions = savedSubscriptions.map((sub: SavedSubscription) => ({
           ...sub,
           nextPaymentDate: new Date(sub.nextPaymentDate),
           startDate: new Date(sub.startDate),
@@ -160,44 +199,45 @@ class DataIntelligenceService {
         }));
       }
 
-      const savedPatterns = localStorage.getItem('data-intelligence-patterns');
+      const savedPatterns = this.readJsonFromStorage<SavedSpendingPattern[]>('data-intelligence-patterns');
       if (savedPatterns) {
-        this.spendingPatterns = JSON.parse(savedPatterns).map((pattern: SavedSpendingPattern) => ({
+        this.spendingPatterns = savedPatterns.map((pattern: SavedSpendingPattern) => ({
           ...pattern,
           detectedAt: new Date(pattern.detectedAt)
         }));
       }
 
-      const savedSmartCategories = localStorage.getItem('data-intelligence-smart-categories');
+      const savedSmartCategories = this.readJsonFromStorage<SavedSmartCategory[]>('data-intelligence-smart-categories');
       if (savedSmartCategories) {
-        this.smartCategories = JSON.parse(savedSmartCategories).map((cat: SavedSmartCategory) => ({
+        this.smartCategories = savedSmartCategories.map((cat: SavedSmartCategory) => ({
           ...cat,
           createdAt: new Date(cat.createdAt),
           lastTrained: new Date(cat.lastTrained)
         }));
       }
 
-      const savedInsights = localStorage.getItem('data-intelligence-insights');
+      const savedInsights = this.readJsonFromStorage<SavedSpendingInsight[]>('data-intelligence-insights');
       if (savedInsights) {
-        this.insights = JSON.parse(savedInsights).map((insight: SavedSpendingInsight) => ({
+        this.insights = savedInsights.map((insight: SavedSpendingInsight) => ({
           ...insight,
           createdAt: new Date(insight.createdAt)
         }));
       }
     } catch (error) {
-      console.error('Error loading data intelligence data:', error);
+      this.logger.error('Error loading data intelligence data:', error as Error);
     }
   }
 
   private saveData() {
+    if (!this.storage) return;
     try {
-      localStorage.setItem('data-intelligence-merchants', JSON.stringify(this.merchants));
-      localStorage.setItem('data-intelligence-subscriptions', JSON.stringify(this.subscriptions));
-      localStorage.setItem('data-intelligence-patterns', JSON.stringify(this.spendingPatterns));
-      localStorage.setItem('data-intelligence-smart-categories', JSON.stringify(this.smartCategories));
-      localStorage.setItem('data-intelligence-insights', JSON.stringify(this.insights));
+      this.storage.setItem('data-intelligence-merchants', JSON.stringify(this.merchants));
+      this.storage.setItem('data-intelligence-subscriptions', JSON.stringify(this.subscriptions));
+      this.storage.setItem('data-intelligence-patterns', JSON.stringify(this.spendingPatterns));
+      this.storage.setItem('data-intelligence-smart-categories', JSON.stringify(this.smartCategories));
+      this.storage.setItem('data-intelligence-insights', JSON.stringify(this.insights));
     } catch (error) {
-      console.error('Error saving data intelligence data:', error);
+      this.logger.error('Error saving data intelligence data:', error as Error);
     }
   }
 
@@ -272,6 +312,8 @@ class DataIntelligenceService {
       ];
 
       commonMerchants.forEach((merchant, index) => {
+        const createdAt = this.createDate();
+        const lastUpdated = this.createDate();
         this.merchants.push({
           id: `merchant-${index + 1}`,
           name: merchant.name,
@@ -281,8 +323,8 @@ class DataIntelligenceService {
           frequency: merchant.frequency,
           tags: merchant.tags,
           confidence: 0.95,
-          createdAt: new Date(),
-          lastUpdated: new Date()
+          createdAt,
+          lastUpdated
         });
       });
     }
@@ -339,8 +381,8 @@ class DataIntelligenceService {
       this.smartCategories = defaultCategories.map((cat, index) => ({
         ...cat,
         id: `smart-cat-${index + 1}`,
-        createdAt: new Date(),
-        lastTrained: new Date()
+        createdAt: this.createDate(),
+        lastTrained: this.createDate()
       }));
     }
   }
@@ -354,7 +396,7 @@ class DataIntelligenceService {
           merchantName: 'Netflix',
           amount: 15.99,
           frequency: 'monthly',
-          nextPaymentDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          nextPaymentDate: this.createDate(7 * DAY_IN_MS),
           category: 'Entertainment',
           status: 'active',
           startDate: new Date('2023-06-15'),
@@ -363,7 +405,7 @@ class DataIntelligenceService {
           paymentMethod: 'Credit Card',
           transactionIds: ['trans-netflix-1', 'trans-netflix-2'],
           createdAt: new Date('2023-06-15'),
-          lastUpdated: new Date()
+          lastUpdated: this.createDate()
         },
         {
           id: '2',
@@ -371,7 +413,7 @@ class DataIntelligenceService {
           merchantName: 'Spotify',
           amount: 9.99,
           frequency: 'monthly',
-          nextPaymentDate: new Date(Date.now() + 12 * 24 * 60 * 60 * 1000),
+          nextPaymentDate: this.createDate(12 * DAY_IN_MS),
           category: 'Entertainment',
           status: 'active',
           startDate: new Date('2023-03-10'),
@@ -380,7 +422,7 @@ class DataIntelligenceService {
           paymentMethod: 'Credit Card',
           transactionIds: ['trans-spotify-1', 'trans-spotify-2'],
           createdAt: new Date('2023-03-10'),
-          lastUpdated: new Date()
+          lastUpdated: this.createDate()
         },
         {
           id: '3',
@@ -388,7 +430,7 @@ class DataIntelligenceService {
           merchantName: 'Adobe Creative Cloud',
           amount: 52.99,
           frequency: 'monthly',
-          nextPaymentDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+          nextPaymentDate: this.createDate(3 * DAY_IN_MS),
           category: 'Software',
           status: 'active',
           startDate: new Date('2023-01-01'),
@@ -397,7 +439,7 @@ class DataIntelligenceService {
           paymentMethod: 'Credit Card',
           transactionIds: ['trans-adobe-1', 'trans-adobe-2'],
           createdAt: new Date('2023-01-01'),
-          lastUpdated: new Date()
+          lastUpdated: this.createDate()
         }
       ];
 
@@ -466,7 +508,7 @@ class DataIntelligenceService {
           transactionIds: ['trans-adobe-3'],
           actionable: true,
           dismissed: false,
-          createdAt: new Date()
+          createdAt: this.createDate()
         },
         {
           id: '2',
@@ -478,7 +520,7 @@ class DataIntelligenceService {
           transactionIds: ['trans-food-1', 'trans-food-2'],
           actionable: true,
           dismissed: false,
-          createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+          createdAt: this.createDate(-2 * DAY_IN_MS)
         },
         {
           id: '3',
@@ -492,7 +534,7 @@ class DataIntelligenceService {
           transactionIds: ['trans-hellofresh-1'],
           actionable: true,
           dismissed: false,
-          createdAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000)
+          createdAt: this.createDate(-1 * DAY_IN_MS)
         }
       ];
 
@@ -584,11 +626,12 @@ class DataIntelligenceService {
   }
 
   addSubscription(subscription: Omit<Subscription, 'id' | 'createdAt' | 'lastUpdated'>): Subscription {
+    const now = this.nowProvider();
     const newSubscription: Subscription = {
       ...subscription,
-      id: Date.now().toString(),
-      createdAt: new Date(),
-      lastUpdated: new Date()
+      id: now.toString(),
+      createdAt: this.createDate(),
+      lastUpdated: this.createDate()
     };
 
     this.subscriptions.push(newSubscription);
@@ -603,7 +646,7 @@ class DataIntelligenceService {
     this.subscriptions[index] = {
       ...this.subscriptions[index],
       ...updates,
-      lastUpdated: new Date()
+      lastUpdated: this.createDate()
     };
     this.saveData();
     return this.subscriptions[index];
@@ -659,8 +702,9 @@ class DataIntelligenceService {
         const enrichment = this.enrichMerchant(merchant);
         const avgAmount = merchantTransactions.reduce((sum, t) => sum + Math.abs(t.amount), 0) / merchantTransactions.length;
 
+        const detectedId = `detected-${this.nowProvider()}-${merchant}`;
         potentialSubscriptions.push({
-          id: `detected-${Date.now()}-${merchant}`,
+          id: detectedId,
           merchantId: 'unknown',
           merchantName: enrichment.cleanName,
           amount: avgAmount,
@@ -672,8 +716,8 @@ class DataIntelligenceService {
           renewalType: 'auto',
           paymentMethod: 'Unknown',
           transactionIds: merchantTransactions.map(t => t.id),
-          createdAt: new Date(),
-          lastUpdated: new Date()
+          createdAt: this.createDate(),
+          lastUpdated: this.createDate()
         });
       }
     });
@@ -730,8 +774,9 @@ class DataIntelligenceService {
         else if (avgInterval <= 100) frequency = 'quarterly';
         else frequency = 'yearly';
 
+        const patternId = `pattern-${this.nowProvider()}-${category}`;
         patterns.push({
-          id: `pattern-${Date.now()}-${category}`,
+          id: patternId,
           patternType: 'recurring',
           category,
           frequency,
@@ -740,7 +785,7 @@ class DataIntelligenceService {
           confidence: Math.min(0.9, Math.max(0.5, 1 - (stdDev / avgAmount))),
           description: `Regular ${frequency} spending in ${category}`,
           transactions: categoryTransactions.map(t => t.id),
-          detectedAt: new Date(),
+          detectedAt: this.createDate(),
           isActive: true
         });
       }
@@ -803,15 +848,16 @@ class DataIntelligenceService {
 
   generateInsights(transactions: Transaction[]): SpendingInsight[] {
     const newInsights: SpendingInsight[] = [];
+    const now = this.nowProvider();
 
     // Check for subscription renewals
     const upcomingRenewals = this.subscriptions.filter(sub => {
-      const daysUntilRenewal = Math.ceil((sub.nextPaymentDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      const daysUntilRenewal = Math.ceil((sub.nextPaymentDate.getTime() - now) / DAY_IN_MS);
       return daysUntilRenewal <= 7 && daysUntilRenewal > 0;
     });
 
     upcomingRenewals.forEach(sub => {
-      const daysUntilRenewal = Math.ceil((sub.nextPaymentDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+      const daysUntilRenewal = Math.ceil((sub.nextPaymentDate.getTime() - now) / DAY_IN_MS);
       newInsights.push({
         id: `insight-renewal-${sub.id}`,
         type: 'subscription_alert',
@@ -824,18 +870,19 @@ class DataIntelligenceService {
         transactionIds: sub.transactionIds,
         actionable: true,
         dismissed: false,
-        createdAt: new Date()
+        createdAt: this.createDate()
       });
     });
 
     // Check for spending spikes
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
+    const currentDate = this.createDate();
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
     const currentMonthTransactions = transactions.filter(t => 
       t.date.getMonth() === currentMonth && t.date.getFullYear() === currentYear
     );
 
-    const lastMonth = new Date();
+    const lastMonth = new Date(currentDate.getTime());
     lastMonth.setMonth(lastMonth.getMonth() - 1);
     const lastMonthTransactions = transactions.filter(t => 
       t.date.getMonth() === lastMonth.getMonth() && t.date.getFullYear() === lastMonth.getFullYear()
@@ -862,7 +909,7 @@ class DataIntelligenceService {
             transactionIds: currentMonthTransactions.filter(t => t.category === category).map(t => t.id),
             actionable: true,
             dismissed: false,
-            createdAt: new Date()
+            createdAt: this.createDate()
           });
         }
       }
@@ -926,7 +973,7 @@ class DataIntelligenceService {
       monthlySubscriptionCost,
       topMerchants,
       categoryAccuracy: enrichedMerchants > 0 ? (enrichedMerchants / totalMerchants) * 100 : 0,
-      lastAnalysisRun: new Date()
+      lastAnalysisRun: this.createDate()
     };
   }
 

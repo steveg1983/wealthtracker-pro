@@ -626,7 +626,7 @@ export default function BulkTransactionEdit({
                       category: e.target.value || undefined
                     })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                             bg-white dark:bg-gray-800"
+                             bg-[#d4dce8] dark:bg-gray-800"
                   >
                     <option value="">Keep existing</option>
                     {categories.map(cat => (
@@ -650,7 +650,7 @@ export default function BulkTransactionEdit({
                       tags: e.target.value ? e.target.value.split(',').map(t => t.trim()) : []
                     })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                             bg-white dark:bg-gray-800"
+                             bg-[#d4dce8] dark:bg-gray-800"
                   />
                 </div>
 
@@ -667,7 +667,7 @@ export default function BulkTransactionEdit({
                       cleared: e.target.value === '' ? undefined : e.target.value === 'true'
                     })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                             bg-white dark:bg-gray-800"
+                             bg-[#d4dce8] dark:bg-gray-800"
                   >
                     <option value="">Keep existing</option>
                     <option value="true">Mark as Cleared</option>
@@ -690,7 +690,7 @@ export default function BulkTransactionEdit({
                     })}
                     rows={3}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                             bg-white dark:bg-gray-800"
+                             bg-[#d4dce8] dark:bg-gray-800"
                   />
                   <label className="flex items-center gap-2 mt-2">
                     <input
@@ -721,7 +721,7 @@ export default function BulkTransactionEdit({
                       moveToAccount: e.target.value || undefined
                     })}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg
-                             bg-white dark:bg-gray-800"
+                             bg-[#d4dce8] dark:bg-gray-800"
                   >
                     <option value="">Keep in current account</option>
                     {accounts.map(acc => (

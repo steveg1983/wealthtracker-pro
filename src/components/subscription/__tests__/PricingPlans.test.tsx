@@ -2,6 +2,7 @@ import React from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import PricingPlans from '../PricingPlans';
+import { formatCurrency as formatCurrencyDecimal } from '../../../utils/currency-decimal';
 
 vi.mock('../../../services/stripeService', () => ({
   __esModule: true,
@@ -35,14 +36,15 @@ vi.mock('../../../services/stripeService', () => ({
 vi.mock('../../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
     displayCurrency: 'USD',
-    formatCurrency: (value: any, currency: string = 'USD') => {
-      const amount = typeof value === 'number'
-        ? value
-        : typeof value?.toNumber === 'function'
-          ? value.toNumber()
-          : Number(value);
-      return `${currency.toUpperCase()} ${amount.toFixed(2)}`;
-    },
+    formatCurrency: (value: any, currency: string = 'USD') =>
+      formatCurrencyDecimal(
+        typeof value === 'number'
+          ? value
+          : typeof value?.toNumber === 'function'
+            ? value.toNumber()
+            : Number(value),
+        currency.toUpperCase()
+      ),
   }),
 }));
 
@@ -55,7 +57,7 @@ describe('PricingPlans', () => {
     render(<PricingPlans currentTier="free" onSelectPlan={vi.fn()} />);
 
     expect(
-      screen.getByText((content) => content.includes('USD 7.99'))
+      screen.getByText((content) => content.includes('$7.99'))
     ).toBeInTheDocument();
     expect(
       screen.getByText((content) => content.includes('/month'))
@@ -68,10 +70,10 @@ describe('PricingPlans', () => {
     fireEvent.click(screen.getByRole('button', { name: /Yearly/ }));
 
     expect(
-      screen.getByText((content) => content.includes('USD 76.70'))
+      screen.getByText((content) => content.includes('$76.70'))
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/Save USD 19\.18 per year/)
+      screen.getByText(/Save \$19\.18 per year/)
     ).toBeInTheDocument();
   });
 });

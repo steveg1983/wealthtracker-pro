@@ -185,7 +185,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total</p>
@@ -197,7 +197,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">High Priority</p>
@@ -209,7 +209,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Medium</p>
@@ -221,7 +221,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Low Priority</p>
@@ -233,7 +233,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-sm">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg p-4 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Actionable</p>
@@ -257,7 +257,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
                 setFilter(e.target.value);
               }
             }}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           >
             <option value="all">All Severities</option>
             <option value="high">High Priority</option>
@@ -270,7 +270,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           >
             {insightTypes.map(type => (
               <option key={type} value={type}>
@@ -289,7 +289,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
                 setSortBy(e.target.value);
               }
             }}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-[#d4dce8] dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
           >
             <option value="createdAt">Date Created</option>
             <option value="severity">Severity</option>
@@ -315,7 +315,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
       {/* Insights List */}
       <div className="space-y-4">
         {filteredInsights.length === 0 ? (
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
+          <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-8 text-center">
             <BellIcon size={48} className="mx-auto mb-4 text-gray-400" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               No insights found
@@ -330,7 +330,7 @@ export default function DataInsights({ onDataChange }: DataInsightsProps) {
           filteredInsights.map((insight) => (
             <div
               key={insight.id}
-              className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 ${getSeverityBorderColor(insight.severity)} ${
+              className={`bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm border-l-4 ${getSeverityBorderColor(insight.severity)} ${
                 insight.dismissed ? 'opacity-60' : ''
               }`}
             >

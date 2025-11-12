@@ -6,6 +6,32 @@ interface MerchantLogo {
   domain?: string; // Domain for fetching actual logo
 }
 
+interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+export interface ImageLike {
+  crossOrigin?: string;
+  onload?: (() => void) | null;
+  onerror?: (() => void) | null;
+  src: string;
+}
+
+export interface TimerAdapter {
+  setTimeout(handler: () => void, timeout: number): ReturnType<typeof setTimeout>;
+  clearTimeout(id: ReturnType<typeof setTimeout>): void;
+}
+
+type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+
+export interface MerchantLogoServiceOptions {
+  storage?: StorageLike | null;
+  imageFactory?: (() => ImageLike | null) | null;
+  timers?: TimerAdapter;
+  logger?: Logger;
+}
+
 // UK-focused merchant database with logos/emojis and brand colors
 const merchantDatabase: MerchantLogo[] = [
   // Supermarkets
@@ -131,8 +157,27 @@ export class MerchantLogoService {
   private merchantMap: Map<string, MerchantLogo> = new Map();
   private logoCache: Map<string, string> = new Map();
   private logoFetchPromises: Map<string, Promise<string | null>> = new Map();
+  private storage: StorageLike | null;
+  private createImage: (() => ImageLike | null) | null;
+  private timers: TimerAdapter;
+  private logger: Logger;
 
-  constructor() {
+  constructor(options: MerchantLogoServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
+    const defaultImageFactory = typeof Image !== 'undefined' ? () => new Image() : null;
+    this.createImage = options.imageFactory ?? defaultImageFactory;
+    this.timers = options.timers ?? {
+      setTimeout: (handler, timeout) => setTimeout(handler, timeout),
+      clearTimeout: (id) => clearTimeout(id)
+    };
+    const noop = () => {};
+    const globalConsole = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      log: options.logger?.log ?? (globalConsole?.log?.bind(globalConsole) ?? noop),
+      warn: options.logger?.warn ?? (globalConsole?.warn?.bind(globalConsole) ?? noop),
+      error: options.logger?.error ?? (globalConsole?.error?.bind(globalConsole) ?? noop)
+    };
+
     // Build a map for faster lookups
     merchantDatabase.forEach(merchant => {
       merchant.keywords.forEach(keyword => {
@@ -148,8 +193,11 @@ export class MerchantLogoService {
    * Load cached logos from localStorage
    */
   private loadCachedLogos() {
+    if (!this.storage) {
+      return;
+    }
     try {
-      const cachedLogos = localStorage.getItem('merchantLogos');
+      const cachedLogos = this.storage.getItem('merchantLogos');
       if (cachedLogos) {
         const parsed = JSON.parse(cachedLogos);
         Object.entries(parsed).forEach(([domain, logoUrl]) => {
@@ -157,7 +205,7 @@ export class MerchantLogoService {
         });
       }
     } catch (error) {
-      console.error('Error loading cached logos:', error);
+      this.logger.error('Error loading cached logos:', error);
     }
   }
   
@@ -165,11 +213,14 @@ export class MerchantLogoService {
    * Save logos to localStorage cache
    */
   private saveCachedLogos() {
+    if (!this.storage) {
+      return;
+    }
     try {
       const cacheObj = Object.fromEntries(this.logoCache);
-      localStorage.setItem('merchantLogos', JSON.stringify(cacheObj));
+      this.storage.setItem('merchantLogos', JSON.stringify(cacheObj));
     } catch (error) {
-      console.error('Error saving cached logos:', error);
+      this.logger.error('Error saving cached logos:', error);
     }
   }
   
@@ -207,6 +258,13 @@ export class MerchantLogoService {
         
         // Test if the logo exists by trying to fetch it
         // Using Image object to test if logo loads
+        if (!this.createImage) {
+          this.logger.warn(`Cannot fetch logo for ${domain} because no image factory is available.`);
+          this.logoCache.set(domain, '');
+          this.saveCachedLogos();
+          return null;
+        }
+
         return new Promise<string | null>((resolve) => {
           let attemptCount = 0;
           const sources = [logoUrl, faviconUrl, duckDuckGoFavicon];
@@ -221,32 +279,40 @@ export class MerchantLogoService {
             }
             
             const currentUrl = sources[attemptCount];
-            const img = new Image();
+            const img = this.createImage ? this.createImage() : null;
+
+            if (!img) {
+              this.logger.warn(`Image factory returned null when fetching ${domain}.`);
+              this.logoCache.set(domain, '');
+              this.saveCachedLogos();
+              resolve(null);
+              return;
+            }
             
             // Don't use crossOrigin for Google favicons as it may cause issues
             if (attemptCount === 0) {
               img.crossOrigin = 'anonymous';
             }
             
-            const timeout = setTimeout(() => {
+            const timeout = this.timers.setTimeout(() => {
               img.src = ''; // Cancel the request
               attemptCount++;
               tryNextSource();
             }, 3000);
             
             img.onload = () => {
-              clearTimeout(timeout);
+              this.timers.clearTimeout(timeout);
               // Logo loaded successfully
-              console.log(`Successfully loaded ${attemptCount === 0 ? 'logo' : 'favicon'} for ${domain}`);
+              this.logger.log(`Successfully loaded ${attemptCount === 0 ? 'logo' : 'favicon'} for ${domain}`);
               this.logoCache.set(domain, currentUrl);
               this.saveCachedLogos();
               resolve(currentUrl);
             };
             
             img.onerror = () => {
-              clearTimeout(timeout);
+              this.timers.clearTimeout(timeout);
               const sourceNames = ['Clearbit logo', 'Google favicon', 'DuckDuckGo favicon'];
-              console.warn(`${sourceNames[attemptCount]} failed for ${domain}${attemptCount < sources.length - 1 ? ', trying next...' : ', will use emoji'}`);
+              this.logger.warn(`${sourceNames[attemptCount]} failed for ${domain}${attemptCount < sources.length - 1 ? ', trying next...' : ', will use emoji'}`);
               attemptCount++;
               tryNextSource();
             };
@@ -257,7 +323,7 @@ export class MerchantLogoService {
           tryNextSource();
         });
       } catch (error) {
-        console.error(`Error fetching logo for ${domain}:`, error);
+        this.logger.error(`Error fetching logo for ${domain}:`, error);
       }
       
       return null;

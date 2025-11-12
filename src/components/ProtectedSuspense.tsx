@@ -1,6 +1,6 @@
 import { Suspense, ReactNode } from 'react';
 import ProtectedRoute from './ProtectedRoute';
-import PageLoader from '../PageLoader';
+import PageLoader from './PageLoader';
 
 interface ProtectedSuspenseProps {
   children: ReactNode;

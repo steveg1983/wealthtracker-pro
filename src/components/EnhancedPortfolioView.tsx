@@ -157,7 +157,7 @@ export default function EnhancedPortfolioView({
         </div>
       </div>
       
-      <div className="p-6 bg-white dark:bg-gray-800 m-6 rounded-lg shadow-md border-2 border-blue-200 dark:border-gray-700 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 8rem)' }}>
+      <div className="p-6 bg-[#d4dce8] dark:bg-gray-800 m-6 rounded-lg shadow-md border-2 border-blue-200 dark:border-gray-700 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 8rem)' }}>
 
         {error && (
           <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
@@ -178,7 +178,7 @@ export default function EnhancedPortfolioView({
       
       {/* Portfolio Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Market Value</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {formatCurrency(totalMarketValue, currency)}
@@ -187,13 +187,13 @@ export default function EnhancedPortfolioView({
             <p className="text-xs text-gray-400 mt-1">Updating...</p>
           )}
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Total Cost</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">
             {formatCurrency(totalCost, currency)}
           </p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Total Gain/Loss</p>
           <div className="flex items-center gap-2">
             <p className={`text-2xl font-bold ${totalGain >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -209,7 +209,7 @@ export default function EnhancedPortfolioView({
             {totalCost > 0 ? formatPercent((totalGain / totalCost) * 100) : '0.00%'}
           </p>
         </div>
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Holdings</p>
           <p className="text-2xl font-bold text-gray-900 dark:text-white">{holdings.length}</p>
           <p className="text-xs text-gray-400 mt-1">
@@ -219,7 +219,7 @@ export default function EnhancedPortfolioView({
       </div>
       
       {/* Holdings Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Holdings</h2>
         </div>
@@ -314,7 +314,7 @@ export default function EnhancedPortfolioView({
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-[#d4dce8] dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {sortedHoldings.map((holding, index) => {
                 const livePrice = prices.get(holding.ticker);
                 const hasLivePrice = !!livePrice;

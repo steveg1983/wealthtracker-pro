@@ -1,6 +1,8 @@
 import { storageAdapter } from '../storageAdapter';
 import type { JsonValue } from '../../types/common';
 
+const serviceLogger = typeof console !== 'undefined' ? console : { log: () => {}, error: () => {} };
+
 /**
  * Base service class providing common functionality for all services
  */
@@ -41,7 +43,7 @@ export abstract class BaseService {
    */
   protected log(message: string, data?: JsonValue): void {
     if (process.env.NODE_ENV === 'development') {
-      console.log(`[${this.serviceName}] ${message}`, data || '');
+      serviceLogger.log(`[${this.serviceName}] ${message}`, data || '');
     }
   }
 
@@ -49,7 +51,7 @@ export abstract class BaseService {
    * Handle service errors consistently
    */
   protected handleError(operation: string, error: unknown): void {
-    console.error(`[${this.serviceName}] Error in ${operation}:`, error);
+    serviceLogger.error(`[${this.serviceName}] Error in ${operation}:`, error);
     // Could integrate with error tracking service here
   }
 }

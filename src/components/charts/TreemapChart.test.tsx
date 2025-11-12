@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import TreemapChart from './TreemapChart';
 import type { Transaction } from '../../types';
+import { formatCurrency as formatCurrencyDecimal } from '../../utils/currency-decimal';
 
 // Mock recharts
 vi.mock('recharts', () => ({
@@ -45,7 +46,8 @@ vi.mock('../../contexts/AppContextSupabase', () => ({
 
 vi.mock('../../hooks/useCurrencyDecimal', () => ({
   useCurrencyDecimal: () => ({
-    formatCurrency: (amount: number) => `$${amount.toFixed(2)}`
+    formatCurrency: (amount: number, currency: string = 'USD') =>
+      formatCurrencyDecimal(amount, currency)
   })
 }));
 

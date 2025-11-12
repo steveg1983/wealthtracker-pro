@@ -8,24 +8,23 @@ import { ImportRulesService } from '../importRulesService';
 import type { ImportRule, ImportRuleCondition, ImportRuleAction } from '../../types/importRules';
 import type { Transaction } from '../../types';
 
-// Mock localStorage
-const mockLocalStorage = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-};
-global.localStorage = mockLocalStorage as any;
+const createStorage = () => ({
+  getItem: vi.fn(() => null),
+  setItem: vi.fn()
+});
 
 describe('ImportRulesService', () => {
   let service: ImportRulesService;
   let mockRule: ImportRule;
+  let storage: ReturnType<typeof createStorage>;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockLocalStorage.getItem.mockReturnValue(null);
-    
-    service = new ImportRulesService();
+    storage = createStorage();
+    service = new ImportRulesService({
+      storage,
+      now: () => new Date('2025-01-20T00:00:00Z')
+    });
     
     mockRule = {
       id: '1',
@@ -64,20 +63,20 @@ describe('ImportRulesService', () => {
 
     it('loads rules from localStorage on initialization', () => {
       const savedRules = [mockRule];
-      mockLocalStorage.getItem.mockReturnValue(JSON.stringify(savedRules));
+      storage.getItem.mockReturnValue(JSON.stringify(savedRules));
       
-      const newService = new ImportRulesService();
+      const newService = new ImportRulesService({ storage });
       const rules = newService.getRules();
       
-      expect(mockLocalStorage.getItem).toHaveBeenCalledWith('wealthtracker_import_rules');
+      expect(storage.getItem).toHaveBeenCalledWith('wealthtracker_import_rules');
       expect(rules).toHaveLength(1);
       expect(rules[0].name).toBe('Test Rule');
     });
 
     it('handles corrupted localStorage data gracefully', () => {
-      mockLocalStorage.getItem.mockReturnValue('invalid json');
+      storage.getItem.mockReturnValue('invalid json');
       
-      const newService = new ImportRulesService();
+      const newService = new ImportRulesService({ storage });
       const rules = newService.getRules();
       
       expect(rules).toEqual([]);
@@ -101,7 +100,7 @@ describe('ImportRulesService', () => {
       expect(addedRule.name).toBe('New Rule');
       expect(addedRule.createdAt).toBeInstanceOf(Date);
       expect(addedRule.updatedAt).toBeInstanceOf(Date);
-      expect(mockLocalStorage.setItem).toHaveBeenCalled();
+      expect(storage.setItem).toHaveBeenCalled();
     });
 
     it('updates existing rule', () => {
@@ -126,7 +125,7 @@ describe('ImportRulesService', () => {
       
       const rules = service.getRules();
       expect(rules).toHaveLength(0);
-      expect(mockLocalStorage.setItem).toHaveBeenCalled();
+      expect(storage.setItem).toHaveBeenCalled();
     });
 
     it('gets rule by ID', () => {

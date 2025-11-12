@@ -28,10 +28,10 @@ export const PerformanceDashboard: React.FC = () => {
     getBundleSize
   } = usePerformanceMonitoring();
 
-  const [navigationTiming, setNavigationTiming] = useState<ReturnType<typeof getNavigationTiming>>(null);
+  const [navigationTiming, setNavigationTiming] = useState<ReturnType<typeof getNavigationTiming> | null>(null);
   const [resourceMetrics, setResourceMetrics] = useState<ResourceSummary | null>(null);
-  const [memoryUsage, setMemoryUsage] = useState<ReturnType<typeof getMemoryUsage>>(null);
-  const [bundleSize, setBundleSize] = useState<ReturnType<typeof getBundleSize>>(null);
+  const [memoryUsage, setMemoryUsage] = useState<ReturnType<typeof getMemoryUsage> | null>(null);
+  const [bundleSize, setBundleSize] = useState<ReturnType<typeof getBundleSize> | null>(null);
   const [webVitals, setWebVitals] = useState<WebVitalScore[]>([]);
 
   useEffect(() => {

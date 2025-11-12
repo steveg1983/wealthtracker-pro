@@ -8,6 +8,7 @@ import { exportTransactionsToCSV, exportAccountsToCSV, downloadCSV } from './csv
 import { toDecimal } from './decimal';
 import type { Transaction, Account } from '../types';
 import type { DecimalTransaction, DecimalAccount } from '../types/decimal-types';
+import { formatDecimal } from './decimal-format';
 
 describe('CSV Export', () => {
   const mockTransactions: Transaction[] = [
@@ -572,7 +573,7 @@ describe('CSV Export', () => {
         expect(line).toContain(tx.description);
         expect(line).toContain(tx.category);
         expect(line).toContain(tx.type);
-        expect(line).toContain(tx.amount.toFixed(2));
+        expect(line).toContain(formatDecimal(tx.amount, 2));
         expect(line).toContain(account?.name || 'Unknown');
         expect(line).toContain(tx.cleared ? 'Y' : 'N');
       });

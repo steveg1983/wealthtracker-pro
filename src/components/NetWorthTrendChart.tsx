@@ -50,7 +50,7 @@ const NetWorthTrendChart = React.memo(function NetWorthTrendChart() {
   }, [getDecimalAccounts, getDecimalTransactions]);
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+    <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow p-6">
       <h2 className="text-xl font-semibold mb-4 dark:text-white">Net Worth Trend</h2>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">

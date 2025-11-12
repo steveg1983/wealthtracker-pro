@@ -27,6 +27,9 @@ const AgGridReact = lazy(() => import('ag-grid-react').then(module => ({ default
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 
+// Import types
+import type { Dashboard as DashboardBuilderDashboard } from '../components/analytics/DashboardBuilder';
+
 // Import Query type
 import type { Query } from '../components/analytics/QueryBuilder';
 
@@ -262,7 +265,7 @@ export default function Analytics(): React.JSX.Element {
     <PageWrapper title="Analytics">
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
         {/* Header */}
-        <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div>
@@ -324,7 +327,7 @@ export default function Analytics(): React.JSX.Element {
         {/* Key Metrics */}
         <div className="px-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Income</p>
@@ -336,7 +339,7 @@ export default function Analytics(): React.JSX.Element {
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Expenses</p>
@@ -348,7 +351,7 @@ export default function Analytics(): React.JSX.Element {
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Savings Rate</p>
@@ -360,7 +363,7 @@ export default function Analytics(): React.JSX.Element {
               </div>
             </div>
             
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Transactions</p>
@@ -393,8 +396,13 @@ export default function Analytics(): React.JSX.Element {
                   </div>
                   <Suspense fallback={<div className="flex items-center justify-center h-64">Loading dashboard...</div>}>
                     <DashboardBuilder
-                      dashboard={activeDashboard ? { ...activeDashboard, settings: activeDashboard.settings || {} } : null}
-                      onSave={handleSaveDashboard}
+                      dashboard={activeDashboard ? {
+                        ...activeDashboard,
+                        settings: (activeDashboard as unknown as DashboardBuilderDashboard).settings || {}
+                      } as unknown as DashboardBuilderDashboard : undefined}
+                      onSave={(dashboard: DashboardBuilderDashboard) => {
+                        handleSaveDashboard(dashboard as unknown as Dashboard);
+                      }}
                       onClose={() => setActiveDashboard(null)}
                     />
                   </Suspense>
@@ -405,7 +413,7 @@ export default function Analytics(): React.JSX.Element {
                     <div
                       key={dashboard.id}
                       onClick={() => setActiveDashboard(dashboard)}
-                      className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md cursor-pointer transition-shadow"
+                      className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 hover:shadow-md cursor-pointer transition-shadow"
                     >
                       <div className="flex items-start justify-between mb-2">
                         <GridIcon size={24} className="text-primary" />
@@ -451,7 +459,7 @@ export default function Analytics(): React.JSX.Element {
           
           {activeTab === 'explorer' && (
             <div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+              <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     Saved Queries
@@ -518,7 +526,7 @@ export default function Analytics(): React.JSX.Element {
                             sortable: true,
                             filter: true,
                             resizable: true
-                          }))}
+                          })) as any}
                           defaultColDef={{
                             flex: 1,
                             minWidth: 100
@@ -537,7 +545,7 @@ export default function Analytics(): React.JSX.Element {
               {insights.map((insight, index) => (
                 <div
                   key={index}
-                  className={`bg-white dark:bg-gray-800 rounded-lg shadow-sm border-l-4 p-6 ${
+                  className={`bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm border-l-4 p-6 ${
                     insight.severity === 'warning' ? 'border-l-amber-500' :
                     insight.severity === 'success' ? 'border-l-green-500' :
                     'border-l-blue-500'
@@ -573,7 +581,7 @@ export default function Analytics(): React.JSX.Element {
           )}
           
           {activeTab === 'reports' && (
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-8">
               <div className="text-center">
                 <DownloadIcon size={48} className="mx-auto text-gray-400 dark:text-gray-600 mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -609,10 +617,12 @@ export default function Analytics(): React.JSX.Element {
         
         {showDashboardBuilder && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <Suspense fallback={<div className="flex items-center justify-center h-full p-8">Loading...</div>}>
                 <DashboardBuilder
-                  onSave={handleSaveDashboard}
+                  onSave={(dashboard: DashboardBuilderDashboard) => {
+                    handleSaveDashboard(dashboard as unknown as Dashboard);
+                  }}
                   onClose={() => setShowDashboardBuilder(false)}
                 />
               </Suspense>

@@ -200,7 +200,10 @@ export function VirtualizedAccountList({
     const item = processedAccounts[index];
     if (!item) return 80;
     if (isGroupHeader(item)) return 40;
-    if ((item as Account).tags?.length > 0) return 100;
+    if (!isGroupHeader(item)) {
+      const account = item as Account;
+      if (account.tags && account.tags.length > 0) return 100;
+    }
     return 80;
   }, [processedAccounts]);
 

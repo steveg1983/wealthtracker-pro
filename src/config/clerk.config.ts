@@ -16,6 +16,10 @@
  * - Multi-factor authentication
  */
 
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const clerkConfigLogger = createScopedLogger('ClerkConfig');
+
 export const clerkConfig = {
   // Sign in methods (enable in Clerk dashboard)
   signInMethods: {
@@ -113,9 +117,9 @@ export function getClerkPublishableKey(): string {
   const key = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
   
   if (!key) {
-    console.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
-    console.info('Please add it to your .env.local file');
-    console.info('Get your key from: https://dashboard.clerk.com/apps/[your-app]/api-keys');
+    clerkConfigLogger.error('Missing VITE_CLERK_PUBLISHABLE_KEY in environment variables');
+    clerkConfigLogger.info('Please add it to your .env.local file');
+    clerkConfigLogger.info('Get your key from: https://dashboard.clerk.com/apps/[your-app]/api-keys');
   }
   
   return key || '';

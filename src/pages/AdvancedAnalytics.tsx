@@ -39,7 +39,7 @@ export default function AdvancedAnalyticsPage() {
         <AdvancedAnalytics />
         
         {/* Bill Negotiator Component */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
+        <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow p-6">
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">
             Bill Negotiation Assistant
           </h2>

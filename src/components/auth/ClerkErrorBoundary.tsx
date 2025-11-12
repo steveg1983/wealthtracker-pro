@@ -53,7 +53,8 @@ export class ClerkErrorBoundary extends Component<Props, State> {
     
     // Log to error tracking service if available
     if (window.Sentry) {
-      window.Sentry.captureException(error, {
+      // Sentry.captureException type expects only one argument, but actual API supports two
+      (window.Sentry.captureException as any)(error, {
         contexts: {
           react: {
             componentStack: errorInfo.componentStack
@@ -117,7 +118,7 @@ export class ClerkErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
+          <div className="max-w-md w-full bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
             {/* Header */}
             <div className={`px-6 py-4 ${
               this.state.isSafariIssue 

@@ -108,7 +108,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
 
   const getActivityColor = (activity: ActivityItem): string => {
     if (!activity.read) return 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
-    return 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700';
+    return 'bg-[#d4dce8] dark:bg-gray-800 border-gray-200 dark:border-gray-700';
   };
 
   const handleActivityClick = (activity: ActivityItem) => {
@@ -138,7 +138,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
       {/* Notification Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center justify-center"
         aria-label={`Notifications${counts.unread > 0 ? ` (${counts.unread} unread)` : ''}`}
       >
         <Bell size={20} className="text-gray-700 dark:text-gray-200" />
@@ -166,7 +166,7 @@ export default function EnhancedNotificationBell(): React.JSX.Element {
           />
 
           {/* Panel */}
-          <div className="absolute right-0 top-12 z-50 w-96 max-h-[600px] bg-white dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="absolute right-0 top-12 z-50 w-96 max-h-[600px] bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
             {/* Header */}
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">

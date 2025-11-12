@@ -1,4 +1,7 @@
 import type { Transaction, Holding } from '../types';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const investmentLogger = createScopedLogger('InvestmentUtils');
 
 interface InvestmentTransactionData {
   ticker: string;
@@ -57,7 +60,7 @@ export function parseInvestmentTransaction(transaction: Transaction): Investment
 
     return null;
   } catch (error) {
-    console.error('Error parsing investment transaction:', error);
+    investmentLogger.error('Error parsing investment transaction', error);
     return null;
   }
 }

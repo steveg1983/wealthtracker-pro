@@ -183,7 +183,7 @@ export function SmartCategorization({
 
         {/* Additional suggestions dropdown */}
         {showAllSuggestions && suggestions.length > 1 && (
-          <div className="absolute z-10 mt-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2 min-w-[200px]">
+          <div className="absolute z-10 mt-8 bg-[#d4dce8] dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-2 min-w-[200px]">
             {suggestions.slice(1).map(suggestion => {
               const category = categories.find(c => c.id === suggestion.categoryId);
               if (!category) return null;
@@ -257,7 +257,7 @@ export function SmartCategorization({
               className={`
                 flex items-center justify-between gap-3 p-3 rounded-lg border
                 ${index === 0 
-                  ? 'border-purple-300 dark:border-purple-700 bg-white dark:bg-gray-800' 
+                  ? 'border-purple-300 dark:border-purple-700 bg-[#d4dce8] dark:bg-gray-800' 
                   : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50'
                 }
               `}
@@ -358,7 +358,7 @@ export function BulkCategorization({
     };
 
     // Process in chunks of 10
-    const chunks = [];
+    const chunks: Transaction[][] = [];
     for (let i = 0; i < transactions.length; i += 10) {
       chunks.push(transactions.slice(i, i + 10));
     }
@@ -410,7 +410,7 @@ export function BulkCategorization({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">

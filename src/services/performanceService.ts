@@ -19,11 +19,40 @@ interface PerformanceReport {
   userAgent: string;
 }
 
-class PerformanceService {
+interface WindowRef extends Partial<Window> {
+  PerformanceObserver?: typeof PerformanceObserver;
+  PerformanceEventTiming?: typeof PerformanceEventTiming;
+  gtag?: (...args: any[]) => void;
+}
+
+interface DocumentRef extends Partial<Document> {
+  scripts?: HTMLCollectionOf<HTMLScriptElement>;
+}
+
+interface NavigatorRef extends Partial<Navigator> {}
+
+export interface PerformanceServiceOptions {
+  windowRef?: WindowRef | null;
+  documentRef?: DocumentRef | null;
+  navigatorRef?: NavigatorRef | null;
+  performanceRef?: Performance | null;
+  requestAnimationFrameFn?: typeof requestAnimationFrame;
+  consoleRef?: Pick<Console, 'log' | 'warn' | 'error'>;
+  fetchFn?: typeof fetch;
+}
+
+export class PerformanceService {
   private metrics: PerformanceMetric[] = [];
   private observer: PerformanceObserver | null = null;
   private reportCallback: ((report: PerformanceReport) => void) | null = null;
   private isInitialized = false;
+  private windowRef: WindowRef | null;
+  private documentRef: DocumentRef | null;
+  private navigatorRef: NavigatorRef | null;
+  private performanceRef: Performance | null;
+  private requestAnimationFrameFn: typeof requestAnimationFrame;
+  private consoleRef: Pick<Console, 'log' | 'warn' | 'error'>;
+  private fetchFn: typeof fetch;
 
   // Core Web Vitals thresholds
   private readonly thresholds = {
@@ -35,14 +64,27 @@ class PerformanceService {
     INP: { good: 200, poor: 500 },   // Interaction to Next Paint (ms)
   };
 
+  constructor(options: PerformanceServiceOptions = {}) {
+    this.windowRef = options.windowRef ?? (typeof window !== 'undefined' ? window : null);
+    this.documentRef = options.documentRef ?? (typeof document !== 'undefined' ? document : null);
+    this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
+    this.performanceRef = options.performanceRef ?? (typeof performance !== 'undefined' ? performance : null);
+    this.requestAnimationFrameFn =
+      options.requestAnimationFrameFn ??
+      ((typeof requestAnimationFrame !== 'undefined'
+        ? requestAnimationFrame
+        : (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 16)) as typeof requestAnimationFrame);
+    this.consoleRef = options.consoleRef ?? console;
+    this.fetchFn = options.fetchFn ?? (typeof fetch !== 'undefined' ? fetch : (async () => new Response()) as any);
+  }
+
   init(callback?: (report: PerformanceReport) => void): void {
     if (this.isInitialized) return;
     
     this.reportCallback = callback || null;
     this.isInitialized = true;
 
-    // Only run in browser environment
-    if (typeof window === 'undefined') return;
+    if (!this.windowRef) return;
 
     this.observeWebVitals();
     this.measureCustomMetrics();
@@ -53,10 +95,10 @@ class PerformanceService {
   // Observe Core Web Vitals
   private observeWebVitals() {
     // Use web-vitals library if available, otherwise use native APIs
-    if ('PerformanceObserver' in window) {
+    if (this.windowRef?.PerformanceObserver) {
       // Observe Largest Contentful Paint
       try {
-        const lcpObserver = new PerformanceObserver((list) => {
+        const lcpObserver = new this.windowRef.PerformanceObserver((list) => {
           const entries = list.getEntries();
           const lastEntry = entries[entries.length - 1] as any;
           this.recordMetric('LCP', lastEntry.startTime, 'LCP');
@@ -68,7 +110,7 @@ class PerformanceService {
 
       // Observe First Input Delay
       try {
-        const fidObserver = new PerformanceObserver((list) => {
+        const fidObserver = new this.windowRef.PerformanceObserver((list) => {
           const entries = list.getEntries();
           entries.forEach((entry: any) => {
             if (entry.name === 'first-input') {
@@ -84,7 +126,7 @@ class PerformanceService {
       // Observe Cumulative Layout Shift
       try {
         let clsValue = 0;
-        const clsObserver = new PerformanceObserver((list) => {
+        const clsObserver = new this.windowRef.PerformanceObserver((list) => {
           for (const entry of list.getEntries()) {
             if (!(entry as any).hadRecentInput) {
               clsValue += (entry as any).value;
@@ -99,7 +141,7 @@ class PerformanceService {
 
       // Observe First Contentful Paint
       try {
-        const fcpObserver = new PerformanceObserver((list) => {
+        const fcpObserver = new this.windowRef.PerformanceObserver((list) => {
           const entries = list.getEntries();
           entries.forEach((entry) => {
             if (entry.name === 'first-contentful-paint') {
@@ -114,8 +156,8 @@ class PerformanceService {
     }
 
     // Measure Time to First Byte
-    if (window.performance && window.performance.timing) {
-      const timing = window.performance.timing;
+    if (this.performanceRef?.timing) {
+      const timing = this.performanceRef.timing;
       const ttfb = timing.responseStart - timing.navigationStart;
       if (ttfb > 0) {
         this.recordMetric('TTFB', ttfb, 'TTFB');
@@ -123,9 +165,9 @@ class PerformanceService {
     }
 
     // Measure Interaction to Next Paint (INP)
-    if ('PerformanceEventTiming' in window) {
+    if (this.windowRef && 'PerformanceEventTiming' in this.windowRef) {
       let maxDuration = 0;
-      const inpObserver = new PerformanceObserver((list) => {
+      const inpObserver = new this.windowRef.PerformanceObserver((list) => {
         const entries = list.getEntries() as any[];
         entries.forEach((entry) => {
           if (entry.duration > maxDuration) {
@@ -176,23 +218,23 @@ class PerformanceService {
   // Measure custom metrics
   private measureCustomMetrics() {
     // Time to Interactive (approximation)
-    if (document.readyState === 'complete') {
-      const tti = performance.now();
+    if (this.documentRef?.readyState === 'complete') {
+      const tti = this.performanceRef?.now ? this.performanceRef.now() : Date.now();
       this.recordMetric('TTI', tti, 'FCP'); // Use FCP thresholds
     } else {
-      window.addEventListener('load', () => {
-        const tti = performance.now();
+      this.windowRef?.addEventListener?.('load', () => {
+        const tti = this.performanceRef?.now ? this.performanceRef.now() : Date.now();
         this.recordMetric('TTI', tti, 'FCP');
       });
     }
 
     // Memory usage (if available)
-    if ('memory' in performance) {
-      const memory = (performance as any).memory;
+    if (this.performanceRef && 'memory' in this.performanceRef) {
+      const memory = (this.performanceRef as any).memory;
       const usedMemoryMB = Math.round(memory.usedJSHeapSize / 1048576);
       const totalMemoryMB = Math.round(memory.totalJSHeapSize / 1048576);
       
-      console.log(`[Performance] Memory: ${usedMemoryMB}MB / ${totalMemoryMB}MB`);
+      this.consoleRef.log(`[Performance] Memory: ${usedMemoryMB}MB / ${totalMemoryMB}MB`);
     }
 
     // Frame rate monitoring
@@ -200,32 +242,32 @@ class PerformanceService {
     let frames = 0;
     const checkFPS = (): void => {
       frames++;
-      const currentTime = performance.now();
+      const currentTime = this.performanceRef?.now ? this.performanceRef.now() : Date.now();
       if (currentTime >= lastTime + 1000) {
         const fps = Math.round((frames * 1000) / (currentTime - lastTime));
         if (fps < 30) {
-          console.warn(`[Performance] Low FPS detected: ${fps}`);
+          this.consoleRef.warn(`[Performance] Low FPS detected: ${fps}`);
         }
         frames = 0;
         lastTime = currentTime;
       }
       if (this.isInitialized) {
-        requestAnimationFrame(checkFPS);
+        this.requestAnimationFrameFn(checkFPS);
       }
     };
-    requestAnimationFrame(checkFPS);
+    this.requestAnimationFrameFn(checkFPS);
   }
 
   // Setup resource timing observer
   private setupResourceObserver() {
-    if (!('PerformanceObserver' in window)) return;
+    if (!this.windowRef?.PerformanceObserver) return;
 
-    const resourceObserver = new PerformanceObserver((list) => {
+    const resourceObserver = new this.windowRef.PerformanceObserver((list) => {
       const entries = list.getEntries();
       const slowResources = entries.filter((entry) => entry.duration > 1000);
       
       if (slowResources.length > 0) {
-        console.warn('[Performance] Slow resources detected:', 
+        this.consoleRef.warn('[Performance] Slow resources detected:', 
           slowResources.map(r => ({
             name: r.name,
             duration: Math.round(r.duration),
@@ -244,16 +286,18 @@ class PerformanceService {
 
   // Track bundle size
   private async trackBundleSize() {
-    if (!('navigator' in window) || !('connection' in navigator)) return;
+    if (!this.navigatorRef?.connection) return;
 
     // Get all script sizes
-    const scripts = Array.from(document.scripts);
+    const scriptsCollection = this.documentRef?.scripts;
+    if (!scriptsCollection) return;
+    const scripts = Array.from(scriptsCollection);
     const scriptSizes = await Promise.all(
       scripts
         .filter(script => script.src)
         .map(async (script) => {
           try {
-            const response = await fetch(script.src, { method: 'HEAD' });
+            const response = await this.fetchFn(script.src, { method: 'HEAD' });
             const size = response.headers.get('content-length');
             return {
               url: script.src,
@@ -268,19 +312,19 @@ class PerformanceService {
     const totalSize = scriptSizes.reduce((sum, s) => sum + s.size, 0);
     const totalSizeMB = formatDecimal(totalSize / 1048576, 2);
     
-    console.log(`[Performance] Total JS bundle size: ${totalSizeMB}MB`);
+    this.consoleRef.log(`[Performance] Total JS bundle size: ${totalSizeMB}MB`);
     
     // Warn if bundle is too large
     if (totalSize > 5 * 1048576) { // 5MB
-      console.warn('[Performance] Bundle size exceeds 5MB threshold');
+      this.consoleRef.warn('[Performance] Bundle size exceeds 5MB threshold');
     }
   }
 
   // Send metrics to analytics service
   private sendToAnalytics(metric: PerformanceMetric) {
     // Send to Google Analytics if available
-    if (typeof window !== 'undefined' && 'gtag' in window) {
-      (window as any).gtag('event', 'performance', {
+    if (this.windowRef?.gtag) {
+      this.windowRef.gtag('event', 'performance', {
         metric_name: metric.name,
         metric_value: metric.value,
         metric_rating: metric.rating,
@@ -292,8 +336,8 @@ class PerformanceService {
       const report: PerformanceReport = {
         metrics: [metric],
         timestamp: Date.now(),
-        url: window.location.href,
-        userAgent: navigator.userAgent,
+        url: this.windowRef?.location?.href ?? '',
+        userAgent: this.navigatorRef?.userAgent ?? ''
       };
       this.reportCallback(report);
     }
@@ -395,16 +439,17 @@ class PerformanceService {
 
   // Mark for specific user interactions
   mark(name: string) {
-    performance.mark(name);
+    this.performanceRef?.mark(name);
   }
 
   // Measure between two marks
   measure(name: string, startMark: string, endMark?: string) {
     try {
-      const measure = performance.measure(name, startMark, endMark);
+      if (!this.performanceRef?.measure) return;
+      const measure = this.performanceRef.measure(name, startMark, endMark);
       this.recordCustomMetric(name, measure.duration);
     } catch (e) {
-      console.error('Performance measurement failed:', e);
+      this.consoleRef.error('Performance measurement failed:', e);
     }
   }
 
@@ -419,9 +464,9 @@ class PerformanceService {
       metrics: this.getMetrics(),
       summary: this.getSummary(),
       timestamp: Date.now(),
-      url: window.location.href,
-      userAgent: navigator.userAgent,
-      connection: (navigator as any).connection || {},
+      url: this.windowRef?.location?.href ?? '',
+      userAgent: this.navigatorRef?.userAgent ?? '',
+      connection: (this.navigatorRef as any)?.connection || {},
     };
   }
 

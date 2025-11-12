@@ -16,6 +16,9 @@ export interface SearchResult {
   icon?: React.ComponentType<any>;
 }
 
+type Logger = Pick<Console, 'error'>;
+const searchLogger: Logger = typeof console !== 'undefined' ? console : { error: () => {} };
+
 export function useGlobalSearch(query: string): {
   results: SearchResult[];
   hasResults: boolean;
@@ -87,7 +90,7 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        console.error('Error searching account:', account.id, error);
+        searchLogger.error('Error searching account:', account.id, error as Error);
       }
     });
 
@@ -116,7 +119,7 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        console.error('Error searching transaction:', transaction.id, error);
+        searchLogger.error('Error searching transaction:', transaction.id, error as Error);
       }
     });
 
@@ -143,7 +146,7 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        console.error('Error searching budget:', budget.id, error);
+        searchLogger.error('Error searching budget:', budget.id, error as Error);
       }
     });
 
@@ -177,14 +180,14 @@ export function useGlobalSearch(query: string): {
           });
         }
       } catch (error) {
-        console.error('Error searching goal:', goal.id, error);
+        searchLogger.error('Error searching goal:', goal.id, error as Error);
       }
     });
 
     // Sort by score (highest first)
     return results.sort((a, b) => b.score - a.score);
     } catch (error) {
-      console.error('Error in global search:', error);
+      searchLogger.error('Error in global search:', error as Error);
       return [];
     }
   }, [query, accounts, transactions, budgets, goals, categories]);

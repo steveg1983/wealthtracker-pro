@@ -44,10 +44,10 @@ export class DuplicateDetectionService {
     const matchReasons: string[] = [];
 
     // Exact amount match (40 points)
-    if (Math.abs(parseFloat(tx1.amount) - parseFloat(tx2.amount)) < 0.01) {
+    if (Math.abs(tx1.amount - tx2.amount) < 0.01) {
       confidence += 40;
       matchReasons.push('Exact amount match');
-    } else if (Math.abs(parseFloat(tx1.amount) - parseFloat(tx2.amount)) < 1) {
+    } else if (Math.abs(tx1.amount - tx2.amount) < 1) {
       confidence += 20;
       matchReasons.push('Similar amount');
     }

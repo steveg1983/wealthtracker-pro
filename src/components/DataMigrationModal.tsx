@@ -7,7 +7,7 @@
 
 import { useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
-import { DataMigrationService } from '../services/dataMigrationService';
+import { dataMigrationService } from '../services/dataMigrationService';
 import { userIdService } from '../services/userIdService';
 import { DatabaseIcon, CheckCircleIcon, AlertCircleIcon, LoadingIcon } from './icons';
 
@@ -57,7 +57,7 @@ export default function DataMigrationModal({ isOpen, onClose, onComplete }: Data
         return;
       }
 
-      const result = await DataMigrationService.migrateToSupabase(userId);
+      const result = await dataMigrationService.migrateToSupabase(userId);
       
       if (result.error && result.error !== 'User already has cloud data') {
         setErrorMessage(result.error);
@@ -87,7 +87,7 @@ export default function DataMigrationModal({ isOpen, onClose, onComplete }: Data
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full p-6">
+      <div className="bg-[#d4dce8] dark:bg-gray-800 rounded-2xl shadow-xl max-w-lg w-full p-6">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">

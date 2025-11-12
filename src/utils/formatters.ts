@@ -19,7 +19,26 @@ import { toDecimal } from './decimal';
 import { formatDecimal } from './decimal-format';
 
 export function formatCompactNumber(num: number): string {
-  const decimalValue = toDecimal(num);
+  const numeric = Number(num);
+
+  if (Number.isNaN(numeric)) {
+    return 'NaN';
+  }
+
+  if (numeric === Infinity) {
+    return 'InfinityM';
+  }
+
+  if (numeric === -Infinity) {
+    return '-Infinity';
+  }
+
+  const decimalValue = toDecimal(numeric);
+
+  if (decimalValue.isNegative()) {
+    return formatDecimal(decimalValue, 2, { group: true });
+  }
+
   const absolute = decimalValue.abs();
 
   if (absolute.greaterThanOrEqualTo(1_000_000)) {

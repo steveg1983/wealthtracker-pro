@@ -14,9 +14,60 @@ interface StorageAdapter {
   clear(): Promise<void>;
 }
 
-class SecureStorageAdapter implements StorageAdapter {
+interface StorageLike {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem?(key: string): void;
+  key?(index: number): string | null;
+  length?: number;
+}
+
+type Logger = Pick<Console, 'log' | 'warn' | 'error'>;
+
+export interface SecureStorageAdapterOptions {
+  localStorage?: StorageLike | null;
+  sessionStorage?: StorageLike | null;
+  setIntervalFn?: typeof setInterval;
+  clearIntervalFn?: typeof clearInterval;
+  setTimeoutFn?: typeof setTimeout;
+  clearTimeoutFn?: typeof clearTimeout;
+  logger?: Logger;
+}
+
+export class SecureStorageAdapter implements StorageAdapter {
   private _isReady = false;
   private migrationCompleted = false;
+  private readonly localStorageRef: StorageLike | null;
+  private readonly sessionStorageRef: StorageLike | null;
+  private readonly setIntervalFn: typeof setInterval;
+  private readonly clearIntervalFn: typeof clearInterval;
+  private readonly setTimeoutFn: typeof setTimeout;
+  private readonly clearTimeoutFn: typeof clearTimeout;
+  private readonly logger: Logger;
+  private cleanupInterval?: ReturnType<typeof setInterval>;
+  private initialCleanupTimeout?: ReturnType<typeof setTimeout>;
+
+  constructor(options: SecureStorageAdapterOptions = {}) {
+    const defaultLocalStorage = typeof window !== 'undefined' ? window.localStorage : null;
+    const defaultSessionStorage = typeof window !== 'undefined' ? window.sessionStorage : null;
+
+    this.localStorageRef = options.localStorage ?? defaultLocalStorage;
+    this.sessionStorageRef = options.sessionStorage ?? defaultSessionStorage;
+    this.setIntervalFn =
+      options.setIntervalFn ??
+      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setInterval(handler, timeout, ...args));
+    this.clearIntervalFn =
+      options.clearIntervalFn ?? ((id: ReturnType<typeof setInterval>) => clearInterval(id));
+    this.setTimeoutFn =
+      options.setTimeoutFn ??
+      ((handler: TimerHandler, timeout?: number, ...args: any[]) => setTimeout(handler, timeout, ...args));
+    this.clearTimeoutFn =
+      options.clearTimeoutFn ?? ((id: ReturnType<typeof setTimeout>) => clearTimeout(id));
+    const defaultLogger = typeof console !== 'undefined'
+      ? console
+      : { log: () => {}, warn: () => {}, error: () => {} };
+    this.logger = options.logger ?? defaultLogger;
+  }
 
   get isReady(): boolean {
     return this._isReady;
@@ -28,10 +79,10 @@ class SecureStorageAdapter implements StorageAdapter {
       await indexedDBService.init();
       
       // Check if migration is needed
-      const migrationFlag = sessionStorage.getItem('wt_migration_completed');
+      const migrationFlag = this.sessionStorageRef?.getItem('wt_migration_completed');
       if (!migrationFlag) {
         await this.migrateFromLocalStorage();
-        sessionStorage.setItem('wt_migration_completed', 'true');
+        this.sessionStorageRef?.setItem('wt_migration_completed', 'true');
       }
       
       this._isReady = true;
@@ -39,14 +90,19 @@ class SecureStorageAdapter implements StorageAdapter {
       // Schedule periodic cleanup
       this.scheduleCleanup();
     } catch (error) {
-      console.error('Failed to initialize secure storage:', error);
+      this.logger.error('Failed to initialize secure storage:', error);
       // Fallback to localStorage if IndexedDB fails
       this._isReady = true;
     }
   }
 
   private async migrateFromLocalStorage(): Promise<void> {
-    console.log('Starting migration from localStorage to encrypted IndexedDB...');
+    if (!this.localStorageRef) {
+      this.logger.warn('LocalStorage unavailable; skipping migration');
+      return;
+    }
+
+    this.logger.log('Starting migration from localStorage to encrypted IndexedDB...');
     
     const keysToMigrate: string[] = [
       STORAGE_KEYS.ACCOUNTS,
@@ -67,8 +123,8 @@ class SecureStorageAdapter implements StorageAdapter {
     ];
 
     // Add other keys that start with wealthtracker_ or money_management_
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
+    for (let i = 0; i < (this.localStorageRef?.length ?? 0); i++) {
+      const key = this.localStorageRef?.key(i);
       if (key && (key.startsWith('wealthtracker_') || key.startsWith('money_management_'))) {
         if (!keysToMigrate.includes(key)) {
           keysToMigrate.push(key);
@@ -78,10 +134,10 @@ class SecureStorageAdapter implements StorageAdapter {
 
     try {
       await encryptedStorage.migrateFromLocalStorage(keysToMigrate);
-      console.log('Migration completed successfully');
+      this.logger.log('Migration completed successfully');
       this.migrationCompleted = true;
     } catch (error) {
-      console.error('Migration failed:', error);
+      this.logger.error('Migration failed:', error);
     }
   }
 
@@ -95,7 +151,7 @@ class SecureStorageAdapter implements StorageAdapter {
 
       // Fallback to localStorage if not found in IndexedDB
       if (!this.migrationCompleted) {
-        const localData = localStorage.getItem(key);
+        const localData = this.localStorageRef?.getItem(key);
         if (localData) {
           try {
             return JSON.parse(localData) as T;
@@ -107,9 +163,9 @@ class SecureStorageAdapter implements StorageAdapter {
 
       return null;
     } catch (error) {
-      console.error(`Error getting ${key}:`, error);
+      this.logger.error(`Error getting ${key}:`, error);
       // Final fallback to localStorage
-      const localData = localStorage.getItem(key);
+      const localData = this.localStorageRef?.getItem(key);
       if (localData) {
         try {
           return JSON.parse(localData) as T;
@@ -146,22 +202,22 @@ class SecureStorageAdapter implements StorageAdapter {
 
       // Remove from localStorage if migration is complete
       if (this.migrationCompleted) {
-        localStorage.removeItem(key);
+        this.localStorageRef?.removeItem(key);
       }
     } catch (error) {
-      console.error(`Error setting ${key}:`, error);
+      this.logger.error(`Error setting ${key}:`, error);
       // Fallback to localStorage
-      localStorage.setItem(key, JSON.stringify(value));
+      this.localStorageRef?.setItem(key, JSON.stringify(value));
     }
   }
 
   async remove(key: string): Promise<void> {
     try {
       await encryptedStorage.removeItem(key);
-      localStorage.removeItem(key); // Also remove from localStorage
+      this.localStorageRef?.removeItem(key); // Also remove from localStorage
     } catch (error) {
-      console.error(`Error removing ${key}:`, error);
-      localStorage.removeItem(key);
+      this.logger.error(`Error removing ${key}:`, error);
+      this.localStorageRef?.removeItem(key);
     }
   }
 
@@ -170,54 +226,70 @@ class SecureStorageAdapter implements StorageAdapter {
       await encryptedStorage.clear();
       // Clear related localStorage keys
       const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
+      for (let i = 0; i < (this.localStorageRef?.length ?? 0); i++) {
+        const key = this.localStorageRef?.key(i);
         if (key && (key.startsWith('wealthtracker_') || key.startsWith('money_management_'))) {
           keysToRemove.push(key);
         }
       }
-      keysToRemove.forEach(key => localStorage.removeItem(key));
+      keysToRemove.forEach(key => this.localStorageRef?.removeItem(key));
     } catch (error) {
-      console.error('Error clearing storage:', error);
+      this.logger.error('Error clearing storage:', error);
     }
   }
 
   // Schedule periodic cleanup of expired data
   private scheduleCleanup(): void {
+    this.clearCleanupTimers();
+
     // Run cleanup every hour
-    setInterval(async () => {
+    this.cleanupInterval = this.setIntervalFn(async () => {
       try {
         await encryptedStorage.cleanupExpiredData();
         await indexedDBService.cleanCache();
       } catch (error) {
-        console.error('Cleanup error:', error);
+        this.logger.error('Cleanup error:', error);
       }
     }, 60 * 60 * 1000); // 1 hour
 
     // Run initial cleanup after 5 seconds
-    setTimeout(async () => {
+    this.initialCleanupTimeout = this.setTimeoutFn(async () => {
       try {
         await encryptedStorage.cleanupExpiredData();
         await indexedDBService.cleanCache();
       } catch (error) {
-        console.error('Initial cleanup error:', error);
+        this.logger.error('Initial cleanup error:', error);
       }
     }, 5000);
   }
 
+  private clearCleanupTimers(): void {
+    if (this.cleanupInterval) {
+      this.clearIntervalFn(this.cleanupInterval);
+      this.cleanupInterval = undefined;
+    }
+    if (this.initialCleanupTimeout) {
+      this.clearTimeoutFn(this.initialCleanupTimeout);
+      this.initialCleanupTimeout = undefined;
+    }
+  }
+
   // Export data for backup
-  async exportData(): Promise<ExportableData> {
+  async exportData(): Promise<Record<string, any>> {
     return await encryptedStorage.exportData();
   }
 
   // Import data from backup
-  async importData(data: ExportableData): Promise<void> {
+  async importData(data: Record<string, any>): Promise<void> {
     await encryptedStorage.importData(data, { encrypted: true });
   }
 
   // Get storage usage info
   async getStorageInfo(): Promise<{ usage: number; quota: number; percentUsed: number }> {
     return await encryptedStorage.getStorageInfo();
+  }
+  destroy(): void {
+    this.clearCleanupTimers();
   }
 }
 

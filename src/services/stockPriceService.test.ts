@@ -11,6 +11,8 @@ import {
   calculatePortfolioMetrics,
   clearQuoteCache,
   validateSymbol,
+  configureStockPriceService,
+  resetStockPriceService,
   type StockQuote,
   type PortfolioMetrics
 } from './stockPriceService';
@@ -73,6 +75,14 @@ describe('StockPriceService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     clearQuoteCache();
+
+    configureStockPriceService({
+      fetch: mockFetch,
+      locationSearch: () => '',
+      now: () => Date.now(),
+      timeoutSignal: () => null,
+      logger: { warn: vi.fn(), error: vi.fn() }
+    });
     
     // Setup default mocks
     mockGetExchangeRates.mockResolvedValue({
@@ -89,6 +99,7 @@ describe('StockPriceService', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    resetStockPriceService();
   });
 
   describe('getStockQuote', () => {

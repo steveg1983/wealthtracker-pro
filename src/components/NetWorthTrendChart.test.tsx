@@ -10,11 +10,12 @@ import NetWorthTrendChart from './NetWorthTrendChart';
 import { useApp } from '../contexts/AppContextSupabase';
 import { useCurrencyDecimal } from '../hooks/useCurrencyDecimal';
 import { toDecimal } from '../utils/decimal';
+import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 import type { Account, Transaction } from '../types';
 import type { DecimalAccount, DecimalTransaction } from '../types/decimal-types';
 
 // Mock the external dependencies
-vi.mock('../contexts/AppContext');
+vi.mock('../contexts/AppContextSupabase');
 vi.mock('../hooks/useCurrencyDecimal');
 
 // Mock Recharts components
@@ -61,7 +62,9 @@ const mockUseApp = useApp as Mock;
 const mockUseCurrencyDecimal = useCurrencyDecimal as Mock;
 
 describe('NetWorthTrendChart', () => {
-  const mockFormatCurrency = vi.fn((amount: number) => `£${amount.toFixed(2)}`);
+  const mockFormatCurrency = vi.fn((amount: number, currency: string = 'GBP') =>
+    formatCurrencyDecimal(amount, currency)
+  );
 
   const mockAccounts: Account[] = [
     {

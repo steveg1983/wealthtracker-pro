@@ -6,6 +6,9 @@
 import { v4 as uuidv4 } from 'uuid';
 import { toDecimal } from './decimal';
 import { formatDecimal } from './decimal-format';
+import { createScopedLogger } from '../loggers/scopedLogger';
+
+const demoLogger = createScopedLogger('DemoData');
 
 // Check if we're in demo mode
 export const isDemoMode = (): boolean => {
@@ -199,7 +202,7 @@ export const generateDemoTransactions = (count: number = 50) => {
       category,
       categoryName,
       accountId: demoAccounts[Math.floor(Math.random() * demoAccounts.length)].id,
-      type: amount < 0 ? 'expense' : 'income',
+      type: signedAmount < 0 ? 'expense' : 'income',
       isRecurring: Math.random() > 0.9,
       isPending: Math.random() > 0.95,
       tags: Math.random() > 0.7 ? ['tagged'] : [],
@@ -393,7 +396,7 @@ export const initializeDemoData = () => {
   localStorage.setItem('categories', JSON.stringify(demoData.categories));
   localStorage.setItem('recurringTransactions', JSON.stringify(demoData.recurringTransactions));
   
-  console.log('📊 Demo mode initialized with sample data');
+  demoLogger.info('📊 Demo mode initialized with sample data');
 };
 
 // Clear demo data
@@ -406,5 +409,5 @@ export const clearDemoData = () => {
   localStorage.removeItem('categories');
   localStorage.removeItem('recurringTransactions');
   
-  console.log('🧹 Demo data cleared');
+  demoLogger.info('🧹 Demo data cleared');
 };
