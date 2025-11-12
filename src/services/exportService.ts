@@ -7,6 +7,16 @@ import Decimal from 'decimal.js';
 import { formatCurrency as formatCurrencyDecimal } from '../utils/currency-decimal';
 import { formatDecimal } from '../utils/decimal-format';
 
+type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+type Logger = Pick<Console, 'error' | 'warn'>;
+
+export interface ExportServiceOptions {
+  storage?: StorageLike | null;
+  logger?: Logger;
+  now?: () => Date;
+  idGenerator?: () => string;
+}
+
 export interface ExportOptions {
   startDate: Date;
   endDate: Date;
@@ -42,18 +52,31 @@ export interface ExportTemplate {
   createdAt: Date;
 }
 
-class ExportService {
+export class ExportService {
   private scheduledReports: ScheduledReport[] = [];
   private templates: ExportTemplate[] = [];
+  private readonly storage: StorageLike | null;
+  private readonly logger: Logger;
+  private readonly nowProvider: () => Date;
+  private readonly idGenerator: () => string;
 
-  constructor() {
+  constructor(options: ExportServiceOptions = {}) {
+    this.storage = options.storage ?? (typeof window !== 'undefined' ? window.localStorage : null);
+    const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
+    this.logger = {
+      error: options.logger?.error ?? (fallbackLogger?.error?.bind(fallbackLogger) ?? (() => {})),
+      warn: options.logger?.warn ?? (fallbackLogger?.warn?.bind(fallbackLogger) ?? (() => {}))
+    };
+    this.nowProvider = options.now ?? (() => new Date());
+    this.idGenerator = options.idGenerator ?? (() => Date.now().toString());
     this.loadData();
     this.initializeDefaultTemplates();
   }
 
   private loadData() {
+    if (!this.storage) return;
     try {
-      const savedReports = localStorage.getItem('scheduled-reports');
+      const savedReports = this.storage.getItem('scheduled-reports');
       if (savedReports) {
         this.scheduledReports = JSON.parse(savedReports).map((report: SavedReport) => ({
           ...report,
@@ -68,7 +91,7 @@ class ExportService {
         }));
       }
 
-      const savedTemplates = localStorage.getItem('export-templates');
+      const savedTemplates = this.storage.getItem('export-templates');
       if (savedTemplates) {
         this.templates = JSON.parse(savedTemplates).map((template: SavedTemplate) => ({
           ...template,
@@ -81,22 +104,23 @@ class ExportService {
         }));
       }
     } catch (error) {
-      console.error('Error loading export data:', error);
+      this.logger.error('Error loading export data:', error as Error);
     }
   }
 
   private saveData() {
+    if (!this.storage) return;
     try {
-      localStorage.setItem('scheduled-reports', JSON.stringify(this.scheduledReports));
-      localStorage.setItem('export-templates', JSON.stringify(this.templates));
+      this.storage.setItem('scheduled-reports', JSON.stringify(this.scheduledReports));
+      this.storage.setItem('export-templates', JSON.stringify(this.templates));
     } catch (error) {
-      console.error('Error saving export data:', error);
+      this.logger.error('Error saving export data:', error as Error);
     }
   }
 
   private initializeDefaultTemplates() {
     if (this.templates.length === 0) {
-      const now = new Date();
+      const now = this.nowProvider();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
@@ -117,7 +141,7 @@ class ExportService {
             groupBy: 'category'
           },
           isDefault: true,
-          createdAt: new Date()
+          createdAt: this.nowProvider()
         },
         {
           id: 'transaction-report',
@@ -135,7 +159,7 @@ class ExportService {
             groupBy: 'none'
           },
           isDefault: true,
-          createdAt: new Date()
+          createdAt: this.nowProvider()
         },
         {
           id: 'investment-portfolio',
@@ -153,7 +177,7 @@ class ExportService {
             groupBy: 'none'
           },
           isDefault: true,
-          createdAt: new Date()
+          createdAt: this.nowProvider()
         }
       ];
 
@@ -174,8 +198,8 @@ class ExportService {
   createTemplate(template: Omit<ExportTemplate, 'id' | 'createdAt'>): ExportTemplate {
     const newTemplate: ExportTemplate = {
       ...template,
-      id: Date.now().toString(),
-      createdAt: new Date()
+      id: this.idGenerator(),
+      createdAt: this.nowProvider()
     };
 
     this.templates.push(newTemplate);
@@ -210,9 +234,9 @@ class ExportService {
     const nextRun = this.calculateNextRun(report.frequency);
     const newReport: ScheduledReport = {
       ...report,
-      id: Date.now().toString(),
+      id: this.idGenerator(),
       nextRun,
-      createdAt: new Date()
+      createdAt: this.nowProvider()
     };
 
     this.scheduledReports.push(newReport);
@@ -246,7 +270,7 @@ class ExportService {
   }
 
   private calculateNextRun(frequency: ScheduledReport['frequency']): Date {
-    const now = new Date();
+    const now = this.nowProvider();
     const nextRun = new Date(now);
 
     switch (frequency) {
@@ -300,7 +324,7 @@ class ExportService {
         Group: group,
         Count: Array.isArray(items) ? items.length : 1,
         Total: this.calculateGroupTotal(items)
-      })) as ExportableData[];
+      })) as unknown as ExportableData[];
       return this.arrayToCSV(summaryRows);
     }
   }
@@ -337,7 +361,7 @@ class ExportService {
       try {
         doc.addImage(options.logoUrl, 'PNG', 150, 10, 40, 20);
       } catch (error) {
-        console.warn('Could not add logo to PDF:', error);
+        this.logger.warn('Could not add logo to PDF:', error as Error);
       }
     }
 
@@ -360,7 +384,7 @@ class ExportService {
 
     // Add charts if requested
     if (options.includeCharts) {
-      await this.addChartsToPDF(doc, data, yPosition);
+      await this.addChartsToPDF(doc, data as any, yPosition);
     }
 
     return doc.output('arraybuffer') as any as Uint8Array;
@@ -449,7 +473,7 @@ class ExportService {
     doc.setFontSize(10);
     budgets.forEach(budget => {
       const spent = new Decimal(budget.spent || 0);
-      const budgeted = new Decimal(budget.budgeted);
+      const budgeted = new Decimal(budget.budgeted || 0);
       const remaining = budgeted.minus(spent);
       const percentSpent = budgeted.gt(0) ? spent.div(budgeted).times(100) : new Decimal(0);
 
@@ -521,7 +545,7 @@ class ExportService {
       headers.join(','),
       ...data.map(row => 
         headers.map(header => {
-          const value = row[header];
+          const value = (row as any)[header];
           // Escape commas and quotes in CSV
           if (typeof value === 'string' && (value.includes(',') || value.includes('"'))) {
             return `"${value.replace(/"/g, '""')}"`;
@@ -737,8 +761,11 @@ NEWFILEUID:${now}
     const { format } = options;
 
     switch (format) {
-      case 'csv':
-        return this.exportToCSV(data, options);
+      case 'csv': {
+        // CSV can only export one type at a time, prioritize by what's available
+        const csvData = data.transactions || data.accounts || data.investments || [];
+        return this.exportToCSV(csvData as any, options);
+      }
       
       case 'pdf':
         return await this.exportToPDF(data, options);
