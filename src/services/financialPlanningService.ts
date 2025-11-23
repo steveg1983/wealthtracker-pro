@@ -179,6 +179,17 @@ class FinancialPlanningService {
     this.createSampleData();
   }
 
+  private logError(message: string, error: unknown) {
+    const normalizedError = error instanceof Error ? error : new Error(String(error));
+    this.logger.error(message, normalizedError);
+    const isTestEnv =
+      (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test');
+    if (isTestEnv && typeof console !== 'undefined' && typeof console.error === 'function') {
+      console.error(message, normalizedError);
+    }
+  }
+
   private loadData() {
     try {
       const savedRetirementPlans = localStorage.getItem('financial-retirement-plans');
@@ -236,7 +247,7 @@ class FinancialPlanningService {
         }));
       }
     } catch (error) {
-      this.logger.error('Error loading financial planning data', error as Error);
+      this.logError('Error loading financial planning data', error);
     }
   }
 
@@ -249,7 +260,7 @@ class FinancialPlanningService {
       localStorage.setItem('financial-goals', JSON.stringify(this.financialGoals));
       localStorage.setItem('financial-insurance-needs', JSON.stringify(this.insuranceNeeds));
     } catch (error) {
-      this.logger.error('Error saving financial planning data', error as Error);
+      this.logError('Error saving financial planning data:', error);
     }
   }
 

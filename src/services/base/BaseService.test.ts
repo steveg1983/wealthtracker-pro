@@ -16,6 +16,17 @@ vi.mock('../storageAdapter', () => ({
   }
 }));
 
+const mockScopedLogger = {
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+};
+
+vi.mock('../../loggers/scopedLogger', () => ({
+  createScopedLogger: vi.fn(() => mockScopedLogger),
+}));
+
 // Create a concrete implementation for testing
 class TestService extends BaseService {
   constructor() {
@@ -173,115 +184,47 @@ describe('BaseService', () => {
   });
 
   describe('log', () => {
-    let consoleSpy: any;
-    const originalEnv = process.env.NODE_ENV;
-
-    beforeEach(() => {
-      consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    });
-
-    afterEach(() => {
-      consoleSpy.mockRestore();
-      process.env.NODE_ENV = originalEnv;
-    });
-
-    it('logs messages in development mode', () => {
-      process.env.NODE_ENV = 'development';
-      
+    it('delegates to scoped logger without additional data', () => {
       service.testLog('Test message');
-      
-      expect(consoleSpy).toHaveBeenCalledWith('[TestService] Test message', '');
+      expect(mockScopedLogger.info).toHaveBeenCalledWith('Test message', undefined);
     });
 
-    it('logs messages with data in development mode', () => {
-      process.env.NODE_ENV = 'development';
-      
+    it('passes structured data to scoped logger', () => {
       const data = { key: 'value', number: 123 };
       service.testLog('Test message with data', data);
-      
-      expect(consoleSpy).toHaveBeenCalledWith('[TestService] Test message with data', data);
+      expect(mockScopedLogger.info).toHaveBeenCalledWith('Test message with data', data);
     });
 
-    it('does not log in production mode', () => {
-      process.env.NODE_ENV = 'production';
-      
-      service.testLog('Test message');
-      service.testLog('Another message', { data: 'test' });
-      
-      expect(consoleSpy).not.toHaveBeenCalled();
-    });
-
-    it('does not log in test mode', () => {
-      process.env.NODE_ENV = 'test';
-      
-      service.testLog('Test message');
-      
-      expect(consoleSpy).not.toHaveBeenCalled();
-    });
-
-    it('handles missing data parameter gracefully', () => {
-      process.env.NODE_ENV = 'development';
-      
+    it('handles optional data parameter gracefully', () => {
       service.testLog('Message without data');
-      
-      expect(consoleSpy).toHaveBeenCalledWith('[TestService] Message without data', '');
+      expect(mockScopedLogger.info).toHaveBeenCalledWith('Message without data', undefined);
     });
   });
 
   describe('handleError', () => {
-    let consoleErrorSpy: any;
-
-    beforeEach(() => {
-      consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    });
-
-    afterEach(() => {
-      consoleErrorSpy.mockRestore();
-    });
-
     it('logs errors with operation context', () => {
       const error = new Error('Test error');
-      
       service.testHandleError('saveData', error);
-      
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[TestService] Error in saveData:',
-        error
-      );
+      expect(mockScopedLogger.error).toHaveBeenCalledWith('Error in saveData', error);
     });
 
     it('handles string errors', () => {
       service.testHandleError('loadData', 'String error message');
-      
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[TestService] Error in loadData:',
-        'String error message'
-      );
+      expect(mockScopedLogger.error).toHaveBeenCalledWith('Error in loadData', 'String error message');
     });
 
     it('handles object errors', () => {
       const errorObj = { code: 'ERR_001', message: 'Custom error object' };
-      
       service.testHandleError('processData', errorObj);
-      
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[TestService] Error in processData:',
-        errorObj
-      );
+      expect(mockScopedLogger.error).toHaveBeenCalledWith('Error in processData', errorObj);
     });
 
     it('handles null and undefined errors', () => {
       service.testHandleError('operation1', null);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[TestService] Error in operation1:',
-        null
-      );
-      
+      expect(mockScopedLogger.error).toHaveBeenCalledWith('Error in operation1', null);
+
       service.testHandleError('operation2', undefined);
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        '[TestService] Error in operation2:',
-        undefined
-      );
+      expect(mockScopedLogger.error).toHaveBeenCalledWith('Error in operation2', undefined);
     });
   });
 

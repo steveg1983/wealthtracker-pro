@@ -19,12 +19,35 @@ if (!Array.isArray(tests) || tests.length === 0) {
   process.exit(0);
 }
 
-const args = ['vitest', 'run', ...tests];
-console.log('[realtime-suite] Running vitest with manifest entries:', tests.length);
-const result = spawnSync('npx', args, {
-  stdio: 'inherit',
-  shell: false,
-  env: process.env
-});
+const desiredHeapFlag = '--max-old-space-size=12288';
+const env = { ...process.env };
+if (!env.NODE_OPTIONS?.includes('--max-old-space-size')) {
+  env.NODE_OPTIONS = env.NODE_OPTIONS ? `${env.NODE_OPTIONS} ${desiredHeapFlag}` : desiredHeapFlag;
+}
 
-process.exit(result.status ?? 1);
+const chunkSize = Number(process.env.REALTIME_CHUNK_SIZE ?? '5');
+const totalChunks = Math.ceil(tests.length / chunkSize);
+console.log('[realtime-suite] Running vitest with manifest entries:', tests.length);
+console.log('[realtime-suite] NODE_OPTIONS=', env.NODE_OPTIONS);
+console.log('[realtime-suite] Chunk size:', chunkSize);
+
+let exitCode = 0;
+for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+  const start = chunkIndex * chunkSize;
+  const chunk = tests.slice(start, start + chunkSize);
+  const args = ['vitest', 'run', ...chunk];
+  console.log(`[realtime-suite] Chunk ${chunkIndex + 1}/${totalChunks}: ${chunk.length} files`);
+
+  const result = spawnSync('npx', args, {
+    stdio: 'inherit',
+    shell: false,
+    env
+  });
+
+  if (result.status !== 0) {
+    exitCode = result.status ?? 1;
+    break;
+  }
+}
+
+process.exit(exitCode);

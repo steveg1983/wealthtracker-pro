@@ -22,7 +22,8 @@ export class EncryptedStorageService {
   private storeName = 'secureData';
   private compressionThreshold = 10240; // 10KB
   private readonly sessionStorageRef: (StorageWriter & StorageReader) | null;
-  private readonly localStorageRef: (StorageWriter & StorageReader) | null;
+  private localStorageRef: (StorageWriter & StorageReader) | null;
+  private readonly shouldResolveGlobalLocalStorage: boolean;
   private readonly logger: Logger;
   private readonly nowProvider: () => number;
   private readonly keyGenerator: () => string;
@@ -32,6 +33,7 @@ export class EncryptedStorageService {
   constructor(options: EncryptedStorageServiceOptions = {}) {
     this.sessionStorageRef =
       options.sessionStorage ?? (typeof sessionStorage !== 'undefined' ? sessionStorage : null);
+    this.shouldResolveGlobalLocalStorage = options.localStorage === undefined;
     this.localStorageRef =
       options.localStorage ?? (typeof localStorage !== 'undefined' ? localStorage : null);
     const fallbackLogger = typeof console !== 'undefined' ? console : undefined;
@@ -45,6 +47,15 @@ export class EncryptedStorageService {
       (() => CryptoJS.lib.WordArray.random(256 / 8).toString());
     this.navigatorRef = options.navigatorRef ?? (typeof navigator !== 'undefined' ? navigator : null);
     this.encryptionKey = this.getOrCreateEncryptionKey();
+  }
+
+  private getLocalStorage(): (StorageWriter & StorageReader) | null {
+    if (this.shouldResolveGlobalLocalStorage && typeof window !== 'undefined' && window.localStorage) {
+      if (this.localStorageRef !== window.localStorage) {
+        this.localStorageRef = window.localStorage as (StorageWriter & StorageReader);
+      }
+    }
+    return this.localStorageRef;
   }
 
   private getOrCreateEncryptionKey(): string {
@@ -216,10 +227,11 @@ export class EncryptedStorageService {
   // Migrate data from localStorage to encrypted IndexedDB
   async migrateFromLocalStorage(keys: string[]): Promise<void> {
     const migrationItems: Array<StorageItem> = [];
+    const storage = this.getLocalStorage();
 
-    if (!this.localStorageRef) return;
+    if (!storage) return;
     for (const key of keys) {
-      const data = this.localStorageRef.getItem(key);
+      const data = storage.getItem(key);
       if (data) {
         try {
           // Try to parse as JSON first
@@ -241,13 +253,13 @@ export class EncryptedStorageService {
         }
       }
     }
-
+    
     if (migrationItems.length > 0) {
       await this.setItems(migrationItems);
       
       // Remove from localStorage after successful migration
       for (const key of keys) {
-        this.localStorageRef.removeItem(key);
+        storage.removeItem(key);
       }
     }
   }

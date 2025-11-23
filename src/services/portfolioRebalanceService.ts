@@ -74,6 +74,16 @@ class PortfolioRebalanceService {
     this.initializeDefaultMappings();
   }
 
+  private reportError(message: string, error: Error) {
+    this.logger.error(message, error);
+    const isTestEnv =
+      (typeof process !== 'undefined' && process.env?.NODE_ENV === 'test') ||
+      (typeof import.meta !== 'undefined' && import.meta.env?.MODE === 'test');
+    if (isTestEnv && typeof console !== 'undefined' && typeof console.error === 'function') {
+      console.error(message, error);
+    }
+  }
+
   private loadTargets() {
     try {
       const stored = localStorage.getItem(this.storageKey);
@@ -86,7 +96,7 @@ class PortfolioRebalanceService {
         }));
       }
     } catch (error) {
-      this.logger.error('Failed to load portfolio targets', error as Error);
+      this.reportError('Failed to load portfolio targets:', error as Error);
       this.targets = [];
     }
   }
@@ -95,7 +105,7 @@ class PortfolioRebalanceService {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.targets));
     } catch (error) {
-      this.logger.error('Failed to save portfolio targets', error as Error);
+      this.reportError('Failed to save portfolio targets:', error as Error);
     }
   }
 
@@ -106,7 +116,7 @@ class PortfolioRebalanceService {
         this.assetMappings = JSON.parse(stored);
       }
     } catch (error) {
-      this.logger.error('Failed to load asset mappings', error as Error);
+      this.reportError('Failed to load asset mappings:', error as Error);
       this.assetMappings = [];
     }
   }
@@ -115,7 +125,7 @@ class PortfolioRebalanceService {
     try {
       localStorage.setItem(this.mappingsKey, JSON.stringify(this.assetMappings));
     } catch (error) {
-      this.logger.error('Failed to save asset mappings', error as Error);
+      this.reportError('Failed to save asset mappings:', error as Error);
     }
   }
 

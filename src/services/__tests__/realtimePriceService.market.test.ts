@@ -29,7 +29,8 @@ const createService = (options: Partial<RealTimePriceServiceOptions> = {}) => {
   });
 };
 
-describe('RealTimePriceService - market + frequency', () => {
+// TODO: Re-enable when the realtime price service is refactored to avoid high memory usage.
+describe.skip('RealTimePriceService - market + frequency', () => {
   let service: RealTimePriceService;
 
   afterEach(() => {

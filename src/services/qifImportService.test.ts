@@ -16,6 +16,11 @@ vi.mock('./smartCategorizationService', () => ({
   }
 }));
 
+const expectDateOnly = (value: Date | string | undefined, expected: string) => {
+  const normalized = value instanceof Date ? value.toISOString().split('T')[0] : value;
+  expect(normalized).toBe(expected);
+};
+
 describe('QIFImportService', () => {
   // Sample QIF content
   const validQIFContent = `!Type:Bank
@@ -264,7 +269,7 @@ PTest Transaction
 
       // Check first transaction
       expect(trx1).toMatchObject({
-        date: '2024-01-15',
+        date: expect.any(Date),
         description: 'Tesco Stores - Grocery shopping',
         amount: 25.50,
         type: 'expense',
@@ -272,10 +277,11 @@ PTest Transaction
         category: 'Food & Dining',
         cleared: true
       });
+      expectDateOnly(trx1.date, '2024-01-15');
 
       // Check second transaction
       expect(trx2).toMatchObject({
-        date: '2024-01-20',
+        date: expect.any(Date),
         description: 'Employer Payment - Salary deposit',
         amount: 2500,
         type: 'income',
@@ -283,10 +289,11 @@ PTest Transaction
         category: 'Salary',
         cleared: true
       });
+      expectDateOnly(trx2.date, '2024-01-20');
 
       // Check third transaction with check number
       expect(trx3).toMatchObject({
-        date: '2024-01-10',
+        date: expect.any(Date),
         description: 'Check #1234 - Rent payment',
         amount: 100,
         type: 'expense',
@@ -295,6 +302,7 @@ PTest Transaction
         cleared: false,
         notes: 'Check #: 1234'
       });
+      expectDateOnly(trx3.date, '2024-01-10');
     });
 
     it('detects and skips duplicate transactions', async () => {

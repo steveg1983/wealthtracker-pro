@@ -1,56 +1,33 @@
 /**
  * indexedDBService Tests
- * Service functionality and error handling
+ * Verifies initialization semantics for the shared IndexedDB gateway.
  */
 
+import 'fake-indexeddb/auto';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { indexedDBService } from '../indexedDBService';
-
-// Mock localStorage
-const mockLocalStorage = {
-  getItem: vi.fn(),
-  setItem: vi.fn(),
-  removeItem: vi.fn(),
-  clear: vi.fn(),
-};
-global.localStorage = mockLocalStorage as any;
+import { indexedDBService } from './indexedDBService';
 
 describe('indexedDBService', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // Reset internal state between tests
+    (indexedDBService as unknown as { db: IDBDatabase | null }).db = null;
+    (indexedDBService as unknown as { initPromise: Promise<void> | null }).initPromise = null;
   });
 
-  describe('initialization', () => {
-    it('initializes successfully', async () => {
-      const result = await indexedDBService.init();
-      expect(result).toBe(true);
-    });
-
-    it('handles initialization errors', async () => {
-      // Mock initialization failure
-      const result = await indexedDBService.init();
-      expect(result).toBe(false);
-    });
+  it('initializes successfully and resolves once', async () => {
+    await expect(indexedDBService.init()).resolves.toBeUndefined();
+    // Calling init again should reuse the same promise and not throw
+    await expect(indexedDBService.init()).resolves.toBeUndefined();
   });
 
-  describe('core functionality', () => {
-    it('performs main operations correctly', async () => {
-      // Test core service functionality
-    });
+  it('only performs initialization work once for concurrent calls', async () => {
+    const doInitSpy = vi.spyOn(
+      indexedDBService as unknown as { _doInit: () => Promise<void> },
+      '_doInit'
+    );
 
-    it('handles errors gracefully', async () => {
-      // Test error scenarios
-    });
+    await Promise.all([indexedDBService.init(), indexedDBService.init()]);
+    expect(doInitSpy).toHaveBeenCalledTimes(1);
+    doInitSpy.mockRestore();
   });
-
-  describe('data validation', () => {
-    it('validates input data', () => {
-      // Test input validation
-    });
-
-    it('rejects invalid data', () => {
-      // Test invalid input handling
-    });
-  });
-
 });

@@ -202,7 +202,7 @@ class UserIdService {
       if (databaseId) {
         this.currentClerkId = clerkId;
         this.currentDatabaseId = databaseId;
-        userIdLogger.log('[UserIdService] Current user set - Clerk ID:', clerkId, 'Database ID:', databaseId);
+        userIdLogger.info('[UserIdService] Current user set', { clerkId, databaseId });
       }
       
       return databaseId;
@@ -216,15 +216,16 @@ class UserIdService {
    * Debug function to log current state
    */
   debug(): void {
-    userIdLogger.log('[UserIdService] Debug Info:');
-    userIdLogger.log('  Current Clerk ID:', this.currentClerkId);
-    userIdLogger.log('  Current Database ID:', this.currentDatabaseId);
-    userIdLogger.log('  Cache size:', this.cache.size);
-    userIdLogger.log('  Cache entries:', Array.from(this.cache.entries()).map(([key, value]) => ({
-      clerkId: key,
-      databaseId: value.databaseId,
-      age: Math.round((Date.now() - value.timestamp) / 1000) + 's'
-    })));
+    userIdLogger.debug('[UserIdService] Debug Info', {
+      currentClerkId: this.currentClerkId,
+      currentDatabaseId: this.currentDatabaseId,
+      cacheSize: this.cache.size,
+      cacheEntries: Array.from(this.cache.entries()).map(([key, value]) => ({
+        clerkId: key,
+        databaseId: value.databaseId,
+        ageSeconds: Math.round((Date.now() - value.timestamp) / 1000)
+      }))
+    });
   }
 }
 

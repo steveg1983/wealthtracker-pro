@@ -16,6 +16,11 @@ vi.mock('./smartCategorizationService', () => ({
   }
 }));
 
+const expectDateOnly = (value: Date | string | undefined, expected: string) => {
+  const normalized = value instanceof Date ? value.toISOString().split('T')[0] : value;
+  expect(normalized).toBe(expected);
+};
+
 describe('OFXImportService', () => {
   // Sample OFX content
   const validOFXContent = `OFXHEADER:100
@@ -335,34 +340,37 @@ NEWFILEUID:NONE
       
       // Check first transaction
       expect(trx1).toMatchObject({
-        date: '2024-01-15',
+        date: expect.any(Date),
         description: 'Grocery shopping',
         amount: 25.50,
         type: 'expense',
         accountId: 'acc1',
         cleared: true
       });
+      expectDateOnly(trx1.date, '2024-01-15');
       expect(trx1.notes).toContain('FITID: 2024011501');
 
       // Check second transaction
       expect(trx2).toMatchObject({
-        date: '2024-01-20',
+        date: expect.any(Date),
         description: 'Salary',
         amount: 2500,
         type: 'income',
         accountId: 'acc1',
         cleared: true
       });
+      expectDateOnly(trx2.date, '2024-01-20');
 
       // Check third transaction
       expect(trx3).toMatchObject({
-        date: '2024-01-10',
+        date: expect.any(Date),
         description: 'Check #1234',
         amount: 100,
         type: 'expense',
         accountId: 'acc1',
         cleared: true
       });
+      expectDateOnly(trx3.date, '2024-01-10');
       expect(trx3.notes).toContain('Check #: 1234');
     });
 
